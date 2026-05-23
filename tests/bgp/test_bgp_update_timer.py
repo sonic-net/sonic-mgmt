@@ -76,11 +76,12 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     else:
         prefix_match = "10.10.100.0/24 le 32"
 
+    pfx_kw = "ipv6" if is_v6 else "ip"
     vtysh_cmds = [
         "configure terminal",
-        "ip prefix-list {} seq 10 permit {}".format(TEST_ROUTES_PREFIX_LIST, prefix_match),
+        "{} prefix-list {} seq 10 permit {}".format(pfx_kw, TEST_ROUTES_PREFIX_LIST, prefix_match),
         "route-map {} permit 10".format(TEST_ROUTES_ROUTE_MAP),
-        "match ip address prefix-list {}".format(TEST_ROUTES_PREFIX_LIST),
+        "match {} address prefix-list {}".format(pfx_kw, TEST_ROUTES_PREFIX_LIST),
         "exit",
         "route-map {} deny 20".format(TEST_ROUTES_ROUTE_MAP),
         "exit",
@@ -118,7 +119,7 @@ def _remove_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespa
     vtysh_cmds.append("exit")  # exit address-family
     vtysh_cmds.append("exit")  # exit router bgp
     vtysh_cmds.append("no route-map {}".format(TEST_ROUTES_ROUTE_MAP))
-    vtysh_cmds.append("no ip prefix-list {}".format(TEST_ROUTES_PREFIX_LIST))
+    vtysh_cmds.append("no {} prefix-list {}".format("ipv6" if is_v6 else "ip", TEST_ROUTES_PREFIX_LIST))
 
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
     duthost.shell(cmd, module_ignore_errors=True)
@@ -497,11 +498,13 @@ def test_bgp_update_timer_single_route(
             pytest.fail(err_msg % ("withdraw", constants.update_interval_threshold))
 
     finally:
+        # Stop ExaBGP sessions first so they're gone before we re-open the
+        # full-table flood window by removing the outbound filter.
+        n0.stop_session()
+        n1.stop_session()
         _remove_outbound_route_filter(
             duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
         )
-        n0.stop_session()
-        n1.stop_session()
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
 
@@ -605,10 +608,12 @@ def test_bgp_update_timer_session_down(
                 pytest.fail("withdraw updates route %s not found" % (route))
 
     finally:
+        # Stop ExaBGP sessions first so they're gone before we re-open the
+        # full-table flood window by removing the outbound filter.
+        n0.stop_session()
+        n1.stop_session()
         _remove_outbound_route_filter(
             duthost, n0.peer_asn, [n0.ip, n1.ip], is_v6_topo, n0.namespace
         )
-        n0.stop_session()
-        n1.stop_session()
         for route in constants.routes:
             duthost.shell("ip route flush %s" % route["prefix"])
