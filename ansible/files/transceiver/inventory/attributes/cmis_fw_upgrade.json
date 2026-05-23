@@ -1,0 +1,14 @@
+{
+    "transceivers": {
+        "vendors": {
+            "PINEWAVE": {
+                "part_numbers": {
+                    "T-OH8CNT-NMT": {
+                        "gold_firmware_version": "36.229.0",
+                        "inactive_firmware_version": "36.241.0"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -21,8 +21,6 @@
                     "T-OH8CNT-NMT": {
                         "is_non_dac_and_cmis": true,
                         "sff8024_identifier": 25,
-                        "gold_firmware_version": "36.229.0",
-                        "inactive_firmware_version": "36.241.0",
                         "cmis_revision": "5.2",
                         "platform_hwsku_overrides": {
                             "x86_64-nvidia_sn5640-r0+Mellanox-SN5640-C512S2": {
