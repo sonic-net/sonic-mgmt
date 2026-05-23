@@ -12,6 +12,7 @@
   * [Leak Detection State DB Tests](#leak-detection-state-db-tests)
   * [Bmcctld Daemon Integration Tests](#bmcctld-daemon-integration-tests)
   * [Thermalctld Daemon Tests](#thermalctld-daemon-tests)
+  * [Daemon Lifecycle Tests](#daemon-lifecycle-tests)
   * [CLI Command Tests](#cli-command-tests)
   * [BMC Watchdog Tests](#bmc-watchdog-tests)
 * [Open Questions](#open-questions)
@@ -188,12 +189,12 @@ Verify SWITCH-HOST module identity attributes: name, description, serial.
 
 **Test Steps**:
 1. Skip if SWITCH-HOST not supported
-2. Call `get_name()` — verify non-empty string, consistent across calls
-3. Call `get_description()` — verify string or None
-4. Call `get_serial()` — verify string or None
+2. Call `get_name()` — cast to `str()` for Ansible compatibility; verify non-empty, consistent across calls
+3. Call `get_description()` — cast to `str()` if not None; verify string or None
+4. Call `get_serial()` — cast to `str()` if not None; verify string or None
 
 **Expected Result**:
-- Name is a non-empty string
+- Name is a non-empty string (Ansible `AnsibleUnsafeText` normalized via `str()`)
 - Description and serial are strings (may be None or empty on some platforms)
 
 ---
@@ -205,16 +206,16 @@ Verify SWITCH-HOST admin/oper status attributes and their consistency relationsh
 
 **Test Steps**:
 1. Skip if SWITCH-HOST not supported
-2. Call `get_admin_status()` — verify value in {up, down}, consistent
-3. Call `get_oper_status()` — verify valid string, consistent
-4. Verify admin/oper relationship:
-   - admin=up → oper in {PRESENT, ONLINE, PoweredOn}
-   - admin=down → oper in {PoweredDown, OFFLINE, POWERED_DOWN}
+2. Call `get_admin_status()` — cast to `str()`; verify value in {up, down}, consistent
+3. Call `get_oper_status()` — cast to `str()`; verify consistent across calls
+4. Verify admin/oper relationship (no fallback — must match exact valid set):
+   - admin=up → oper must be one of {PRESENT, ONLINE, PoweredOn}
+   - admin=down → oper must be one of {PoweredDown, OFFLINE, POWERED_DOWN}
 5. Call `set_admin_status()` with current value — verify accessible without crash
 
 **Expected Result**:
-- Admin status is one of the valid values
-- Oper status is consistent with admin status
+- Admin status is one of the valid values (Ansible string normalized via `str()`)
+- Oper status matches the expected set for the current admin state
 - set_admin_status is callable
 
 ---
@@ -584,6 +585,120 @@ to `/host/bmc/event.log`.
 
 ---
 
+### Daemon Lifecycle Tests
+
+**File**: `tests/platform_tests/daemon/test_bmcctld.py`, `tests/platform_tests/daemon/test_thermalctld.py`
+
+Lifecycle tests follow the same pattern as `test_chassisd.py`. Each daemon is stopped/killed
+and verified to recover. Uses `duthost.get_pmon_daemon_status()` and
+`check_pmon_daemon_enable_status()` from `tests/common/platform/daemon_utils.py`.
+
+---
+
+#### Test Case #30: test_pmon_bmcctld_running_status
+
+**Test Objective**: Verify bmcctld is in RUNNING state with a valid pid at test start.
+
+**Test Steps**:
+1. Skip if bmcctld is not enabled (`check_pmon_daemon_enable_status`)
+2. Call `get_pmon_daemon_status("bmcctld")` — assert status is `RUNNING` and pid != -1
+
+**Expected Result**: bmcctld is running with a positive pid.
+
+---
+
+#### Test Case #31: test_pmon_bmcctld_stop_and_start_status
+
+**Test Objective**: Verify bmcctld stops cleanly via supervisorctl and recovers after start.
+
+**Test Steps**:
+1. Record pre-stop pid
+2. `stop_pmon_daemon(bmcctld, None)` — assert status becomes `STOPPED`, pid == -1
+3. `start_pmon_daemon(bmcctld)` — wait up to 120 s for new pid > pre-stop pid
+4. Assert post-restart status is `RUNNING` and pid incremented
+
+**Expected Result**: bmcctld stops and restarts with a new pid.
+
+---
+
+#### Test Case #32: test_pmon_bmcctld_term_and_start_status
+
+**Test Objective**: Verify bmcctld auto-restarts after SIGTERM (supervisord autorestart).
+
+**Test Steps**:
+1. Record pre-term pid
+2. `stop_pmon_daemon(bmcctld, "-15", pid)` — send SIGTERM
+3. Wait up to 120 s for supervisord to restart; assert new pid > pre-term pid and status `RUNNING`
+
+**Expected Result**: bmcctld auto-restarts after SIGTERM.
+
+---
+
+#### Test Case #33: test_pmon_bmcctld_kill_and_start_status
+
+**Test Objective**: Verify bmcctld auto-restarts after SIGKILL (supervisord autorestart).
+
+**Test Steps**:
+1. Record pre-kill pid
+2. `stop_pmon_daemon(bmcctld, "-9", pid)` — send SIGKILL
+3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+
+**Expected Result**: bmcctld auto-restarts after SIGKILL.
+
+---
+
+#### Test Case #34: test_pmon_thermalctld_running_status
+
+**Test Objective**: Verify thermalctld is in RUNNING state with a valid pid at test start.
+
+**Test Steps**:
+1. Skip if thermalctld is not enabled (`check_pmon_daemon_enable_status`)
+2. Call `get_pmon_daemon_status("thermalctld")` — assert status is `RUNNING` and pid != -1
+
+**Expected Result**: thermalctld is running with a positive pid.
+
+---
+
+#### Test Case #35: test_pmon_thermalctld_stop_and_start_status
+
+**Test Objective**: Verify thermalctld stops cleanly via supervisorctl and recovers after start.
+
+**Test Steps**:
+1. Record pre-stop pid
+2. `stop_pmon_daemon(thermalctld, None)` — assert status becomes `STOPPED`, pid == -1
+3. `start_pmon_daemon(thermalctld)` — wait up to 120 s for new pid > pre-stop pid
+4. Assert post-restart status is `RUNNING` and pid incremented
+
+**Expected Result**: thermalctld stops and restarts with a new pid.
+
+---
+
+#### Test Case #36: test_pmon_thermalctld_term_and_start_status
+
+**Test Objective**: Verify thermalctld auto-restarts after SIGTERM.
+
+**Test Steps**:
+1. Record pre-term pid
+2. `stop_pmon_daemon(thermalctld, "-15", pid)` — send SIGTERM
+3. Wait up to 120 s for supervisord to restart; assert new pid > pre-term pid and status `RUNNING`
+
+**Expected Result**: thermalctld auto-restarts after SIGTERM.
+
+---
+
+#### Test Case #37: test_pmon_thermalctld_kill_and_start_status
+
+**Test Objective**: Verify thermalctld auto-restarts after SIGKILL.
+
+**Test Steps**:
+1. Record pre-kill pid
+2. `stop_pmon_daemon(thermalctld, "-9", pid)` — send SIGKILL
+3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+
+**Expected Result**: thermalctld auto-restarts after SIGKILL.
+
+---
+
 ### CLI Command Tests
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
@@ -672,9 +787,15 @@ Verify existing CLI commands still work after BMC enhancements.
 
 ### BMC Watchdog Tests
 
-**File**: `tests/platform_tests/daemon/test_bmc_watchdog.py`
+**Files**:
+- `tests/platform_tests/api/test_watchdog.py` — platform API tests (`topology('any')`); runs on BMC
+  and all other topologies. Covers arm/disarm/remaining-time via `platform_api_conn`.
+- `tests/platform_tests/daemon/test_bmc_watchdog.py` — BMC-specific integration tests
+  (`topology('bmc')`). Covers `watchdogutil` CLI, `/host/bmc` persistent log storage,
+  reboot differentiation, and State DB. Uses `duthost.shell()` directly (no platform API server).
 
-These tests verify watchdog functionality for BMC systems.
+These two files are complementary: `test_watchdog.py` validates the platform API contract;
+`test_bmc_watchdog.py` validates BMC-specific integration behavior.
 
 #### Test Case #28: test_watchdog_status_and_configuration
 

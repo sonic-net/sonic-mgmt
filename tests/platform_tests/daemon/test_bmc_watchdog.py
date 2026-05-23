@@ -177,4 +177,3 @@ class TestBmcWatchdog:
             logger.info(f"State DB watchdog entries: {result['stdout'].strip()}")
         else:
             logger.info("No watchdog entries in State DB - expected if not supported")
-

@@ -213,6 +213,11 @@ def get_liquid_cooling(conn):
     return chassis_api(conn, 'get_liquid_cooling')
 
 
+def is_liquid_cooled(conn):
+    """Check if the chassis is liquid/hybrid cooled (False for air-cooled)"""
+    return chassis_api(conn, 'is_liquid_cooled')
+
+
 def get_leak_sensor_name(conn, index):
     """Get leak sensor name"""
     return chassis_api(conn, 'get_leak_sensor_name', [index])

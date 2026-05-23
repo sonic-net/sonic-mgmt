@@ -14,6 +14,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -38,12 +39,11 @@ class TestThermalctldDaemon:
         """Get duthost reference"""
         self.duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-        # Skip if thermalctld not running
-        result = self.duthost.shell(
-            "docker exec pmon pgrep thermalctld",
-            module_ignore_errors=True
-        )
-        if result['rc'] != 0:
+        # Skip if thermalctld not enabled or not running
+        if not check_pmon_daemon_enable_status(self.duthost, "thermalctld"):
+            pytest.skip("thermalctld is not enabled on {}".format(self.duthost.facts['platform']))
+        daemon_status, _ = self.duthost.get_pmon_daemon_status("thermalctld")
+        if daemon_status != "RUNNING":
             pytest.skip("thermalctld daemon not running")
 
         yield
@@ -59,11 +59,8 @@ class TestThermalctldDaemon:
         - LIQUID_COOLING_INFO tables created for sensors
         """
         # Verify service running
-        result = self.duthost.shell(
-            "docker exec pmon pgrep thermalctld && echo 'running'",
-            module_ignore_errors=True
-        )
-        pytest_assert(result['rc'] == 0, "thermalctld should be running")
+        daemon_status, _ = self.duthost.get_pmon_daemon_status("thermalctld")
+        pytest_assert(daemon_status == "RUNNING", "thermalctld should be running")
 
         # Check SYSTEM_LEAK_STATUS initialization
         result = self.duthost.shell(
@@ -933,7 +930,6 @@ class TestThermalctldDaemon:
                     module_ignore_errors=True
                 )
                 if result['rc'] == 0 and result['stdout'].strip():
-                    found = True
                     logger.info(f"CRITICAL chassis thermal syslog entry confirmed:\n{result['stdout'].strip()}")
                 else:
                     logger.info(
@@ -946,3 +942,156 @@ class TestThermalctldDaemon:
                 module_ignore_errors=True
             )
 
+
+# ---------------------------------------------------------------------------
+# Lifecycle tests: running / stop-start / term-start / kill-start
+# ---------------------------------------------------------------------------
+
+THERMALCTLD_DAEMON_NAME = "thermalctld"
+THERMALCTLD_DB_KEY_PATTERN = "TEMPERATURE_INFO|*"
+
+SIG_STOP_SERVICE = None
+SIG_TERM = "-15"
+SIG_KILL = "-9"
+
+expected_running_status = "RUNNING"
+expected_stopped_status = "STOPPED"
+expected_exited_status = "EXITED"
+
+
+@pytest.fixture(scope="module", autouse=False)
+def thermalctld_teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Ensure thermalctld is left running after lifecycle tests."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    yield
+    daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    if daemon_status != expected_running_status:
+        duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
+        time.sleep(10)
+
+
+@pytest.fixture
+def thermalctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Ensure thermalctld is running before each lifecycle test."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    if daemon_status != expected_running_status:
+        duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
+        time.sleep(10)
+
+
+def _thermalctld_collect_data(duthost):
+    keys = duthost.shell(
+        'sonic-db-cli STATE_DB KEYS "{}"'.format(THERMALCTLD_DB_KEY_PATTERN)
+    )['stdout_lines']
+    dev_data = {}
+    for k in keys:
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        dev_data[k] = data
+    return {'keys': sorted(keys), 'data': dev_data}
+
+
+def _thermalctld_check_expected_status(duthost, expected_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    return daemon_status == expected_status
+
+
+def _thermalctld_check_restarted(duthost, pre_pid):
+    _, pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    return pid > pre_pid
+
+
+@pytest.fixture(scope="module")
+def thermalctld_data_before_restart(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pmon_daemon_enable_status(duthost, THERMALCTLD_DAEMON_NAME):
+        pytest.skip("{} is not enabled on {}".format(THERMALCTLD_DAEMON_NAME, duthost.facts['platform']))
+    return _thermalctld_collect_data(duthost)
+
+
+def test_pmon_thermalctld_running_status(duthosts, enum_rand_one_per_hwsku_hostname,
+                                         thermalctld_data_before_restart,
+                                         thermalctld_teardown_module):
+    """Verify thermalctld is RUNNING with a valid pid."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(THERMALCTLD_DAEMON_NAME, daemon_status, daemon_pid))
+    pytest_assert(daemon_status == expected_running_status,
+                  "{} expected {} but is {}".format(THERMALCTLD_DAEMON_NAME, expected_running_status, daemon_status))
+    pytest_assert(daemon_pid != -1,
+                  "{} expected valid pid but got {}".format(THERMALCTLD_DAEMON_NAME, daemon_pid))
+
+
+def test_pmon_thermalctld_stop_and_start_status(thermalctld_check_daemon_status, duthosts,
+                                                enum_rand_one_per_hwsku_hostname,
+                                                thermalctld_data_before_restart,
+                                                thermalctld_teardown_module):
+    """Verify thermalctld stops cleanly and recovers after supervisorctl start."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(THERMALCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(THERMALCTLD_DAEMON_NAME, SIG_STOP_SERVICE)
+    time.sleep(2)
+
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    pytest_assert(daemon_status == expected_stopped_status,
+                  "{} expected {} but is {}".format(THERMALCTLD_DAEMON_NAME, expected_stopped_status, daemon_status))
+    pytest_assert(daemon_pid == -1,
+                  "{} expected pid -1 but got {}".format(THERMALCTLD_DAEMON_NAME, daemon_pid))
+
+    duthost.start_pmon_daemon(THERMALCTLD_DAEMON_NAME)
+    wait_until(120, 10, 0, _thermalctld_check_restarted, duthost, pre_pid)
+    wait_until(60, 10, 0, _thermalctld_check_expected_status, duthost, expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    pytest_assert(post_status == expected_running_status,
+                  "{} expected {} after restart but is {}".format(
+                      THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-stop pid {}".format(
+                      THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
+
+
+def test_pmon_thermalctld_term_and_start_status(thermalctld_check_daemon_status, duthosts,
+                                                enum_rand_one_per_hwsku_hostname,
+                                                thermalctld_data_before_restart,
+                                                thermalctld_teardown_module):
+    """Verify thermalctld auto-restarts after SIGTERM."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(THERMALCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(THERMALCTLD_DAEMON_NAME, SIG_TERM, pre_pid)
+    wait_until(120, 10, 0, _thermalctld_check_restarted, duthost, pre_pid)
+    wait_until(60, 10, 0, _thermalctld_check_expected_status, duthost, expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    pytest_assert(post_status == expected_running_status,
+                  "{} expected {} after SIGTERM but is {}".format(
+                      THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-term pid {}".format(
+                      THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))
+
+
+def test_pmon_thermalctld_kill_and_start_status(thermalctld_check_daemon_status, duthosts,
+                                                enum_rand_one_per_hwsku_hostname,
+                                                thermalctld_data_before_restart,
+                                                thermalctld_teardown_module):
+    """Verify thermalctld auto-restarts after SIGKILL."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(THERMALCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(THERMALCTLD_DAEMON_NAME, SIG_KILL, pre_pid)
+    wait_until(120, 10, 0, _thermalctld_check_restarted, duthost, pre_pid)
+    wait_until(120, 10, 0, _thermalctld_check_expected_status, duthost, expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(THERMALCTLD_DAEMON_NAME)
+    pytest_assert(post_status == expected_running_status,
+                  "{} expected {} after SIGKILL but is {}".format(
+                      THERMALCTLD_DAEMON_NAME, expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-kill pid {}".format(
+                      THERMALCTLD_DAEMON_NAME, post_pid, pre_pid))

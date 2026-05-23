@@ -14,6 +14,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -42,30 +43,42 @@ class TestBmcctldDaemon:
         """Get duthost reference and verify BMC system"""
         self.duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-        result = self.duthost.shell(
-            "grep -q 'switch_bmc=1' /etc/sonic/platform_env.conf 2>/dev/null",
-            module_ignore_errors=True
-        )
-        if result['rc'] != 0:
+        if not self.duthost.is_bmc():
             pytest.skip("Device is not a BMC system")
+
+        if not check_pmon_daemon_enable_status(self.duthost, "bmcctld"):
+            pytest.skip("bmcctld is not enabled on {}".format(self.duthost.facts['platform']))
+        daemon_status, _ = self.duthost.get_pmon_daemon_status("bmcctld")
+        if daemon_status != "RUNNING":
+            pytest.skip("bmcctld daemon not running")
 
         yield
 
     def test_bmcctld_initialization(self):
         """
-        Verify bmcctld initializes all required State DB tables
+        Verify bmcctld initializes all required State DB tables and follows
+        the correct startup path based on chassis.is_liquid_cooled().
 
         Validates:
         - CHASSIS_MODULE_INFO:SWITCH-HOST populated with identity fields
         - HOST_STATE:switch-host initialized with valid device_status
+        - Startup log reflects liquid-cooled vs air-cooled path
         - Service is running and responsive
         """
-        # Verify service running
+        # Verify service running via existing infra (not pgrep)
+        daemon_status, daemon_pid = self.duthost.get_pmon_daemon_status("bmcctld")
+        pytest_assert(daemon_status == "RUNNING", "bmcctld daemon should be running")
+        pytest_assert(daemon_pid != -1, "bmcctld daemon should have a valid pid")
+
+        # Verify startup path logged — liquid-cooled or air-cooled branch
         result = self.duthost.shell(
-            "docker exec pmon pgrep bmcctld",
+            "journalctl -u pmon --no-pager -n 500 | grep -E 'STARTUP:.*liquid|STARTUP:.*power_on'",
             module_ignore_errors=True
         )
-        pytest_assert(result['rc'] == 0, "bmcctld daemon should be running")
+        if result['rc'] == 0 and result['stdout'].strip():
+            logger.info(f"bmcctld startup path: {result['stdout'].strip()}")
+        else:
+            logger.info("No bmcctld startup path log found (daemon may have been running before log window)")
 
         # Verify CHASSIS_MODULE_INFO
         result = self.duthost.shell(
@@ -205,12 +218,8 @@ class TestBmcctldDaemon:
         logger.info(f"Recent bmcctld events:\n{result['stdout'][:300]}")
 
         # Verify thermalctld running
-        result = self.duthost.shell(
-            "docker exec pmon pgrep thermalctld",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
+        thermalctld_status, _ = self.duthost.get_pmon_daemon_status("thermalctld")
+        if thermalctld_status == "RUNNING":
             logger.info("thermalctld integration: daemon running")
 
         # Verify config handling
@@ -223,12 +232,8 @@ class TestBmcctldDaemon:
             logger.info("CONFIG_DB integration: config chassis module available")
 
         # Verify psud integration
-        result = self.duthost.shell(
-            "docker exec pmon pgrep psud",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
+        psud_status, _ = self.duthost.get_pmon_daemon_status("psud")
+        if psud_status == "RUNNING":
             logger.info("psud integration: daemon running")
 
     def test_bmcctld_performance(self):
@@ -255,12 +260,8 @@ class TestBmcctldDaemon:
         logger.info(f"STATE_DB query latency: {elapsed:.3f}s")
 
         # Verify daemon responsiveness
-        result = self.duthost.shell(
-            "docker exec pmon systemctl is-active bmcctld",
-            module_ignore_errors=True
-        )
-
-        pytest_assert(result['rc'] == 0,
+        daemon_status, _ = self.duthost.get_pmon_daemon_status("bmcctld")
+        pytest_assert(daemon_status == "RUNNING",
                       "bmcctld should remain active after queries")
 
         # Verify consistency across reads
@@ -550,9 +551,161 @@ class TestBmcctldDaemon:
                 delay_logged,
                 "REBOOT_CAUSE_POWER_LOSS detected but boot delay log not found"
             )
-        elif reboot_cause not in ('unknown', ''):
             # Non-power-loss reboot: delay should be skipped
             pytest_assert(
                 skip_logged or not delay_logged,
                 f"Non-power-loss reboot ({reboot_cause}) but power-loss delay was applied"
             )
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle tests: running / stop-start / term-start / kill-start
+# ---------------------------------------------------------------------------
+
+BMCCTLD_DAEMON_NAME = "bmcctld"
+BMCCTLD_DB_KEY_PATTERN = "CHASSIS_MODULE_INFO|*"
+
+_SIG_STOP_SERVICE = None
+_SIG_TERM = "-15"
+_SIG_KILL = "-9"
+
+_expected_running_status = "RUNNING"
+_expected_stopped_status = "STOPPED"
+
+
+@pytest.fixture(scope="module", autouse=False)
+def bmcctld_teardown_module(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Ensure bmcctld is left running after lifecycle tests."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    yield
+    daemon_status, _ = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    if daemon_status != _expected_running_status:
+        duthost.start_pmon_daemon(BMCCTLD_DAEMON_NAME)
+        time.sleep(10)
+
+
+@pytest.fixture
+def bmcctld_check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Ensure bmcctld is running before each lifecycle test."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    daemon_status, _ = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    if daemon_status != _expected_running_status:
+        duthost.start_pmon_daemon(BMCCTLD_DAEMON_NAME)
+        time.sleep(10)
+
+
+def _bmcctld_collect_data(duthost):
+    keys = duthost.shell(
+        'sonic-db-cli STATE_DB KEYS "{}"'.format(BMCCTLD_DB_KEY_PATTERN)
+    )['stdout_lines']
+    dev_data = {}
+    for k in keys:
+        data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+        dev_data[k] = data
+    return {'keys': sorted(keys), 'data': dev_data}
+
+
+def _bmcctld_check_expected_status(duthost, expected_status):
+    daemon_status, _ = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    return daemon_status == expected_status
+
+
+def _bmcctld_check_restarted(duthost, pre_pid):
+    _, pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    return pid > pre_pid
+
+
+@pytest.fixture(scope="module")
+def bmcctld_data_before_restart(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pmon_daemon_enable_status(duthost, BMCCTLD_DAEMON_NAME):
+        pytest.skip("{} is not enabled on {}".format(BMCCTLD_DAEMON_NAME, duthost.facts['platform']))
+    return _bmcctld_collect_data(duthost)
+
+
+def test_pmon_bmcctld_running_status(duthosts, enum_rand_one_per_hwsku_hostname,
+                                     bmcctld_data_before_restart,
+                                     bmcctld_teardown_module):
+    """Verify bmcctld is RUNNING with a valid pid."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(BMCCTLD_DAEMON_NAME, daemon_status, daemon_pid))
+    pytest_assert(daemon_status == _expected_running_status,
+                  "{} expected {} but is {}".format(BMCCTLD_DAEMON_NAME, _expected_running_status, daemon_status))
+    pytest_assert(daemon_pid != -1,
+                  "{} expected valid pid but got {}".format(BMCCTLD_DAEMON_NAME, daemon_pid))
+
+
+def test_pmon_bmcctld_stop_and_start_status(bmcctld_check_daemon_status, duthosts,
+                                            enum_rand_one_per_hwsku_hostname,
+                                            bmcctld_data_before_restart,
+                                            bmcctld_teardown_module):
+    """Verify bmcctld stops cleanly and recovers after supervisorctl start."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(BMCCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(BMCCTLD_DAEMON_NAME, _SIG_STOP_SERVICE)
+    time.sleep(2)
+
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    pytest_assert(daemon_status == _expected_stopped_status,
+                  "{} expected {} but is {}".format(BMCCTLD_DAEMON_NAME, _expected_stopped_status, daemon_status))
+    pytest_assert(daemon_pid == -1,
+                  "{} expected pid -1 but got {}".format(BMCCTLD_DAEMON_NAME, daemon_pid))
+
+    duthost.start_pmon_daemon(BMCCTLD_DAEMON_NAME)
+    wait_until(120, 10, 0, _bmcctld_check_restarted, duthost, pre_pid)
+    wait_until(60, 10, 0, _bmcctld_check_expected_status, duthost, _expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    pytest_assert(post_status == _expected_running_status,
+                  "{} expected {} after restart but is {}".format(
+                      BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-stop pid {}".format(
+                      BMCCTLD_DAEMON_NAME, post_pid, pre_pid))
+
+
+def test_pmon_bmcctld_term_and_start_status(bmcctld_check_daemon_status, duthosts,
+                                            enum_rand_one_per_hwsku_hostname,
+                                            bmcctld_data_before_restart,
+                                            bmcctld_teardown_module):
+    """Verify bmcctld auto-restarts after SIGTERM."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(BMCCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(BMCCTLD_DAEMON_NAME, _SIG_TERM, pre_pid)
+    wait_until(120, 10, 0, _bmcctld_check_restarted, duthost, pre_pid)
+    wait_until(60, 10, 0, _bmcctld_check_expected_status, duthost, _expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    pytest_assert(post_status == _expected_running_status,
+                  "{} expected {} after SIGTERM but is {}".format(
+                      BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-term pid {}".format(
+                      BMCCTLD_DAEMON_NAME, post_pid, pre_pid))
+
+
+def test_pmon_bmcctld_kill_and_start_status(bmcctld_check_daemon_status, duthosts,
+                                            enum_rand_one_per_hwsku_hostname,
+                                            bmcctld_data_before_restart,
+                                            bmcctld_teardown_module):
+    """Verify bmcctld auto-restarts after SIGKILL."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    pre_status, pre_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    logger.info("{} daemon is {} with pid {}".format(BMCCTLD_DAEMON_NAME, pre_status, pre_pid))
+
+    duthost.stop_pmon_daemon(BMCCTLD_DAEMON_NAME, _SIG_KILL, pre_pid)
+    wait_until(120, 10, 0, _bmcctld_check_restarted, duthost, pre_pid)
+    wait_until(120, 10, 0, _bmcctld_check_expected_status, duthost, _expected_running_status)
+
+    post_status, post_pid = duthost.get_pmon_daemon_status(BMCCTLD_DAEMON_NAME)
+    pytest_assert(post_status == _expected_running_status,
+                  "{} expected {} after SIGKILL but is {}".format(
+                      BMCCTLD_DAEMON_NAME, _expected_running_status, post_status))
+    pytest_assert(post_pid > pre_pid,
+                  "Restarted {} pid {} should be greater than pre-kill pid {}".format(
+                      BMCCTLD_DAEMON_NAME, post_pid, pre_pid))

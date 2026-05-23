@@ -52,22 +52,24 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         - get_serial() returns string (may be None or empty)
         - Values are consistent across multiple calls
         """
-        # Test name
-        name = chassis.get_module_name(platform_api_conn, 'SWITCH-HOST')
+        # Test name — cast to str() to handle Ansible's AnsibleUnsafeText
+        name = str(chassis.get_module_name(platform_api_conn, 'SWITCH-HOST'))
         self.expect(isinstance(name, str), "SWITCH-HOST name should be string")
         self.expect(len(name) > 0, "SWITCH-HOST name should not be empty")
 
         # Verify name consistency
-        name2 = chassis.get_module_name(platform_api_conn, 'SWITCH-HOST')
+        name2 = str(chassis.get_module_name(platform_api_conn, 'SWITCH-HOST'))
         self.expect(name == name2, "SWITCH-HOST name inconsistent")
 
         # Test description
         description = chassis.get_module_description(platform_api_conn, 'SWITCH-HOST')
+        description = str(description) if description is not None else None
         self.expect(description is None or isinstance(description, str),
                     "SWITCH-HOST description should be str or None")
 
         # Test serial
         serial = chassis.get_module_serial(platform_api_conn, 'SWITCH-HOST')
+        serial = str(serial) if serial is not None else None
         self.expect(serial is None or isinstance(serial, str),
                     "SWITCH-HOST serial should be str or None")
 
@@ -83,21 +85,21 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         - set_admin_status() accepts valid values
         - Status values are consistent across multiple reads
         """
-        # Test get_admin_status
-        admin_status = chassis.get_module_admin_status(platform_api_conn, 'SWITCH-HOST')
+        # Test get_admin_status — cast to str() to handle Ansible's AnsibleUnsafeText
+        admin_status = str(chassis.get_module_admin_status(platform_api_conn, 'SWITCH-HOST'))
         self.expect(isinstance(admin_status, str), "admin_status should be string")
         self.expect(admin_status.lower() in ['up', 'down'], f"admin_status '{admin_status}' invalid")
 
         # Verify admin status consistency
-        admin_status2 = chassis.get_module_admin_status(platform_api_conn, 'SWITCH-HOST')
+        admin_status2 = str(chassis.get_module_admin_status(platform_api_conn, 'SWITCH-HOST'))
         self.expect(admin_status == admin_status2, "admin_status inconsistent")
 
         # Test get_oper_status
-        oper_status = chassis.get_module_oper_status(platform_api_conn, 'SWITCH-HOST')
+        oper_status = str(chassis.get_module_oper_status(platform_api_conn, 'SWITCH-HOST'))
         self.expect(isinstance(oper_status, str), "oper_status should be string")
 
         # Verify oper status consistency
-        oper_status2 = chassis.get_module_oper_status(platform_api_conn, 'SWITCH-HOST')
+        oper_status2 = str(chassis.get_module_oper_status(platform_api_conn, 'SWITCH-HOST'))
         self.expect(oper_status == oper_status2, "oper_status inconsistent")
 
         # Verify admin/oper status relationship
@@ -105,14 +107,12 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         # When admin is 'up', oper should reflect operational state
         if admin_status.lower() == 'up':
             valid_oper_states = ['PRESENT', 'ONLINE', 'PoweredOn']
-            self.expect(any(s in oper_status for s in valid_oper_states) or
-                        len(oper_status) > 0,
+            self.expect(any(s in oper_status for s in valid_oper_states),
                         f"oper_status '{oper_status}' should reflect "
                         f"admin status 'up'")
         elif admin_status.lower() == 'down':
             valid_oper_states = ['PoweredDown', 'OFFLINE', 'POWERED_DOWN']
-            self.expect(any(s in oper_status for s in valid_oper_states) or
-                        len(oper_status) > 0,
+            self.expect(any(s in oper_status for s in valid_oper_states),
                         f"oper_status '{oper_status}' should reflect "
                         f"admin status 'down'")
 
