@@ -1173,7 +1173,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host, duthost) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -1195,7 +1195,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
         # Get fanout device info from inventory
         try:
-            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_name).vars
+            host_vars = get_host_visible_vars(duthost.host.options["inventory"], fanout_name) or {}
         except Exception as e:
             logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
             return None
@@ -1272,7 +1272,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     for dut_name, ethernet_ports in dev_conn.items():
 
         duthost = duthosts[dut_name]
-
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             logging.info(f"Skipping kvm platform {dut_name}")
@@ -1287,7 +1286,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_port = str(fanout_rec['peerport'])
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, duthost)
             if fanout is None:
                 continue
 
@@ -1313,7 +1312,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     for dut_name, serial_ports_map in dev_serial_link.items():
 
         duthost = duthosts[dut_name]
-
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             logging.info(f"Skipping kvm platform {dut_name} for serial links")
@@ -1327,7 +1325,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             flow_control = link_info.get('flow_control', "0") == "1"
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, duthost)
             if fanout is None:
                 continue
 
