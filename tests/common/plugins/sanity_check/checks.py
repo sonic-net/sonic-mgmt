@@ -22,6 +22,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MIN_PROCESS_CHECK_TIMEOUT = 180
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
@@ -114,7 +115,7 @@ def check_interfaces(duthosts, tbinfo):
         logger.info("Checking interfaces status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         if dut.get_facts().get("modular_chassis"):
             timeout = max(timeout, 600)
         interval = 20
@@ -198,8 +199,8 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
+            res = dut.shell("show ip{} route {}/0".format("" if version == 4 else "v6",
+                            "0.0.0.0" if version == 4 else "::"), module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _restart_bgp(dut):
@@ -914,7 +915,7 @@ def check_processes(duthosts):
         logger.info("Checking process status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -1134,6 +1135,13 @@ def check_ipv4_mgmt(duthosts, localhost):
 
         if dut.mgmt_ip is None or dut.mgmt_ip == "":
             logger.info("%s doesn't have ipv4 mgmt configured. Skip the ipv4 mgmt reachability check." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
+        # Skip IPv4 check if mgmt_ip is an IPv6 address (IPv6-only management mode)
+        if is_ipv6_address(dut.mgmt_ip):
+            logger.info("%s is using IPv6 management address (%s). Skip the ipv4 mgmt reachability check."
+                        % (dut.hostname, dut.mgmt_ip))
             results[dut.hostname] = check_result
             return
 

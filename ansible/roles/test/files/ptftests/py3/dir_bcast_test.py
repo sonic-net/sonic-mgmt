@@ -92,7 +92,7 @@ class BcastTest(BaseTest):
         '''
         ip_src = self.TEST_SRC_IP
         ip_dst = dst_bcast_ip
-        src_mac = self.dataplane.get_mac(0, 0)
+        src_mac = self.dataplane.get_mac(0, self.src_ports[0])
         bcast_mac = self.BROADCAST_MAC
 
         pkt = simple_ip_packet(eth_dst=self.router_mac,
@@ -135,7 +135,7 @@ class BcastTest(BaseTest):
         '''
         ip_src = self.TEST_SRC_IP
         ip_dst = dst_bcast_ip
-        src_mac = self.dataplane.get_mac(0, 0)
+        src_mac = self.dataplane.get_mac(0, self.src_ports[0])
         bcast_mac = self.BROADCAST_MAC
         udp_port = self.DHCP_SERVER_PORT
 

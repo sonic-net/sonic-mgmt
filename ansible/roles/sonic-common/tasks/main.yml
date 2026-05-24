@@ -32,6 +32,12 @@
   when: sonic_hwsku in marvell_hwskus
   tags: always
 
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: nokia-vs
+  when: sonic_hwsku in nokia_hwskus
+  tags: always
+
 - name: update sonicadmin password
   include_tasks: passwd.yml
   tags: system

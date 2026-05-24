@@ -1,0 +1,86 @@
+---
+# Playbook to install a new SONiC image on DPU(s) of a SmartSwitch.
+# The module runs on the NPU host and SSHes into DPUs via the midplane network.
+#
+# Usage:
+#   Upgrade all DPUs on a specific host:
+#     ansible-playbook upgrade_dpu_sonic.yml -i <inventory> -l <host> \
+#       -e "image_url=<url>" -vvv
+#
+#   Upgrade a single DPU by index:
+#     ansible-playbook upgrade_dpu_sonic.yml -i <inventory> -l <host> \
+#       -e "image_url=<url>" -e "target_dpu_index=0" -vvv
+#
+#   Upgrade all DPUs on DUTs in a testbed:
+#     ansible-playbook upgrade_dpu_sonic.yml -i <inventory> \
+#       -e "testbed_name=<name>" -e "image_url=<url>" -vvv
+#
+- hosts: all
+  gather_facts: no
+  tasks:
+    - name: Add NPU hosts from testbed (exclude DPU hosts)
+      block:
+        - name: Set default testbed file
+          set_fact:
+            testbed_file: testbed.yaml
+          when: testbed_file is not defined
+
+        - name: Gather testbed information
+          test_facts:
+            testbed_name: "{{ testbed_name }}"
+            testbed_file: "{{ testbed_file }}"
+
+        - name: Create upgrade targets group (NPU hosts only)
+          add_host:
+            name: "{{ item }}"
+            groups: dpu_upgrade_targets
+          loop: "{{ testbed_facts['duts'] | reject('search', '-dpu-') | list }}"
+      delegate_to: localhost
+      run_once: true
+      when: testbed_name is defined
+
+    - name: Add hosts directly when no testbed specified (exclude DPU hosts)
+      add_host:
+        name: "{{ item }}"
+        groups: dpu_upgrade_targets
+      loop: "{{ ansible_play_hosts | reject('search', '-dpu-') | list }}"
+      delegate_to: localhost
+      run_once: true
+      when: testbed_name is not defined
+
+- hosts: dpu_upgrade_targets
+  gather_facts: no
+  tasks:
+    - name: Fail if image_url is not defined
+      fail:
+        msg: "image_url must be provided"
+      when: image_url is not defined
+
+    - name: Set default disk_used_pcent
+      set_fact:
+        disk_used_pcent: 50
+      when: disk_used_pcent is not defined
+
+    - name: Set default target_dpu_index
+      set_fact:
+        target_dpu_index: -1
+      when: target_dpu_index is not defined
+
+    - name: Install new SONiC image on DPU(s)
+      upgrade_dpu_sonic_image:
+        hwsku: "{{ hwsku }}"
+        hostname: "{{ inventory_hostname }}"
+        host_username: "{{ sonic_login }}"
+        host_passwords: "{{ sonic_default_passwords }}"
+        new_image_url: "{{ image_url }}"
+        target_dpu_index: "{{ target_dpu_index | int }}"
+        disk_used_pcent: "{{ disk_used_pcent | int }}"
+      become: true
+      register: upgrade_result
+      retries: 3
+      delay: 30
+      until: upgrade_result is not failed
+
+    - name: Display upgrade results
+      debug:
+        msg: "{{ upgrade_result.msg }}"

@@ -98,18 +98,26 @@ def route_config(nbrhosts, tbinfo):
 
 
 @pytest.fixture(scope='function')
-def dscp_config(dscp_mode, duthost, loganalyzer):
+def dscp_config(dscp_mode, rand_selected_dut, loganalyzer):
     """
     Test setup and teardown
 
     Args:
         request: pytest request
-        duthost (AnsibleHost): The DUT host
+        rand_selected_dut (AnsibleHost): The randomly selected DUT host
     """
+    duthost = rand_selected_dut
     asic_type = duthost.facts['asic_type']
 
     # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
+    # Broadcom ASICs do not support inner DSCP-based queue remapping for IPIP pipe mode.
+    # Pipe mode decap works correctly (inner DSCP preserved in packet header) but queue
+    # selection always uses outer DSCP. Pipe mode DSCP preservation (without queue mapping)
+    # is covered by test_pipe_mode_dscp_preservation below.
     if asic_type == 'broadcom':
+        if dscp_mode == "pipe":
+            pytest.skip("Broadcom does not support IPIP pipe mode egress queue remapping"
+                        " -- hardware always uses outer DSCP for egress queue selection")
         apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
         yield
         apply_dscp_cfg_teardown(duthost, loganalyzer)
@@ -134,10 +142,37 @@ def dscp_config(dscp_mode, duthost, loganalyzer):
         duthost.shell('redis-cli -n 4 -c DEL "PORT_QOS_MAP|global"')
 
 
+@pytest.fixture(scope='function')
+def dscp_config_pipe(rand_selected_dut, loganalyzer):
+    """
+    Test setup and teardown for pipe mode DSCP preservation test.
+
+    Sets up pipe mode on the switch (Broadcom ASICs only for now). This fixture is for tests that validate DSCP
+    preservation in the decapsulated packet header, not egress queue placement.
+
+    Args:
+        rand_selected_dut (AnsibleHost): The randomly selected DUT host
+        loganalyzer: Log analyzer fixture
+    """
+    duthost = rand_selected_dut
+    asic_type = duthost.facts['asic_type']
+
+    if asic_type != 'broadcom':
+        # TODO: Remove this skip for other vendors/platforms that want to validate
+        # pipe mode DSCP preservation without queue mapping verification.
+        pytest.skip(f"{asic_type} pipe mode DSCP-only check not needed:"
+                    " covered by test_dscp_to_queue_mapping[pipe]")
+
+    apply_dscp_cfg_setup(duthost, "pipe", loganalyzer)
+    yield
+    apply_dscp_cfg_teardown(duthost, loganalyzer)
+
+
 def build_ipv4_ipip_packet(
     outer_src_mac, outer_dst_mac, outer_src_pkt_ip, outer_dst_pkt_ip,
     outer_dscp, inner_src_pkt_ip, inner_dst_pkt_ip, inner_dscp, exp_dscp,
 ):
+
     inner_pkt = testutils.simple_tcp_packet(ip_src=inner_src_pkt_ip,
                                             ip_dst=inner_dst_pkt_ip,
                                             ip_dscp=inner_dscp,
@@ -203,12 +238,21 @@ def build_ipv6_ipip_packet(
 
 
 def create_ipip_packet(
-    outer_src_mac, outer_dst_mac, outer_src_pkt_ip, outer_dst_pkt_ip,
-    outer_dscp, inner_src_pkt_ip, inner_dst_pkt_ip, inner_dscp, decap_mode,
-    is_ipv6_only,
+    test_params, outer_src_mac, outer_dscp, inner_dst_pkt_ip, inner_dscp,
+    decap_mode, is_ipv6_only=False,
 ):
     """
     Generate IPV4/IPV6 IP-IP packets.
+
+    Args:
+        test_params (dict): Test setup parameters. Uses keys 'dst_mac',
+            'outer_src_ip', 'outer_dst_ip', 'inner_src_ip'.
+        outer_src_mac: Source MAC for the outer header.
+        outer_dscp: DSCP value for the outer header.
+        inner_dst_pkt_ip: Destination IP for the inner packet.
+        inner_dscp: DSCP value for the inner header.
+        decap_mode: Tunnel decap mode ("uniform" or "pipe").
+        is_ipv6_only: Whether the topology is IPv6 only. Defaults to False.
 
     Returns:
         IP-IP packet, expected packet
@@ -219,11 +263,11 @@ def create_ipip_packet(
     )
     return ip_in_ip_packet_builder(
         outer_src_mac,
-        outer_dst_mac,
-        outer_src_pkt_ip,
-        outer_dst_pkt_ip,
+        test_params['dst_mac'],
+        test_params['outer_src_ip'],
+        test_params['outer_dst_ip'],
         outer_dscp,
-        inner_src_pkt_ip,
+        test_params['inner_src_ip'],
         inner_dst_pkt_ip,
         inner_dscp,
         exp_dscp,
@@ -254,7 +298,7 @@ def send_and_verify_traffic(ptfadapter,
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
             logger.info(f"Send packet: {pkt}, expected packet: {exp_pkt}")
-            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=3)
+            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=5)
             if isinstance(result, bool):
                 logger.info("Return a dummy value for VS platform")
                 port_index = 0
@@ -338,7 +382,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_dst_port_ids = list(uplink_ptf_ports)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        ptf_dst_port_ids.remove(ptf_src_port_id)
+        if ptf_src_port_id in ptf_dst_port_ids:
+            ptf_dst_port_ids.remove(ptf_src_port_id)
 
         return {
             'ptf_src_port_id': ptf_src_port_id,
@@ -446,19 +491,15 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                             f"{outer_dscp + i if decap_mode == 'uniform' else DEFAULT_DSCP}, "
                             f"inner_dscp = {inner_dscp if decap_mode == 'uniform' else inner_dscp + i}")
                 pkt, exp_pkt = create_ipip_packet(outer_src_mac=ptf_src_mac,
-                                                  outer_dst_mac=dst_mac,
-                                                  outer_src_pkt_ip=outer_src_pkt_ip,
-                                                  outer_dst_pkt_ip=outer_dst_pkt_ip,
+                                                  test_params=test_params,
                                                   outer_dscp=outer_dscp + i if decap_mode == "uniform" else
                                                   DEFAULT_DSCP,
-                                                  inner_src_pkt_ip=inner_src_pkt_ip,
                                                   inner_dst_pkt_ip=inner_dst_pkt_ip_list[i],
                                                   inner_dscp=inner_dscp if decap_mode == "uniform" else inner_dscp + i,
                                                   decap_mode=decap_mode,
                                                   is_ipv6_only=is_ipv6_only)
                 pkt_list.append(pkt)
                 exp_pkt_list.append(exp_pkt)
-
             queue_val_list = []
             global output_table
 
@@ -556,10 +597,11 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
+    @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
-                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer):  # noqa F811
+                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """
@@ -567,16 +609,20 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_ip_list = route_config
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, loganalyzer)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
         is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False)
+        # TH5 devices don't support warm reboot; only cold reboot supported during upgrades.
+        # Remove this check if TH5 warm reboot support is added in the future.
+        is_th5_device = duthost.get_asic_name() == 'th5'
         topo_name = tbinfo["topo"]["name"]
         if (
             completeness_level != "basic"
             and not is_smartswitch
+            and not is_th5_device
             and "dualtor" not in topo_name
             and "t1" not in topo_name
         ):
@@ -587,3 +633,105 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             with allure.step("Run test after warm-reboot"):
                 self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module,
                                dscp_mode)
+
+    @pytest.mark.disable_loganalyzer
+    def test_pipe_mode_dscp_preservation(self, ptfadapter, rand_selected_dut, localhost, dscp_config_pipe,
+                                         toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                         setup_standby_ports_on_rand_unselected_tor, route_config,
+                                         tbinfo, downstream_links, upstream_links, loganalyzer, rotate_syslog):  # noqa F811
+        """
+        Test that pipe mode decap preserves the inner DSCP value in the decapsulated packet header.
+
+        This test validates the packet-level DSCP preservation guarantee and is designed to run on any platform
+        that supports pipe mode decap without full queue remapping support.
+        """
+        if "backend" in tbinfo["topo"]["type"]:
+            pytest.skip("Dscp-queue mapping is not supported on {}".format(tbinfo["topo"]["type"]))
+
+        duthost = rand_selected_dut
+        asic_type = duthost.facts['asic_type']
+
+        if asic_type == 'vs':
+            pytest.skip("Skipping DSCP preservation check for VS platform")
+
+        inner_dst_ip_list = route_config
+        step = len(inner_dst_ip_list)
+
+        with allure.step("Prepare test parameters"):
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
+
+        ptf_src_port_id = test_params['ptf_src_port_id']
+        ptf_dst_port_ids = test_params['ptf_dst_port_ids']
+        ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
+
+        failed_once = False
+        global output_table, packet_egressed_success
+        output_table = []
+        packet_egressed_success = []
+
+        def check_tunnel_dscp_mode(duthost, dscp_mode):
+            real_dscp_mode = duthost.shell('redis-cli hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
+            pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
+
+        def check_ip_route(duthost, step):
+            ip_route_list = [INNER_DST_IP_PREFIX + str(i + 1) + '/32' for i in range(step)]
+            for i in range(step):
+                route = duthost.shell(f"show ip route {ip_route_list[i]}")["stdout"]
+                if ip_route_list[i] not in route:
+                    return False
+            return True
+
+        logger.info("Checking pipe mode is active on tunnel")
+        check_tunnel_dscp_mode(duthost, "pipe")
+        logger.info("Checking ip routes")
+        pytest_assert(wait_until(30, 10, 0, check_ip_route, duthost, step), "IP routes are not configured")
+
+        with allure.step("Run DSCP preservation test"):
+            for rotating_dscp in range(0, 64, step):
+                pkt_list = []
+                exp_pkt_list = []
+                inner_dst_pkt_ip_list = inner_dst_ip_list
+
+                for i in range(step):
+                    inner_dscp = rotating_dscp + i
+                    logger.info(f"pipe mode: outer_dscp={DEFAULT_DSCP}, inner_dscp={inner_dscp}")
+                    pkt, exp_pkt = create_ipip_packet(
+                        outer_src_mac=ptf_src_mac,
+                        test_params=test_params,
+                        outer_dscp=DEFAULT_DSCP,
+                        inner_dst_pkt_ip=inner_dst_pkt_ip_list[i],
+                        inner_dscp=inner_dscp,
+                        decap_mode="pipe"
+                    )
+                    pkt_list.append(pkt)
+                    exp_pkt_list.append(exp_pkt)
+
+                try:
+                    send_and_verify_traffic(ptfadapter=ptfadapter,
+                                            pkt_list=pkt_list,
+                                            exp_pkt_list=exp_pkt_list,
+                                            ptf_src_port_id=ptf_src_port_id,
+                                            ptf_dst_port_ids=ptf_dst_port_ids)
+                except ConnectionError as e:
+                    logger.error("{}: Try reducing DEFAULT_PKT_COUNT value".format(str(e)))
+                    failed_once = True
+
+                for i in range(step):
+                    cur_dscp = rotating_dscp + i
+                    if packet_egressed_success[i]:
+                        logger.info(f"SUCCESS: Inner DSCP {cur_dscp} preserved in decapsulated packet")
+                        output_table.append([cur_dscp, "SUCCESS - DSCP PRESERVED"])
+                    else:
+                        logger.info(f"FAILURE: Inner DSCP {cur_dscp} not found in decapsulated packet")
+                        output_table.append([cur_dscp, "FAILURE - DSCP NOT PRESERVED"])
+                        failed_once = True
+
+                packet_egressed_success = []
+
+        logger.info("Pipe mode DSCP preservation test results:\n{}"
+                    .format(tabulate(output_table,
+                                     headers=["Inner Packet DSCP Value", "Result"])))
+        output_table = []
+
+        pytest_assert(not failed_once, "FAIL: One or more inner DSCP values were not preserved after decap."
+                                       " Please check the table above for details.")

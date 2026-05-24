@@ -171,6 +171,38 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
+def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
+    """Ping an IP address from a host with an optional command prefix.
+
+    The *host* is expected to be an AnsibleHost-like object exposing a
+    ``command`` method (for example, ``duthost``, ``ptfhost`` or a localhost
+    wrapper).
+
+    This helper is designed to be used with wait_until: it returns True on
+    success and False on failure so callers can retry.
+
+    The cmd_prefix parameter can be used to run ping inside a namespace or
+    other wrapper context (for example, "sudo ip netns exec <ns>").
+    """
+    base_cmd = "ping -c {} {}".format(count, dst_ip)
+    cmd = "{} {}".format(cmd_prefix, base_cmd) if cmd_prefix else base_cmd
+    host_name = getattr(host, "hostname", repr(host))
+    logger.info("Pinging %s from host %s with command: %s", dst_ip, host_name, cmd)
+    result = host.command(cmd, module_ignore_errors=True)
+
+    if result.get("failed", False):
+        logger.info(
+            "Ping to %s from host %s failed: rc=%s, stderr=%s",
+            dst_ip,
+            host_name,
+            result.get("rc"),
+            result.get("stderr"),
+        )
+        return False
+
+    return True
+
+
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Same as wait_until but async
@@ -842,6 +874,35 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def get_plt_wait_time(duthost, tc_name):
+    """
+    @summary: utility function returns platform specific wait dict for each
+    test case that contains tc_name in it
+    @return a dict containing wait time and timeout for each test case
+
+        plt_wait_time:
+          acl/test_acl.py:
+            timeout: 300
+            wait: 300
+          everflow:
+            timeout: 300
+            wait: 60
+    """
+
+    wait_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_wait_time' in dut_vars:
+        for key in list(dut_vars['plt_wait_time'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_wait_time'][key].keys()):
+                    wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
+
+    return wait_dict
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
@@ -1287,7 +1348,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1317,6 +1378,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1484,7 +1546,8 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
-        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
@@ -1724,3 +1787,10 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
         namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
         asic_interface_map["-n {}".format(namespace)].append(interface)
     return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower() == 'true'
+    return False

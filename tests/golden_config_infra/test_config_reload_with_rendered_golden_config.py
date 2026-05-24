@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization,
 ]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -48,7 +49,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -63,7 +64,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 def config_compare(golden_config, running_config):

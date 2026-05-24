@@ -27,6 +27,7 @@ DUMMY_FILL_IPV6 = "9000::2"
 DUMMY_MAC = "00:11:22:33:44:55"
 PACKET_COUNT = 1000
 BATCH_PACKET_COUNT = 10000
+SEND_MAX_RETRIES = 3
 ECN = 2   # ECN Capable Transport(0), ECT(0)
 PACKET_SIZE_MARGIN = 4
 
@@ -147,14 +148,13 @@ SRV6_MY_SID_LIST = [
 SRV6_ROUTE_PREFIX = '2001::/16'
 
 # Drop counter
-SWITCH_INTERVAL = 1000
-PORT_INTERVAL = 100
-QUEUE_INTERVAL = 100
+# The polling interval should be no less than 2 seconds to avoid BGP routes large convergence time.
+TRIMMING_COUNTER_INTERVAL = 2000
 
 COUNTER_TYPE = [
-    ("switch", "SWITCH_STAT", SWITCH_INTERVAL),
-    ("port", "PORT_STAT", PORT_INTERVAL),
-    ("queue", "QUEUE_STAT", QUEUE_INTERVAL),
+    ("switch", "SWITCH_STAT", TRIMMING_COUNTER_INTERVAL),
+    ("port", "PORT_STAT", TRIMMING_COUNTER_INTERVAL),
+    ("queue", "QUEUE_STAT", TRIMMING_COUNTER_INTERVAL),
 ]
 
 # Mirror session configuration
