@@ -2,7 +2,6 @@ import os
 import re
 import time
 import logging
-import yaml
 import pytest
 from tests.common.helpers.platform_api import watchdog
 from tests.common.helpers.assertions import pytest_assert
@@ -10,8 +9,7 @@ from tests.common.platform.device_utils import platform_api_conn, start_platform
       add_platform_api_server_port_nat_for_dpu, get_ansible_ssh_port    # noqa: F401
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
-
-from collections import OrderedDict
+from tests.platform_tests.utils import get_config_from_yaml
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -27,19 +25,6 @@ TEST_WAIT_TIME_SECONDS = 2
 TIMEOUT_DEVIATION = 2
 
 
-def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
-    class OrderedLoader(Loader):
-        pass
-
-    def construct_mapping(loader, node):
-        loader.flatten_mapping(node)
-        return object_pairs_hook(loader.construct_pairs(node))
-    OrderedLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-        construct_mapping)
-    return yaml.load(stream, OrderedLoader)
-
-
 class TestWatchdogApi(PlatformApiTestBase):
     ''' Hardware watchdog platform API test cases '''
 
@@ -50,9 +35,15 @@ class TestWatchdogApi(PlatformApiTestBase):
         and disables it after the test ends'''
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
-                duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
-                duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+        if (
+            duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0'
+            or duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0'
+            or duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0'
+            or duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+        ):
+            duthost.shell("watchdogutil disarm")
+        elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
+            duthost.shell("systemctl disable watchdog.timer --now")
             duthost.shell("watchdogutil disarm")
 
         assert not watchdog.is_armed(platform_api_conn)
@@ -63,8 +54,12 @@ class TestWatchdogApi(PlatformApiTestBase):
             watchdog.disarm(platform_api_conn)
 
             if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
-                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0':
+                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
+                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0':
                 duthost.shell("systemctl start cpu_wdt.service")
+            elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
+                duthost.shell("systemctl enable watchdog.timer --now")
+
             if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
                 duthost.shell("watchdogutil arm")
 
@@ -76,8 +71,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         test_config = None
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        with open(TEST_CONFIG_FILE) as stream:
-            test_config = ordered_load(stream)
+        test_config = get_config_from_yaml(TEST_CONFIG_FILE)
 
         config = test_config['default']
 

@@ -16,15 +16,13 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
-from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
-from typing import TypedDict
+from typing import Dict, Optional, TypedDict
 
 
 class ShellResult(TypedDict):
@@ -36,6 +34,12 @@ class ShellResult(TypedDict):
     stderr_lines: list
     failed: bool
     changed: bool
+
+
+class ConsoleLineStatus(TypedDict):
+    """Type definition for console line status."""
+    oper_state: str
+    state_duration: str
 
 
 logger = logging.getLogger(__name__)
@@ -95,24 +99,37 @@ class SonicHost(AnsibleHostBase):
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 
-        self._facts = self._gather_facts()
-        self._os_version = self._get_os_version()
+        _gathered_facts = self._gather_facts()
 
-        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
-        device_type = device_metadata.get('type')
-        device_subtype = device_metadata.get('subtype')
-        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
+        self._facts = _gathered_facts.get('basic_facts', {})
+        self._facts['features'] = _gathered_facts.get('features', {})
+
+        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
+
+        self._os_version = _gathered_facts.get('versions', {}).get('build_version', '')
+        _sonic_release = _gathered_facts.get('versions', {}).get('release', '')
+        if not _sonic_release:
+            _sonic_release = self._os_version.split('.')[0][0:6]
+        self._sonic_release = _sonic_release
+        self._kernel_version = _gathered_facts.get('versions', {}).get('kernel_version', '').split('-')[0]
+
+        router_type = self._facts.get('router_type', '')
+        router_subtype = self._facts.get('router_subtype', '')
+
+        if router_type == 'NetworkBmc':
+            logger.info("Removing bgp, swss, syncd and teamd from default services for NetworkBmc")
+            self.DEFAULT_ASIC_SERVICES.remove("bgp")
+            self.DEFAULT_ASIC_SERVICES.remove("swss")
+            self.DEFAULT_ASIC_SERVICES.remove("syncd")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
+        if (router_type == 'UpperSpineRouter') or (router_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
-
-        feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
-        gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
+        gbsyncd_enabled = self._facts.get('features', {}).get('gbsyncd', {}).get('state', 'disabled') == 'enabled'
         if gbsyncd_enabled and self.facts["asic_type"] != "vs":
             self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
-        self._sonic_release = self._get_sonic_release()
-        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
-        self._kernel_version = self._get_kernel_version()
 
     def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
@@ -128,14 +145,8 @@ class SonicHost(AnsibleHostBase):
         Returns:
             dict: A dictionary containing the device platform information.
 
-            For example:
-            {
-                "platform": "x86_64-arista_7050_qx32s",
-                "hwsku": "Arista-7050-QX-32S",
-                "asic_type": "broadcom",
-                "num_asic": 1,
-                "router_mac": "52:54:00:f0:ac:9d",
-            }
+            Refer to docstring of ansible/library/sonic_basic_facts.py.
+            The self._facts has the value of res['ansible_facts']['basic_facts']
         """
 
         return self._facts
@@ -212,187 +223,17 @@ class SonicHost(AnsibleHostBase):
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
+
+        Refer to docstring of ansible/library/sonic_basic_facts.py for example output of the sonic_basic_facts module.
         """
-        facts = self._get_platform_info()
-
-        results = parallel_run_threaded(
-            [
-                lambda: self._get_asic_count(facts["platform"]),
-                self._get_router_mac,
-                lambda: self._get_modular_chassis(facts["asic_type"]),
-                self._get_mgmt_interface,
-                self._get_switch_type,
-                self._get_router_type,
-                self.get_asics_present_from_inventory,
-                lambda: self._get_platform_asic(facts["platform"])
-            ],
-            timeout=180,
-            thread_count=5
-        )
-
-        facts["num_asic"] = results[0]
-        facts["router_mac"] = results[1]
-        facts["modular_chassis"] = str2bool(results[2])
-        facts["mgmt_interface"] = results[3]
-        facts["switch_type"] = results[4]
-        facts["router_type"] = results[5]
-
-        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
-
-        if results[7]:
-            facts["platform_asic"] = results[7]
+        facts = self.sonic_basic_facts().get('ansible_facts', {})
+        asics_present = self.get_asics_present_from_inventory()
+        facts['basic_facts']['asics_present'] = asics_present \
+            if len(asics_present) != 0 \
+            else list(range(facts['basic_facts']['num_asic']))
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
-
-    def _get_mgmt_interface(self):
-        """
-        Gets the IPs of management interface
-        Output example
-
-            admin@ARISTA04T1:~$ show management_interface address
-            Management IP address = 10.250.0.54/24
-            Management Network Default Gateway = 10.250.0.1
-            Management IP address = 10.250.0.59/24
-            Management Network Default Gateway = 10.250.0.1
-
-        """
-        show_cmd_output = self.shell("show management_interface address", module_ignore_errors=True)
-        mgmt_addrs = []
-        for line in show_cmd_output["stdout_lines"]:
-            addr = re.match(r"Management IP address = (\d{0,3}\.\d{0,3}\.\d{0,3}\.\d{0,3})\/\d+", line)
-            if addr:
-                mgmt_addrs.append(addr.group(1))
-        return mgmt_addrs
-
-    def _get_modular_chassis(self, asic_type):
-        if asic_type == 'vs':
-            out = self.shell(
-                "python3 -c \"import sonic_py_common.device_info as P; \
-                             print(P.is_chassis()); exit()\"",
-                module_ignore_errors=True)
-            res = "False" if out["failed"] else out["stdout"]
-            return res
-
-        py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
-        if py_res["failed"]:
-            out = self.shell(
-                "python3 -c \"import sonic_platform.platform as P; \
-                             print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                module_ignore_errors=True)
-        else:
-            out = self.shell(
-                "python -c \"import sonic_platform.platform as P; \
-                print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                module_ignore_errors=True)
-        res = "False" if out["failed"] else out["stdout"]
-        return res
-
-    def _get_asic_count(self, platform):
-        """
-        Gets the number of asics for this device.
-        """
-        num_asic = 1
-        asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
-        try:
-            output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
-            logging.debug(output)
-
-            for line in output:
-                key, value = line.split("=")
-                if key.strip().upper() == "NUM_ASIC":
-                    num_asic = value.strip()
-                    break
-
-            logging.debug("num_asic = %s" % num_asic)
-
-            return int(num_asic)
-        except Exception:
-            return int(num_asic)
-
-    def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
-            "utf-8").lower()
-
-    def _get_switch_type(self):
-        try:
-            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0]\
-                .encode().decode("utf-8").lower()
-        except Exception:
-            return ''
-
-    def _get_router_type(self):
-        try:
-            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.type'")["stdout_lines"][0] \
-                .encode().decode("utf-8").lower()
-        except Exception:
-            return ''
-
-    def _get_platform_info(self):
-        """
-        Gets platform information about this SONiC device.
-        """
-
-        platform_info = self.command("show platform summary")["stdout_lines"]
-        result = {}
-        for line in platform_info:
-            if line.startswith("Platform:"):
-                result["platform"] = line.split(":")[1].strip()
-            elif line.startswith("HwSKU:"):
-                result["hwsku"] = line.split(":")[1].strip()
-            elif line.startswith("ASIC:"):
-                result["asic_type"] = line.split(":")[1].strip()
-
-        if result["platform"]:
-            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], "platform.json")
-
-            try:
-                out = self.command("cat {}".format(platform_file_path))
-                platform_info = json.loads(out["stdout"])
-                for key, value in list(platform_info.items()):
-                    result[key] = value
-
-            except Exception:
-                # if platform.json does not exist, then it's not added currently for certain platforms
-                # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, " +
-                              "DUT facts will not contain complete platform information.")
-
-        return result
-
-    @cached(name='os_version')
-    def _get_os_version(self):
-        """
-        Gets the SONiC OS version that is running on this device.
-        """
-
-        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-        return output["stdout_lines"][0].strip()
-
-    @cached(name='sonic_release')
-    def _get_sonic_release(self):
-        """
-        Gets the SONiC Release that is running on this device.
-        E.g. 202106, 202012, ...
-             if the release is master, then return none
-        """
-
-        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
-        if len(output['stdout_lines']) == 0:
-            # get release from OS version
-            if self.os_version:
-                return self.os_version.split('.')[0][0:6]
-            return 'none'
-        return output["stdout_lines"][0].strip()
-
-    @cached(name='kernel_version')
-    def _get_kernel_version(self):
-        """
-        Gets the SONiC kernel version
-        :return:
-        """
-        output = self.command('uname -r')
-        return output["stdout"].split('-')[0]
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
@@ -435,6 +276,14 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
+    def is_bmc(self):
+        """Check if the current SONiC host is a BMC.
+
+        Returns:
+            bool: True if this host is a BMC device, False otherwise.
+        """
+        return self._facts.get('router_type', '') == 'NetworkBmc'
+
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 
@@ -442,7 +291,7 @@ class SonicHost(AnsibleHostBase):
             True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
-        return not self.is_supervisor_node()
+        return not self.is_supervisor_node() and not self.is_bmc()
 
     def is_console_switch(self):
         """
@@ -764,7 +613,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -794,6 +669,8 @@ class SonicHost(AnsibleHostBase):
             service_critical_process['status'] = False
         for line in service_result['stdout_lines']:
             pname, status, _ = re.split('\\s+', line, 2)
+            # Extract group name from supervisor "group:process" format
+            group_name = pname.split(':')[0] if ':' in pname else None
             # 1. Check status is valid
             # Sometimes, stdout_lines may be error messages but not emtpy
             # In this situation, service container status should be false
@@ -803,12 +680,12 @@ class SonicHost(AnsibleHostBase):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
-                # 3. Check process is critical
-                if pname in critical_group_list or pname in critical_process_list:
+                # 3. Check process is critical (match by exact name or supervisor group prefix)
+                if pname in critical_process_list or (group_name and group_name in critical_group_list):
                     service_critical_process['exited_critical_process'].append(pname)
                     service_critical_process['status'] = False
             else:
-                if pname in critical_group_list or pname in critical_process_list:
+                if pname in critical_process_list or (group_name and group_name in critical_group_list):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
@@ -1893,12 +1770,27 @@ Totals               6450                 6449
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "j2": {"Device 869"},
+            "j2c+": {"Device 885"},
+            "q3d": {"8870", "8872"},
         }
         for asic in search_sets.keys():
             for search_term in search_sets[asic]:
                 if search_term in output:
                     return asic
         return UNKNOWN_ASIC
+
+    def _try_get_mrvl_asic_name(self, output):
+        prestera_devices = {
+            "Device 8400",  # Falcon
+            "Device 9400",  # AlleyCat5P
+        }
+
+        for search_term in prestera_devices:
+            if search_term in output:
+                return "marvell-prestera"
+
+        return "marvell-teralynx"
 
     def get_asic_name(self):
         asic = UNKNOWN_ASIC
@@ -1910,7 +1802,7 @@ Totals               6450                 6449
         elif "Mellanox Technologies" in output:
             asic = "spc"
         elif "Marvell Technology" in output:
-            asic = "marvell-teralynx"
+            asic = self._try_get_mrvl_asic_name(output)
 
         logger.info("asic: {}".format(asic))
 
@@ -1968,20 +1860,22 @@ Totals               6450                 6449
         """
         config = self.get_running_config_facts()
         vlan_brief = {}
-        for vlan_name, members in config["VLAN_MEMBER"].items():
-            vlan_brief[vlan_name] = {
-                "interface_ipv4": [],
-                "interface_ipv6": [],
-                "members": list(members.keys())
-            }
-        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
-            if vlan_name not in vlan_brief:
-                continue
-            for prefix in vlan_info.keys():
-                if '.' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
-                elif ':' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        if config.get('VLAN_MEMBER'):
+            for vlan_name, members in config["VLAN_MEMBER"].items():
+                vlan_brief[vlan_name] = {
+                    "interface_ipv4": [],
+                    "interface_ipv6": [],
+                    "members": list(members.keys())
+                }
+        if config.get('VLAN_INTERFACE'):
+            for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+                if vlan_name not in vlan_brief:
+                    continue
+                for prefix in vlan_info.keys():
+                    if '.' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                    elif ':' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
     def get_interfaces_status(self, namespace=None):
@@ -2475,7 +2369,7 @@ Totals               6450                 6449
         # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
         excluded_ports = set()
         for port, val in config_db_ports.items():
-            if "role" in val:
+            if "role" in val and val["role"] != "Ext":
                 excluded_ports.add(port)
         return excluded_ports
 
@@ -3029,7 +2923,7 @@ Totals               6450                 6449
         res: ShellResult = self.shell(f"sudo lsof {device_path}", module_ignore_errors=True)
         return True if res["stdout"] else False
 
-    def _get_serial_device_prefix(self) -> str:
+    def get_serial_device_prefix(self) -> str:
         """
         Get the serial device prefix for the platform.
 
@@ -3074,7 +2968,7 @@ print(device_prefix)
         Returns:
             str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB1")
         """
-        device_prefix = self._get_serial_device_prefix()
+        device_prefix = self.get_serial_device_prefix()
         return f"{device_prefix}{port}"
 
     def set_loopback(self, port: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
@@ -3102,8 +2996,7 @@ print(device_prefix)
         # Execute loopback command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"EXEC:'/bin/cat' "
             f"& echo $! "
         )
@@ -3184,10 +3077,8 @@ print(device_prefix)
         # Execute bridge command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
-            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"& echo $! "
         )
 
@@ -3280,8 +3171,7 @@ print(device_prefix)
         # Execute bridge command to remote host
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,b{baud_rate},crtscts={crtscts_val} "
             f"TCP:{remote_host}:{remote_port} "
             f"& echo $! "
         )
@@ -3316,9 +3206,8 @@ print(device_prefix)
         pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
 
         if not pids or pids == ['']:
-            error_msg = f"No remote bridge found for port {port}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            logging.info(f"No remote bridge found for port {port}, nothing to do")
+            return
 
         # Kill all related socat processes
         for pid in pids:
@@ -3347,7 +3236,7 @@ print(device_prefix)
             logging.error(error_msg)
             raise RuntimeError(error_msg)
 
-        device_prefix = self._get_serial_device_prefix()
+        device_prefix = self.get_serial_device_prefix()
         pattern = f"{device_prefix}*"
 
         # Find all related serial port processes
@@ -3367,21 +3256,124 @@ print(device_prefix)
 
         logging.info("Successfully cleaned up all console sessions")
 
+    @staticmethod
+    def parse_show_line_output(output: str) -> Dict[str, ConsoleLineStatus]:
+        """
+        Parse the output of 'show line -b' command.
+
+        Example output:
+          Line    Baud    Flow Control    PID    Start Time      Device    Oper State    State Duration
+        ------  ------  --------------  -----  ------------  ----------  ------------  ----------------
+             1    9600        Disabled      -             -   Terminal1       Unknown          3h20m26s
+             2    9600        Disabled      -             -   Terminal2       Unknown          3h32m59s
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        result: Dict[str, ConsoleLineStatus] = {}
+        lines = output.strip().split('\n')
+
+        # Find the header line to determine column positions
+        header_line = None
+        data_start = 0
+        for i, line in enumerate(lines):
+            if 'Line' in line and 'Oper State' in line:
+                header_line = line
+                data_start = i + 2  # Skip header and separator line
+                break
+
+        if header_line is None:
+            return result
+
+        # Parse data lines
+        for line in lines[data_start:]:
+            if not line.strip():
+                continue
+
+            # Split by multiple spaces to handle the tabular format
+            parts = line.split()
+            if len(parts) >= 8:
+                # Line ID is the first column, Oper State is the 7th column (index 6)
+                # State Duration is the 8th column (index 7)
+                # Format: Line, Baud, Flow Control (2 words), PID, Start Time, Device, Oper State, State Duration
+                line_id = parts[0]
+                oper_state = parts[6]
+                state_duration = parts[7]
+                result[line_id] = ConsoleLineStatus(
+                    oper_state=oper_state,
+                    state_duration=state_duration
+                )
+
+        return result
+
+    def get_console_line_statuses(self) -> Dict[str, ConsoleLineStatus]:
+        """
+        Get status of all configured console lines using 'show line -b' command.
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        output = self.shell("show line -b")['stdout']
+        return self.parse_show_line_output(output)
+
+    def get_console_line_status(self, line_id: int) -> Optional[str]:
+        """
+        Get the oper_state of a specific console line.
+
+        Args:
+            line_id: Console line ID (e.g., 1, 2)
+
+        Returns:
+            str: Line status ('Up', 'Unknown') or None if not found
+        """
+        all_statuses = self.get_console_line_statuses()
+        line_info = all_statuses.get(str(line_id))
+        return line_info['oper_state'] if line_info else None
+
+    def enable_console_heartbeat(self) -> None:
+        """
+        Enable console heartbeat on the DTE side.
+        Starts console-monitor-dte service and enables heartbeat sending.
+        """
+        self.shell("sudo systemctl start console-monitor-dte")
+        self.shell("sudo config console heartbeat enable")
+        logging.info("console-monitor-dte service started and heartbeat enabled")
+
+    def disable_console_heartbeat(self) -> None:
+        """
+        Disable console heartbeat on the DTE side.
+        """
+        self.shell("sudo config console heartbeat disable")
+        logging.info("console heartbeat disabled")
+
     def get_mgmt_ip(self):
         """
         Gets the management IP address (v4 or v6) on eth0.
         Defaults to IPv4 on a dual stack configuration.
         """
+        # For SmartSwitch DPU, the exposed mgmt IP is the switch mgmt IP with a NAT port
+        # And it's IPv4 only
+        if self.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+            return {"mgmt_ip": self.mgmt_ip, "version": "v4"}
+
         ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
         ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
 
-        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Use 'ip addr' instead of 'show ip[v6] interface' because the latter
+        # filters out site-local v6 addresses (fec0::/10) that may legitimately
+        # be configured as mgmt.
+        mgmt_interface = self.shell(
+            "ip -4 -o addr show eth0 scope global", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv4_regex.search(mgmt_interface)
             if match:
                 return {"mgmt_ip": match.group(1), "version": "v4"}
 
-        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        # Exclude link-local (fe80::/10) — not routable, can't be the mgmt addr.
+        mgmt_interface = self.shell(
+            "ip -6 -o addr show eth0 | grep -v 'scope link'", module_ignore_errors=True
+        )["stdout"]
         if mgmt_interface:
             match = ipv6_regex.search(mgmt_interface)
             if match:

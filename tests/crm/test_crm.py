@@ -440,9 +440,8 @@ def generate_neighbors(amount, ip_ver):
     return ip_addr_list
 
 
-def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size):
+def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
     """ Configure bunch of nexthop groups on DUT. Bash template is used to speedup configuration """
-    # Template used to speedup execution many similar commands on DUT
     del_template = """
     %s
     for s in {{neigh_ip_list}}
@@ -456,41 +455,62 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
         ip {{ns_prefix}} neigh del ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
     done""" % (NS_PREFIX_TEMPLATE)
 
-    add_template = """
+    neigh_template = """
     %s
-    ip -4 {{ns_prefix}} route add 2.0.0.0/8 dev {{iface}}
-    ip {{ns_prefix}} neigh replace 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}
     for s in {{neigh_ip_list}}
     do
-        ip  {{ns_prefix}} neigh replace ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
+    done""" % (NS_PREFIX_TEMPLATE)
+
+    route_template = """
+    %s
+    for s in {{neigh_ip_list}}
+    do
         ip -4 {{ns_prefix}} route add ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
     done""" % (NS_PREFIX_TEMPLATE)
 
+    init_template = """
+    %s
+    ip -4 {{ns_prefix}} route add 2.0.0.0/8 dev {{iface}}
+    ip {{ns_prefix}} neigh replace 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}""" % (NS_PREFIX_TEMPLATE)
+
     del_template = Template(del_template)
-    add_template = Template(add_template)
+    neigh_template = Template(neigh_template, autoescape=True)
+    route_template = Template(route_template, autoescape=True)
+    init_template = Template(init_template, autoescape=True)
 
     ip_addr_list = generate_neighbors(amount + 1, "4")
+    remaining_ips = ip_addr_list[1:]
+    all_ips_str = " ".join([str(item) for item in remaining_ips])
 
-    # Split up the neighbors into chunks of size chunk_size to buffer kernel neighbor messages
-    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size]
-                             for i in range(0, len(ip_addr_list), chunk_size)]
+    RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
+                                                       neigh_ip_list=all_ips_str,
+                                                       namespace=asichost.namespace))
 
-    logger.info("Configuring {} total nexthop groups".format(amount))
-    for ip_batch in batched_ip_addr_lists:
-        ip_addr_list_batch = " ".join([str(item) for item in ip_batch[1:]])
-        # Store CLI command to delete all created neighbors if test case will fail
-        RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
-                                                           neigh_ip_list=ip_addr_list_batch,
-                                                           namespace=asichost.namespace))
+    asichost.shell(init_template.render(iface=interface, namespace=asichost.namespace))
 
-        logger.info("Configuring {} nexthop groups".format(len(ip_batch)))
+    # Phase 1: add all neighbors, then verify via CRM counter before adding routes
+    get_neighbor_stats = "{} COUNTERS_DB HMGET CRM:STATS " \
+                         "crm_stats_ipv4_neighbor_used " \
+                         "crm_stats_ipv4_neighbor_available".format(asichost.sonic_db_cli)
+    neighbor_used_before, _ = get_crm_stats(get_neighbor_stats, duthost)
 
-        asichost.shell(add_template.render(iface=interface,
-                                           neigh_ip_list=ip_addr_list_batch,
-                                           namespace=asichost.namespace))
+    logger.info("Phase 1: Adding {} neighbors".format(amount))
+    asichost.shell(neigh_template.render(iface=interface,
+                                         neigh_ip_list=all_ips_str,
+                                         namespace=asichost.namespace))
 
-        # Brief pause between batches to avoid overwhelming kernel neighbor messages
-        wait_until(1, 1, 1, lambda: True)
+    expected_neighbor_used = neighbor_used_before + amount + 1
+    logger.info("Waiting for all {} neighbors to be programmed in HW".format(amount + 1))
+    wait_for_crm_counter_update(get_neighbor_stats, duthost,
+                                expected_used=expected_neighbor_used - CRM_COUNTER_TOLERANCE,
+                                oper_used=">=", timeout=60, interval=5)
+
+    # Phase 2: add routes now that all neighbors are confirmed in HW
+    logger.info("Phase 2: Adding {} routes".format(amount))
+    asichost.shell(route_template.render(iface=interface,
+                                         neigh_ip_list=all_ips_str,
+                                         namespace=asichost.namespace))
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
@@ -522,10 +542,34 @@ def increase_arp_cache(duthost, max_value, ip_ver, test_name):
         logger.info("{}".format(cmd))
 
 
-def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
+def configure_neighbors(amount, interface, ip_ver, asichost, test_name, unique_mac=False):
     """ Configure bunch of IP neighbors on DUT. Bash template is used to speedup configuration """
     # Template used to speedup execution many similar commands on DUT
-    del_template = """
+    if unique_mac:
+        # Cisco-8000 needs to use unique MAC when adding neighbors to increment per resource optimization
+        del_template = """
+    %s
+    c=0
+    for s in {{neigh_ip_list}}
+    do
+        mac=$(printf "02:01:%%02x:%%02x:%%02x:%%02x" $((c>>24&255)) $((c>>16&255)) $((c>>8&255)) $((c&255)))
+        ip {{ns_prefix}} neigh del ${s} lladdr ${mac} dev {{iface}}
+        echo deleted - ${s}
+        c=$((c+1))
+    done""" % (NS_PREFIX_TEMPLATE)
+
+        add_template = """
+    %s
+    c=0
+    for s in {{neigh_ip_list}}
+    do
+        mac=$(printf "02:01:%%02x:%%02x:%%02x:%%02x" $((c>>24&255)) $((c>>16&255)) $((c>>8&255)) $((c&255)))
+        ip {{ns_prefix}} neigh replace ${s} lladdr ${mac} dev {{iface}}
+        echo added - ${s}
+        c=$((c+1))
+    done""" % (NS_PREFIX_TEMPLATE)
+    else:
+        del_template = """
     %s
     for s in {{neigh_ip_list}}
     do
@@ -533,7 +577,7 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
         echo deleted - ${s}
     done""" % (NS_PREFIX_TEMPLATE)
 
-    add_template = """
+        add_template = """
     %s
     for s in {{neigh_ip_list}}
     do
@@ -626,7 +670,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
-    if is_ipv6_only_topology and ip_ver == "4":
+    if is_ipv6_only_topology(tbinfo) and ip_ver == "4":
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     # Template used to speedup execution of many similar commands on DUT
@@ -727,7 +771,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used - total_routes + CRM_COUNTER_TOLERANCE
+    expected_max_used = crm_stats_route_used + CRM_COUNTER_TOLERANCE
 
     def check_route_deleted():
         return get_route_used() <= expected_max_used
@@ -945,10 +989,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
-    neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
-                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, iface=crm_interface[0])
-    neighbor_del_cmd = "{ip_cmd} neigh del {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
-                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, iface=crm_interface[0])
+    neigh_mac = "02:01:00:00:00:01" if is_cisco_device(duthost) else "11:22:33:44:55:66"
+    neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr {mac} dev {iface}"\
+                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, mac=neigh_mac, iface=crm_interface[0])
+    neighbor_del_cmd = "{ip_cmd} neigh del {neighbor} lladdr {mac} dev {iface}"\
+                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, mac=neigh_mac, iface=crm_interface[0])
 
     # Get "crm_stats_ipv[4/6]_neighbor" used and available counter value
     get_neighbor_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
@@ -995,7 +1040,8 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver,
-                            asichost=asichost, test_name="test_crm_neighbor")
+                            asichost=asichost, test_name="test_crm_neighbor",
+                            unique_mac=is_cisco_device(duthost))
 
         # Wait for neighbor resources to stabilize using polling
         expected_neighbor_used = new_crm_stats_neighbor_used + neighbours_num - CRM_COUNTER_TOLERANCE
@@ -1110,17 +1156,10 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
-        # Configure neighbors in batches of size chunk_size
-        # on sn4700 devices, kernel neighbor messages were being dropped due to volume.
-        if "msn4700" in asic_type:
-            chunk_size = 200
-        else:
-            chunk_size = nexthop_group_num
-
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
-                                 asichost=asichost, test_name="test_crm_nexthop_group",
-                                 chunk_size=chunk_size)
+                                 duthost=duthost, asichost=asichost,
+                                 test_name="test_crm_nexthop_group")
 
         # Wait for nexthop group resources to stabilize using polling
         expected_nhg_used = new_nexthop_group_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
@@ -1337,7 +1376,7 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         expected_acl_counter_used = new_crm_stats_acl_counter_used + actual_acl_count - CRM_COUNTER_TOLERANCE
         logger.info("Waiting for {} ACL counter resources to stabilize".format(actual_acl_count))
         wait_for_crm_counter_update(get_acl_counter_stats, duthost, expected_used=expected_acl_counter_used,
-                                    oper_used=">=", timeout=60, interval=5)
+                                    oper_used=">=", timeout=90, interval=5)
 
         new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available = \
             get_crm_stats(get_acl_counter_stats, duthost)

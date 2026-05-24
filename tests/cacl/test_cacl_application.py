@@ -151,7 +151,7 @@ def clean_scale_rules(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignore
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     logger.info("Reload config to recover configuration.")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="function")
@@ -533,6 +533,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
             ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT"
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
+
+        # dhcp_server uses bridge networking; its startup script adds an iptables
+        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
+        if "dhcp_server" in docker_network['container']:
+            iptables_rules.append(
+                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'

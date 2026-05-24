@@ -10,6 +10,7 @@ from tests.common.config_reload import config_reload
 from tests.common.devices.eos import EosHost
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
+from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ pytestmark = [
 
 BGP_WAIT_TIMEOUT = 90
 BGP_WAIT_INTERVAL = 10
+# [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test placeholder password")]
 peer_password = "sonic.123"
 wrong_password = "wrong-password"
 EOS_BACKUP_CONFIG_FILE = "/tmp/eos_neighbor_test_passive_peering_backup_config_{}"
@@ -70,6 +72,13 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1]
 
+    # EOS/cEOS converged: eos_config parents (nbrhosts flag or tbinfo convergence_data fallback)
+    if is_sonic:
+        neigh_eos_bgp_parents = None
+    else:
+        neigh_eos_bgp_parents = eos_bgp_neighbor_config_parents(
+            tbinfo, nbrhosts, neigh_name, neigh_asn[neigh_name])
+
     # verify sessions are established
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])
     logger.debug(duthost.shell('show ipv6 bgp summary')['stdout'])
@@ -90,7 +99,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
         'peer_group_v6': peer_group_v6,
         'asic_index': asic_index,
         'neigh_asic_index': neigh_asic_index,
-        'is_sonic': is_sonic
+        'is_sonic': is_sonic,
+        'neigh_eos_bgp_parents': neigh_eos_bgp_parents,
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
@@ -177,7 +187,8 @@ def test_bgp_passive_peering_ipv4(setup):
         setup['neighhost'].shell(cmd, module_ignore_errors=True)
     else:
         cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], peer_password)]
-        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_config(
+            lines=cmd, parents=setup['neigh_eos_bgp_parents']))
         logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
@@ -233,7 +244,8 @@ def test_bgp_passive_peering_ipv6(setup):
         setup['neighhost'].shell(cmd, module_ignore_errors=True)
     else:
         cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v6'], peer_password)]
-        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_config(
+            lines=cmd, parents=setup['neigh_eos_bgp_parents']))
         logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,

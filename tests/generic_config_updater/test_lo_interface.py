@@ -97,6 +97,8 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname, lo_intf):
 def cleanup_lo_interface_config(duthost, cfg_facts):
     lo_interfaces = cfg_facts.get('LOOPBACK_INTERFACE', {})
     for lo_interface in lo_interfaces:
+        if lo_interface != DEFAULT_LOOPBACK:
+            continue
         del_loopback_interface = duthost.shell(
             "sudo config loopback del {}".format(lo_interface),
             module_ignore_errors=True)
