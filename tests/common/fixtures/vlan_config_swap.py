@@ -197,10 +197,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
             config_patch += remove_vlan_member_patch(vlan_name, member)
 
     # Dualtor MUX_CABLE: detected from topology (is_dualtor). All dualtor
-    # variants (regular, active-active, active-active-mixed) deploy MUX_CABLE;
-    # non-dualtor topos never do. Detecting from running config would be
-    # drift-vulnerable (a previous failed teardown that cleared MUX_CABLE
-    # would silently classify the topology as non-dualtor here).
+    # variants deploy MUX_CABLE; non-dualtor topos never do. Detecting
+    # from running config would be drift-vulnerable (a previous failed
+    # teardown that cleared MUX_CABLE would silently classify the
+    # topology as non-dualtor here).
     if is_dualtor:
         running_mux_cable = running_config.get("MUX_CABLE", {})
         for intf_name in list(running_mux_cable.keys()):
@@ -231,18 +231,13 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         mac = vparams.get("mac")
         intf_indices = vparams.get("intfs", []) or []
 
-        # Build (dut_port, ptf_idx) pairs. By construction ptf_idx == idx
-        # whenever _intf_index_to_dut_name(idx) resolves. Log skipped
-        # indices so a topo/minigraph mismatch is visible at fixture time
-        # instead of silently producing a half-populated variant.
+        # Build (dut_port, ptf_idx) pairs. Log skipped indices so a
+        # topo/minigraph mismatch is visible at fixture time instead of
+        # silently producing a half-populated variant.
         members_with_ptf_idx = []
         for idx in intf_indices:
             dut_port = _intf_index_to_dut_name(idx)
             if dut_port is None:
-                # This is a gap in the topo yaml: the variant declares an
-                # interface index that does not exist in the minigraph for
-                # this DUT. The fixture skips it so the test can proceed,
-                # but the topo definition should be fixed.
                 logger.warning(
                     "vlan %s: intf_idx %s declared in topo yaml has no "
                     "dut port in minigraph_ptf_indices -- this is a topo "
@@ -296,9 +291,9 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
 
     # Dualtor MUX_CABLE: re-emit via the canonical ansible module
     # (ansible/library/mux_cable_facts.py -> dualtor_utils.generate_mux_cable_facts)
-    # so the active-standby / active-active / active-active-mixed algorithm
-    # stays in one place. The module returns server/soc IPs with the vlan
-    # netmask; CONFIG_DB MUX_CABLE uses host masks (/32, /128) so rewrite.
+    # so the per-cable-type algorithm stays in one place. The module
+    # returns server/soc IPs with the vlan netmask; CONFIG_DB MUX_CABLE
+    # uses host masks (/32, /128) so rewrite.
     if is_dualtor:
         mux_cable_facts = localhost.mux_cable_facts(
             topology=tbinfo["topo"]["properties"]["topology"],
@@ -332,13 +327,9 @@ def _apply_and_persist(host, patch, refresh_caclmgrd):
         output = apply_patch(host, patch, tmpfile)
     finally:
         host.file(path=tmpfile, state="absent")
-    # Use a plain Exception (not pytest.fail/Failed) so that
-    # the multiprocessing.pool.ThreadPool worker -- which catches
-    # Exception, not BaseException -- captures the failure in
-    # ApplyResult. pytest.Failed would escape uncaught, silently
-    # kill the worker thread, leave ApplyResult.ready() False
-    # forever, and stall parallel_run_threaded until its outer
-    # timeout fires (~1200 s) instead of failing immediately.
+    # Plain Exception (not pytest.fail) so the ThreadPool worker
+    # catches it into ApplyResult; pytest.Failed is a BaseException
+    # subclass and would silently kill the worker.
     if output.get("rc"):
         raise RuntimeError(
             "apply-patch on {} failed: rc={} stdout={!r} stderr={!r}".format(
@@ -388,9 +379,9 @@ def parametrize_vlan_config_from_topo(
         variant_name, default_variant_name, duthost.hostname,
     )
     if is_dualtor:
-        # Both DUTs in parallel (~32s saved on the 30s+30s apply-and-persist
-        # sequence). Each side does its own _generate_config_patch_from_variant
-        # so a drifted unselected DUT still gets a correct patch.
+        # Both DUTs in parallel. Each side does its own
+        # _generate_config_patch_from_variant so a drifted unselected DUT
+        # still gets a correct patch.
         outer_timeout = max(
             get_gcu_timeout(duthost),
             get_gcu_timeout(rand_unselected_dut),
