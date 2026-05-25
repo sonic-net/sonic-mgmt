@@ -64,6 +64,12 @@ DOCUMENTATION += """
 # 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: No route to host'
 CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
 CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
+# ansible-core 2.19 changed the default password_mechanism from 'sshpass' to
+# 'ssh_askpass'. With ssh_askpass, authentication failures are reported as
+# AnsibleConnectionFailure instead of AnsibleAuthenticationFailure. We detect
+# the "Permission denied" message to distinguish auth failures from
+# connectivity failures (timeout, no route to host, etc.).
+PERMISSION_DENIED_ERR_FLAG = "Permission denied"
 
 
 def _password_retry(func):
@@ -96,16 +102,27 @@ def _password_retry(func):
                 # if there is no more altpassword to try, raise
                 if not conn_passwords:
                     raise
+            except AnsibleConnectionFailure as e:
+                # ansible-core 2.19+ with ssh_askpass raises AnsibleConnectionFailure
+                # (not AnsibleAuthenticationFailure) for "Permission denied" auth failures.
+                # Treat it as an auth failure so the retry loop still iterates.
+                err_msg = getattr(e, "message", "") or str(e)
+                if PERMISSION_DENIED_ERR_FLAG not in err_msg:
+                    raise  # not an auth failure; preserve original behaviour
+                if not conn_passwords:
+                    raise  # exhausted all passwords
             finally:
                 # reset `password` to its original state
                 self.set_option("password", password)
                 self._play_context.password = password
             # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-            self.sshpass_pipe = os.pipe()
+            if hasattr(self, 'sshpass_pipe'):
+                self.sshpass_pipe = os.pipe()
 
     def _change_host(self, new_host, *args):
         # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-        self.sshpass_pipe = os.pipe()
+        if hasattr(self, 'sshpass_pipe'):
+            self.sshpass_pipe = os.pipe()
         self._play_context.remote_addr = new_host
         # args sample:
         # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501
@@ -150,34 +167,6 @@ def _password_retry(func):
 
 
 class Connection(_ssh.Connection):
-
-    def set_options(self, task_keys=None, var_options=None, direct=None):
-        """Override to force password_mechanism=sshpass for ansible-core 2.19+.
-
-        ansible-core 2.19 changed the default password_mechanism from 'sshpass'
-        to 'ssh_askpass'. The ssh_askpass mechanism is incompatible with this
-        plugin's multi-password retry logic because:
-        1. With ssh_askpass, auth failures raise AnsibleConnectionFailure (not
-           AnsibleAuthenticationFailure), so password rotation never triggers.
-        2. The SharedMemory-based password passing doesn't support retry with
-           different passwords between attempts.
-
-        We inject password_mechanism=sshpass via the 'direct' (highest-priority)
-        parameter so the parent class processes it DURING initialization. This
-        ensures any infrastructure tied to the mechanism (pipe setup, shared
-        memory, etc.) is configured correctly from the start.
-
-        On ansible-core < 2.19 the option does not exist; passing an unknown
-        key in 'direct' is silently ignored by ansible's config framework, so
-        no version check is needed.
-        """
-        # Merge into a copy of the caller's direct dict so that any
-        # explicitly-set caller value still takes precedence via setdefault.
-        merged_direct = dict(direct) if direct else {}
-        merged_direct.setdefault('password_mechanism', 'sshpass')
-        super(Connection, self).set_options(task_keys=task_keys,
-                                            var_options=var_options,
-                                            direct=merged_direct)
 
     @_password_retry
     def _run(self, *args, **kwargs):
