@@ -195,11 +195,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for member in list(vlan_members.get(vlan_name, {}).keys()):
             config_patch += remove_vlan_member_patch(vlan_name, member)
 
-    # Dualtor MUX_CABLE: detected from topology (is_dualtor). All dualtor
-    # variants deploy MUX_CABLE; non-dualtor topos never do. Detecting
-    # from running config would be drift-vulnerable (a previous failed
-    # teardown that cleared MUX_CABLE would silently classify the
-    # topology as non-dualtor here).
+    # Dualtor MUX_CABLE: detected from topology (is_dualtor) not running
+    # config -- a previous failed teardown that cleared MUX_CABLE would
+    # silently classify the topology as non-dualtor. All dualtor variants
+    # deploy MUX_CABLE; non-dualtor topos never do.
     if is_dualtor:
         running_mux_cable = running_config.get("MUX_CABLE", {})
         for intf_name in list(running_mux_cable.keys()):
@@ -288,11 +287,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         for member, _ in members_with_ptf_idx:
             config_patch += add_vlan_member_patch(vlan_name, member)
 
-    # Dualtor MUX_CABLE: re-emit via the canonical ansible module
-    # (ansible/library/mux_cable_facts.py -> dualtor_utils.generate_mux_cable_facts)
-    # so the per-cable-type algorithm stays in one place. The module
-    # returns server/soc IPs with the vlan netmask; CONFIG_DB MUX_CABLE
-    # uses host masks (/32, /128) so rewrite.
+    # Dualtor MUX_CABLE re-emit: use canonical ansible module
+    # `mux_cable_facts` -> dualtor_utils.generate_mux_cable_facts so the
+    # per-cable-type algorithm stays in one place. The module returns
+    # server/soc IPs with vlan netmask; CONFIG_DB uses /32 + /128.
     if is_dualtor:
         mux_cable_facts = localhost.mux_cable_facts(
             topology=tbinfo["topo"]["properties"]["topology"],
@@ -378,9 +376,8 @@ def parametrize_vlan_config_from_topo(
         variant_name, default_variant_name, duthost.hostname,
     )
     if is_dualtor:
-        # Both DUTs in parallel. Each side does its own
-        # _generate_config_patch_from_variant so a drifted unselected DUT
-        # still gets a correct patch.
+        # Both DUTs in parallel; each side computes its own
+        # _generate_config_patch_from_variant for drift-safety.
         outer_timeout = max(get_gcu_timeout(duthost), get_gcu_timeout(rand_unselected_dut)) + 60
         try:
             outs = parallel_run_threaded(
