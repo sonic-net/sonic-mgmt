@@ -25,6 +25,7 @@ def _get_enum_class(enum_type_str):
             return cls
     return None
 
+
 PB_INT_TYPES = set([
     FieldDescriptor.TYPE_INT32,
     FieldDescriptor.TYPE_INT64,
@@ -92,8 +93,12 @@ def get_message_from_table_name(tbl_name):
     module_base, message_name = _normalize_table_name(inner)
     module_name = f'dash_api.{module_base}_pb2'
 
-    # Import the module dynamically
-    module = importlib.import_module(module_name)
+    # Validate module_base contains only safe characters (alphanumeric and underscore)
+    if not re.fullmatch(r'[a-z0-9_]+', module_base):
+        raise ValueError(f"Invalid table name: {tbl_name}")
+
+    # Import the module dynamically (constrained to dash_api.*_pb2 namespace)
+    module = importlib.import_module(module_name)  # nosemgrep: non-literal-import
 
     # Get the class object
     message_class = getattr(module, message_name)

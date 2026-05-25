@@ -2,7 +2,6 @@ import json
 import logging
 from . import proto_utils
 import time
-import subprocess
 
 from pygnmi.client import gNMIclient
 from pygnmi.create_gnmi_path import gnmi_path_generator
@@ -55,22 +54,6 @@ class GNMIEnvironment:
     # gnmi_set/gnmi_get calls in the same command run. If None, each call
     # opens and closes its own short-lived client.
     gc = None
-
-
-def exec_cmd(cmd):
-    logging.debug(cmd)
-    result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    # Check the result
-    if result.returncode == 0:
-        logging.debug("Command executed successfully.")
-        logging.debug("Output:")
-        logging.debug(result.stdout)
-    else:
-        logging.error("Error executing the command.")
-        logging.error("Error output:")
-        logging.error(result.stderr)
-    return result
 
 
 def _make_client(env):

@@ -9,14 +9,14 @@ import json
 
 
 def render_template(template_path, context, out_file, reverse=False):
-    # Create a Jinja2 environment
-    env = Environment(loader=FileSystemLoader('.'))
+    # Create a Jinja2 environment (renders JSON for gNMI, not HTML — no XSS risk)
+    env = Environment(loader=FileSystemLoader('.'))  # nosemgrep: direct-use-of-jinja2
 
     # Load the template
     template = env.get_template(template_path)
 
-    # Render the template with the provided context
-    rendered_content = template.render(context)
+    # Render the template with the provided context (renders JSON for gNMI, not HTML — no XSS risk)
+    rendered_content = template.render(context)  # nosemgrep: direct-use-of-jinja2
     if reverse:
         reqs = json.loads(rendered_content)
         reversed_reqs = reqs[::-1]
