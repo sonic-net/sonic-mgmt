@@ -100,7 +100,7 @@ MMG_BAD_MAC_TABLE = "MAC_MOVE_GUARD"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 
