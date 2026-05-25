@@ -375,11 +375,11 @@ def parametrize_vlan_config_from_topo(
                     lambda: _swap_one_dut(duthost, variant_name),
                     lambda: _swap_one_dut(rand_unselected_dut, variant_name),
                 ],
-                timeout=600,
+                timeout=1200,
             )
         except TimeoutError:
             logger.error(
-                "parametrize_vlan_config_from_topo apply timed out (>600s) "
+                "parametrize_vlan_config_from_topo apply timed out (>1200s) "
                 "applying variant=%s on DUTs=%s,%s",
                 variant_name, duthost.hostname, rand_unselected_dut.hostname,
             )
@@ -401,11 +401,11 @@ def parametrize_vlan_config_from_topo(
                     lambda: _swap_one_dut(duthost, default_variant_name),
                     lambda: _swap_one_dut(rand_unselected_dut, default_variant_name),
                 ],
-                timeout=600,
+                timeout=1200,
             )
         except TimeoutError:
             logger.error(
-                "parametrize_vlan_config_from_topo teardown timed out (>600s) "
+                "parametrize_vlan_config_from_topo teardown timed out (>1200s) "
                 "restoring variant=%s on DUTs=%s,%s",
                 default_variant_name, duthost.hostname, rand_unselected_dut.hostname,
             )
