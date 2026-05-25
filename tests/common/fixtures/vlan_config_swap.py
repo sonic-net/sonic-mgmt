@@ -142,6 +142,13 @@ def remove_mux_cable_patch(intf_name):
     }]
 
 
+def _inherit_servers_from_running(vlan_name, table, key, fallback_vlan):
+    entry = table.get(vlan_name) or (
+        table.get(fallback_vlan, {}) if fallback_vlan else {}
+    )
+    return entry.get(key, []) or []
+
+
 def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name, is_dualtor):
     """Build the (sub_vlans_info, config_patch) tuple for the requested variant."""
     topo_name = tbinfo["topo"]["name"]
@@ -170,12 +177,6 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     deployed_vlan = running_config.get("VLAN", {})
     deployed_relay = running_config.get("DHCP_RELAY", {})
     fallback_vlan = current_vlan_names[0] if current_vlan_names else None
-
-    def _inherit_servers_from_running(vlan_name, table, key):
-        entry = table.get(vlan_name) or (
-            table.get(fallback_vlan, {}) if fallback_vlan else {}
-        )
-        return entry.get(key, []) or []
 
     # Build remove ops for every currently-deployed Vlan + its IPs + members
     # + DHCP_RELAY entry.
@@ -256,10 +257,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         })
 
         # Per-VLAN carry-forward of dhcp servers / dhcp_relay servers.
-        dhcp_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcp_servers")
-        dhcpv6_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcpv6_servers")
-        relay_v4 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv4_servers")
-        relay_v6 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv6_servers")
+        dhcp_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcp_servers", fallback_vlan)
+        dhcpv6_servers = _inherit_servers_from_running(vlan_name, deployed_vlan, "dhcpv6_servers", fallback_vlan)
+        relay_v4 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv4_servers", fallback_vlan)
+        relay_v6 = _inherit_servers_from_running(vlan_name, deployed_relay, "dhcpv6_servers", fallback_vlan)
 
         config_patch += add_vlan_patch(
             vlan_name, dhcp_servers, dhcpv6_servers,
