@@ -16,7 +16,7 @@ import logging
 
 import pytest
 
-from tests.common.gu_utils import apply_patch
+from tests.common.gu_utils import apply_patch, get_gcu_timeout
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.helpers.assertions import pytest_require
 
@@ -391,19 +391,23 @@ def parametrize_vlan_config_from_topo(
         # Both DUTs in parallel (~32s saved on the 30s+30s apply-and-persist
         # sequence). Each side does its own _generate_config_patch_from_variant
         # so a drifted unselected DUT still gets a correct patch.
+        outer_timeout = max(
+            get_gcu_timeout(duthost),
+            get_gcu_timeout(rand_unselected_dut),
+        ) + 60
         try:
             outs = parallel_run_threaded(
                 [
                     lambda: _swap_one_dut(duthost, variant_name),
                     lambda: _swap_one_dut(rand_unselected_dut, variant_name),
                 ],
-                timeout=1200,
+                timeout=outer_timeout,
             )
         except TimeoutError:
             logger.error(
-                "parametrize_vlan_config_from_topo apply timed out (>1200s) "
+                "parametrize_vlan_config_from_topo apply timed out (>%ds) "
                 "applying variant=%s on DUTs=%s,%s",
-                variant_name, duthost.hostname, rand_unselected_dut.hostname,
+                outer_timeout, variant_name, duthost.hostname, rand_unselected_dut.hostname,
             )
             raise
         sub_vlans_info = outs[0]
@@ -417,19 +421,23 @@ def parametrize_vlan_config_from_topo(
     # session) starts from a known state.
     logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
     if is_dualtor:
+        outer_timeout = max(
+            get_gcu_timeout(duthost),
+            get_gcu_timeout(rand_unselected_dut),
+        ) + 60
         try:
             parallel_run_threaded(
                 [
                     lambda: _swap_one_dut(duthost, default_variant_name),
                     lambda: _swap_one_dut(rand_unselected_dut, default_variant_name),
                 ],
-                timeout=1200,
+                timeout=outer_timeout,
             )
         except TimeoutError:
             logger.error(
-                "parametrize_vlan_config_from_topo teardown timed out (>1200s) "
+                "parametrize_vlan_config_from_topo teardown timed out (>%ds) "
                 "restoring variant=%s on DUTs=%s,%s",
-                default_variant_name, duthost.hostname, rand_unselected_dut.hostname,
+                outer_timeout, default_variant_name, duthost.hostname, rand_unselected_dut.hostname,
             )
             raise
     else:
