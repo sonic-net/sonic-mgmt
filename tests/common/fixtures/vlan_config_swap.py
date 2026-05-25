@@ -304,8 +304,10 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
             topology=tbinfo["topo"]["properties"]["topology"],
             vlan_config=variant_name,
         )["ansible_facts"]["mux_cable_facts"]
+        # Keys come back from Ansible JSON-serialised as strings;
+        # _ptf_idx_to_dut_port has int keys (from minigraph), so coerce.
         for intf_idx, info in mux_cable_facts.items():
-            dut_port = _intf_index_to_dut_name(intf_idx)
+            dut_port = _intf_index_to_dut_name(int(intf_idx))
             if dut_port is None:
                 continue
             server_ipv4 = info["server_ipv4"].split("/")[0] + "/32"
