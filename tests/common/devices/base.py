@@ -156,7 +156,7 @@ class AnsibleHostBase(object):
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
         with suppress_signal_registration_for_non_main_thread():
             res = self.module(*module_args, **complex_args)[self.hostname]
-        res.encoder = AnsibleHostBase.CustomEncoder
+            res.encoder = AnsibleHostBase.CustomEncoder
 
         if verbose:
             logger.debug(
