@@ -219,6 +219,15 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
+
+            def _bgp_facts_ready():
+                try:
+                    return len(dut.bgp_facts(asic_index='all')) > 0
+                except Exception:
+                    return False
+
+            wait_until(120, 10, 0, _bgp_facts_ready)
+
             try:
                 bgp_facts = dut.bgp_facts(asic_index='all')
             except Exception as e:
