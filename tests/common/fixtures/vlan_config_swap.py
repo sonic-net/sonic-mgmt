@@ -143,9 +143,7 @@ def remove_mux_cable_patch(intf_name):
 
 
 def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name, is_dualtor):
-    """Build the JSON config-patch and sub_vlans_info structure for the
-    requested variant. See module docstring for the returned schema.
-    """
+    """Build the (sub_vlans_info, config_patch) tuple for the requested variant."""
     topo_name = tbinfo["topo"]["name"]
     topo_dut = tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
     vlan_configs = topo_dut.get("vlan_configs")
