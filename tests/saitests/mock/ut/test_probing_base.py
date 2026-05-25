@@ -17,6 +17,7 @@ Note: Uses mocking to avoid PTF dependencies during import.
 import pytest
 import sys
 import os
+from contextlib import ExitStack
 from unittest.mock import Mock, patch, MagicMock
 
 # Add probe directory to path
@@ -616,20 +617,23 @@ class TestProbingBaseSetUp:
                 return None
 
         pb = ConcreteProbingBase()
-        assert not hasattr(pb, 'use_pg_drop_counter')
+        assert not hasattr(pb, 'use_pg_drop_counter'), \
+            "test relies on setUp() being the sole setter of use_pg_drop_counter"
         pb.clients = Mock()
 
-        with patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
-                   MockThriftInterfaceDataPlane):
-            with patch('probing_base.switch_init'):
-                with patch('probing_base.time.sleep'):
-                    with patch('probing_observer.ProbingObserver.trace') as mock_trace:
-                        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}, clear=True):
-                            pb.setUp()
+        with ExitStack() as stack:
+            stack.enter_context(patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
+                                      MockThriftInterfaceDataPlane))
+            stack.enter_context(patch('probing_base.switch_init'))
+            stack.enter_context(patch('probing_base.time.sleep'))
+            mock_trace = stack.enter_context(patch('probing_observer.ProbingObserver.trace'))
+            stack.enter_context(patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}, clear=True))
+            pb.setUp()
 
         assert pb.use_pg_drop_counter is True
         trace_messages = [str(call_args) for call_args in mock_trace.call_args_list]
-        assert any("use_pg_drop_counter=True" in message for message in trace_messages)
+        assert any("use_pg_drop_counter=True" in message for message in trace_messages), \
+            f"expected use_pg_drop_counter=True trace; got {trace_messages}"
         print("[OK] real setUp() applies INGRESS_DROP_USE_PG_COUNTER=true")
 
 
