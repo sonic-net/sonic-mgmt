@@ -10,6 +10,7 @@ from tests.common.platform.interface_utils import (
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 
 from tests.common.helpers.dut_utils import get_program_info
+from tests.transceiver.attribute_parser.attribute_keys import PHYSICAL_OIR_ATTRIBUTES_KEY
 
 try:
     from tests.common.physical_oir import PhysicalOir
@@ -46,7 +47,7 @@ def oir_insert_sfps_setup(physical_oir, duthost, port_attributes_dict):
     physical_oir.remove_sfps()
     yield physical_oir
     presence_dict = get_pport_presence_data(duthost)
-    ports_under_test = next(iter(port_attributes_dict.values()))["PHYSICAL_OIR_ATTRIBUTES"]["ports_under_test"]
+    ports_under_test = next(iter(port_attributes_dict.values()))[PHYSICAL_OIR_ATTRIBUTES_KEY]["ports_under_test"]
     if any(not presence_dict[port] for port in ports_under_test):
         physical_oir.insert_sfps()
 
@@ -64,7 +65,7 @@ def test_oir_remove_sfps(duthost, oir_remove_sfps_setup, port_attributes_dict): 
     # check if the ports under test have transceivers present
     failures = []
 
-    oir_attributes = next(iter(port_attributes_dict.values()))["PHYSICAL_OIR_ATTRIBUTES"]
+    oir_attributes = next(iter(port_attributes_dict.values()))[PHYSICAL_OIR_ATTRIBUTES_KEY]
     ports_under_test = oir_attributes["ports_under_test"]
 
     for port in ports_under_test:
@@ -115,7 +116,7 @@ def test_oir_insert_sfps(duthost, oir_insert_sfps_setup, port_attributes_dict): 
     presence_dict = get_pport_presence_data(duthost)
     # check if the ports under test have transceivers present already
     failures = []
-    oir_attributes = next(iter(port_attributes_dict.values()))["PHYSICAL_OIR_ATTRIBUTES"]
+    oir_attributes = next(iter(port_attributes_dict.values()))[PHYSICAL_OIR_ATTRIBUTES_KEY]
     ports_under_test = oir_attributes["ports_under_test"]
     for port in ports_under_test:
         if presence_dict[port]:

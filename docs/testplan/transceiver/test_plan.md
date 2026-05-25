@@ -97,50 +97,107 @@ The following configuration files must be present to enable comprehensive transc
 
 > 📁 **Example Files**: Examples of all configuration files described below are available in the [`examples/inventory/`](examples/inventory/) directory. Use these as templates when creating your own configuration files.
 
-### Test Category Prerequisite Tests
+### Cross-Category Prerequisite Tests and Health Checks
 
-Prerequisite tests provide early readiness validation before a category's main test cases execute. They run after attribute resolution and optional validation, serving as gating checks to verify basic functionality before proceeding with the full test suite for a test category.
+The following common prerequisite tests and per-test health checks are shared across all test categories. Each child test plan references this section and only documents category-specific additions.
 
-**File location:** `ansible/files/transceiver/inventory/prerequisites.json`
+#### Common Session-Level Prerequisites
 
-**Structure:** Grouped by test category, with each entry specifying a test module and function:
+Each gate is a session-scoped pytest fixture defined in [`tests/transceiver/conftest.py`](../../../tests/transceiver/conftest.py) that wraps a check primitive in [`tests/transceiver/common/prerequisites.py`](../../../tests/transceiver/common/prerequisites.py). The check runs **once per session**; on failure the fixture calls `pytest.skip(...)` so every dependent test is skipped with a clear reason. Categories opt in by requesting the fixture from their own `conftest.py` (the gate is not autouse).
 
-```json
-{
-  "eeprom": [
-    {
-      "name": "eeprom_readability",
-      "module": "tests/transceiver/eeprom/test_eeprom_basic.py",
-      "function": "test_eeprom_pages"
-    }
-  ],
-  "dom": [
-    {
-      "name": "dom_basic",
-      "module": "tests/transceiver/dom/test_dom_basic.py",
-      "function": "test_dom_read"
-    }
-  ]
-}
+**Available gates**
+
+| Fixture | Check | Description |
+|---------|-------|-------------|
+| `presence_verified` | `check_presence_show_cli` | All transceivers in `port_attributes_dict` are detected as Present |
+| `gold_fw_verified` | `check_gold_firmware` | Active firmware matches the expected gold firmware for CMIS active-optical transceivers |
+| `links_verified` | `check_links_up` | Every transceiver port in `port_attributes_dict` is both admin-up and oper-up |
+
+**Opt-in by category**
+
+| Category (attribute file) | `presence_verified` | `gold_fw_verified` | `links_verified` |
+|---------------------------|:-------------------:|:------------------:|:----------------:|
+| EEPROM (`eeprom.json`)                  | - own reportable test         | - N/A (CLI verification TC will ensure this) | ✅ |
+| System (`system.json`)                  | ✅                            | ✅                                              | ✅ |
+| Physical OIR (`physical_oir.json`)      | ✅                            | ✅                                              | ✅ |
+| Remote Reseat (`remote_reseat.json`)    | ✅                            | ✅                                              | ✅ |
+| CDB FW Upgrade (`cdb_fw_upgrade.json`)  | ✅                            | - own reportable test                           | ✅ |
+| DOM (`dom.json`)                        | ✅                            | ✅                                              | ✅ |
+| VDM (`vdm.json`)                        | ✅                            | ✅                                              | ✅ |
+| PM (`pm.json`)                          | ✅                            | ✅                                              | ✅ |
+| Port Config (`port_config.json`)        | - CONFIG_DB only              | - CONFIG_DB only                                | - CONFIG_DB only |
+
+A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB FW Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB FW Upgrade test failure, not a session-wide skip).
+
+#### Common Per-Test Health Checks
+
+An autouse fixture in the top-level `conftest.py` runs before and after **every** transceiver test:
+
+- **Before**: verify `xcvrd` is `RUNNING` and record its PID along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
+- **After**: verify `xcvrd` is still `RUNNING` with an unchanged PID and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
+
+The action for each phase is configurable so a user can keep a run going through health-check failures (e.g. when triaging a specific failure scenario):
+
+| Phase     | Default action              | Action      | Effect                                                                              |
+| --------- | --------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| Pre-test  | `pytest.skip()`             | `skip`      | Skip the current test (default for pre-test).                                       |
+|           |                             | `warn`      | Log a warning and let the test run.                                                 |
+| Post-test | `pytest.exit(returncode=1)` | `exit`      | Abort the session on the first post-test failure (default for post-test).           |
+|           |                             | `warn`      | Log a warning and let the run continue.                                             |
+
+**How to choose the action** (highest precedence first):
+
+1. Per-test marker: `@pytest.mark.xcvr_pre_test_failure_action(<action>)` / `@pytest.mark.xcvr_post_test_failure_action(<action>)`
+2. CLI option: `--xcvr_pre_test_failure_action <action>` / `--xcvr_post_test_failure_action <action>`
+3. Built-in default from the table above.
+
+Every failure is appended to the shared `health_check_events` list and printed in a `Health Check Summary` section at the end of the run, regardless of the action taken.
+
+The transceiver `conftest.py` also tags every collected item (and its parent `Module`) with `pytest.mark.skip_check_dut_health` to suppress the repo-wide module-scoped `core_dump_and_config_check` fixture, which would otherwise duplicate the per-test work above.
+
+For implementation details (module layout, `run_pre_check` / `run_post_check` helpers, category fixture examples, and how categories add their own pre/post checks while reusing the shared event log), see the source: [`tests/transceiver/conftest.py`](../../../tests/transceiver/conftest.py), [`tests/transceiver/common/prerequisites.py`](../../../tests/transceiver/common/prerequisites.py), and [`tests/transceiver/common/health_checks.py`](../../../tests/transceiver/common/health_checks.py).
+
+##### Adding category-specific pre/post checks
+
+A category (DOM, System, etc) can layer its own pre-test and post-test checks on top of the cross-category ones without modifying the parent fixture. The parent's `_per_test_health_check` stays autouse for every transceiver test; the category's autouse fixture runs **in addition**, never instead - pytest invokes every in-scope autouse fixture for each test, so a category fixture cannot suppress the parent. Both fixtures append to the same `health_check_events` list, so all results appear together in the terminal `Health Check Summary`.
+
+**The check tuple contract.** `run_pre_check` and `run_post_check` accept a list of `(name, passed, details)` tuples:
+
+| Field     | Type   | Meaning                                                                  |
+| --------- | ------ | ------------------------------------------------------------------------ |
+| `name`    | `str`  | Stable identifier for the check (used in logs and the terminal summary). |
+| `passed`  | `bool` | `True` if the check succeeded.                       |
+| `details` | `str`  | Human-readable explanation                |
+
+Each helper applies the resolved action (`skip` / `warn` for pre, `exit` / `warn` for post) once across the batch, so a category should pass *all* its checks for a phase in a single call rather than invoking the helper per check.
+
+**Skeleton for a category conftest** (place under `tests/transceiver/<category>/conftest.py`):
+
+```python
+import pytest
+from tests.transceiver.conftest import health_check_events
+from tests.transceiver.common.health_checks import run_pre_check, run_post_check
+
+# Opt into the cross-category session gates this category consumes.
+@pytest.fixture(autouse=True, scope="session")
+def _category_session_prerequisites(presence_verified, gold_fw_verified, links_verified):
+    return
+
+# Per-test pre/post checks, layered on top of the parent's xcvrd/core checks.
+@pytest.fixture(autouse=True)
+def _category_per_test_checks(request, duthost, port_attributes_dict):
+    pre_checks = [
+        ("category_pre_check_name", <bool>, "<details on failure>"),
+    ]
+    run_pre_check(request, pre_checks, health_check_events)
+    yield
+    post_checks = [
+        ("category_post_check_name", <bool>, "<details on failure>"),
+    ]
+    run_post_check(request, post_checks, health_check_events)
 ```
 
-**Execution behavior:**
-
-1. Run immediately before each category's main tests (after attribute resolution and optional validation)
-2. Only the current category's list is loaded and executed; other categories' lists are deferred
-3. Execution order within each category array is preserved
-4. Duplicate tests (same module+function) are executed only once per category
-5. If the file or category key is absent, no prerequisites run for that category
-
-**Common prerequisite test examples:**
-
-- Verify transceiver presence on the port
-- Verify port speed in CONFIG_DB matches expected speed per dut_info.json
-- Ensure RS FEC is configured if applicable
-- Validate active firmware version matches the expected gold firmware
-- Confirm I2C communication functionality via `sfputil`
-- Verify link operational status (link-up state)
-- Ensure critical system processes (`xcvrd`, `pmon`, `syncd`, `orchagent`) are running
+**Health check vs. teardown.** Health checks are read-only assertions about DUT state; they must not perform recovery. Restoring state that a test deliberately mutated (e.g. re-enabling DOM polling after a polling-control test, or starting up an interface left shutdown by a failed test) belongs in a **separate** session-scoped autouse `yield` fixture in the category conftest, not inside `run_post_check`.
 
 ### DUT Info Files
 
@@ -337,7 +394,7 @@ More details on the `port_attributes_dict` structure and usage are provided in t
 **Processing Algorithm**:
 
 1. **Parse Port Specifications**: Identify range, list, and individual port formats
-2. **Expand to Individual Ports**: Convert all specifications to individual port names  
+2. **Expand to Individual Ports**: Convert all specifications to individual port names
 3. **Merge Overlapping Attributes**: Collect all attributes for each port, with later port specifications overriding earlier ones
 4. **Deferred Validation**: Validate mandatory fields after all applicable port specifications have been merged
 5. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
@@ -364,7 +421,7 @@ More details on the `port_attributes_dict` structure and usage are provided in t
         """
         if not config_string:
             return {}
-        
+
         parts = config_string.split('-')
         if len(parts) != 6:
             raise ValueError("Invalid transceiver configuration format: {}".format(config_string))
@@ -540,7 +597,7 @@ Example of a dictionary created by parsing the above file:
 
 > 🔄 **Process Flow**: See the [Data Flow Architecture Diagram](diagrams/data_flow.md) for a comprehensive view of how these files are processed and merged.
 
-Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver.  
+Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver.
 **Note:** If a test category attribute file is absent, the corresponding test case will be skipped. This allows for selective test execution and gradual framework adoption.
 
 #### File Organization
@@ -548,13 +605,14 @@ Multiple JSON files based on test category define the metadata and test-specific
 **Recommended JSON files:**
 
 - `eeprom.json` (EEPROM tests)
-- `system.json` (System tests)  
+- `system.json` (System tests)
 - `physical_oir.json` (Physical OIR)
 - `remote_reseat.json` (remote reseat)
 - `cdb_fw_upgrade.json` (CDB FW Upgrade tests)
 - `dom.json` (DOM)
 - `vdm.json` (VDM)
 - `pm.json` (PM)
+- `port_config.json` (Port configuration tests)
 
 **Location:** `ansible/files/transceiver/inventory/attributes/` directory
 
@@ -664,7 +722,7 @@ Example `eeprom.json` file:
 
 ```json
 {
-  "mandatory": ["vendor_name", "normalized_vendor_name", "dual_bank_supported"],
+  "mandatory": ["vendor_name", "normalized_vendor_name"],
   "defaults": {
     "vdm_supported": false,
     "cdb_backgroundmode_supported": false,
@@ -673,8 +731,7 @@ Example `eeprom.json` file:
   "transceivers": {
     "deployment_configurations": {
       "2x100G_200G_SIDE": {
-        "vdm_supported": true,
-        "dual_bank_supported": true
+        "vdm_supported": true
       }
     },
     "vendors": {
@@ -683,10 +740,9 @@ Example `eeprom.json` file:
         "part_numbers": {
           "NORMALIZED_VENDOR_PN_ABC": {
             "vendor_name": "Vendor A",
-            "dual_bank_supported": true,
             "platform_hwsku_overrides": {
               "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
-                "sfputil_eeprom_dump_time": 5
+                "eeprom_dump_timeout_sec": 5
               }
             }
           }
@@ -704,7 +760,7 @@ The test framework loads and merges attributes from all relevant category files 
 **Core Components:**
 
 1. **AttributeManager**: Central class for loading, merging, and accessing transceiver attributes
-2. **Category File Loader**: Loads JSON files for each test category  
+2. **Category File Loader**: Loads JSON files for each test category
 3. **Priority Resolver**: Implements the 8-level priority hierarchy
 4. **Validator**: Ensures mandatory fields are present
 
@@ -770,7 +826,7 @@ The framework builds `port_attributes_dict` using this systematic process:
 
 #### Usage
 
-Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`  
+Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`
 The `port_attributes_dict` is provided directly as a session-scoped fixture and is also initialized early for logging.
 
 **Example (inside a test):**
@@ -779,7 +835,7 @@ The `port_attributes_dict` is provided directly as a session-scoped fixture and 
 def test_example(port_attributes_dict):
     # Access EEPROM attributes
     eeprom_attrs = port_attributes_dict["Ethernet0"].get("EEPROM_ATTRIBUTES", {})
-    dual_bank_supported = eeprom_attrs.get("dual_bank_supported")
+    vdm_supported = eeprom_attrs.get("vdm_supported")
 
     # Access base transceiver configuration (parsed from transceiver_configuration)
     base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
@@ -809,7 +865,7 @@ Optional post-processing validation ensures comprehensive attribute coverage for
     "2x100G_200G_SIDE": {
       "required_attributes": {
         "BASE_ATTRIBUTES": ["vendor_name", "vendor_pn", "cable_type", "speed_gbps", "deployment"],
-        "EEPROM_ATTRIBUTES": ["dual_bank_supported", "vdm_supported"],
+        "EEPROM_ATTRIBUTES": ["vdm_supported"],
         "DOM_ATTRIBUTES": ["temperature", "voltage", "tx_power", "alarm_flags"]
       },
       "optional_attributes": {
@@ -832,7 +888,7 @@ Optional post-processing validation ensures comprehensive attribute coverage for
 #### Validation Process
 
 1. **Template Selection**: Uses `deployment` field from `BASE_ATTRIBUTES` to select appropriate template
-2. **Attribute Comparison**: Compares actual vs required attributes per category  
+2. **Attribute Comparison**: Compares actual vs required attributes per category
 3. **Gap Analysis**: Identifies missing required/optional attributes
 4. **Pytest Integration**: Reports results with standard log levels (INFO/WARNING/ERROR/DEBUG)
 
@@ -913,16 +969,17 @@ The following child test plans provide comprehensive, attribute-driven test case
 
 | Test Plan | Description |
 |-----------|-------------|
-| [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, breakout serial number patterns, port speed and FEC configuration validation |
+| [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, and breakout serial number pattern validation |
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
+| [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
 
 ### Document Relationships
 
 This repository uses three types of test documentation:
 
 - **This document (Infrastructure & Framework)**: Defines configuration file formats, attribute resolution, normalization rules, validation templates, and shared CLI reference. All other test plans reference this document for infrastructure details.
-- **Child attribute plans** (EEPROM, DOM, System, VDM, PM, CMIS Firmware upgrade, Transceiver OIR): Define *what* to validate per test category — specific attributes, expected values, and category-scoped test cases.
+- **Child attribute plans** (EEPROM, DOM, System, Port Config, VDM, PM, CMIS Firmware upgrade, Transceiver OIR): Define *what* to validate per test category — specific attributes, expected values, and category-scoped test cases.
 - **Scenario test plan** (future): Will define *how* to exercise the system — end-to-end test sequences (shut/noshut, reboot, failure injection) that compose and orchestrate tests from the per-category child plans above for scenario-driven validation.
 
 ### 1. Tests not involving traffic

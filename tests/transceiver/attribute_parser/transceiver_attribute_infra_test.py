@@ -15,11 +15,11 @@ Test Categories:
 How to Run:
 -----------
 # From repository root:
-python tests/transceiver/infra/transceiver_attribute_infra_test.py
+python tests/transceiver/attribute_parser/transceiver_attribute_infra_test.py
 
 # From tests directory:
 cd tests
-python transceiver/infra/transceiver_attribute_infra_test.py
+python transceiver/attribute_parser/transceiver_attribute_infra_test.py
 
 Expected Output:
 ----------------
@@ -39,7 +39,7 @@ import sys
 
 # Early insertion of repository root to allow 'tests.*' imports when running file directly.
 _CURRENT_FILE = Path(__file__).resolve()
-# parents: [infra, transceiver, tests, repo_root]; repo_root is parents[3]
+# parents: [attribute_parser, transceiver, tests, repo_root]; repo_root is parents[3]
 _REPO_ROOT = _CURRENT_FILE.parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -49,24 +49,24 @@ import tempfile  # noqa: E402
 import shutil  # noqa: E402
 from contextlib import contextmanager  # noqa: E402
 
-from tests.transceiver.infra.dut_info_loader import DutInfoLoader  # noqa: E402
-from tests.transceiver.infra.attribute_manager import AttributeManager  # noqa: E402
-from tests.transceiver.infra.exceptions import (  # noqa: E402
+from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader  # noqa: E402
+from tests.transceiver.attribute_parser.attribute_manager import AttributeManager  # noqa: E402
+from tests.transceiver.attribute_parser.exceptions import (  # noqa: E402
     DutInfoError,
     AttributeMergeError,
     TemplateValidationError,
 )  # noqa: E402
-from tests.transceiver.infra.template_validator import TemplateValidator  # noqa: E402
-from tests.transceiver.infra.paths import (  # noqa: E402
+from tests.transceiver.attribute_parser.template_validator import TemplateValidator  # noqa: E402
+from tests.transceiver.attribute_parser.paths import (  # noqa: E402
     REL_NORMALIZATION_MAPPINGS_FILE,
     REL_DUT_INFO_DIR,
     REL_ATTR_DIR,
     REL_DEPLOYMENT_TEMPLATES_FILE,
 )  # noqa: E402
-from tests.transceiver.infra.utils import format_kv_block  # noqa: E402
+from tests.transceiver.attribute_parser.utils import format_kv_block  # noqa: E402
 
-INFRA_DIR = Path(__file__).parent
-TRANSCEIVER_DIR = INFRA_DIR.parent
+ATTR_PARSER_DIR = Path(__file__).parent
+TRANSCEIVER_DIR = ATTR_PARSER_DIR.parent
 TESTS_DIR = TRANSCEIVER_DIR.parent
 REPO_ROOT = TESTS_DIR.parent
 
@@ -103,18 +103,18 @@ EMBEDDED_DUT_DATA = {
 }
 
 EMBEDDED_EEPROM_JSON = {
-    "mandatory": ["sff8024_identifier", "dual_bank_supported"],
-    "defaults": {"vdm_supported": False, "is_non_dac_and_cmis": False, "sfputil_eeprom_dump_time": 5},
+    "mandatory": ["sff8024_identifier"],
+    "defaults": {"vdm_supported": False, "cmis_active_optical": False, "eeprom_dump_timeout_sec": 5},
     "transceivers": {
-        "deployment_configurations": {"8x100G_DR8": {"vdm_supported": True, "dual_bank_supported": True}},
+        "deployment_configurations": {"8x100G_DR8": {"vdm_supported": True}},
         "vendors": {
             "ACME_CORP": {
                 "part_numbers": {
                     "PN-ABC-123DE": {
-                        "is_non_dac_and_cmis": True,
+                        "cmis_active_optical": True,
                         "sff8024_identifier": 25,
                         "platform_hwsku_overrides": {
-                            TEST_PLATFORM_HWSKU_KEY: {"sfputil_eeprom_dump_time": 2}
+                            TEST_PLATFORM_HWSKU_KEY: {"eeprom_dump_timeout_sec": 2}
                         }
                     }
                 }
@@ -221,8 +221,8 @@ def test_config_parser():
 def test_port_expansion():
     """Test expansion using PortSpecExpander (range, step, single, list, mixed, edge, invalid)."""
     print("Testing port expansion via PortSpecExpander...")
-    from tests.transceiver.infra.port_spec import PortSpecExpander
-    from tests.transceiver.infra.exceptions import PortSpecError
+    from tests.transceiver.attribute_parser.port_spec import PortSpecExpander
+    from tests.transceiver.attribute_parser.exceptions import PortSpecError
 
     test_cases = [
         # (spec, expected_ports)
@@ -380,14 +380,14 @@ def test_attribute_manager_mandatory_field_missing():
     """
     print("Testing AttributeManager mandatory field validation...")
     eeprom_missing_mandatory = {
-        "mandatory": ["sff8024_identifier", "dual_bank_supported"],
-        "defaults": {"vdm_supported": False, "is_non_dac_and_cmis": False},
+        "mandatory": ["sff8024_identifier"],
+        "defaults": {"vdm_supported": False, "cmis_active_optical": False},
         "transceivers": {
             "deployment_configurations": {"8x100G_DR8": {"vdm_supported": True}},
             "vendors": {
                 "ACME_CORP": {
                     "part_numbers": {
-                        "PN-ABC-123DE": {"is_non_dac_and_cmis": True}
+                        "PN-ABC-123DE": {"cmis_active_optical": True}
                     }
                 }
             }
@@ -426,14 +426,14 @@ def test_default_and_mandatory_overlap():
     print("Testing default and mandatory overlap validation...")
     eeprom_overlap = {
         "mandatory": ["sff8024_identifier", "vdm_supported"],
-        "defaults": {"vdm_supported": False, "is_non_dac_and_cmis": False, "sfputil_eeprom_dump_time": 5},
+        "defaults": {"vdm_supported": False, "cmis_active_optical": False, "eeprom_dump_timeout_sec": 5},
         "transceivers": {
-            "deployment_configurations": {"8x100G_DR8": {"dual_bank_supported": True}},
+            "deployment_configurations": {"8x100G_DR8": {}},
             "vendors": {
                 "ACME_CORP": {
                     "part_numbers": {
                         "PN-ABC-123DE": {
-                            "is_non_dac_and_cmis": True,
+                            "cmis_active_optical": True,
                             "sff8024_identifier": 25
                         }
                     }
@@ -644,7 +644,7 @@ def test_template_validator_full_compliance():
     template_data = {
         'deployment_templates': {
             '8x100G_DR8': {
-                'required_attributes': {'EEPROM_ATTRIBUTES': ['sff8024_identifier', 'dual_bank_supported']},
+                'required_attributes': {'EEPROM_ATTRIBUTES': ['sff8024_identifier']},
                 'optional_attributes': {'EEPROM_ATTRIBUTES': ['vdm_supported']}
             }
         }
@@ -697,7 +697,6 @@ def test_template_validator_missing_required():
                 'required_attributes': {
                     'EEPROM_ATTRIBUTES': [
                         'sff8024_identifier',
-                        'dual_bank_supported',
                         'MISSING_REQ_ATTR',
                     ]
                 },
