@@ -1,11 +1,55 @@
 import time
 import re
+import os
 from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
+
+
+def _is_truthy_env(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_console_kex_override():
+    """
+    Build an optional KEX preference override for Paramiko console SSH sessions.
+
+    Disabled by default. Enable with SONIC_MGMT_CONSOLE_SSH_LEGACY_KEX=1.
+    Optional explicit algorithm list can be provided via
+    SONIC_MGMT_CONSOLE_SSH_KEX_ALGOS="algo1,algo2,...".
+    """
+    if not _is_truthy_env(os.getenv("SONIC_MGMT_CONSOLE_SSH_LEGACY_KEX", "0")):
+        return None
+
+    # Common legacy KEX algorithms seen on older console servers.
+    default_kex = [
+        "diffie-hellman-group14-sha1",
+        "diffie-hellman-group1-sha1",
+    ]
+    configured = os.getenv("SONIC_MGMT_CONSOLE_SSH_KEX_ALGOS", "")
+    if configured.strip():
+        return tuple([algo.strip() for algo in configured.split(",") if algo.strip()])
+    return tuple(default_kex)
+
+
+def _apply_console_kex_override(logger):
+    kex_override = _get_console_kex_override()
+    if not kex_override:
+        return
+
+    try:
+        from paramiko.transport import Transport
+
+        current = tuple(getattr(Transport, "_preferred_kex", ()))
+        # Preserve current order but move requested KEX algos to the front.
+        merged = tuple(dict.fromkeys(kex_override + current))
+        Transport._preferred_kex = merged
+        logger.warning("Console SSH legacy/custom KEX override enabled: %s", merged)
+    except Exception as e:
+        logger.warning("Failed to apply console SSH KEX override: %s", e)
 
 
 class SSHConsoleConn(BaseConsoleConn):
@@ -35,6 +79,10 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['password'] = kwargs['console_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
+
+        # Optional, opt-in compatibility path for legacy console servers.
+        _apply_console_kex_override(self.logger)
+
         super(SSHConsoleConn, self).__init__(**kwargs)
 
     def session_preparation(self):

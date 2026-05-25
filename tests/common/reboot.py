@@ -19,6 +19,31 @@ from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
 logger = logging.getLogger(__name__)
 
+_CONSOLE_KEX_LOGGED = False
+
+
+def _log_console_kex_override_status_once():
+    global _CONSOLE_KEX_LOGGED
+    if _CONSOLE_KEX_LOGGED:
+        return
+
+    _CONSOLE_KEX_LOGGED = True
+    legacy_kex_enabled = os.getenv("SONIC_MGMT_CONSOLE_SSH_LEGACY_KEX", "0")
+    configured_kex = os.getenv("SONIC_MGMT_CONSOLE_SSH_KEX_ALGOS", "")
+    if configured_kex:
+        logger.info(
+            "Console SSH KEX override status: SONIC_MGMT_CONSOLE_SSH_LEGACY_KEX=%s, "
+            "SONIC_MGMT_CONSOLE_SSH_KEX_ALGOS=%s",
+            legacy_kex_enabled,
+            configured_kex,
+        )
+    else:
+        logger.info(
+            "Console SSH KEX override status: SONIC_MGMT_CONSOLE_SSH_LEGACY_KEX=%s, "
+            "SONIC_MGMT_CONSOLE_SSH_KEX_ALGOS=<unset>",
+            legacy_kex_enabled,
+        )
+
 # Create the waiting power on event
 power_on_event = threading.Event()
 
@@ -745,6 +770,7 @@ def check_determine_reboot_cause_service(dut):
 
 
 def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
+    _log_console_kex_override_status_once()
     try:
         dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
     except Exception as err:
