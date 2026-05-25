@@ -16,7 +16,7 @@ import logging
 
 import pytest
 
-from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import apply_patch
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.helpers.assertions import pytest_require
 
@@ -328,9 +328,29 @@ def _apply_and_persist(host, patch, refresh_caclmgrd):
     tmpfile = host.shell("mktemp")["stdout"]
     try:
         output = apply_patch(host, patch, tmpfile)
-        expect_op_success(host, output)
     finally:
         host.file(path=tmpfile, state="absent")
+    # Use a plain Exception (not pytest.fail/Failed) so that
+    # the multiprocessing.pool.ThreadPool worker -- which catches
+    # Exception, not BaseException -- captures the failure in
+    # ApplyResult. pytest.Failed would escape uncaught, silently
+    # kill the worker thread, leave ApplyResult.ready() False
+    # forever, and stall parallel_run_threaded until its outer
+    # timeout fires (~1200 s) instead of failing immediately.
+    if output.get("rc"):
+        raise RuntimeError(
+            "apply-patch on {} failed: rc={} stdout={!r} stderr={!r}".format(
+                host.hostname, output.get("rc"),
+                (output.get("stdout") or "")[:500],
+                (output.get("stderr") or "")[:500],
+            )
+        )
+    if "Patch applied successfully" not in (output.get("stdout") or ""):
+        raise RuntimeError(
+            "apply-patch on {} did not finish cleanly: stdout={!r}".format(
+                host.hostname, (output.get("stdout") or "")[:500],
+            )
+        )
     host.shell("sudo config save -y")
     if refresh_caclmgrd:
         host.shell("sudo systemctl restart caclmgrd && sleep 5")
