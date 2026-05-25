@@ -3,8 +3,7 @@
     "8x100G_DR8": {
       "required_attributes": {
         "EEPROM_ATTRIBUTES": [
-          "sff8024_identifier",
-          "dual_bank_supported"
+          "sff8024_identifier"
         ]
       },
       "optional_attributes": {
