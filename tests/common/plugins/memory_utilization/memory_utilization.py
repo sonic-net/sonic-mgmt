@@ -89,14 +89,23 @@ class MemoryMonitor:
             "[MemoryUtilization] recorded validate baseline System-block 'data collected': {}".format(
                 self._monit_memory_baseline_timestamp or "<none>"))
 
-    def read_monit_status_with_freshness_retry(self, cmd):
+    def read_monit_status_with_freshness_retry(self, cmd, retry_wait=None):
         """
         Execute `sudo monit status` and verify its System-block 'data collected' timestamp
         differs from the validate-output baseline. If it still matches, sleep
         MONIT_STATUS_FRESHNESS_WAIT_SECONDS and retry the status read, up to
         MONIT_STATUS_FRESHNESS_MAX_RETRIES times. Never re-issues `monit validate`.
         Returns the final output even when freshness cannot be confirmed.
+
+        When `retry_wait` is provided (int seconds), it overrides the module-level
+        MONIT_STATUS_FRESHNESS_WAIT_SECONDS default for the sleep between retries.
+        Intended to be paired with the monit daemon polling interval so the retry
+        sleep does not exceed the actual cache-refresh period.
         """
+        effective_wait = retry_wait if retry_wait is not None else MONIT_STATUS_FRESHNESS_WAIT_SECONDS
+        logger.debug(
+            "[MemoryUtilization] freshness-retry config for '{}': wait={}s (override={}), max_retries={}".format(
+                cmd, effective_wait, retry_wait is not None, MONIT_STATUS_FRESHNESS_MAX_RETRIES))
         output = self.execute_command(cmd)
 
         if not self._monit_memory_baseline_timestamp:
@@ -116,9 +125,9 @@ class MemoryMonitor:
                 "[MemoryUtilization] status System-block ts still matches validate baseline ({}); "
                 "sleeping {}s before retry {}/{} of status read".format(
                     self._monit_memory_baseline_timestamp,
-                    MONIT_STATUS_FRESHNESS_WAIT_SECONDS,
+                    effective_wait,
                     attempt, MONIT_STATUS_FRESHNESS_MAX_RETRIES))
-            time.sleep(MONIT_STATUS_FRESHNESS_WAIT_SECONDS)
+            time.sleep(effective_wait)
 
             output = self.execute_command(cmd)
             current_ts = self._parse_monit_memory_data_collected_timestamp(output)
