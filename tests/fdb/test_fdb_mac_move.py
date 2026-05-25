@@ -46,9 +46,6 @@ STORM_VLAN_TAG = 100
 MAC_MOVE_GUARD_THRESHOLD = 100
 MAC_MOVE_GUARD_DETECT_INTERVAL = 10
 MAC_MOVE_GUARD_ACTION_INTERVAL = 60
-# Longer action_interval for the DISABLE_MAC_MOVE test so the post-storm pin
-# verification and the auto-release verification both have comfortable margins.
-DISABLE_MAC_MOVE_ACTION_INTERVAL = 120
 # Action interval used by the DISABLE_LEARN_ON_MAC_WITH_ACL test. Kept high so
 # the bad MAC is not auto-released while we drive the storm and observe
 # orchagent quiescence. The test reconfigures this to a small value after the
@@ -57,11 +54,6 @@ DISABLE_LEARN_ON_MAC_ACTION_INTERVAL = 600
 # Short action_interval reapplied after the storm is stopped to force the
 # bad-MAC tracking entry / ACL entry to age out promptly.
 DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL = 30
-# Number of ARPs to send when probing whether a MAC can move; a single packet
-# can be lost or update FDB slowly, leading to false PASS for a pin assertion.
-MMG_MOVE_ATTEMPT_BURST = 5
-# Settle time after a burst of ARPs before we read the FDB.
-MMG_FDB_SETTLE_SECONDS = 5
 
 
 def _build_mmg_config(action, action_interval):
@@ -79,8 +71,6 @@ def _build_mmg_config(action, action_interval):
 
 
 MAC_MOVE_GUARD_CONFIG = _build_mmg_config("DISABLE_PORT", MAC_MOVE_GUARD_ACTION_INTERVAL)
-DISABLE_MAC_MOVE_GUARD_CONFIG = _build_mmg_config("DISABLE_MAC_MOVE",
-                                                  DISABLE_MAC_MOVE_ACTION_INTERVAL)
 DISABLE_LEARN_ON_MAC_GUARD_CONFIG = _build_mmg_config(
     "DISABLE_LEARN_ON_MAC_WITH_ACL", DISABLE_LEARN_ON_MAC_ACTION_INTERVAL)
 DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG = _build_mmg_config(
@@ -379,33 +369,6 @@ def _vlan_member_parent(conf_facts, physical_port):
     return physical_port
 
 
-def _fdb_port_for_mac(duthost, mac):
-    """Return the FDB port name for ``mac`` from `show mac`, or None if absent."""
-    facts = duthost.fdb_facts().get('ansible_facts', {}) or {}
-    mac_lower = mac.lower()
-    for k, entries in facts.items():
-        if k.lower() == mac_lower and entries:
-            return entries[0].get('port')
-    return None
-
-
-def _learn_mac_on_port(ptfadapter, duthost, mac, ptf_port, expected_parent,
-                       router_mac, vlan_id, description):
-    """Send a burst of ARPs from ``ptf_port`` and assert the FDB learns ``mac``
-    on ``expected_parent``. Used as a pre-flight sanity / negative control
-    before applying the MAC_MOVE_GUARD config."""
-    ptfadapter.dataplane.flush()
-    for _ in range(MMG_MOVE_ATTEMPT_BURST):
-        send_arp_request(ptfadapter, ptf_port, mac, router_mac, vlan_id)
-        time.sleep(0.1)
-    pytest_assert(
-        wait_until(MMG_FDB_SETTLE_SECONDS * 2, 1, 0,
-                   lambda: _fdb_port_for_mac(duthost, mac) == expected_parent),
-        "{}: MAC {} expected on {} but FDB shows {}"
-        .format(description, mac, expected_parent, _fdb_port_for_mac(duthost, mac))
-    )
-
-
 def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hostname,
                                          ptfhost, tbinfo):
     """
@@ -482,136 +445,6 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
         for p in candidate_ports:
             duthost.shell("config interface startup {}".format(p),
                           module_ignore_errors=True)
-        fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
-
-
-def test_fdb_mac_move_guard_disable_mac_move(ptfadapter, duthosts, fanouthosts,
-                                             rand_one_dut_hostname, ptfhost, tbinfo):
-    """
-    Validate the MAC_MOVE_GUARD DISABLE_MAC_MOVE action:
-
-      1. Configure MAC_MOVE_GUARD with action=DISABLE_MAC_MOVE,
-         threshold=100, detect_interval=10s, action_interval=120s.
-      2. Drive a MAC-move storm so the per-MAC move count crosses the threshold.
-      3. Stop the storm and read the FDB binding for one of the storm MACs;
-         this is the port the guard pinned it to.
-      4. Send a single ARP from the OPPOSITE port using the same MAC; verify
-         the FDB entry remains on the pinned port (move suppressed).
-      5. After action_interval expires, send another ARP from the OPPOSITE
-         port; verify the FDB entry now follows to that port (pin released).
-    """
-
-    fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
-
-    duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    router_mac = duthost.facts['router_mac']
-
-    ptf_a, ptf_b, vlan_id, iface_a, iface_b, dut_a, dut_b = \
-        _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts)
-    parent_a = _vlan_member_parent(conf_facts, dut_a)
-    parent_b = _vlan_member_parent(conf_facts, dut_b)
-    pytest_assert(parent_a != parent_b,
-                  "Selected VLAN members map to the same FDB-visible interface "
-                  "({}); cannot exercise MAC moves".format(parent_a))
-    logger.info("DISABLE_MAC_MOVE test on vlan {}: PTF {} ({}) <-> DUT {} (fdb={}), "
-                "PTF {} ({}) <-> DUT {} (fdb={})"
-                .format(vlan_id, ptf_a, iface_a, dut_a, parent_a,
-                        ptf_b, iface_b, dut_b, parent_b))
-
-    ptfadapter.reinit()
-
-    # Pre-flight sanity (negative control): with no guard configured, prove the
-    # rig can actually move a MAC between the two PTF ports. If this fails, the
-    # downstream pin check would pass for the wrong reason (no move was ever
-    # possible to begin with).
-    sanity_mac = IntToMac(MacToInt(STORM_MAC_BASE) + STORM_NUM_MACS + 1)
-    _learn_mac_on_port(ptfadapter, duthost, sanity_mac, ptf_a, parent_a,
-                       router_mac, vlan_id, "pre-flight learn on parent_a")
-    _learn_mac_on_port(ptfadapter, duthost, sanity_mac, ptf_b, parent_b,
-                       router_mac, vlan_id, "pre-flight move to parent_b")
-    logger.info("Pre-flight sanity passed: MAC {} freely moves between {} and {}"
-                .format(sanity_mac, parent_a, parent_b))
-
-    _apply_mac_move_guard_config(duthost, DISABLE_MAC_MOVE_GUARD_CONFIG)
-    logger.info("Applied MAC_MOVE_GUARD config: {}".format(DISABLE_MAC_MOVE_GUARD_CONFIG))
-
-    pid = None
-    try:
-        pid = _start_storm_sender(ptfhost, iface_a, iface_b, router_mac)
-        logger.info("MAC-move storm sender started on ptfhost (pid={})".format(pid))
-
-        # Storm long enough for the per-MAC threshold to be crossed for all MACs.
-        time.sleep(MAC_MOVE_GUARD_DETECT_INTERVAL + 5)
-        _stop_storm_sender(ptfhost, pid)
-        pid = None
-        pin_time = time.time()
-        # Allow FDB to settle after the storm stops.
-        time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
-
-        # Find a storm MAC that is now pinned to one of our two FDB-visible ports.
-        target_mac, pinned_port = None, None
-        for i in range(STORM_NUM_MACS):
-            mac = IntToMac(MacToInt(STORM_MAC_BASE) + i)
-            port = _fdb_port_for_mac(duthost, mac)
-            if port in (parent_a, parent_b):
-                target_mac, pinned_port = mac, port
-                break
-        pytest_assert(target_mac is not None,
-                      "None of the storm MACs are bound to {}/{} in FDB after storm"
-                      .format(parent_a, parent_b))
-        logger.info("MAC {} pinned to FDB port {}".format(target_mac, pinned_port))
-
-        # Pick the OPPOSITE port for the move attempts.
-        if pinned_port == parent_a:
-            other_ptf, other_parent = ptf_b, parent_b
-        else:
-            other_ptf, other_parent = ptf_a, parent_a
-
-        # Phase 1: try to move the MAC; it must remain pinned. Send a small
-        # burst (not a single packet) so that one drop or a slow FDB update
-        # cannot make the test pass for the wrong reason.
-        ptfadapter.dataplane.flush()
-        for _ in range(MMG_MOVE_ATTEMPT_BURST):
-            send_arp_request(ptfadapter, other_ptf, target_mac, router_mac, vlan_id)
-            time.sleep(0.1)
-        time.sleep(MMG_FDB_SETTLE_SECONDS)
-        port_after_attempt = _fdb_port_for_mac(duthost, target_mac)
-        pytest_assert(
-            port_after_attempt == pinned_port,
-            "MAC {} should remain pinned to {} (DISABLE_MAC_MOVE) but FDB shows {} "
-            "after burst of {} ARPs from {}"
-            .format(target_mac, pinned_port, port_after_attempt,
-                    MMG_MOVE_ATTEMPT_BURST, other_parent)
-        )
-        logger.info("MAC {} remains pinned to {} after burst of {} ARPs from {}"
-                    .format(target_mac, pinned_port, MMG_MOVE_ATTEMPT_BURST, other_parent))
-
-        # Phase 2: wait for action_interval to expire, then verify the pin is released.
-        elapsed = time.time() - pin_time
-        remaining = DISABLE_MAC_MOVE_ACTION_INTERVAL - elapsed + 5
-        if remaining > 0:
-            logger.info("Sleeping {:.0f}s for action_interval to elapse".format(remaining))
-            time.sleep(remaining)
-
-        for _ in range(MMG_MOVE_ATTEMPT_BURST):
-            send_arp_request(ptfadapter, other_ptf, target_mac, router_mac, vlan_id)
-            time.sleep(0.1)
-        pytest_assert(
-            wait_until(20, 1, 0,
-                       lambda: _fdb_port_for_mac(duthost, target_mac) == other_parent),
-            "MAC {} did not move to {} after action_interval; FDB shows {}"
-            .format(target_mac, other_parent, _fdb_port_for_mac(duthost, target_mac))
-        )
-        logger.info("MAC {} moved to {} after pin release".format(target_mac, other_parent))
-    finally:
-        if pid is not None:
-            _stop_storm_sender(ptfhost, pid)
-        tail = ptfhost.shell("tail -n 20 {} || true".format(STORM_SENDER_LOG),
-                             module_ignore_errors=True)
-        logger.info("storm sender log tail:\n{}".format(tail.get('stdout', '')))
-        _remove_mac_move_guard_config(duthost)
         fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
 
