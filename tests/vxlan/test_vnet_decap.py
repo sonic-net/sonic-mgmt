@@ -10,7 +10,9 @@ from ptf.mask import Mask
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
+    # The setup selects T0-facing BGP interfaces for VNET attachment. T0 DUTs
+    # do not have T0 neighbors, so this test only applies to T1 topologies.
+    pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
     pytest.mark.disable_loganalyzer
 ]
 
