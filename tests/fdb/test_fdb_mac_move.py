@@ -10,10 +10,6 @@ import pytest
 from collections import defaultdict
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.syslog_helpers import (
-    disable_swss_rsyslog_rate_limit,
-    restore_swss_rsyslog_rate_limit,
-)
 from .utils import MacToInt, IntToMac, fdb_cleanup, get_crm_resources, send_arp_request, get_fdb_dynamic_mac_count
 
 TOTAL_FDB_ENTRIES = 12000
@@ -789,12 +785,6 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     logger.info("Applied MAC_MOVE_GUARD config: %s",
                 DISABLE_LEARN_ON_MAC_GUARD_CONFIG)
 
-    # Disable rsyslog rate-limiting in swss container(s) so the quiet-tail
-    # assertion in PHASE 4 is not skewed by dropped "continues to move" lines.
-    rate_limit_edited = disable_swss_rsyslog_rate_limit(duthost)
-    logger.info("Disabled swss rsyslog rate-limiting on containers: %s",
-                rate_limit_edited)
-
     pid = None
     try:
         pid = _start_storm_sender(ptfhost, iface_a, iface_b, router_mac,
@@ -1029,6 +1019,5 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
                              module_ignore_errors=True)
         logger.info("storm sender log tail:\n%s", tail.get('stdout', ''))
         _remove_mac_move_guard_config(duthost)
-        restore_swss_rsyslog_rate_limit(duthost, rate_limit_edited)
         _remove_vlan_with_tagged_members(duthost, vlan_id, vlan100_members)
         fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
