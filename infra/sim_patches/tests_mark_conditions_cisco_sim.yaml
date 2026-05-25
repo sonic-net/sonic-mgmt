@@ -1,5 +1,16 @@
 
 #######################################
+#####             bgp             #####
+#######################################
+
+bgp/test_bgp_operation_in_ro.py:
+  skip:
+    reason: "Feature is reverted and pending enhancement"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
+
+
+#######################################
 #####        platform_tests       #####
 #######################################
 
@@ -197,9 +208,57 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
 
-dhcp_relay/test_dhcpmon_relay_counters_stress.py::test_dhcpmon_relay_counters_stress:
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress:
   skip:
     reason: "Skip the test for sim, causes 0.01% error with inconsistent failure."
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[discover-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[offer-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[ack-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[discover-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[offer-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[request-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[ack-isc-relay-agent]:
+  skip:
+    reason: "Skip isc-dhcp-relay variant on sim due to upstream defect: https://github.com/sonic-net/sonic-mgmt/issues/14851"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
 
 #######################################
 #####            lldp             #####
@@ -207,4 +266,3 @@ dhcp_relay/test_dhcpmon_relay_counters_stress.py::test_dhcpmon_relay_counters_st
 lldp/test_lldp_syncd.py::test_lldp_entry_table_after_reboot:
   skip:
     reason: "Skip reboot cases on sim, reboot takes longer at times and causes inconsistent failures; increasing timeout is not helpful."
-
