@@ -380,10 +380,7 @@ def parametrize_vlan_config_from_topo(
         # Both DUTs in parallel. Each side does its own
         # _generate_config_patch_from_variant so a drifted unselected DUT
         # still gets a correct patch.
-        outer_timeout = max(
-            get_gcu_timeout(duthost),
-            get_gcu_timeout(rand_unselected_dut),
-        ) + 60
+        outer_timeout = max(get_gcu_timeout(duthost), get_gcu_timeout(rand_unselected_dut)) + 60
         try:
             outs = parallel_run_threaded(
                 [
@@ -410,10 +407,7 @@ def parametrize_vlan_config_from_topo(
     # session) starts from a known state.
     logger.info("Restoring %s -> %s on %s", variant_name, default_variant_name, duthost.hostname)
     if is_dualtor:
-        outer_timeout = max(
-            get_gcu_timeout(duthost),
-            get_gcu_timeout(rand_unselected_dut),
-        ) + 60
+        outer_timeout = max(get_gcu_timeout(duthost), get_gcu_timeout(rand_unselected_dut)) + 60
         try:
             parallel_run_threaded(
                 [
