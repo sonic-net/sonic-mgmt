@@ -22,6 +22,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MIN_PROCESS_CHECK_TIMEOUT = 180
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
@@ -114,7 +115,7 @@ def check_interfaces(duthosts, tbinfo):
         logger.info("Checking interfaces status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         if dut.get_facts().get("modular_chassis"):
             timeout = max(timeout, 600)
         interval = 20
@@ -218,6 +219,15 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
+
+            def _bgp_facts_ready():
+                try:
+                    return len(dut.bgp_facts(asic_index='all')) > 0
+                except Exception:
+                    return False
+
+            wait_until(120, 10, 0, _bgp_facts_ready)
+
             try:
                 bgp_facts = dut.bgp_facts(asic_index='all')
             except Exception as e:
@@ -914,7 +924,7 @@ def check_processes(duthosts):
         logger.info("Checking process status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
