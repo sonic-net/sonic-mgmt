@@ -132,18 +132,17 @@ class MacsecPlugin(object):
         """
 
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-            # Ensure MKA sessions are established (SC/SA present in DB) if the
-            # test environment provides the wait_mka_establish fixture
-            # (defined in tests/macsec/conftest.py). For environments that do
-            # not define it, fall back to the original behaviour.
-            try:
-                request.getfixturevalue('wait_mka_establish')
-            except pytest.FixtureLookupError:
-                # Some environments do not define wait_mka_establish; fall back
-                # to the original behaviour when the fixture is missing.
-                pass
-
             if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
+                # MACsec is already configured (e.g., carried over from a
+                # previous module). Wait for MKA sessions to be established
+                # (SC/SA present in DB, including SAK) before loading info, so
+                # we don't race wpa_supplicant writing the egress SA row.
+                # If the wait_mka_establish fixture isn't registered in this
+                # environment, fall back to loading directly.
+                try:
+                    request.getfixturevalue('wait_mka_establish')
+                except pytest.FixtureLookupError:
+                    pass
                 load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
             else:
                 request.getfixturevalue('macsec_setup')
