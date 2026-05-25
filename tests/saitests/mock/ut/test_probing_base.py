@@ -607,9 +607,9 @@ class TestProbingBaseSetUp:
         print("[OK] port_buffer_drop mode")
 
     @pytest.mark.order(941)
-    def test_setUp_applies_ingress_drop_pg_counter_true_env(self):
-        """Test real setUp() applies INGRESS_DROP_USE_PG_COUNTER=true"""
-        print("\n=== Testing setUp() - Real INGRESS_DROP_USE_PG_COUNTER=true Env ===")
+    def test_setUp_applies_ingress_drop_counter_mode_pg_drop_param(self):
+        """Test real setUp() preserves ingress_drop_counter_mode='pg_drop'"""
+        print("\n=== Testing setUp() - Real ingress_drop_counter_mode='pg_drop' Param ===")
 
         class MockThriftInterfaceDataPlane:
             @staticmethod
@@ -617,8 +617,9 @@ class TestProbingBaseSetUp:
                 return None
 
         pb = ConcreteProbingBase()
-        assert not hasattr(pb, 'use_pg_drop_counter'), \
-            "test relies on setUp() being the sole setter of use_pg_drop_counter"
+        assert not hasattr(pb, 'ingress_drop_counter_mode'), \
+            "test relies on setUp() reading the preconfigured ingress_drop_counter_mode"
+        pb.ingress_drop_counter_mode = 'pg_drop'
         pb.clients = Mock()
 
         with ExitStack() as stack:
@@ -627,14 +628,14 @@ class TestProbingBaseSetUp:
             stack.enter_context(patch('probing_base.switch_init'))
             stack.enter_context(patch('probing_base.time.sleep'))
             mock_trace = stack.enter_context(patch('probing_observer.ProbingObserver.trace'))
-            stack.enter_context(patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'true'}, clear=True))
             pb.setUp()
 
-        assert pb.use_pg_drop_counter is True
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert not hasattr(pb, 'use_pg_drop_counter')
         trace_messages = [str(call_args) for call_args in mock_trace.call_args_list]
-        assert any("use_pg_drop_counter=True" in message for message in trace_messages), \
-            f"expected use_pg_drop_counter=True trace; got {trace_messages}"
-        print("[OK] real setUp() applies INGRESS_DROP_USE_PG_COUNTER=true")
+        assert any("ingress_drop_counter_mode=pg_drop" in message for message in trace_messages), \
+            f"expected ingress_drop_counter_mode=pg_drop trace; got {trace_messages}"
+        print("[OK] real setUp() preserves ingress_drop_counter_mode='pg_drop'")
 
 
 class TestProbingBaseTearDown:
