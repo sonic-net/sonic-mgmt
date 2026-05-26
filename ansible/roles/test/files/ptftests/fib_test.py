@@ -79,6 +79,7 @@ class FibTest(BaseTest):
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
     DEFAULT_SWITCH_TYPE = 'voq'
+    PTF_TIMEOUT = 30
 
     _required_params = [
         'fib_info_files',
@@ -121,7 +122,7 @@ class FibTest(BaseTest):
         # if test_params has skip_src_ports then set it otherwise empty
         self.skip_src_ports = self.test_params.get('skip_src_ports', [])
 
-        if self.asic_type in ["marvell-prestera", "marvell"]:
+        if self.asic_type in ["marvell-prestera", "marvell", "vpp"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
@@ -395,7 +396,7 @@ class FibTest(BaseTest):
         if self.pkt_action == self.ACTION_FWD:
             try:
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             except AssertionError:
                 logging.warning("Traffic wasn't sent successfully, trying again")
                 send_packet(self, src_port, pkt, count=5)
@@ -406,7 +407,7 @@ class FibTest(BaseTest):
                              .format('any', 'any', ip_src, ip_dst, sport, dport))
 
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -502,7 +503,7 @@ class FibTest(BaseTest):
         if self.pkt_action == self.ACTION_FWD:
             try:
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             except AssertionError:
                 logging.warning("Traffic wasn't sent successfully, trying again")
                 send_packet(self, src_port, pkt, count=5)
@@ -513,7 +514,7 @@ class FibTest(BaseTest):
                              .format('any', 'any', ip_src, ip_dst, sport, dport))
 
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
 
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)

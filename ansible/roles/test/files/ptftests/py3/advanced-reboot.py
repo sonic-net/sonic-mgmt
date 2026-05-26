@@ -87,6 +87,17 @@ from collections import defaultdict
 from device_connection import DeviceConnection
 from host_device import HostDevice
 
+PHYSICAL_PORT = "physical_port"
+
+# Canonical default config path for the arp_responder helper. These are kept in
+# lock-step with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG and
+# ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT; we don't import them here because this
+# module runs inside the PTF container, where the sonic-mgmt test tree is not on
+# sys.path. The per-suffix variant adds the logfile suffix between the stem and
+# the extension.
+ARP_RESPONDER_CONFIG_PATH = "/tmp/from_t1.json"
+ARP_RESPONDER_CONFIG_PATH_FMT = "/tmp/from_t1_%s.json"
+
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -145,6 +156,11 @@ class ReloadTest(BaseTest):
         self.check_param('dut_username', '', required=True)
         self.check_param('dut_password', '', required=True)
         self.check_param('dut_hostname', '', required=True)
+        self.check_param('vmhost_username', '', required=False)
+        self.check_param('vmhost_password', '', required=False)
+        self.check_param('vmhost_mgmt_ip', '', required=False)
+        self.check_param('vmhost_external_port', '', required=False)
+        self.check_param('packet_capture_location', '', required=False)
         self.check_param('reboot_limit_in_seconds', 30, required=False)
         self.check_param('reboot_type', 'fast-reboot', required=False)
         self.check_param('graceful_limit', 240, required=False)
@@ -278,8 +294,17 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
         self.installed_sonic_version = self.get_installed_sonic_version()
+
+        if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
+            self.vmhost_connection = DeviceConnection(
+                self.test_params['vmhost_mgmt_ip'],
+                self.test_params['vmhost_username'],
+                password=self.test_params['vmhost_password']
+            )
+
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+        self.start_sender_delay = 60
 
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand(
@@ -467,7 +492,8 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = "/tmp/from_t1.json" if self.logfile_suffix is None else "/tmp/from_t1_%s.json" % self.logfile_suffix
+        filename = ARP_RESPONDER_CONFIG_PATH if self.logfile_suffix is None \
+            else ARP_RESPONDER_CONFIG_PATH_FMT % self.logfile_suffix
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
@@ -673,6 +699,15 @@ class ReloadTest(BaseTest):
         if self.kvm_test:
             self.log("This test is for KVM platform")
 
+        self.capture_pcap = ("/tmp/capture_%s.pcapng" % self.logfile_suffix
+                             if self.logfile_suffix is not None else "/tmp/capture.pcapng")
+        if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
+            self.log("Test will collect tcpdump on the vmhost external port")
+            remote_capture_pcap = self.capture_pcap + f"_{self.test_params['dut_hostname']}"
+            self.remote_capture_pcap = remote_capture_pcap
+            self.vmhost_connection.execCommand(f"sudo rm -rf {self.remote_capture_pcap}")
+            self.log(f"The pcap file on vmhost will be located in {remote_capture_pcap}")
+
         # get VM info
         if isinstance(self.test_params['arista_vms'], list):
             arista_vms = self.test_params['arista_vms']
@@ -772,6 +807,9 @@ class ReloadTest(BaseTest):
 
         self.log("Disabling arp_responder")
         self.cmd(["supervisorctl", "stop", "arp_responder"])
+        if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
+            self.log("Remove the tcpdump pcap on the vm host.")
+            self.vmhost_connection.execCommand(f"sudo rm -rf {self.remote_capture_pcap}")
 
         # Stop watching DUT
         self.watching = False
@@ -1405,7 +1443,35 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
+    def _verify_neighbors_reachable(self, connect_timeout=15):
+        """Pre-flight: confirm every neighbor in ssh_targets is SSH-reachable.
+
+        Fails fast under fails['infrastructure'] so a broken testbed doesn't
+        burn 600s in wait_until_control_plane_down with wedged SSH threads
+        stuck inside paramiko.connect().
+        """
+        bad = []
+        for ip in self.ssh_targets:
+            try:
+                handle = HostDevice.getHostDeviceInstance(
+                    self.test_params['neighbor_type'], ip, None,
+                    self.test_params, log_cb=self.log,
+                    connect_timeout=connect_timeout)
+                handle.connect()
+                handle.disconnect()
+                self.log("Neighbor SSH probe ok for {}".format(ip))
+            except Exception as e:
+                err = "{}: {}".format(type(e).__name__, e)
+                self.log("Neighbor SSH probe failed for {}: {}".format(ip, err))
+                bad.append((ip, err))
+        if bad:
+            msg = "Neighbor SSH unreachable from PTF: {}".format(bad)
+            self.fails['infrastructure'].add(msg)
+            raise RuntimeError(msg)
+
     def runTest(self):
+        self._verify_neighbors_reachable()
+
         # Set LACP timer multiplier for cEOS peers when it is not default (3)
         if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
             self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
@@ -1825,7 +1891,7 @@ class ReloadTest(BaseTest):
         """
         if not packets_list:
             packets_list = self.packets_list
-        self.sniffer_started.wait(timeout=10)
+        self.sniffer_started.wait(timeout=self.start_sender_delay)
         with self.dataplane_io_lock:
             # While running fast data plane sender thread there are two reasons for filter to be applied
             #  1. filter out data plane traffic which is tcp to free up the load
@@ -1877,7 +1943,7 @@ class ReloadTest(BaseTest):
             # So now:
             # 1. sniffer max timeout is increased (to prevent sniffer finish before sender)
             # 2. and sender can signal sniffer to end after all packets are sent.
-            time.sleep(1)
+            time.sleep(15)
             self.kill_sniffer = True
 
     def sniff_in_background(self, wait=None):
@@ -1889,7 +1955,7 @@ class ReloadTest(BaseTest):
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
-        self.log("Sniffer started at %s" % str(sniffer_start))
+        self.log("Starting sniffer thread at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
         sniffer = threading.Thread(target=self.tcpdump_sniff, kwargs={
                                    'wait': wait, 'sniff_filter': sniff_filter})
@@ -1903,24 +1969,66 @@ class ReloadTest(BaseTest):
 
     def tcpdump_sniff(self, wait=300, sniff_filter=''):
         """
-        @summary: PTF runner -  runs a sniffer in PTF container.
+        @summary: PTF runner -  runs a sniffer in vmhost(server) or the PTF container.
         Args:
             wait (int): Duration in seconds to sniff the traffic
             sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
         try:
-            capture_pcap = ("/tmp/capture_%s.pcapng" % self.logfile_suffix
-                            if self.logfile_suffix is not None else "/tmp/capture.pcapng")
-            subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
+            subprocess.call(["rm", "-rf", self.capture_pcap])
             self.kill_sniffer = False
-            self.start_sniffer(capture_pcap, sniff_filter, wait)
-            self.packets = scapyall.rdpcap(capture_pcap)
+
+            if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
+                self.start_sniffer_on_vmhost(self.remote_capture_pcap, sniff_filter, wait)
+                self.vmhost_connection.fetch(self.remote_capture_pcap, self.capture_pcap)
+            else:
+                self.start_sniffer_on_ptf(self.capture_pcap, sniff_filter, wait)
+
+            self.packets = scapyall.rdpcap(self.capture_pcap)
             self.log("Number of all packets captured: {}".format(len(self.packets)))
         except Exception:
             traceback_msg = traceback.format_exc()
             self.log("Error in tcpdump_sniff: {}".format(traceback_msg))
 
-    def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
+    def start_sniffer_on_vmhost(self, pcap_path, tcpdump_filter, timeout):
+        """
+        Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
+        """
+        interface = self.test_params['vmhost_external_port']
+        cmd = f"sudo nohup tcpdump -i {interface} {tcpdump_filter} -w {pcap_path}"
+        self.vmhost_connection.execCommand(cmd + " > /dev/null 2>&1 &")
+        self.log(f'Tcpdump sniffer started on vmhost interface: {interface}')
+        base_tcpdump_delay = 2
+        if self.test_params['packet_capture_location'] == PHYSICAL_PORT:
+            elapsed_time = 0
+            start_time = time.time()
+            while elapsed_time < self.start_sender_delay - base_tcpdump_delay:
+                time.sleep(1)
+                stdout_lines, stderr_lines, _ = self.vmhost_connection.execCommand(f"ls {self.remote_capture_pcap}")
+                if (self.remote_capture_pcap + '\n') in stdout_lines and len(stderr_lines) == 0:
+                    self.log(f"The pcap file on the vmhost is created: {self.remote_capture_pcap}")
+                    break
+                elapsed_time = int(time.time() - start_time)
+            else:
+                self.log(f"Error: the pcap file on the vmhost is not created in {self.start_sender_delay}s.")
+                raise Exception("Tcpdump on the vmhost failed to start, test is aborted.")
+
+        # Unblock waiter for the send_in_background.
+        self.sniffer_started.set()
+
+        time_start = time.time()
+        while not self.kill_sniffer:
+            time.sleep(1)
+            curr_time = time.time()
+            if curr_time - time_start > timeout:
+                break
+            time_start = curr_time
+
+        self.log("Going to kill the tcpdump process by SIGTERM")
+        self.vmhost_connection.execCommand(f'sudo pkill -f "{cmd}"')
+        self.log("Killed the tcpdump process")
+
+    def start_sniffer_on_ptf(self, pcap_path, tcpdump_filter, timeout):
         """
         Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
         """
@@ -2111,8 +2219,14 @@ class ReloadTest(BaseTest):
                         received_but_not_sent_packets.add(received_payload)
                         continue
                     # Packets in a row are missing, a potential disruption.
-                    self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
-                        received_payload, prev_payload, sent_counter, received_counter))
+                    self.log(
+                        "received_payload: {} (at {}), prev_payload: {} (at {}), "
+                        "sent_counter: {}, received_counter: {}".format(
+                            received_payload, datetime.datetime.fromtimestamp(received_time),
+                            prev_payload, datetime.datetime.fromtimestamp(prev_time),
+                            sent_counter, received_counter
+                        )
+                    )
                     # How many packets lost in a row.
                     lost_id = (received_payload - 1) - prev_payload
 
@@ -2184,8 +2298,16 @@ class ReloadTest(BaseTest):
                 [item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum(
                 [item[1] for item in self.lost_packets.values()])
-            self.log("Disruptions happen between %s and %s after the reboot." %
-                     (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
+            time_from_reboot_disrupt_start = self.disruption_start - self.reboot_start
+            time_from_reboot_disrupt_stop = self.disruption_stop - self.reboot_start
+            self.log(
+                "Disruptions happen between {} and {} ({} and {} after the reboot).".format(
+                    self.disruption_start,
+                    self.disruption_stop,
+                    time_from_reboot_disrupt_start,
+                    time_from_reboot_disrupt_stop
+                )
+            )
         else:
             self.max_lost_id = 0
             self.max_disrupt_time = 0

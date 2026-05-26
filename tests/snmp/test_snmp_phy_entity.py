@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import turn_on_all_outlets, check_outlet_status, get_grouped_pdus_by_psu
-from tests.common.helpers.thermal_control_test_helper import mocker_factory     # noqa F401
+from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),

@@ -32,8 +32,8 @@
 #include "github.com/openconfig/ondatra/proto/testbed.pb.h"
 #include "github.com/openconfig/ondatra/proxy/proto/reservation.pb.h"
 #include "gmock/gmock.h"
-#include "gutil/status.h"
-#include "gutil/status_matchers.h"
+#include "gutil/gutil/status.h"
+#include "gutil/gutil/status_matchers.h"
 #include "lib/basic_switch.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/pins_control_device.h"
@@ -41,7 +41,7 @@
 #include "infrastructure/thinkit/thinkit.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/p4_runtime_session.h"
+#include "p4_infra/p4_runtime/p4_runtime_session.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
@@ -183,6 +183,7 @@ GetSutInterfaceInfoFromReservation(
 }  // namespace
 
 void OndatraGenericTestbedFixture::TearDown() {
+  ondatra_hooks_.teardown(teardown_handler_id_);
   EXPECT_OK(ondatra_hooks_.release());
 }
 
@@ -197,6 +198,19 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
   ASSIGN_OR_RETURN(reservation::Reservation reservation,
                    ondatra_hooks_.testbed());
 
+  // Setup testhelper teardown.
+  teardown_handler_id_ = ondatra_hooks_.new_teardown_handler(/*opts=*/{
+      .with_config_restorer = false,
+  });
+  auto set_test_case_ids =
+      [this](const std::vector<std::string>& test_case_ids) {
+        for (const std::string& test_case_id : test_case_ids) {
+          std::string test_case_id_go_str = test_case_id;
+          ondatra_hooks_.add_test_case_id(teardown_handler_id_,
+                                          test_case_id_go_str.data());
+        }
+      };
+
   ASSIGN_OR_RETURN(auto sut_interface_info, GetSutInterfaceInfoFromReservation(
                                                 testbed_request, reservation));
   ASSIGN_OR_RETURN(const reservation::ResolvedDevice* dut,
@@ -209,14 +223,14 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
   if (!control.ok()) {
     return std::make_unique<pins_test::OndatraGenericTestbed>(
         std::move(sut), /*control_device=*/nullptr,
-        std::move(sut_interface_info));
+        std::move(sut_interface_info), set_test_case_ids);
   }
 
   ASSIGN_OR_RETURN(auto control_switch, CreateSwitchFromDevice(*(*control)));
   ASSIGN_OR_RETURN(auto session,
-                   pdpi::P4RuntimeSession::Create(*control_switch));
+                   p4_runtime::P4RuntimeSession::Create(*control_switch));
   ASSIGN_OR_RETURN(p4::v1::GetForwardingPipelineConfigResponse response,
-                   pdpi::GetForwardingPipelineConfig(session.get()));
+                   p4_runtime::GetForwardingPipelineConfig(session.get()));
   ASSIGN_OR_RETURN(
       auto control_device,
       pins_test::PinsControlDevice::Create(
@@ -224,9 +238,10 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
           std::move(*response.mutable_config()->mutable_p4info())));
   auto control_device_pointer =
       std::make_unique<pins_test::PinsControlDevice>(std::move(control_device));
+
   return std::make_unique<pins_test::OndatraGenericTestbed>(
       std::move(sut), std::move(control_device_pointer),
-      std::move(sut_interface_info));
+      std::move(sut_interface_info), set_test_case_ids);
 }
 
 }  // namespace pins_test

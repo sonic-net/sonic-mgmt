@@ -1,0 +1,7 @@
+topology:
+  console_interfaces:
+    - 0.115200.0
+
+configuration_properties:
+  common:
+    dut_type: NetworkBmc
