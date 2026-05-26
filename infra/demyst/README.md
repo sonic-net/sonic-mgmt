@@ -1,83 +1,127 @@
-# Demyst Notification Script
+# Demyst Notification Module - Design Document
 
-Notifies the Demyst server after ring4 test completion for automated test failure analysis.
+## Overview
 
-## Usage
+Sends test run information to the Demyst server for automated AI-based test failure analysis. Called after ring4 test completion from `do_full_run.py`.
 
-```bash
-python3 notify_demyst.py --pipeline-type <TYPE> -t <TESTBED> -b <BUILD_ID> -r <RUN_ID> -m <STREAM> --results-json <PATH>
-```
-
-### Arguments
-
-| Argument | Description | Example |
-|----------|-------------|----------|
-| `-p, --pipeline-type` | Pipeline type (e.g., ring4) | `ring4` |
-| `-t, --testbed` | Testbed name (key in hw_cfg.json) | `t1-m3-4-cmono` |
-| `-b, --build_id` | Sonic buildimage build ID (p2build_job_id) | `40126` |
-| `-r, --run_id` | Jenkins job build ID | `5243` |
-| `-m, --stream` | Stream name (for container lookup) | `202405`, `master` |
-| `-j, --results-json` | Path to results.json file | `$WORKSPACE/results.json` |
-
-### Example (from Jenkins)
-
-```bash
-python3 ./demyst/notify_demyst.py \
-    -p $PIPELINE_TYPE \
-    -t $TEST_BED \
-    -b $P2_BUILD_JOB_ID \
-    -r $BUILD_ID \
-    -m $STREAM \
-    -j $WORKSPACE/results.json
-```
-
-## Prerequisites
-
-1. `--pipeline-type` must be `ring4` to send notification (other types skip gracefully)
-2. Testbed must be listed in `supported_testbeds.txt`
-3. Testbed must exist in `hw_cfg.json` (validated via `hw_setup_utils`)
-4. `results.json` must contain `report_link` and `log_tarball_link` fields
-
-
-## Payload Fields
-
-| Field | Source | Description |
-|-------|--------|-------------|
-| `build_id` | CLI `-b` | Sonic buildimage build ID |
-| `run_id` | Generated | `{testbed}_{run_id}_{timestamp}` |
-| `testbed` | CLI `-t` | Testbed name (server resolves platform) |
-| `topo_type` | hw_cfg.json | Topology type (e.g., `t0`, `t1`) |
-| `sonic_test_commit_id` | UCS container | Commit from sonic-mgmt container's mounted sonic-test dir |
-| `log_source` | | `"allure_url"` |
-| `allure_report_url` | results.json `report_link` | Allure report URL |
-| `syslogs_url` | results.json `log_tarball_link` | Syslogs tarball URL |
-| `run_type` | | `"hardware"` |
-| `sonic_test_repo_url` | | `"sonic-test"` |
-
-## Configuration Files
-
-### supported_testbeds.txt
+## Module Structure
 
 ```
-# Supported testbeds for demyst analysis
-t1-m3-4-cmono
+infra/demyst/
+├── notify_demyst.py    # Main orchestration - validates inputs, builds payload, sends to server
+└── utils.py            # Reusable utilities - validation, SSH, URL checks, HTTP communication
 ```
 
-## Exit Codes
+## notify_demyst.py
 
-| Code | Meaning |
-|------|----------|
-| 0 | Request sent successfully, or skipped (not ring4) |
-| 1 | Error (testbed not supported, missing results.json fields, server error, etc.) |
+**Purpose**: Main entry point that orchestrates the notification workflow.
 
-## Logging
+**Function**: `notify_demyst(testbed, build_id, jenkins_build_id, stream, allure_report_url, syslogs_url, testbed_info_dict, container_name, pipeline_type) -> Tuple[bool, Optional[str]]`
 
-Logs are written to `NOTIFY_DEMYST.log`
+**Flow**:
+1. Receives `pipeline_type` as parameter (caller reads from environment)
+2. Validates it's a ring4 pipeline
+3. Validates required input fields (jenkins_build_id, allure_report_url, syslogs_url)
+4. Checks syslogs URL exists
+5. Validates testbed configuration (topology, UCS credentials)
+6. Fetches sonic_test commit from UCS container via SSH
+7. Builds payload with all required fields
+8. Sends POST request to demyst server
+9. Returns success status and results URL
 
-## Files
+**Configuration**:
+- `DEMYST_SERVER_URL`: `https://demyst.cisco.com:10003/api/v1/analysis/offline`
 
-| File | Description |
-|------|-------------|
-| `notify_demyst.py` | Main notification script |
-| `supported_testbeds.txt` | Whitelist of supported testbeds |
-| `README.md` | This documentation |
+**Return Values**:
+- `(True, url)` - Successfully sent, demyst URL returned
+- `(True, None)` - Skipped (not ring4 pipeline)
+- `(False, None)` - Validation failed or network/server error occurred
+
+## utils.py
+
+**Purpose**: Reusable utility functions organized by category.
+
+### Validation Functions
+
+**`is_ring4_pipeline(pipeline_type: str) -> bool`**
+- Checks if pipeline type equals "ring4" (case-insensitive)
+
+**`validate_demyst_inputs(jenkins_build_id, allure_report_url, syslogs_url) -> bool`**
+- Validates required input fields are present
+- Logs missing fields at INFO level
+- Returns False if any field is missing
+
+**`validate_testbed_config(testbed_info_dict, testbed_name) -> dict | None`**
+- Validates testbed configuration by checking hw_cfg.json (required fields: topology, ucs_host, ucs_username, ucs_password)
+- Returns dict with validated fields if valid, None otherwise
+- Logs specific missing fields for debugging
+
+### SSH Functions
+
+**`run_ssh_cmd(client, cmd) -> tuple[str, str, int]`**
+- Executes SSH command and returns (stdout, stderr, return_code)
+
+**`get_sonic_test_commit(ucs_host, ucs_username, ucs_password, container_name) -> str`**
+- Connects to UCS server via SSH
+- Inspects sonic-mgmt container to find sonic-test mount path
+- Runs `git rev-parse HEAD` to get commit hash
+- Returns commit hash or empty string if failed
+
+### URL Functions
+
+**`get_syslogs_url(base_url) -> str | None`**
+- Appends `sanity_logs.tar.gz` to base URL
+- Makes HEAD request to verify file exists
+- Returns full URL if found, None otherwise
+- Suppresses SSL warnings for internal servers
+
+### Server Communication
+
+**`send_to_demyst(payload, server_url) -> tuple[bool, str | None]`**
+- Sends POST request to demyst server with JSON payload
+- Tries with system proxy first, falls back to no proxy
+- Handles server responses:
+  - 200/202: Success, returns (True, results_url)
+  - 400 with status="not_supported": Skipped by server, returns (True, None)
+  - Other errors: Returns (False, None)
+- Suppresses SSL warnings for internal servers
+
+## Payload Structure
+
+The client builds and sends this JSON payload to the demyst server:
+
+```json
+{
+  "build_id": "12345",
+  "submitter_cec_id": "cicd_t1-m3-4-cmono",
+  "run_id": "t1-m3-4-cmono_67890",
+  "sonic_test_commit_id": "abc123...",
+  "log_source": "allure_url",
+  "allure_report_url": "https://allure.cisco.com/.../allure-report/",
+  "syslogs_url": "https://logs.cisco.com/.../sanity_logs.tar.gz",
+  "testbed": "t1-m3-4-cmono",
+  "stream": "cisco.202511.1.signed",
+  "topo_type": "t1",
+  "run_type": "hardware",
+  "sonic_test_repo_url": "sonic-test",
+  "require_approval": false
+}
+```
+
+### Field Descriptions
+
+| Field | Value | Description |
+|-------|-------|-------------|
+| `build_id` | From parameter | Sonic buildimage build ID |
+| `submitter_cec_id` | `cicd_{testbed}` | Identifies CICD submission |
+| `run_id` | `{testbed}_{jenkins_build_id}` | Unique identifier for this run |
+| `sonic_test_commit_id` | From UCS SSH | Git commit hash from sonic-test repo |
+| `log_source` | `"allure_url"` | Indicates logs are from Allure URL |
+| `allure_report_url` | From parameter | URL to Allure report |
+| `syslogs_url` | Validated URL | Full path to sanity_logs.tar.gz |
+| `testbed` | From parameter | Testbed name (server resolves to platform) |
+| `stream` | From parameter | Stream name (server validates against allowlist) |
+| `topo_type` | From testbed_info_dict | Topology type (t0, t1, etc.) |
+| `run_type` | `"hardware"` | Always hardware for ring4 |
+| `sonic_test_repo_url` | `"sonic-test"` | Repo identifier |
+| `require_approval` | `false` | Auto-approved for CICD |

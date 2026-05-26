@@ -1,2 +1,0 @@
-# Supported testbeds for demyst analysis
-t1-m3-4-cmono

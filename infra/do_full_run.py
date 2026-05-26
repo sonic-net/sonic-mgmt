@@ -20,6 +20,7 @@ from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_t
     SANITY_LOG_TARBALL, print_folder_contents
 from do_hw_setup import (precheck, remove_topo, add_topo, deploy_mg, extra_configuration_steps, cisco_system_health,
                          reboot_all_DUTs)
+from demyst.notify_demyst import notify_demyst
 
 MAX_AUTORECOVERY_AND_RERUN_COUNT = 5
 REGRESSION_FAIL_MARKER = "Skip rest of the scripts if there is any"  # run_tests.sh produces this
@@ -526,9 +527,34 @@ def collect_results(args):
     log_url = upload_log_files_to_log_server(files_to_move)
     log.debug(log_url)
     result["log_tarball_link"] = log_url
+    
+    # Notify demyst 
+    try:
+        # jenkins_build_id is the jenkins job id which is always unique
+        jenkins_build_id = os.getenv("BUILD_ID", "")
+        pipeline_type = os.getenv("PIPELINE_TYPE", "")
+        success, demyst_url = notify_demyst(
+            testbed=testbed,
+            build_id=image_id,  # image_id is the p2build_job_id extracted from image name
+            jenkins_build_id=jenkins_build_id,
+            stream=stream,
+            allure_report_url=result.get("report_link"),
+            syslogs_url=log_url,
+            testbed_info_dict=testbed_info_dict,
+            container_name=getSonicMgmtContainterName(stream, testbed),
+            pipeline_type=pipeline_type
+        )
+        if success and demyst_url:
+            result["demyst_results_url"] = demyst_url
+            log.info(f"Demyst results URL: {demyst_url}")
+    except Exception as e:
+        log.warning(f"Demyst notification failed: {e}")
+    
+    # Write results.json once at the end
     with open(results_path, "w") as results_file:
         json.dump(result, results_file, indent=2)
     log.info(f"Saved results.json at: {results_path}")
+    
     return rc
 
 def kill_run(args, test_string="run_tests"):
