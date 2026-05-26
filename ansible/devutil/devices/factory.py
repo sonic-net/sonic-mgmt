@@ -16,8 +16,10 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../../"))
 
 
 def init_localhost(inventories=None, options={}, hostvars={}):
+    localhost_hostvars = hostvars.copy()
+    localhost_hostvars["ansible_python_interpreter"] = "/usr/bin/python3"
     try:
-        return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=hostvars.copy())
+        return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=localhost_hostvars.copy())
     except (NoAnsibleHostError, MultipleAnsibleHostsError) as e:
         logger.error(
             "Failed to initialize localhost from inventories '{}', exception: {}".format(str(inventories), repr(e))
