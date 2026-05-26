@@ -158,3 +158,11 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.105/24
       ipv6: fc0a::6a/64
+
+macsec_links:
+  - vm: ARISTA01T3
+    profile: 128_SCI
+  - vm: ARISTA02T3
+    profile: 128_SCI
+  - vm: ARISTA03T3
+    profile: 128_SCI
