@@ -7,7 +7,6 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import time
 import copy
-import ast
 from natsort import natsorted
 import pytest
 
@@ -358,6 +357,7 @@ def parse_sfp_type_output(lines, cmd_type="SFP_TYPE"):
             current_port = None  # Reset for next block
     return result
 
+
 def get_sfp_types(duthost, dev_conn):
     ports_str = " ".join(dev_conn)
     cmd_type = "SFP_TYPE"
@@ -367,6 +367,7 @@ def get_sfp_types(duthost, dev_conn):
     result = duthost.shell(cmd)
     return parse_sfp_type_output(result["stdout_lines"], cmd_type)
 
+
 def get_power_class(duthost, dev_conn):
     ports_str = " ".join(dev_conn)
     cmd_type = "POWER_CLASS"
@@ -375,9 +376,11 @@ def get_power_class(duthost, dev_conn):
     result = duthost.shell(cmd)
     return parse_sfp_type_output(result["stdout_lines"], cmd_type)
 
+
 def parse_control_file_output(grep_lines):
     """
-    Parse the output of the command "ls /sys/module/sx_core/asic0/module*/control" for all interfaces of the next format:
+    Parse the output of the command "ls /sys/module/sx_core/asic0/module*/control" for all
+    interfaces of the next format:
     ['Ethernet0|1', 'control', 'Ethernet1|1', 'control', 'Ethernet2|1', 'missing']
     and return a set of interfaces with control file.
     If command failed for an interface, it will be skipped.
@@ -399,7 +402,8 @@ def parse_control_file_output(grep_lines):
             current_interface = None
     return intfs_with_control
 
-def get_control_paths(duthost, intfs_with_control, control_checks):
+
+def get_control_paths(intfs_with_control, control_checks):
     """
     Get the control paths and all interfaces with control file.
     """
@@ -425,6 +429,7 @@ def get_control_values_all_intfs(duthost, control_paths):
         all_intfs_control_values = []
 
     return all_intfs_control_values
+
 
 def get_sw_control_enabled_map(duthost, port_index_map):
     """
@@ -454,7 +459,7 @@ def get_sw_control_enabled_map(duthost, port_index_map):
     existence_result = duthost.shell(existence_cmd, module_ignore_errors=True)
     existence_lines = existence_result['stdout'].strip().splitlines()
     intfs_with_control = parse_control_file_output(existence_lines)
-    control_paths, all_intf_with_control = get_control_paths(duthost, intfs_with_control, control_checks)
+    control_paths, all_intf_with_control = get_control_paths(intfs_with_control, control_checks)
     all_intfs_control_values = get_control_values_all_intfs(duthost, control_paths)
     for idx, (intf, intf_index) in enumerate(all_intf_with_control):
         control_value = all_intfs_control_values[idx].strip()
@@ -757,8 +762,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
                 logging.info(
                     "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
                 continue
-            sfp_type = sfp_type_data[intf]
-            power_class = power_class_data[intf]
+            sfp_type = sfp_type_data.get(intf, "")
+            power_class = power_class_data.get(intf, "")
             if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or "Power Class 1" in power_class:
                 logging.info("skip testing port {} which doesn't support LPM".format(intf))
                 not_supporting_lpm_physical_ports.add(phy_intf)
