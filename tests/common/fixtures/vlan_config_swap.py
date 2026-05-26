@@ -10,6 +10,9 @@ Builds an atomic CONFIG_DB JSON patch from the variant, applies via
 patch that restores the topo's ``default_vlan_config`` (not a true reverse
 patch -- it is built the same way as the apply patch, just against the
 default variant). Supports dualtor MUX_CABLE and dualtor-shared mac.
+
+Supersedes ``split_vlan.py`` and the dualtor ``setup_multiple_vlans`` in
+``test_mux_port_iptables_entries.py``; both kept in-place pending migration.
 """
 
 import logging
