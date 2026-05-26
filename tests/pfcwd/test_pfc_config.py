@@ -325,7 +325,7 @@ class TestDefaultPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        config_reload(duthost, config_source='minigraph', safe_reload=True)
+        config_reload(duthost, config_source='minigraph', safe_reload=True, override_config=True)
         # sleep 20 seconds to make sure configuration is loaded
         time.sleep(20)
         res = duthost.command('pfcwd show config')
