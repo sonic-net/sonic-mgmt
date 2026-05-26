@@ -12,32 +12,38 @@ if MACSEC_SUPPORTED:
     import scapy.contrib.macsec as scapy_macsec
 
 MACSEC_INFO_FILE = "macsec_info.pickle"
-MACSEC_GLOBAL_PN_OFFSET = 1000
-MACSEC_GLOBAL_PN_INCR = 100
 
 MACSEC_INFOS = {}
+# Per-port next PN to send. Initialized to pn_at_pickle+1 on first use so PTF frames are
+# always just ahead of the real peer, rather than a shared global that grows by 100 per
+# send and inflates highest_PN on the ASIC far beyond the peer's actual position.
+MACSEC_PORT_NEXT_PN = {}
 
 
 def macsec_send(test, port_id, pkt, count=1):
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
-    global MACSEC_GLOBAL_PN_OFFSET
-    global MACSEC_GLOBAL_PN_INCR
-
     device, port_number = ptf.testutils.port_to_tuple(port_id)
     if port_number in MACSEC_INFOS and MACSEC_INFOS[port_number]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = \
                                                                                 MACSEC_INFOS[port_number]
+
+        if port_number not in MACSEC_PORT_NEXT_PN:
+            MACSEC_PORT_NEXT_PN[port_number] = pn + 1
 
         for n in range(count):
             if isinstance(pkt, bytes):
                 # If in bytes, convert it to an Ether packet
                 pkt = scapy.Ether(pkt)
 
-            # Increment the PN by an offset so that the macsec frames are not late on DUT
-            MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
-            pn += MACSEC_GLOBAL_PN_OFFSET
+            send_pn = MACSEC_PORT_NEXT_PN[port_number]
+            MACSEC_PORT_NEXT_PN[port_number] += 1
 
-            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
+            # Broadcom ASIC derives ingress SCI from {outer_src_MAC, port_id} even when send_sci=true.
+            # Set outer src MAC to peer's MAC (first 6 bytes of peer_sci) so the ASIC finds the SA.
+            pkt = pkt.copy()
+            pkt[scapy.Ether].src = ':'.join('%02x' % ((peer_sci >> (56 - 8 * i)) & 0xFF) for i in range(6))
+
+            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, send_pn, xpn_en, peer_ssci, salt)
             # send the packet
             __origin_send_packet(test, port_id, macsec_pkt, 1)
     else:

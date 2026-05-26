@@ -71,6 +71,11 @@ def copy_ptftests_directory(ptfhost):
             None
     """
     logger.info("Copy PTF test files to PTF host '{0}'".format(ptfhost.hostname))
+    # Pre-create destination directory and touch the symlink target so Ansible 2.18 doesn't
+    # fail on py3/fib_test.py (symlink → ../fib_test.py) with "absent, cannot continue" when
+    # the destination directory is initially empty.
+    ptfhost.shell(cmd="mkdir -p {dest}/{src} && touch {dest}/{src}/fib_test.py".format(
+        dest=ROOT_DIR, src=PTF_TESTS))
     ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
 
     yield

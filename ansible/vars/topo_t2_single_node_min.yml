@@ -166,3 +166,7 @@ macsec_links:
     profile: 128_SCI
   - vm: ARISTA03T3
     profile: 128_SCI
+  - vm: ARISTA05LT2
+    profile: 128_SCI
+  - vm: ARISTA07LT2
+    profile: 128_SCI
