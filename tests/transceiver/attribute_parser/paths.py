@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 # Repository root - robust approach using pathlib from this file's location
-# Structure: repo_root/tests/transceiver/infra/paths.py
+# Structure: repo_root/tests/transceiver/attribute_parser/paths.py
 # So parents[3] gives us the repo root
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
