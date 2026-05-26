@@ -65,9 +65,9 @@ npu_cli_dict_usr_mode = {
         "cgm_global"
     ],
     "voq": [
-        "cgm_profile -i {interface}",
-        "queue_counters -i {interface}",
-        "stats -i {interface} -s {src_interface}",
+        "cgm_profile -i {interface} -t {traffic_class}",
+        "queue_counters -i {interface} -t {traffic_class}",
+        "stats -i {interface} -s {src_interface} -t {traffic_class}",
         "voq_globals",
         "voq_ids",
         "hbm",
@@ -278,7 +278,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
 
 
-def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, rand_one_dut_portname_oper_up, tbinfo, enum_rand_one_asic_index):
+def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
     """
     @summary: Verify output of `show platform npu` for user mode CLIs when run as a non-sudo user.
     Creates non_sudo_usr (password: password), then runs allowed user-mode CLIs as that user; commands must succeed.
@@ -296,8 +296,15 @@ def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostn
     if duthost.facts["platform"] in Q200_PLATFORMS:
         npu_cli_dict.update(npu_cli_dict_q200_usr_mode)
 
-    _, selected_interface = rand_one_dut_portname_oper_up.split('|')
-    _, selected_src_interface = rand_one_dut_portname_oper_up.split('|')
+    intfs_status = duthost.get_interfaces_status()
+    oper_up_interfaces = [intf for intf, status in intfs_status.items() 
+                         if status.get('oper') == 'up' and 'Ethernet' in intf]
+    
+    if not oper_up_interfaces:
+        pytest.skip("No operationally up Ethernet interfaces available")
+    
+    selected_interface = random.choice(oper_up_interfaces)
+    selected_src_interface = random.choice(oper_up_interfaces)
 
     logging.info("Selected interfaces for user-mode NPU CLI: interface=%s src_interface=%s",
                  selected_interface, selected_src_interface)
