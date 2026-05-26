@@ -5,9 +5,10 @@ import pytest
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import wait_for_startup
+from tests.common.reboot import wait_for_startup, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.helpers.ntp_helper import setup_ntp_client
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls    # noqa: F401
 
@@ -20,6 +21,24 @@ pytestmark = [
 
 
 REBOOT_MESSAGE = "gnoi test reboot"
+SHUTDOWN_TIMEOUT = 300
+
+
+def wait_for_ssh_drop(duthost, localhost):
+    """Wait for SSH to go down, confirming the device is actually rebooting."""
+    hostname = duthost.hostname
+    dut_ip = duthost.mgmt_ip
+    logging.info("Waiting for SSH to drop on %s (timeout=%ds)", hostname, SHUTDOWN_TIMEOUT)
+    res = localhost.wait_for(host=dut_ip,
+                             port=SONIC_SSH_PORT,
+                             state='absent',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=10,
+                             timeout=SHUTDOWN_TIMEOUT,
+                             module_ignore_errors=True)
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        raise Exception("DUT {} did not shutdown within {}s".format(hostname, SHUTDOWN_TIMEOUT))
+    logging.info("SSH dropped on %s", hostname)
 
 
 def is_gnmi_container_running(duthost):
@@ -60,7 +79,7 @@ def check_reboot_status(gnmi_tls, expected_active, expected_reason, expected_met
     pytest_assert(isinstance(count_value, int) and count_value >= 1, "'count' should be >= 1")
 
 
-def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnmi_tls):  # noqa: F811
+def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls):  # noqa: F811
     """
     Test gNOI System.Reboot API with COLD method.
 
@@ -86,12 +105,17 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
         expected_method="COLD"
     )
 
+    wait_for_ssh_drop(duthost, localhost)
+
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
 
     # Wait for critical processes before ending
     wait_critical_processes(duthost)
+
+    # Cold reboot restores CONFIG_DB, losing the PTF NTP server config
+    setup_ntp_client(duthost, ptfhost)
 
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)
@@ -105,7 +129,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
     pytest_assert(uptime_after > uptime_before, "Device did not reboot, uptime did not reset")
 
 
-def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnmi_tls):  # noqa: F811
+def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, ptfhost, gnmi_tls):  # noqa: F811
     """
     Test gNOI System.Reboot API with WARM method.
 
@@ -128,6 +152,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnm
         expected_method="WARM"
     )
 
+    wait_for_ssh_drop(duthost, localhost)
+
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
@@ -135,6 +161,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnm
     # Wait for critical processes before ending
     # Warm reboot takes longer for containers to restart; use an extended timeout
     wait_critical_processes(duthost, timeout=360)
+
+    setup_ntp_client(duthost, ptfhost)
 
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)
