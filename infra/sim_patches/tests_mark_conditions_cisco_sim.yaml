@@ -266,3 +266,7 @@ dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress[ack-i
 lldp/test_lldp_syncd.py::test_lldp_entry_table_after_reboot:
   skip:
     reason: "Skip reboot cases on sim, reboot takes longer at times and causes inconsistent failures; increasing timeout is not helpful."
+    
+lldp/test_lldp_syncd.py::test_lldp_entry_table_after_cont_flap:
+  skip:
+    reason: "Skip multiple link flap cases on sim."
