@@ -63,10 +63,9 @@ def remove_vlan_patch(vlan_name):
 
 
 def add_dhcp_relay_patch(vlan_name, dhcpv4_servers=None, dhcpv6_servers=None):
-    """Build a JSON patch that creates the /DHCP_RELAY/<vlan> entry with
-    whichever server lists are non-empty. Emits one atomic `add` op so that
-    a vlan with both v4 and v6 relay servers ends up with both keys in the
-    same value dict (a separate v4 then v6 add would overwrite)."""
+    """Build a JSON patch creating /DHCP_RELAY/<vlan> with whichever server
+    lists are non-empty. One atomic `add` (not two) so v4+v6 don't overwrite
+    each other."""
     value = {}
     if dhcpv4_servers:
         value["dhcpv4_servers"] = dhcpv4_servers
@@ -171,15 +170,13 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     # Read what's currently deployed so we know what to remove.
     running_config = duthost.get_running_config_facts()
     current_vlan_names = list(running_config.get("VLAN", {}).keys())
-    # DHCP and DHCP_RELAY servers carry forward from the deployed config.
-    # Look up per-Vlan by exact name (covers same-name swaps), fall back to
-    # the first deployed Vlan's servers for variants that rename Vlans.
+    # DHCP/DHCP_RELAY servers carry forward from running config; by exact
+    # vlan name, falling back to the first deployed vlan for renames.
     deployed_vlan = running_config.get("VLAN", {})
     deployed_relay = running_config.get("DHCP_RELAY", {})
     fallback_vlan = current_vlan_names[0] if current_vlan_names else None
 
-    # Build remove ops for every currently-deployed Vlan + its IPs + members
-    # + DHCP_RELAY entry.
+    # Build remove ops for every currently-deployed Vlan (+ IPs, members, DHCP_RELAY).
     vlan_intfs = running_config.get("VLAN_INTERFACE", {})
     vlan_members = running_config.get("VLAN_MEMBER", {})
     dhcp_relay = running_config.get("DHCP_RELAY", {})
