@@ -109,12 +109,12 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
         Dictonary of sub-port parameters for configuration DUT and PTF host
         For example:
         {
-        'Ethernet4.10': {
+        'Eth4.10': {
             'ip': '172.16.0.1/30',
             'neighbor_port': 'eth1.10',
             'neighbor_ip': '172.16.0.2/30'
             },
-        'Ethernet4.20': {
+        'Eth4.20': {
             'ip': '172.16.0.5/30',
             'neighbor_port': 'eth1.20',
             'neighbor_ip': '172.16.0.6/30'
@@ -163,9 +163,10 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     subnets = [i for i, _ in zip(network.subnets(new_prefix=22), config_port_indices)]
 
     for port, ptf_port, subnet in zip(list(config_port_indices.values()), ptf_ports, subnets):
+        short_port = port.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
         for vlan_id_dut, vlan_id_ptf, net in zip(vlan_ranges_dut, vlan_ranges_ptf, subnet.subnets(new_prefix=30)):
             hosts_list = [i for i in net.hosts()]
-            sub_ports_config['{}.{}'.format(port, vlan_id_dut)] = {
+            sub_ports_config['{}.{}'.format(short_port, vlan_id_dut)] = {
                 'ip': '{}/{}'.format(hosts_list[0], prefix),
                 'neighbor_port': '{}.{}'.format(ptf_port, vlan_id_ptf),
                 'neighbor_ip': '{}/{}'.format(hosts_list[1], prefix)
@@ -198,7 +199,7 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
         'sub_ports': define_sub_ports_configuration['sub_ports']
     }
 
-    parent_port_list = [sub_port.split('.')[0] for sub_port in list(define_sub_ports_configuration['sub_ports'].keys())]
+    parent_port_list = list(define_sub_ports_configuration['dut_ports'].values())
 
     for port in set(parent_port_list):
         remove_member_from_vlan(duthost, '1000', port)
@@ -207,7 +208,8 @@ def apply_config_on_the_dut(define_sub_ports_configuration, duthost, reload_dut_
     config_template = jinja2.Template(open(os.path.join(TEMPLATE_DIR, SUB_PORTS_TEMPLATE)).read())
 
     duthost.command("mkdir -p {}".format(DUT_TMP_DIR))
-    duthost.copy(content=config_template.render(sub_ports_vars), dest=sub_ports_config_path)
+    duthost.copy(content=config_template.render({'sub_ports': sub_ports_vars['sub_ports']}),
+                 dest=sub_ports_config_path)
     duthost.command('sonic-cfggen -j {} --write-to-db'.format(sub_ports_config_path))
 
     py_assert(wait_until(3, 1, 0, check_sub_port, duthost, list(sub_ports_vars['sub_ports'].keys())),
@@ -255,12 +257,14 @@ def apply_route_config(request, tbinfo, duthost, ptfhost, port_type, define_sub_
     namespaces = {}
 
     for port in list(dut_ports.values()):
+        short_port = port.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
         if 'same' in request.param:
-            sub_ports_on_port = random.sample([sub_port for sub_port in sub_ports_keys if port + '.' in sub_port], 2)
+            sub_ports_on_port = random.sample([sub_port for sub_port in sub_ports_keys
+                                               if short_port + '.' in sub_port], 2)
         else:
             sub_ports_on_port = [
-                random.choice([sub_port for sub_port in sub_ports_keys if port + '.' in sub_port]),
-                random.choice([sub_port for sub_port in sub_ports_keys if port + '.' not in sub_port])
+                random.choice([sub_port for sub_port in sub_ports_keys if short_port + '.' in sub_port]),
+                random.choice([sub_port for sub_port in sub_ports_keys if short_port + '.' not in sub_port])
             ]
             for sub_port in sub_ports_on_port:
                 sub_ports_keys.pop(sub_port)
@@ -370,8 +374,9 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
             add_ip_to_ptf_port(ptfhost, ptf_port, ptf_port_ip)
 
         # Get two random sub-ports which are not part of the selected DUT interface
+        short_dut_port = dut_port.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
         sub_ports_on_port = random.sample([sub_port for sub_port in sub_ports_keys
-                                           if dut_port + '.' not in sub_port], 2)
+                           if short_dut_port + '.' not in sub_port], 2)
 
         for sub_port in sub_ports_on_port:
             sub_ports_keys.pop(sub_port)
@@ -537,7 +542,8 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     network = ipaddress.ip_network(network)
 
     for port, subnet in zip(list(dut_ports.values()), network.subnets(new_prefix=30)):
-        sub_ports_on_port = [sub_port for sub_port in sub_ports if port + '.' in sub_port]
+        short_port = port.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
+        sub_ports_on_port = [sub_port for sub_port in sub_ports if short_port + '.' in sub_port]
 
         sub_port_neighbors = [sub_ports[sub_port]['neighbor_port'] for sub_port in sub_ports_on_port]
         ptf_agent_updater.configure_ptf_nn_agent(sub_port_neighbors)
