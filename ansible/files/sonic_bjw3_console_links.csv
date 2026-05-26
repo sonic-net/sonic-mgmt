@@ -68,3 +68,7 @@ bjw3-can-720dt-mc0-3,18,bjw3-can-w5000-leaf-1,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-3,19,bjw3-can-7215c1-1,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-3,20,bjw3-can-7215c1-leaf-1,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-3,21,bjw3-can-7215c1-2,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-3,22,bjw3-can-7215c1-3,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-3,23,bjw3-can-7215c1-4,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-3,24,bjw3-can-7215c1-5,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-3,25,bjw3-can-7215c1-6,ssh,sonic_config,sonicadmin,9600

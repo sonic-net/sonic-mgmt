@@ -108,6 +108,18 @@ all:
         bjw3-5-6:
           ansible_host: 10.150.239.32
           ansible_hostv6: 2404:f801:10:16::a96:ef1f
+        bjw3-5-7:
+          ansible_host: 10.150.239.33
+          ansible_hostv6: 2404:f801:10:16::a96:ef20
+        bjw3-9-5:
+          ansible_host: 10.150.239.34
+          ansible_hostv6: 2404:f801:10:16::a96:ef21
+        bjw3-5-8:
+          ansible_host: 10.150.239.35
+          ansible_hostv6: 2404:f801:10:16::a96:ef22
+        bjw3-9-6:
+          ansible_host: 10.150.239.36
+          ansible_hostv6: 2404:f801:10:16::a96:ef23
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -1060,6 +1072,30 @@ sonic_nokia_7215c1:
         "0x2D": "NOKIA"
         "0x2F": "CSxxx00xxx"
         "0xFE": "0x8FE4B99C"
+    bjw3-can-7215c1-3:
+      os: sonic
+      ansible_host: 10.150.238.129
+      ansible_hostv6: 2404:f801:10:16::a96:ee81
+      model: 3HE22118AARA01
+      serial: UN260500025
+    bjw3-can-7215c1-4:
+      os: sonic
+      ansible_host: 10.150.238.130
+      ansible_hostv6: 2404:f801:10:16::a96:ee82
+      model: 3HE22118AARA01
+      serial: UN260500028
+    bjw3-can-7215c1-5:
+      os: sonic
+      ansible_host: 10.150.238.131
+      ansible_hostv6: 2404:f801:10:16::a96:ee83
+      model: 3HE22118AARA01
+      serial: UN260500039
+    bjw3-can-7215c1-6:
+      os: sonic
+      ansible_host: 10.150.238.132
+      ansible_hostv6: 2404:f801:10:16::a96:ee84
+      model: 3HE22118AARA01
+      serial: UN260500049
 
 
 mgmt:

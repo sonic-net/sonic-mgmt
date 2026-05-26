@@ -66,6 +66,10 @@ bjw3-can-720dtm-1,10.150.238.122/23,Arista-720DT-MGX-G48S4,DevSonic,,sonic
 bjw3-can-w5000-1,10.150.238.124/23,M2-W5000-48CON2SFP,DevSonic,,sonic
 bjw3-can-7215c1-1,10.150.238.126/23,Nokia-7215-C1-G3,DevSonic,,sonic
 bjw3-can-7215c1-2,10.150.238.128/23,Nokia-7215-C1-G3,DevSonic,,sonic
+bjw3-can-7215c1-3,10.150.238.129/23,Nokia-7215-C1-G3,DevSonic,,sonic
+bjw3-can-7215c1-4,10.150.238.130/23,Nokia-7215-C1-G3,DevSonic,,sonic
+bjw3-can-7215c1-5,10.150.238.131/23,Nokia-7215-C1-G3,DevSonic,,sonic
+bjw3-can-7215c1-6,10.150.238.132/23,Nokia-7215-C1-G3,DevSonic,,sonic
 bjw3-pdu-126-62,10.150.126.62,Vertiv,Pdu,snmp,
 bjw3-pdu-126-63,10.150.126.63,Vertiv,Pdu,snmp,
 bjw3-pdu-126-64,10.150.126.64,Vertiv,Pdu,snmp,

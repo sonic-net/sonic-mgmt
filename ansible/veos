@@ -27246,6 +27246,18 @@ vms_bjw3_5:
       ansible_host: 172.16.217.138
     VM32127:
       ansible_host: 172.16.217.139
+    VM32128:
+      ansible_host: 172.16.217.140
+    VM32129:
+      ansible_host: 172.16.217.141
+    VM32130:
+      ansible_host: 172.16.217.142
+    VM32131:
+      ansible_host: 172.16.217.143
+    VM32132:
+      ansible_host: 172.16.217.144
+    VM32133:
+      ansible_host: 172.16.217.145
 vms_bjw3_8:
   hosts:
     VM00000:
@@ -27700,6 +27712,18 @@ vms_bjw3_9:
       ansible_host: 172.16.222.96
     VM04085:
       ansible_host: 172.16.222.97
+    VM04086:
+      ansible_host: 172.16.222.98
+    VM04087:
+      ansible_host: 172.16.222.99
+    VM04088:
+      ansible_host: 172.16.222.100
+    VM04089:
+      ansible_host: 172.16.222.101
+    VM04090:
+      ansible_host: 172.16.222.102
+    VM04091:
+      ansible_host: 172.16.222.103
 server_1:
   vars:
     host_var_file: host_vars/STR-ACS-SERV-01.yml
