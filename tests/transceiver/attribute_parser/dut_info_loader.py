@@ -18,6 +18,7 @@ from .port_spec import PortSpecExpander
 from .config_parser import parse_transceiver_configuration
 from .exceptions import DutInfoError
 from .paths import REL_NORMALIZATION_MAPPINGS_FILE, REL_DUT_INFO_DIR
+from .attribute_keys import BASE_ATTRIBUTES_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +227,7 @@ class DutInfoLoader:
         for port_name, merged_attrs in port_attributes.items():
             try:
                 base_attrs = self._validate_and_process_port(port_name, merged_attrs, mappings, dut_name)
-                port_base_attributes_dict[port_name] = {'BASE_ATTRIBUTES': base_attrs}
+                port_base_attributes_dict[port_name] = {BASE_ATTRIBUTES_KEY: base_attrs}
                 processed_count += 1
             except Exception as e:
                 logger.error("Failed to process port %s: %s", port_name, e)

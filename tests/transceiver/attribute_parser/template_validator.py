@@ -40,6 +40,7 @@ import logging
 
 from .exceptions import TemplateValidationError
 from .paths import REL_DEPLOYMENT_TEMPLATES_FILE
+from .attribute_keys import BASE_ATTRIBUTES_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class TemplateValidator(object):
         results = []
         fully_compliant_count = 0
         for port, port_data in port_attributes_dict.items():
-            base_attrs = port_data.get('BASE_ATTRIBUTES', {})
+            base_attrs = port_data.get(BASE_ATTRIBUTES_KEY, {})
             deployment = base_attrs.get('deployment')
             if not deployment or deployment not in templates:
                 logger.info(f"No template for port {port} deployment {deployment}")

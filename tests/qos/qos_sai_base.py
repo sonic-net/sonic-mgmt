@@ -2409,6 +2409,7 @@ class QosSaiBase(QosBase):
                 executor.submit(
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                    wait_for_bgp=True,
                 )
 
     @pytest.fixture(scope='module', autouse=True)
