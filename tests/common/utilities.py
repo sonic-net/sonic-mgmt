@@ -1531,7 +1531,8 @@ def get_running_config(duthost, asic=None, filter=None):
     return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
-def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
+def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True,
+                                        safe_reload_ignored_dockers=[]):
     """
     for multi-asic/single-asic devices, we only have 1 golden_config_db.json
     """
@@ -1540,7 +1541,7 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
         config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
-                      wait_for_bgp=True)
+                      wait_for_bgp=True, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
