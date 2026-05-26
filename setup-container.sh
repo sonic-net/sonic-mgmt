@@ -266,9 +266,19 @@ chmod 0600 /home/${USER}/.ssh/authorized_keys
 chown -R ${HOST_UID}:${HOST_GID} /home/${USER}/.ssh
 SETUP_EOF
 
-    docker cp "${TMP_SETUP}" "${CONTAINER_NAME}:/tmp/setup_user.sh"
-    docker cp "${PRIVKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519"
-    docker cp "${PUBKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519.pub"
+    # Use `docker exec -i ... tee` instead of `docker cp` to inject these files.
+    # `docker cp` into a running container goes through the daemon's tar-extract
+    # path, which trips a moby/runc mkdirat bug on the current docker-sonic-mgmt
+    # image ("Error response from daemon: mkdirat var/run: file exists"). The
+    # daemon prints the error but `docker cp` still exits 0, so `set -e` cannot
+    # catch the failure; setup_user.sh later fails with
+    # "/tmp/setup_user.sh: No such file or directory". `docker exec ... tee` does
+    # not use the tar-extract path, propagates the real exit code, and is
+    # already proven on the next line (ssh_pubkey_to_add).
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/setup_user.sh < "${TMP_SETUP}" > /dev/null
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/id_ed25519 < "${PRIVKEY_FILE}" > /dev/null
+    docker exec --user root "${CONTAINER_NAME}" chmod 0600 /tmp/id_ed25519
+    docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/id_ed25519.pub < "${PUBKEY_FILE}" > /dev/null
     echo "${SSH_PUBKEY}" | docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/ssh_pubkey_to_add > /dev/null
     rm -f "${TMP_SETUP}"
     trap - RETURN
