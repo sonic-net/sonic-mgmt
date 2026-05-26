@@ -2427,6 +2427,9 @@ sonic_cisco_8102:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str2-8102-02:
       ansible_host: 10.3.146.68
       ansible_hostv6: 2a01:111:e210:3000::a03:9244
@@ -2457,6 +2460,9 @@ sonic_cisco_8102:
           timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+        power off:
           timeout: 600
           wait: 600
     str2-8102-03:
@@ -2491,6 +2497,9 @@ sonic_cisco_8102:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str2-8102-04:
       ansible_host: 10.3.146.171
       ansible_hostv6: 2a01:111:e210:3000::a03:92ab
@@ -2521,6 +2530,9 @@ sonic_cisco_8102:
           timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+        power off:
           timeout: 600
           wait: 600
 
@@ -2675,6 +2687,9 @@ sonic_cisco_8101:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str2-8101-06:
       ansible_host: 10.3.146.184
       ansible_hostv6: 2a01:111:e210:3000::a03:92b8
@@ -2705,6 +2720,9 @@ sonic_cisco_8101:
           timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+        power off:
           timeout: 600
           wait: 600
 
@@ -2746,6 +2764,9 @@ sonic_cisco_8101_tornado_O8V48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
 
 
 sonic_cisco_8101_tornado_C32:
@@ -2785,6 +2806,9 @@ sonic_cisco_8101_tornado_C32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str2-8101c1-02:
       ansible_host: 10.3.146.234
       ansible_hostv6: 2a01:111:e210:3000::a03:92ea
@@ -2816,6 +2840,9 @@ sonic_cisco_8101_tornado_C32:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
     str2-8101c1-03:
       ansible_host: 10.3.146.231
@@ -2849,6 +2876,9 @@ sonic_cisco_8101_tornado_C32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str2-8101c1-04:
       ansible_host: 10.3.146.220
       ansible_hostv6: 2a01:111:e210:3000::a03:92dc
@@ -2880,6 +2910,9 @@ sonic_cisco_8101_tornado_C32:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
 
 sonic_cisco_8223:
@@ -2919,6 +2952,9 @@ sonic_cisco_8223:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
 
 sonic_appliance:

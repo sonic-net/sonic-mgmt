@@ -286,6 +286,10 @@ sonic_cisco_8101:
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x4F48A22C"
+      plt_reboot_dict:
+        power off:
+          timeout: 600
+          wait: 600
     str-8101-temp01:
       ansible_host: 10.3.156.27
       ansible_hostv6: 2a01:111:e210:4000::a03:9c1b
@@ -304,6 +308,10 @@ sonic_cisco_8101:
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x4A406B0B"
+      plt_reboot_dict:
+        power off:
+          timeout: 600
+          wait: 600
   vars:
     iface_speed: 400000
 

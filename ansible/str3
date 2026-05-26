@@ -541,6 +541,10 @@ sonic_cisco_8101:
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x12BBD105"
+      plt_reboot_dict:
+        power off:
+          timeout: 600
+          wait: 600
   vars:
     iface_speed: 400000
 sonic_cisco_8102:
@@ -578,6 +582,9 @@ sonic_cisco_8102:
           timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+        power off:
           timeout: 600
           wait: 600
 sonic_cisco_8102_smartswitch:
@@ -1130,6 +1137,9 @@ sonic_cisco_8101_O8C48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str3-8101-03:
       ansible_host: 10.3.146.121
       ansible_hostv6: 2a01:111:e210:3000::a03:9279
@@ -1160,6 +1170,9 @@ sonic_cisco_8101_O8C48:
           timeout: 600
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+        power off:
           timeout: 600
           wait: 600
 
@@ -1200,6 +1213,9 @@ sonic_cisco_8101_O8V48:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str3-8101-04:
       ansible_host: 10.3.146.35
       ansible_hostv6: 2a01:111:e210:3000::a03:9223
@@ -1232,6 +1248,9 @@ sonic_cisco_8101_O8V48:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
 
 sonic_cisco_8101_tornado_V64:
@@ -1271,6 +1290,9 @@ sonic_cisco_8101_tornado_V64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
       reduce_port_speed: true
     str3-8101c1-06:
       ansible_host: 10.64.247.90
@@ -1304,6 +1326,9 @@ sonic_cisco_8101_tornado_V64:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
       reduce_port_speed: true
 
@@ -1344,6 +1369,9 @@ sonic_cisco_8101_tornado_C32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str3-8101c1-08:
       ansible_host: 10.3.146.179
       ansible_hostv6: 2a01:111:e210:3000::a03:92b3
@@ -1375,6 +1403,9 @@ sonic_cisco_8101_tornado_C32:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
     str3-8101c1-10:
       ansible_host: 10.3.146.76
@@ -1408,6 +1439,9 @@ sonic_cisco_8101_tornado_C32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+        power off:
+          timeout: 600
+          wait: 600
     str3-8101c1-11:
       ansible_host: 10.3.146.237
       ansible_hostv6: 2a01:111:e210:3000::a03:92ed
@@ -1439,6 +1473,9 @@ sonic_cisco_8101_tornado_C32:
           wait: 600
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
+          wait: 600
+        power off:
+          timeout: 600
           wait: 600
 
 sonic_cisco_8111:
@@ -1479,6 +1516,9 @@ sonic_cisco_8111:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 60
+        power off:
+          timeout: 600
+          wait: 600
     str3-8111-03:
       ansible_host: 10.3.146.233
       ansible_hostv6: 2a01:111:e210:3000::a03:92e9
@@ -1500,6 +1540,10 @@ sonic_cisco_8111:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0xD03F7F02"
+      plt_reboot_dict:
+        power off:
+          timeout: 600
+          wait: 600
 
 sonic_cisco_lc_400G:
   vars:
