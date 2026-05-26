@@ -3,6 +3,7 @@ import time
 import threading
 import yaml
 import json
+import ipaddress
 import random
 import logging
 import os
@@ -241,7 +242,12 @@ def check_bgp_facts(duthost, cfg_facts):
     return all(result.values())
 
 
-def setup_vrf_cfg(duthost, localhost, cfg_facts):
+def check_bgp_vrf_removed(duthost, dut_asn, vrf):
+    running_cfg = duthost.shell("vtysh -c 'show running-config'")['stdout']
+    return "router bgp {} vrf {}".format(dut_asn, vrf) not in running_cfg
+
+
+def setup_vrf_cfg(duthost, localhost, cfg_facts, tbinfo):
     """
     setup vrf configuration on dut before test suite
     """
@@ -259,6 +265,37 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     cfg_t0 = deepcopy(cfg_facts)
 
     cfg_t0.pop("config_port_indices", None)
+
+    # Align BGP tables with sonic-bgp-global / sonic-bgp-neighbor YANG on the DUT image.
+    router_id = None
+    for loopback in cfg_t0.get("LOOPBACK_INTERFACE", {}):
+        loopback_items = loopback.split("|")
+        if len(loopback_items) == 2 and loopback_items[0] == "Loopback0":
+            ipaddr = ipaddress.ip_address(loopback_items[1].split("/")[0])
+            if isinstance(ipaddr, ipaddress.IPv4Address):
+                router_id = str(ipaddr)
+                break
+
+    if router_id is None:
+        pytest.fail(
+            "Loopback0 IPv4 not found in LOOPBACK_INTERFACE; "
+            "cannot set BGP_GLOBALS router_id from cfg_facts"
+        )
+
+    dut_asn = tbinfo["topo"]["properties"]["configuration_properties"]["common"]["dut_asn"]
+
+    for bgp_neighbor in cfg_t0.get("BGP_NEIGHBOR", {}):
+        cfg_t0["BGP_NEIGHBOR"][bgp_neighbor].pop("nhopself", None)
+        cfg_t0["BGP_NEIGHBOR"][bgp_neighbor].pop("rrclient", None)
+        cfg_t0["BGP_NEIGHBOR"][bgp_neighbor]["neighbor"] = bgp_neighbor
+
+    if "BGP_GLOBALS" not in cfg_t0:
+        cfg_t0["BGP_GLOBALS"] = {}
+    for vrf_name in ("Vrf1", "Vrf2"):
+        if vrf_name not in cfg_t0["BGP_GLOBALS"]:
+            cfg_t0["BGP_GLOBALS"][vrf_name] = {}
+        cfg_t0["BGP_GLOBALS"][vrf_name]["router_id"] = router_id
+        cfg_t0["BGP_GLOBALS"][vrf_name]["local_asn"] = dut_asn
 
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members("Vlan1000", cfg_facts)
@@ -589,7 +626,7 @@ def setup_vrf(
         duthost.critical_services = ["swss", "syncd", "database", "teamd", "bgp"]
         cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-        setup_vrf_cfg(duthost, localhost, cfg_t0)
+        setup_vrf_cfg(duthost, localhost, cfg_t0, tbinfo)
 
         # Generate cfg_facts for t0-vrf topo, should not use cfg_facts fixture here. Otherwise, the cfg_facts
         # fixture will be executed before setup_vrf and will have the original non-VRF config facts.
@@ -1124,7 +1161,11 @@ class TestVrfLoopbackIntf:
         duthost.shell("vtysh -c 'config terminal' -c 'router bgp {}'".format(dut_asn))
 
         # vrf1 args, vrf2 use the same as vrf1
-        peer_range = IPNetwork(cfg_facts["BGP_PEER_RANGE"]["BGPSLBPassive"]["ip_range"][0])
+        # BGP_PEER_RANGE keys in VRF topology config_db are stored as "<VRF>|<name>"
+        # e.g. "Vrf1|BGPSLBPassive". Derive the VRF name from VLAN_INTERFACE to avoid
+        # hardcoding and to stay consistent with how all other VRF-prefixed keys are handled.
+        vrf1 = cfg_facts["VLAN_INTERFACE"]["Vlan1000"]["vrf_name"]
+        peer_range = IPNetwork(cfg_facts["BGP_PEER_RANGE"]["{0}|BGPSLBPassive".format(vrf1)]["ip_range"][0])
         ptf_speaker_ip = IPNetwork("{}/{}".format(peer_range[1], peer_range.prefixlen))
         vlan_port = get_vlan_members("Vlan1000", cfg_facts)[0]
         vlan_peer_port = cfg_facts["config_port_indices"][vlan_port]
@@ -1212,10 +1253,13 @@ class TestVrfLoopbackIntf:
     @pytest.mark.usefixtures("setup_bgp_with_loopback")
     def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
-        peer_range = IPNetwork(cfg_facts["BGP_PEER_RANGE"]["BGPSLBPassive"]["ip_range"][0])
+        vrf1 = cfg_facts["VLAN_INTERFACE"]["Vlan1000"]["vrf_name"]
+        peer_range = IPNetwork(cfg_facts["BGP_PEER_RANGE"]["{0}|BGPSLBPassive".format(vrf1)]["ip_range"][0])
         ptf_speaker_ip = IPNetwork("{}/{}".format(peer_range[1], peer_range.prefixlen))
 
         for vrf in cfg_facts["VRF"]:
+            if vrf == "default":
+                continue
             bgp_info = json.loads(duthost.shell("vtysh -c 'show bgp vrf {} summary json'".format(vrf))["stdout"])
             # Verify bgp sessions are established
             assert (
@@ -1741,6 +1785,19 @@ class TestVrfDeletion:
         gen_vrf_neigh_file("Vrf1", ptfhost, render_file="/tmp/vrf1_neigh.txt")
 
         gen_vrf_neigh_file("Vrf2", ptfhost, render_file="/tmp/vrf2_neigh.txt")
+
+        # BGP must be deconfigured from Vrf1 before the VRF can be deleted.
+        # The SONiC CLI rejects 'config vrf del' while FRR still has
+        # 'router bgp <asn> vrf Vrf1' in its running config.
+        # BGP_NEIGHBOR entries remain in config_db so bgpcfgd will restore
+        # BGP automatically when Vrf1 is re-added in restore_vrf().
+        dut_asn = cfg_facts["DEVICE_METADATA"]["localhost"]["bgp_asn"]
+        duthost.shell(
+            "vtysh -c 'configure terminal' -c 'no router bgp {} vrf Vrf1'".format(dut_asn)
+        )
+
+        assert wait_until(30, 2, 0, check_bgp_vrf_removed, duthost, dut_asn, "Vrf1"), \
+            "BGP instance for Vrf1 was not removed from FRR running config within the expected time"
 
         duthost.shell("config vrf del Vrf1")
 
