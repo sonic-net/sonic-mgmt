@@ -16,8 +16,10 @@ Supersedes ``split_vlan.py`` and the dualtor ``setup_multiple_vlans`` in
 """
 
 import logging
+import os
 
 import pytest
+import yaml
 
 from tests.common.gu_utils import apply_patch, get_gcu_timeout
 from tests.common.helpers.parallel import parallel_run_threaded
@@ -142,6 +144,26 @@ def remove_mux_cable_patch(intf_name):
         "op": "remove",
         "path": "/MUX_CABLE/%s" % intf_name,
     }]
+
+
+_REPO_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir)
+)
+
+
+def load_topo_vlan_configs(topo_name):
+    """Read ``ansible/vars/topo_<topo_name>.yml`` and return its
+    ``topology.DUT.vlan_configs`` dict, or None if missing.
+
+    Lets callers that only have a topo name (no live ``tbinfo``) discover
+    the variants the topo defines.
+    """
+    path = os.path.join(_REPO_ROOT, 'ansible', 'vars', 'topo_%s.yml' % topo_name)
+    if not os.path.isfile(path):
+        return None
+    with open(path) as f:
+        topo = yaml.safe_load(f) or {}
+    return topo.get('topology', {}).get('DUT', {}).get('vlan_configs')
 
 
 def _inherit_servers_from_running(vlan_name, table, key, fallback_vlan):
