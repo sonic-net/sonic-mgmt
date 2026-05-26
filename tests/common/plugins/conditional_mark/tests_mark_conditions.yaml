@@ -4174,12 +4174,13 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
-    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
+    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
     conditions_logical_operator: or
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
       - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
+      - "'bmc' in topo_type"
 
 #######################################
 #####     ptftests      #####
