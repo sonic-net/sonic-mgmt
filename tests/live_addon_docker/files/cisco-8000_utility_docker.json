@@ -8,10 +8,13 @@
     {
       "utility_package_version_glob": "202405*",
       "compatible_sonic_globs": ["202411*", "202505*"]
+    },
+    {
+      "utility_package_version_glob": "202411*",
+      "compatible_sonic_globs": ["202411*", "202505*"]
     }
   ],
   "docker_run": {
-    "image_ref": "docker-cisco-utility:latest",
     "container_name": "cisco-utility",
     "cli_args": [
       "-t",

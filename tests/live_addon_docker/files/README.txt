@@ -6,10 +6,22 @@ Vendor JSON files in this directory
 
 Other ASICs: add ``files/<asic_type>_utility_docker.json`` (match ``duthost.facts['asic_type']``), or run pytest with:
 
-  --utility-docker-config tests/vendor_utility_docker/files/<your>_utility_docker.json
+  --utility-docker-config tests/live_addon_docker/files/<your>_utility_docker.json
 
 Command lines executed on the DUT are built only from that JSON (see utility_docker_helpers.py).
 After tests, cleanup verification (cores, syslog, container gone) is implemented in code, not in JSON.
+
+Live-addon image repository name
+--------------------------------
+
+The top-level ``vendor`` field drives the docker image repository name on pull/load/run::
+
+  docker-live-addon-<vendor>[:tag]
+
+For example ``"vendor": "cisco"`` resolves to ``docker-live-addon-cisco:latest``. Other vendors use
+the same pattern (``docker-live-addon-abc``, ``docker-live-addon-xyz``, …). Optional
+``docker_run.image_tag`` overrides the tag (default ``latest``). ``container_name`` remains
+vendor-specific in JSON (e.g. ``cisco-utility``).
 
 Registry pull (docker pull on DUT, same config as syncd-rpc)
 -------------------------------------------------------------
@@ -17,9 +29,9 @@ Registry pull (docker pull on DUT, same config as syncd-rpc)
 **By default** a registry pull runs **first** (no extra keys in vendor JSON). It uses the same
 Ansible ``docker_registry_host`` / ``docker_registry_username`` / ``docker_registry_password`` as
 ``swap_syncd`` (see ``tests.common.system_utils.docker.load_docker_registry_info``). Pull ref is
-``{docker_registry_host}/{repository}:{duthost.os_version}`` where ``repository`` is parsed from
-``docker_run.image_ref`` (text before the last ``:``), matching the tag convention used for RPC
-images. Then ``docker tag`` to ``docker_run.image_ref`` when the pulled ref differs.
+``{docker_registry_host}/{repository}:{duthost.os_version}`` where ``repository`` is
+``docker-live-addon-<vendor>`` (derived from the JSON ``vendor`` field), matching the tag convention
+used for RPC images. Then ``docker tag`` to ``docker_run.image_ref`` when the pulled ref differs.
 
 If pull or tag fails or ``docker_registry_host`` is unset (registry step skipped), the framework
 falls back to a tarball on the DUT, tarball on the test runner, then an image already on the DUT.

@@ -12,7 +12,7 @@ import os
 
 import pytest
 
-from tests.vendor_utility_docker import utility_docker_helpers as udh
+from tests.live_addon_docker import utility_docker_helpers as udh
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,17 @@ def pytest_addoption(parser):
         "--utility-docker-tarball",
         action="store",
         default=None,
-        help="Full path to the .gz image on the DUT (default: <vendor_utility_docker>/tarball_filename from JSON)",
+        help="Full path to the .gz image on the DUT (default: <live_addon_docker>/tarball_filename from JSON)",
+    )
+    parser.addoption(
+        "--live_addon_docker_registry",
+        action="store",
+        default=None,
+        help=(
+            "Override the docker registry host used for the live-addon image pull path. "
+            "When set, this replaces Ansible creds docker_registry_host for the registry pull. "
+            "Use --public_docker_registry to force no-login behavior (same as swap_syncd)."
+        ),
     )
 
 
@@ -52,7 +62,7 @@ def utility_docker_vendor_cfg(request, duthosts, enum_rand_one_per_hwsku_fronten
             path,
         )
     if not os.path.isfile(path):
-        pytest.fail("Vendor utility docker config not found: {}".format(path))
+        pytest.skip("Vendor utility docker config not found: {}".format(path))
     return udh.load_vendor_config(path)
 
 
@@ -92,17 +102,19 @@ def utility_docker_install_source(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     public_reg = request.config.getoption("--public_docker_registry")
+    registry_override = request.config.getoption("--live_addon_docker_registry")
     res = udh.resolve_utility_install_source(
         duthost,
         utility_docker_vendor_cfg,
         utility_docker_local_tarball_optional,
         public_docker_registry=public_reg,
+        docker_registry_host_override=registry_override,
     )
     if res.kind == "none":
         pytest.skip(
             "Utility docker not available: no matching image on DUT, no tarball at {0}, "
             "and no tarball on the test runner. Pre-load the image (`docker load`), copy "
-            "{1} to the DUT home dir, place {1} under tests/vendor_utility_docker/ on the test "
+            "{1} to the DUT home dir, place {1} under tests/live_addon_docker/ on the test "
             "runner, pass --utility-docker-tarball, or ensure docker_registry_host in Ansible creds "
             "for registry pull (or omit docker_registry_host so registry is skipped and use a tarball / local image)."
             .format(udh.dut_home_tarball_path(utility_docker_vendor_cfg), utility_docker_vendor_cfg["tarball_filename"])

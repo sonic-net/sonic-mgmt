@@ -22,7 +22,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-from tests.vendor_utility_docker import utility_docker_helpers as udh
+from tests.live_addon_docker import utility_docker_helpers as udh
 
 logger = logging.getLogger(__name__)
 

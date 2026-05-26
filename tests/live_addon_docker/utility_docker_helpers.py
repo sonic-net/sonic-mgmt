@@ -4,8 +4,10 @@ Commands run on the DUT are built only from the vendor JSON (see ``files/*.json`
 - Default path: ``files/<asic_type>_utility_docker.json`` (from DUT ``facts['asic_type']``),
   for example ``files/cisco-8000_utility_docker.json``. Override with ``--utility-docker-config``.
 
-The JSON must define ``docker_run`` (``docker load`` if needed, then ``docker run``), ``health``,
-and ``validation`` (container name for checks). Optional fields: ``tarball_filename``, ``version_matrix``.
+The JSON must define ``vendor``, ``docker_run`` (``docker load`` if needed, then ``docker run``),
+``health``, and ``validation`` (container name for checks). ``docker_run.image_ref`` is derived as
+``docker-live-addon-<vendor>[:tag]`` (optional ``docker_run.image_tag``, default ``latest``).
+Optional fields: ``tarball_filename``, ``version_matrix``, ``candidate_image_refs``.
 Registry pull (on by default when ``docker_registry_host`` is set) uses the same Ansible
 ``docker_registry_*`` fields as ``swap_syncd``; pass pytest ``--public_docker_registry`` to use
 ``public_docker_registry_host`` with no login, same as the QoS swap_syncd path.
@@ -64,6 +66,10 @@ _DEFAULT_SYSLOG_ERROR_PATTERN = (
 # Used by ``run_config_reload_utility_start_reload_health``: pause after first reload before ``docker run``.
 CONFIG_RELOAD_UTILITY_CYCLE_WAIT_SECONDS = 60
 
+# ACR/docker repository name: docker-live-addon-<vendor> (e.g. docker-live-addon-cisco).
+LIVE_ADDON_IMAGE_REPO_PREFIX = "docker-live-addon"
+DEFAULT_LIVE_ADDON_IMAGE_TAG = "latest"
+
 InstallSource = collections.namedtuple(
     "InstallSource", ["kind", "remote_tarball_path", "image_ref"]
 )
@@ -71,10 +77,48 @@ InstallSource = collections.namedtuple(
 # Registry installs use kind "image_present" after pull+tag (see try_registry_pull_utility_image).
 
 
+def live_addon_image_repository(vendor):
+    """
+    Return the live-addon image repository name for a vendor (``docker-live-addon-<vendor>``).
+
+    ``vendor`` comes from the top-level ``vendor`` field in the vendor JSON (e.g. ``cisco``).
+    """
+    name = (vendor or "").strip().lower()
+    if not name:
+        raise ValueError("vendor config must set 'vendor' for live-addon image repository name")
+    return "{}-{}".format(LIVE_ADDON_IMAGE_REPO_PREFIX, name)
+
+
+def resolve_docker_run_image_ref(cfg):
+    """
+    Build ``docker_run.image_ref`` from ``vendor`` and optional ``docker_run.image_tag``.
+
+    Repository is always ``docker-live-addon-<vendor>``. Tag defaults to ``latest``; an explicit
+    ``docker_run.image_tag`` or legacy ``docker_run.image_ref`` (tag portion only) overrides it.
+    """
+    dr = cfg.get("docker_run") or {}
+    tag = dr.get("image_tag")
+    if tag is None and dr.get("image_ref"):
+        tag = image_ref_to_tag(dr["image_ref"])
+    if not tag:
+        tag = DEFAULT_LIVE_ADDON_IMAGE_TAG
+    return "{}:{}".format(live_addon_image_repository(cfg.get("vendor")), str(tag).strip())
+
+
+def normalize_vendor_config(cfg):
+    """Set ``docker_run.image_ref`` from ``vendor`` (and optional tag) after loading JSON."""
+    cfg.setdefault("docker_run", {})
+    resolved = resolve_docker_run_image_ref(cfg)
+    cfg["docker_run"]["image_ref"] = resolved
+    logger.info("Resolved docker_run.image_ref from vendor: %s", resolved)
+    return cfg
+
+
 def load_vendor_config(config_path):
-    """Load vendor JSON parameters."""
+    """Load vendor JSON parameters and resolve ``docker_run.image_ref`` from ``vendor``."""
     with open(config_path, encoding="utf-8") as handle:
-        return json.load(handle)
+        cfg = json.load(handle)
+    return normalize_vendor_config(cfg)
 
 
 def image_ref_to_tag(image_ref):
@@ -203,7 +247,7 @@ def require_version_matrix_or_skip(duthost, cfg, resolved_image_ref):
     DUT SONiC build are not declared compatible.
 
     Call **after** the image exists on the DUT (``docker load`` / present) and **before**
-    ``docker run``, passing ``resolved_image_ref`` (e.g. ``docker-cisco-utility:latest``).
+    ``docker run``, passing ``resolved_image_ref`` (e.g. ``docker-live-addon-cisco:latest``).
 
     Schema (each row: globs match ``package.version`` from ``com.azure.sonic.manifest``; not the
     Docker ``:tag``). Both ``utility_image_version_glob`` and ``utility_package_version_glob`` use
@@ -343,7 +387,13 @@ def _utility_registry_pull_settings(cfg):
     return {"image_name": image_name, "image_version": None, "target_ref": target_ref}
 
 
-def resolve_utility_install_source(duthost, cfg, local_runner_tarball_path, public_docker_registry=False):
+def resolve_utility_install_source(
+    duthost,
+    cfg,
+    local_runner_tarball_path,
+    public_docker_registry=False,
+    docker_registry_host_override=None,
+):
     """
     Resolve where to get the image from.
 
@@ -363,7 +413,12 @@ def resolve_utility_install_source(duthost, cfg, local_runner_tarball_path, publ
     """
     reg_settings = _utility_registry_pull_settings(cfg)
     if reg_settings is not None:
-        ref = try_registry_pull_utility_image(duthost, reg_settings, public_docker_registry=public_docker_registry)
+        ref = try_registry_pull_utility_image(
+            duthost,
+            reg_settings,
+            public_docker_registry=public_docker_registry,
+            docker_registry_host_override=docker_registry_host_override,
+        )
         if ref:
             logger.info("Utility docker image from registry: %s", ref)
             return InstallSource("image_present", None, ref)
@@ -404,7 +459,9 @@ def resolve_local_tarball_path(config, search_dir, tarball_override):
     return os.path.abspath(os.path.join(search_dir, name))
 
 
-def try_registry_pull_utility_image(duthost, settings, public_docker_registry=False):
+def try_registry_pull_utility_image(
+    duthost, settings, public_docker_registry=False, docker_registry_host_override=None
+):
     """
     Pull ``{registry}/{image_name}:{image_version}`` on the DUT (Ansible ``creds`` / registry same
     as ``swap_syncd`` / ``download_image``), then ``docker tag`` to ``settings['target_ref']``
@@ -420,13 +477,13 @@ def try_registry_pull_utility_image(duthost, settings, public_docker_registry=Fa
     image_name = settings["image_name"]
     target_ref = settings["target_ref"]
 
+    creds = copy.deepcopy(creds_on_dut(duthost))
     if public_docker_registry:
-        creds = copy.deepcopy(creds_on_dut(duthost))
         creds["docker_registry_host"] = creds.get("public_docker_registry_host")
         creds["docker_registry_username"] = ""
         creds["docker_registry_password"] = ""
-    else:
-        creds = creds_on_dut(duthost)
+    if docker_registry_host_override and str(docker_registry_host_override).strip():
+        creds["docker_registry_host"] = str(docker_registry_host_override).strip()
     try:
         registry = load_docker_registry_info(duthost, creds)
     except ValueError as exc:
