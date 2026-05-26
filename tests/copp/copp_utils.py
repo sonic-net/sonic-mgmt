@@ -252,7 +252,7 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                 python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi==1.16.0 \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
                 && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
                 && rm -rf /var/tmp_build \
                 && mkdir -p /opt && cd /opt && wget {3} \
@@ -273,8 +273,9 @@ def _install_nano(dut, creds,  syncd_docker_name):
             creds (dict): Credential information according to the dut inventory
     """
 
-    if "bookworm" in dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
-                               .format(syncd_docker_name))['stdout'].lower():
+    codename = dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
+                         .format(syncd_docker_name))['stdout'].lower()
+    if "bookworm" in codename or "trixie" in codename:
         _install_nano_bookworm(dut, creds, syncd_docker_name)
         return
 
@@ -567,7 +568,7 @@ def is_trap_installed(duthost, trap_id, namespace=None):
     """
 
     output = parse_show_copp_configuration(duthost, namespace)
-    assert trap_id in output, f"Trap {trap_id} not found in the configuration"
+    assert trap_id in output, "Trap {} not found in the configuration".format(trap_id)
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
     return output[trap_id]["hw_status"] == "installed"
