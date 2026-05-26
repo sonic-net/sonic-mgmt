@@ -310,6 +310,20 @@
         ]
     },
     {
+        "feature": "db_migrator",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vaibhav.dixit@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "db_migrator.test_migrate_dns"
+                ],
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vaibhav.dixit@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "dash",
         "owner": "Prince Sunny",
         "email": "prsunny@microsoft.com",
