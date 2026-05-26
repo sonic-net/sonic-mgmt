@@ -89,15 +89,29 @@ class MemoryMonitor:
             "[MemoryUtilization] recorded validate baseline System-block 'data collected': {}".format(
                 self._monit_memory_baseline_timestamp or "<none>"))
 
-    def read_monit_status_with_freshness_retry(self, cmd):
+    def read_monit_status_with_freshness_retry(self, cmd, enable_retry=False):
         """
         Execute `sudo monit status` and verify its System-block 'data collected' timestamp
         differs from the validate-output baseline. If it still matches, sleep
         MONIT_STATUS_FRESHNESS_WAIT_SECONDS and retry the status read, up to
         MONIT_STATUS_FRESHNESS_MAX_RETRIES times. Never re-issues `monit validate`.
         Returns the final output even when freshness cannot be confirmed.
+
+        When `enable_retry` is False (the default), the freshness-check retry
+        loop is bypassed entirely: the first `sudo monit status` output is returned
+        as-is regardless of whether its System-block timestamp matches the validate
+        baseline. This is the cheaper path for tests that tolerate potentially
+        stale monit cache data. When `enable_retry` is True, the retry loop runs
+        and may sleep up to MONIT_STATUS_FRESHNESS_WAIT_SECONDS *
+        MONIT_STATUS_FRESHNESS_MAX_RETRIES seconds per call.
         """
         output = self.execute_command(cmd)
+
+        if not enable_retry:
+            logger.info(
+                "[MemoryUtilization] enable_retry=False; returning monit status output "
+                "without freshness retry for '{}'".format(cmd))
+            return output
 
         if not self._monit_memory_baseline_timestamp:
             logger.warning(
