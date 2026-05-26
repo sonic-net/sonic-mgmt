@@ -224,6 +224,33 @@ def get_suppress_pl_names(duthost):
     )
 
 
+def bgp_container_name(duthost, asic_index):
+    return "bgp{}".format(asic_index) if (
+        duthost.is_multi_asic and asic_index is not None
+    ) else "bgp"
+
+
+def bgp_container_names(duthost):
+    return [
+        bgp_container_name(duthost, asic_index)
+        for asic_index in duthost.get_frontend_asic_ids()
+    ]
+
+
+def bgp_service_name(duthost, asic_index):
+    return "bgp@{}".format(asic_index) if (
+        duthost.is_multi_asic and asic_index is not None
+    ) else "bgp"
+
+
+def bgp_service_container_pairs(duthost):
+    return [
+        (bgp_service_name(duthost, asic_index),
+         bgp_container_name(duthost, asic_index))
+        for asic_index in duthost.get_frontend_asic_ids()
+    ]
+
+
 def bgpcfgd_running(duthost):
     """Return True iff bgpcfgd is RUNNING in the bgp container(s) of all
     frontend asics.
@@ -237,10 +264,7 @@ def bgpcfgd_running(duthost):
     raw ``docker exec <container> supervisorctl status <svc>`` with the
     exact container name we built."""
     sonichost = getattr(duthost, "sonichost", duthost)
-    for asic_index in duthost.get_frontend_asic_ids():
-        container = "bgp{}".format(asic_index) if (
-            duthost.is_multi_asic and asic_index is not None
-        ) else "bgp"
+    for container in bgp_container_names(duthost):
         if not sonichost.is_service_running("bgpcfgd", container):
             return False
     return True
@@ -253,10 +277,10 @@ def wait_for_bgpcfgd(duthost, timeout=BGPCFGD_RUNNING_TIMEOUT):
     )
 
 
-def start_bgp_container(duthost, container):
+def start_bgp_container(duthost, service, container):
     """Best-effort start for a bgp container left stopped after restart."""
     duthost.shell(
-        "sudo systemctl reset-failed {0}; sudo systemctl start {0}".format(container),
+        "sudo systemctl reset-failed {0}; sudo systemctl start {0}".format(service),
         module_ignore_errors=True,
     )
     duthost.shell("sudo docker start {}".format(container), module_ignore_errors=True)
@@ -272,20 +296,60 @@ def restart_bgp_container(duthost):
     rely on :func:`wait_for_bgpcfgd` to confirm that bgpcfgd is actually
     RUNNING. On some builds a failed restart can leave the container stopped,
     so we do a bounded start fallback before failing."""
-    containers = []
-    for asic_index in duthost.get_frontend_asic_ids():
-        container = "bgp{}".format(asic_index) if (
-            duthost.is_multi_asic and asic_index is not None
-        ) else "bgp"
-        containers.append(container)
+    service_container_pairs = bgp_service_container_pairs(duthost)
+    for service, _ in service_container_pairs:
         duthost.shell(
-            "sudo systemctl restart {}".format(container),
+            "sudo systemctl restart {}".format(service),
             module_ignore_errors=True,
         )
     if not wait_until(60, BGPCFGD_RUNNING_INTERVAL, 0, bgpcfgd_running, duthost):
-        for container in containers:
-            start_bgp_container(duthost, container)
+        for service, container in service_container_pairs:
+            start_bgp_container(duthost, service, container)
     wait_for_bgpcfgd(duthost, timeout=180)
+
+
+def apply_constants_to_bgpcfgd(duthost):
+    """Propagate the current host ``/etc/sonic/constants.yml`` into every
+    frontend ASIC's bgp container and bounce just ``bgpcfgd`` so it re-reads
+    it.
+
+    Background: a ``systemctl restart bgp@<N>`` is not portable across our
+    testbeds for refreshing the constants file. On real (single-ASIC) DUTs
+    ``/etc/sonic/constants.yml`` is bind-mounted read-only into the bgp
+    container from the host, so editing the host file plus a systemctl
+    restart works; but ``docker cp`` into that mount fails with
+    ``mounted volume is marked read-only``. On the multi-ASIC VS testbed
+    (vlab-08) the per-ASIC ``bgp<N>`` container's ``/etc/sonic/constants.yml``
+    is NOT taken from the host file (it is provided by the container image),
+    so editing the host file alone has no effect even after a systemctl
+    restart of the ``bgp@<N>`` service.
+
+    To handle both cases with one code path:
+
+    1. Best-effort ``docker cp`` the (already-updated) host
+       ``constants.yml`` into each bgp container. This overwrites the
+       container-provided copy on testbeds where the file lives in the
+       container's writable layer (vlab-08 multi-ASIC); on real DUTs the
+       command fails because the destination is read-only, which we ignore
+       — the file is already up to date there via the host bind-mount.
+    2. Restart only the ``bgpcfgd`` supervisord program inside each bgp
+       container. This is sufficient to force a fresh ``read_constants()``
+       call without cycling the whole container."""
+    for container in bgp_container_names(duthost):
+        duthost.shell(
+            "sudo docker cp {0} {1}:{0}".format(CONSTANTS_FILE, container),
+            module_ignore_errors=True,
+        )
+        duthost.shell(
+            "sudo docker exec {} supervisorctl restart bgpcfgd".format(container),
+            module_ignore_errors=True,
+        )
+    pytest_assert(
+        wait_until(BGPCFGD_RUNNING_TIMEOUT, BGPCFGD_RUNNING_INTERVAL, 0,
+                   bgpcfgd_running, duthost),
+        "bgpcfgd did not come up within {}s on {} after constants reload".format(
+            BGPCFGD_RUNNING_TIMEOUT, duthost.hostname),
+    )
 
 
 def collect_recent_syslog(duthost, pattern, since_seconds=120):
@@ -765,13 +829,13 @@ class TestSuppressPrefix:
         backup_path = "/tmp/constants.yml.prefix_list_test.bak"
         duthost.shell("sudo cp {} {}".format(CONSTANTS_FILE, backup_path))
         duthost.copy(content=new_yaml, dest=CONSTANTS_FILE)
-        restart_bgp_container(duthost)
+        apply_constants_to_bgpcfgd(duthost)
 
         yield duthost
 
         duthost.shell("sudo cp {} {}".format(backup_path, CONSTANTS_FILE))
         duthost.shell("sudo rm -f {}".format(backup_path), module_ignore_errors=True)
-        restart_bgp_container(duthost)
+        apply_constants_to_bgpcfgd(duthost)
 
     def test_suppress_prefix_constants_override(
             self, constants_override, prefix_cleanup):
@@ -838,13 +902,13 @@ class TestSuppressPrefix:
         backup_path = "/tmp/constants.yml.prefix_list_fallback.bak"
         duthost.shell("sudo cp {} {}".format(CONSTANTS_FILE, backup_path))
         duthost.copy(content=new_yaml, dest=CONSTANTS_FILE)
-        restart_bgp_container(duthost)
+        apply_constants_to_bgpcfgd(duthost)
 
         yield duthost, had_section
 
         duthost.shell("sudo cp {} {}".format(backup_path, CONSTANTS_FILE))
         duthost.shell("sudo rm -f {}".format(backup_path), module_ignore_errors=True)
-        restart_bgp_container(duthost)
+        apply_constants_to_bgpcfgd(duthost)
 
     def test_suppress_prefix_constants_fallback(
             self, constants_without_prefix_list, prefix_cleanup):
