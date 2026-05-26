@@ -230,8 +230,14 @@ class MemoryMonitor:
                 else:
                     # Legacy single-tier mode: threshold acts as fail level
                     if increase > increase_threshold:
+                        # If threshold type is percentage, express increase as percentage for logging
+                        # (matches sonic-mgmt #22718 behavior on branches without two-tier thresholds).
+                        increase_report = increase
+                        if (isinstance(increase_threshold_raw, dict)
+                                and increase_threshold_raw.get("type") == "percentage"):
+                            increase_report = (increase * 100) / current_value
                         self._handle_memory_threshold_exceeded(
-                            name, mem_item, increase, increase_threshold_raw,
+                            name, mem_item, increase_report, increase_threshold_raw,
                             previous_values, current_values, is_increase=True
                         )
 
