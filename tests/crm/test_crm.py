@@ -284,21 +284,29 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 continue
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
             if key == "exceeded_percentage":
-                if used_percent < 1:
+                # Need at least 2% used so we can leave a 1-point margin below
+                # the observed value (high = used_percent - 1). Without the
+                # margin a single-count counter drift between read and crmd
+                # poll causes the THRESHOLD_EXCEEDED log to be skipped.
+                if used_percent < 2:
                     logger.warning("The used percentage for {} is {} and \
                                    verification for exceeded_percentage is skipped"
                                    .format(kwargs["crm_cli_res"], used_percent))
                     continue
-                kwargs["th_lo"] = used_percent - 1
-                kwargs["th_hi"] = used_percent
+                kwargs["th_lo"] = used_percent - 2
+                kwargs["th_hi"] = used_percent - 1
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif key == "clear_percentage":
-                if used_percent >= 100 or used_percent < 1:
+                # Symmetric to exceeded_percentage: leave a 1-point margin
+                # above the observed value (low = used_percent + 1) so a
+                # transient upward drift does not skip THRESHOLD_CLEAR. This
+                # requires used_percent <= 98 to keep low/high <= 100.
+                if used_percent >= 99 or used_percent < 1:
                     logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped"
                                    .format(kwargs["crm_cli_res"], used_percent))
                     continue
-                kwargs["th_lo"] = used_percent
-                kwargs["th_hi"] = used_percent + 1
+                kwargs["th_lo"] = used_percent + 1
+                kwargs["th_hi"] = used_percent + 2
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
 
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
