@@ -5,7 +5,7 @@ import pytest
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import wait_for_startup
+from tests.common.reboot import wait_for_startup, wait_for_shutdown
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
@@ -86,6 +86,10 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnm
         expected_method="COLD"
     )
 
+    # Wait until the system is down
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    logging.info("System is down after reboot")
+
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
@@ -113,6 +117,8 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnm
     and the system recovers with all critical processes running.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        pytest.skip("Warm reboot is not supported on smartswitch")
 
     # Trigger reboot via gNOI using gnmi_tls fixture
     reboot_response = gnmi_tls.gnoi.system_reboot(
@@ -127,6 +133,10 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnm
         expected_reason=REBOOT_MESSAGE,
         expected_method="WARM"
     )
+
+    # Wait until the system is down
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=180, reboot_res=None)
+    logging.info("System is down after reboot")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
