@@ -5,9 +5,8 @@ This script contains re-usable functions for checking status of transceivers.
 """
 import logging
 import re
+import time
 from copy import deepcopy
-
-from tests.common.utilities import wait_until
 
 I2C_WAIT_TIME_AFTER_SFP_RESET = 5  # in seconds
 
@@ -68,12 +67,14 @@ def check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list):
     cmd = "redis-cli -n 6 keys TRANSCEIVER_INFO*"
     asichost = dut.asic_instance(asic_index)
     docker_cmd = asichost.get_docker_cmd(cmd, "database")
+    retry_deadline = time.time() + 120
+    while not all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
+        if time.time() >= retry_deadline:
+            break
+        time.sleep(5)
+
     xcvr_info = dut.command(docker_cmd)
     parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
-    if not all_transceivers_detected(dut, asic_index, interfaces, xcvr_skip_list):
-        if wait_until(120, 5, 0, all_transceivers_detected, dut, asic_index, interfaces, xcvr_skip_list):
-            xcvr_info = dut.command(docker_cmd)
-            parsed_xcvr_info = parse_transceiver_info(xcvr_info["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname]:
             assert intf in parsed_xcvr_info, "TRANSCEIVER INFO of %s is not found in DB" % intf
