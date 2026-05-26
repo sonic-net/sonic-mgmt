@@ -3,6 +3,7 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
 from collections import defaultdict
+import re
 import time
 import logging
 
@@ -32,6 +33,12 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+
+# Delay (seconds) between issuing the SysRq kernel reboot and when it fires.
+# Used on multi-ASIC VS: the reboot is scheduled just before the global DB
+# kill so that SSH is still alive when the nohup command is issued, but the
+# kernel reboot fires shortly after the global DB container is stopped.
+MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
 
 # Critical processes that are listed in the image's per-container critical_processes
 # file but are not actually runnable on BMC topology (BMC image runs a reduced set
@@ -648,7 +655,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # Get timeout values based on chassis type
         timeout = 300
         wait_time = 120
-        if duthost.get_facts().get("modular_chassis"):
+        if duthost.facts.get("modular_chassis"):
             wait_time = max(wait_time, 600)
             timeout = max(timeout, 420)
 
@@ -661,7 +668,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # Wait for database_config.json first, then use config_reload for a clean
         # recovery that also waits for BGP sessions to re-establish.
         db_config_timeout = 120
-        if duthost.get_facts().get("modular_chassis"):
+        if duthost.facts.get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
 
         # Build list of database_config.json files to wait for.
@@ -689,8 +696,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
         if not db_config_ready:
-            pytest_assert(False,
-                          "database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
+            # Fail fast here to protect subsequent tests from a sick DUT.
+            pytest.fail("database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
 
         logger.info("Database config ready, performing config reload for clean recovery...")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
@@ -751,8 +758,10 @@ def test_monitoring_critical_processes(
     #   Phase 1 - kill non-database processes, wait, verify syslog alerts
     #   Phase 2 - kill database processes last; the recover_critical_processes
     #             fixture handles DUT recovery via reboot
-    database_containers = {k: v for k, v in containers_in_namespaces.items() if k.startswith("database")}
-    non_database_containers = {k: v for k, v in containers_in_namespaces.items() if not k.startswith("database")}
+    database_containers = {k: v for k, v in containers_in_namespaces.items()
+                           if re.fullmatch(r"database(\d+)?", k)}
+    non_database_containers = {k: v for k, v in containers_in_namespaces.items()
+                               if not re.fullmatch(r"database(\d+)?", k)}
 
     # Generate expected alerting messages only for non-database containers.
     # Database alerting cannot be reliably verified via syslog because killing
@@ -786,45 +795,66 @@ def test_monitoring_critical_processes(
     # unstable after this, so no further syslog verification is performed.
     # Recovery strategy differs by topology:
     #   - Multi-ASIC VS: SSH hangs after killing global database, so a SysRq
-    #     reboot is pre-scheduled HERE (while SSH is still alive).  The fixture
-    #     waits for that scheduled reboot.
+    #     reboot is scheduled just before the global-DB kill (while SSH is still
+    #     alive).  The fixture waits for that scheduled reboot.
     #   - Single-ASIC VS: SSH stays alive after killing global database, so
     #     the fixture issues a 2-second SysRq reboot directly.
     #   - Physical: fixture uses PDU power-cycle.
     if database_containers:
         logger.info("Killing database container critical processes (DUT will become unstable)...")
-        try:
-            # On multi-ASIC, database has namespace_ids=[None, "0", "1",...].
-            # Killing the global database (None) destroys the config DB and causes
-            # SSH to hang on subsequent operations.  Reorder namespace_ids so that
-            # per-ASIC namespaces are killed first (SSH remains stable) and the
-            # global namespace (DEFAULT_ASIC_ID / None) is killed last.  After the
-            # global database kill the DUT will become unstable, but no further SSH
-            # calls are needed -- the recover_critical_processes fixture handles
-            # DUT recovery via SysRq reboot (KVM) or PDU power-cycle (physical).
-            ordered_database_containers = {}
-            for k, ns_ids in database_containers.items():
-                per_asic = [nid for nid in ns_ids if nid != DEFAULT_ASIC_ID]
-                global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
-                ordered_database_containers[k] = per_asic + global_ns
 
-            # Pre-schedule SysRq ONLY for multi-ASIC VS where SSH becomes
-            # unresponsive after killing the global database container.  On
-            # single-ASIC VS, SSH stays alive and the fixture issues the reboot
-            # directly via the "sleep 2" path (so no pre-scheduling needed there).
-            if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
-                reboot_delay = 120  # seconds -- generous to allow per-ASIC kills to finish
-                duthost.shell(
-                    'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
-                    '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &'.format(d=reboot_delay),
-                    module_ignore_errors=True)
-                logger.info("Multi-ASIC VS: pre-scheduled SysRq kernel reboot in {} seconds "
-                            "(SSH will become unresponsive after global database kill).".format(reboot_delay))
+        # On multi-ASIC, database has namespace_ids=[None, "0", "1",...].
+        # Killing the global database (None) destroys the config DB and causes
+        # SSH to hang on subsequent operations.  Split into two steps:
+        #   1. Kill per-ASIC namespaces first (SSH remains stable).
+        #   2. Schedule SysRq reboot (while SSH is still alive on multi-ASIC VS).
+        #   3. Kill global namespace last (SSH may hang after this).
+        per_asic_db_containers = {}
+        global_db_containers = {}
+        for k, ns_ids in database_containers.items():
+            per_asic = [nid for nid in ns_ids if nid != DEFAULT_ASIC_ID]
+            global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
+            if per_asic:
+                per_asic_db_containers[k] = per_asic
+            if global_ns:
+                global_db_containers[k] = global_ns
 
-            stop_critical_processes(duthost, ordered_database_containers)
-            logger.info("Database critical processes killed successfully.")
-        except Exception as e:
-            logger.warning("Exception during database process kill (expected due to DUT instability): %s", e)
+        # Step 1: Kill per-ASIC database containers. SSH is stable here.
+        # Exceptions are unexpected and should propagate.
+        if per_asic_db_containers:
+            logger.info("Killing per-ASIC database containers (SSH still stable)...")
+            stop_critical_processes(duthost, per_asic_db_containers)
+            logger.info("Per-ASIC database containers killed successfully.")
+
+        # Step 2: Pre-schedule SysRq for multi-ASIC VS AFTER per-ASIC kills
+        # complete, just before the global DB kill.  A short delay is enough
+        # because we only need SSH to deliver the global kill command before
+        # the kernel reboots.
+        if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
+            duthost.shell(
+                'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
+                '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &'.format(
+                    d=MULTI_ASIC_VS_REBOOT_DELAY_SEC),
+                module_ignore_errors=True)
+            logger.info("Multi-ASIC VS: SysRq kernel reboot scheduled in %ds "
+                        "(SSH will become unresponsive after global database kill).",
+                        MULTI_ASIC_VS_REBOOT_DELAY_SEC)
+
+        # Step 3: Kill global database container last.
+        # On multi-ASIC VS, SSH becomes unresponsive after this -- that is expected.
+        # On single-ASIC VS and physical DUTs, SSH should stay alive.
+        if global_db_containers:
+            logger.info("Killing global database container (DUT may become unstable)...")
+            try:
+                stop_critical_processes(duthost, global_db_containers)
+                logger.info("Global database container killed successfully.")
+            except Exception as e:
+                # SSH disconnect is only expected on multi-ASIC VS where sshd
+                # depends on the global namespace database.
+                if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
+                    logger.warning("Multi-ASIC VS: global DB kill caused SSH disconnect (expected): %s", e)
+                else:
+                    raise
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
