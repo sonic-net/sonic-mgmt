@@ -570,6 +570,12 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
         skip_containers.append("radv")
     if "202412" in duthost.os_version:
         skip_containers.append("gnmi")
+    # On sonic-vpp, syncd-vpp does not survive a redis (database container) restart
+    # like Broadcom dummy_syncd does, and killing the database container also breaks
+    # the rsyslog path used by LogAnalyzer markers. Skip the database container so
+    # the rest of the critical-process monitoring still gets exercised on VPP.
+    if duthost.facts.get("asic_type") == "vpp":
+        skip_containers.append("database")
     skip_containers = skip_containers + skip_vendor_specific_container
     return skip_containers
 

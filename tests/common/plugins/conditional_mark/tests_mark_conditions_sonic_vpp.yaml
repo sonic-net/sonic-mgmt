@@ -600,17 +600,6 @@ platform_tests:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
 
 #######################################
-#####      Process Monitoring     #####
-#######################################
-process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           QOS               #####
 #######################################
 qos:
