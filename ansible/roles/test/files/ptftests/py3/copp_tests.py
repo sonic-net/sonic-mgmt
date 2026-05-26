@@ -320,6 +320,9 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch_light_mode:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
@@ -477,6 +480,9 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch_light_mode:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")
