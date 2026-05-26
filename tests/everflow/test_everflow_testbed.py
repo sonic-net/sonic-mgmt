@@ -259,10 +259,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-        try_num = 1
-        if everflow_dut.facts['asic_type'] == 'vs':
-            try_num = 5
-        # Adding retries is required by MSFT to overcome the issue of random packet loss on their simulator
+
+        # Adding retries is required by MSFT to overcome the issue of random packet loss
+        # The dualtor bounced back packet is forwarded by the standby tor firstly to the
+        # T1 VM neighbor and then to the active tor, and then the ptf. There is a chance
+        # that the packet is lost on the VM
+        try_num = 3
         retry_call(
             self._run_everflow_test_scenarios,
             fargs=(
