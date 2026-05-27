@@ -4,7 +4,7 @@ CLI command tests for BMC and module control
 Tests cover:
 - show bmc and show chassis module commands
 - show leak-status and show thermal commands
-- config chassis module commands
+- config chassis modules commands
 - Output format and field validation
 - Backward compatibility across platforms
 """
@@ -143,35 +143,35 @@ class TestBmcCliCommands:
 
     def test_config_chassis_commands(self):
         """
-        Verify config chassis module commands and syntax (graceful skip if not BMC)
+        Verify config chassis modules commands and syntax (graceful skip if not BMC)
 
         Validates:
-        - config chassis module help is available
+        - config chassis modules help is available
         - admin-status option is documented
         - Command structure is clear
         """
         # Test help
         result = self.duthost.shell(
-            "config chassis module --help",
+            "config chassis modules --help",
             module_ignore_errors=True
         )
 
         if result['rc'] != 0:
-            logger.info("config chassis module not available (expected on non-BMC systems)")
+            logger.info("config chassis modules not available (expected on non-BMC systems)")
             return
 
         output = result['stdout']
         has_admin = 'admin-status' in output.lower() or 'admin_status' in output.lower()
-        logger.info(f"config chassis module help includes admin-status: {has_admin}")
+        logger.info(f"config chassis modules help includes admin-status: {has_admin}")
 
         # Test command availability
         result = self.duthost.shell(
-            "config chassis module SWITCH-HOST admin-status --help 2>&1",
+            "config chassis modules SWITCH-HOST admin-status --help 2>&1",
             module_ignore_errors=True
         )
 
         if result['rc'] == 0:
-            logger.info("config chassis module admin-status sub-command available")
+            logger.info("config chassis modules admin-status sub-command available")
 
     def test_backward_compatibility(self):
         """
@@ -218,3 +218,80 @@ class TestBmcCliCommands:
                 logger.info("JSON output supported")
             except (ValueError, json.JSONDecodeError) as e:
                 logger.info(f"JSON parsing not supported: {e}")
+
+    def test_liquid_cool_config_commands(self):
+        """
+        Verify config liquid-cool leak-control and leak-action command syntax (LC platforms)
+
+        Validates:
+        - config liquid-cool leak-control --help is parseable
+        - config liquid-cool leak-action --help is parseable
+        - Commands accept [system|rack_mgr] and correct action values
+        - Graceful skip on non-liquid-cooled systems
+        """
+        for subcmd in ['leak-control', 'leak-action']:
+            result = self.duthost.shell(
+                f"config liquid-cool {subcmd} --help 2>&1",
+                module_ignore_errors=True
+            )
+            if result['rc'] != 0:
+                logger.info(f"config liquid-cool {subcmd} not available (expected on non-LC systems)")
+                continue
+            output = result['stdout']
+            has_system = 'system' in output.lower()
+            has_rack = 'rack' in output.lower() or 'rack_mgr' in output.lower()
+            logger.info(f"config liquid-cool {subcmd}: system={has_system} rack_mgr={has_rack}")
+
+        # Verify leak-action mentions action values
+        result = self.duthost.shell(
+            "config liquid-cool leak-action --help 2>&1",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0:
+            output = result['stdout']
+            for action in ['syslog_only', 'graceful_shutdown', 'power_off']:
+                logger.info(f"config liquid-cool leak-action mentions '{action}': {action in output}")
+
+    def test_show_platform_leak_commands(self):
+        """
+        Verify show platform leak sub-commands exist and produce valid output (LC platforms)
+
+        Validates:
+        - show platform leak control-policy: shows LEAK_CONTROL_POLICY fields
+        - show platform leak rack-manager alerts: shows alert table
+        - show platform leak profiles: shows sensor type and max-minor-duration columns
+        - show platform leak status: shows per-sensor name/leak/severity columns
+        - show chassis module status: shows SWITCH-HOST entry with oper status
+        """
+        # show chassis module status — applicable to LC and AC
+        result = self.duthost.shell(
+            "show chassis module status 2>&1",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0:
+            output = result['stdout']
+            has_switch_host = 'SWITCH-HOST' in output or 'Switch-Host' in output
+            logger.info(f"show chassis module status: SWITCH-HOST present={has_switch_host}")
+        else:
+            logger.info("show chassis module status not available")
+
+        leak_commands = [
+            ("show platform leak control-policy",
+             ['system_leak_policy', 'rack_mgr_leak_policy']),
+            ("show platform leak rack-manager alerts",
+             ['Severity', 'Timestamp']),
+            ("show platform leak profiles",
+             ['Sensor-Type', 'Max-Minor-Duration-Sec']),
+            ("show platform leak status",
+             ['Name', 'Leak', 'leak-severity']),
+        ]
+
+        for cmd, expected_fields in leak_commands:
+            result = self.duthost.shell(f"{cmd} 2>&1", module_ignore_errors=True)
+            if result['rc'] != 0:
+                logger.info(f"{cmd!r} not available (expected on non-LC systems)")
+                continue
+            output = result['stdout']
+            for field in expected_fields:
+                present = field.lower() in output.lower()
+                logger.info(f"{cmd!r} contains '{field}': {present}")

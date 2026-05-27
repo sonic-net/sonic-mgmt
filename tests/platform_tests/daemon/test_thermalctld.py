@@ -692,16 +692,49 @@ class TestThermalctldDaemon:
         sensors = result['stdout'].strip().split('\n')
         critical_sensors = []
         for sensor_key in sensors:
-            result = self.duthost.shell(
+            sev_result = self.duthost.shell(
                 f"redis-cli -n 6 HGET '{sensor_key}' severity",
                 module_ignore_errors=True
             )
-            if result['rc'] == 0 and result['stdout'].strip():
-                severity = result['stdout'].strip()
-                pytest_assert(severity in ['MINOR', 'CRITICAL'],
-                              f"{sensor_key}: severity '{severity}' not in ['MINOR', 'CRITICAL']")
-                if severity == 'CRITICAL':
-                    critical_sensors.append(sensor_key)
+            if sev_result['rc'] != 0 or not sev_result['stdout'].strip():
+                continue
+            severity = sev_result['stdout'].strip()
+            pytest_assert(severity in ['MINOR', 'CRITICAL'],
+                          f"{sensor_key}: severity '{severity}' not in ['MINOR', 'CRITICAL']")
+            if severity == 'CRITICAL':
+                critical_sensors.append(sensor_key)
+                # Cross-reference: verify the sensor's assigned profile has a finite
+                # max_minor_duration_sec — confirming profile-driven escalation is possible.
+                # The daemon calls sensor.get_leak_profile().get_leak_max_minor_duration_sec()
+                # and escalates MINOR→CRITICAL once that threshold is exceeded.
+                prof_result = self.duthost.shell(
+                    f"redis-cli -n 6 HGET '{sensor_key}' profile",
+                    module_ignore_errors=True
+                )
+                if prof_result['rc'] == 0 and prof_result['stdout'].strip():
+                    profile_name = prof_result['stdout'].strip()
+                    profile_key = f"{LEAK_PROFILE_TABLE}:{profile_name}"
+                    threshold_result = self.duthost.shell(
+                        f"redis-cli -n 6 HGET '{profile_key}' max_minor_duration_sec",
+                        module_ignore_errors=True
+                    )
+                    if threshold_result['rc'] == 0 and threshold_result['stdout'].strip():
+                        try:
+                            threshold = float(threshold_result['stdout'].strip())
+                            pytest_assert(
+                                threshold > 0,
+                                f"{sensor_key}: profile '{profile_name}' has "
+                                f"max_minor_duration_sec={threshold}, must be > 0 for escalation"
+                            )
+                            logger.info(
+                                f"{sensor_key}: CRITICAL via profile '{profile_name}' "
+                                f"(max_minor={threshold}s)"
+                            )
+                        except ValueError:
+                            logger.warning(
+                                f"{sensor_key}: could not parse max_minor_duration_sec "
+                                f"from profile '{profile_name}'"
+                            )
 
         # When system status is CRITICAL, at least one sensor must also be CRITICAL
         result = self.duthost.shell(

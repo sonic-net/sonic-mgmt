@@ -224,12 +224,12 @@ class TestBmcctldDaemon:
 
         # Verify config handling
         result = self.duthost.shell(
-            "config chassis module --help 2>/dev/null | grep -i admin",
+            "config chassis modules --help 2>/dev/null | grep -i admin",
             module_ignore_errors=True
         )
 
         if result['rc'] == 0:
-            logger.info("CONFIG_DB integration: config chassis module available")
+            logger.info("CONFIG_DB integration: config chassis modules available")
 
         # Verify psud integration
         psud_status, _ = self.duthost.get_pmon_daemon_status("psud")

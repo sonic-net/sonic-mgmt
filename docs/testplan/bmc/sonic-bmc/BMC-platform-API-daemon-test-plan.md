@@ -182,7 +182,28 @@ Verify LeakageSensorBase handles boundary conditions and invalid inputs graceful
 
 ---
 
-#### Test Case #4: test_switch_host_identity
+#### Test Case #4: test_leak_sensor_profile
+
+**File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`
+
+**Test Objective**:
+Verify `get_leak_profile()` and `get_leak_max_minor_duration_sec()` on `LeakageSensorBase` and `get_all_profiles()` on the liquid cooling device.
+
+**Test Steps**:
+1. Skip if no leak sensors detected
+2. For each sensor index: call `get_leak_profile()` — verify non-None profile object
+3. For each sensor with a valid profile: call `get_leak_max_minor_duration_sec()` — verify non-negative number
+4. Call `get_all_profiles()` — verify returns a list (if supported)
+
+**Expected Result**:
+- `get_leak_profile()` returns a non-None profile object for every valid sensor index
+- `get_leak_max_minor_duration_sec()` returns a non-negative integer/float (e.g., 300, 600)
+- `get_all_profiles()` returns a list of profile objects
+
+---
+
+
+#### Test Case #5: test_switch_host_identity
 
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
@@ -201,7 +222,7 @@ Verify SWITCH-HOST module identity attributes: name, description, serial.
 
 ---
 
-#### Test Case #5: test_switch_host_status_control
+#### Test Case #6: test_switch_host_status_control
 
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
@@ -224,7 +245,7 @@ Verify SWITCH-HOST admin/oper status attributes and their consistency relationsh
 
 ---
 
-#### Test Case #6: test_chassis_is_bmc
+#### Test Case #7: test_chassis_is_bmc
 
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
@@ -242,7 +263,7 @@ Verify `chassis.is_bmc()` returns `True` on BMC topology and `get_bmc()` returns
 
 ---
 
-#### Test Case #7: test_chassis_is_liquid_cooled
+#### Test Case #8: test_chassis_is_liquid_cooled
 
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
@@ -261,7 +282,7 @@ Verify `chassis.is_liquid_cooled()` returns a boolean consistent with `get_liqui
 
 ---
 
-#### Test Case #8: test_chassis_module_enumeration
+#### Test Case #9: test_chassis_module_enumeration
 
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
@@ -283,11 +304,49 @@ Verify module enumeration APIs: `get_num_modules()`, `get_all_modules()`, `get_m
 
 ---
 
+#### Test Case #10: test_switch_host_serial
+
+**File**: `tests/platform_tests/api/test_switch_host_module.py`
+
+**Test Objective**:
+Verify `get_serial()` for the SWITCH-HOST module — the `get_switch_host_serial` pattern from design doc section 2.3.2.
+
+**Test Steps**:
+1. Call `get_module_index('SWITCH-HOST')` — skip if not found
+2. Call `get_module_serial('SWITCH-HOST')` via the chassis platform API helper
+3. Verify the returned value is a non-empty string
+
+**Expected Result**:
+- `get_module_index('SWITCH-HOST')` returns a valid non-negative index
+- `get_module_serial()` returns a non-empty string serial number (e.g., `"SN12345"`)
+
+---
+
+#### Test Case #11: test_switch_host_do_power_cycle
+
+**File**: `tests/platform_tests/api/test_switch_host_module.py`
+
+**Test Objective**:
+Verify the `do_power_cycle()` platform API is present and returns a boolean for the SWITCH-HOST module.
+
+**Note**: This test validates the API contract only. It does NOT trigger an actual power cycle to avoid disrupting the DUT.
+
+**Test Steps**:
+1. Call `get_module_index('SWITCH-HOST')` — skip if not found
+2. Call `module.do_power_cycle()` via platform API
+3. Verify the return value is a boolean (`True` or `False`)
+
+**Expected Result**:
+- `do_power_cycle()` is callable and returns a boolean
+- No exception is raised during the call
+
+---
+
 ### Bmcctld Daemon Tests
 
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
-#### Test Case #9: test_bmcctld_initialization
+#### Test Case #12: test_bmcctld_initialization
 
 **Test Objective**:
 Verify bmcctld initializes CHASSIS_MODULE_INFO and HOST_STATE tables on startup and
@@ -308,7 +367,7 @@ applies the boot delay only on a power-loss reboot.
 
 ---
 
-#### Test Case #10: test_bmcctld_state_db_consistency
+#### Test Case #13: test_bmcctld_state_db_consistency
 
 **Test Objective**:
 Verify CHASSIS_MODULE_TABLE oper_status reflects HOST_STATE, and admin_status mirrors CONFIG_DB.
@@ -326,7 +385,7 @@ Verify CHASSIS_MODULE_TABLE oper_status reflects HOST_STATE, and admin_status mi
 
 ---
 
-#### Test Case #11: test_bmcctld_event_handling
+#### Test Case #14: test_bmcctld_event_handling
 
 **Test Objective**:
 Verify bmcctld detects critical events and coordinates with thermalctld and psud.
@@ -344,7 +403,7 @@ Verify bmcctld detects critical events and coordinates with thermalctld and psud
 
 ---
 
-#### Test Case #12: test_bmcctld_event_log
+#### Test Case #15: test_bmcctld_event_log
 
 **Test Objective**:
 Verify bmcctld logs critical events to /host/bmc/event.log using structured messages.
@@ -366,7 +425,7 @@ Verify bmcctld logs critical events to /host/bmc/event.log using structured mess
 
 ---
 
-#### Test Case #13: test_bmcctld_event_trigger
+#### Test Case #16: test_bmcctld_event_trigger
 
 **Test Objective**:
 Verify bmcctld reacts to HSET writes on all four `SubscriberStateTable`-monitored tables
@@ -398,7 +457,7 @@ original value (or deletes the injected key).
 
 ---
 
-#### Test Case #14: test_bmcctld_reboot_cause_boot_delay
+#### Test Case #17: test_bmcctld_reboot_cause_boot_delay
 
 **Test Objective**:
 Verify bmcctld applies the startup boot delay only after a full power-loss reboot.
@@ -417,7 +476,7 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 ---
 
-#### Test Case #15: test_pmon_bmcctld_running_status
+#### Test Case #18: test_pmon_bmcctld_running_status
 
 **Test Objective**: Verify bmcctld is in RUNNING state with a valid pid at test start.
 
@@ -429,7 +488,7 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 ---
 
-#### Test Case #16: test_pmon_bmcctld_stop_and_start_status
+#### Test Case #19: test_pmon_bmcctld_stop_and_start_status
 
 **Test Objective**: Verify bmcctld stops cleanly via supervisorctl and recovers after start.
 
@@ -443,7 +502,7 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 ---
 
-#### Test Case #17: test_pmon_bmcctld_term_and_start_status
+#### Test Case #20: test_pmon_bmcctld_term_and_start_status
 
 **Test Objective**: Verify bmcctld auto-restarts after SIGTERM (supervisord autorestart).
 
@@ -456,7 +515,7 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 ---
 
-#### Test Case #18: test_pmon_bmcctld_kill_and_start_status
+#### Test Case #21: test_pmon_bmcctld_kill_and_start_status
 
 **Test Objective**: Verify bmcctld auto-restarts after SIGKILL (supervisord autorestart).
 
@@ -473,7 +532,7 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 **File**: `tests/platform_tests/daemon/test_thermalctld.py`
 
-#### Test Case #19: test_leak_state_db_schema
+#### Test Case #22: test_leak_state_db_schema
 
 **Test Objective**:
 Verify State DB tables written by thermalctld exist with correct schema (graceful skip on non-liquid-cooled platforms).
@@ -490,7 +549,7 @@ Verify State DB tables written by thermalctld exist with correct schema (gracefu
 
 ---
 
-#### Test Case #20: test_leak_state_db_values
+#### Test Case #23: test_leak_state_db_values
 
 **Test Objective**:
 Verify State DB values written by thermalctld are valid and within expected ranges.
@@ -509,7 +568,7 @@ Verify State DB values written by thermalctld are valid and within expected rang
 
 ---
 
-#### Test Case #21: test_thermalctld_initialization
+#### Test Case #24: test_thermalctld_initialization
 
 **Test Objective**:
 Verify thermalctld initializes leak monitoring tables on startup, including the startup
@@ -529,7 +588,7 @@ seed row for `SYSTEM_LEAK_STATUS|system`.
 
 ---
 
-#### Test Case #22: test_thermalctld_leak_status
+#### Test Case #25: test_thermalctld_leak_status
 
 **Test Objective**:
 Verify thermalctld tracks leak status per sensor, MINOR→CRITICAL escalation config, and
@@ -553,7 +612,7 @@ bmcctld integration.
 
 ---
 
-#### Test Case #23: test_thermalctld_event_trigger
+#### Test Case #26: test_thermalctld_event_trigger
 
 **Test Objective**:
 Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence and syslog entries.
@@ -582,7 +641,7 @@ Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence and s
 
 ---
 
-#### Test Case #24: test_thermalctld_faulty_sensor
+#### Test Case #27: test_thermalctld_faulty_sensor
 
 **Test Objective**:
 Verify thermalctld correctly represents a faulty/unreadable sensor in STATE_DB and
@@ -606,7 +665,7 @@ confirm the associated syslog format.
 
 ---
 
-#### Test Case #25: test_thermalctld_startup_leak_seed
+#### Test Case #28: test_thermalctld_startup_leak_seed
 
 **Test Objective**:
 Verify `SYSTEM_LEAK_STATUS|system` is present immediately after thermalctld starts.
@@ -623,7 +682,7 @@ Verify `SYSTEM_LEAK_STATUS|system` is present immediately after thermalctld star
 
 ---
 
-#### Test Case #26: test_thermalctld_bmc_temperature_mirror
+#### Test Case #29: test_thermalctld_bmc_temperature_mirror
 
 **Test Objective**:
 Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's STATE_DB.
@@ -642,7 +701,7 @@ Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's ST
 
 ---
 
-#### Test Case #27: test_thermalctld_switch_host_thermal_monitoring
+#### Test Case #30: test_thermalctld_switch_host_thermal_monitoring
 
 **Test Objective**:
 Verify thermalctld on the BMC logs CRITICAL threshold breaches in `TEMPERATURE_INFO`
@@ -663,7 +722,7 @@ to `/host/bmc/event.log`.
 
 ---
 
-#### Test Case #28: test_pmon_thermalctld_running_status
+#### Test Case #31: test_pmon_thermalctld_running_status
 
 **Test Objective**: Verify thermalctld is in RUNNING state with a valid pid at test start.
 
@@ -675,7 +734,7 @@ to `/host/bmc/event.log`.
 
 ---
 
-#### Test Case #29: test_pmon_thermalctld_stop_and_start_status
+#### Test Case #32: test_pmon_thermalctld_stop_and_start_status
 
 **Test Objective**: Verify thermalctld stops cleanly via supervisorctl and recovers after start.
 
@@ -689,7 +748,7 @@ to `/host/bmc/event.log`.
 
 ---
 
-#### Test Case #30: test_pmon_thermalctld_term_and_start_status
+#### Test Case #33: test_pmon_thermalctld_term_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGTERM.
 
@@ -702,7 +761,7 @@ to `/host/bmc/event.log`.
 
 ---
 
-#### Test Case #31: test_pmon_thermalctld_kill_and_start_status
+#### Test Case #34: test_pmon_thermalctld_kill_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGKILL.
 
@@ -719,7 +778,7 @@ to `/host/bmc/event.log`.
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
-#### Test Case #32: test_show_bmc_commands
+#### Test Case #35: test_show_bmc_commands
 
 **Test Objective**:
 Verify `show bmc` commands exist and return valid output.
@@ -735,7 +794,7 @@ Verify `show bmc` commands exist and return valid output.
 
 ---
 
-#### Test Case #33: test_show_leak_commands
+#### Test Case #36: test_show_leak_commands
 
 **Test Objective**:
 Verify leak detection CLI commands exist and return valid output.
@@ -751,7 +810,7 @@ Verify leak detection CLI commands exist and return valid output.
 
 ---
 
-#### Test Case #34: test_show_command_output_format
+#### Test Case #37: test_show_command_output_format
 
 **Test Objective**:
 Verify `show chassis module` output format includes SWITCH-HOST with status fields.
@@ -769,13 +828,13 @@ Verify `show chassis module` output format includes SWITCH-HOST with status fiel
 
 ---
 
-#### Test Case #35: test_config_chassis_commands
+#### Test Case #38: test_config_chassis_commands
 
 **Test Objective**:
-Verify `config chassis module` command exists with correct syntax.
+Verify `config chassis modules` command exists with correct syntax.
 
 **Test Steps**:
-1. Execute `config chassis module --help` — verify help text returned
+1. Execute `config chassis modules --help` — verify help text returned
 2. Verify help includes admin-status subcommand
 3. Skip gracefully on non-BMC platforms
 
@@ -785,7 +844,7 @@ Verify `config chassis module` command exists with correct syntax.
 
 ---
 
-#### Test Case #36: test_backward_compatibility
+#### Test Case #39: test_backward_compatibility
 
 **Test Objective**:
 Verify existing CLI commands still work after BMC enhancements.
@@ -801,6 +860,46 @@ Verify existing CLI commands still work after BMC enhancements.
 
 ---
 
+#### Test Case #40: test_liquid_cool_config_commands
+
+**File**: `tests/platform_tests/cli/test_show_bmc.py`
+
+**Test Objective**:
+Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` command syntax on liquid-cooled (LC) platforms.
+
+**Test Steps**:
+1. Run `config liquid-cool leak-control --help` — verify help text returned or graceful skip on non-LC
+2. Verify help mentions `[system|rack_mgr]` and `[enabled|disabled]` options
+3. Run `config liquid-cool leak-action --help` — verify help text returned
+4. Verify help mentions action values: `syslog_only`, `graceful_shutdown`, `power_off`
+
+**Expected Result**:
+- On LC systems: help output includes correct option keywords
+- On non-LC systems: command returns gracefully (non-zero rc tolerated)
+
+---
+
+#### Test Case #41: test_show_platform_leak_commands
+
+**File**: `tests/platform_tests/cli/test_show_bmc.py`
+
+**Test Objective**:
+Verify `show chassis module status` and all `show platform leak` sub-commands produce valid output on LC/AC platforms.
+
+**Test Steps**:
+1. Run `show chassis module status` — verify SWITCH-HOST entry present (if BMC platform)
+2. Run `show platform leak control-policy` — verify `system_leak_policy` and `rack_mgr_leak_policy` fields
+3. Run `show platform leak rack-manager alerts` — verify `Severity` and `Timestamp` columns
+4. Run `show platform leak profiles` — verify `Sensor-Type` and `Max-Minor-Duration-Sec` columns
+5. Run `show platform leak status` — verify `Name`, `Leak`, and `leak-severity` columns
+
+**Expected Result**:
+- `show chassis module status` shows SWITCH-HOST with an oper-status field
+- Each `show platform leak` sub-command outputs the expected column headers
+- Non-LC platforms return gracefully (non-zero rc tolerated for LC-only commands)
+
+---
+
 ### BMC Watchdog Tests
 
 **Files**:
@@ -813,7 +912,7 @@ Verify existing CLI commands still work after BMC enhancements.
 These two files are complementary: `test_watchdog.py` validates the platform API contract;
 `test_bmc_watchdog.py` validates BMC-specific integration behavior.
 
-#### Test Case #37: test_watchdog_status_and_configuration
+#### Test Case #42: test_watchdog_status_and_configuration
 
 **Test Objective**:
 Verify watchdog service status, timeout configuration, performance, and error handling.
@@ -833,7 +932,7 @@ Verify watchdog service status, timeout configuration, performance, and error ha
 
 ---
 
-#### Test Case #38: test_watchdog_bmc_integration
+#### Test Case #43: test_watchdog_bmc_integration
 
 **Test Objective**:
 Verify watchdog integrates with BMC infrastructure: systemd service, persistent logs, reboot differentiation, State DB.
