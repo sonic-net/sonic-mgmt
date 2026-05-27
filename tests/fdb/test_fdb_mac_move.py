@@ -738,9 +738,9 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
             .format(acl_table_oid, MMG_TIMEOUT)
         )
         acl_entry_oid = entry_holder['oid']
-        entry_attrs   = entry_holder['attrs']
-        entry_key     = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:" +
-                         acl_entry_oid)
+        entry_attrs = entry_holder['attrs']
+        entry_key = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:" +
+                     acl_entry_oid)
 
         # SRC_MAC attribute is stored as "<mac>&mask=<mask>"; parse the MAC.
         src_mac_attr = entry_attrs.get(
