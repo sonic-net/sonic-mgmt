@@ -1112,12 +1112,6 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         # Disable swss and syncd features on BMC devices.
-        # BMC platforms (e.g. Aspeed Komodo) have no front-side ASIC; the swss/syncd containers
-        # have nothing to manage. Leaving the features as 'enabled' creates a mismatch
-        # (feature_status enabled vs systemd unit inactive) that breaks tests/tools using
-        # feature_status or swss.service ActiveState as a readiness gate -- e.g.
-        # config_system_checks_passed() in platform_tests/test_reload_config.py waits up to 360s
-        # for swss.service to become active and never succeeds on a BMC.
         if self.is_bmc_device():
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
