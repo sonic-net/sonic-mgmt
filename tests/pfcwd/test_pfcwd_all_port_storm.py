@@ -238,10 +238,14 @@ class TestPfcwdAllPortStorm(object):
             # Scale timeout with port count to allow sufficient time on high port-count platforms.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             timeout = max(60, num_ports * 2)
-            # LT2/FT2 topologies need at least 120s because the traffic generator
-            # takes longer to spin up on those setups.
+            # LT2/FT2 topologies need a longer timeout because the traffic generator
+            # takes longer to spin up on those setups, and restore on arista-sonic fanouts
+            # using pfc_gen_brcm_xgs.py cleanup can be sequential (~8s/port without batching).
             if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
-                timeout = max(timeout, 120)
+                # For both storm and restore, scale timeout by port count.
+                # pfc_gen_brcm_xgs.py processes ~2s/port sequentially, so 63 ports need ~130s,
+                # which exceeds the base 126s; num_ports * 10 gives comfortable headroom.
+                timeout = max(timeout, num_ports * 10)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
                            storm_hndle, action, selected_test_ports, baseline_counters, threshold,
