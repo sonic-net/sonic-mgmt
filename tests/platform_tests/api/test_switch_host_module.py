@@ -55,27 +55,25 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         get_serial(), get_type()
 
         Verifies:
-        - get_name() returns non-empty string (cast via str() for AnsibleUnsafeText)
+        - get_name() returns non-empty string
         - get_description() and get_serial() return strings or None
         - Values are consistent across multiple calls
         """
         # get_name()
-        name = str(module_api.get_name(platform_api_conn, self.sw_idx))
+        name = module_api.get_name(platform_api_conn, self.sw_idx)
         self.expect(isinstance(name, str) and len(name) > 0,
                     f"SWITCH-HOST get_name() should return non-empty string, got {name!r}")
 
-        name2 = str(module_api.get_name(platform_api_conn, self.sw_idx))
+        name2 = module_api.get_name(platform_api_conn, self.sw_idx)
         self.expect(name == name2, "SWITCH-HOST get_name() inconsistent")
 
         # get_description()
         description = module_api.get_description(platform_api_conn, self.sw_idx)
-        description = str(description) if description is not None else None
         self.expect(description is None or isinstance(description, str),
                     "SWITCH-HOST get_description() should return str or None")
 
         # get_serial()
         serial = module_api.get_serial(platform_api_conn, self.sw_idx)
-        serial = str(serial) if serial is not None else None
         self.expect(serial is None or isinstance(serial, str),
                     "SWITCH-HOST get_serial() should return str or None")
 
@@ -96,11 +94,11 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         - set_admin_state() is callable (no-op verification, does not change state)
         """
         # get_oper_status()
-        oper_status = str(module_api.get_oper_status(platform_api_conn, self.sw_idx))
+        oper_status = module_api.get_oper_status(platform_api_conn, self.sw_idx)
         self.expect(isinstance(oper_status, str) and len(oper_status) > 0,
                     f"get_oper_status() should return non-empty string, got {oper_status!r}")
 
-        oper_status2 = str(module_api.get_oper_status(platform_api_conn, self.sw_idx))
+        oper_status2 = module_api.get_oper_status(platform_api_conn, self.sw_idx)
         self.expect(oper_status == oper_status2, "get_oper_status() inconsistent")
 
         logger.info(f"SWITCH-HOST oper_status: {oper_status}")
