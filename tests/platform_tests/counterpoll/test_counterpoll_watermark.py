@@ -174,7 +174,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
             pytest_assert(wait_until(120, 5, 0, check_counters_populated, duthost,
                                      MAPS_LONG_PREFIX.format(prefix), num_expected_counters),
                                      "Expected {} entries matching {}".format(
-                                         num_expected_counters, MAPS_LONG_PREFIX.format(prefix)))
+                                     num_expected_counters, MAPS_LONG_PREFIX.format(prefix)))
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
