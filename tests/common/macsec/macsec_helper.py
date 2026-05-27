@@ -181,16 +181,23 @@ def __check_appl_db(duthost, dut_ctrl_port_name, nbrhost, nbr_ctrl_port_name, po
     assert dut_ingress_sc_table and nbr_ingress_sc_table
     assert dut_egress_sc_table and nbr_egress_sc_table
 
-    # CHeck MACsec SA Table
-    assert int(dut_egress_sc_table["encoding_an"]) in dut_egress_sa_table
-    assert int(nbr_egress_sc_table["encoding_an"]) in nbr_egress_sa_table
-    for egress_sas, ingress_sas in \
-            ((dut_egress_sa_table, nbr_ingress_sa_table), (nbr_egress_sa_table, dut_ingress_sa_table)):
-        for an, sa in list(egress_sas.items()):
-            assert an in ingress_sas
-            assert sa["sak"] == ingress_sas[an]["sak"]
-            assert sa["auth_key"] == ingress_sas[an]["auth_key"]
-            assert sa["next_pn"] >= ingress_sas[an]["lowest_acceptable_pn"]
+    # Check MACsec SA Table.  Only the active encoding_an SA needs to be
+    # consistent between egress and peer ingress.  Non-encoding ANs may linger
+    # in APPL_DB after a dirty container kill (macsecmgrd had no chance to
+    # clean them up), while the peer correctly only re-installs the current AN
+    # after MKA re-establishes.  Checking all ANs would cause spurious
+    # convergence failures in the post-dirty-kill window.
+    for egress_sc, egress_sa_table, peer_ingress_sa_table in \
+            ((dut_egress_sc_table, dut_egress_sa_table, nbr_ingress_sa_table),
+             (nbr_egress_sc_table, nbr_egress_sa_table, dut_ingress_sa_table)):
+        encoding_an = int(egress_sc["encoding_an"])
+        assert encoding_an in egress_sa_table
+        assert encoding_an in peer_ingress_sa_table
+        egress_sa = egress_sa_table[encoding_an]
+        ingress_sa = peer_ingress_sa_table[encoding_an]
+        assert egress_sa["sak"] == ingress_sa["sak"]
+        assert egress_sa["auth_key"] == ingress_sa["auth_key"]
+        assert egress_sa["next_pn"] >= ingress_sa["lowest_acceptable_pn"]
 
 
 def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
