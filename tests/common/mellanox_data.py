@@ -3,6 +3,7 @@ import logging
 import pytest
 from tests.common.helpers.sed_password_helper import SED_Change_Password_General
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +16,8 @@ SPC3_HWSKUS = ["ACS-MSN4700", "Mellanox-SN4700-O28", "ACS-MSN4600C", "ACS-MSN441
 SPC4_HWSKUS = ["ACS-SN5600", "Mellanox-SN5600-V256", "Mellanox-SN5600-C256S1", "Mellanox-SN5600-C224O8",
                'Mellanox-SN5610N-C256S2', 'Mellanox-SN5610N-C224O8']
 SPC5_HWSKUS = ["Mellanox-SN5640-C512S2", "Mellanox-SN5640-C448O16"]
-SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWSKUS
+SPC6_HWSKUS = ["ACS-SN6600", "ACS-SN6600_LD", "Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"]
+SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWSKUS + SPC6_HWSKUS
 
 LOSSY_ONLY_HWSKUS = ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                      'Mellanox-SN5640-C448O16']
@@ -148,6 +150,126 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
+            },
+            "pch": {
+                "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
+            }
+        }
+    },
+    "x86_64-nvidia_sn6600_ld-r0": {
+        "chip_type": "spectrum6",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 0,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 0,
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[1]
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "leak_sensors": {
+            "number": 2
+        },
+        "ports": {
+            "number": 512
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 1
+            },
+            "module": {
+                "start": 1,
+                "number": 65
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "cpu_ambient": {
+                "number": 0
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 0
+            },
+            "fan_ambient": {
+                "number": 0
+            },
+            "pch": {
+                "number": 0
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
+            },
+            "pmic": {
+                "start": 1,
+                "number": 22
+            }
+        }
+    },
+    "x86_64-nvidia_sn6600_simx-r0": {
+        "chip_type": "spectrum6",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 0
+        },
+        "psus": {
+            "number": 0
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "ports": {
+            "number": 512
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 6
+            },
+            "module": {
+                "start": 1,
+                "number": 512
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "cpu_ambient": {
+                "number": 0
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 0
+            },
+            "fan_ambient": {
+                "number": 0
             },
             "pch": {
                 "number": 1
@@ -1327,3 +1449,20 @@ class SED_Change_Password_Mellanox(SED_Change_Password_General):
 
         if self.THIRD_SED_TPM_BANK not in tpm['stdout']:
             pytest.skip("Required third TPM bank not configured")
+
+
+def is_issu_enabled(duthost):
+    logger.info("Check if ISSU is enabled on the device")
+    dut_platform = duthost.facts["platform"]
+    dut_hwsku = duthost.facts["hwsku"]
+
+    sai_profile = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/sai.profile"
+    cmd_get_sai_xml_filename = f"basename $(cat {sai_profile} | grep SAI_INIT_CONFIG_FILE | cut -d'=' -f2)"
+    sai_xml_filename = duthost.shell(cmd_get_sai_xml_filename)["stdout"].strip()
+    sai_xml_path = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/{sai_xml_filename}"
+
+    pattern = r"<issu-enabled>*1*<\/issu-enabled>"
+    output = duthost.shell(f'egrep "{pattern}" {sai_xml_path} | wc -l')['stdout'].strip()
+    logger.info(f"ISSU is enabled: {output == '1'}")
+
+    return True if output == "1" else False

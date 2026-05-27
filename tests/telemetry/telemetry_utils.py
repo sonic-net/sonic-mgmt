@@ -55,7 +55,8 @@ def skip_201911_and_older(duthost):
 
 def check_gnmi_cli_running(duthost, ptfhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"",
+                        module_ignore_errors=True)
     return res and res["rc"] == 0
 
 
@@ -125,7 +126,8 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     # 3. Executes the py_gnmicli.py script.
     cmdFormat = '. /root/env-python3/bin/activate && cd {7}gnmi_cli_py' \
                 ' && python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port,
+    mgmt_ip = duthost.get_mgmt_ip()["mgmt_ip"]
+    cmd = cmdFormat.format(mgmt_ip, env.gnmi_port,
                            method, xpath, target, ns,
                            "ndastreamingservertest", gnxi_path)
 
@@ -179,6 +181,7 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
+              -days 365 \
               -newkey rsa:2048 \
               -keyout streamingtelemetryserver.key \
               -subj '/CN=ndastreamingservertest' \
@@ -188,6 +191,7 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
+              -days 365 \
               -newkey rsa:2048 \
               -keyout dsmsroot.key \
               -subj '/CN=ndastreamingclienttest' \
