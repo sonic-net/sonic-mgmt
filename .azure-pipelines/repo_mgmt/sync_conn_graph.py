@@ -53,6 +53,9 @@ SUPPORTED_CSV_FILES = {
     "serial_links": "sonic_{}_serial_links.csv",
 }
 CREATE_GRAPH_FILE = "creategraph.py"
+EXTRA_SYNC_FILES = [
+    'tests/snappi_tests/variables.override.yml',
+]
 EXCLUDE_FILES = [
     'ansible/group_vars/all/secrets.json',
     'ansible/group_vars/sonic/sku-sensors-data.yml'
@@ -175,6 +178,12 @@ def get_graph_files(repo_path):
     for file_path in EXCLUDE_FILES:
         if file_path in graph_file_list:
             graph_file_list.remove(file_path)
+
+    # add extra files outside ansible/ that should be synced
+    for file_name in EXTRA_SYNC_FILES:
+        file_path = os.path.join(repo_path, file_name)
+        if os.path.exists(file_path):
+            graph_file_list.append(file_name)
 
     return graph_groups, graph_file_list
 
