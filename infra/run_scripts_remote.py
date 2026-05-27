@@ -199,7 +199,9 @@ def trigger_run_scripts(host, username, password, script_file,drop_version,log_d
         time.sleep(60)
         resp = chan.recv(9999)
         print(resp.decode("utf-8", errors="replace"))
-        additional_params += " --mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml"
+        # Load both files: main sonic-mgmt skips (~780 entries) plus sim-specific skips.
+        # Passing only cisco_sim.yaml replaces the run_scripts.py default and drops most skips.
+        additional_params += " --mark-conditions-files common/plugins/conditional_mark/tests_mark_conditions.yaml,common/plugins/conditional_mark/tests_mark_conditions_cisco_sim.yaml"
 
     print("Run command:")
     print('./run_scripts.py -s {} -v {} -l {} -d {} -tt {} -t {} -g {} -b {} -dd {} -y \'{}\' {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,topo_type,tstamp,topo_name,build_project_name,dut_data_file,test_tag,additional_params))
