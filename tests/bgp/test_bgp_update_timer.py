@@ -101,6 +101,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
 
@@ -151,6 +152,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
@@ -167,6 +169,7 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
