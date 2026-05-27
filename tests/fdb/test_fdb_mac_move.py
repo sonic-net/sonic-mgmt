@@ -79,10 +79,6 @@ DISABLE_LEARN_ON_MAC_CLEANUP_GUARD_CONFIG = _build_mmg_config(
 MMG_CONFIG_REMOTE_PATH = "/tmp/mac_move_guard.json"
 MMG_TIMEOUT = 300
 
-# STATE_DB table name written by macmoveguardorch for every tracked bad MAC.
-# Mirrors STATE_MAC_MOVE_GUARD_TABLE_NAME from macmoveguardorch.h.
-MMG_BAD_MAC_TABLE = "MAC_MOVE_GUARD"
-
 logger = logging.getLogger(__name__)
 
 pytestmark = [
@@ -471,32 +467,6 @@ def _parse_sonic_db_cli_hash(raw):
     return val if isinstance(val, dict) else {}
 
 
-def _state_db_bad_macs(duthost):
-    """Return a dict {key: hgetall_dict} for every row currently present in
-    STATE_DB:MAC_MOVE_GUARD_BAD_MAC_TABLE. Empty dict if nothing is tracked.
-
-    The key is the STATE_DB row key without the table prefix, e.g.
-    ``0x10000000000be:02:11:22:33:00:00``.
-    """
-    keys_res = duthost.shell(
-        "sonic-db-cli STATE_DB KEYS '{}|*'".format(MMG_BAD_MAC_TABLE),
-        module_ignore_errors=True)
-    out = (keys_res.get('stdout') or '').strip()
-    if not out:
-        return {}
-    rows = {}
-    for full_key in out.splitlines():
-        full_key = full_key.strip()
-        if not full_key.startswith(MMG_BAD_MAC_TABLE + "|"):
-            continue
-        row_key = full_key[len(MMG_BAD_MAC_TABLE) + 1:]
-        hg = duthost.shell(
-            'sonic-db-cli STATE_DB HGETALL "{}"'.format(full_key),
-            module_ignore_errors=True)
-        rows[row_key] = _parse_sonic_db_cli_hash(hg.get('stdout'))
-    return rows
-
-
 def _asic_db_key_exists(duthost, key):
     res = duthost.shell(
         'sonic-db-cli ASIC_DB EXISTS "{}"'.format(key),
@@ -509,6 +479,57 @@ def _asic_db_hgetall(duthost, key):
         'sonic-db-cli ASIC_DB HGETALL "{}"'.format(key),
         module_ignore_errors=True)
     return _parse_sonic_db_cli_hash(res.get('stdout'))
+
+
+def _asic_db_keys(duthost, pattern):
+    """Return the list of ASIC_DB keys matching ``pattern`` (Redis KEYS glob)."""
+    res = duthost.shell(
+        "sonic-db-cli ASIC_DB KEYS '{}'".format(pattern),
+        module_ignore_errors=True)
+    out = (res.get('stdout') or '').strip()
+    return [k.strip() for k in out.splitlines() if k.strip()] if out else []
+
+
+def _find_pre_ingress_acl_table(duthost):
+    """Return the bare-hex OID of the ACL table currently bound to
+    ``SAI_SWITCH_ATTR_PRE_INGRESS_ACL`` on the switch object, or ``None`` if
+    the attribute is unset / oid:0x0.
+
+    Used by the DLOMWA test to discover the table OID without consulting
+    STATE_DB. The orch creates the table and writes the bind at config-apply
+    time, so this becomes non-null as soon as the
+    ``DISABLE_LEARN_ON_MAC_WITH_ACL`` action is configured.
+    """
+    for sw_key in _asic_db_keys(duthost, "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*"):
+        attrs = _asic_db_hgetall(duthost, sw_key)
+        raw = attrs.get('SAI_SWITCH_ATTR_PRE_INGRESS_ACL')
+        if not raw or not raw.startswith('oid:'):
+            continue
+        oid = raw[len('oid:'):]
+        if oid and oid != '0x0':
+            return oid
+    return None
+
+
+def _find_dlomwa_acl_entry(duthost, table_oid):
+    """Return ``(entry_oid, attrs)`` for any ASIC_DB ACL entry whose
+    ``SAI_ACL_ENTRY_ATTR_TABLE_ID`` references ``table_oid`` (a bare hex
+    string). Returns ``(None, None)`` if no such entry exists yet.
+
+    Used by the DLOMWA test to discover a bad-MAC ACL entry that the orch
+    has installed in response to the storm.
+    """
+    expected_table_id = "oid:" + table_oid
+    for entry_key in _asic_db_keys(
+            duthost, "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:*"):
+        attrs = _asic_db_hgetall(duthost, entry_key)
+        if attrs.get('SAI_ACL_ENTRY_ATTR_TABLE_ID') != expected_table_id:
+            continue
+        prefix = "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:"
+        if not entry_key.startswith(prefix):
+            continue
+        return entry_key[len(prefix):], attrs
+    return None, None
 
 
 def _syslog_line_count(duthost):
@@ -566,25 +587,29 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
                                                  rand_one_dut_hostname,
                                                  ptfhost, tbinfo):
     """
-    Validate the MAC_MOVE_GUARD DISABLE_LEARN_ON_MAC_WITH_ACL action:
+    Validate the MAC_MOVE_GUARD DISABLE_LEARN_ON_MAC_WITH_ACL action.
+    All assertions are made against ASIC_DB; DLOMWA writes nothing to
+    STATE_DB.
 
       1. Configure MAC_MOVE_GUARD with action=DISABLE_LEARN_ON_MAC_WITH_ACL
          and a long action_interval so the bad MAC cannot age out while we
          observe orchagent behaviour.
-      2. Drive a MAC-move storm so a per-MAC threshold is crossed and at
-         least one bad MAC is published to STATE_DB.
-      3. Verify the shared learn-disable ACL table exists in ASIC_DB with
-         the expected stage / match fields / action.
-      4. Verify the per-MAC ACL entry referenced by the STATE_DB row exists
-         in ASIC_DB and matches the bad MAC / VLAN.
-      5. With the storm still running, poll syslog for "BAD MAC ...
+      2. Wait for the orch to create the pre-ingress ACL table and bind it
+         via SAI_SWITCH_ATTR_PRE_INGRESS_ACL; capture its OID. Verify the
+         table's stage / match fields / action_list in ASIC_DB.
+      3. Drive a MAC-move storm so a per-MAC threshold is crossed; wait
+         for an ACL entry to appear in ASIC_DB whose TABLE_ID points at
+         our table. Extract its SRC_MAC as the tracked MAC and verify the
+         remaining attributes (OUTER_VLAN_ID, SET_DO_NOT_LEARN action).
+      4. With the storm still running, poll syslog for "BAD MAC ...
          continues to move" lines for the tracked MAC and wait until no new
          such lines have appeared for a full quiescence window. This proves
          that once the ACL entry takes effect, orchagent stops re-flagging
          the MAC.
-      6. Stop the storm. Reconfigure MAC_MOVE_GUARD with a short
-         action_interval so the bad-MAC tracking entry / ACL entry age out
-         promptly, then verify both have been removed.
+      5. Stop the storm.
+      6. Reconfigure MAC_MOVE_GUARD with a short action_interval so the
+         tracked MAC's ACL entry ages out promptly; verify it has been
+         removed from ASIC_DB.
     """
 
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
@@ -599,8 +624,8 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts)
     # The storm tags frames with STORM_VLAN_TAG; the DUT classifies them into
     # that VLAN at ingress (provided the ports are tagged members), so all FDB
-    # moves, STATE_DB rows, and the ACL entry are scoped to STORM_VLAN_TAG -
-    # not whatever VLAN port-selection happened to pick.
+    # moves and the ACL entry are scoped to STORM_VLAN_TAG - not whatever VLAN
+    # port-selection happened to pick.
     vlan_id = STORM_VLAN_TAG
     vlan100_members = sorted(set([
         _vlan_member_parent(conf_facts, dut_a),
@@ -625,48 +650,38 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         logger.info("MAC-move storm sender started on ptfhost (pid=%s, vlan_tag=%d)",
                     pid, STORM_VLAN_TAG)
 
-        # Phase 1: wait for at least one bad MAC to be published to STATE_DB.
-        logger.info("===== PHASE 1: waiting (up to %ds) for a bad MAC to "
-                    "appear in STATE_DB:%s =====",
-                    MMG_TIMEOUT, MMG_BAD_MAC_TABLE)
+        # Phase 1: wait for the orch to create the pre-ingress ACL table and
+        # bind it via SAI_SWITCH_ATTR_PRE_INGRESS_ACL. This happens at
+        # config-apply time (independently of any storm-induced detection),
+        # so it's the earliest observable proof that the DLOMWA action is
+        # active. Captures the table OID we'll need for Phases 2 and 3.
+        logger.info("===== PHASE 1: waiting (up to %ds) for pre-ingress ACL "
+                    "table to be created and bound in ASIC_DB =====",
+                    MMG_TIMEOUT)
+        acl_table_oid_holder = {}
+
+        def _table_bound():
+            oid = _find_pre_ingress_acl_table(duthost)
+            if oid:
+                acl_table_oid_holder['oid'] = oid
+                return True
+            return False
+
         pytest_assert(
-            wait_until(MMG_TIMEOUT, 2, 0,
-                       lambda: bool(_state_db_bad_macs(duthost))),
-            "MAC_MOVE_GUARD did not publish any bad MAC to STATE_DB:{} "
-            "within {}s".format(MMG_BAD_MAC_TABLE, MMG_TIMEOUT)
+            wait_until(MMG_TIMEOUT, 2, 0, _table_bound),
+            "MAC_MOVE_GUARD did not bind a pre-ingress ACL table within {}s"
+            .format(MMG_TIMEOUT)
         )
-        rows = _state_db_bad_macs(duthost)
-        # Pick a DISABLE_LEARN_ON_MAC_WITH_ACL row that actually has an ACL
-        # entry OID.
-        target_row_key, target_row = None, None
-        for k, v in rows.items():
-            if v.get('action') == 'DISABLE_LEARN_ON_MAC_WITH_ACL' \
-                    and v.get('acl_entry_id') \
-                    and v.get('acl_entry_id') != '0x0':
-                target_row_key, target_row = k, v
-                break
-        pytest_assert(
-            target_row is not None,
-            "No DISABLE_LEARN_ON_MAC_WITH_ACL bad-MAC row with a non-null "
-            "acl_entry_id found in STATE_DB:{}; rows={}"
-            .format(MMG_BAD_MAC_TABLE, rows)
-        )
-        # STATE_DB row key is "<bv_id_hex>:<mac>"; the MAC is everything after
-        # the first colon, lower-case (matches MacAddress::to_string()).
-        target_mac = target_row_key.split(":", 1)[1]
-        acl_table_oid = target_row.get('acl_table_id')
-        acl_entry_oid = target_row.get('acl_entry_id')
-        logger.info("Bad MAC %s tracked with acl_table_id=%s acl_entry_id=%s",
-                    target_mac, acl_table_oid, acl_entry_oid)
-        logger.info("===== PHASE 1: DONE (bad MAC selected: %s) =====",
-                    target_mac)
+        acl_table_oid = acl_table_oid_holder['oid']
+        logger.info("===== PHASE 1: DONE (pre-ingress ACL table OID: %s) =====",
+                    acl_table_oid)
 
         # Phase 2: verify the shared ACL table exists in ASIC_DB with the
-        # expected match fields and FLOOD action.
+        # expected stage, match fields, and action_list.
         logger.info("===== PHASE 2: verifying ACL table %s in ASIC_DB =====",
                     acl_table_oid)
-        # ASIC_DB encodes SAI object IDs as "oid:0x...." (see sai_serialize_object_id)
-        # whereas MAC_MOVE_GUARD stores them in STATE_DB as bare hex.
+        # _find_pre_ingress_acl_table returns the OID as bare hex; ASIC_DB
+        # keys it with the "oid:" prefix.
         table_key = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_TABLE:oid:" +
                      acl_table_oid)
         pytest_assert(_asic_db_key_exists(duthost, table_key),
@@ -699,33 +714,44 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
         )
         logger.info("===== PHASE 2: DONE (ACL table attributes verified) =====")
 
-        # Phase 3: verify the per-MAC ACL entry exists in ASIC_DB and matches
-        # the bad MAC / VLAN.
-        logger.info("===== PHASE 3: verifying ACL entry %s in ASIC_DB =====",
-                    acl_entry_oid)
-        entry_key = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:" +
-                     acl_entry_oid)
-        pytest_assert(_asic_db_key_exists(duthost, entry_key),
-                      "ACL entry {} not present in ASIC_DB".format(entry_key))
-        entry_attrs = _asic_db_hgetall(duthost, entry_key)
-        # SAI_ACL_ENTRY_ATTR_TABLE_ID is serialized as "oid:0x..." in ASIC_DB.
-        expected_table_id = "oid:" + acl_table_oid
+        # Phase 3: wait until the storm pushes at least one MAC over the
+        # threshold and the orch installs an ACL entry against our table.
+        # The bad-MAC OID is unknown a priori, so we discover the first
+        # entry whose TABLE_ID points at acl_table_oid and use its SRC_MAC
+        # as the tracked MAC for subsequent phases.
+        logger.info("===== PHASE 3: waiting (up to %ds) for a per-MAC ACL "
+                    "entry against table %s =====",
+                    MMG_TIMEOUT, acl_table_oid)
+        entry_holder = {}
+
+        def _entry_installed():
+            entry_oid, attrs = _find_dlomwa_acl_entry(duthost, acl_table_oid)
+            if entry_oid:
+                entry_holder['oid'] = entry_oid
+                entry_holder['attrs'] = attrs
+                return True
+            return False
+
         pytest_assert(
-            entry_attrs.get('SAI_ACL_ENTRY_ATTR_TABLE_ID') == expected_table_id,
-            "ACL entry {} TABLE_ID {} != STATE_DB acl_table_id {}"
-            .format(entry_key,
-                    entry_attrs.get('SAI_ACL_ENTRY_ATTR_TABLE_ID'),
-                    expected_table_id)
+            wait_until(MMG_TIMEOUT, 2, 0, _entry_installed),
+            "No ACL entry referencing table {} appeared in ASIC_DB within {}s"
+            .format(acl_table_oid, MMG_TIMEOUT)
         )
-        # SRC_MAC attribute is stored as "<mac>&mask=<mask>"; just check the
-        # target MAC appears in it.
+        acl_entry_oid = entry_holder['oid']
+        entry_attrs   = entry_holder['attrs']
+        entry_key     = ("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:" +
+                         acl_entry_oid)
+
+        # SRC_MAC attribute is stored as "<mac>&mask=<mask>"; parse the MAC.
         src_mac_attr = entry_attrs.get(
             'SAI_ACL_ENTRY_ATTR_FIELD_SRC_MAC', '')
+        target_mac = src_mac_attr.split('&', 1)[0].strip().lower()
         pytest_assert(
-            target_mac.lower() in src_mac_attr.lower(),
-            "ACL entry {} SRC_MAC field {} does not match bad MAC {}"
-            .format(entry_key, src_mac_attr, target_mac)
+            target_mac,
+            "ACL entry {} has empty/unparseable SRC_MAC field: {!r}"
+            .format(entry_key, src_mac_attr)
         )
+
         vlan_attr = entry_attrs.get(
             'SAI_ACL_ENTRY_ATTR_FIELD_OUTER_VLAN_ID', '')
         pytest_assert(
@@ -833,17 +859,8 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
             .format(entry_key, target_mac, cleanup_timeout,
                     DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL)
         )
-        pytest_assert(
-            wait_until(cleanup_timeout, 5, 0,
-                       lambda: target_row_key not in _state_db_bad_macs(duthost)),
-            "Bad-MAC row {} was not removed from STATE_DB:{} within {}s "
-            "after reconfiguring action_interval={}s".format(
-                target_row_key, MMG_BAD_MAC_TABLE, cleanup_timeout,
-                DISABLE_LEARN_ON_MAC_CLEANUP_ACTION_INTERVAL)
-        )
-        logger.info("ACL entry %s and STATE_DB row %s cleaned up after "
-                    "reconfigured action_interval", acl_entry_oid,
-                    target_row_key)
+        logger.info("ACL entry %s cleaned up after reconfigured "
+                    "action_interval", acl_entry_oid)
         logger.info("===== PHASE 6: DONE (cleanup verified) =====")
     finally:
         if pid is not None:
