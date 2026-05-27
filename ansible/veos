@@ -55,6 +55,7 @@ all:
         vm_svc_host_7:
         vm_svc_host_8:
         vm_svc_host_9:
+        vm_svc_host_10:
         vm_bjw_host_6:
         vm_bjw_host_7:
         vm_bjw_host_8:
@@ -150,6 +151,7 @@ all:
         vms_svc_7:
         vms_svc_8:
         vms_svc_9:
+        vms_svc_10:
         vms_bjw_6:
         vms_bjw_7:
         vms_bjw_8:
@@ -243,6 +245,7 @@ all:
         server_svc_7:
         server_svc_8:
         server_svc_9:
+        server_svc_10:
         server_bjw_6:
         server_bjw_7:
         server_bjw_8:
@@ -618,6 +621,10 @@ vm_svc_host_9:
   hosts:
     SVCSTR-SERVER-9:
       ansible_host: 10.206.144.97
+vm_svc_host_10:
+  hosts:
+    SVCSTR-SERVER-10:
+      ansible_host: 10.206.144.101
 vm_bjw_host_6:
   hosts:
     BJW-CAN-SERV-6:
@@ -27958,6 +27965,12 @@ server_svc_9:
   children:
     vm_svc_host_9:
     vms_svc_9:
+server_svc_10:
+  vars:
+    host_var_file: host_vars/SVCSTR-SERVER-10.yml
+  children:
+    vm_svc_host_10:
+    vms_svc_10:
 server_svc_6:
   vars:
     host_var_file: host_vars/SVCSTR-SERVER-6.yml

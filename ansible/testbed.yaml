@@ -1025,15 +1025,15 @@
   auto_recover: 'True'
   comment: deepsinghal
 
-- conf-name: vmsvc3-t2-7250-1
-  group-name: svc3-1
+- conf-name: vmsvc10-t2-7250-1
+  group-name: svc10-1
   topo: t2
   ptf_image_name: docker-ptf
-  ptf: svc3-1
-  ptf_ip: 10.206.144.128/24
-  ptf_ipv6: 2a01:111:e205:100::ace:9080/64
-  server: server_svc_3
-  vm_base: VM30000
+  ptf: svc10-1
+  ptf_ip: 10.206.144.104/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9068/64
+  server: server_svc_10
+  vm_base: VM100000
   dut:
   - svcstr-7250-lc1-1
   - svcstr-7250-lc2-1
