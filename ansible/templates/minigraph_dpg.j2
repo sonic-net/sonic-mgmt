@@ -1,6 +1,17 @@
+{# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
+   Patterns in this list are matched as SUBSTRINGS against the DUT hwsku,
+   so e.g. "Arista-7050CX3" matches "Arista-7050CX3-32C", "Arista-7050CX3-32S",
+   and any other Arista-7050CX3 variant.
+   For these, <AttachTo> must carry the alias verbatim, because the SONiC
+   minigraph parser will perform its own alias->name lookup; pre-converting
+   here would cause a second lookup on a string that is also a valid alias
+   for a *different* port (see PR #24516 / regression from PR #22166). #}
+{% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
+{% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <DpgDec>
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
+{% if not (is_bmc_topo | bool) %}
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if card_type is not defined or card_type != 'supervisor' %}
         <a:LoopbackIPInterface>
@@ -62,17 +73,22 @@
       {%- endif -%}
 {% endif %}
 </LoopbackIPInterfaces>
+{% else %}
+      <LoopbackIPInterfaces i:nil="true" />
+{% endif %}
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool %}
         <a:ManagementIPInterface>
           <Name>HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
+            <b:IPPrefix>{{ original_ipv4_address if original_ipv4_address is defined else ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
+          <a:PrefixStr>{{ original_ipv4_address if original_ipv4_address is defined else ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
         </a:ManagementIPInterface>
+{% endif %}
         <a:ManagementIPInterface>
-          <Name>V6HostIP</Name>
+          <Name>{% if use_ipv6_mgmt is defined and use_ipv6_mgmt|bool %}HostIP{% else %}V6HostIP{% endif %}</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
             <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
@@ -191,9 +207,16 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
+  <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
-          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+  {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+  {% if num_asics > 1 or hwsku_has_alias_name_collision %}
+    {# Chassis, or HWSKU whose alias namespace overlaps port-name namespace: use alias directly #}
+    <AttachTo>{{ intf_alias }}</AttachTo>
+  {% else %}
+    {# TOR: use port_alias_map #}
+    <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+  {% endif %}
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -204,7 +227,12 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
           <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
-          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+          {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+          {% if num_asics > 1 or hwsku_has_alias_name_collision %}
+            <AttachTo>{{ intf_alias }}</AttachTo>
+          {% else %}
+            <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+          {% endif %}
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -278,7 +306,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
-{% if card_type is not defined or card_type != 'supervisor' %}
+{% if (card_type is not defined or card_type != 'supervisor') and not (is_bmc_topo | bool) %}
         <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
@@ -300,7 +328,12 @@
 {% for index in range(vms_number) %}
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
-{% set a_intf = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{% if num_asics > 1 or hwsku_has_alias_name_collision %}
+  {% set a_intf = intf_alias %}
+{% else %}
+  {% set a_intf = port_alias_map[intf_alias] %}
+{% endif %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}

@@ -265,10 +265,10 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 ### Key Helper Functions
 - `check_interface_status()`: Verify relay agent socket binding
-- `query_dhcpcom_relay_counter_result()`: Retrieve DHCP counters
-- `validate_dhcpcom_relay_counters()`: Validate counter accuracy
-- `start_dhcp_monitor_debug_counter()`: Enable debug counter mode
-- `init_dhcpcom_relay_counters()`: Reset counter values
+- `query_dhcpmon_counter_result()`: Retrieve DHCP counters from dhcpmon
+- `validate_dhcpmon_counters()`: Validate counter accuracy from dhcpmon
+- `restart_dhcpmon_in_debug()`: Enable dhcpmon debug mode
+- `init_dhcpmon_counters()`: Reset counter values from dhcpmon
 
 ### Fixtures
 - `ignore_expected_loganalyzer_exceptions`: Filter expected errors

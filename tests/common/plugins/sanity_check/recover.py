@@ -2,6 +2,7 @@ import json
 import logging
 import time
 
+from pytest_ansible.results import ModuleResult
 from tests.common import config_reload
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -13,6 +14,21 @@ from . import constants
 from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+
+def _make_results_serializable(obj):
+    """Recursively convert objects to JSON-serializable form."""
+    if isinstance(obj, ModuleResult):
+        return _make_results_serializable(dict(obj))
+    if isinstance(obj, dict):
+        return {k: _make_results_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_results_serializable(x) for x in obj]
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if obj is None:
+        return None
+    return str(obj)
 
 
 def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
@@ -139,7 +155,9 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
                 logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
         else:
             results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, list(nbrhosts.values()), timeout=300)
-            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
+            logger.debug(
+                'Results of restoring neighbor VMs: {}'.format(
+                    json.dumps(_make_results_serializable(dict(results)))))
     return 'config_reload'  # May still need to do a config reload
 
 

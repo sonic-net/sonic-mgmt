@@ -8,9 +8,12 @@ import re
 import logging
 import json
 import functools
+import time
 from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
+import ast
+from tests.common.mellanox_data import is_mellanox_device
 
 
 def parse_intf_status(lines):
@@ -53,6 +56,11 @@ def get_dut_interfaces_status(duthost):
 
 def check_interface_status_of_up_ports(duthost):
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
+        return True
+
+    # SONiC BMC images have no front-panel ports, so CONFIG_DB has no PORT
+    # table. Treat as "no admin-up ports to check".
+    if duthost.is_bmc():
         return True
 
     if duthost.is_multi_asic:
@@ -296,6 +304,24 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
     return interfaces
 
 
+def clear_interface_counters_and_wait(duthost, wait_time=60):
+    """
+    Clear SONiC interface counters and wait before validating them.
+
+    Args:
+        duthost: The device under test.
+        wait_time (int): Number of seconds to wait after clearing counters.
+
+    Returns:
+        None
+    """
+    logging.info("Run 'sudo sonic-clear counters' before validating FEC counters")
+    duthost.command("sudo sonic-clear counters")
+
+    logging.info("Wait %s seconds after clearing counters", wait_time)
+    time.sleep(wait_time)
+
+
 def get_physical_to_logical_port_mapping(physical_port_indices):
     """
     @summary: Returns dictionary map of physical ports to corresponding logical port indices
@@ -318,3 +344,83 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
+
+
+def get_xcvr_presence_data(duthost, asic_index=None):
+    """
+    @summary: Returns a dictionary of transceiver presence status for each interface.
+    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @return: A dictionary where keys are interface names and values are booleans indicating presence.
+    """
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    namespace_prefix = '-n ' + namespace if namespace else ''
+    check_intf_presence_command = 'show interface transceiver presence {}'.format(namespace_prefix)
+    interface_presence_parsed = duthost.show_and_parse(check_intf_presence_command)
+    interface_presence_dict = {}
+    for entry in interface_presence_parsed:
+        interface_presence_dict[entry['port']] = entry.get('presence', '') == 'Present'
+    return interface_presence_dict
+
+
+def get_pport_presence_data(duthost, asic_index=None):
+    """
+    @summary: Returns a dictionary of physical port presence status for each physical port index.
+    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
+    """
+    interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)
+    physical_port_indices = get_physical_port_indices(duthost)
+    pport_presence_dict = {}
+    for intf, is_present in interface_presence_dict.items():
+        pport_index = physical_port_indices.get(intf)
+        if pport_index is not None:
+            pport_presence_dict[pport_index] = is_present
+    return pport_presence_dict
+
+
+def get_ports_with_flat_memory(dut, conn_graph_facts):
+    """
+    This method is to get ports with flat memory
+    """
+    port_indexes_with_flat_memory = []
+    if is_mellanox_device(dut):
+        port_indexes_with_flat_memory = get_port_indexes_with_flat_memory(dut)
+
+    physical_intfs = conn_graph_facts["device_conn"][dut.hostname]
+    physical_port_index_map = get_physical_port_indices(dut, physical_intfs)
+    ports_with_flat_memory = []
+    for port, index in physical_port_index_map.items():
+        if index in port_indexes_with_flat_memory:
+            ports_with_flat_memory.append(port)
+    logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
+    return ports_with_flat_memory
+
+
+def get_port_indexes_with_flat_memory(dut):
+    """
+    This method is to get port indexes with flat memory
+    """
+    cmd = """
+cat << EOF > get_port_indexes_with_flat_memory.py
+import sonic_platform.platform as P
+chassis = P.Platform().get_chassis()
+num_sfps = chassis.get_num_sfps()
+port_indexes_with_flat_memory = []
+for i in range(1, num_sfps + 1):
+    sfp = chassis.get_sfp(i)
+    if sfp is None:
+        continue
+    xcvr_api = sfp.get_xcvr_api()
+    if xcvr_api is None:
+        continue
+    is_flat_memory = xcvr_api.is_flat_memory()
+    if is_flat_memory:
+        port_indexes_with_flat_memory.append(i)
+print(port_indexes_with_flat_memory)
+EOF
+"""
+    dut.shell(cmd)
+    port_indexes_with_flat_memory = dut.shell("python3 get_port_indexes_with_flat_memory.py")["stdout"]
+    port_indexes_with_flat_memory = ast.literal_eval(port_indexes_with_flat_memory)
+    logging.info(f"Port indexes with flat memory: {port_indexes_with_flat_memory}")
+    return port_indexes_with_flat_memory

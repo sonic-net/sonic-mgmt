@@ -88,6 +88,11 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 
         cmds = list(constants.PRINT_LOGS.values())
 
+        # Skip commands that trigger rexec on supervisor (e.g. show interface status, show ip bgp summary)
+        if dut.is_supervisor_node():
+            cmds = [cmd for cmd in cmds
+                    if not any(p.search(cmd) for p in constants.SUPERVISOR_REXEC_COMMAND_PATTERNS)]
+
         if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
@@ -221,11 +226,11 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         return
 
     skip_sanity = False
-    skip_pre_sanity = False
+    skip_pre_sanity = True
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
-    post_check = False
+    post_check = True
     nbr_hosts = None
 
     customized_sanity_check = None
@@ -239,7 +244,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Process marker {} in script. m.args={}, m.kwargs={}"
                     .format(customized_sanity_check.name, customized_sanity_check.args, customized_sanity_check.kwargs))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
-        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", False)
+        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", True)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
         recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
@@ -252,7 +257,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
             customized_sanity_check.kwargs.get("check_items", []),
             SUPPORTED_CHECKS)
 
-        post_check = customized_sanity_check.kwargs.get("post_check", False)
+        post_check = customized_sanity_check.kwargs.get("post_check", True)
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
@@ -261,6 +266,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
     if request.config.option.skip_pre_sanity:
         skip_pre_sanity = True
+
+    if request.config.option.enable_pre_sanity:
+        skip_pre_sanity = False
 
     if request.config.option.allow_recover:
         allow_recover = True
@@ -271,6 +279,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
     if request.config.option.post_check:
         post_check = True
+
+    if request.config.option.skip_post_check:
+        post_check = False
 
     if not request.config.option.enable_macsec:
         pre_check_items.remove("check_neighbor_macsec_empty")
@@ -352,7 +363,19 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         if post_check_items:
             logger.info("Start post-test sanity check")
-            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            try:
+                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            except Exception as e:
+                logger.error(
+                    "Post-test sanity check crashed (DUT may be unreachable): %s", repr(e)
+                )
+                request.config.cache.set("post_sanity_check_failed", True)
+                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
+                pt_assert(
+                    False,
+                    "!!!!!!!!!!!!!!!! Post-test sanity check crashed: !!!!!!!!!!!!!!!!\n{}".format(repr(e))
+                )
+                return
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 

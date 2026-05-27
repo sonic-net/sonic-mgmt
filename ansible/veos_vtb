@@ -23,6 +23,7 @@ all:
           - t1-smartswitch
           - t1-smartswitch-ha
           - t0
+          - t0-vpp
           - t0-16
           - t0-28
           - t0-56
@@ -90,6 +91,11 @@ all:
         vlab-t2-1-sup:
         vlab-c-02:
         vlab-vpp-01:
+        vlab-vpp-02:
+        vlab-vpp-03:
+        vlab-vpp-04:
+        vlab-vpp-05:
+        vlab-vpp-06:
     ptf:
       hosts:
         ptf-01:
@@ -116,6 +122,12 @@ all:
         ptf-08:
           ansible_host: 10.250.0.119
           ansible_hostv6: fec0::ffff:afb:5
+        ptf-09:
+          ansible_host: 10.250.0.120
+          ansible_hostv6: fec0::ffff:afb:9
+        ptf-10:
+          ansible_host: 10.250.0.121
+          ansible_hostv6: fec0::ffff:afb:10
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
@@ -349,6 +361,51 @@ all:
           serial_port: 9001
           ansible_password: password
           ansible_user: admin
+        vlab-vpp-02:
+          ansible_host: 10.250.0.93
+          ansible_hostv6: fec0::ffff:afa:71
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9001
+          ansible_password: password
+          ansible_user: admin
+        vlab-vpp-03:
+          ansible_host: 10.250.0.133
+          ansible_hostv6: fec0::ffff:afa:73
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9026
+          ansible_password: password
+          ansible_user: admin
+        vlab-vpp-04:
+          ansible_host: 10.250.0.134
+          ansible_hostv6: fec0::ffff:afa:74
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9027
+          ansible_password: password
+          ansible_user: admin
+        vlab-vpp-05:
+          ansible_host: 10.250.0.135
+          ansible_hostv6: fec0::ffff:afa:75
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9028
+          ansible_password: password
+          ansible_user: admin
+        vlab-vpp-06:
+          ansible_host: 10.250.0.136
+          ansible_hostv6: fec0::ffff:afa:76
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9029
+          ansible_password: password
+          ansible_user: admin
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
@@ -455,3 +512,19 @@ vms_1:
       ansible_host: 10.250.0.93
     VM0143:
       ansible_host: 10.250.0.94
+    VM0144:
+      ansible_host: 10.250.0.95
+    VM0145:
+      ansible_host: 10.250.0.96
+    VM0146:
+      ansible_host: 10.250.0.97
+    VM0147:
+      ansible_host: 10.250.0.98
+    VM0148:
+      ansible_host: 10.250.0.99
+    VM0149:
+      ansible_host: 10.250.0.100
+    VM0150:
+      ansible_host: 10.250.0.101
+    VM0151:
+      ansible_host: 10.250.0.102
