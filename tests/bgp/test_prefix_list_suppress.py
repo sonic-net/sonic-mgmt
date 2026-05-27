@@ -63,6 +63,11 @@ DB_ONLY_BAD_PREFIX = "not-a-prefix"
 
 BGPCFGD_RUNNING_TIMEOUT = 60
 BGPCFGD_RUNNING_INTERVAL = 5
+# Narrow journald lookback (seconds) used by TC-A5 after a fresh bgpcfgd
+# restart. Wide enough to absorb the supervisorctl restart + bgpcfgd init
+# on a slow real DUT (~30s p99), tight enough that stale lines from a
+# previous image upgrade in the same 24h cannot leak into our assertions.
+BGPCFGD_LOG_WINDOW_SECONDS = 180
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +357,25 @@ def apply_constants_to_bgpcfgd(duthost):
     )
 
 
+def restart_bgpcfgd_only(duthost):
+    """Bounce just the ``bgpcfgd`` supervisord program in every frontend
+    ASIC's bgp container and wait for it to come back RUNNING.
+
+    Cheaper and more deterministic than a full ``systemctl restart bgp``:
+    it keeps the container, zebra, bgpd and staticd alive and only
+    re-runs bgpcfgd's ``main()``/``do_work()``. The one-shot
+    ``log_notice`` startup lines (``AsPath Manager is enabled for
+    <DEVICE_TYPE>``, etc.) are re-emitted so the caller can use a
+    narrow ``--since`` window for syslog assertions.
+    """
+    for container in bgp_container_names(duthost):
+        duthost.shell(
+            "sudo docker exec {} supervisorctl restart bgpcfgd".format(container),
+            module_ignore_errors=True,
+        )
+    wait_for_bgpcfgd(duthost, timeout=180)
+
+
 def collect_recent_syslog(duthost, pattern, since_seconds=120):
     """Return matching lines from the last *since_seconds* of /var/log/syslog.
 
@@ -375,7 +399,7 @@ def collect_recent_syslog(duthost, pattern, since_seconds=120):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def prefix_cleanup(duthosts):
+def prefix_cleanup():
     """Tracks (duthost, type, prefix) tuples and cleans them up at teardown."""
     tracked = []
 
@@ -628,26 +652,41 @@ class TestAnchorPrefixRegression:
 
     def test_prefix_list_mgr_running_on_every_device(self, rand_one_frontend_duthost):
         """TC-A5: PrefixListMgr is now started unconditionally; old log line
-        must be gone; bgpcfgd must be healthy."""
-        duthost = rand_one_frontend_duthost
-        pytest_assert(
-            bgpcfgd_running(duthost),
-            "bgpcfgd is not RUNNING in the bgp container of {}".format(
-                duthost.hostname),
-        )
+        must be gone; bgpcfgd must be healthy.
 
-        # The pre-PR notice was tied to UpperSpineRouter/UpstreamLC and should
-        # no longer appear at all.
+        We deliberately bounce ``bgpcfgd`` at the start of this test and
+        use a narrow post-restart window (``BGPCFGD_LOG_WINDOW_SECONDS``)
+        for every syslog assertion. A 24h ``journalctl`` window would
+        otherwise surface stale lines from a *previous* image (e.g. the
+        legacy ``Prefix List Manager and AsPath Manager are enabled for
+        UpperSpineRouter/UpstreamLC`` notice or a bgpcfgd traceback that
+        happened before today's upgrade), which would make this test
+        fail spuriously on regression cycles that re-image the DUT.
+        Bouncing bgpcfgd also forces the one-shot ``log_notice`` startup
+        lines (in particular ``AsPath Manager is enabled for
+        <DEVICE_TYPE>`` on spines) to be re-emitted into the narrow
+        window, so the presence/absence checks below are deterministic.
+        """
+        duthost = rand_one_frontend_duthost
+
+        restart_bgpcfgd_only(duthost)
+        # ``wait_for_bgpcfgd`` inside ``restart_bgpcfgd_only`` already
+        # asserts bgpcfgd is RUNNING on every frontend ASIC.
+
+        # The pre-PR notice was tied to UpperSpineRouter/UpstreamLC and
+        # should no longer appear at all -- even after a fresh bgpcfgd
+        # startup.
         legacy = collect_recent_syslog(
             duthost,
             "Prefix List Manager and AsPath Manager are enabled for "
             "UpperSpineRouter/UpstreamLC",
-            since_seconds=24 * 3600,
+            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
         )
         pytest_assert(
             not legacy.strip(),
             "Legacy 'Prefix List Manager and AsPath Manager are enabled' log "
-            "line is still produced:\n{}".format(legacy),
+            "line is still produced after bgpcfgd restart on {}:\n{}".format(
+                duthost.hostname, legacy),
         )
 
         # On spine devices the new "AsPath Manager is enabled for <TYPE>" line
@@ -655,22 +694,27 @@ class TestAnchorPrefixRegression:
         new_line = collect_recent_syslog(
             duthost,
             "AsPath Manager is enabled for",
-            since_seconds=24 * 3600,
+            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
         )
         if is_upstream_spine(duthost):
             pytest_assert(
                 new_line.strip(),
                 "Expected 'AsPath Manager is enabled for <DEVICE_TYPE>' log "
-                "line on spine device {}".format(duthost.hostname),
+                "line on spine device {} after bgpcfgd restart".format(
+                    duthost.hostname),
             )
 
-        # bgpcfgd must not have logged a traceback recently.
+        # bgpcfgd must not have logged a traceback since the restart we
+        # just performed. We use the same narrow window so a stale
+        # traceback from a previous run cannot fail this assertion.
         tracebacks = collect_recent_syslog(
-            duthost, "bgpcfgd.*Traceback", since_seconds=24 * 3600,
+            duthost, "bgpcfgd.*Traceback",
+            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
         )
         pytest_assert(
             not tracebacks.strip(),
-            "bgpcfgd recorded a traceback in the last 24h:\n{}".format(tracebacks),
+            "bgpcfgd recorded a traceback after restart on {}:\n{}".format(
+                duthost.hostname, tracebacks),
         )
 
 
@@ -913,8 +957,20 @@ class TestSuppressPrefix:
     def test_suppress_prefix_constants_fallback(
             self, constants_without_prefix_list, prefix_cleanup):
         """TC-S5: without a ``bgp.prefix_list`` block, the registry defaults
-        are used."""
-        duthost, _ = constants_without_prefix_list
+        are used.
+
+        Requires the DUT's original ``constants.yml`` to actually contain
+        a ``bgp.prefix_list`` section: otherwise the fixture has nothing
+        to strip and the test would pass trivially without exercising
+        the fallback code path.
+        """
+        duthost, had_section = constants_without_prefix_list
+        pytest_require(
+            had_section,
+            "constants.yml on {} did not originally contain a bgp.prefix_list "
+            "block, so the registry-fallback path was already in effect; "
+            "skipping to avoid a trivially-passing test".format(duthost.hostname),
+        )
         v4 = SUPPRESS_TEST_PREFIXES["ipv4"]
 
         prefix_cleanup(duthost, SUPPRESS_TYPE, v4)
