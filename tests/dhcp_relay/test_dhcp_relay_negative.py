@@ -56,7 +56,8 @@ _EXPECT_MISSING_CIRCUIT_SYSLOG = (
     r".*\[DHCPV4_RELAY\].*Circuit id sub-option is missing in relay agent option from server.*"
 )
 
-# dhcp4relay.cpp from_client(): syslog(LOG_INFO, "[DHCPV4_RELAY] agent relay mode is discard, dropping the packet %s", ...)
+# dhcp4relay.cpp from_client() syslogs at LOG_INFO when agent_relay_mode == discard:
+#   "[DHCPV4_RELAY] agent relay mode is discard, dropping the packet %s", ...
 _EXPECT_DISCARD_RELAY_FROM_RELAY_SYSLOG = (
     r".*\[DHCPV4_RELAY\].*agent relay mode is discard, dropping the packet.*"
 )
@@ -117,7 +118,7 @@ def test_dhcp_relay_negative_hop_limit_exceeded(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     Inject DISCOVER with hops=255 from the VLAN client PTF port; assert no relayed
@@ -163,7 +164,7 @@ def test_dhcp_relay_negative_server_offer_missing_circuit_id(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     Inject OFFER with Option 82 containing only remote-ID; assert no relay to client
@@ -213,7 +214,7 @@ def test_dhcp_relay_negative_unknown_giaddr_from_server(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     Server OFFER with giaddr not on DUT (99.99.99.99) and no Option 82; assert no relay
@@ -268,7 +269,7 @@ def test_dhcp_relay_negative_malformed_option82_tlv(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     Server OFFER: Option 82 sub-option length larger than option payload (decode_tlv path).
@@ -322,7 +323,7 @@ def test_dhcp_relay_negative_discard_relay_from_relay(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     Inject DISCOVER with non-zero giaddr and Option 82 (prior relay). With
@@ -373,7 +374,7 @@ def test_dhcp_relay_negative_bad_ip_checksum(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """DISCOVER with invalid IPv4 header checksum; no relay + syslog."""
     testing_mode, duthost = testing_config
@@ -426,7 +427,7 @@ def test_dhcp_relay_negative_bad_udp_checksum(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """DISCOVER with invalid UDP checksum (IPv4 header valid); no relay + syslog."""
     testing_mode, duthost = testing_config
@@ -479,7 +480,7 @@ def test_dhcp_relay_negative_malformed_client_frame_l2_runt(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """True L2 runt (<14 B) would trigger Invalid Ethernet in dhcp4relay; not injectable on Linux PTF."""
     pytest.skip(
@@ -497,7 +498,7 @@ def test_dhcp_relay_negative_malformed_client_frame_l2_only(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """
     L2-only frame (no IPv4 at BPF offsets). dhcp4relay uses SO_ATTACH_FILTER (UDP/67) in
@@ -541,7 +542,7 @@ def test_dhcp_relay_negative_malformed_client_frame_partial_udp(
     testing_config,
     setup_standby_ports_on_rand_unselected_tor,  # noqa F811
     rand_unselected_dut,  # noqa F811
-    toggle_all_simulator_ports_to_rand_selected_tor_m,
+    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa F811
 ):
     """Partial UDP (IPv4 tot_len ends after sport/dport); no relay + Invalid UDP syslog."""
     testing_mode, duthost = testing_config

@@ -448,7 +448,8 @@ class DHCPRelayBadChecksumTest(DHCPRelayHopLimitTest):
         elif layer == "udp":
             wire = self._corrupt_udp_checksum(buf, eth_len)
         else:
-            self.fail("bad_checksum_layer must be 'ip' or 'udp', got %r" % layer)
+            raise ValueError(
+                "bad_checksum_layer must be 'ip' or 'udp', got %r" % layer)
 
         self.dataplane.flush()
         pkt = scapy.Ether(wire)
@@ -517,7 +518,7 @@ class DHCPRelayMalformedClientFrameTest(DHCPRelayBadChecksumTest):
             self._set_ipv4_total_length_and_checksum(buf, ip_start, ihl, ihl + 4)
             wire = self._pad_min_eth_tx(bytes(buf))
         else:
-            self.fail(
+            raise ValueError(
                 "malformed_client_frame must be 'l2_only' or 'partial_udp', got %r" % case)
 
         self.dataplane.flush()
