@@ -6,6 +6,7 @@ import random
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import constants
 from sub_ports_helpers import generate_and_verify_traffic
 from sub_ports_helpers import get_port_mtu
 from sub_ports_helpers import shutdown_port
