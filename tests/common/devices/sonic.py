@@ -232,7 +232,7 @@ class SonicHost(AnsibleHostBase):
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
         @summary: Use 'systemctl show' command to get detailed properties of a service. By default, only get
-            ActiveState and SubState of the service.
+            ActiveState and SubState of the service. 
         @param service: Service name.
         @param props: Properties of the service to be shown.
         @return: Returns a dictionary containing properties of the specified service, for example:
