@@ -83,7 +83,14 @@ def get_host_ip_and_creds(host, creds):
     (DUT, console fanout, etc.); centralizes the inventory dance every
     console test used to repeat verbatim.
     """
-    ip = host.host.options['inventory_manager'].get_host(host.hostname).vars['ansible_host']
+    inv_host = host.host.options['inventory_manager'].get_host(host.hostname)
+    ip = inv_host.vars['ansible_host']
+
+    group_names = inv_host.get_vars().get('group_names', []) or []
+    is_fanout = 'fanout' in group_names and 'sonic' not in group_names
+    if is_fanout and creds.get('fanout_sonic_user') and creds.get('fanout_sonic_password'):
+        return ip, creds['fanout_sonic_user'], creds['fanout_sonic_password']
+
     return ip, creds['sonicadmin_user'], creds['sonicadmin_password']
 
 
