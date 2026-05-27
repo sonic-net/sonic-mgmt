@@ -218,6 +218,9 @@ class GenerateGoldenConfigDBModule(object):
         # disable bmp feature table first
         return False
 
+    def is_bmc_device(self):
+        return device_info.get_bmc_data() is not None
+
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
         if rc != 0:
@@ -1097,13 +1100,25 @@ class GenerateGoldenConfigDBModule(object):
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
-        if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
+        # Note: BMC devices also do not host BGP sessions, so the BMP feature is not applicable
+        if (self.check_version_for_bmp() is True
+                and device_info.is_supervisor() is False
+                and not self.is_bmc_device()):
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Disable swss and syncd features on BMC devices.
+        if self.is_bmc_device():
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
