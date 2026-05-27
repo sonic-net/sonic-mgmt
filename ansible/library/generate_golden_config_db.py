@@ -219,7 +219,10 @@ class GenerateGoldenConfigDBModule(object):
         return False
 
     def is_bmc_device(self):
-        return device_info.get_bmc_data() is not None
+        get_bmc_data = getattr(device_info, "get_bmc_data", None)
+        if not callable(get_bmc_data):
+            return False
+        return get_bmc_data() is not None
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
