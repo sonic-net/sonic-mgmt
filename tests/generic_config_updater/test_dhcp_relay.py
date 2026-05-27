@@ -89,6 +89,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
 
     logger.info("CREATE TEST VLANS DONE")
 
+
 def _wait_for_vlan_routes(duthost, vlan_intfs_dict):
     """Wait for VLAN interface routes to be programmed in ASIC_DB.
     After VLAN creation, there's a race condition where orchagent may try to add
@@ -101,7 +102,7 @@ def _wait_for_vlan_routes(duthost, vlan_intfs_dict):
     def _check_routes_ready():
         for vid, ent in vlan_intfs_dict.items():
             if ent['orig']:
-               continue
+                continue
             # Calculate network prefix from the IP (e.g., 192.168.8.1/24 -> 192.168.8.0/24)
             intf = ipaddress.ip_interface(ent['ip'])
             network = str(intf.network.network_address) + '/' + str(intf.network.prefixlen)
@@ -116,6 +117,7 @@ def _wait_for_vlan_routes(duthost, vlan_intfs_dict):
         wait_until(30, 2, 0, _check_routes_ready),
         "VLAN interface routes not programmed in ASIC_DB within timeout"
     )
+
 
 def default_setup(duthost, vlan_intfs_list):
     """Generate 4 dhcp server for each vlan
@@ -172,6 +174,7 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
     pytest_assert(not dhcp_server_info['rc'], "Failed to get dhcp relay info from all vlan")
     return dhcp_server_info['stdout']
 
+
 def _delete_lab_vlans_cli(duthost, vlan_port, vlan_intfs_dict):
     """Drop lab VLANs in dependency order (replaces second ``config rollback``).
     Logs showed teardown ERR ``swss#orchagent: :- removeVlan: Failed to remove ref count 1 VLAN Vlan108``
@@ -186,6 +189,7 @@ def _delete_lab_vlans_cli(duthost, vlan_port, vlan_intfs_dict):
         cmds.append('config vlan del {}'.format(vid))
     if cmds:
         duthost.shell_cmds(cmds=cmds)
+
 
 @pytest.fixture(autouse=True)
 def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
