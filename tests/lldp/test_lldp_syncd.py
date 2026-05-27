@@ -34,6 +34,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                 ]
             )
 
+
 @pytest.fixture(scope="module", autouse=True)
 def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -89,6 +90,7 @@ def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         time.sleep(appl_db_poll_interval)
     pytest.fail("APPL_DB did not converge after {} retries. Missing: {}".format(
         max_appl_db_retries, sorted(expected - set(get_lldp_entry_keys(appl_db)))))
+
 
 @pytest.fixture(autouse="True")
 def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
