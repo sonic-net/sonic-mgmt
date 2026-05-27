@@ -68,7 +68,7 @@ def get_keys_on_asics(duthost, db_id, key):
 def check_counters_populated(duthost, key, num_expected_entries):
     try:
         keys = get_keys_on_asics(duthost, "COUNTERS_DB", key)
-        for _, counters in keys.items():
+        for counters in keys.values():
             if len(counters) < num_expected_entries:
                 return False
     except SonicDbKeyNotFound:
