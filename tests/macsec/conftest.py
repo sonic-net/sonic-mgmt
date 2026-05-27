@@ -60,3 +60,17 @@ def rekey_period(macsec_profile):
 @pytest.fixture(scope="module")
 def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
     assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
+
+
+@pytest.fixture(autouse=True)
+def macsec_loganalyzer_ignore(loganalyzer, rand_selected_dut):
+    """
+    Suppress DNX SAI 'Invalid object ID' errors logged by syncd when orchagent
+    deletes a stale MACsec SA (e.g. during dirty-restart recovery).  The DNX
+    SAI platform polls SA attributes after deletion and logs these transiently;
+    they are not indicative of a real fault.
+    """
+    if loganalyzer and rand_selected_dut:
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend([
+            r".*SAI_API_MACSEC:brcm_sai_dnx_get_macsec_sa_attribute.*Invalid object ID.*",
+        ])
