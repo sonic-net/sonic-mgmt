@@ -16,7 +16,7 @@ import sys
 import json
 import yaml
 from datetime import datetime
-from netaddr import valid_ipv4
+from netaddr import valid_ipv4, valid_ipv6
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -28,7 +28,7 @@ if ansible_path not in sys.path:
 
 from devutil.devices.factory import init_host, init_localhost, init_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
-from devutil.devices.sonic import (  # noqa: E402
+from devutil.devices.dpu_utils import (  # noqa: E402
     is_nat_enabled_for_dpu,
     enable_nat_for_dpuhosts as _enable_nat_for_dpuhosts,
 )
@@ -100,7 +100,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
-        self.is_snappi_testbed = False
+        self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
 
         # DPU-related state
         self.dpu_hosts = []
@@ -211,9 +211,6 @@ class TestbedHealthChecker:
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
 
-        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
-            self.is_snappi_testbed = True
-
         logger.info("======================= init_hosts ends =======================")
 
     def enable_nat_for_dpuhosts(self, dpu_hostnames=None):
@@ -251,9 +248,11 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
+        group = os.path.basename(self.inventory[0]) if self.inventory else None
         # Retrieve the connection graph facts of localhost
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
+                                                           filepath=os.path.join(ansible_path, "files"),
+                                                           group=group)
 
         # Check hosts reachability
         hosts_reachable = True
@@ -318,49 +317,51 @@ class TestbedHealthChecker:
         if not hosts_reachable:
             raise HostsUnreachable(self.check_result.errmsg)
 
-        # Verify mgmt-ipv4 address exists
+        # Verify management IP address exists (IPv4 or IPv6)
         config_db_file = "/etc/sonic/config_db.json"
-        ipv4_not_exists_hosts = []
+        mgmt_ip_not_exists_hosts = []
 
         for sonichost in self.sonichosts:
-
             # Skip MGMT_INTERFACE check for DPU hosts - they use midplane IPs, not mgmt interface
             if "dpu" in sonichost.hostname.lower():
-                logger.info("Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname))
+                logger.info(
+                    "Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname)
+                )
                 continue
 
-            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
-                                                                                                           None)
-
-            device_hostname = sonichost.shell(f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}")\
-                .get("stdout", None)
+            rst = sonichost.shell(
+                f"jq '.MGMT_INTERFACE' {config_db_file}",
+                module_ignore_errors=True,
+            ).get("stdout", None)
+            device_hostname = sonichost.shell(
+                f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}"
+            ).get("stdout", None)
 
             if not device_hostname or device_hostname == '"sonic"':
                 raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
                                    f"hostname is still: {device_hostname}")
             # If valid stdout (also check for "null" which jq returns when key doesn't exist)
             if rst is not None and rst.strip() != "" and rst.strip() != "null":
-
                 mgmt_interface = json.loads(rst)
-
-                ipv4_exists = False
-
+                mgmt_ip_exists = False
                 # Use list() to make a copy of mgmt_interface.keys() to avoid
                 for key in list(mgmt_interface):
-                    ip_addr = key.split("|")[1]
-                    ip_addr_without_mask = ip_addr.split('/')[0]
-                    if ip_addr:
-                        is_ipv4 = valid_ipv4(ip_addr_without_mask)
-                        if is_ipv4:
-                            ipv4_exists = True
-                            break
+                    key_parts = key.split("|", 1)
+                    if len(key_parts) < 2:
+                        continue
+                    ip_addr = key_parts[1]
+                    ip_addr_without_mask = ip_addr.split('/', 1)[0]
+                    if ip_addr_without_mask and (valid_ipv4(ip_addr_without_mask) or valid_ipv6(ip_addr_without_mask)):
+                        mgmt_ip_exists = True
+                        break
+                if not mgmt_ip_exists:
+                    mgmt_ip_not_exists_hosts.append(sonichost.hostname)
+                    logger.info("{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname))
+                    self.check_result.errmsg.append(
+                        "{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname)
+                    )
 
-                if not ipv4_exists:
-                    ipv4_not_exists_hosts.append(sonichost.hostname)
-                    logger.info("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-                    self.check_result.errmsg.append("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-
-        if len(ipv4_not_exists_hosts) > 0:
+        if len(mgmt_ip_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
 
         logger.info("======================= pre_check ends =======================")
@@ -483,6 +484,24 @@ class TestbedHealthChecker:
                 bgp_facts = sonichost.bgp_facts()['ansible_facts']
 
             bgp_facts_on_hosts[hostname] = bgp_facts
+
+            # Detect neighbors that are intentionally admin-disabled and record in result data.
+            if self.is_multi_asic:
+                admin_down_neighbors = [
+                    k
+                    for facts in bgp_facts.values()
+                    for k, v in facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            else:
+                admin_down_neighbors = [
+                    k for k, v in bgp_facts.get('bgp_neighbors', {}).items()
+                    if v.get('admin') == 'down'
+                ]
+            if admin_down_neighbors:
+                logger.info("Admin-down BGP neighbors detected on {}: {}".format(
+                    hostname, admin_down_neighbors))
+                self.check_result.data["has_bgp_admin_down"] = True
 
             # Check BGP session state for each neighbor
             neigh_not_ok = []
@@ -680,7 +699,7 @@ class TestbedHealthChecker:
             raise TestbedUnhealthy(self.check_result.errmsg)
 
 
-def validate_args(args):
+def setup_logging(args):
     _log_level_map = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -696,8 +715,8 @@ def validate_args(args):
 
 
 def main(args):
-    logger.info("Validating arguments")
-    validate_args(args)
+    logger.info("Setting up logging")
+    setup_logging(args)
 
     logger.info("Checking")
     testbed_health_checker = TestbedHealthChecker(inventory=args.inventory, testbed_name=args.testbed_name,

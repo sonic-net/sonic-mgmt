@@ -234,6 +234,8 @@ def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
         time.sleep(5)
         # Unmask the service
         rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Reset failed state counter to avoid start-limit-hit issue
+        rand_selected_dut.shell_cmds(cmds="systemctl reset-failed teamd.service")
         # Restart teamd
         rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)

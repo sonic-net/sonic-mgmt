@@ -502,6 +502,9 @@ class VMTopology(object):
                 bridge_count += 1
                 self.destroy_ovs_bridge(fp_br_name)
 
+        # Wait the bridges to be cleaned up
+        self.wait_for_bridges_cleanup(bridge_count)
+
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
@@ -1294,8 +1297,8 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=6,udp6,in_port=%s,udp_dst=4784,action=output:%s" %
                         (br_name, dut_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
-                        (br_name, dut_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %
@@ -1306,8 +1309,10 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # added ovs rules for HA
             # cp_data_channel_port: 11362, dp_channel_dst_port: 11364
+            # swbus_port: 23606-23613 (one per DPU)
             # Match dst and src ports, for both TCP and UDP
-            for ha_port in [11362, 11364]:
+            for ha_port in [11362, 11364, 11367, 11368,
+                            23606, 23607, 23608, 23609, 23610, 23611, 23612, 23613]:
                 for proto in ['tcp', 'udp', 'tcp6', 'udp6']:
                     bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_dst=%d,action=output:%s,%s" %  # noqa: E501
                                 (br_name, proto, dut_iface_id, ha_port, vm_iface_id, injected_iface_id))
@@ -1317,7 +1322,6 @@ class VMTopology(object):
                                 (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
                     bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_src=%d,action=output:%s" %
                                 (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
-
         # Add flow for BFD Control packets (UDP port 3784)
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
                         "udp_dst=3784,action=output:%s,%s" %
