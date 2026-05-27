@@ -186,11 +186,66 @@ class SSHConsoleConn(BaseConsoleConn):
         msg = "Login failed: {}".format(self.host)
         raise NetMikoAuthenticationException(msg)
 
+    def _is_at_sonic_prompt(self):
+        """
+        Check if we're at a SONiC shell prompt by examining the last line in the buffer.
+
+        Returns:
+            bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
+        """
+        try:
+            # Read whatever is currently in the buffer
+            output = self.read_channel()
+        except Exception as e:
+            self.logger.warning(f"Error reading channel: {e}, assuming not at SONiC prompt")
+            return False
+
+        if not output:
+            self.logger.warning("Console buffer is empty, cannot determine prompt state")
+            return False
+
+        # Get the last line (most recent output, likely the current prompt)
+        # Split by common line endings and get the last non-empty line
+        lines = output.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        last_line = ''
+        for line in reversed(lines):
+            if line.strip():
+                last_line = line
+                break
+        else:
+            self.logger.debug("No non-empty lines in buffer")
+            return False
+
+        # Check for SONiC prompt patterns (admin@sonic:~$, root@sonic:~#, etc.)
+        sonic_prompt_patterns = [
+            r'admin@.*:.*[\$#]',
+            r'root@.*:.*#',
+            r'.*@sonic.*[\$#]'
+        ]
+
+        # Check if the last line matches a SONiC prompt
+        for pattern in sonic_prompt_patterns:
+            if re.search(pattern, last_line):
+                self.logger.debug(f"Matched SONiC prompt pattern: {pattern}")
+                return True
+
+        self.logger.debug(f"Last line does not match SONiC prompt: {last_line}")
+        return False
+
     def cleanup(self):
-        # If we are in SONiC, send an exit to logout
-        if not self.console_type.endswith("config"):
-            self.send_command(command_string="exit",
-                              expect_string="login:")
+        """
+        Cleanup console connection.
+        Only send 'exit' if we're certain the DUT is at a SONiC prompt.
+        This prevents issues during reboot when DUT might be in GRUB or other boot stages.
+        """
+        # If we are in SONiC and session is ready, send an exit to logout
+        if self._is_at_sonic_prompt():
+            self.logger.warning("At SONiC prompt, sending exit to logout")
+            try:
+                self.send_command(command_string="exit", expect_string="login:")
+            except Exception as e:
+                self.logger.warning(f"Failed to send exit command during cleanup: {e}")
+
         # remote_conn must be closed, or the SSH session will be kept on Digi,
         # and any other login is prevented
         self.remote_conn.close()
