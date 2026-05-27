@@ -93,10 +93,12 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         - Values are consistent across multiple reads
         - set_admin_state() is callable (no-op verification, does not change state)
         """
-        # get_oper_status()
+        # get_oper_status() — design doc section 2.2.1: ONLINE or OFFLINE
         oper_status = module_api.get_oper_status(platform_api_conn, self.sw_idx)
-        self.expect(isinstance(oper_status, str) and len(oper_status) > 0,
-                    f"get_oper_status() should return non-empty string, got {oper_status!r}")
+        self.expect(isinstance(oper_status, str),
+                    f"get_oper_status() should return string, got {type(oper_status)}")
+        self.expect(oper_status in ['ONLINE', 'OFFLINE'],
+                    f"get_oper_status() should be 'ONLINE' or 'OFFLINE', got {oper_status!r}")
 
         oper_status2 = module_api.get_oper_status(platform_api_conn, self.sw_idx)
         self.expect(oper_status == oper_status2, "get_oper_status() inconsistent")
@@ -221,7 +223,8 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
                         f"SWITCH-HOST serial should be non-empty string, got {serial!r}")
             logger.info(f"SWITCH-HOST serial: {serial}")
 
-    def test_switch_host_do_power_cycle(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
+    def test_switch_host_do_power_cycle(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                        platform_api_conn):  # noqa: F811
         """
         Test ModuleBase.do_power_cycle() API exists on the SWITCH-HOST module.
 
