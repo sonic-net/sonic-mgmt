@@ -14,7 +14,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
+SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn6600_ld", "nvidia_sn5640", "nvidia_sn5600"]
 WAIT_FOR_PORT_SHUTDOWN = 5
 WAIT_FOR_PORT_STARTUP = 20
 cmd_sfp_presence = "sudo sfpshow presence"
