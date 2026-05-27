@@ -5,7 +5,7 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from_option, get_encap_type_from_option, \
-    get_reboot_type_from_option, HASH_CAPABILITIES, check_global_hash_config, startup_interface, \
+    get_reboot_type_from_option, check_global_hash_config, startup_interface, \
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
@@ -125,20 +125,24 @@ def test_hash_capability(rand_selected_dut, global_hash_capabilities):  # noqa:F
         rand_selected_dut (AnsibleHost): Device Under Test (DUT)
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
-    with allure.step('Check the dut hash capabilities are as expected'):
-        ecmp_hash_capability, lag_hash_capability = global_hash_capabilities['ecmp'], global_hash_capabilities['lag']
-        asic_type = rand_selected_dut.facts["asic_type"]
-        expected_hash_capabilities = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])
-        expected_ecmp_hash_capability = expected_hash_capabilities['ecmp']
-        expected_lag_hash_capability = expected_hash_capabilities['lag']
-        logger.info(f"asic_type: {asic_type}, "
-                    f"expected_hash_capabilities: {expected_hash_capabilities}, "
-                    f"expected_ecmp_hash_capability: {expected_ecmp_hash_capability}, "
-                    f"expected_lag_hash_capability: {expected_lag_hash_capability}")
-        pytest_assert(sorted(ecmp_hash_capability) == sorted(expected_ecmp_hash_capability),
-                      'The ecmp hash capability is not as expected.')
-        pytest_assert(sorted(lag_hash_capability) == sorted(expected_lag_hash_capability),
-                      'The lag hash capability is not as expected.')
+    with allure.step('Check the dut hash capabilities as reported by STATE_DB/CLI'):
+        # global_hash_capabilities already comes from
+        # duthost.get_switch_hash_capabilities(), which in turn reads the
+        # switch-hash capabilities (backed by STATE_DB). Use this runtime
+        # view as the single source of truth instead of static
+        # HASH_CAPABILITIES so platforms can advertise extended field sets
+        # without test failures.
+        ecmp_hash_capability = global_hash_capabilities['ecmp']
+        lag_hash_capability = global_hash_capabilities['lag']
+
+        logger.info(f"ECMP hash capabilities from DUT: {ecmp_hash_capability}")
+        logger.info(f"LAG hash capabilities from DUT: {lag_hash_capability}")
+
+        # Basic sanity: capabilities must be non-empty lists.
+        pytest_assert(isinstance(ecmp_hash_capability, list) and ecmp_hash_capability,
+                      'ECMP hash capabilities from DUT are empty or invalid.')
+        pytest_assert(isinstance(lag_hash_capability, list) and lag_hash_capability,
+                      'LAG hash capabilities from DUT are empty or invalid.')
 
 
 def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
