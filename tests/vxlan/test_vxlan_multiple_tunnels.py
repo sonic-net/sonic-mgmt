@@ -122,7 +122,9 @@ def create_loopback_vxlan_tunnel(duthost, mg_facts, ip_version):
 @pytest.fixture(scope="module")
 def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     """
-        Fixture to configure 2 IPv4 and 2 IPv6 VxLAN tunnels before a test and remove them after the test.
+        Fixture to configure VxLAN tunnels before a test and remove them after the test.
+        - Non-Mellanox: loopback + second-source IPv4 and IPv6 tunnels (4 tunnels).
+        - Mellanox: only one IPv4 and one IPv6 tunnel (loopback sources); second pair is not supported.
     """
     logger.info("Creating VxLAN tunnels...")
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -132,21 +134,20 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     loopback_ipv4 = create_loopback_vxlan_tunnel(duthost, minigraph_facts, "v4")
     tunnels[LOOPBACK_V4] = loopback_ipv4
 
-    loopback_ipv4_parts = loopback_ipv4.split('.')
-    # Create a second IPv4 tunnel with a slightly different source IP
-    if loopback_ipv4_parts[-1] == "100":
-        loopback_ipv4_parts[-1] = "101"
-    else:
-        loopback_ipv4_parts[-1] = "100"
-    special_ipv4 = '.'.join(loopback_ipv4_parts)
-    ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, "v4",
-                                   tunnel_name=SPECIAL_V4, src_ip=special_ipv4)
-    tunnels[SPECIAL_V4] = special_ipv4
+    loopback_ipv6 = create_loopback_vxlan_tunnel(duthost, minigraph_facts, "v6")
+    tunnels[LOOPBACK_V6] = loopback_ipv6
 
     # We will not configure IPv6 VxLAN tunnels on Mellanox devices due to a known issue.
     if asic_type != "mellanox":
-        loopback_ipv6 = create_loopback_vxlan_tunnel(duthost, minigraph_facts, "v6")
-        tunnels[LOOPBACK_V6] = loopback_ipv6
+        loopback_ipv4_parts = loopback_ipv4.split('.')
+        # Create a second IPv4 tunnel with a slightly different source IP
+        if loopback_ipv4_parts[-1] == "100":
+            loopback_ipv4_parts[-1] = "101"
+        else:
+            loopback_ipv4_parts[-1] = "100"
+        special_ipv4 = '.'.join(loopback_ipv4_parts)
+        ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, "v4", tunnel_name=SPECIAL_V4, src_ip=special_ipv4)
+        tunnels[SPECIAL_V4] = special_ipv4
         # Create a second IPv6 tunnel with a slightly different source IP
         loopback_ipv6_parts = loopback_ipv6.split(':')
         if loopback_ipv6_parts[-1] == "100":
@@ -184,14 +185,14 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
                                         vni_base=VNI, vnet_name_prefix=LOOPBACK_V4)
     vnets[LOOPBACK_V4] = next(iter(vnet_dict))
 
-    vnet_dict = ecmp_utils.create_vnets(duthost, SPECIAL_V4, vnet_count=1, scope="default",
-                                        vni_base=VNI, vnet_name_prefix=SPECIAL_V4)
-    vnets[SPECIAL_V4] = next(iter(vnet_dict))
+    vnet_dict = ecmp_utils.create_vnets(duthost, LOOPBACK_V6, vnet_count=1, scope="default",
+                                        vni_base=VNI, vnet_name_prefix=LOOPBACK_V6)
+    vnets[LOOPBACK_V6] = next(iter(vnet_dict))
 
     if asic_type != "mellanox":
-        vnet_dict = ecmp_utils.create_vnets(duthost, LOOPBACK_V6, vnet_count=1, scope="default",
-                                            vni_base=VNI, vnet_name_prefix=LOOPBACK_V6)
-        vnets[LOOPBACK_V6] = next(iter(vnet_dict))
+        vnet_dict = ecmp_utils.create_vnets(duthost, SPECIAL_V4, vnet_count=1, scope="default",
+                                            vni_base=VNI, vnet_name_prefix=SPECIAL_V4)
+        vnets[SPECIAL_V4] = next(iter(vnet_dict))
 
         # Cisco-8000 SAI limits VxLAN P2MP tunnels to 3.
         # On all other platforms the 4th vnet (special_v6) is created normally.
@@ -213,10 +214,10 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
 @pytest.fixture(scope="module")
 def create_vnet_routes(duthost, create_vnets):
     """
-        Fixture to create 2 VNet routes for each loopback VNet (4 routes in total) before a test
-        and remove them after the test.
-        For each loopback VNet, 2 routes are created: One with an IPv4 dest and one with an IPv6 dest.
-        Each route has one endpoint (nexthop).
+        Fixture to create VNet routes before a test and remove them after the test.
+        For each of LOOPBACK_V4 and LOOPBACK_V6 VNETs, two routes are created (IPv4 and IPv6 dest).
+        Each route has one endpoint (nexthop). On non-Mellanox, SPECIAL_* VNETs exist but use the
+        same four routes on the two loopback VNETs only (SPECIAL_* VNETs have no routes in this fixture).
     """
     logger.info("Creating VNet routes...")
     vnets = create_vnets
@@ -243,25 +244,24 @@ def create_vnet_routes(duthost, create_vnets):
     route_map[LOOPBACK_V4]["v6"] = vnet_route_map_v6_v4[vnets[LOOPBACK_V4]]
     dests.append(next(iter(route_map[LOOPBACK_V4]["v6"])))
 
-    if duthost.facts["asic_type"] != "mellanox":
-        route_map[LOOPBACK_V6] = {}
-        vnet_route_map_v4_v6 = ecmp_utils.create_vnet_routes(duthost, [vnets[LOOPBACK_V6]], nhs_per_destination=1,
-                                                             number_of_available_nexthops=1,
-                                                             number_of_ecmp_nhs=1, dest_af="v4",
-                                                             dest_net_prefix=DESTINATION_PREFIX,
-                                                             nexthop_prefix=ENDPOINT_PREFIX,
-                                                             nh_af="v6")
-        route_map[LOOPBACK_V6]["v4"] = vnet_route_map_v4_v6[vnets[LOOPBACK_V6]]
-        dests.append(next(iter(route_map[LOOPBACK_V6]["v4"])))
+    route_map[LOOPBACK_V6] = {}
+    vnet_route_map_v4_v6 = ecmp_utils.create_vnet_routes(duthost, [vnets[LOOPBACK_V6]], nhs_per_destination=1,
+                                                         number_of_available_nexthops=1,
+                                                         number_of_ecmp_nhs=1, dest_af="v4",
+                                                         dest_net_prefix=DESTINATION_PREFIX,
+                                                         nexthop_prefix=ENDPOINT_PREFIX,
+                                                         nh_af="v6")
+    route_map[LOOPBACK_V6]["v4"] = vnet_route_map_v4_v6[vnets[LOOPBACK_V6]]
+    dests.append(next(iter(route_map[LOOPBACK_V6]["v4"])))
 
-        vnet_route_map_v6_v6 = ecmp_utils.create_vnet_routes(duthost, [vnets[LOOPBACK_V6]], nhs_per_destination=1,
-                                                             number_of_available_nexthops=1,
-                                                             number_of_ecmp_nhs=1, dest_af="v6",
-                                                             dest_net_prefix=DESTINATION_PREFIX,
-                                                             nexthop_prefix=ENDPOINT_PREFIX,
-                                                             nh_af="v6")
-        route_map[LOOPBACK_V6]["v6"] = vnet_route_map_v6_v6[vnets[LOOPBACK_V6]]
-        dests.append(next(iter(route_map[LOOPBACK_V6]["v6"])))
+    vnet_route_map_v6_v6 = ecmp_utils.create_vnet_routes(duthost, [vnets[LOOPBACK_V6]], nhs_per_destination=1,
+                                                         number_of_available_nexthops=1,
+                                                         number_of_ecmp_nhs=1, dest_af="v6",
+                                                         dest_net_prefix=DESTINATION_PREFIX,
+                                                         nexthop_prefix=ENDPOINT_PREFIX,
+                                                         nh_af="v6")
+    route_map[LOOPBACK_V6]["v6"] = vnet_route_map_v6_v6[vnets[LOOPBACK_V6]]
+    dests.append(next(iter(route_map[LOOPBACK_V6]["v6"])))
 
     pytest_assert(wait_until(10, 2, 0, are_vnet_routes_in_asic_db, duthost, dests, True),
                   "VNet routes are not created in ASIC DB.")
@@ -269,9 +269,8 @@ def create_vnet_routes(duthost, create_vnets):
     # Clean-up
     ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v4_v4, "v4", "DEL")
     ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v6_v4, "v6", "DEL")
-    if duthost.facts["asic_type"] != "mellanox":
-        ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v4_v6, "v4", "DEL")
-        ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v6_v6, "v6", "DEL")
+    ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v4_v6, "v4", "DEL")
+    ecmp_utils.set_routes_in_dut(duthost, vnet_route_map_v6_v6, "v6", "DEL")
     pytest_assert(wait_until(10, 2, 0, are_vnet_routes_in_asic_db, duthost, dests, False),
                   "VNet routes are not removed from ASIC DB.")
 
@@ -398,10 +397,14 @@ def inner_pkt_vnet_route_vxlan(request):
 def outer_pkt_vxlan(request, duthost):
     """
         The outer packet will be crafted to match this VxLAN tunnel.
+        For Mellanox devices, only the first IPv4 and IPv6 VxLAN tunnels are supported.
     """
     # Cisco-8000 SAI limits VxLAN P2MP tunnels to 3.
     if duthost.facts["asic_type"] == "cisco-8000" and request.param == SPECIAL_V6:
         pytest.skip("SPECIAL_V6 (4th tunnel) skipped on Cisco-8000: SAI p2mp tunnel limit = 3")
+    # For Mellanox devices, only the first IPv4 and IPv6 VxLAN tunnels are supported.
+    if duthost.facts["asic_type"] == "mellanox" and request.param in [SPECIAL_V4, SPECIAL_V6]:
+        pytest.skip("Mellanox only supports loopback v4/v6 tunnels in this test")
     return request.param
 
 
@@ -423,8 +426,6 @@ def test_vxlan_multiple_tunnels(duthost, tbinfo, ptfadapter, create_vxlan_tunnel
               (except for fields such as IP TTL, src MAC, IP checksum, etc.).
     """
     outer_ip_version = outer_pkt_vxlan[-2:]  # "v4" or "v6"
-    if duthost.facts["asic_type"] == "mellanox" and outer_ip_version == "v6":
-        pytest.skip("Outer IPv6 tests are skipped on Mellanox.")
 
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_to_ptf_index = minigraph_facts["minigraph_port_indices"]
