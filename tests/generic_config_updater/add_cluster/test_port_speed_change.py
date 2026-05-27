@@ -363,7 +363,10 @@ def apply_patch_change_port_cluster(config_facts,
 
     # ACL
     json_patch_acl = []
-    for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
+    for acl_table in config_facts.get("ACL_TABLE", {}).keys():
+        acl_ports = config_facts["ACL_TABLE"][acl_table].get("ports", [])
+        if selected_random_port not in acl_ports:
+            continue
         if operation == "add":
             json_patch_acl.append({
                 "op": "add",
@@ -371,8 +374,6 @@ def apply_patch_change_port_cluster(config_facts,
                 "value": selected_random_port
             })
         elif operation == "remove":
-            if acl_table not in config_facts["ACL_TABLE"]:
-                continue
             port_index = get_port_index_in_acl_table(
                 duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
             if port_index is not None:
@@ -559,6 +560,16 @@ def apply_patch_change_port_cluster(config_facts,
             json_patch.append({
                 "op": "remove",
                 "path": f"{json_namespace}/{key.replace('BUFFER_PG|', 'BUFFER_PG/')}"
+                })
+        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
+        'BUFFER_QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
+        output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+        buffer_queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
+        logger.info(f"BUFFER_QUEUE keys for port {selected_random_port}: {buffer_queue_keys}")
+        for key in buffer_queue_keys:
+            json_patch.append({
+                "op": "remove",
+                "path": f"{json_namespace}/{key.replace('BUFFER_QUEUE|', 'BUFFER_QUEUE/')}"
                 })
 
     # PORT_QOS_MAP
