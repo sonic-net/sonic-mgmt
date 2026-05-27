@@ -306,7 +306,6 @@ def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts, loganalyzer):
     if loganalyzer:
         ignoreRegex = [
             r".*omrelp\[.*\]: error 'error opening connection to remote peer'.*",
-            r".*omrelp: could not connect to remote server, librelp error \d+.*",
             r".*omrelp\[.*\]: error 'server closed relp session, session broken', object .* - action may not work as intended.*",  # noqa: E501
             r".*omrelp\[.*\]: error 'error waiting on required session state, session broken', object .* - action may not work as intended.*",  # noqa: E501
         ]
