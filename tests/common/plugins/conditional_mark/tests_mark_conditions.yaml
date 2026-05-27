@@ -182,14 +182,17 @@ arp/test_arp_extended.py::test_proxy_arp[v4-:
 arp/test_arp_update.py::test_dut_arping_learns_mac:
   skip:
     reason: "Skip test_dut_arping_learns_mac on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24469"
 
 arp/test_arp_update.py::test_dut_ping_learns_mac:
   skip:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
+      - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
 
 arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
   regex: true
@@ -902,10 +905,6 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
-dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative:
-  skip:
-    reason: "The SONiC feature 'enable/disable VXLAN sport filtering' is not currently in the image. The skip will be removed when the feature is enabled."
-
 dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
@@ -998,6 +997,12 @@ decap/test_subnet_decap.py::test_vip_packet_decap:
       - "topo_type not in ['t0']"
       - "asic_type not in ['vs', 'mellanox'] and asic_gen not in ['td3']"
       - "release in ['202012', '202205', '202305', '202311']"
+
+decap/test_subnet_decap.py::test_vip_packet_decap[IPv6]:
+  xfail:
+    reason: "xfail due to github issue 24484 on dualtor-aa setup"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/24484 and 'dualtor-aa' in topo_name"
 
 decap/test_subnet_decap.py::test_vlan_subnet_decap:
   skip:
@@ -4289,12 +4294,13 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
-    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
+    reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
     conditions_logical_operator: or
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
       - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
+      - "'bmc' in topo_type"
 
 #######################################
 #####     ptftests      #####
@@ -5342,7 +5348,7 @@ srv6/test_srv6_dataplane.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
+      - "asic_type == 'broadcom' and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -5562,6 +5568,18 @@ telemetry/test_events.py:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
+telemetry/test_events.py::test_events:
+  skip:
+    reason: "Sub-event bgp_events requires BGP neighbors, not applicable on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
+telemetry/test_events.py::test_events_cache_overflow:
+  skip:
+    reason: "Requires eventd systemd unit which is not loaded on BMC."
+    conditions:
+      - "'bmc' in topo_type"
+
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
@@ -5636,10 +5654,11 @@ telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_del:
 
 telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    conditions_logical_operator: or
+    reason: "dut ipv6 mgmt ip not supported or not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 telemetry/test_telemetry_poll.py::test_poll_mode_delete:
   skip:
