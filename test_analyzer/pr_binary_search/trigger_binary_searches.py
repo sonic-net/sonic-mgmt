@@ -17,6 +17,8 @@ CLI arguments:
   --upload_kusto            - UPLOAD_KUSTO param forwarded to each triggered run (default: true)
   --USE_AGENCY_FAILURE_INFO - use agency failure table (default: false)
   --enable_ci_prescreening  - CI prescreening param forwarded (default: false)
+  --enable_presearch_filter - run cheap pre-dispatch filter (F0-F4) to skip flaky /
+                              already-resolved / pre-existing failures (default: false)
   --dry_run                 - print what would be triggered without actually triggering
 """
 
@@ -36,7 +38,8 @@ from pr_binary_search import (
     BASE_URL,
     ORGANIZATION,
 )
-from config import get_failure_info_table, KUSTO_DATABASE  # noqa: F401 (KUSTO_DATABASE unused but kept for symmetry)
+from config import get_failure_info_table, KUSTO_DATABASE
+from presearch_filter import PreSearchFilter, FilterDecision
 
 logging.basicConfig(level=logging.INFO, format='[%(threadName)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -78,6 +81,19 @@ def trigger_binary_search_pipeline(
     return run
 
 
+def _log_filter_skip(entry: dict, decision: FilterDecision) -> None:
+    """Emit a structured log line for one skipped entry.  Easy to scrape from
+    pipeline logs and easy to forward to Kusto in a future change."""
+    logger.info(
+        "PreSearchFilter SKIP key=%s test=%s checker=%s reason=%s details=%s",
+        entry.get("failure_join_key", ""),
+        entry.get("testcase", ""),
+        entry.get("checker", ""),
+        decision.skipped_by,
+        json.dumps(decision.details, default=str),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kusto_lookback_hours", type=int, default=48)
@@ -92,6 +108,9 @@ def main():
     parser.add_argument("--upload_kusto", type=parse_bool_arg, default=True)
     parser.add_argument("--USE_AGENCY_FAILURE_INFO", type=parse_bool_arg, default=False)
     parser.add_argument("--enable_ci_prescreening", type=parse_bool_arg, default=False)
+    parser.add_argument("--enable_presearch_filter", type=parse_bool_arg, default=False,
+                        help="Run pre-dispatch filters (F0-F4) on each parsed failure entry "
+                             "and skip those that are flaky, already resolved, or pre-existing.")
     parser.add_argument("--dry_run", type=parse_bool_arg, default=False,
                         help="Log what would be triggered without calling ADO API")
     args = parser.parse_args()
@@ -142,6 +161,22 @@ def main():
             deduped.append(entry)
     logger.info(f"After dedup: {len(failure_info)} rows → {len(deduped)} unique test failures")
     failure_info = deduped
+
+    # ── Pre-search filter gate ──────────────────────────────────────────
+    # Runs cheap Kusto-only checks (F0 static blocklist, F1 existing result,
+    # F2 historical pass rate, F3 circuit breaker, F4 pre-existing failure).
+    # Entries that pass are queued; entries that are skipped are logged.
+    if args.enable_presearch_filter:
+        filt = PreSearchFilter(kusto_client, database=KUSTO_DATABASE)
+        passing, skipped = filt.evaluate_many(failure_info)
+        # evaluate_many already emits a structured WARNING for each skip;
+        # _log_filter_skip is retained for callers that bypass evaluate_many.
+        failure_info = passing
+        if not failure_info:
+            logger.info("All %d entries were filtered out — nothing to trigger", len(skipped))
+            return
+    else:
+        logger.info("Pre-search filter disabled (--enable_presearch_filter=false)")
 
     # Cap total concurrent runs to avoid flooding build/test pipelines
     if len(failure_info) > args.max_concurrent_runs:

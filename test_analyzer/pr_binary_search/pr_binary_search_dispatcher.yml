@@ -35,6 +35,10 @@ parameters:
     type: boolean
     default: false
     displayName: "Use existing CI build images to narrow buildimage commit range"
+  - name: ENABLE_PRESEARCH_FILTER
+    type: boolean
+    default: false
+    displayName: "Run pre-dispatch filter (F0-F4) to skip flaky / already-resolved / pre-existing failures"
 
 stages:
   - stage: DispatchBinarySearches
@@ -69,7 +73,8 @@ stages:
                   --max_concurrent_runs ${{ parameters.MAX_CONCURRENT_RUNS }} \
                   --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
                   --USE_AGENCY_FAILURE_INFO ${{ parameters.USE_AGENCY_FAILURE_INFO }} \
-                  --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }}
+                  --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }} \
+                  --enable_presearch_filter ${{ parameters.ENABLE_PRESEARCH_FILTER }}
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               AZURE_DEVOPS_ACCESS_TOKEN: $(System.AccessToken)
