@@ -119,10 +119,10 @@ class MacsecPlugin(object):
         shutdown = False
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
             macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
-            if not macsec_preconfigured or port_profiles is not None:
+            if not macsec_preconfigured:
                 shutdown = True
                 startup_macsec()
-            if macsec_preconfigured:
+            else:
                 logger.info(f"Macsec is already configured for {macsec_profile}, skipping setup")
         yield
         if shutdown:
