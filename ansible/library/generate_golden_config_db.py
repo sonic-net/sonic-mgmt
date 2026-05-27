@@ -219,11 +219,7 @@ class GenerateGoldenConfigDBModule(object):
         return False
 
     def is_bmc_device(self):
-        # BMC devices (e.g. Aspeed-based management controllers) do not host BGP sessions,
-        # so BGP-monitoring features (bmp, frr_bmp) are not applicable and their containers
-        # are not built/shipped for BMC images. Presence of /etc/sonic/bmc_config.json is
-        # the canonical indicator that the running SONiC image is a BMC build.
-        return device_info.get_bmc_build_config() is not None
+        return device_info.get_bmc_data() is not None
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
