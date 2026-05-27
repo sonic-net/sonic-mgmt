@@ -10,6 +10,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.utilities import wait_for_file_changed, FORCED_MGMT_ROUTE_PRIORITY
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
 ]
 
