@@ -1,6 +1,6 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 strtk5-7260-root-01,10.212.69.34/27,Arista-7260CX3,FanoutRoot,,
-strtk5-8101-fanout-02,10.212.69.39/27,Cisco-8101-O32,FanoutLeaf,,sonic
+strtk5-8101-fanout-02,10.212.69.39/27,Cisco-8101-O8C48,FanoutLeaf,,sonic
 strtk5-7260-fanout-02,10.212.69.36/27,Arista-7260CX3,FanoutLeaf,,
 strtk5-7260-fanout-03,10.212.69.37/27,Arista-7260CX3,FanoutLeaf,,
 strtk5-7260-fanout-04,10.212.69.51/27,Arista-7260QX-64,FanoutLeaf,,
