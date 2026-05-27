@@ -12,13 +12,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common import config_reload
 from ipfix_common import IPFIXHeader, PsampModHeader
-from tests.packet_trimming.packet_trimming_helper import (
+from tests.common.helpers.packet_trimming import (
     create_blocking_scheduler,
     ConfigTrimming,
     get_interface_peer_addresses,
-    get_queue_trim_counters_json
+    get_queue_trim_counters_json,
+    DEFAULT_DSCP,
 )
-from tests.packet_trimming.constants import DEFAULT_DSCP
 
 logger = logging.getLogger(__name__)
 
