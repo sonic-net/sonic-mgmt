@@ -560,7 +560,16 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    # Skip database container for generate redis crash alerting messages.
+    # Skip 'database' container: killing redis cascades into every other
+    # container (rsyslog/loganalyzer/sonic-cfggen/orchagent all depend on it),
+    # which routinely degrades the DUT past the test's recovery window. On
+    # physical broadcom builds there is no FEATURE|database entry so the test
+    # never iterates database; on platforms that DO populate FEATURE|database
+    # (e.g. sonic-vpp where it is always_enabled) we explicitly skip it here
+    # to keep behavior consistent across platforms.
+    skip_containers.append("database")
+    # Skip 'gbsyncd' container, which is empty on most platforms and not
+    # expected to generate alerting messages on critical-process kills.
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
