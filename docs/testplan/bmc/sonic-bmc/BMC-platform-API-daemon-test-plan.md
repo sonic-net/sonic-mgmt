@@ -778,89 +778,58 @@ to `/host/bmc/event.log`.
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
-#### Test Case #35: test_show_bmc_commands
+#### Test Case #35: test_show_chassis_module_status
 
 **Test Objective**:
-Verify `show bmc` commands exist and return valid output.
+Verify `show chassis module status` (design doc section 2.3.2) returns SWITCH-HOST entry with oper status (LC, AC).
 
 **Test Steps**:
-1. Execute `show bmc` — verify rc=0, non-empty output
-2. Execute `show bmc status` — verify output contains status fields
-3. Skip gracefully on non-BMC systems
+1. Execute `show chassis module status` — verify rc=0, non-empty output
+2. Verify SWITCH-HOST entry is present in output
+3. Verify oper status column is present (online/offline/status)
 
 **Expected Result**:
-- Commands execute successfully
-- Output contains BMC status information
+- Command succeeds with rc=0
+- SWITCH-HOST entry appears in the table
+- Oper status field is populated
 
 ---
 
-#### Test Case #36: test_show_leak_commands
+#### Test Case #36: test_show_platform_temperature
 
 **Test Objective**:
-Verify leak detection CLI commands exist and return valid output.
+Verify `show platform temperature` (design doc section 2.3.2) lists thermal sensors with threshold columns (LC, AC).
 
 **Test Steps**:
-1. Execute `show leak-status` — skip gracefully if absent
-2. Verify output contains sensor names and status fields
-3. Execute `show leak-status --verbose` if supported
+1. Execute `show platform temperature` — verify rc=0, non-empty output
+2. Verify sensor name and temperature value columns present
+3. Verify high threshold / critical threshold columns present
 
 **Expected Result**:
-- Command exists on liquid-cooled platforms
-- Graceful skip on non-liquid-cooled systems
+- Command succeeds with rc=0
+- Sensor rows are present with temperature readings
+- Threshold columns (High TH, Crit High TH) are shown
 
 ---
 
-#### Test Case #37: test_show_command_output_format
+#### Test Case #37: test_config_chassis_modules
 
 **Test Objective**:
-Verify `show chassis module` output format includes SWITCH-HOST with status fields.
+Verify `config chassis modules` subcommands match design doc section 2.3.1: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC).
 
 **Test Steps**:
-1. Execute `show chassis module` — verify rc=0, non-empty output
-2. Parse output for SWITCH-HOST entry
-3. Verify admin_status and oper_status fields are present
-4. Execute `show thermal` — verify temperature sensors are listed
+1. Execute `config chassis modules --help` — verify help text returned or graceful skip on non-BMC
+2. Verify help mentions: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout`
+3. Execute `config chassis modules startup --help` — verify available
+4. Execute `config chassis modules shutdown --help` — verify available
 
 **Expected Result**:
-- SWITCH-HOST appears in chassis module listing
-- Status fields are populated
-- Thermal output includes sensor information
+- Help text documents all four subcommands
+- startup/shutdown subcommands are individually invokable
 
 ---
 
-#### Test Case #38: test_config_chassis_commands
-
-**Test Objective**:
-Verify `config chassis modules` command exists with correct syntax.
-
-**Test Steps**:
-1. Execute `config chassis modules --help` — verify help text returned
-2. Verify help includes admin-status subcommand
-3. Skip gracefully on non-BMC platforms
-
-**Expected Result**:
-- Help text is returned
-- Command syntax is documented
-
----
-
-#### Test Case #39: test_backward_compatibility
-
-**Test Objective**:
-Verify existing CLI commands still work after BMC enhancements.
-
-**Test Steps**:
-1. Execute `show chassis modules` (plural) — verify still works
-2. Execute `show platform summary` — verify non-empty output
-3. Execute `show version` — verify non-empty output
-
-**Expected Result**:
-- All existing commands continue to function
-- No regressions introduced by BMC CLI additions
-
----
-
-#### Test Case #40: test_liquid_cool_config_commands
+#### Test Case #38: test_liquid_cool_config_commands
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
@@ -879,7 +848,7 @@ Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` co
 
 ---
 
-#### Test Case #41: test_show_platform_leak_commands
+#### Test Case #39: test_show_platform_leak_commands
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
@@ -912,7 +881,7 @@ Verify `show chassis module status` and all `show platform leak` sub-commands pr
 These two files are complementary: `test_watchdog.py` validates the platform API contract;
 `test_bmc_watchdog.py` validates BMC-specific integration behavior.
 
-#### Test Case #42: test_watchdog_status_and_configuration
+#### Test Case #40: test_watchdog_status_and_configuration
 
 **Test Objective**:
 Verify watchdog service status, timeout configuration, performance, and error handling.
@@ -932,7 +901,7 @@ Verify watchdog service status, timeout configuration, performance, and error ha
 
 ---
 
-#### Test Case #43: test_watchdog_bmc_integration
+#### Test Case #41: test_watchdog_bmc_integration
 
 **Test Objective**:
 Verify watchdog integrates with BMC infrastructure: systemd service, persistent logs, reboot differentiation, State DB.

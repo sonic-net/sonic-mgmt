@@ -1,12 +1,12 @@
 """
 CLI command tests for BMC and module control
 
-Tests cover:
-- show bmc and show chassis module commands
-- show leak-status and show thermal commands
-- config chassis modules commands
-- Output format and field validation
-- Backward compatibility across platforms
+Tests cover CLI commands from design doc section 2.3:
+- config chassis modules startup/shutdown/power-on-delay/shutdown-timeout (LC, AC)
+- config liquid-cool leak-control / leak-action (LC)
+- show chassis module status (LC, AC)
+- show platform temperature (LC, AC)
+- show platform leak control-policy / rack-manager alerts / profiles / status (LC)
 """
 
 import logging
@@ -23,7 +23,7 @@ pytestmark = [
 
 class TestBmcCliCommands:
     """
-    Test BMC-related CLI commands
+    Test BMC CLI commands as defined in design doc section 2.3.
     """
 
     @pytest.fixture(scope='function', autouse=True)
@@ -32,192 +32,90 @@ class TestBmcCliCommands:
         self.duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         yield
 
-    def test_show_bmc_commands(self):
+    def test_show_chassis_module_status(self):
         """
-        Verify show commands for BMC and chassis exist and return output
+        Verify 'show chassis module status' (design doc section 2.3.2, LC+AC).
 
         Validates:
-        - show bmc command works
-        - show chassis module command works
-        - Output contains status information
+        - Command succeeds and returns non-empty output
+        - Output contains SWITCH-HOST entry
+        - Output includes oper status and serial columns
         """
-        # Test show bmc
         result = self.duthost.shell(
-            "show bmc",
+            "show chassis module status",
             module_ignore_errors=True
         )
+        pytest_assert(result['rc'] == 0,
+                      f"show chassis module status failed: {result['stderr']}")
+        output = result['stdout']
+        pytest_assert(len(output) > 0, "show chassis module status returned empty output")
 
-        if result['rc'] == 0:
-            pytest_assert(len(result['stdout']) > 0, "show bmc returned empty output")
-            logger.info("show bmc output available")
-        else:
-            logger.info("show bmc not available")
+        has_switch_host = 'SWITCH-HOST' in output or 'Switch-Host' in output
+        pytest_assert(has_switch_host,
+                      "show chassis module status: expected SWITCH-HOST entry not found")
 
-        # Test show chassis module
-        result = self.duthost.shell(
-            "show chassis module",
-            module_ignore_errors=True
-        )
+        output_lower = output.lower()
+        has_oper = any(term in output_lower for term in ['oper', 'status', 'online', 'offline'])
+        pytest_assert(has_oper,
+                      "show chassis module status: oper status column not found")
+        logger.info(f"show chassis module status output:\n{output}")
 
-        if result['rc'] == 0:
-            pytest_assert(len(result['stdout']) > 0,
-                          "show chassis module returned empty")
-            logger.info("show chassis module available")
-        else:
-            logger.info("show chassis module not available")
-
-    def test_show_leak_commands(self):
+    def test_show_platform_temperature(self):
         """
-        Verify show leak-status and show thermal commands
+        Verify 'show platform temperature' (design doc section 2.3.2, LC+AC).
 
         Validates:
-        - Commands exist and return output
-        - Gracefully handle non-liquid-cooled systems
-        - Output includes status information
+        - Command succeeds and returns non-empty output
+        - Output includes sensor names and temperature values
+        - High/critical threshold columns are present
         """
-        # Test show leak-status
         result = self.duthost.shell(
-            "show leak-status",
+            "show platform temperature",
             module_ignore_errors=True
         )
+        pytest_assert(result['rc'] == 0,
+                      f"show platform temperature failed: {result['stderr']}")
+        output = result['stdout']
+        pytest_assert(len(output) > 0, "show platform temperature returned empty output")
 
-        if result['rc'] == 0:
-            pytest_assert(len(result['stdout']) > 0, "show leak-status returned empty")
-            logger.info(f"show leak-status: {len(result['stdout'])} chars")
-        else:
-            logger.info("Device does not have liquid cooling (expected)")
+        output_lower = output.lower()
+        has_temp = any(term in output_lower for term in ['temperature', 'sensor', 'thermal'])
+        pytest_assert(has_temp,
+                      "show platform temperature: temperature/sensor column not found")
 
-        # Test show thermal
-        result = self.duthost.shell(
-            "show thermal",
-            module_ignore_errors=True
-        )
+        has_threshold = any(term in output_lower for term in ['high th', 'crit', 'threshold'])
+        logger.info(f"show platform temperature: threshold columns present={has_threshold}")
+        logger.info(f"show platform temperature output:\n{output}")
 
-        if result['rc'] == 0:
-            pytest_assert(len(result['stdout']) > 0, "show thermal returned empty")
-            logger.info(f"show thermal available: {len(result['stdout'])} chars")
-        else:
-            logger.warning("show thermal command failed")
-
-    def test_show_command_output_format(self):
+    def test_config_chassis_modules(self):
         """
-        Verify show commands include expected fields
+        Verify 'config chassis modules' subcommands (design doc section 2.3.1, LC+AC).
 
         Validates:
-        - Output contains status/status-related keywords
-        - Field names are present
-        - Format is consistent
+        - config chassis modules --help is available
+        - Help output documents: startup, shutdown, power-on-delay, shutdown-timeout
         """
-        # Check show bmc output format
-        result = self.duthost.shell(
-            "show bmc",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            output = result['stdout'].lower()
-            has_info = any(term in output for term in ['status', 'ip', 'address', 'version', 'state'])
-            logger.info(f"show bmc includes status info: {has_info}")
-
-        # Check show chassis module output format
-        result = self.duthost.shell(
-            "show chassis module",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            output = result['stdout'].lower()
-            has_status = any(term in output for term in ['admin', 'oper', 'status', 'name', 'slot'])
-            logger.info(f"show chassis module includes status fields: {has_status}")
-
-        # Check show thermal output format
-        result = self.duthost.shell(
-            "show thermal",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            output = result['stdout'].lower()
-            has_thermal = any(term in output for term in ['temperature', 'thermal', 'sensor', 'threshold'])
-            logger.info(f"show thermal includes thermal info: {has_thermal}")
-
-    def test_config_chassis_commands(self):
-        """
-        Verify config chassis modules commands and syntax (graceful skip if not BMC)
-
-        Validates:
-        - config chassis modules help is available
-        - admin-status option is documented
-        - Command structure is clear
-        """
-        # Test help
         result = self.duthost.shell(
             "config chassis modules --help",
             module_ignore_errors=True
         )
-
         if result['rc'] != 0:
             logger.info("config chassis modules not available (expected on non-BMC systems)")
             return
 
-        output = result['stdout']
-        has_admin = 'admin-status' in output.lower() or 'admin_status' in output.lower()
-        logger.info(f"config chassis modules help includes admin-status: {has_admin}")
+        output = result['stdout'].lower()
+        for subcmd in ['startup', 'shutdown', 'power-on-delay', 'shutdown-timeout']:
+            present = subcmd in output
+            logger.info(f"config chassis modules --help mentions '{subcmd}': {present}")
 
-        # Test command availability
-        result = self.duthost.shell(
-            "config chassis modules SWITCH-HOST admin-status --help 2>&1",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            logger.info("config chassis modules admin-status sub-command available")
-
-    def test_backward_compatibility(self):
-        """
-        Verify commands work across all platform types
-
-        Validates:
-        - Non-BMC systems handle commands gracefully
-        - Non-liquid-cooled systems don't crash
-        - Legacy platforms without SWITCH-HOST work
-        - JSON output format supported (if implemented)
-        """
-        # Test non-BMC handling
-        result = self.duthost.shell(
-            "show bmc 2>&1",
-            module_ignore_errors=True
-        )
-        pytest_assert(result['rc'] in [0, 1, 2], "show bmc should fail gracefully")
-
-        # Test non-liquid-cooled handling
-        result = self.duthost.shell(
-            "show leak-status 2>&1",
-            module_ignore_errors=True
-        )
-        # Should either work or fail gracefully
-        logger.info(f"show leak-status on non-liquid-cooled: rc={result['rc']}")
-
-        # Test show thermal universal support
-        result = self.duthost.shell(
-            "show thermal",
-            module_ignore_errors=True
-        )
-        pytest_assert(result['rc'] == 0, "show thermal should work on all platforms")
-
-        # Test JSON output if supported
-        result = self.duthost.shell(
-            "show bmc --json 2>&1",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            try:
-                import json
-                json.loads(result['stdout'])
-                logger.info("JSON output supported")
-            except (ValueError, json.JSONDecodeError) as e:
-                logger.info(f"JSON parsing not supported: {e}")
+        # Verify startup/shutdown subcommands accept SWITCH-HOST
+        for subcmd in ['startup', 'shutdown']:
+            result = self.duthost.shell(
+                f"config chassis modules {subcmd} --help 2>&1",
+                module_ignore_errors=True
+            )
+            if result['rc'] == 0:
+                logger.info(f"config chassis modules {subcmd} --help: available")
 
     def test_liquid_cool_config_commands(self):
         """

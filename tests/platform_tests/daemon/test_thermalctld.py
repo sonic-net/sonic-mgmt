@@ -766,7 +766,6 @@ class TestThermalctldDaemon:
         3. Check pmon journal for any BMC mirror warnings
            ("Failed to open remote BMC TEMPERATURE_INFO table")
         4. Read local TEMPERATURE_INFO keys — verify sensors are present on Switch-Host
-        5. Log BMC address if available via 'show bmc address' or config
 
         Expected Result:
         - On Switch-Host: startup log shows BMC mirror initialization (or warning if BMC unreachable)
