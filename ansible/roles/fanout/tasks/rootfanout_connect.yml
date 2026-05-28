@@ -5,7 +5,7 @@
   when: deploy_leaf is not defined
 
 - set_fact: dut="{{ leaf_name }}"
-  when: deploy_leaf
+  when: deploy_leaf | bool
 
 - set_fact:
     clean_before_add: "{{ clean_before_add | default('y') }}"
