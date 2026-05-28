@@ -322,6 +322,37 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+    parser.addoption(
+        "--ss_target_index",
+        action="store",
+        default="",
+        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
+    )
+    parser.addoption(
+        "--ss_target_indices",
+        action="store",
+        default="",
+        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
+    )
+    parser.addoption(
+        "--ss-max-workers",
+        action="store",
+        type=int,
+        default=4,
+        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
+    parser.addoption(
+        "--ss_npu_target_image",
+        action="store",
+        default="",
+        help="SmartSwitch NPU image URL used in the full upgrade test (DPUs staged first, then NPU rebooted)",
+    )
+    parser.addoption(
+        "--ss_npu_target_version",
+        action="store",
+        default="",
+        help="SmartSwitch NPU version string used in the full upgrade test (e.g. SONiC-OS-internal-202511.xxx)",
+    )
 
     ##################################
     #   Container Upgrade options    #
