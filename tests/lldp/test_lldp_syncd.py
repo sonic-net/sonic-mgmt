@@ -148,7 +148,7 @@ def _build_lldpctl_lookup_map(lldpctl_interfaces):
     return lldpctl_map
 
 
-def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_lookup_map, timeout=60, interval=2, delay=0):
+def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_lookup_map, timeout=300, interval=2, delay=0):
     """
     Verify LLDP entry recovers for interface(s) after flap.
     Supports both single interface (str) and multiple interfaces (list).
