@@ -105,7 +105,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     prepare_server_cert(duthost, localhost)
     prepare_client_cert(localhost)
     copy_certificate_to_ptf(ptfhost)
-    create_revoked_cert_and_crl(localhost, ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
     copy_certificate_to_dut(duthost)
 
 
