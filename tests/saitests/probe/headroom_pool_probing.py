@@ -167,8 +167,9 @@ class HeadroomPoolProbing(ProbingBase):
             log_message("ERROR: No probing ports available", to_stderr=True)
             return
 
-        dut_idx = 0
-        asic_idx = 0
+        # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
+        dut_idx = next(iter(self.test_port_ips))
+        asic_idx = next(iter(self.test_port_ips[dut_idx]))
         port_ips = self.test_port_ips[dut_idx][asic_idx]
 
         # N src -> 1 dst: Last port is dst, all others are src
@@ -443,21 +444,21 @@ class HeadroomPoolProbing(ProbingBase):
                     'upper': UpperBoundProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_upper_obs, f"pg{i}_drop_upper",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_upper_obs, verification_attempts=1
                     ),
                     'lower': LowerBoundProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_lower_obs, f"pg{i}_drop_lower",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_lower_obs, verification_attempts=1
                     ),
                     'range': ThresholdRangeProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_range_obs, f"pg{i}_drop_range",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_range_obs,
                         precision_target_ratio=self.PRECISION_TARGET_RATIO,
@@ -474,7 +475,7 @@ class HeadroomPoolProbing(ProbingBase):
                     drop_algos['point'] = ThresholdPointProbingAlgorithm(
                         executor=self.create_executor(
                             'ingress_drop', drop_point_obs, f"pg{i}_drop_point",
-                            use_pg_drop_counter=self.use_pg_drop_counter
+                            counter_mode=self.ingress_drop_counter_mode
                         ),
                         observer=drop_point_obs, verification_attempts=1,
                         step_size=self.POINT_PROBING_STEP_SIZE
@@ -538,8 +539,9 @@ class HeadroomPoolProbing(ProbingBase):
                     f"  Headroom = {ingress_drop_threshold} - {pfc_xoff_threshold} = {pg_headroom}")
 
                 # Persist buffer state with margin for multi-PG Port counter compatibility
+                # pg_drop and port_buffer_drop are noise-immune; no margin needed
                 margin = self.POINT_PROBING_STEP_SIZE
-                if self.use_pg_drop_counter:
+                if self.ingress_drop_counter_mode in ('pg_drop', 'port_buffer_drop'):
                     margin = 0
                 if margin > 0:
                     ProbingObserver.console(

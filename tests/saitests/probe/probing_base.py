@@ -148,21 +148,13 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
                 f"POINT_PROBING_STEP_SIZE={self.POINT_PROBING_STEP_SIZE}"
             )
 
-        # Read INGRESS_DROP_USE_PG_COUNTER from environment variable
-        # Default: False (Port counter - Broadcom compatible)
-        # Override: True (PG counter - Mellanox/Cisco-8000)
-        env_value = os.getenv('INGRESS_DROP_USE_PG_COUNTER', '').lower()
-        if env_value in ('true', '1', 'yes'):
-            self.use_pg_drop_counter = True
-        elif env_value in ('false', '0', 'no'):
-            self.use_pg_drop_counter = False
-        else:
-            # Environment variable not set or has invalid value, use default
-            self.use_pg_drop_counter = False
+        # Read ingress drop counter mode from test params (set by test_qos_probe.py)
+        # 3-level: "pg_drop" > "port_buffer_drop" > "port_drop"
+        # No env var override — change testParams in PTF command to switch mode
+        self.ingress_drop_counter_mode = getattr(self, 'ingress_drop_counter_mode', 'port_drop')
 
         ProbingObserver.trace(
-            f"[{self.__class__.__name__}] use_pg_drop_counter={self.use_pg_drop_counter} "
-            f"(env='{env_value}')"
+            f"[{self.__class__.__name__}] ingress_drop_counter_mode={self.ingress_drop_counter_mode}"
         )
 
     def tearDown(self):
@@ -321,13 +313,39 @@ class ProbingBase(sai_base_test.ThriftInterfaceDataPlane):
 
         Wrapper around module-level get_rx_port function.
         Used as rx_port_resolver in StreamManager.
+
+        Includes retry logic for T1 topologies where BGP routes may not be
+        fully converged when the first probe packet is sent.
         """
         log_message(f"dst_port_id:{dst_port_id}, src_port_id:{src_port_id}", to_stderr=False)
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
-        )
-        log_message(f"actual dst_port_id: {dst_port_id}", to_stderr=False)
-        return dst_port_id
+        from probing_observer import ProbingObserver
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                ProbingObserver.trace(
+                    f"rx_port_resolver attempt {attempt+1}/{max_retries}"
+                )
+                dst_port_id = get_rx_port(
+                    self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_vlan
+                )
+                ProbingObserver.trace(
+                    f"rx_port_resolver resolved on attempt {attempt+1}/{max_retries}, "
+                    f"actual dst_port_id: {dst_port_id}"
+                )
+                return dst_port_id
+            except AssertionError:
+                if attempt < max_retries - 1:
+                    wait = (attempt + 1) * 3
+                    ProbingObserver.trace(
+                        f"rx_port_resolver FAILED attempt {attempt+1}/{max_retries}, "
+                        f"retrying in {wait}s (BGP may not be fully converged)"
+                    )
+                    time.sleep(wait)
+                else:
+                    ProbingObserver.trace(
+                        f"rx_port_resolver FAILED all {max_retries} attempts, giving up"
+                    )
+                    raise
 
     def get_pool_size(self):
         """

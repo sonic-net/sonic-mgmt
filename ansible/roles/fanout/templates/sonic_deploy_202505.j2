@@ -3,9 +3,7 @@
         "localhost": {
             "default_pfcwd_status": "disable",
             "hwsku": "{{ fanout_hwsku }}",
-{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] %}
-            "type": "LeafRouter",
-{% endif %}
+
             "hostname": "{{ inventory_hostname }}"
         }
     },
@@ -48,6 +46,9 @@
         {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
             "tpid": "0x9100",
         {% endif %}
+    {% endif %}
+    {% if 'subport' in fanout_port_config[port_name] %}
+            "subport": "{{ fanout_port_config[port_name]['subport'] }}",
     {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"

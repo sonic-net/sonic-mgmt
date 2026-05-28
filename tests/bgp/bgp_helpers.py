@@ -837,19 +837,19 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
 
     if ip_ver == IP_VER:
         logging.info('Execute EOS command - "show ip bgp neighbors {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        if vmhost['type'] == 'eos':
+        if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
-        elif vmhost['type'] == 'sonic':
-            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+        elif isinstance(vmhost['host'], SonicHost):
+            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     else:
         logging.info('Execute EOS command - "show ipv6 bgp peers {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        if vmhost['type'] == 'eos':
+        if isinstance(vmhost['host'], EosHost):
             out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
-        elif vmhost['type'] == 'sonic':
-            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+        elif isinstance(vmhost['host'], SonicHost):
+            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(vrf, bgp_neighbor),
                                        module_ignore_errors=True)['stdout']
     logging.debug('Command output:\n {}'.format(out))
 
@@ -1054,3 +1054,30 @@ def initial_tsa_check_before_and_after_test(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for linecard in duthosts.frontend_nodes:
             executor.submit(run_tsb_on_linecard_and_verify, linecard)
+
+
+def eos_bgp_neighbor_config_parents(tbinfo, nbrhosts, logical_neighbor_name, neigh_remote_as):
+    """
+    Parents list for ansible eos_config under neighbor BGP (default or multi-VRF / converged cEOS).
+
+    Prefer nbrhosts[logical]['is_multi_vrf_peer'] from conftest; if absent, derive from
+    topo_is_multi_vrf + convergence_data (covers stale tbinfo/nbrhosts cache mismatches).
+    """
+    nbr = nbrhosts.get(logical_neighbor_name) or {}
+    if nbr.get("is_multi_vrf_peer") and nbr.get("multi_vrf_data"):
+        mvd = nbr["multi_vrf_data"]
+        return [
+            "router bgp {}".format(mvd["primary_host_asn"]),
+            "vrf {}".format(mvd["vrf"]),
+        ]
+
+    props = tbinfo.get("topo", {}).get("properties", {})
+    if props.get("topo_is_multi_vrf") and props.get("convergence_data", {}).get("convergence_mapping"):
+        conv_map = props["convergence_data"]["convergence_mapping"]
+        cfg = props.get("configuration", {})
+        for prime_name, logical_names in conv_map.items():
+            if logical_neighbor_name in logical_names and prime_name in cfg:
+                primary_asn = cfg[prime_name]["bgp"]["asn"]
+                return ["router bgp {}".format(primary_asn), "vrf {}".format(logical_neighbor_name)]
+
+    return ["router bgp {}".format(neigh_remote_as)]

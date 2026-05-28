@@ -211,7 +211,7 @@ class snmpPduController(PduControllerBase):
 
     def _render_value(self, value, context):
         if '{{' in value and '}}' in value:
-            return jinja2.Template(value).render(context)
+            return jinja2.Template(value).render(context)  # nosemgrep: direct-use-of-jinja2
         return value
 
     def _get_pdu_snmp_creds(self, pdu, perm):

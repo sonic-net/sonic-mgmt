@@ -1,0 +1,10 @@
+maintainers:
+  - StormLiangMS
+  - wangxin
+  - yxieca
+
+expiry:
+  default_days: 90
+
+report:
+  warning_days: [30, 15, 7, 3, 1]
