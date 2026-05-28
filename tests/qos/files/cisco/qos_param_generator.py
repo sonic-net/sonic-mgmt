@@ -544,6 +544,8 @@ class QosParamCisco(object):
             if self.dutAsic == "gr2":
                 lossless_params["pkts_num_margin"] = 8
                 lossless_params["extra_cap_margin"] = 25
+            if self.dutAsic == "gb":
+                lossless_params["pkts_num_margin"] = 6
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
             lossy_params = {"dscp": self.dscp_queue0,
@@ -557,6 +559,8 @@ class QosParamCisco(object):
             if self.dutAsic == "gr2":
                 lossy_params["pkts_num_margin"] = 8
                 lossy_params["extra_cap_margin"] = 25
+            if self.dutAsic == "gb":
+                lossy_params["pkts_num_margin"] = 6
             self.write_params("wm_buf_pool_lossy", lossy_params)
 
     def __define_q_shared_watermark(self):

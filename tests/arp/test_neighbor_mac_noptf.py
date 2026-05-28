@@ -109,7 +109,7 @@ class TestNeighborMacNoPtf:
         return bgp_routes == 0
 
     @pytest.fixture(scope="module", autouse=True)
-    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         """
             Disabled BGP to reduce load on switch and restores DUT configuration after test completes
 
@@ -122,8 +122,13 @@ class TestNeighborMacNoPtf:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if not duthost.get_facts().get("modular_chassis"):
             duthost.command("sudo config bgp shutdown all")
-            if not wait_until(120, 2.0, 0, self._check_no_bgp_routes, duthost):
-                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded 120 seconds.')
+            # BGP routes drain noticeably slower on the VPP-based virtual
+            # switch (t1-lag-vpp / vlab-vpp-01), so give it a larger budget.
+            # Keep the original 120s ceiling for all other topologies.
+            bgp_shutdown_timeout = 300 if tbinfo['topo']['name'] == 't1-lag-vpp' else 120
+            if not wait_until(bgp_shutdown_timeout, 2.0, 0, self._check_no_bgp_routes, duthost):
+                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded {} seconds.'
+                            .format(bgp_shutdown_timeout))
 
         yield
 
