@@ -382,6 +382,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
     duthost = duthosts[rand_one_dut_hostname]
+    _skip_if_mmg_action_unsupported(duthost, "DISABLE_PORT")
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts['router_mac']
@@ -541,6 +542,71 @@ def _syslog_line_count(duthost):
         return 0
 
 
+def _get_orchagent_loglevel(duthost):
+    """Return the current LOGLEVEL_DB value for orchagent, or '' if unset
+    (i.e., the binary's compiled-in default — NOTICE)."""
+    res = duthost.shell(
+        'sonic-db-cli LOGLEVEL_DB HGET "orchagent" "LOGLEVEL"',
+        module_ignore_errors=True)
+    return (res.get('stdout') or '').strip()
+
+
+def _set_orchagent_loglevel(duthost, level):
+    """Set orchagent's log level via LOGLEVEL_DB. swss-common's logger
+    watches that table and applies changes without a restart. Pass ``None``
+    or '' to clear the override (reverts to the binary default)."""
+    if level:
+        duthost.shell(
+            'sonic-db-cli LOGLEVEL_DB HSET "orchagent" "LOGLEVEL" "{}"'.format(level),
+            module_ignore_errors=True)
+    else:
+        duthost.shell(
+            'sonic-db-cli LOGLEVEL_DB HDEL "orchagent" "LOGLEVEL"',
+            module_ignore_errors=True)
+
+
+def _mmg_action_supported(duthost, action):
+    """Return whether MAC_MOVE_GUARD supports ``action`` per the capability
+    row macmoveguardorch publishes to STATE_DB at orchagent init.
+
+    Layout in STATE_DB:
+        MMG_CAPABILITY_TABLE|ACTIONS
+            DISABLE_PORT:                  "true"
+            DISABLE_LEARN_ON_MAC_WITH_ACL: "true" | "false"
+            ... (one field per known action)
+
+    Returns:
+      True  - row present and ``action`` is listed with value "true"
+      False - row present but ``action`` is absent or set to anything
+              other than "true" (action not supported on this platform
+              or this image)
+      None  - row absent entirely (MAC_MOVE_GUARD feature is not present
+              in this image — orchagent does not contain macmoveguardorch
+              or the capability publish step has not run yet)
+    """
+    res = duthost.shell(
+        'sonic-db-cli STATE_DB HGETALL "MMG_CAPABILITY_TABLE|ACTIONS"',
+        module_ignore_errors=True)
+    parsed = _parse_sonic_db_cli_hash(res.get('stdout'))
+    if not parsed:
+        return None
+    val = parsed.get(action)
+    if val is None:
+        return False
+    return val.strip().lower() == 'true'
+
+
+def _skip_if_mmg_action_unsupported(duthost, action):
+    """Skip the calling test if MAC_MOVE_GUARD ``action`` is not supported.
+
+    Treats both "capability row absent" (MMG not in this image) and "row
+    present but action not listed as 'true'" as unsupported.
+    """
+    if _mmg_action_supported(duthost, action) is not True:
+        pytest.skip(
+            "MAC_MOVE_GUARD action '{}' is not supported".format(action))
+
+
 def _count_syslog_matches_in_range(duthost, start_line, end_line, regex):
     """Count /var/log/syslog lines in the inclusive 1-indexed range
     [start_line, end_line] that match ``regex`` (a precompiled
@@ -620,6 +686,8 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts['router_mac']
 
+    _skip_if_mmg_action_unsupported(duthost, "DISABLE_LEARN_ON_MAC_WITH_ACL")
+
     ptf_a, ptf_b, _selected_vlan_id, iface_a, iface_b, dut_a, dut_b = \
         _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts)
     # The storm tags frames with STORM_VLAN_TAG; the DUT classifies them into
@@ -642,6 +710,15 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     _apply_mac_move_guard_config(duthost, DISABLE_LEARN_ON_MAC_GUARD_CONFIG)
     logger.info("Applied MAC_MOVE_GUARD config: %s",
                 DISABLE_LEARN_ON_MAC_GUARD_CONFIG)
+
+    # The "BAD MAC ... continues to move" log used by the PHASE 4 quiescence
+    # check is emitted at INFO level by macmoveguardorch (NOTICE would flood
+    # the log under a real storm). Bump orchagent's log level to INFO so
+    # those lines reach syslog while the test is running.
+    original_loglevel = _get_orchagent_loglevel(duthost)
+    _set_orchagent_loglevel(duthost, "INFO")
+    logger.info("Bumped orchagent log level to INFO (was %r)",
+                original_loglevel or "default")
 
     pid = None
     try:
@@ -869,5 +946,6 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
                              module_ignore_errors=True)
         logger.info("storm sender log tail:\n%s", tail.get('stdout', ''))
         _remove_mac_move_guard_config(duthost)
+        _set_orchagent_loglevel(duthost, original_loglevel)
         _remove_vlan_with_tagged_members(duthost, vlan_id, vlan100_members)
         fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
