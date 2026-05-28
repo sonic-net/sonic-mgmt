@@ -421,11 +421,38 @@ def get_macsec_attr(host, port):
     else:
         peer_ssci = None
 
-    # Get the packet number from ingress SA
-    egress_dict, ingress_dict = get_macsec_counters(host, port)
-    pn = ingress_dict['SAI_MACSEC_SA_ATTR_CURRENT_XPN']
+    # Configure a PTF-specific ingress SA using a separate AN to avoid XPN staleness.
+    # The MKA-negotiated AN shares its XPN counter with live peer traffic. By the time
+    # PTF sends its first packet, background traffic has advanced the ASIC XPN past the
+    # pickle value, making PTF's PN stale → IN_PKTS_LATE → dropped.
+    # Using ptf_an = (mka_an + 2) % 4 starts from XPN=0 with no competing traffic.
+    # PTF sends PN=1,2,3... from a clean slate; the MKA SA is completely unaffected.
+    import base64
+    sak_hex = binascii.hexlify(sak).decode()
+    auth_key = macsec_ingress_sa.get("auth_key", sak_hex)
+    salt_hex = "000000000000000000000000"
+    ptf_an = (int(peer_an) + 2) % 4
+    # sonic-db-cli HSET writes the data but does NOT trigger orchagent's ConsumerStateTable
+    # (it bypasses ProducerStateTable). Use swsscommon.ProducerStateTable on the DUT to
+    # properly notify orchagent so it programs the SA in ASIC.
+    script = (
+        "from swsscommon.swsscommon import ProducerStateTable, DBConnector\n"
+        "db = DBConnector('APPL_DB', 0)\n"
+        "tbl = ProducerStateTable(db, 'MACSEC_INGRESS_SA_TABLE')\n"
+        "key = '{port}:{peer_sci}:{ptf_an}'\n"
+        "fvs = [('active','true'),('sak','{sak}'),('auth_key','{auth}'),"
+        "('lowest_acceptable_pn','1'),('ssci','0'),('salt','{salt}')]\n"
+        "tbl.set(key, fvs)\n"
+        "print('PTF SA added:', key)\n"
+    ).format(
+        port=port, peer_sci=peer_sci, ptf_an=ptf_an,
+        sak=sak_hex, auth=auth_key, salt=salt_hex
+    )
+    b64_script = base64.b64encode(script.encode()).decode()
+    host.shell("echo '{}' | base64 -d | sudo python3".format(b64_script))
+    time.sleep(2)  # Allow orchagent to program the SA in ASIC
 
-    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, int(peer_sci, 16), int(peer_an), peer_ssci, pn
+    return encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, int(peer_sci, 16), ptf_an, peer_ssci, 0
 
 
 def encap_macsec_pkt(macsec_pkt, sci, an, sak, encrypt, send_sci, pn, xpn_en=False, ssci=None, salt=None):
@@ -501,24 +528,23 @@ def load_all_macsec_info(duthost, ctrl_links, tbinfo):
 
 
 def macsec_send(test, port_id, pkt, count=1):
-    global MACSEC_GLOBAL_PN_OFFSET
-    global MACSEC_GLOBAL_PN_INCR
-
     # Check if the port is macsec enabled, if so send the macsec encap/encrypted frame
     device, port_number = testutils.port_to_tuple(port_id)
     if port_number in MACSEC_INFO and MACSEC_INFO[port_number]:
         encrypt, send_sci, xpn_en, sci, an, sak, ssci, salt, peer_sci, peer_an, peer_ssci, pn = MACSEC_INFO[port_number]
+
+        if port_number not in MACSEC_PORT_NEXT_PN:
+            MACSEC_PORT_NEXT_PN[port_number] = pn + 1
 
         for n in range(count):
             if isinstance(pkt, bytes):
                 # If in bytes, convert it to an Ether packet
                 pkt = scapy.Ether(pkt)
 
-            # Increment the PN in packet so that the packet s not marked as late in DUT
-            MACSEC_GLOBAL_PN_OFFSET += MACSEC_GLOBAL_PN_INCR
-            pn += MACSEC_GLOBAL_PN_OFFSET
+            send_pn = MACSEC_PORT_NEXT_PN[port_number]
+            MACSEC_PORT_NEXT_PN[port_number] += 1
 
-            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, pn, xpn_en, peer_ssci, salt)
+            macsec_pkt = encap_macsec_pkt(pkt, peer_sci, peer_an, sak, encrypt, send_sci, send_pn, xpn_en, peer_ssci, salt)
             # send the packet
             __origin_send_packet(test, port_id, macsec_pkt, 1)
     else:
@@ -688,7 +714,9 @@ __origin_dp_poll = testutils.dp_poll
 __origin_send_packet = testutils.send_packet
 __macsec_infos = defaultdict(lambda: None)
 MACSEC_INFO = defaultdict(lambda: None)
-MACSEC_GLOBAL_PN_OFFSET = 1000
-MACSEC_GLOBAL_PN_INCR = 100
+# Per-port next PN to send. Initialized to pn_at_pickle+1 on first use so PTF frames are
+# always just ahead of the real peer, rather than a shared global that grows by 100 per
+# send and inflates highest_PN on the ASIC far beyond the peer's actual position.
+MACSEC_PORT_NEXT_PN = {}
 testutils.dp_poll = macsec_dp_poll
 testutils.send_packet = macsec_send
