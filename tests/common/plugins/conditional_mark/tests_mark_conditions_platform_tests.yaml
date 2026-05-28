@@ -1146,6 +1146,18 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
       - "'bmc' in topo_type"
 
+platform_tests/mellanox/test_hw_management_service.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/mellanox/test_psu_power_threshold.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
     reason: "Platform does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
@@ -1345,14 +1357,18 @@ platform_tests/test_memory_exhaustion.py:
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
     reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
   skip:
     reason: "Test not supported on Mellanox Platforms."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
@@ -1361,6 +1377,7 @@ platform_tests/test_platform_info.py::test_thermal_control_fan_status:
     conditions:
       - "is_multi_asic==True and release in ['201911']"
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,

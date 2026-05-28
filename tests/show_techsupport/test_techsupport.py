@@ -534,6 +534,30 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
             asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
         else:
             asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
+
+            # Check if soc commands should be supported
+            soc_supported = None
+            try:
+                soc_supported = duthost.shell(r'bcmcmd bsh -c SOC')
+            except Exception:
+                pass
+            else:
+                if (soc_supported and soc_supported['rc'] == 0
+                        and 'Unknown command: SOC' not in ' '.join(soc_supported["stdout_lines"])):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_soc
+                else:
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_th5
+
+            # Check if nat commands should be supported
+            nat_supported = None
+            try:
+                nat_supported = duthost.shell(r'bcmcmd "show feature" | grep -i nat')
+            except Exception:
+                pass
+            else:
+                if (nat_supported and nat_supported['rc'] == 0):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_nat
+
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
