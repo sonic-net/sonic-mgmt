@@ -255,7 +255,7 @@ def ignore_compare_three_streams():
     st.log("  Stream 3: NGPF IPv6")
     st.log("  Stream 4: PFC after NGPF (problem case)")
     st.log("="*60)
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
 
     # Cleanup
     st.banner("Test complete - cleaning up streams")

@@ -16,22 +16,22 @@ devices:
     spine0:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.27.95.6, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     spine1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.27.95.7, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf0:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.27.95.4, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.27.95.5, port: 22}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
        device_type: TGEN

@@ -25,14 +25,13 @@ import qos_test_utils as qos_utils
 import traffic_stream_ixia_api as stream_api
 import tortuga_common_utils as common_util
 import gamut_qos_utils as gamut_utils
-import pfcwd_utils
 
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 XOFF_DURATION_SEC = 1        # Duration to send XOFF
-XOFF_BLOCKING_FRACTION = 0.95  # Fraction of full-block rate to use (95%)
+XOFF_RATE_FPS = 100          # Fixed XOFF rate in frames per second
 DATA_RATE_PERCENT = 99
 DEFAULT_FRAME_SIZE = 1350
 DEFAULT_ITERATIONS = 1       # Single iteration for now, increase later for accuracy
@@ -145,7 +144,16 @@ def setup_topo():
 
 
 def _configure_b2b_ips():
-    """Configure IP addresses on b2b links between DUTs."""
+    """
+    Configure IP addresses on b2b links between DUTs and verify L3 reachability.
+
+    Returns:
+        True if a 3-packet ping from DUT1 -> DUT2 b2b IP gets at least one
+        reply, False otherwise. Callers MUST check the return value and
+        skip the measurement on False - running headroom traffic over a
+        non-forwarding link produces zero drops / zero pfc_tx and would
+        masquerade as a PASS (see laguna_hr_speeds_1F_8.log).
+    """
     st.log("Configuring IP addresses on b2b links...")
 
     # DUT1 side (D3D4P1)
@@ -160,9 +168,21 @@ def _configure_b2b_ips():
               f"{B2B_LINK_IPS['D4D3P1']}/24",
               skip_tmpl=True)
 
-    # Verify with ping
+    # Verify with ping. We treat any non-100% loss as success since a
+    # single reply is enough to confirm the link is forwarding.
     st.wait(2)
-    st.config(vars.dut1, f"ping -c 3 {B2B_LINK_IPS['D4D3P1']}", skip_tmpl=True)
+    ping_out = st.config(vars.dut1,
+                         f"ping -c 3 -W 2 {B2B_LINK_IPS['D4D3P1']}",
+                         skip_tmpl=True, skip_error_check=True) or ''
+    if '100% packet loss' in ping_out or 'Destination Host Unreachable' in ping_out:
+        st.error(f"  b2b ping {B2B_LINK_IPS['D3D4P1']} -> "
+                 f"{B2B_LINK_IPS['D4D3P1']} FAILED (no replies)")
+        return False
+    if ' 0 received' in ping_out:
+        st.error(f"  b2b ping {B2B_LINK_IPS['D3D4P1']} -> "
+                 f"{B2B_LINK_IPS['D4D3P1']} FAILED (0 received)")
+        return False
+    return True
 
 
 def _configure_tgen_port_ips():
@@ -265,101 +285,223 @@ def _get_base_port(port_name):
     return port_name
 
 
-def _get_first_breakout_port(base_port, breakout_mode):
+def _perform_qos_cli(dut, port_list, op):
     """
-    Get the first breakout port name based on breakout mode.
+    Perform 'config qos clear' or 'config qos reload' on the given port list.
 
-    For 1x modes: port name stays the same (Ethernet1_45)
-    For Nx modes: first port gets _1 suffix (Ethernet1_45_1)
-
-    Args:
-        base_port: Base port name (e.g., 'Ethernet1_45')
-        breakout_mode: Breakout mode string (e.g., '1x800G', '4x100G')
-
-    Returns:
-        str: First port name after breakout
+    Mirrors perform_qos_cli() in test_v4_pfc_brkout_b2b.py. Must be invoked
+    BEFORE breakout (op='clear', on pre-breakout port list) and AFTER breakout
+    (op='reload', on post-breakout port list) so the buffer/QoS bindings line
+    up with the new subport names in CONFIG_DB (BUFFER_PG, BUFFER_PROFILE etc.).
     """
-    # Parse the multiplier from breakout mode (e.g., '4x100G' -> 4)
-    import re
-    match = re.match(r'^(\d+)x', breakout_mode)
-    if match:
-        num_ports = int(match.group(1))
-        if num_ports == 1:
-            # 1x mode: port name stays the same
-            return base_port
-        else:
-            # Multi-port mode: first port gets _1 suffix
-            return f"{base_port}_1"
-    # Default: assume single port
-    return base_port
+    if not port_list:
+        return
+    if op == 'reload':
+        cmd = f"config qos reload --ports {','.join(port_list)} --no-dynamic-buffer"
+    else:
+        cmd = f"config qos clear --ports {','.join(port_list)}"
+    st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+
+
+def _collect_if_list(dut, base_port):
+    """
+    Return the parent port and/or all its breakout children currently visible
+    in 'show interface status'.
+
+    Mirrors collect_if_list() in test_v4_pfc_brkout_b2b.py. For a base port
+    'Ethernet1_49' this returns:
+      - ['Ethernet1_49']                          when port is unbroken
+      - ['Ethernet1_49_1']                        for 1x modes that name the child _1
+      - ['Ethernet1_49_1','Ethernet1_49_3', ...]  for Nx modes
+    """
+    if_list = []
+    result = st.show(dut, f"show int status | grep {base_port}",
+                     skip_tmpl=True, skip_error_check=True)
+    for line in (result or '').splitlines():
+        if 'Ethernet' not in line:
+            continue
+        port = line.split()[0]
+        if port == base_port or port.startswith(f"{base_port}_"):
+            if_list.append(port)
+    # Keep deterministic order (subport indices ascending)
+    if_list.sort()
+    return if_list
+
+
+def _wait_for_ports_up(dut, port_list, timeout=180):
+    """
+    Poll 'show interface status' until every port in port_list is BOTH
+    admin=up AND oper=up, or until timeout.
+
+    'show interfaces status' columns (current sonic output):
+        Interface Lanes Speed MTU FEC Alias Vlan Oper Admin Type ...
+                                                  ^7   ^8
+    """
+    if not port_list:
+        return False
+    grep_pattern = '|'.join(port_list)
+    waited = 0
+    while waited < timeout:
+        result = st.show(dut, f"show int status | egrep '{grep_pattern}'",
+                         skip_tmpl=True, skip_error_check=True)
+        not_ready = 0
+        seen = 0
+        for line in (result or '').splitlines():
+            if 'Ethernet' not in line:
+                continue
+            tokens = line.split()
+            if tokens[0] not in port_list:
+                continue
+            seen += 1
+            # Require BOTH oper (col 7) and admin (col 8) == 'up'.
+            oper = tokens[7] if len(tokens) > 7 else ''
+            admin = tokens[8] if len(tokens) > 8 else ''
+            if oper != 'up' or admin != 'up':
+                not_ready += 1
+        if seen == len(port_list) and not_ready == 0:
+            return True
+        st.wait(5)
+        waited += 5
+    return False
 
 
 def configure_breakout_for_speed(dut, port, target_speed):
     """
-    Configure breakout mode to achieve target speed.
+    Apply breakout mode to achieve target speed, following the
+    test_v4_pfc_brkout_b2b.py recipe:
+
+      1. Discover existing subports of the parent (pre-breakout if_list).
+      2. 'config qos clear' on those subports.
+      3. 'config interface breakout <parent> <mode> -yfl'.
+      4. Discover new subports (post-breakout if_list).
+      5. 'config qos reload --no-dynamic-buffer' on the new subports so
+         BUFFER_PG/BUFFER_PROFILE entries are recreated for the new names.
+      6. 'config interface startup' on every new subport.
+
+    Does NOT wait for ports oper-up and does NOT reload the ConfigDb cache.
+    The caller must invoke finalize_breakout_pair_and_load_cache() after
+    BOTH peers of a b2b link have been broken out, because:
+      - link-partner state is required for oper-up;
+      - the buffer manager populates BUFFER_PG|<port>|<tc> only after the
+        port reaches oper-up; querying the cache earlier captures an empty
+        snapshot and HeadroomZeroContext fails with 'No BUFFER_PG profile'.
 
     Args:
-        dut: DUT handle
-        port: Port name (can be base or breakout port)
-        target_speed: Target speed in Gbps (e.g., 100, 200, 400, 800)
+        dut: DUT handle.
+        port: Any port name belonging to the parent (base or one of its subports).
+        target_speed: Target per-lane speed in Gbps (e.g., 100, 200, 400, 800).
 
     Returns:
-        tuple: (success, first_breakout_port_name, actual_speed)
+        (success, first_subport_name, actual_speed, post_list_of_all_subports)
     """
     if target_speed not in SPEED_BREAKOUT_MAP:
         st.error(f"Unsupported speed: {target_speed}G")
-        return False, None, None
+        return False, None, None, []
 
     breakout_mode, actual_speed = SPEED_BREAKOUT_MAP[target_speed]
     base_port = _get_base_port(port)
 
-    st.banner(f"Configuring breakout: {base_port} -> {breakout_mode} ({actual_speed}G)")
+    st.banner(f"Breakout: {base_port} -> {breakout_mode} ({actual_speed}G)")
 
-    # Configure breakout
-    cmd = f"config interface breakout {base_port} {breakout_mode} -yfl"
-    st.config(dut, cmd, skip_error_check=True)
+    # 1+2: snapshot current subports and clear their QoS state
+    pre_list = _collect_if_list(dut, base_port)
+    st.log(f"  pre-breakout subports for {base_port}: {pre_list}")
+    _perform_qos_cli(dut, pre_list, 'clear')
 
-    # Wait for breakout to complete
+    # 3: change breakout
+    cmd = f"config interface breakout {base_port} \"{breakout_mode}\" -yfl"
+    result = st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
+    if result and 'ERROR' in result:
+        st.error(f"  breakout cli failed: {result.splitlines()[0]}")
+        return False, None, None, []
     st.wait(5)
 
-    # Startup the first breakout port
-    first_port = _get_first_breakout_port(base_port, breakout_mode)
-    st.config(dut, f"config interface startup {first_port}", skip_error_check=True)
+    # 4: snapshot new subports
+    post_list = _collect_if_list(dut, base_port)
+    st.log(f"  post-breakout subports for {base_port}: {post_list}")
+    if not post_list:
+        st.error(f"  no subports found for {base_port} after breakout")
+        return False, None, None, []
 
-    # Wait for port to come up
-    st.wait(3)
+    # 5: admin-up every new subport BEFORE qos reload. The buffer manager
+    #    keys BUFFER_PG|<port>|<tc> population off port admin state, so
+    #    running qos reload while ports are admin-down can leave the new
+    #    subports without buffer bindings until they are toggled up later.
+    #    Admin-up first ensures the subsequent qos reload sees the ports
+    #    in the right state.
+    for p in post_list:
+        st.config(dut, f"config interface startup {p}",
+                  skip_tmpl=True, skip_error_check=True)
 
-    # Verify port is up
-    result = st.show(dut, f"show interfaces status {first_port}", skip_tmpl=True)
-    if 'up' in result.lower():
-        st.log(f"Port {first_port} is UP at {actual_speed}G")
-        return True, first_port, actual_speed
-    else:
-        st.warn(f"Port {first_port} may not be fully up, continuing anyway...")
-        return True, first_port, actual_speed
+    # 6: reload QoS so BUFFER_PG / BUFFER_PROFILE entries are created
+    #    against the NEW (admin-up) subport names.
+    _perform_qos_cli(dut, post_list, 'reload')
+    st.wait(2)
+
+    first_port = post_list[0]
+    st.log(f"  first subport (deferred up-wait): {first_port} @ {actual_speed}G")
+    return True, first_port, actual_speed, post_list
+
+
+def finalize_breakout_pair_and_load_cache(dut1, ports1, dut2, ports2,
+                                          timeout=180):
+    """
+    Wait for BOTH ends of a b2b link to reach admin+oper up, then refresh
+    the qos_utils ConfigDb cache on both DUTs.
+
+    Must be invoked after configure_breakout_for_speed() has been called on
+    both sides of the b2b link. Reloading the cache only after the ports
+    are fully up ensures BUFFER_PG|<port>|<tc> populated by the buffer
+    manager is visible to subsequent get_buffer_pg_profile() / mmuconfig
+    lookups.
+
+    Returns:
+        True if both sides came up within timeout, False otherwise.
+    """
+    st.banner(f"Waiting for b2b link to come up on both peers")
+    up1 = _wait_for_ports_up(dut1, ports1, timeout=timeout)
+    up2 = _wait_for_ports_up(dut2, ports2, timeout=timeout)
+    if not up1:
+        st.warn(f"  {dut1} subports {ports1} did not reach admin+oper up")
+    if not up2:
+        st.warn(f"  {dut2} subports {ports2} did not reach admin+oper up")
+
+    # Cache reload MUST happen after ports are up. See docstring.
+    qos_utils.load_config_db(dut1)
+    qos_utils.load_config_db(dut2)
+    return up1 and up2
 
 
 def restore_original_breakout(dut, port, original_mode):
     """
-    Restore original breakout configuration.
+    Restore original breakout configuration using the same clear/reload/
+    startup recipe as configure_breakout_for_speed().
 
-    Args:
-        dut: DUT handle
-        port: Port name
-        original_mode: Original breakout mode (e.g., '1x800G')
+    Returns:
+        list[str]: the post-restore subport list (so the caller can pair
+        this DUT's restore with the peer's restore and then run
+        finalize_breakout_pair_and_load_cache).
     """
     base_port = _get_base_port(port)
-    st.banner(f"Restoring breakout: {base_port} -> {original_mode}")
+    st.banner(f"Restore breakout: {base_port} -> {original_mode}")
 
-    cmd = f"config interface breakout {base_port} {original_mode} -yfl"
-    st.config(dut, cmd, skip_error_check=True)
+    pre_list = _collect_if_list(dut, base_port)
+    _perform_qos_cli(dut, pre_list, 'clear')
+
+    cmd = f"config interface breakout {base_port} \"{original_mode}\" -yfl"
+    st.config(dut, cmd, skip_tmpl=True, skip_error_check=True)
     st.wait(5)
 
-    # Startup the first port based on breakout mode
-    first_port = _get_first_breakout_port(base_port, original_mode)
-    st.config(dut, f"config interface startup {first_port}", skip_error_check=True)
-
-    st.wait(3)
+    post_list = _collect_if_list(dut, base_port)
+    if post_list:
+        # admin-up subports BEFORE qos reload (same rationale as
+        # configure_breakout_for_speed step 5).
+        for p in post_list:
+            st.config(dut, f"config interface startup {p}",
+                      skip_tmpl=True, skip_error_check=True)
+        _perform_qos_cli(dut, post_list, 'reload')
+        st.wait(2)
+    return post_list
 
 
 def get_current_breakout_mode(dut, port):
@@ -394,48 +536,8 @@ def get_current_breakout_mode(dut, port):
 # ---------------------------------------------------------------------------
 # Helper Functions
 # ---------------------------------------------------------------------------
-# XOFF Rate Calculation
+# XOFF Rate Calculation - using fixed rate (XOFF_RATE_FPS constant)
 # ---------------------------------------------------------------------------
-
-
-def calculate_xoff_params_for_port(port_speed_gbps, platform, duration_sec=XOFF_DURATION_SEC,
-                                   blocking_fraction=XOFF_BLOCKING_FRACTION):
-    """
-    Calculate XOFF parameters to partially block a port.
-
-    Uses pfcwd_utils.calculate_xoff_rate() to find the rate needed to fully
-    block the port, then scales by blocking_fraction (default 75%).
-
-    For 800G on gamut: full block = ~11,921 fps, 75% = ~8,941 fps
-
-    Args:
-        port_speed_gbps: Port speed in Gbps (e.g., 400, 800)
-        platform: Platform string ('n9164e' for gamut)
-        duration_sec: How long to send XOFF (default 1 second)
-        blocking_fraction: Fraction of full-block rate to use (default 0.75)
-
-    Returns:
-        tuple: (xoff_rate_fps, xoff_frame_count, full_block_rate_fps)
-    """
-    # Get the full blocking rate for this port speed and platform
-    full_block_rate = pfcwd_utils.calculate_xoff_rate(
-        port_speed_gbps,
-        quanta=0xffff,
-        margin_pct=0,  # No margin - we want exact calculation
-        platform=platform
-    )
-
-    # Use fraction of full blocking rate to cause backpressure
-    xoff_rate_fps = int(full_block_rate * blocking_fraction)
-    xoff_frame_count = xoff_rate_fps * duration_sec
-
-    st.log(f"XOFF params for {port_speed_gbps}G ({platform}):")
-    st.log(f"  Full block rate:     {full_block_rate} fps")
-    st.log(f"  Blocking fraction:   {blocking_fraction * 100:.0f}%")
-    st.log(f"  XOFF rate:           {xoff_rate_fps} fps")
-    st.log(f"  XOFF frame count:    {xoff_frame_count} frames ({duration_sec}s)")
-
-    return xoff_rate_fps, xoff_frame_count, full_block_rate
 
 
 # ---------------------------------------------------------------------------
@@ -607,14 +709,14 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
     port_c = vars.b2b_link['dut2_port']        # DUT2 b2b ingress from DUT1 - set xoff=0, captures drops & PFC TX
     port_d = vars.dut_tgen_ports['dut2_tgen']  # DUT2 TGEN port - receives XOFF from TGEN2
 
-    # Calculate XOFF parameters based on port-d speed (DUT2's TGEN-facing port)
-    # Port-d is where TGEN2 sends XOFF to DUT2, so use its speed
+    # Calculate XOFF parameters - use fixed 400 fps rate
+    # Port-d is where TGEN2 sends XOFF to DUT2
     port_d_speed = common_util.get_if_speed(vars.dut2, port_d)
     platform = vars.platform2       # Platform of DUT2 (where XOFF is received)
     st.log(f"Port-d ({port_d}) speed: {port_d_speed}G (platform: {platform})")
-    xoff_rate_fps, xoff_frame_count, full_block_rate = calculate_xoff_params_for_port(
-        port_d_speed, platform, XOFF_DURATION_SEC, XOFF_BLOCKING_FRACTION
-    )
+    xoff_rate_fps = XOFF_RATE_FPS
+    xoff_frame_count = xoff_rate_fps * XOFF_DURATION_SEC
+    st.log(f"XOFF params: rate={xoff_rate_fps} fps, frames={xoff_frame_count}, duration={XOFF_DURATION_SEC}s")
 
     result = {
         'platform': vars.platform1,
@@ -625,8 +727,6 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
         'xoff_rate_fps': xoff_rate_fps,
         'xoff_duration_sec': XOFF_DURATION_SEC,
         'xoff_frame_count': xoff_frame_count,
-        'full_block_rate_fps': full_block_rate,
-        'blocking_fraction': XOFF_BLOCKING_FRACTION,
         # Port names for display
         'dut1': str(vars.dut1),
         'dut2': str(vars.dut2),
@@ -645,6 +745,7 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
         'pg_wm_port_a_per_iteration': [],  # PG watermark at port-a (DUT1 TGEN ingress)
         'pg_wm_port_c_per_iteration': [],  # PG watermark at port-c (DUT2 b2b ingress) - xoff=0 port
         'pfc_rx_port_d_per_iteration': [],  # PFC RX at port-d (DUT2 TGEN port - receives XOFF from TGEN2)
+        'pfc_tx_port_a_per_iteration': [],  # PFC TX at port-a (DUT1 TGEN ingress - propagated back to TGEN1)
         'pg_drops_total': 0,
         'pfc_rx_total': 0,
         'pfc_tx_total': 0,
@@ -683,7 +784,7 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
         st.log("")
 
         st.log(f"Port-d speed: {port_d_speed}G, XOFF rate: {xoff_rate_fps} fps, "
-               f"frames: {xoff_frame_count} ({XOFF_BLOCKING_FRACTION*100:.0f}% of {full_block_rate} fps)")
+               f"frames: {xoff_frame_count}")
 
         # Step 1: Clear all counters (platform-aware)
         st.log("Step 1: Clearing all counters...")
@@ -718,12 +819,15 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
 
                 # Capture baseline counters on DUT2 port-c (drops, pfc_tx) and DUT1 port-b (pfc_rx)
                 # Also capture DUT2 port-d for PFC RX (receives XOFF from TGEN2)
+                # and DUT1 port-a for PFC TX (back-propagated PFC toward TGEN1).
                 baseline_dut2_c = qos_utils.capture_headroom_counters(dut2, port_c, TC)
                 baseline_dut1_b = qos_utils.capture_headroom_counters(dut1, port_b, TC)
                 baseline_dut2_d = qos_utils.capture_headroom_counters(dut2, port_d, TC)
+                baseline_dut1_a = qos_utils.capture_headroom_counters(dut1, port_a, TC)
                 st.log(f"  Baseline DUT2 port-c pg_drop: {baseline_dut2_c['pg_drop']}, pfc_tx: {baseline_dut2_c['pfc_tx']}")
                 st.log(f"  Baseline DUT1 port-b pfc_rx: {baseline_dut1_b['pfc_rx']}")
                 st.log(f"  Baseline DUT2 port-d pfc_rx: {baseline_dut2_d['pfc_rx']}")
+                st.log(f"  Baseline DUT1 port-a pfc_tx: {baseline_dut1_a['pfc_tx']}")
 
                 # Create XOFF stream with calculated rate for port-d speed
                 xoff_stream_id = create_xoff_burst_stream(
@@ -771,11 +875,18 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
                 queue_drops_port_b = qos_utils.get_queue_drops_for_port(dut1, port_b, TC)
                 st.log(f"  Queue drops: port-d ({port_d})={queue_drops_port_d}, port-b ({port_b})={queue_drops_port_b}")
 
-                # Capture PG watermarks for port-a (DUT1 ingress) and port-c (DUT2 ingress, xoff=0)
+                # Capture PG watermarks for port-a (DUT1 ingress) and port-c (DUT2 ingress, xoff=0).
+                # Also re-read port-a so we get the pfc_tx delta back toward TGEN1.
                 after_dut1_a = qos_utils.capture_headroom_counters(dut1, port_a, TC)
                 pg_wm_port_a = after_dut1_a['pg_watermark']
                 pg_wm_port_c = after_dut2_c['pg_watermark']  # Already captured above
                 st.log(f"  PG watermarks: port-a ({port_a})={pg_wm_port_a}, port-c ({port_c})={pg_wm_port_c}")
+
+                # PFC TX delta on port-a (DUT1 TGEN-facing). Non-zero means
+                # the backpressure chain (DUT2 PFC -> DUT1 RX -> DUT1 PG fill
+                # -> DUT1 PFC TX upstream) actually completed end-to-end.
+                pfc_tx_port_a_delta = after_dut1_a['pfc_tx'] - baseline_dut1_a['pfc_tx']
+                st.log(f"  PFC TX delta on port-a ({port_a}): {pfc_tx_port_a_delta} frames")
 
                 # Calculate deltas
                 pg_drop_delta = after_dut2_c['pg_drop'] - baseline_dut2_c['pg_drop']
@@ -792,6 +903,7 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
                 result['queue_drops_port_b_per_iteration'].append(queue_drops_port_b)
                 result['pg_wm_port_a_per_iteration'].append(pg_wm_port_a)
                 result['pg_wm_port_c_per_iteration'].append(pg_wm_port_c)
+                result['pfc_tx_port_a_per_iteration'].append(pfc_tx_port_a_delta)
                 result['pfc_rx_port_d_per_iteration'].append(pfc_rx_port_d_delta)
 
                 st.log(f"  Deltas: pg_drop={pg_drop_delta}, pfc_tx={pfc_tx_delta}, pfc_rx={pfc_rx_delta}, pfc_rx_port_d={pfc_rx_port_d_delta}")
@@ -849,7 +961,7 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
                         tg.tg_traffic_control(action='stop', stream_handle=data_stream['stream_id'])
                     except Exception:
                         pass
-                    import pdb; pdb.set_trace()
+                    #import pdb; pdb.set_trace()
                     
                     result['error'] = (f"PFC not generated despite headroom drops: "
                                        f"pg_drop={pg_drop_delta}, pfc_tx={pfc_tx_delta}")
@@ -897,7 +1009,27 @@ def run_headroom_measurement(speed=None, frame_size=DEFAULT_FRAME_SIZE,
             st.warn("No PFC TX generated on DUT2 port-c, cannot calculate headroom")
             result['headroom_bytes_measured'] = 0
 
-        result['passed'] = True
+        # A valid measurement requires BOTH non-zero PFC TX (proving
+        # backpressure was generated) AND non-zero PG drops (proving the
+        # headroom-zero path was actually exercised). Any other combination
+        # is either a non-forwarding link, an XOFF stream that never fired,
+        # or PFC suppressing all overflow - none of which let us compute
+        # the real headroom demand. Treat them as FAIL so they don't masquerade
+        # as PASS in the summary table.
+        if result['pfc_tx_total'] == 0:
+            result['passed'] = False
+            result['error'] = ("No PFC TX seen on DUT2 port-c; b2b link or "
+                               "XOFF stimulus did not produce backpressure.")
+            st.error(result['error'])
+        elif result['pg_drops_total'] == 0:
+            result['passed'] = False
+            result['error'] = (f"PFC TX={result['pfc_tx_total']} but zero PG "
+                               f"drops; xoff=0/dynamic_th=-7 likely throttled "
+                               f"traffic before PG could overflow. Increase "
+                               f"data rate or XOFF window.")
+            st.error(result['error'])
+        else:
+            result['passed'] = True
 
     except Exception as e:
         st.error(f"Headroom measurement failed: {e}")
@@ -963,10 +1095,11 @@ def print_detailed_results(result):
         pg_wm_a = result['pg_wm_port_a_per_iteration'][i] if i < len(result.get('pg_wm_port_a_per_iteration', [])) else 'N/A'
         pg_wm_c = result['pg_wm_port_c_per_iteration'][i] if i < len(result.get('pg_wm_port_c_per_iteration', [])) else 'N/A'
         pfc_rx_d = result['pfc_rx_port_d_per_iteration'][i] if i < len(result.get('pfc_rx_port_d_per_iteration', [])) else 'N/A'
+        pfc_tx_a = result['pfc_tx_port_a_per_iteration'][i] if i < len(result.get('pfc_tx_port_a_per_iteration', [])) else 'N/A'
 
         st.log(f"Iteration {i + 1}:")
         st.log(f"  {dut1} (port-a={port_a}):")
-        st.log(f"    pg_watermark: {pg_wm_a}")
+        st.log(f"    pfc_tx: {pfc_tx_a}, pg_watermark: {pg_wm_a}")
         st.log(f"  {dut1} (port-b={port_b}):")
         st.log(f"    pfc_rx: {pfc_rx}, queue_wm: {qwm_b}, queue_drops: {qdrops_b}")
         st.log(f"  {dut2} (port-c={port_c}) [{xoff_label}]:")
@@ -982,13 +1115,13 @@ def print_detailed_results(result):
     st.log(f"PFC TX Total on {dut2} port-c:           {result.get('pfc_tx_total', 'N/A')} frames")
     pfc_rx_d_total = sum(result.get('pfc_rx_port_d_per_iteration', []))
     st.log(f"PFC RX Total on {dut2} port-d:           {pfc_rx_d_total} frames")
+    pfc_tx_a_total = sum(result.get('pfc_tx_port_a_per_iteration', []))
+    st.log(f"PFC TX Total on {dut1} port-a:           {pfc_tx_a_total} frames")
 
     # Calculated headroom
     st.log("--- Calculated Headroom ---")
     st.log(f"Port-d Speed:                   {result.get('port_d_speed', 'N/A')}G")
-    st.log(f"Full Block Rate:                {result.get('full_block_rate_fps', 'N/A')} fps")
-    st.log(f"Blocking Fraction:              {result.get('blocking_fraction', 'N/A') * 100:.0f}%")
-    st.log(f"XOFF Rate:                      {result.get('xoff_rate_fps', 'N/A')} fps")
+    st.log(f"XOFF Rate:                      {result.get('xoff_rate_fps', 'N/A')} fps (fixed)")
     st.log(f"XOFF Duration:                  {result.get('xoff_duration_sec', XOFF_DURATION_SEC)} sec")
     st.log(f"XOFF Frames Sent:               {result.get('xoff_frame_count', 'N/A')}")
     st.log(f"Headroom = (drops/pfc_tx)*frame: {result['headroom_bytes_measured']} bytes")
@@ -1210,30 +1343,106 @@ def test_headroom_sizing_speed_sweep():
                 st.warn(f"Speed {target_speed}G not in SPEED_BREAKOUT_MAP, skipping")
                 continue
 
-            # Configure breakout on both DUTs for b2b link
+            # Pre-breakout housekeeping (mirrors test_v4_pfc_brkout_b2b.py):
+            #   a) Stop and reset any TGEN traffic. Leaving traffic running
+            #      while CONFIG_DB is being rewritten by 'config interface
+            #      breakout' / 'config qos reload' leads to spurious drops and
+            #      buffer-config inconsistencies in subsequent iterations.
+            #   b) Tear down any IP currently on the (about-to-change) b2b ports
+            #      so the breakout cli is not blocked by 'Cannot remove the last
+            #      IP entry of interface ... A static ip route is still bound
+            #      to the RIF.' (seen in laguna_hr_speeds_1F_4.log).
+            try:
+                vars.tg.tg_traffic_control(action='stop')
+            except Exception as e:
+                st.log(f"  pre-breakout traffic stop warning: {e}")
+            try:
+                vars.tg.tg_traffic_control(action='reset')
+            except Exception as e:
+                st.log(f"  pre-breakout traffic reset warning: {e}")
+            _cleanup_b2b_ips()
+            st.wait(1)
+
+            # Configure breakout on both DUTs for b2b link.
+            # configure_breakout_for_speed() runs the
+            # qos clear -> breakout -> qos reload -> admin-up recipe and
+            # returns the FIRST broken-out subport name (e.g. Ethernet1_49_1),
+            # which is the only subport this test exercises. It does NOT
+            # wait for oper-up and does NOT refresh the ConfigDb cache
+            # because oper-up needs the peer to also be configured.
             st.log(f"Configuring breakout for {target_speed}G on b2b ports...")
 
-            success1, port1_b2b, _ = configure_breakout_for_speed(
+            success1, port1_b2b, _, post_list1 = configure_breakout_for_speed(
                 vars.dut1, vars.b2b_link['dut1_port'], target_speed)
-            success2, port2_b2b, _ = configure_breakout_for_speed(
+            success2, port2_b2b, _, post_list2 = configure_breakout_for_speed(
                 vars.dut2, vars.b2b_link['dut2_port'], target_speed)
 
             if not (success1 and success2):
                 st.error(f"Failed to configure breakout for {target_speed}G")
                 continue
 
+            # Now that BOTH ends are admin-up, wait for the link to come up
+            # on both peers, then refresh the per-DUT ConfigDb cache so
+            # subsequent BUFFER_PG / BUFFER_PROFILE / mmuconfig lookups
+            # (HeadroomZeroContext) see the populated buffer-manager state.
+            link_up = finalize_breakout_pair_and_load_cache(
+                vars.dut1, post_list1, vars.dut2, post_list2, timeout=180)
+            if not link_up:
+                # Record an explicit FAIL for this speed and skip the
+                # measurement. Running it on a non-forwarding link produces
+                # zero drops / zero pfc_tx, which the summary logic would
+                # otherwise report as PASS.
+                err = (f"B2B link did not reach admin+oper up at "
+                       f"{target_speed}G after 180s; skipping measurement.")
+                st.error(err)
+                all_results.append({
+                    'platform': vars.platform1,
+                    'speed_gbps': target_speed,
+                    'frame_size': DEFAULT_FRAME_SIZE,
+                    'pg_drops_total': 0,
+                    'pfc_tx_total': 0,
+                    'pfc_rx_total': 0,
+                    'headroom_bytes_measured': 0,
+                    'passed': False,
+                    'error': err,
+                })
+                continue
+
             # Note: TGEN ports are NOT changed - they stay at original breakout
             # The test rate will be limited by min(tgen_speed, b2b_speed)
 
-            # Update vars with new port names for b2b only
+            # Update vars with new port names for b2b only. Everything
+            # downstream (IP assignment, HeadroomZeroContext BUFFER_PG lookup,
+            # counter capture) reads these so they must point at the new
+            # broken-out subport (e.g. Ethernet1_49_1) rather than the parent.
             vars.b2b_link['dut1_port'] = port1_b2b
             vars.b2b_link['dut2_port'] = port2_b2b
             vars.b2b_speed = target_speed
             # Keep tgen_speed unchanged - it's the original TGEN port speed
 
-            # Clean up and reconfigure IPs on new b2b ports only
-            _cleanup_b2b_ips()
-            _configure_b2b_ips()
+            # Configure IPs on the new b2b subports. _configure_b2b_ips()
+            # uses vars.b2b_link[...], which now references the broken-out
+            # subport names set just above. The helper now returns False
+            # when L3 reachability cannot be verified - we fail the
+            # iteration in that case instead of generating garbage data.
+            if not _configure_b2b_ips():
+                err = (f"B2B ping {B2B_LINK_IPS['D3D4P1']} -> "
+                       f"{B2B_LINK_IPS['D4D3P1']} failed at "
+                       f"{target_speed}G; skipping measurement.")
+                st.error(err)
+                all_results.append({
+                    'platform': vars.platform1,
+                    'speed_gbps': target_speed,
+                    'frame_size': DEFAULT_FRAME_SIZE,
+                    'pg_drops_total': 0,
+                    'pfc_tx_total': 0,
+                    'pfc_rx_total': 0,
+                    'headroom_bytes_measured': 0,
+                    'passed': False,
+                    'error': err,
+                })
+                _cleanup_b2b_ips()
+                continue
 
             # Note: TGEN port IPs are unchanged since we didn't change TGEN breakout
 
@@ -1258,10 +1467,16 @@ def test_headroom_sizing_speed_sweep():
             st.wait(2)
 
     finally:
-        # Restore original breakout modes for b2b ports only
+        # Restore original breakout modes for b2b ports only. Same pattern
+        # as the sweep body: restore both sides FIRST (admin-up only) so the
+        # link partner is present, then wait for the link and reload caches.
         st.banner("Restoring original breakout configuration...")
-        restore_original_breakout(vars.dut1, vars.b2b_link['dut1_port'], original_mode_dut1_b2b)
-        restore_original_breakout(vars.dut2, vars.b2b_link['dut2_port'], original_mode_dut2_b2b)
+        restore_list1 = restore_original_breakout(
+            vars.dut1, vars.b2b_link['dut1_port'], original_mode_dut1_b2b)
+        restore_list2 = restore_original_breakout(
+            vars.dut2, vars.b2b_link['dut2_port'], original_mode_dut2_b2b)
+        finalize_breakout_pair_and_load_cache(
+            vars.dut1, restore_list1, vars.dut2, restore_list2, timeout=180)
         # Restore original port names
         vars.b2b_link['dut1_port'] = original_port_dut1_b2b
         vars.b2b_link['dut2_port'] = original_port_dut2_b2b

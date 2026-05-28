@@ -1065,3 +1065,140 @@ def create_pfc_xoff_stream(tg_unused, tgen_port, src_mac, rate_fps, tc=3,
         st.log(traceback.format_exc())
 
     return stream_id
+
+
+def create_pfc_xoff_burst_stream(tg_unused, tgen_port, src_mac, rate_fps,
+                                 pkts_per_burst, burst_loop_count,
+                                 inter_burst_gap_ms, tc=3, reset_port=False):
+    """
+    Create a multi-burst PFC XOFF stream with hardware-timed inter-burst gaps.
+
+    Each "burst" sends exactly ``pkts_per_burst`` PFC pause frames at
+    ``rate_fps``. Between bursts the TGEN port is silent for
+    ``inter_burst_gap_ms`` milliseconds (timed by the IxNetwork hardware,
+    not by host-side ``sleep``). The whole pattern is repeated
+    ``burst_loop_count`` times and then self-terminates.
+
+    Total transmit duration on-port is approximately:
+        burst_loop_count * (pkts_per_burst / rate_fps) +
+        (burst_loop_count - 1) * (inter_burst_gap_ms / 1000)
+
+    Use this helper to build precise XOFF on/off patterns for testing
+    PFCWD restoration timer accuracy.
+
+    Args:
+        tg_unused: Ignored (helper retrieves a fresh tg handle internally).
+        tgen_port: TGEN port name (e.g. 'T1D3P3').
+        src_mac: Source MAC address ('xx:xx:xx:xx:xx:xx').
+        rate_fps: PFC frame rate during each burst (frames per second).
+        pkts_per_burst: Number of PFC frames in each burst.
+        burst_loop_count: How many bursts to transmit (1 == single burst).
+        inter_burst_gap_ms: Gap between consecutive bursts, in milliseconds.
+            For a single-burst stream pass burst_loop_count=1 (gap is unused).
+        tc: Traffic class (0-7), default 3.
+        reset_port: If True, reset the TGEN port before creating the stream.
+            Default False so peer data streams targeting this port are kept.
+
+    Returns:
+        str: Stream ID
+    """
+    from spytest.tgen.tg import get_ixnet
+
+    PFC_DST_MAC = '01:80:C2:00:00:01'
+    PFC_ETHERTYPE = '8808'
+
+    tg_handle, port_handle = tgapi.get_handle_byname(tgen_port)
+
+    st.log(f"create_pfc_xoff_burst_stream: port={tgen_port}, "
+           f"port_handle={port_handle}")
+    st.log(f"  src_mac={src_mac} rate_fps={rate_fps} tc={tc}")
+    st.log(f"  pkts_per_burst={pkts_per_burst} "
+           f"burst_loop_count={burst_loop_count} "
+           f"inter_burst_gap_ms={inter_burst_gap_ms}")
+
+    if reset_port:
+        st.banner("Resetting port to clear existing traffic items")
+        tg_handle.tg_traffic_control(action='reset', port_handle=port_handle)
+    else:
+        st.log("Skipping port reset (reset_port=False) to preserve peer streams")
+
+    st.banner("Creating raw L2 PFC multi-burst stream")
+    tx_kwargs = dict(
+        mode='create',
+        port_handle=port_handle,
+        l2_encap='ethernet_ii',
+        mac_src=src_mac,
+        mac_dst=PFC_DST_MAC,
+        ether_type=PFC_ETHERTYPE,
+        data_pattern=PFC_TC_TABLE[tc],
+        data_pattern_mode='fixed',
+        rate_pps=rate_fps,
+        high_speed_result_analysis=1,
+        transmit_mode='multi_burst',
+        pkts_per_burst=int(pkts_per_burst),
+        burst_loop_count=int(burst_loop_count),
+        # IxNetwork only accepts 'bytes' or 'ns' for inter_burst_gap_unit;
+        # convert milliseconds to nanoseconds.
+        inter_burst_gap=int(inter_burst_gap_ms) * 1_000_000,
+        inter_burst_gap_unit='ns',
+    )
+    st.log(f"  tg_traffic_config kwargs: transmit_mode=multi_burst "
+           f"pkts_per_burst={int(pkts_per_burst)} "
+           f"burst_loop_count={int(burst_loop_count)} "
+           f"inter_burst_gap={int(inter_burst_gap_ms) * 1_000_000}ns "
+           f"(={int(inter_burst_gap_ms)}ms)")
+    result = tg_handle.tg_traffic_config(**tx_kwargs)
+    stream_id = result.get('stream_id')
+    st.log(f"Created PFC multi-burst stream: {stream_id}")
+
+    # WORKAROUND: HLTAPI doesn't properly set L2 fields for raw traffic.
+    # Same fixup as create_pfc_xoff_stream -- patch L2 header via IxNetwork
+    # low-level API.
+    st.banner("Fixing L2 header via IxNetwork API")
+    try:
+        ixnet = get_ixnet()
+
+        traffic_items = ixnet.getList('/traffic', 'trafficItem')
+        if not traffic_items:
+            st.error("No traffic items found!")
+            return stream_id
+
+        ti = traffic_items[-1]
+        st.log(f"Configuring traffic item: {ti}")
+
+        ce = ixnet.getList(ti, 'configElement')[0]
+        stacks = ixnet.getList(ce, 'stack')
+        eth_stack = stacks[0]
+        fields = ixnet.getList(eth_stack, 'field')
+
+        for f in fields:
+            if 'destinationAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', PFC_DST_MAC)
+            elif 'sourceAddress' in f:
+                ixnet.setAttribute(f, '-singleValue', src_mac)
+            elif 'etherType' in f:
+                ixnet.setAttribute(f, '-auto', 'false')
+                ixnet.setAttribute(f, '-singleValue', PFC_ETHERTYPE)
+
+        ixnet.commit()
+        st.log("IxNetwork L2 header configuration committed")
+
+        st.log("Regenerating all traffic items...")
+        for traffic_item in traffic_items:
+            ti_name = ixnet.getAttribute(traffic_item, '-name')
+            st.log(f"  Generating: {ti_name}")
+            ixnet.execute('generate', traffic_item)
+        st.log("All traffic items regenerated")
+
+        st.log("Applying traffic to hardware...")
+        ixnet.execute('apply', '/traffic')
+        st.log("Traffic applied to hardware")
+        st.wait(3)
+        st.log("Generate/apply complete")
+
+    except Exception as e:
+        st.error(f"Failed to configure L2 header via IxNetwork API: {e}")
+        import traceback
+        st.log(traceback.format_exc())
+
+    return stream_id

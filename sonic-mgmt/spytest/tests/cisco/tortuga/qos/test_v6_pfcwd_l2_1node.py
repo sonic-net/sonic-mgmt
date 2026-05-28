@@ -688,6 +688,34 @@ def pfcwd_module_setup():
     if not verify_pfcwd_config_on_port(dut, dut_ports[3]):
         st.report_fail('msg', f"PFCWD not configured on egress port {dut_ports[3]}")
 
+    # Verify PFC and PFCWD software monitoring are enabled in PORT_QOS_MAP
+    # on the egress port. ``show pfcwd config`` only reports the per-port
+    # timers; it does not tell us whether PFC is actually enabled on the
+    # port or which queues PFCWD will monitor. Without pfc_enable / 
+    # pfcwd_sw_enable containing the lossless priority, XOFF frames are
+    # silently dropped and PFCWD never fires.
+    # NOTE: pfc_enable is keyed by TC (PFC priority), pfcwd_sw_enable is
+    # keyed by HW queue index. On a non-identity TC_TO_QUEUE_MAP these
+    # differ; check each field with the value it actually stores.
+    expected_prio = lossless_cfg['tc']
+    expected_queue = lossless_cfg['queue']
+    ok, qos_info = pfcwd_utils.verify_pfc_enabled_on_port(
+        dut, dut_ports[3],
+        expected_priorities=[expected_prio],
+        expected_queues=[expected_queue],
+    )
+    if not ok:
+        st.report_fail(
+            'msg',
+            f"PFC/PFCWD not enabled correctly on {dut_ports[3]}: "
+            f"expected prio={expected_prio} in pfc_enable, "
+            f"expected queue={expected_queue} in pfcwd_sw_enable; "
+            f"pfc_enable={qos_info['pfc_priorities']} "
+            f"pfcwd_sw_enable={qos_info['pfcwd_queues']} "
+            f"missing_prio={qos_info['missing_prio']} "
+            f"missing_queue={qos_info['missing_queue']}"
+        )
+
     # Get PFCWD timing parameters
     pfcwd_timing = pfcwd_utils.get_pfcwd_timing_params(dut, dut_ports[3])
     st.log(f"PFCWD timing parameters:")
@@ -738,6 +766,15 @@ def pfcwd_module_setup():
                     f"sudo config interface ip remove {port} {addr_with_mask}",
                     skip_error_check=True,
                 )
+        # Ensure the port is in switchport mode before adding to a VLAN.
+        # If a previous test (e.g. the L3 PFCWD suite) left the port in
+        # routed mode, `config vlan member add` will fail with
+        # "Error: <port> is in routed mode! Use switchport mode command
+        # to change port mode" -- even after all IPs have been removed.
+        # Use the helper which is robust against image-specific CLI forms
+        # and FAILS LOUD if the mode change does not stick (silent failure
+        # here cascades into mysterious traffic-phase failures in CI).
+        qos_utils.set_switchport_mode(dut, port, 'access')
         st.config(
             dut,
             f"sudo config vlan member add -u {VLAN_ID} {port}",
@@ -834,7 +871,20 @@ def pfcwd_module_setup():
         )
     st.config(dut, f"sudo config vlan del {VLAN_ID}", skip_error_check=True)
 
-    # Restore original IP addresses that were removed during setup
+    # Restore original IP addresses that were removed during setup.
+    # The ports were flipped into switchport access mode during setup
+    # (so they could join the VLAN); a port in access mode rejects
+    # ``config interface ip add``, so flip each port back to routed
+    # mode before re-adding the saved L3 addresses. Without this,
+    # ``skip_error_check=True`` swallows the failure silently and
+    # subsequent tests inherit access-mode ports with no IPs.
+    for port in data.saved_port_addrs:
+        try:
+            qos_utils.set_switchport_mode(dut, port, 'routed')
+        except RuntimeError as exc:
+            # Teardown: log and continue so we still attempt IP restore on
+            # remaining ports; surfaced as WARN rather than failing teardown.
+            st.warn(f"teardown: {exc}")
     for port, addrs in data.saved_port_addrs.items():
         for addr in addrs:
             st.log(f"Restoring {addr} on {port}")

@@ -109,6 +109,73 @@ def get_dut_platform(dut):
 
 
 # ---------------------------------------------------------------------------
+# Switchport mode utilities
+# ---------------------------------------------------------------------------
+
+def get_switchport_mode(dut, port):
+    """Return current switchport mode ('access', 'trunk', 'routed', or '')
+    for ``port`` by querying CONFIG_DB PORT|<port> 'mode' field. Empty
+    string means the field is unset (SONiC default == routed).
+
+    The raw ``st.config()`` output includes the shell prompt
+    (``admin@sonic:~$``) and may include the command echo, so naive
+    ``splitlines()[-1]`` parsing returns the prompt instead of the mode.
+    Scan all lines and return the first one matching a known mode token.
+    """
+    _KNOWN_MODES = {'access', 'trunk', 'routed'}
+    out = st.config(
+        dut,
+        f"sonic-db-cli CONFIG_DB HGET 'PORT|{port}' mode",
+        skip_error_check=True,
+        skip_tmpl=True,
+    )
+    for line in (out or '').splitlines():
+        token = line.strip().lower()
+        if token in _KNOWN_MODES:
+            return token
+    return ''
+
+
+def set_switchport_mode(dut, port, desired):
+    """Set ``port`` to ``desired`` switchport mode ('access' or 'routed').
+
+    Robust against image-specific CLI variants:
+      * Idempotent: no-op if port is already in the desired mode.
+      * Tries the primary command form, then one fallback form.
+      * Verifies via CONFIG_DB that the mode actually changed.
+
+    Raises RuntimeError if neither form works -- silent failures here
+    cascade into mysterious traffic-phase failures later in CI (e.g.
+    VLAN add or IP add silently no-ops on a port stuck in the wrong
+    mode).
+    """
+    if desired not in ('access', 'routed'):
+        raise ValueError(f"unsupported switchport mode: {desired}")
+    current = get_switchport_mode(dut, port)
+    # Treat empty CONFIG_DB mode as 'routed' (SONiC default).
+    if current == desired or (desired == 'routed' and current == ''):
+        st.log(f"set_switchport_mode: {port} already in '{desired}' mode")
+        return
+    forms = [
+        f"sudo config switchport mode {desired} {port}",
+        f"sudo config interface switchport mode {desired} {port}",
+    ]
+    last_out = ''
+    for cmd in forms:
+        out = st.config(dut, cmd, skip_tmpl=True, skip_error_check=True) or ''
+        last_out = out
+        if 'Usage:' not in out and 'Error:' not in out and 'invalid' not in out.lower():
+            new_mode = get_switchport_mode(dut, port)
+            if new_mode == desired or (desired == 'routed' and new_mode == ''):
+                return
+    raise RuntimeError(
+        f"Failed to set {port} switchport mode to '{desired}' on {dut}. "
+        f"Last CLI output: {last_out!r}. CI/CD risk: silent failure here "
+        f"causes VLAN add or IP add to no-op and traffic phases to fail."
+    )
+
+
+# ---------------------------------------------------------------------------
 # PFC Headroom Buffer Utilities
 # ---------------------------------------------------------------------------
 

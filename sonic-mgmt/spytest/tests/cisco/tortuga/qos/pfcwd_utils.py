@@ -10,8 +10,62 @@ This module provides utilities for PFCWD testing including:
 Ported from sonic-mgmt/tests/common/snappi_tests/common_helpers.py
 """
 
+import ast
 import re
 from spytest import st
+
+
+# ---------------------------------------------------------------------------
+# Redis HGETALL output parser
+# ---------------------------------------------------------------------------
+
+
+def _parse_hgetall_output(output):
+    """Parse ``sonic-db-cli``/``redis-cli`` HGETALL output into a ``dict``.
+
+    Handles all three formats seen in the field:
+      * Newer ``sonic-db-cli``: a single Python-dict line
+        ``{'k': 'v', ...}`` (possibly followed by a shell prompt).
+      * ``redis-cli`` numbered output: ``1) "k"`` / ``2) "v"`` / ...
+      * Plain alternating key/value lines.
+
+    Shell-prompt trailers (``admin@sonic:~$``) are filtered so they are not
+    paired as bogus key/value entries. Returns ``{}`` when nothing parseable
+    is found.
+    """
+    if not output:
+        return {}
+
+    # Form 1: Python dict literal on its own line.
+    for raw_line in output.strip().splitlines():
+        line = raw_line.strip()
+        if line.startswith('{') and line.endswith('}'):
+            try:
+                parsed = ast.literal_eval(line)
+            except (ValueError, SyntaxError):
+                continue
+            if isinstance(parsed, dict):
+                return {str(k): str(v) for k, v in parsed.items()}
+
+    # Forms 2 & 3: numbered or alternating lines.
+    cleaned = []
+    for raw_line in output.strip().splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        # Skip shell prompts like 'admin@sonic:~$'.
+        if '@' in line and line.rstrip().endswith('$'):
+            continue
+        m = re.match(r'^\d+\)\s*(.*)$', line)
+        val = m.group(1) if m else line
+        val = val.strip('"').strip("'")
+        cleaned.append(val)
+
+    result = {}
+    for i in range(0, len(cleaned) - 1, 2):
+        result[cleaned[i]] = cleaned[i + 1]
+    return result
+
 
 # ---------------------------------------------------------------------------
 # PFCWD Configuration Management
@@ -168,6 +222,112 @@ def verify_pfcwd_config(dut, port, expected_action='drop',
     return True, f"PFCWD configured correctly on {port} (action={config['action']}, detect={config['detection_time']}ms, restore={config['restoration_time']}ms)"
 
 
+def verify_pfc_enabled_on_port(dut, port, expected_priorities=None,
+                               expected_queues=None):
+    """
+    Verify PFC and PFCWD software monitoring are enabled on a port at the
+    CONFIG_DB level by inspecting ``PORT_QOS_MAP|<port>``.
+
+    ``show pfcwd config`` only displays the per-port detection/restoration
+    timer values. It does NOT tell you whether PFC is actually enabled on
+    the port or which queues PFCWD will monitor. The authoritative source
+    is the ``PORT_QOS_MAP`` table, where:
+
+        pfc_enable       -- comma-separated PFC priorities (e.g., "3,4")
+        pfcwd_sw_enable  -- comma-separated queues PFCWD monitors (e.g., "3,4")
+
+    If a port is missing ``pfc_enable`` or doesn't include the lossless
+    priority, the DUT will silently ignore XOFF frames on that priority and
+    PFCWD will never see a storm -- even though ``show pfcwd config``
+    reports the port as configured with timers.
+
+    Args:
+        dut: DUT handle from spytest.
+        port: Port name (e.g., 'Ethernet1_60_2').
+        expected_priorities: Optional iterable of int TC priorities that
+            must appear in ``pfc_enable``. When provided, the function
+            reports any priority missing from that field.
+        expected_queues: Optional iterable of int HW queue indices that
+            must appear in ``pfcwd_sw_enable``. On platforms with a
+            non-identity ``TC_TO_QUEUE_MAP`` the TC and the queue index
+            differ; checking the TC against the queue list is wrong and
+            will spuriously fail valid configs. When omitted, defaults to
+            ``expected_priorities`` for back-compat with identity maps.
+
+    Returns:
+        tuple: (success: bool, info: dict)
+            info contains:
+              'qos_map'         -- full PORT_QOS_MAP dict (or {} if missing)
+              'pfc_priorities'  -- list[int] from pfc_enable
+              'pfcwd_queues'    -- list[int] from pfcwd_sw_enable
+              'missing_prio'    -- list[int] of expected priorities not in
+                                   pfc_enable
+              'missing_queue'   -- list[int] of expected queues not in
+                                   pfcwd_sw_enable
+              'missing'         -- legacy union (missing_prio + missing_queue)
+                                   for back-compat
+    """
+    qos_map = {}
+    try:
+        cmd = f'sonic-db-cli CONFIG_DB HGETALL "PORT_QOS_MAP|{port}"'
+        result = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
+        qos_map = _parse_hgetall_output(result)
+    except Exception as e:
+        st.log(f"verify_pfc_enabled_on_port: error reading PORT_QOS_MAP|{port}: {e}")
+        qos_map = {}
+
+    def _parse_csv_ints(value):
+        out = []
+        for tok in str(value or "").split(","):
+            tok = tok.strip()
+            if tok.isdigit():
+                out.append(int(tok))
+        return out
+
+    pfc_priorities = _parse_csv_ints(qos_map.get("pfc_enable"))
+    pfcwd_queues = _parse_csv_ints(qos_map.get("pfcwd_sw_enable"))
+
+    st.log(f"PORT_QOS_MAP|{port}:")
+    if not qos_map:
+        st.log("  <empty or missing key>")
+    else:
+        for k, v in qos_map.items():
+            st.log(f"  {k} = {v}")
+    st.log(f"  -> pfc_enable priorities: {pfc_priorities}")
+    st.log(f"  -> pfcwd_sw_enable queues: {pfcwd_queues}")
+
+    # Default expected_queues to expected_priorities for back-compat on
+    # identity-map platforms; non-identity callers must pass it explicitly.
+    if expected_queues is None and expected_priorities is not None:
+        expected_queues = expected_priorities
+
+    missing_prio = []
+    if expected_priorities is not None:
+        for prio in expected_priorities:
+            if prio not in pfc_priorities:
+                missing_prio.append(prio)
+                st.log(f"  MISSING priority {prio} from pfc_enable")
+
+    missing_queue = []
+    if expected_queues is not None:
+        for q in expected_queues:
+            if q not in pfcwd_queues:
+                missing_queue.append(q)
+                st.log(f"  MISSING queue {q} from pfcwd_sw_enable")
+
+    info = {
+        'qos_map': qos_map,
+        'pfc_priorities': pfc_priorities,
+        'pfcwd_queues': pfcwd_queues,
+        'missing_prio': missing_prio,
+        'missing_queue': missing_queue,
+        'missing': missing_prio + missing_queue,  # legacy union
+    }
+    success = (bool(qos_map) and bool(pfc_priorities) and bool(pfcwd_queues)
+               and not missing_prio and not missing_queue)
+    return success, info
+
+
 def _get_pfcwd_config_from_db(dut, scope=None):
     """
     Get PFCWD configuration from CONFIG_DB for a single key.
@@ -186,25 +346,11 @@ def _get_pfcwd_config_from_db(dut, scope=None):
         return {}
 
     try:
-        # sonic-db-cli returns a Python dict literal, e.g.
-        #   {'action': 'drop', 'detection_time': '400', 'restoration_time': '400'}
-        # or '{}' when the key is absent.
+        # Output is typically a Python dict literal on newer sonic-db-cli,
+        # but older paths emit redis-cli-style numbered or alternating lines.
         cmd = f'sonic-db-cli CONFIG_DB HGETALL "PFC_WD|{scope}"'
         result = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
-        if not result:
-            return {}
-
-        # Find the first '{' ... '}' block in the output (skip prompt/echo).
-        import re
-        import ast
-        m = re.search(r"\{.*\}", result, re.DOTALL)
-        if not m:
-            return {}
-        try:
-            parsed = ast.literal_eval(m.group(0))
-            return parsed if isinstance(parsed, dict) else {}
-        except (ValueError, SyntaxError):
-            return {}
+        return _parse_hgetall_output(result)
     except Exception as e:
         st.log(f"Error reading PFCWD config from DB for scope={scope}: {e}")
         return {}
@@ -887,3 +1033,82 @@ def configure_pfcwd_action(dut, action='drop', detection_time=400, restoration_t
     # Verify configuration was applied
     st.wait(2)
     return True
+
+
+# ---------------------------------------------------------------------------
+# Counter clear + comprehensive snapshot helpers (used by PFCWD timer tests
+# and any other PFCWD-related test that wants a clean baseline and a rich
+# per-phase counter dump).
+# ---------------------------------------------------------------------------
+
+def clear_dut_counters(dut, label=""):
+    """
+    Clear all interface / queue / PFC counters, watermarks and drops on the
+    DUT so each test starts from a clean per-port baseline.
+
+    NOTE: this does NOT reset the cumulative PFCWD `storm_detected` /
+    `storm_restored` counters reported by `pfcwd show stats` -- those are
+    not cleared by sonic-clear. Callers should take before/after deltas of
+    that pair via `get_pfcwd_stats_delta()`.
+
+    Args:
+        dut: DUT handle.
+        label: Optional phase / test label included in log messages.
+    """
+    # Local import to avoid any chance of a circular import at module load.
+    import qos_test_utils as _qos_utils
+    st.log(f"Phase '{label}': clearing DUT counters / watermarks")
+    try:
+        _qos_utils.clear_all_counters(dut)
+    except Exception as e:
+        st.warn(f"Phase '{label}': clear_all_counters failed: {e}")
+
+
+def snapshot_pfcwd_counters(dut, ingress_intf, egress_intf, tc, label=""):
+    """
+    Capture comprehensive counters around a PFCWD test phase.
+
+    Returns a dict containing PFCWD stats plus the diagnostic counters
+    recorded at the start and end of each phase:
+
+      - egress_intf (data egress / XOFF ingress on the DUT side):
+            * pfcwd stats (storm_detected / storm_restored / tx_drop / ...)
+            * queue counter (UC<tc> TX packets via capture_headroom_counters)
+            * queue watermark (UC<tc> bytes)
+            * queue drops (UC<tc>)
+            * pfc_rx[tc]  -- PFC pause frames received from TGEN
+      - ingress_intf (data ingress on the DUT side):
+            * pg_watermark (TC priority group, shared)
+            * pfc_tx[tc]  -- PFC pause frames the DUT sent upstream
+    """
+    import qos_test_utils as _qos_utils
+    snap = {
+        'label': label,
+        'pfcwd': get_pfcwd_stats_parsed(dut, egress_intf, tc),
+        'egress_queue_drops': _qos_utils.get_queue_drops_for_port(
+            dut, egress_intf, tc),
+        'egress_queue_watermark': _qos_utils.get_queue_watermark_for_port(
+            dut, egress_intf, tc),
+        'egress_pfc_rx': _qos_utils.get_pfc_rx_count(dut, egress_intf, tc),
+        'ingress_pfc_tx': _qos_utils.get_pfc_tx_count(dut, ingress_intf, tc),
+    }
+    # ingress PG watermark + ingress port counters via capture_headroom_counters
+    try:
+        ingress_caps = _qos_utils.capture_headroom_counters(
+            dut, ingress_intf, tc=tc)
+        snap['ingress_pg_watermark'] = ingress_caps.get('pg_watermark', 0)
+        snap['ingress_tx_packets'] = ingress_caps.get('tx_packets', 0)
+        snap['ingress_rx_packets'] = ingress_caps.get('rx_packets', 0)
+    except Exception as e:
+        st.warn(f"snapshot[{label}]: ingress capture failed: {e}")
+        snap['ingress_pg_watermark'] = 0
+    # Also grab egress port TX/RX packets via the same helper.
+    try:
+        egress_caps = _qos_utils.capture_headroom_counters(
+            dut, egress_intf, tc=tc)
+        snap['egress_tx_packets'] = egress_caps.get('tx_packets', 0)
+        snap['egress_rx_packets'] = egress_caps.get('rx_packets', 0)
+    except Exception as e:
+        st.warn(f"snapshot[{label}]: egress capture failed: {e}")
+    st.log(f"FULL SNAPSHOT [{label}]: {snap}")
+    return snap

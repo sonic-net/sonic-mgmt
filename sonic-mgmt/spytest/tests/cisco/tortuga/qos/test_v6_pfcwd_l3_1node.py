@@ -718,6 +718,20 @@ def pfcwd_module_setup(request):
     st.banner("Cleaning up existing IP/VLAN configuration")
     qos_utils.cleanup_config(dut)
 
+    # Ensure ports are in routed mode (not switchport/trunk mode) before
+    # adding L3 addresses. Some testbeds have ports pre-configured as
+    # trunk ports in VLANs, which must be changed to routed mode.
+    # Use the helper which tries image-specific CLI variants and FAILS
+    # LOUD if the mode change does not stick -- a silent failure here
+    # leaves the port in access/trunk mode and the following
+    # ``config interface ip add`` (skip_error_check=True) silently no-ops,
+    # so traffic phases later fail with no usable diagnostic.
+    st.banner("Setting DUT ports to routed mode")
+    for idx in (1, 2, 3):
+        port = dut_ports[idx]
+        qos_utils.set_switchport_mode(dut, port, 'routed')
+    st.wait(2)
+
     # Configure IPv6 on DUT ports (P1, P2 = ingress senders; P3 = egress).
     st.banner("Configuring IPv6 addresses on DUT ports")
     ip_cfg = ''
