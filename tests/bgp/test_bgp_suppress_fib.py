@@ -29,7 +29,7 @@ from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2'),
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
     pytest.mark.skip_check_dut_health
 ]
 
