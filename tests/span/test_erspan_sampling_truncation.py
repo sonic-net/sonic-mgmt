@@ -2,6 +2,7 @@
 Test ERSPAN sampled port mirroring with truncation on SONiC.
 '''
 
+import time
 import pytest
 import logging
 
@@ -254,7 +255,7 @@ def test_remove_erspan_session_with_sampling(
     )
 
 
-@pytest.mark.parametrize("invalid_rate", [0, 100, 255, 8388609])
+@pytest.mark.parametrize("invalid_rate", [100, 255, 8388609])
 def test_invalid_sample_rate_rejected(duthosts, rand_one_dut_hostname, invalid_rate):
     '''
     Verify CLI rejects sample_rate outside valid range (256-8388608).
@@ -282,7 +283,7 @@ def test_invalid_sample_rate_rejected(duthosts, rand_one_dut_hostname, invalid_r
                     module_ignore_errors=True)
 
 
-@pytest.mark.parametrize("invalid_size", [0, 32, 63, 9217])
+@pytest.mark.parametrize("invalid_size", [32, 63, 9217])
 def test_invalid_truncate_size_rejected(duthosts, rand_one_dut_hostname, invalid_size):
     '''
     Verify CLI rejects truncate_size outside valid range (64-9216).
@@ -310,31 +311,118 @@ def test_invalid_truncate_size_rejected(duthosts, rand_one_dut_hostname, invalid
                     module_ignore_errors=True)
 
 
+def test_sample_rate_zero_disables_sampling(duthosts, rand_one_dut_hostname):
+    """
+    Verify sample_rate=0 is accepted and semantically equivalent to omitting the flag:
+    the field MUST NOT be written to CONFIG_DB. orchagent treats absence as "no sampling".
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    session_name = "test_sr_zero"
+    try:
+        result = duthost.command(
+            "config mirror_session erspan add {} {} {} {} {} {} {} --sample_rate 0".format(
+                session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+                ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE
+            ),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "CLI should accept sample_rate=0 (disabled), got rc={} stderr={}".format(
+                result["rc"], result.get("stderr", "")
+            )
+        )
+        field = duthost.shell(
+            'redis-cli -n 4 hget "MIRROR_SESSION|{}" sample_rate'.format(session_name)
+        )["stdout"].strip()
+        pytest_assert(
+            field == "",
+            "sample_rate=0 should NOT be written to CONFIG_DB, got: {!r}".format(field)
+        )
+    finally:
+        duthost.command("config mirror_session remove {}".format(session_name),
+                        module_ignore_errors=True)
+
+
+def test_truncate_size_zero_disables_truncation(duthosts, rand_one_dut_hostname):
+    """
+    Verify truncate_size=0 is accepted and semantically equivalent to omitting the flag:
+    the field MUST NOT be written to CONFIG_DB. orchagent treats absence as "no truncation".
+    Must be paired with a valid sample_rate, since truncate_size without sample_rate is
+    rejected per HLD (see test_truncate_without_sample_rate_rejected).
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    session_name = "test_ts_zero"
+    try:
+        result = duthost.command(
+            "config mirror_session erspan add {} {} {} {} {} {} {} "
+            "--sample_rate 256 --truncate_size 0".format(
+                session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+                ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE
+            ),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result["rc"] == 0,
+            "CLI should accept truncate_size=0 (disabled), got rc={} stderr={}".format(
+                result["rc"], result.get("stderr", "")
+            )
+        )
+        field = duthost.shell(
+            'redis-cli -n 4 hget "MIRROR_SESSION|{}" truncate_size'.format(session_name)
+        )["stdout"].strip()
+        pytest_assert(
+            field == "",
+            "truncate_size=0 should NOT be written to CONFIG_DB, got: {!r}".format(field)
+        )
+    finally:
+        duthost.command("config mirror_session remove {}".format(session_name),
+                        module_ignore_errors=True)
+
+
+
 def test_truncate_without_sample_rate_rejected(duthosts, rand_one_dut_hostname):
     '''
-    Verify truncate_size without sample_rate is rejected (HLD requirement).
+    Verify truncate_size without sample_rate is rejected by orchagent (HLD requirement).
+
+    Validation is implemented in SwSS orchagent (MirrorOrch::createEntry), not in CLI.
+    CLI will accept the config and write CONFIG_DB; orchagent then rejects it as
+    task_invalid_entry, so the session never reaches STATE_DB status="active".
 
     Steps:
-        1. Attempt to create ERSPAN session with only --truncate_size (no --sample_rate)
-        2. Verify command fails
+        1. Create ERSPAN session with only --truncate_size (no --sample_rate). CLI rc must be 0.
+        2. Wait briefly for orchagent processing.
+        3. Verify STATE_DB MIRROR_SESSION_TABLE status is NOT "active".
 
-    Pass Criteria: CLI rejects the configuration since truncation requires sampling.
+    Pass Criteria: orchagent rejects the session and status never becomes active.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = "test_trunc_no_sr"
-    result = duthost.command(
-        'config mirror_session erspan add {} {} {} {} {} {} {} --truncate_size 128'.format(
-            session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
-            ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE
-        ),
-        module_ignore_errors=True
-    )
-    pytest_assert(
-        result['rc'] != 0,
-        "CLI should reject truncate_size without sample_rate"
-    )
-    duthost.command('config mirror_session remove {}'.format(session_name),
-                    module_ignore_errors=True)
+    try:
+        result = duthost.command(
+            'config mirror_session erspan add {} {} {} {} {} {} {} --truncate_size 128'.format(
+                session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+                ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE
+            ),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result['rc'] == 0,
+            "CLI should accept the command (validation is in SwSS), got rc={} stderr={}".format(
+                result['rc'], result.get('stderr', '')
+            )
+        )
+        time.sleep(2)
+        status = duthost.shell(
+            'sonic-db-cli STATE_DB HGET "MIRROR_SESSION_TABLE|{}" status'.format(session_name)
+        )['stdout'].strip()
+        pytest_assert(
+            status != 'active',
+            "Session with truncate_size but no sample_rate should not be active, got status={!r}".format(status)
+        )
+    finally:
+        duthost.command('config mirror_session remove {}'.format(session_name),
+                        module_ignore_errors=True)
 
 
 @pytest.mark.parametrize("direction", ["tx", "both"])
@@ -344,30 +432,50 @@ def test_sampling_non_rx_direction_rejected(
         skip_if_sampling_unsupported,
         direction):
     '''
-    Verify sampled mirroring only supports RX direction (HLD requirement).
+    Verify sampled mirroring only supports RX direction; non-RX is rejected by
+    orchagent (HLD requirement).
+
+    Validation is implemented in SwSS orchagent (MirrorOrch::createEntry), not in CLI.
+    CLI will accept the config and write CONFIG_DB; orchagent then rejects it as
+    task_invalid_entry, so the session never reaches STATE_DB status="active".
 
     Steps:
-        1. Attempt to create ERSPAN session with --sample_rate and direction=tx/both
-        2. Verify command fails
+        1. Create ERSPAN session with --sample_rate and direction=tx/both. CLI rc must be 0.
+        2. Wait briefly for orchagent processing.
+        3. Verify STATE_DB MIRROR_SESSION_TABLE status is NOT "active".
 
-    Pass Criteria: CLI rejects sampling for non-RX directions.
+    Pass Criteria: orchagent rejects the session and status never becomes active.
     '''
     duthost = duthosts[rand_one_dut_hostname]
     session_name = "test_non_rx_sr"
-    result = duthost.command(
-        'config mirror_session erspan add {} {} {} {} {} {} {} Ethernet0 {}'
-        ' --sample_rate 256'.format(
-            session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
-            ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE, direction
-        ),
-        module_ignore_errors=True
-    )
-    pytest_assert(
-        result['rc'] != 0,
-        "CLI should reject sample_rate with direction={} (only rx supported)".format(direction)
-    )
-    duthost.command('config mirror_session remove {}'.format(session_name),
-                    module_ignore_errors=True)
+    try:
+        result = duthost.command(
+            'config mirror_session erspan add {} {} {} {} {} {} {} Ethernet0 {}'
+            ' --sample_rate 256'.format(
+                session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+                ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE, direction
+            ),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            result['rc'] == 0,
+            "CLI should accept the command (validation is in SwSS), got rc={} stderr={}".format(
+                result['rc'], result.get('stderr', '')
+            )
+        )
+        time.sleep(2)
+        status = duthost.shell(
+            'sonic-db-cli STATE_DB HGET "MIRROR_SESSION_TABLE|{}" status'.format(session_name)
+        )['stdout'].strip()
+        pytest_assert(
+            status != 'active',
+            "Session with sample_rate + direction={} should not be active, got status={!r}".format(
+                direction, status
+            )
+        )
+    finally:
+        duthost.command('config mirror_session remove {}'.format(session_name),
+                        module_ignore_errors=True)
 
 
 def test_show_mirror_session_displays_new_columns(
@@ -417,7 +525,7 @@ def test_show_mirror_session_displays_new_columns(
                          [{'sample_rate': 256, 'truncate_size': 128},
                           {'sample_rate': 256, 'truncate_size': 256}],
                          indirect=True)
-def test_erspan_truncation_large_packet(ptfadapter, erspan_session, skip_if_truncation_unsupported):
+def test_erspan_truncation_large_packet(ptfadapter, skip_if_truncation_unsupported, erspan_session):
     '''
     Verify mirrored packet is truncated when original exceeds truncate_size.
 
@@ -459,7 +567,7 @@ def test_erspan_truncation_large_packet(ptfadapter, erspan_session, skip_if_trun
                          [{'sample_rate': 256, 'truncate_size': 128},
                           {'sample_rate': 256, 'truncate_size': 256}],
                          indirect=True)
-def test_erspan_truncation_small_packet(ptfadapter, erspan_session, skip_if_truncation_unsupported):
+def test_erspan_truncation_small_packet(ptfadapter, skip_if_truncation_unsupported, erspan_session):
     '''
     Verify packets smaller than truncate_size are mirrored without truncation.
 
@@ -501,7 +609,7 @@ def test_erspan_truncation_small_packet(ptfadapter, erspan_session, skip_if_trun
                          [{'sample_rate': 256, 'truncate_size': 128},
                           {'sample_rate': 256, 'truncate_size': 256}],
                          indirect=True)
-def test_erspan_truncation_exact_size(ptfadapter, erspan_session, skip_if_truncation_unsupported):
+def test_erspan_truncation_exact_size(ptfadapter, skip_if_truncation_unsupported, erspan_session):
     '''
     Verify behavior when packet size equals truncate_size boundary.
 
@@ -583,7 +691,7 @@ def test_erspan_no_truncation_without_config(ptfadapter, erspan_session):
                           {'sample_rate': 512},
                           {'sample_rate': 1024}],
                          indirect=True)
-def test_erspan_sampling_dataplane(ptfadapter, erspan_session, skip_if_sampling_unsupported):
+def test_erspan_sampling_dataplane(ptfadapter, skip_if_sampling_unsupported, erspan_session):
     '''
     Verify sampled mirroring rate matches expected 1:N ratio.
     Uses small rates (256/512/1024) for statistical verification.
