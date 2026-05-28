@@ -460,6 +460,7 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
         ptf_src_ip_vnet2=vnet2["ptf_src_ip"],
     )
 
+
 def test_transition_regular_to_fg_ecmp(ptfhost, common_setup_teardown):
     """Verify that a regular ECMP route can transition to FG ECMP."""
     logger.info("Running test_transition_regular_to_fg_ecmp")
@@ -516,6 +517,7 @@ def test_transition_fg_to_regular_ecmp(ptfhost, common_setup_teardown):
     changed_endpoints = [f"{ENDPOINT_BASE_IP}{i}" for i in range(5, 5 + NUM_INITIAL_ENDPOINTS)]
     set_route_tunnel_regular(duthost, changed_endpoints)
     run_regular_ecmp_ptf_test(ptfhost, changed_endpoints, setup, num_packets=NUM_FLOWS)
+
 
 def test_vxlan_fg_ecmp_mac_vni(ptfhost, common_setup_teardown):
     """

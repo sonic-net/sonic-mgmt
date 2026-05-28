@@ -67,7 +67,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         # mac_address / vni override verification params
         _expected_vni = params.get("expected_vni")
         self.expected_vni = int(_expected_vni) if _expected_vni is not None else None
-        # endpoint_to_mac is a dict {endpoint_ip: mac_string} 
+        # endpoint_to_mac is a dict {endpoint_ip: mac_string}
         self.endpoint_to_mac = params.get("endpoint_to_mac", {})
 
         self.expected_egress_ports = [int(p) for p in params.get("expected_egress_ports", [])]
@@ -85,7 +85,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         logger.info(f"send_port={self.send_port}  num_packets={self.num_packets}")
         logger.info(f"persist_map={self.persist_map}")
         logger.info("=====================================")
-
 
     def _next_ports(self):
         self.tcp_sport = (self.tcp_sport % 65534) + 1
@@ -379,7 +378,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         - Flows whose previous endpoint is unchanged (still in self.endpoints)
           must stay on the exact same endpoint
         - Flows whose previous endpoint was withdrawn may move to any current
-          endpoint 
+          endpoint
         - Every newly added endpoint must receive at least one flow.
         """
         assert self.withdrawn_endpoints, "withdrawn_endpoints param is required"
