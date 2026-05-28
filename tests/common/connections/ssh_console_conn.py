@@ -6,6 +6,7 @@ from .base_console_conn import (
     CONSOLE_SSH_RARITAN_CONFIG,
     BaseConsoleConn,
     CONSOLE_SSH,
+    CONSOLE_SSH_TO_PORT,
 )
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
@@ -32,14 +33,13 @@ class SSHConsoleConn(BaseConsoleConn):
         if self.console_type == CONSOLE_SSH:
             # Login requires port to be provided
             kwargs['username'] = kwargs['console_username'] + r':' + str(kwargs['console_port'])
+        elif self.console_type == CONSOLE_SSH_TO_PORT:
+            # Login to the per-line SSH/TCP port
+            kwargs["username"] = kwargs["console_username"]
+            kwargs["port"] = kwargs["direct_ssh_port"]
         elif self.console_type.endswith("config"):
             # Login to config menu only requires username
-            kwargs['username'] = kwargs['console_username']
-        elif self.console_type.endswith("to_port"):
-            # Login to the per-line TCP port, starting at port 10000 or 10001
-            # depending on indexing of console ports
-            kwargs['username'] = kwargs['console_username']
-            kwargs['port'] = str(10000 + int(kwargs['console_port']))
+            kwargs["username"] = kwargs["console_username"]
         else:
             # Login requires menu port
             kwargs['username'] = kwargs['console_username']
@@ -65,6 +65,25 @@ class SSHConsoleConn(BaseConsoleConn):
             # We can skip stage 2 login for config menu connections
             self.session_preparation_finalise()
             return
+
+        # Raritan and similar console servers show a "You are now master for the port" banner before
+        # handing off to the DUT serial line. Send a newline to trigger the DUT login prompt, then wait
+        # for it — don't use a fixed sleep, because console servers can buffer large amounts of
+        # prior serial output and replay it at baud rate, which can take much longer than any
+        # reasonable fixed delay before the login prompt appears.
+        if self.console_type == CONSOLE_SSH_TO_PORT and re.search(
+            r"(You are now master for the port|Escape Sequence is:)", session_init_msg, flags=re.M
+        ):
+            self.logger.debug("Detected Raritan console server, sending newline to trigger login prompt")
+            self.write_channel(self.RETURN)
+            try:
+                response = self.read_until_pattern(
+                    pattern=r"(?:user:|username|login|user name)",
+                    read_timeout=60
+                )
+                self.logger.debug(f"Got login prompt after newline: {response[-200:]}")
+            except ReadTimeout as e:
+                self.logger.warning(f"No login prompt within 60s: {e}")
 
         if (self.menu_port):
             # For devices logining via menu port, 2 additional login are needed

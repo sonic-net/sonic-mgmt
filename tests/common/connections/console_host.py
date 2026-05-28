@@ -40,6 +40,7 @@ def ConsoleHost(console_type,
                 console_username=None,
                 console_password=None,
                 console_device=None,
+                console_direct_ssh_port=None,
                 timeout_s=100,
                 supervisor_ip=None,
                 linecard_number=None,
@@ -68,5 +69,7 @@ def ConsoleHost(console_type,
         params["slot_num"] = slot_num
     if hwsku is not None:
         params["hwsku"] = hwsku
+    if console_direct_ssh_port is not None:
+        params["direct_ssh_port"] = console_direct_ssh_port
 
     return ConsoleTypeMapper[console_type](**params)

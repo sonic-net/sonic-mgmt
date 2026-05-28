@@ -47,9 +47,10 @@ class BaseConsoleConn(CiscoBaseConnection):
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = ['console_username', 'console_password',
-                     'console_host', 'console_port',
+                     'console_host', 'console_port', 'direct_ssh_port',
                      'sonic_username', 'sonic_password',
-                     'console_type', 'console_device']
+                     'console_type', 'console_device',
+                     'direct_ssh_port']
         for key in key_to_rm:
             if key in kwargs:
                 del kwargs[key]

@@ -582,6 +582,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
+    console_direct_ssh_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['direct_ssh_port']
 
     console_type = f"console_{console_type}"
     update_console_creds(creds, console_auth_type)
@@ -623,6 +624,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                console_direct_ssh_port=console_direct_ssh_port
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
