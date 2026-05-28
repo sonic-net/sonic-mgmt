@@ -575,10 +575,15 @@ class QosSaiBase(QosBase):
                         ]
                     )[0])
             else:
+                queue_key = self._get_queue_config_key(dut_asic, port, queue)
+
+                assert queue_key is not None, \
+                    "No QUEUE config found for {} queue {}".format(port, queue)
+
                 schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                     argv=[
                         "redis-cli", "-n", "4", "HGET",
-                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                        queue_key, "scheduler"
                     ]
                 )[0])
         schedWeight = six.text_type(dut_asic.run_redis_cmd(
@@ -586,6 +591,35 @@ class QosSaiBase(QosBase):
         )[0])
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
+
+    def _get_queue_config_key(self, dut_asic, port, queue):
+        """
+            Resolve the correct QUEUE CONFIG_DB key for a given port and queue.
+
+            Supports:
+            - Legacy per-queue keys: QUEUE|Ethernet0|3
+            - Range-based keys:      QUEUE|Ethernet0|0-2
+        """
+        keys = dut_asic.run_redis_cmd(
+            argv=[
+                "redis-cli", "-n", "4", "KEYS",
+                "QUEUE|{}|*".format(port)
+            ]
+        )
+        for key in keys:
+            try:
+                _, _, queue_range = key.split('|')
+                if '-' in queue_range:
+                    start, end = map(int, queue_range.split('-'))
+                    if start <= queue <= end:
+                        return key
+                else:
+                    if int(queue_range) == queue:
+                        return key
+            except (ValueError, IndexError):
+                continue
+
+        return None
 
     def __assignTestPortIps(self, mgFacts, topo, lower_tor_host):  # noqa: F811
         """
