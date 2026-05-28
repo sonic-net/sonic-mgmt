@@ -8,11 +8,10 @@ from tests.common.helpers.ptf_tests_helper import get_stream_ptf_ports
 from tests.common.helpers.ptf_tests_helper import select_random_link
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links  # noqa F401
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.helpers.srv6_helper import SRv6Packets, create_srv6_locator, del_srv6_locator, create_srv6_sid, \
-    del_srv6_sid
+from tests.common.helpers.srv6_helper import SRv6Packets
 from tests.srv6.srv6_utils import MyLocators, MySIDs, get_srv6_mysid_entry_usage, \
     enable_srv6_counterpoll, disable_srv6_counterpoll, set_srv6_counterpoll_interval, verify_srv6_counterpoll_status, \
-    verify_srv6_crm_status, ROUTE_BASE
+    verify_srv6_crm_status, ROUTE_BASE, create_all_srv6_locators_and_sids, delete_all_srv6_locators_and_sids
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,7 @@ def prepare_param(rand_selected_dut, srv6_packet_type, downstream_links, upstrea
     prepare_param = {}
     prepare_param['packet_num'] = 100
     prepare_param['router_mac'] = rand_selected_dut.facts["router_mac"]
+    prepare_param['srv6_packet_type'] = srv6_packet_type
     prepare_param['srv6_packets'] = SRv6Packets.generate_srv6_packets(MyLocators.my_locator_list, srv6_packet_type)
     prepare_param['srv6_next_header'] = SRv6Packets.srv6_next_header
 
@@ -92,18 +92,11 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         verify_srv6_counterpoll_status(rand_selected_dut, 'enable', 1000)
 
     with allure.step('Create SRv6 Locators and SIDs'):
-        for locator_param in MyLocators.my_locator_list:
-            locator_name = locator_param[0]
-            locator_prefix = locator_param[1]
-            create_srv6_locator(rand_selected_dut, locator_name, locator_prefix)
-
-        for sid_param in MySIDs.MY_SID_LIST:
-            locator_name = sid_param[0]
-            ip_addr = sid_param[1]
-            action = sid_param[2]
-            vrf = sid_param[3]
-            dscp_mode = request.param
-            create_srv6_sid(rand_selected_dut, locator_name, ip_addr, action, vrf, dscp_mode)
+        dscp_mode_test = request.config.getoption("--srv6_dscp_mode_test")
+        dscp_mode = request.param
+        if dscp_mode_test == "no_dscp_mode":
+            dscp_mode = None
+        create_all_srv6_locators_and_sids(rand_selected_dut, dscp_mode)
 
     with allure.step('Verify the CRM usage of SRv6 SID'):
         used_mysid_num = len(MySIDs.MY_SID_LIST)
@@ -119,14 +112,7 @@ def config_setup(request, rand_selected_dut, srv6_crm_total_sids, upstream_links
         verify_srv6_counterpoll_status(rand_selected_dut, 'disable')
 
     with allure.step('Delete SRv6 Locators and SIDs'):
-        for sid_param in MySIDs.MY_SID_LIST:
-            locator_name = sid_param[0]
-            ip_addr = sid_param[1]
-            del_srv6_sid(rand_selected_dut, locator_name, ip_addr)
-
-        for locator_param in MyLocators.my_locator_list:
-            locator_name = locator_param[0]
-            del_srv6_locator(rand_selected_dut, locator_name)
+        delete_all_srv6_locators_and_sids(rand_selected_dut)
 
     with allure.step('Verify the CRM usage of SRv6 SID after the test'):
         used_mysid_num = 0
@@ -146,10 +132,10 @@ def pytest_addoption(parser):
     parser.addoption(
         "--srv6_reboot_type",
         action="store",
-        choices=['random', 'reload', 'cold', 'bgp'],
+        choices=['random', 'reload', 'cold', 'warm', 'bgp'],
         default='random',
         required=False,
-        help="reboot type such as random, reload, cold, bgp"
+        help="reboot type such as random, reload, cold, warm, bgp"
     )
 
     parser.addoption(
@@ -157,6 +143,16 @@ def pytest_addoption(parser):
         action="store",
         default="srh,no_srh",
         help="SRv6 test parameters, comma separated values, default: srh,no_srh"
+    )
+
+    parser.addoption(
+        "--srv6_dscp_mode_test",
+        action="store",
+        choices=["both", "dscp_mode", "no_dscp_mode"],
+        default="both",
+        required=False,
+        help="Select SRv6 DSCP mode test scope: "
+             "'both' (default), 'dscp_mode' only, or 'no_dscp_mode' only"
     )
 
 
