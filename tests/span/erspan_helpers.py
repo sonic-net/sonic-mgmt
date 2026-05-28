@@ -23,7 +23,6 @@ OUTER_HEADER_SIZE = len(packet.Ether()) + len(packet.IP()) + len(packet.GRE())
 def build_expected_erspan_packet(mirror_session_info, router_mac, inner_pkt):
     '''
     Build an expected ERSPAN GRE packet with appropriate Mask fields.
-    Follows the everflow pattern from everflow_test_utilities.py.
 
     Args:
         mirror_session_info: dict with src_ip, dst_ip, dscp, ttl, gre_type
@@ -61,7 +60,6 @@ def build_expected_erspan_packet(mirror_session_info, router_mac, inner_pkt):
 def collect_erspan_packets(ptfadapter, gre_egress_ports, expected_mirror_pkt, timeout=15):
     '''
     Collect ERSPAN packets matching the expected pattern on gre_egress_ports.
-    Uses verify_packet_any_port in a loop (same pattern as everflow).
 
     Args:
         ptfadapter: ptfadapter fixture
