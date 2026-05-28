@@ -120,7 +120,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         config_apply_method = random.choice(["config reload", "switch reboot"])
     with allure.step("disabling all counterpolls"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
+            available_types = ConterpollHelper.get_available_counterpoll_types(asic)
+            ConterpollHelper.disable_counterpoll(asic, available_types)
 
     # verify relevant counterpolls (queue/watermark/pg-drop) are disabled
     with allure.step("Verifying initial output of {} on {} ..."
