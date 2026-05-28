@@ -1453,7 +1453,7 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
@@ -1490,7 +1490,7 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -1545,7 +1545,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1635,7 +1635,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)

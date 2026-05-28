@@ -14,7 +14,7 @@ pytestmark = [
     # and returns MACsec POST output, but POST cannot pass without a real
     # MACsec-capable ASIC.
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh"),
 ]
 
 
