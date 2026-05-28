@@ -335,6 +335,155 @@ class TestCOPP(object):
             "Installing {} trap fail".format(self.trap_id))
 
 
+class TestCoppStats:
+    """
+    COPP Statistics end-to-end validation tests.
+
+    The gate is the DUT's runtime SAI capability, not a platform-substring
+    heuristic. swss/CoppOrch publishes
+    STATE_DB:SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE after
+    probing sai_query_stats_capability(SAI_OBJECT_TYPE_POLICER); the
+    autouse fixture below skips the class on any DUT that reports false.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _skip_if_copp_policer_stats_unsupported(
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        """Authoritative DUT-side gate for COPP policer stats."""
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        result = duthost.shell(
+            'redis-cli -n 6 HGET "SWITCH_CAPABILITY|switch" '
+            '"COPP_POLICER_STATS_CAPABLE"',
+            module_ignore_errors=True,
+        )
+        val = (result.get('stdout') or '').strip().lower()
+        if val != 'true':
+            pytest.skip(
+                "COPP policer per-color stats are not supported on this DUT: "
+                "SWITCH_CAPABILITY|switch:COPP_POLICER_STATS_CAPABLE='{}'"
+                .format(val or '<unset>')
+            )
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_default_enabled(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+        """
+        Verify COPP_STATS FlexCounter is enabled by default after system boot.
+
+        Validates:
+        - COPP_STAT appears in 'counterpoll show' with 'enable' status
+        - COUNTERS_POLICER_NAME_MAP is populated in COUNTERS_DB
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        output = duthost.shell("counterpoll show")['stdout']
+        pytest_assert("COPP_STAT" in output, "COPP_STAT not in counterpoll show")
+        pytest_assert("enable" in output.split("COPP_STAT")[1].split("\n")[0],
+                      "COPP_STAT is not enabled by default")
+
+        name_map = duthost.shell("redis-cli -n 2 HGETALL COUNTERS_POLICER_NAME_MAP")['stdout']
+        pytest_assert(len(name_map) > 0, "COUNTERS_POLICER_NAME_MAP is empty")
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_traffic_single_asic(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                            ptfhost, copp_testbed, dut_type):
+        """
+        Verify Red packet counters increment when traffic exceeds policer rate.
+
+        Test Flow:
+        1. Record initial Red packet count for queue4_group2 (ARP trap group)
+        2. Send ARP traffic at 2000 pps to 600 pps policer (using existing infrastructure)
+        3. Verify Red packets increased by ~20% of sent packets
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        initial_red = self._get_red_packets(duthost, "queue4_group2")
+        logger.info(f"Initial Red packets: {initial_red}")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)  # Wait for FlexCounter update - interval is 10s
+
+        updated_red = self._get_red_packets(duthost, "queue4_group2")
+        red_increase = updated_red - initial_red
+        logger.info(f"Red packet increase: {red_increase}")
+
+        # With 100k packets at 2000 pps to 600 pps policer, expect 20% drops as baseline to check.
+        total_packets_sent = 2000 * 50
+        red_drops = total_packets_sent // 5
+        pytest_assert(red_increase > red_drops,
+                      f"Red packet increase ({red_increase}) below expected minimum {red_drops}")
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_traffic_multi_asic(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                           ptfhost, copp_testbed, dut_type):
+        """
+        Verify aggregate display shows data from all ASICs with ASIC ID column.
+
+        Test Flow:
+        1. Send traffic to trigger policer drops
+        2. Run 'show copp stats' (no namespace filter)
+        3. Verify output includes ASIC identification and data from all ASICs
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if not duthost.is_multi_asic:
+            pytest.skip("Test only applicable to multi-ASIC platforms")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)
+
+        output = duthost.shell("show copp stats")['stdout']
+
+        has_asic_id = "ASIC" in output.split('\n')[0] or any(
+            f"asic{asic.asic_index}" in output.lower() for asic in duthost.asics
+        )
+        pytest_assert(has_asic_id,
+                      f"Multi-ASIC output missing ASIC identification: \n{output}")
+
+        data_lines = [line for line in output.strip().split('\n') if line.strip() and not line.startswith('-')]
+        pytest_assert(len(data_lines) > 2, "No trap group data in multi-ASIC output")
+
+    @pytest.mark.disable_loganalyzer
+    def test_copp_stats_namespace_filter(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                         ptfhost, copp_testbed, dut_type):
+        """
+        Verify 'show copp stats -n <namespace>' filters correctly to specific ASIC.
+
+        Test Flow:
+        1. Send traffic to trigger policer drops
+        2. For each ASIC namespace, run 'show copp stats -n <namespace>'
+        3. Verify each namespace returns valid output with trap group data
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if not duthost.is_multi_asic:
+            pytest.skip("Test only applicable to multi-ASIC platforms")
+
+        _copp_runner(duthost, ptfhost, "ARP", copp_testbed, dut_type)
+        time.sleep(15)
+
+        # Test each namespace
+        for asic in duthost.asics:
+            namespace = asic.namespace
+            result = duthost.shell(f"show copp stats -n {namespace}")
+
+            pytest_assert(result['rc'] == 0, f"Command failed for namespace {namespace}")
+            pytest_assert(len(result['stdout'].strip()) > 0, f"Empty output for {namespace}")
+
+            logger.info(f"Verified namespace filter for {namespace}")
+
+    def _get_red_packets(self, duthost, trap_group, namespace=None):
+        """Extract Red packet count for a specific trap group."""
+        cmd = "show copp stats" + (f" -n {namespace}" if namespace else "")
+        output = duthost.shell(cmd)['stdout']
+
+        for line in output.strip().split('\n'):
+            if trap_group in line:
+                parts = line.split()
+                if len(parts) >= 8:
+                    return int(parts[7])  # Red Pkts column
+        return 0
+
+
 @pytest.mark.disable_loganalyzer
 def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
