@@ -11,28 +11,21 @@ STATE_DB capabilities; helpers normalize hyphen spellings to those names.
 """
 
 import pytest
-import random
 import time
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from_option, get_encap_type_from_option, \
-    get_reboot_type_from_option, PACKET_TYPE_CAPABILITIES, check_global_hash_config, startup_interface, \
-    get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
-    PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, get_global_hash_config,  \
-    remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
-from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
-from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
+from generic_hash_helper import (
+    get_interfaces_for_test,
+    check_default_route,
+    generate_test_params,
+    PTF_QLEN,
+)
 from tests.common.utilities import wait_until
-from tests.common.errors import RunAnsibleModuleFail
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa F401
 
 PTF_LOG_PATH = "/tmp/generic_hash_test.generic_hash_packet_type_test.log"
 
@@ -141,6 +134,7 @@ def _get_asic_packet_type_caps(duthost):
         'ecmp': caps.get('ecmp_pkt_types', []),
         'lag': caps.get('lag_pkt_types', []),
     }
+
 
 def check_packet_type_hash_capabilities(duthost):
     """
@@ -376,6 +370,7 @@ def generate_packet_type_test_params(duthost, tbinfo, mg_facts, packet_type, has
 
     return ptf_params
 
+
 def skip_if_no_multimember_lag(
         duthost,
         mg_facts,
@@ -387,6 +382,7 @@ def skip_if_no_multimember_lag(
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope='module')
 def packet_type_capabilities(rand_selected_dut):
@@ -491,7 +487,7 @@ def restore_packet_type_hash_config(rand_selected_dut):
 )
 def test_hash_field_distribution_ip(rand_selected_dut, tbinfo, ptfhost, mg_facts,
                                     packet_type_capabilities, restore_packet_type_hash_config,
-                                    toggle_all_aa_ports_to_rand_selected_tor,  # noqa: F811
+                                    toggle_all_aa_ports_to_rand_selected_tor,
                                     hash_mode, ecmp_hash, lag_hash):
     """
     Verify non-RDMA IP hash field impact on traffic distribution.
@@ -611,7 +607,6 @@ def test_hash_field_distribution_ip(rand_selected_dut, tbinfo, ptfhost, mg_facts
         "Default route is not available",
     )
 
-
     ptf_runner(
         ptfhost,
         "ptftests",
@@ -623,6 +618,7 @@ def test_hash_field_distribution_ip(rand_selected_dut, tbinfo, ptfhost, mg_facts
         socket_recv_size=16384,
         is_python3=True,
     )
+
 
 @pytest.mark.parametrize(
     "hash_mode,ecmp_hash,lag_hash",
@@ -639,7 +635,7 @@ def test_pkt_type_hash_priority_and_override(
     mg_facts,
     packet_type_capabilities,
     restore_packet_type_hash_config,
-    toggle_all_aa_ports_to_rand_selected_tor,  # noqa: F811
+    toggle_all_aa_ports_to_rand_selected_tor,
     hash_mode,
     ecmp_hash,
     lag_hash,
@@ -771,7 +767,7 @@ def test_pkt_type_hash_priority_and_override(
 def test_pkt_type_hash_config_persistence_reload(
     rand_selected_dut, tbinfo, ptfhost, localhost, mg_facts,
     packet_type_capabilities, restore_packet_type_hash_config,
-    toggle_all_aa_ports_to_rand_selected_tor,  # noqa: F811
+    toggle_all_aa_ports_to_rand_selected_tor,
     hash_mode, ecmp_hash, lag_hash
 ):
     """
@@ -988,6 +984,7 @@ def test_pkt_type_hash_config_persistence_reload(
             is_python3=True,
         )
 
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize(
     "hash_mode,ecmp_hash,lag_hash",
@@ -1000,7 +997,7 @@ def test_pkt_type_hash_config_persistence_reload(
 def test_pkt_type_warm_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_facts,
                             packet_type_capabilities, restore_packet_type_hash_config,
                             toggle_all_aa_ports_to_rand_selected_tor,
-                            hash_mode, ecmp_hash, lag_hash):  # noqa: F811
+                            hash_mode, ecmp_hash, lag_hash):
     """
     Validate warm boot with packet type hash for ECMP/LAG.
 
@@ -1150,6 +1147,7 @@ def test_pkt_type_warm_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_fa
             is_python3=True,
         )
 
+
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize(
     "hash_mode,ecmp_hash,lag_hash",
@@ -1162,7 +1160,7 @@ def test_pkt_type_warm_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_fa
 def test_pkt_type_fast_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_facts,
                             packet_type_capabilities, restore_packet_type_hash_config,
                             toggle_all_aa_ports_to_rand_selected_tor,
-                            hash_mode, ecmp_hash, lag_hash):  # noqa: F811
+                            hash_mode, ecmp_hash, lag_hash):
     """
     Validate fast boot with packet type hash for ECMP/LAG.
 

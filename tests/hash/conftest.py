@@ -1,6 +1,19 @@
 """
-    Pytest configuration used by the read generic hash tests.
+    Pytest configuration used by the generic hash tests.
 """
+
+from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+
+pytest_plugins = [
+    'generic_hash_helper',
+]
+
+# Referenced so pytest discovers these fixtures from other modules.
+_FIXTURES = (
+    toggle_all_aa_ports_to_rand_selected_tor,
+    copy_ptftests_directory,
+)
 
 
 def pytest_addoption(parser):

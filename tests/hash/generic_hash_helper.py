@@ -104,6 +104,7 @@ PACKET_TYPE_CAPABILITIES = {
     'default': DEFAULT_PACKET_TYPE_CAPABILITIES,
 }
 
+
 def _normalize_packet_type_token(token):
     """Normalize packet-type tokens from SWITCH_CAPABILITY to canonical form.
 
@@ -181,6 +182,7 @@ def get_runtime_packet_type_capabilities(duthost):
         capabilities['lag'] = sorted(lag_set)
 
     return capabilities
+
 
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
