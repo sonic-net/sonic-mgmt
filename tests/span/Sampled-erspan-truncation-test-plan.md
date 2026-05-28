@@ -175,8 +175,26 @@ sudo config mirror_session remove <name>
 
 #### Test case test_truncate_without_sample_rate_rejected
 **Objective:** Per HLD, `truncate_size` may not be configured without `sample_rate`.
+Validation is enforced by orchagent (`MirrorOrch::createEntry`), not by the CLI: the CLI
+accepts the value and writes CONFIG_DB, but orchagent rejects the entry so the session
+never reaches `STATE_DB status="active"`.
 
-**Pass criteria:** CLI exits non-zero with a clear error message; no entry written.
+**Pass criteria:** CLI exits 0 (CONFIG_DB written), but STATE_DB MIRROR_SESSION_TABLE
+status never becomes `active` within the polling window.
+
+#### Test case test_sample_rate_zero_disables_sampling
+**Objective:** `--sample_rate 0` is accepted by the CLI and semantically equivalent to
+omitting the flag (orchagent treats absence as "no sampling").
+
+**Pass criteria:** CLI exits 0; `sample_rate` field is **not** written to CONFIG_DB
+(redis hget returns empty).
+
+#### Test case test_truncate_size_zero_disables_truncation
+**Objective:** `--truncate_size 0` is accepted by the CLI and semantically equivalent
+to omitting the flag. Must be paired with a valid `sample_rate` (see
+`test_truncate_without_sample_rate_rejected`).
+
+**Pass criteria:** CLI exits 0; `truncate_size` field is **not** written to CONFIG_DB.
 
 #### Test case test_sampling_non_rx_direction_rejected
 **Objective:** Sampling is only valid for direction `rx` (ingress).
@@ -232,39 +250,58 @@ of size.
 
 ### Dataplane: sampling
 
+Dataplane collection methodology (shared by all sampling/truncation tests):
+mirrored GRE packets are captured on the collector port with `ptfadapter.dataplane.poll()`
+and identified by a 3-tuple match on the outer headers — `outer IP.src == session.src_ip`,
+`outer IP.dst == session.dst_ip`, and `GRE.proto == session.gre_type`. This three-tuple
+uniquely identifies frames from the session under test and is robust against ASIC-specific
+ERSPAN encapsulation differences (e.g. extra ERSPAN II/III header bytes between GRE and
+the inner frame).
+
 #### Test case test_erspan_sampling_dataplane
-**Objective:** With `sample_rate=N`, approximately 1/N of packets are mirrored.
+**Objective:** With `sample_rate=N`, approximately 1 of every N packets is mirrored.
+
+**Parametrized rates:** `1:256`, `1:512`, `1:1024` (small rates chosen so the test
+completes quickly while still being statistically meaningful).
 
 **Steps:**
-- Configure `sample_rate=256`.
-- Send 10000 ICMP packets on the source port.
-- Count GRE-encapsulated packets received on the collector port.
+- Configure `sample_rate=N`.
+- Send `NUM_SAMPLES * N` ICMP packets on the source port, where `NUM_SAMPLES = 100`,
+  so the expected mirrored count is `~NUM_SAMPLES = 100` regardless of `N`.
+- Collect GRE-encapsulated packets on the collector port using the 3-tuple match above.
 
-**Pass criteria:** Observed mirror count is within a statistical tolerance (e.g. +/-50%) of the
-expected count `10000/256`.
+**Pass criteria:** Observed mirror count is within `[75, 125]` (`NUM_SAMPLES +- 25%`).
+The tolerance corresponds to ~2.5 sigma under a binomial approximation
+(`sigma = sqrt(NUM_SAMPLES) = 10`); single-run flake rate ~1.2% (~0.0002% with
+`@pytest.mark.flaky(reruns=3)`), while still detecting any `sample_rate` misprogramming
+of >=33% (covers all integer-multiple SAI errors, e.g. 1:256 silently programmed as 1:512).
 
 #### Test case test_erspan_sampling_config_high_rate
-**Objective:** The maximum supported sample rate (`8388608`) is accepted and the dataplane
-operates without errors.
+**Objective:** A large sample rate (`1:50000`) is accepted by CLI and stored in
+CONFIG_DB. This is a **config-only** test — dataplane verification at this rate would
+require millions of packets and is left to scale testing.
 
-**Pass criteria:** Session is created successfully; no orchagent / syncd errors observed.
+**Pass criteria:** CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`; no
+orchagent / syncd errors observed.
 
 #### Test case test_erspan_no_sampling_without_config
 **Objective:** When `sample_rate` is not configured, every packet is mirrored (no sampling).
 
-**Steps:** Send 100 packets without sample_rate configured.
+**Steps:** Send 100 packets without `sample_rate` configured; collect on the collector port.
 
-**Pass criteria:** All 100 packets observed on the collector (no loss attributable to sampling).
+**Pass criteria:** Mirrored count `>= 90` (90% of sent). The 10% headroom absorbs
+unrelated dataplane noise; sampling would reduce the count far below this threshold.
 
 ### Dataplane: combined sampling and truncation
 
 #### Test case test_erspan_sampling_with_truncation
 **Objective:** Sampling and truncation can be active simultaneously and independently.
 
-**Steps:** Configure `sample_rate=256` + `truncate_size=128`; send 10000 large packets.
+**Steps:** Configure `sample_rate=256` + `truncate_size=128`; send `NUM_SAMPLES * 256`
+large packets.
 
-**Pass criteria:** Observed mirror count is approximately 10000/256 AND each captured mirror
-is truncated to 128 bytes.
+**Pass criteria:** Observed mirror count within `[75, 125]` AND each captured mirror is
+truncated to 128 bytes (inner-payload length).
 
 ### Backward compatibility
 

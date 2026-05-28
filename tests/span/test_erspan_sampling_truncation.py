@@ -13,7 +13,6 @@ from erspan_helpers import (
     MIN_EXPECTED_SAMPLES,
     MAX_EXPECTED_SAMPLES,
     OUTER_HEADER_SIZE,
-    build_expected_erspan_packet,
     collect_erspan_packets,
 )
 from tests.span.conftest import (
@@ -380,7 +379,6 @@ def test_truncate_size_zero_disables_truncation(duthosts, rand_one_dut_hostname)
                         module_ignore_errors=True)
 
 
-
 def test_truncate_without_sample_rate_rejected(duthosts, rand_one_dut_hostname):
     '''
     Verify truncate_size without sample_rate is rejected by orchagent (HLD requirement).
@@ -540,19 +538,15 @@ def test_erspan_truncation_large_packet(ptfadapter, skip_if_truncation_unsupport
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=1500, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
-    )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
     )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=5)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=5)
     pytest_assert(len(packets) > 0, "No ERSPAN packets received on GRE egress port")
 
     for pkt_bytes in packets:
@@ -582,19 +576,15 @@ def test_erspan_truncation_small_packet(ptfadapter, skip_if_truncation_unsupport
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=64, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
-    )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
     )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=5)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=5)
     pytest_assert(len(packets) > 0, "No ERSPAN packets received on GRE egress port")
 
     for pkt_bytes in packets:
@@ -623,20 +613,16 @@ def test_erspan_truncation_exact_size(ptfadapter, skip_if_truncation_unsupported
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
     truncate_size = erspan_session['truncate_size']
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=truncate_size, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
     )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
-    )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=5)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=5)
     pytest_assert(len(packets) > 0, "No ERSPAN packets received on GRE egress port")
     logger.info("Exact-size test: original=%dB, mirrored=%dB",
                 truncate_size, len(packets[0]))
@@ -658,19 +644,15 @@ def test_erspan_no_truncation_without_config(ptfadapter, erspan_session):
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=1500, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
-    )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
     )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=5)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=5)
     pytest_assert(len(packets) > 0, "No ERSPAN packets received on GRE egress port")
 
     for pkt_bytes in packets:
@@ -685,7 +667,6 @@ def test_erspan_no_truncation_without_config(ptfadapter, erspan_session):
 # Group 4: Sampling Data-Plane Tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.flaky(reruns=3)
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256},
                           {'sample_rate': 512},
@@ -710,21 +691,17 @@ def test_erspan_sampling_dataplane(ptfadapter, skip_if_sampling_unsupported, ers
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
     total_packets = NUM_SAMPLES * sample_rate
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=100, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
-    )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
     )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt, count=total_packets)
     logger.info("Sent %d packets from port %d", total_packets, src_port)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=20)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=20)
     mirrored_count = len(packets)
 
     logger.info(
@@ -790,20 +767,16 @@ def test_erspan_no_sampling_without_config(ptfadapter, erspan_session):
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
     num_packets = 100
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=100, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
     )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
-    )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt, count=num_packets)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=10)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=10)
     mirrored_count = len(packets)
     min_expected = int(0.9 * num_packets)
     pytest_assert(
@@ -817,7 +790,6 @@ def test_erspan_no_sampling_without_config(ptfadapter, erspan_session):
 # Group 5: Combined Sampling + Truncation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.flaky(reruns=3)
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256, 'truncate_size': 128}],
                          indirect=True)
@@ -842,20 +814,16 @@ def test_erspan_sampling_with_truncation(
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
     total_packets = NUM_SAMPLES * sample_rate
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=1500, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
     )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
-    )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt, count=total_packets)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=20)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=20)
     mirrored_count = len(packets)
 
     logger.info("Combined test: rate=1:%d, sent=%d, mirrored=%d",
@@ -905,21 +873,17 @@ def test_erspan_session_remove_stops_mirroring(
     src_port = erspan_session['source_index']
     gre_ports = [erspan_session['gre_egress_index']]
     src_mac = ptfadapter.dataplane.get_mac(0, src_port)
-    router_mac = erspan_session['router_mac']
 
     duthost.command('config mirror_session remove {}'.format(erspan_session['session_name']))
 
     inner_pkt = testutils.simple_tcp_packet(
         pktlen=100, eth_src=src_mac, eth_dst='ff:ff:ff:ff:ff:ff'
     )
-    expected = build_expected_erspan_packet(
-        erspan_session['mirror_session_info'], router_mac, inner_pkt
-    )
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, inner_pkt, count=1000)
 
-    packets = collect_erspan_packets(ptfadapter, gre_ports, expected, timeout=3)
+    packets = collect_erspan_packets(ptfadapter, gre_ports, erspan_session['mirror_session_info'], timeout=3)
     pytest_assert(
         len(packets) == 0,
         "Should not receive ERSPAN packets after session removal, got {}".format(len(packets))
