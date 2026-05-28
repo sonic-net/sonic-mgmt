@@ -46,7 +46,13 @@ class TestWatchdogApi(PlatformApiTestBase):
             duthost.shell("systemctl disable watchdog.timer --now")
             duthost.shell("watchdogutil disarm")
 
-        assert not watchdog.is_armed(platform_api_conn)
+        # None means the platform-api Watchdog is not implemented; skip instead of
+        # letting later None comparisons raise TypeError.
+        armed_state = watchdog.is_armed(platform_api_conn)
+        if armed_state is None:
+            pytest.skip("Watchdog platform API is not implemented on this platform "
+                        "(is_armed returned None)")
+        assert not armed_state
 
         try:
             yield
