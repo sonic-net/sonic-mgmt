@@ -10,11 +10,11 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
-    shutdown_lag_members, restore_original_config
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import manage_lag_config        # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
@@ -891,6 +891,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             request,
             fake_storm,
             setup_pfc_test,
+            manage_lag_config,  # noqa: F811
             setup_dut_test_params,
             enum_fanout_graph_facts,  # noqa: F811
             ptfhost,
@@ -982,7 +983,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self,
             request,
             fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
@@ -1075,7 +1077,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self,
             request,
             fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             fanouthosts, dualtor_ports,  # noqa: F811
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
@@ -1177,7 +1180,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_port_toggle(
             self, request, fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,   # noqa: F811
@@ -1294,10 +1298,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             restore_time = min(restore_time, 1000)
         detect_time = self.timers['pfc_wd_detect_time']
         queue = self.pfc_wd['queue_index']
-        rx_port = self.pfc_wd['rx_port'][0]
-        asic_ns_option = dut.get_port_asic_instance(rx_port).cli_ns_option
 
-        dut.shell("sudo config interface {} pfc priority {} {} off".format(asic_ns_option, rx_port, queue))
         start_wd_on_ports(dut, port, restore_time, detect_time, action)
         send_tx_egress(self.traffic_inst, action, False, async_mode=True, pkt_count=5000000)
 
@@ -1342,14 +1343,14 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 counter, port, queue))
 
         finally:
+            self.ptf.shell("pkill -f 'pfc_wd.PfcWdTest'", module_ignore_errors=True)
             self.storm_hndle.stop_storm()
-            dut.shell("sudo config interface {} pfc priority {} {} on".format(asic_ns_option, rx_port, queue))
             pytest_assert(
                 wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
                            dut, port, queue, "restored"),
                 "PFC storm was not restored on port {} queue {}".format(port, queue))
 
-    def test_pfcwd_storm_during_traffic(self, setup_pfc_test, tbinfo, nbrhosts,
+    def test_pfcwd_storm_during_traffic(self, request, setup_pfc_test, manage_lag_config,    # noqa: F811
                                         setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                                         duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
         """
@@ -1392,12 +1393,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         port = list(self.ports.keys())[0]
 
-        # Force traffic over a single LAG member when test_port is a portchannel
-        # so the per-port tx_drop_count assertion is hashing-deterministic.
-        # No-op when test_port_type != 'portchannel'.
-        vm_host, neigh_port_channel, min_links = shutdown_lag_members(
-            duthost, port, tbinfo, nbrhosts, self.ports)
-
         logger.info("--- Testing pfcwd storm during traffic on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
@@ -1413,23 +1408,26 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         else:
             actions = ['drop', 'forward']
 
-        try:
-            for action in actions:
-                logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
-                    port, action))
-                try:
-                    self.set_traffic_action(duthost, action)
-                    self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
-                finally:
-                    if self.storm_hndle:
-                        self.storm_hndle.stop_storm()
-                    self.dut.command("pfcwd stop")
-        finally:
-            restore_original_config(
-                duthost, port, vm_host, neigh_port_channel, min_links, self.ports)
+        failures = []
+        for action in actions:
+            logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
+                port, action))
+            try:
+                self.set_traffic_action(duthost, action)
+                self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
+            except Exception as e:
+                logger.error("Action '{}' failed: {}".format(action, e))
+                failures.append((action, str(e)))
+            finally:
+                if self.storm_hndle:
+                    self.storm_hndle.stop_storm()
+                self.dut.command("pfcwd stop")
+        if failures:
+            pytest_assert(False, "Actions failed: {}".format(failures))
 
     def test_pfcwd_no_traffic(
-            self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            self, request, setup_pfc_test, manage_lag_config,                                           # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,                                             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa: F811

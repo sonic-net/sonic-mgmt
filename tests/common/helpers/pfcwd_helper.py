@@ -982,3 +982,37 @@ def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel,
 
     config_reload(duthost, config_source='config_db', safe_reload=True,
                   check_intf_up_ports=True, wait_for_bgp=True)
+
+
+def _is_multi_member_lag(duthost, port, ports):
+    if ports[port]['test_port_type'] != 'portchannel':
+        return False
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="persistent"
+    )['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return any(port in members and len(members) > 1 for members in pc_members.values())
+
+
+@pytest.fixture(scope='module')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """LAG config resource manager for PFCwd tests.
+
+    Setup: shuts down extra LAG members so only the selected port remains active.
+    Teardown: restores the original config_db; runs even on test failure.
+    Yields (vm_host, neigh_port_channel, min_links). Skips setup/teardown when
+    the selected port is not in a multi-member portchannel.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+
+    if not _is_multi_member_lag(duthost, port, ports):
+        yield None, None, None
+        return
+
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
+    try:
+        yield vm_host, neigh_port_channel, min_links
+    finally:
+        restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
