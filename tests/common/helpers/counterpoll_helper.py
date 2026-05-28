@@ -1,3 +1,5 @@
+import logging
+
 from tests.common.constants import CounterpollConstants
 
 
@@ -41,12 +43,48 @@ class ConterpollHelper:
     @staticmethod
     def disable_counterpoll(duthost, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+            result = duthost.command(
+                CounterpollConstants.COUNTERPOLL_DISABLE.format(
+                    counterpoll_type),
+                module_ignore_errors=True)
+            if result['rc'] != 0:
+                stdout = result.get('stdout', '').lower()
+                stderr = result.get('stderr', '').lower()
+                if 'not supported' in stdout or \
+                        'not supported' in stderr:
+                    logging.warning(
+                        "Counterpoll type '%s' not supported "
+                        "on this platform, skipping",
+                        counterpoll_type)
+                else:
+                    raise Exception(
+                        "Failed to disable counterpoll "
+                        "'{}': rc={}".format(
+                            counterpoll_type,
+                            result['rc']))
 
     @staticmethod
     def enable_counterpoll(duthost, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+            result = duthost.command(
+                CounterpollConstants.COUNTERPOLL_ENABLE.format(
+                    counterpoll_type),
+                module_ignore_errors=True)
+            if result['rc'] != 0:
+                stdout = result.get('stdout', '').lower()
+                stderr = result.get('stderr', '').lower()
+                if 'not supported' in stdout or \
+                        'not supported' in stderr:
+                    logging.warning(
+                        "Counterpoll type '%s' not supported "
+                        "on this platform, skipping",
+                        counterpoll_type)
+                else:
+                    raise Exception(
+                        "Failed to enable counterpoll "
+                        "'{}': rc={}".format(
+                            counterpoll_type,
+                            result['rc']))
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):
