@@ -176,6 +176,7 @@ class GenerateGoldenConfigDBModule(object):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(required=False, type='dict', default=None),
                                     port_speeds=dict(required=False, type='dict', default=None),
+                                    port_override_from_links=dict(required=False, type='bool', default=False),
                                     macsec_profile=dict(required=False, type='str', default=None),
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
@@ -193,12 +194,13 @@ class GenerateGoldenConfigDBModule(object):
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.port_speeds = self.module.params['port_speeds']
+        self.port_override_from_links = self.module.params['port_override_from_links']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
         self.platform, dut_hwsku = device_info.get_platform_and_hwsku()
-        # Use DUT's own hwsku as fallback when playbook doesn't provide one
-        if not self.hwsku and dut_hwsku:
+        # Use DUT's own hwsku as fallback only when port override is active
+        if self.port_override_from_links and not self.hwsku and dut_hwsku:
             self.hwsku = dut_hwsku
 
         self.vm_configuration = self.module.params['vm_configuration']
@@ -1249,8 +1251,9 @@ class GenerateGoldenConfigDBModule(object):
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
 
-        # Rebuild PORT table from port_speeds + platform.json when provided
-        config = self.override_port_table_from_platform(config)
+        # Rebuild PORT table from port_speeds + platform.json when port override is active
+        if self.port_override_from_links:
+            config = self.override_port_table_from_platform(config)
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
@@ -1288,30 +1291,21 @@ class GenerateGoldenConfigDBModule(object):
                 }
             })
 
-        # Ensure DEVICE_METADATA always includes hwsku — config override-config-table
-        # replaces the entire table, so missing fields (like hwsku) get wiped on the DUT.
-        # When port_speeds is provided, always overwrite hwsku with the value from
-        # devices.csv since the breakout layout has changed.
-        config_dict = json.loads(config)
-        if "DEVICE_METADATA" not in config_dict:
-            config_dict["DEVICE_METADATA"] = {}
-        if "localhost" not in config_dict["DEVICE_METADATA"]:
-            config_dict["DEVICE_METADATA"]["localhost"] = {}
-        dm = config_dict["DEVICE_METADATA"]["localhost"]
-        if self.port_speeds and self.hwsku:
-            dm["hwsku"] = self.hwsku
-        elif not dm.get("hwsku"):
-            hwsku = self.hwsku
-            if not hwsku:
-                rc, out, _ = self.module.run_command(
-                    "sonic-cfggen -d -v 'DEVICE_METADATA[\"localhost\"][\"hwsku\"]'")
-                if rc == 0 and out.strip():
-                    hwsku = out.strip()
-            if hwsku:
-                dm["hwsku"] = hwsku
-        if not dm.get("platform") and self.platform:
-            dm["platform"] = self.platform
-        config = json.dumps(config_dict, indent=4)
+        # When port override is active, ensure DEVICE_METADATA includes hwsku and
+        # platform — config override-config-table replaces the entire table, so
+        # missing fields get wiped on the DUT.
+        if self.port_override_from_links and self.port_speeds:
+            config_dict = json.loads(config)
+            if "DEVICE_METADATA" not in config_dict:
+                config_dict["DEVICE_METADATA"] = {}
+            if "localhost" not in config_dict["DEVICE_METADATA"]:
+                config_dict["DEVICE_METADATA"]["localhost"] = {}
+            dm = config_dict["DEVICE_METADATA"]["localhost"]
+            if self.hwsku:
+                dm["hwsku"] = self.hwsku
+            if not dm.get("platform") and self.platform:
+                dm["platform"] = self.platform
+            config = json.dumps(config_dict, indent=4)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)

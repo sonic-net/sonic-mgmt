@@ -913,6 +913,7 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
+          port_override_from_links: "{{ port_override_from_links | default(false) | bool }}"
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
