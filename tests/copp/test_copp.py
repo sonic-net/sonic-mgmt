@@ -44,7 +44,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "lt2", "ft2")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "m0", "mx", "m1", "lt2", "ft2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
