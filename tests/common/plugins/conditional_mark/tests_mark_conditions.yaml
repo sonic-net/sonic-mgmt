@@ -4380,9 +4380,8 @@ qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
     reason: "This test is only for Mellanox."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type not in ['mellanox']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
