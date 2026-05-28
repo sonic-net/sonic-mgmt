@@ -6,7 +6,8 @@ import pytest
 import logging
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, wait_until
+from tests.common.helpers.assertions import pytest_assert as _pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +267,16 @@ def setup_erspan_route(duthosts, rand_one_dut_hostname, ptfhost, erspan_ports):
     dut_intf_ip = "192.168.200.1/30"
     nexthop_ip = "192.168.200.2"
 
+    # Pre-cleanup: idempotent removal of any leftover state from a previous crashed run.
+    duthost.command('vtysh -c "configure terminal" -c "no ip route {} {}"'.format(
+        ERSPAN_DST_PREFIX, nexthop_ip), module_ignore_errors=True)
+    duthost.command('ip neigh del {} dev {}'.format(nexthop_ip, egress_port),
+                    module_ignore_errors=True)
+    duthost.command('config interface ip remove {} {}'.format(egress_port, dut_intf_ip),
+                    module_ignore_errors=True)
+    duthost.command('config vlan member add {} {} --{}'.format(vlan, egress_port, tagging_mode),
+                    module_ignore_errors=True)
+
     duthost.command('config vlan member del {} {}'.format(vlan, egress_port))
     duthost.command('config interface ip add {} {}'.format(egress_port, dut_intf_ip))
     duthost.command('vtysh -c "configure terminal" -c "ip route {} {}"'.format(
@@ -324,12 +335,45 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
     if truncate_size is not None:
         cmd += ' --truncate_size {}'.format(truncate_size)
 
+    # Pre-cleanup: idempotent removal of any leftover mirror session from a previous crashed run.
+    duthost.command('config mirror_session remove {}'.format(ERSPAN_SESSION_NAME),
+                    module_ignore_errors=True)
+
     logger.info("Creating ERSPAN session: %s", cmd)
     duthost.command(cmd)
 
+    # CONFIG_DB sanity
     output = duthost.shell("show mirror_session")
+    logger.info("show mirror_session \n%s", output['stdout'])
     assert ERSPAN_SESSION_NAME in output['stdout'], \
         "Mirror session {} not found after creation".format(ERSPAN_SESSION_NAME)
+
+    # Wait for STATE_DB to converge: status=active AND monitor_port matches gre_egress
+    expected_monitor = erspan_ports['gre_egress']['name']
+
+    def _session_ready():
+        out = duthost.shell(
+            "sonic-db-cli STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
+            module_ignore_errors=True
+        )['stdout']
+        return 'active' in out and expected_monitor in out
+
+    ready = wait_until(30, 2, 0, _session_ready)
+    state_dump = duthost.shell(
+        "sonic-db-cli STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
+        module_ignore_errors=True
+    )['stdout']
+    config_dump = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGETALL 'MIRROR_SESSION|{}'".format(ERSPAN_SESSION_NAME),
+        module_ignore_errors=True
+    )['stdout']
+    logger.info("STATE_DB MIRROR_SESSION_TABLE|%s \n%s", ERSPAN_SESSION_NAME, state_dump)
+    logger.info("CONFIG_DB MIRROR_SESSION|%s \n%s", ERSPAN_SESSION_NAME, config_dump)
+    logger.info("Expected monitor_port: %s", expected_monitor)
+    _pytest_assert(
+        ready,
+        "Mirror session {} not active or monitor_port != {}; STATE_DB: {}".format(
+            ERSPAN_SESSION_NAME, expected_monitor, state_dump))
 
     yield {
         'session_name': ERSPAN_SESSION_NAME,
