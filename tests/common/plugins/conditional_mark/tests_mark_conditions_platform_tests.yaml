@@ -400,7 +400,7 @@ platform_tests/api/test_module.py:
     reason: "Only support T2"
     conditions_logical_operator: or
     conditions:
-      - "topo_type not in ['t2']"
+      - "topo_type not in ['t2', 'lrh', 'urh']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
@@ -424,7 +424,7 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000', 'vs']"
-      - "topo_type not in ['t2']"
+      - "topo_type not in ['t2', 'lrh', 'urh']"
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
@@ -967,13 +967,13 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplan
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
-      - "'t2_single_node' in topo_name"
+      - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
-      - "'t2_single_node' in topo_name"
+      - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -1146,6 +1146,18 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
       - "'bmc' in topo_type"
 
+platform_tests/mellanox/test_hw_management_service.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+platform_tests/mellanox/test_psu_power_threshold.py:
+  skip:
+    reason: "Not available on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
     reason: "Platform does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
@@ -1165,7 +1177,7 @@ platform_tests/mgmt/test_mgmt_flap.py::test_mgmt_interface_stress_flap_console:
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['cisco-8000']"
-      - "topo_type not in ['t2']"
+      - "topo_type not in ['t2', 'lrh', 'urh']"
       - "eth_mgmt_ctrl_available==False"
 
 #######################################
@@ -1205,7 +1217,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
     reason: "platform does not support sfp reset"
     conditions_logical_operator: or
     conditions:
-      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name or topo_type in ['lrh', 'urh']) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
 #######################################
@@ -1345,14 +1357,18 @@ platform_tests/test_memory_exhaustion.py:
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
     reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
   skip:
     reason: "Test not supported on Mellanox Platforms."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
@@ -1361,6 +1377,7 @@ platform_tests/test_platform_info.py::test_thermal_control_fan_status:
     conditions:
       - "is_multi_asic==True and release in ['201911']"
       - "asic_type in ['mellanox']"
+      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
@@ -1431,10 +1448,11 @@ platform_tests/test_reboot.py::test_fast_reboot:
     reason: "Skip test_fast_reboot for M*/t1/t2/c* / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'c0']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "'isolated' in topo_name"
       - "is_smartswitch==True"
+      - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1458,7 +1476,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "Skip test_warm_reboot for M*/t1/t2/lt2/ft2/c*. Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'c0']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"

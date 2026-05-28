@@ -17,7 +17,7 @@ from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 

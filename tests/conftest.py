@@ -333,7 +333,12 @@ def pytest_addoption(parser):
     ############################
     #   SmartSwitch options    #
     ############################
-    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+    parser.addoption(
+        "--dpu-pattern",
+        action="store",
+        default="None",
+        help="Smartswitch dpus that should be involved in the test (e.g. 'dut-dpu-0,dut-dpu-1')"
+    )
     parser.addoption(
         "--ss_target_index",
         action="store",
@@ -826,6 +831,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut

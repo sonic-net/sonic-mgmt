@@ -9,7 +9,6 @@ import copy
 from jinja2 import Template
 import logging
 import json
-import re
 import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
@@ -216,20 +215,11 @@ class GenerateGoldenConfigDBModule(object):
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
-        output_version = device_info.get_sonic_version_info()
-        build_version = output_version['build_version']
+        # disable bmp feature table first
+        return False
 
-        if re.match(r'^(\d{6})', build_version):
-            version_number = int(re.findall(r'\d{6}', build_version)[0])
-            if version_number < 202411:
-                return False
-        elif re.match(r'^internal-(\d{6})', build_version):
-            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
-            if internal_version_number < 202411:
-                return False
-        else:
-            return True
-        return True
+    def is_bmc_device(self):
+        return device_info.get_bmc_data() is not None
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
@@ -987,7 +977,7 @@ class GenerateGoldenConfigDBModule(object):
         """
         Generate golden_config for FT2 to enable FEC and set BGP confed.
         """
-        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128", "ft2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
@@ -1110,13 +1100,25 @@ class GenerateGoldenConfigDBModule(object):
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
-        if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
+        # Note: BMC devices also do not host BGP sessions, so the BMP feature is not applicable
+        if (self.check_version_for_bmp() is True
+                and device_info.is_supervisor() is False
+                and not self.is_bmc_device()):
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Disable swss and syncd features on BMC devices.
+        if self.is_bmc_device():
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
