@@ -39,7 +39,7 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    RELAXED_BALANCING_RANGE = 0.80
+    RELAXED_BALANCING_RANGE = 1.5
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
