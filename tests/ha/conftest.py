@@ -836,7 +836,7 @@ def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
 
 @pytest.fixture(scope="function")
 def setup_dash_pl_pipeline(
-     localhost, duthosts, ptfhost, dpu_index, skip_config,
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
     dpuhosts, setup_npu_dpu, ensure_vxlan_udp_sport_range
 ):
     if skip_config:
