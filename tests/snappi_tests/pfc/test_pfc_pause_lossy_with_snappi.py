@@ -1,21 +1,76 @@
 import pytest
-from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
+import time
+import copy
+from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
-    fanout_graph_facts_multidut                                                                         # noqa: F401
+    fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
-    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config     # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
-    lossy_prio_list                                                                                     # noqa: F401
+    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
+    ixia_port_readiness_precheck, is_ixia_readiness_failure  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
+    lossy_prio_list                         # noqa: F401
+from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
-import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.files.helper import reboot_duts                                                 # noqa: F401
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog                                        # noqa: F401
-logger = logging.getLogger(__name__)
+from tests.snappi_tests.files.helper import reboot_duts, setup_ports_and_dut, multidut_port_info  # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
+
+_RUN_RETRY_ATTEMPTS = 3
+_RUN_RETRY_DELAY_SEC = 30
+
+
+def _reset_snappi_extra_params_for_retry(snappi_extra_params):
+    """Reset runtime-mutated Snappi fields while preserving host/topology references."""
+    if snappi_extra_params is None:
+        return
+    snappi_extra_params.base_flow_config = None
+    snappi_extra_params.base_flow_config_list = []
+    snappi_extra_params.test_tx_frames = 0
+    snappi_extra_params.packet_capture_file = None
+    snappi_extra_params.packet_capture_ports = None
+    snappi_extra_params.traffic_flow_config = TrafficFlowConfig()
+
+
+def _run_pfc_test_with_dod_retry(**kwargs):
+    """
+    Call run_pfc_test with defensive retries around protocol-start/DOD failures.
+
+    run_pfc_test mutates testbed_config by appending flows. Each retry must use
+    a fresh copy of the original config/params to avoid duplicate flow names.
+    """
+    base_config = kwargs.get('testbed_config')
+    base_params = kwargs.get('snappi_extra_params')
+    last_error = None
+
+    for attempt in range(1, _RUN_RETRY_ATTEMPTS + 1):
+        try_kwargs = dict(kwargs)
+        if base_config is not None:
+            try_kwargs['testbed_config'] = copy.deepcopy(base_config)
+        if base_params is not None:
+            _reset_snappi_extra_params_for_retry(base_params)
+            try_kwargs['snappi_extra_params'] = base_params
+
+        try:
+            run_pfc_test(**try_kwargs)
+            return
+        except Exception as e:
+            is_retryable = is_ixia_readiness_failure(e)
+            if not is_retryable:
+                raise
+
+            last_error = e
+            if attempt < _RUN_RETRY_ATTEMPTS:
+                time.sleep(_RUN_RETRY_DELAY_SEC)
+
+    pytest.skip(
+        "Ixia readiness failure (DOD/CPU/protocol start) persisted after {} attempts ({}s wait): {}".format(
+            _RUN_RETRY_ATTEMPTS, _RUN_RETRY_DELAY_SEC, last_error
+        )
+    )
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -69,9 +124,9 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
     try:
-        run_pfc_test(api=snappi_api,
+        _run_pfc_test_with_dod_retry(
+                     api=snappi_api,
                      testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      conn_data=conn_graph_facts,
@@ -128,9 +183,9 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
     try:
-        run_pfc_test(api=snappi_api,
+        _run_pfc_test_with_dod_retry(
+                     api=snappi_api,
                      testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      conn_data=conn_graph_facts,
@@ -200,7 +255,8 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
         flow_factor = int(snappi_ports[0]['speed']) / 200000
 
     try:
-        run_pfc_test(api=snappi_api,
+        _run_pfc_test_with_dod_retry(
+                     api=snappi_api,
                      testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      conn_data=conn_graph_facts,
@@ -263,9 +319,9 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
 
     if snappi_ports[0]['asic_type'] == 'cisco-8000' and int(snappi_ports[0]['speed']) > 200000:
         flow_factor = int(snappi_ports[0]['speed']) / 200000
-
     try:
-        run_pfc_test(api=snappi_api,
+        _run_pfc_test_with_dod_retry(
+                     api=snappi_api,
                      testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      conn_data=conn_graph_facts,
