@@ -157,12 +157,16 @@ def test_kernel_asic_mac_mismatch(
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 
-    wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip)
+    pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip),
+              f"Neighbor {target_ip} not learned on {rand_selected_dut}")
 
     neighbor_info = rand_selected_dut.shell(f"ip neigh show {target_ip}")["stdout"].split()
+    target_mac = neighbor_info[4]
+
     pt_assert(neighbor_info[2] == vlan_name)
 
-    wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, neighbor_info[4])
+    pt_assert(wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+              f"APPL_DB not synced for vlan {vlan_name}, ip {target_ip} on {rand_selected_dut}")
 
     logger.info(f"Neighbor {target_ip} has been learned, APPL_DB and kernel are in sync")
 
@@ -173,14 +177,17 @@ def test_kernel_asic_mac_mismatch(
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
-    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower(),
+    pt_assert(target_mac.lower() != asic_db_mac.lower(),
               f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
               "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
 
-    wait_until(10, 1, 0, lambda dut, ip: not neighbor_learned(dut, ip), rand_selected_dut, target_ip)
+    pt_assert(
+        wait_until(30, 2, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+        f"APPL_DB not re-synced to kernel MAC {target_mac} for {target_ip} on {rand_selected_dut}"
+    )
 
 
 def test_ptf_arp_learns_mac(
