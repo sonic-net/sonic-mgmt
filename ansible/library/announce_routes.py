@@ -739,7 +739,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
-                topo_routes[k][IPV4] = routes_v4
+                topo_routes[k][IPV4] = topo_routes[k].get(IPV4, []) + routes_v4
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, _ = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
@@ -752,7 +752,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
-                topo_routes[k][IPV6] = routes_v6
+                topo_routes[k][IPV6] = topo_routes[k].get(IPV6, []) + routes_v6
                 routes_to_change[port6] += routes_v6
 
         if 'vips' in v:

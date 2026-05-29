@@ -286,9 +286,26 @@ def _get_backplane_ports():
     return {k for k, v in ptf.config.get('port_map', {}).items() if v == 'backplane'}
 
 
+def wait_for_rx_quiescence(pdp, exp_mask, stable_secs=10, poll_interval=1):
+    """Wait until mask_rx_cnt stops incrementing for stable_secs seconds.
+
+    After stopping the traffic thread, packets remain in transit through the
+    nn_agent pipeline (DUT -> veth -> AF_PACKET -> nn_agent -> nanomsg -> PTF).
+    This can take 12-17 seconds to drain. Polling until counters stabilize
+    avoids the false packet loss caused by a fixed-duration sleep.
+    """
+    prev_rx = sum(pdp.mask_rx_cnt[exp_mask].values())
+    stable_since = time.time()
+    while time.time() - stable_since < stable_secs:
+        time.sleep(poll_interval)
+        curr_rx = sum(pdp.mask_rx_cnt[exp_mask].values())
+        if curr_rx != prev_rx:
+            prev_rx = curr_rx
+            stable_since = time.time()
+
+
 def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
-    logger.warning("Waiting %d seconds for mask counters to be updated", MASK_COUNTER_WAIT_TIME)
-    time.sleep(MASK_COUNTER_WAIT_TIME)
+    wait_for_rx_quiescence(ptf_dp, masked_exp_pkt)
     backplane_ports = _get_backplane_ports()
     rx_total = sum(
         cnt for port_key, cnt in ptf_dp.mask_rx_cnt[masked_exp_pkt].items()
@@ -342,6 +359,19 @@ def flush_counters(ptf_dp, masked_exp_pkt):
                 ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
 
 
+def _send_with_retry(ptf_dataplane, device_num, port_num, pkt, max_retries=10, base_backoff=0.1):
+    """Send a single packet, retrying on nanomsg timeout (nn_agent CPU starvation)."""
+    for attempt in range(max_retries):
+        try:
+            ptf_dataplane.send(device_num, port_num, pkt)
+            return True
+        except Exception as e:
+            if "timed out" not in str(e).lower():
+                raise
+            time.sleep(base_backoff * (2 ** min(attempt, 4)))
+    return False
+
+
 def send_packets(
     terminated,
     ptf_dataplane,
@@ -355,14 +385,16 @@ def send_packets(
     pkts_len = len(pkts)
     rounds_per_timeslot = 1 + (pkt_cnt_per_timeslot // pkts_len)
     rounds_cnt = 0
+    retry_failures = 0
     while True:
         if terminated.is_set():
-            logger.info("%d packets are sent", rounds_cnt * pkts_len)
+            logger.info("%d packets are sent (%d retry failures)", rounds_cnt * pkts_len, retry_failures)
             break
         logger.info("round %d, sending %d packets", rounds_cnt, rounds_cnt * pkts_len)
         for _ in range(rounds_per_timeslot):
             for pkt in pkts:
-                ptf_dataplane.send(device_num, port_num, pkt)
+                if not _send_with_retry(ptf_dataplane, device_num, port_num, pkt):
+                    retry_failures += 1
 
         while datetime.datetime.now() - last_round_time < datetime.timedelta(seconds=sending_timeslot):
             time.sleep(sending_timeslot / 10.0)
