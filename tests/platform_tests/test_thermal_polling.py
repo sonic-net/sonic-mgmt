@@ -83,50 +83,6 @@ def get_polling_intervals_from_platform_json(platform_json):
     return intervals
 
 
-def get_temperature_info_timestamps(duthost):
-    """
-    Read TEMPERATURE_INFO entries from STATE_DB and return a dict of
-    {sensor_name: timestamp_string}.
-    """
-    result = duthost.shell(
-        'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|*"',
-        module_ignore_errors=True
-    )
-    if result["rc"] != 0 or not result["stdout"].strip():
-        return {}
-
-    keys = result["stdout"].strip().split("\n")
-    timestamps = {}
-    for key in keys:
-        ts_result = duthost.shell(
-            'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(key),
-            module_ignore_errors=True
-        )
-        if ts_result["rc"] == 0 and ts_result["stdout"].strip():
-            sensor_name = key.split("|", 1)[1]
-            timestamps[sensor_name] = ts_result["stdout"].strip()
-    return timestamps
-
-
-def get_temperature_info_update_times(duthost, sensor_name, samples=3, wait_between=None):
-    """
-    Collect multiple timestamp samples for a given sensor from TEMPERATURE_INFO.
-    Returns list of timestamps as strings.
-    """
-    if wait_between is None:
-        wait_between = 10
-    timestamps = []
-    for _ in range(samples):
-        result = duthost.shell(
-            'sonic-db-cli STATE_DB HGET "TEMPERATURE_INFO|{}" timestamp'.format(sensor_name),
-            module_ignore_errors=True
-        )
-        if result["rc"] == 0 and result["stdout"].strip():
-            timestamps.append(result["stdout"].strip())
-        time.sleep(wait_between)
-    return timestamps
-
-
 class TestPerComponentPollingIntervals:
     """
     Validate that per-component polling intervals configured in platform.json
@@ -483,26 +439,33 @@ class TestPerComponentPollingIntervals:
 
         logger.info("Checking default polling for sensor '%s'", sensor_name)
 
-        # Sample over ~180s (3 default cycles)
+        # Sample over 3x the default interval to observe at least 3 update cycles
+        observation_time = DEFAULT_POLLING_INTERVAL * 3
+        sample_interval = DEFAULT_POLLING_INTERVAL // 3
+        num_samples = observation_time // sample_interval
+
         timestamps = []
-        for _ in range(9):
+        for _ in range(num_samples):
             ts = duthost.shell(
                 'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(sensor_key),
                 module_ignore_errors=True
             )
             if ts["rc"] == 0 and ts["stdout"].strip():
                 timestamps.append(ts["stdout"].strip())
-            time.sleep(20)
+            time.sleep(sample_interval)
 
         unique_timestamps = []
         for ts in timestamps:
             if not unique_timestamps or unique_timestamps[-1] != ts:
                 unique_timestamps.append(ts)
 
-        # Over 180s with 60s default interval, expect ~3 updates
+        # Over 3 default cycles, expect at least 2 updates
+        expected_updates = observation_time / DEFAULT_POLLING_INTERVAL
+        min_expected = expected_updates * (1 - POLLING_TOLERANCE)
         pytest_assert(
-            len(unique_timestamps) >= 2,
-            "Sensor '{}' should update at least 2 times in 180s with default "
-            "60s polling (got {} unique timestamps)".format(
-                sensor_name, len(unique_timestamps))
+            len(unique_timestamps) >= min_expected,
+            "Sensor '{}' should update at least {:.0f} times in {}s with default "
+            "{}s polling (got {} unique timestamps)".format(
+                sensor_name, min_expected, observation_time,
+                DEFAULT_POLLING_INTERVAL, len(unique_timestamps))
         )

@@ -176,7 +176,7 @@ class TestSfpThermalStateDb:
                 try:
                     port_index_to_dom[int(match.group(1))] = round(float(val), 1)
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Skip ports with non-numeric temperature values
 
         # Collect temperature values from CLI SFP rows
         cli_temperatures = {}
@@ -285,22 +285,22 @@ class TestSfpThermalStateDb:
                 try:
                     dom_high_th_values.add(round(float(th["temphighwarning"]), 1))
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Skip non-numeric threshold from STATE_DB
             if th["templowwarning"]:
                 try:
                     dom_low_th_values.add(round(float(th["templowwarning"]), 1))
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Skip non-numeric threshold from STATE_DB
             if th["temphighalarm"]:
                 try:
                     dom_crit_high_values.add(round(float(th["temphighalarm"]), 1))
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Skip non-numeric threshold from STATE_DB
             if th["templowalarm"]:
                 try:
                     dom_crit_low_values.add(round(float(th["templowalarm"]), 1))
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Skip non-numeric threshold from STATE_DB
 
         logger.info("DOM threshold value sets - High TH: %s, Low TH: %s, "
                     "Crit High: %s, Crit Low: %s",
@@ -328,7 +328,7 @@ class TestSfpThermalStateDb:
                     if val in dom_high_th_values:
                         row_matched = True
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Non-numeric CLI value, skip comparison
 
             if low_th != "N/A":
                 row_has_threshold = True
@@ -337,7 +337,7 @@ class TestSfpThermalStateDb:
                     if val in dom_low_th_values:
                         row_matched = True
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Non-numeric CLI value, skip comparison
 
             if crit_high != "N/A":
                 row_has_threshold = True
@@ -346,7 +346,7 @@ class TestSfpThermalStateDb:
                     if val in dom_crit_high_values:
                         row_matched = True
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Non-numeric CLI value, skip comparison
 
             if crit_low != "N/A":
                 row_has_threshold = True
@@ -355,7 +355,7 @@ class TestSfpThermalStateDb:
                     if val in dom_crit_low_values:
                         row_matched = True
                 except (ValueError, TypeError):
-                    pass
+                    pass  # Non-numeric CLI value, skip comparison
 
             if row_has_threshold:
                 rows_with_thresholds += 1
