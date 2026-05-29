@@ -2,10 +2,12 @@
 Helper module for the SRv6 max throughput minimum packet size test.
 """
 import os
+import json
 import yaml
 import logging
 import time
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.srv6_helper import (
     create_srv6_locator,
     create_srv6_sid,
@@ -19,6 +21,19 @@ logger = logging.getLogger(__name__)
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "max_throughput_config.yaml")
 
 
+def _load_json_output(output):
+    """Load JSON output that may include informational prefix lines."""
+    start = output.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in output: {}".format(output))
+    return json.loads(output[start:])
+
+
+def _normalize_platform_name(platform):
+    """Normalize platform names for deterministic fuzzy matching."""
+    return platform.lower().replace("-", "").replace("_", "").replace(" ", "")
+
+
 def load_max_throughput_config():
     """Load the YAML config for the max throughput test."""
     with open(CONFIG_FILE, "r") as f:
@@ -29,14 +44,32 @@ def get_platform_thresholds(duthost, config):
     """Look up min-packet-size thresholds for the DUT's platform. Returns None if unknown."""
     platform = duthost.facts.get("hwsku", "")
     thresholds = config.get("platform_thresholds", {})
+    aliases = config.get("platform_aliases", {})
 
     if platform in thresholds:
         return thresholds[platform]
 
-    # Try partial match (e.g. "Nvidia 5640" in "Nvidia-5640-O28")
+    if platform in aliases:
+        return thresholds.get(aliases[platform])
+
+    normalized_platform = _normalize_platform_name(platform)
+    normalized_aliases = {
+        _normalize_platform_name(alias): target
+        for alias, target in aliases.items()
+    }
+    if normalized_platform in normalized_aliases:
+        return thresholds.get(normalized_aliases[normalized_platform])
+
+    # Prefer the most specific platform key over the first partial match.
+    matches = []
     for key in thresholds:
-        if key.lower().replace(" ", "") in platform.lower().replace("-", "").replace(" ", ""):
-            return thresholds[key]
+        normalized_key = _normalize_platform_name(key)
+        if normalized_key and normalized_key in normalized_platform:
+            matches.append((len(normalized_key), key))
+
+    if matches:
+        _, key = max(matches)
+        return thresholds[key]
 
     return None
 
@@ -47,14 +80,64 @@ def get_platform_thresholds(duthost, config):
 
 def _get_front_panel_ports(duthost):
     """Return list of admin-up front-panel Ethernet ports on the DUT."""
-    import json as _json
     result = duthost.shell("portstat -j")["stdout"]
-    port_data = _json.loads(result)
+    port_data = _load_json_output(result)
     # STATE: U=Up, D=Down, X=Disabled (admin-down)
     return sorted(
         [port for port, stats in port_data.items() if stats.get("STATE") != "X"],
         key=lambda p: (len(p), p),
     )
+
+
+def _get_portchannel_members(duthost):
+    """Return Ethernet ports that are members of PortChannels."""
+    result = duthost.shell(
+        "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL_MEMBER|*'",
+        module_ignore_errors=True,
+    )
+    members = set()
+    if result["rc"] != 0:
+        return members
+
+    for line in result["stdout_lines"]:
+        parts = line.split("|")
+        if len(parts) >= 3:
+            members.add(parts[2])
+    return members
+
+
+def _get_portchannels(duthost):
+    """Return configured PortChannel interface names."""
+    result = duthost.shell(
+        "sonic-db-cli CONFIG_DB keys 'PORTCHANNEL|*'",
+        module_ignore_errors=True,
+    )
+    portchannels = []
+    if result["rc"] != 0:
+        return portchannels
+
+    for line in result["stdout_lines"]:
+        parts = line.split("|")
+        if len(parts) >= 2:
+            portchannels.append(parts[1])
+    return sorted(portchannels, key=lambda p: (len(p), p))
+
+
+def _get_acl_bind_ports(duthost):
+    """Return ACL-bindable front-panel interfaces."""
+    portchannel_members = _get_portchannel_members(duthost)
+    standalone_ports = [
+        port for port in _get_front_panel_ports(duthost)
+        if port not in portchannel_members
+    ]
+    bind_ports = _get_portchannels(duthost) + standalone_ports
+    if not bind_ports:
+        raise RuntimeError(
+            "No ACL-bindable front-panel interfaces found on {}".format(
+                duthost.hostname
+            )
+        )
+    return bind_ports
 
 
 def _dataacl_exists(duthost):
@@ -87,17 +170,21 @@ def _verify_acl_table_removed(duthost, table_name):
 # --- DataACL ---
 
 def enable_dataacl(duthost):
-    """Add DATAACL L3 table bound to all front-panel ports."""
+    """Add DATAACL L3 table bound to ACL-bindable front-panel interfaces."""
     if _dataacl_exists(duthost):
         logger.info("DATAACL already exists on %s, skipping", duthost.hostname)
         return
-    ports = _get_front_panel_ports(duthost)
+    ports = _get_acl_bind_ports(duthost)
     cmd = "config acl add table DATAACL L3 -p {}".format(",".join(ports))
     logger.info("Enabling DATAACL on %s", duthost.hostname)
     duthost.shell(cmd)
     duthost.shell("config save -y")
     if not _verify_acl_table_ports(duthost, "DATAACL", ports):
-        raise RuntimeError("DATAACL not attached to all ports on {}".format(duthost.hostname))
+        raise RuntimeError(
+            "DATAACL not attached to expected interfaces on {}".format(
+                duthost.hostname
+            )
+        )
 
 
 def disable_dataacl(duthost):
@@ -120,6 +207,13 @@ MIRROR_SRC_IP = "10.10.10.1"
 MIRROR_DST_IP = "10.10.10.2"
 MIRROR_DSCP = "8"
 MIRROR_TTL = "64"
+MIRROR_QUEUE = "0"
+MIRROR_GRE_TYPES = {
+    "mellanox": "35145",     # 0x8949
+    "barefoot": "8939",      # 0x22EB
+    "cisco-8000": "35006",   # 0x88BE
+}
+DEFAULT_MIRROR_GRE_TYPE = "35006"  # 0x88BE
 
 
 def _mirror_session_exists(duthost, session_name):
@@ -127,24 +221,58 @@ def _mirror_session_exists(duthost, session_name):
     return session_name in output
 
 
+def _get_mirror_gre_type(duthost):
+    """Return the ERSPAN GRE type expected by the DUT ASIC."""
+    identifiers = [
+        duthost.facts.get("asic_type", ""),
+        duthost.facts.get("platform", ""),
+        duthost.facts.get("hwsku", ""),
+    ]
+    normalized_identifiers = [
+        _normalize_platform_name(identifier)
+        for identifier in identifiers
+    ]
+
+    if any(
+        "mellanox" in identifier or "nvidia" in identifier
+        for identifier in normalized_identifiers
+    ):
+        return MIRROR_GRE_TYPES["mellanox"]
+
+    for asic_type, gre_type in MIRROR_GRE_TYPES.items():
+        normalized_asic_type = _normalize_platform_name(asic_type)
+        if any(
+            normalized_asic_type in identifier
+            for identifier in normalized_identifiers
+        ):
+            return gre_type
+
+    return DEFAULT_MIRROR_GRE_TYPE
+
+
 def enable_everflow(duthost):
     """Create ERSPAN mirror session and EVERFLOW ACL table."""
     if not _mirror_session_exists(duthost, EVERFLOW_SESSION):
         logger.info("Creating Everflow mirror session on %s", duthost.hostname)
         duthost.shell(
-            "config mirror_session add {} {} {} {} {}".format(
-                EVERFLOW_SESSION, MIRROR_SRC_IP, MIRROR_DST_IP, MIRROR_DSCP, MIRROR_TTL
+            "config mirror_session add {} {} {} {} {} {} {}".format(
+                EVERFLOW_SESSION, MIRROR_SRC_IP, MIRROR_DST_IP, MIRROR_DSCP,
+                MIRROR_TTL, _get_mirror_gre_type(duthost), MIRROR_QUEUE,
             )
         )
 
     lines = duthost.shell("show acl table EVERFLOW")["stdout_lines"]
     if not any("EVERFLOW" in line for line in lines):
-        ports = _get_front_panel_ports(duthost)
+        ports = _get_acl_bind_ports(duthost)
         duthost.shell(
             "config acl add table EVERFLOW MIRROR -p {}".format(",".join(ports))
         )
         if not _verify_acl_table_ports(duthost, "EVERFLOW", ports):
-            raise RuntimeError("EVERFLOW not attached to all ports on {}".format(duthost.hostname))
+            raise RuntimeError(
+                "EVERFLOW not attached to expected interfaces on {}".format(
+                    duthost.hostname
+                )
+            )
     duthost.shell("config save -y")
 
 
@@ -161,31 +289,35 @@ def disable_everflow(duthost):
     duthost.shell("config save -y")
 
 
-# --- EverflowV6 (IPv6 mirror) ---
+# --- EverflowV6 (IPv6 ACL mirror) ---
 
 EVERFLOWV6_SESSION = "max_tput_ev6_session"
 EVERFLOWV6_TABLE = "EVERFLOWV6"
-MIRROR_SRC_IPV6 = "fc00::1"
-MIRROR_DST_IPV6 = "fc00::2"
 
 
 def enable_everflowv6(duthost):
-    """Create ERSPANv6 mirror session and EVERFLOWV6 ACL table."""
+    """Create ERSPAN mirror session and EVERFLOWV6 ACL table."""
     if not _mirror_session_exists(duthost, EVERFLOWV6_SESSION):
         duthost.shell(
-            "config mirror_session add {} {} {} {} {}".format(
-                EVERFLOWV6_SESSION, MIRROR_SRC_IPV6, MIRROR_DST_IPV6, MIRROR_DSCP, MIRROR_TTL
+            "config mirror_session add {} {} {} {} {} {} {}".format(
+                EVERFLOWV6_SESSION, MIRROR_SRC_IP, MIRROR_DST_IP,
+                MIRROR_DSCP,
+                MIRROR_TTL, _get_mirror_gre_type(duthost), MIRROR_QUEUE,
             )
         )
 
     lines = duthost.shell("show acl table EVERFLOWV6")["stdout_lines"]
     if not any("EVERFLOWV6" in line for line in lines):
-        ports = _get_front_panel_ports(duthost)
+        ports = _get_acl_bind_ports(duthost)
         duthost.shell(
             "config acl add table EVERFLOWV6 MIRRORV6 -p {}".format(",".join(ports))
         )
         if not _verify_acl_table_ports(duthost, "EVERFLOWV6", ports):
-            raise RuntimeError("EVERFLOWV6 not attached to all ports on {}".format(duthost.hostname))
+            raise RuntimeError(
+                "EVERFLOWV6 not attached to expected interfaces on {}".format(
+                    duthost.hostname
+                )
+            )
     duthost.shell("config save -y")
 
 
@@ -234,7 +366,9 @@ def _get_loopback_ip(duthost):
             ip = parts[2].split("/")[0]
             if "." in ip:
                 return ip
-    return "10.1.0.32"
+    raise RuntimeError(
+        "No IPv4 Loopback0 address found on {}".format(duthost.hostname)
+    )
 
 
 def enable_ipinip_decap(duthost):
@@ -364,10 +498,13 @@ def restore_dut_config(duthost):
     if result["rc"] != 0:
         logger.warning("Backup file %s not found, skipping restore", CONFIG_DB_BACKUP_PATH)
         return
-
     duthost.shell("cp {} {}".format(CONFIG_DB_BACKUP_PATH, CONFIG_DB_PATH))
-    duthost.shell("config reload -y", module_ignore_errors=True)
-    time.sleep(60)
+    config_reload(
+        duthost,
+        config_source="config_db",
+        safe_reload=True,
+        check_intf_up_ports=True,
+    )
     duthost.shell("rm -f {}".format(CONFIG_DB_BACKUP_PATH))
 
 
