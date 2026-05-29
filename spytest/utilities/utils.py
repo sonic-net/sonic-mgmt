@@ -457,6 +457,13 @@ def get_random_vlans_in_sequence(count=1, start=2, end=3000):
             break
     return vlan_list if sys.version_info[0] < 3 else list(vlan_list)
 
+def get_random_space_string():
+    """
+    Function to generate random space string in the given length
+    :param N:
+    :return:
+    """
+    return ''.join(random.choice((' ', '')) for _ in range(random.randrange(2,5)))
 
 def check_empty_values_in_dict(data):
     """

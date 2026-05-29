@@ -86,3 +86,6 @@ show_nat_statistics.tmpl, .*, sonic, show nat statistics
 show_tacacs_server.tmpl, .*, sonic, show tacacs-server.*
 show_vlan_config.tmpl, .*, sonic, show vlan config
 show_ntp.tmpl, .*, sonic, show ntp.*
+show_spanning_tree_vlan.tmpl, .*, sonic, show spanning-tree vlan\s+\d+(\s+ interface\s+\w+)?
+show_spanning_tree_root_guard.tmpl, .*, sonic, show spanning-tree root_guard
+show_spanning_tree_bpdu_guard.tmpl, .*, sonic, show spanning-tree bpdu_guard
