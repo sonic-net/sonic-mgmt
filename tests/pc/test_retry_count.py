@@ -7,7 +7,7 @@ import tempfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
-from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField, MultipleTypeField
+from scapy.all import Packet, ByteField, ShortField, MACField, XStrFixedLenField, ConditionalField
 from scapy.all import split_layers, bind_layers, rdpcap
 import scapy.contrib.lacp
 import scapy.layers.l2
@@ -55,8 +55,11 @@ class LACPRetryCount(Packet):
         ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt: pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt: pkt.version == 0xf1)],
-                          XStrFixedLenField("reserved", "", 50)),
+        # Use two ConditionalFields with distinct names to avoid duplicate 'reserved' in
+        # Packet.__signature__ (MultipleTypeField with same name in both branches causes
+        # ValueError: duplicate parameter name in Python 3.13 / Scapy).
+        ConditionalField(XStrFixedLenField("reserved_v1", "", 42), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(XStrFixedLenField("reserved_default", "", 50), lambda pkt: pkt.version != 0xf1),
     ]
 
 
