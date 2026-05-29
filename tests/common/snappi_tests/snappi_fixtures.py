@@ -1834,7 +1834,11 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         if not snappi_ports:
             pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
 
 
 def flatten_list(lst):
