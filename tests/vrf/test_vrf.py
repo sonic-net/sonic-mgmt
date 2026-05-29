@@ -126,6 +126,9 @@ def get_vrf_intfs(cfg_facts):
     for table in intf_tables:
         for intf, attrs in list(cfg_facts.get(table, {}).items()):
             if "|" not in intf:
+                if "vrf_name" not in attrs:
+                    logger.warning("Interface %s in %s has no vrf_name, skipping", intf, table)
+                    continue
                 vrf = attrs["vrf_name"]
                 if vrf not in vrf_intfs:
                     vrf_intfs[vrf] = {}
@@ -140,7 +143,13 @@ def get_vrf_ports(cfg_facts):
     """
 
     vlan_member = list(cfg_facts["VLAN_MEMBER"].keys())
-    pc_member = list(cfg_facts["PORTCHANNEL_MEMBER"].keys())
+    if "PORTCHANNEL_MEMBER" not in cfg_facts:
+        logger.warning(
+            "PORTCHANNEL_MEMBER table missing from cfg_facts. "
+            "Expected on topologies with direct Ethernet links, "
+            "but requires further debugging on topologies with PortChannel."
+        )
+    pc_member = list(cfg_facts.get("PORTCHANNEL_MEMBER", {}).keys())
     member = vlan_member + pc_member
 
     vrf_intf_member_port_indices = {}
@@ -153,9 +162,13 @@ def get_vrf_ports(cfg_facts):
         vrf_member_port_indices[vrf] = []
 
         for intf in intfs:
-            vrf_intf_member_port_indices[vrf][intf] = natsorted(
-                [cfg_facts["config_port_indices"][m.split("|")[1]] for m in [m for m in member if intf in m]]
-            )
+            if intf.startswith("Ethernet") and intf in cfg_facts["config_port_indices"]:
+                # Direct Ethernet uplinks: the interface IS the port (no membership table)
+                vrf_intf_member_port_indices[vrf][intf] = [cfg_facts["config_port_indices"][intf]]
+            else:
+                vrf_intf_member_port_indices[vrf][intf] = natsorted(
+                    [cfg_facts["config_port_indices"][m.split("|")[1]] for m in [m for m in member if intf in m]]
+                )
             vrf_member_port_indices[vrf].extend(vrf_intf_member_port_indices[vrf][intf])
 
         vrf_member_port_indices[vrf] = natsorted(vrf_member_port_indices[vrf])
@@ -266,7 +279,22 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # Use integer division for Python 3 compatibility
     vlan_ports = {"Vlan1000": ports[:len(ports) // 2], "Vlan2000": ports[len(ports) // 2:]}
 
-    extra_vars = {"cfg_t0": cfg_t0, "vlan_ports": vlan_ports}
+    # Compute interface-to-VRF map by matching peer IPs to BGP neighbors
+    intf_vrf_map = {}
+    if "INTERFACE" in cfg_t0 and "BGP_NEIGHBOR" in cfg_t0:
+        unique_names = sorted(set(v['name'] for v in cfg_t0['BGP_NEIGHBOR'].values()))
+        vrf1_names = set(unique_names[:(len(unique_names) + 1) // 2])
+        neigh_vrf = {n: "Vrf1" if cfg_t0['BGP_NEIGHBOR'][n]['name'] in vrf1_names else "Vrf2"
+                     for n in cfg_t0['BGP_NEIGHBOR']}
+        for key in cfg_t0["INTERFACE"]:
+            if "|" in key:
+                intf, ip_str = key.split("|", 1)
+                if intf not in intf_vrf_map:
+                    peer_ip = str(IPNetwork(ip_str).ip + 1)
+                    if peer_ip in neigh_vrf:
+                        intf_vrf_map[intf] = neigh_vrf[peer_ip]
+
+    extra_vars = {"cfg_t0": cfg_t0, "vlan_ports": vlan_ports, "intf_vrf_map": intf_vrf_map}
 
     duthost.host.options["variable_manager"].extra_vars.update(extra_vars)
 
@@ -419,10 +447,21 @@ def gen_vrf_fib_file(
 
 def get_default_vrf_fib_dst_intfs(vrf, tbinfo):
     """
-    Get default vrf fib destination interfaces(PortChannels) according to the given vrf.
-    The test configuration is dynamic and can work with 4 and 8 PCs as the number of VMs.
-    The first half of PCs are related to Vrf1 and the second to Vrf2.
+    Get default vrf fib destination interfaces according to the given vrf.
+    On standard t0 with PortChannels, returns PortChannel names.
+    On isolated topologies with direct Ethernet uplinks, returns Ethernet interface names.
+    The first half of uplink interfaces are related to Vrf1 and the second to Vrf2.
     """
+    # If vrf_intfs is populated, derive uplink interfaces from it (works for both topologies)
+    if g_vars.get("vrf_intfs") and vrf in g_vars["vrf_intfs"]:
+        dst_intfs = [
+            intf for intf in g_vars["vrf_intfs"][vrf]
+            if not intf.startswith("Vlan") and not intf.startswith("Loopback")
+        ]
+        if dst_intfs:
+            return natsorted(dst_intfs)
+
+    # Fallback: original PortChannel-based logic for standard t0
     dst_intfs = []
     vms_num = len(tbinfo["topo"]["properties"]["topology"]["VMs"])
     if vrf == "Vrf1":
