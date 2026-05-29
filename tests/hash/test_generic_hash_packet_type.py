@@ -305,6 +305,71 @@ def get_packet_type_hash_db_fields(duthost, hash_type, packet_type):
     return [f.strip() for f in config_value.split(',')]
 
 
+def _run_ipv4_dataplane_ptf_test(
+    rand_selected_dut, tbinfo, ptfhost, mg_facts,
+    test_configs, ecmp_hash, lag_hash, default_route_msg,
+):
+    """Run one representative ipv4 packet-type hash PTF test.
+
+    Prefers ECMP ipv4 when present; otherwise LAG ipv4. Skips when neither key
+    exists (e.g. only ipv6 or ipnip was configured).
+    """
+    pkt_type = 'ipv4'
+    hash_field = ''
+    ptf_ecmp_hash = False
+    ptf_lag_hash = False
+
+    if ecmp_hash and 'ecmp_ipv4' in test_configs:
+        hash_field = test_configs['ecmp_ipv4'][0]
+        ptf_ecmp_hash = True
+        ptf_lag_hash = False
+    elif lag_hash and 'lag_ipv4' in test_configs:
+        hash_field = test_configs['lag_ipv4'][0]
+        ptf_ecmp_hash = False
+        ptf_lag_hash = True
+    else:
+        pytest.skip("No suitable packet-type config for data-plane validation")
+
+    pytest_assert(
+        hash_field,
+        "No suitable packet-type config for data-plane validation",
+    )
+
+    uplink_interfaces, downlink_interfaces = get_interfaces_for_test(
+        rand_selected_dut, mg_facts, hash_field
+    )
+
+    pytest_assert(
+        wait_until(
+            60, 10, 0,
+            check_default_route,
+            rand_selected_dut,
+            uplink_interfaces.keys(),
+        ),
+        default_route_msg,
+    )
+
+    ptf_params = generate_packet_type_test_params(
+        rand_selected_dut, tbinfo, mg_facts,
+        pkt_type, hash_field,
+        uplink_interfaces, downlink_interfaces,
+        ecmp_hash=ptf_ecmp_hash,
+        lag_hash=ptf_lag_hash,
+    )
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "generic_hash_test.GenericHashTest",
+        platform_dir="ptftests",
+        params=ptf_params,
+        log_file=PTF_LOG_PATH,
+        qlen=PTF_QLEN,
+        socket_recv_size=16384,
+        is_python3=True,
+    )
+
+
 def show_packet_type_hash_config(duthost, packet_type='all'):
     """
     Show packet-type hash configuration using CLI.
@@ -673,19 +738,33 @@ def test_pkt_type_hash_priority_and_override(
     def program_pkt_type(hash_type, pkt_type, preferred_fields):
         supported = _get_asic_hash_fields(rand_selected_dut, hash_type)
         requested = [f for f in preferred_fields if f in supported]
+        configured = None
+        skip_msg = None
+
         if not requested:
-            pytest.skip(f"No supported {hash_type} fields for {pkt_type}")
+            skip_msg = f"No supported {hash_type} fields for {pkt_type}"
+        else:
+            set_switch_hash_packet_type(
+                rand_selected_dut, hash_type, pkt_type, 'add', requested
+            )
+            # Read back normalized DB fields
+            for _ in range(6):
+                configured = get_packet_type_hash_db_fields(
+                    rand_selected_dut, hash_type, pkt_type
+                )
+                if configured:
+                    break
+                time.sleep(5)
+            if not configured:
+                skip_msg = (
+                    f"{hash_type} packet-type hash not reflected in DB for {pkt_type}"
+                )
 
-        set_switch_hash_packet_type(rand_selected_dut, hash_type, pkt_type, 'add', requested)
+        if skip_msg is not None:
+            pytest.skip(skip_msg)
+            raise RuntimeError(skip_msg)
 
-        # Read back normalized DB fields
-        for _ in range(6):
-            configured = get_packet_type_hash_db_fields(rand_selected_dut, hash_type, pkt_type)
-            if configured:
-                return configured
-            time.sleep(5)
-
-        pytest.skip(f"{hash_type} packet-type hash not reflected in DB for {pkt_type}")
+        return configured
 
     with allure.step("Configure packet-type hashes"):
         pkt_type_1_fields = {}
@@ -936,52 +1015,10 @@ def test_pkt_type_hash_config_persistence_reload(
     # Data-plane sanity check (single representative test)
     # ------------------------------------------------------------------
     with allure.step("Verify data plane behavior after reload"):
-        # Prefer ECMP ipv4 if available, else LAG ipv4
-        if ecmp_hash and 'ecmp_ipv4' in test_configs:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['ecmp_ipv4'][0]
-            run_ecmp = True
-            run_lag = False
-        elif lag_hash and 'lag_ipv4' in test_configs:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['lag_ipv4'][0]
-            run_ecmp = False
-            run_lag = True
-        else:
-            pytest.skip("No suitable packet-type config for data-plane validation")
-
-        uplink_interfaces, downlink_interfaces = get_interfaces_for_test(
-            rand_selected_dut, mg_facts, hash_field
-        )
-
-        pytest_assert(
-            wait_until(
-                60, 10, 0,
-                check_default_route,
-                rand_selected_dut,
-                uplink_interfaces.keys()
-            ),
+        _run_ipv4_dataplane_ptf_test(
+            rand_selected_dut, tbinfo, ptfhost, mg_facts,
+            test_configs, ecmp_hash, lag_hash,
             "Default route not ready after reload",
-        )
-
-        ptf_params = generate_packet_type_test_params(
-            rand_selected_dut, tbinfo, mg_facts,
-            pkt_type, hash_field,
-            uplink_interfaces, downlink_interfaces,
-            ecmp_hash=run_ecmp,
-            lag_hash=run_lag,
-        )
-
-        ptf_runner(
-            ptfhost,
-            "ptftests",
-            "generic_hash_test.GenericHashTest",
-            platform_dir="ptftests",
-            params=ptf_params,
-            log_file=PTF_LOG_PATH,
-            qlen=PTF_QLEN,
-            socket_recv_size=16384,
-            is_python3=True,
         )
 
 
@@ -1098,53 +1135,10 @@ def test_pkt_type_warm_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_fa
     # Data-plane validation (single representative run)
     # ------------------------------------------------------------------
     with allure.step("Verify data plane behavior after warm boot"):
-        if ecmp_hash:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['ecmp_ipv4'][0]
-            run_ecmp = True
-            run_lag = False
-        else:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['lag_ipv4'][0]
-            run_ecmp = False
-            run_lag = True
-
-        uplink_interfaces, downlink_interfaces = get_interfaces_for_test(
-            rand_selected_dut, mg_facts, hash_field
-        )
-
-        pytest_assert(
-            wait_until(
-                60, 10, 0,
-                check_default_route,
-                rand_selected_dut,
-                uplink_interfaces.keys(),
-            ),
+        _run_ipv4_dataplane_ptf_test(
+            rand_selected_dut, tbinfo, ptfhost, mg_facts,
+            test_configs, ecmp_hash, lag_hash,
             "Default route not ready after warm boot",
-        )
-
-        ptf_params = generate_packet_type_test_params(
-            rand_selected_dut,
-            tbinfo,
-            mg_facts,
-            pkt_type,
-            hash_field,
-            uplink_interfaces,
-            downlink_interfaces,
-            ecmp_hash=run_ecmp,
-            lag_hash=run_lag,
-        )
-
-        ptf_runner(
-            ptfhost,
-            "ptftests",
-            "generic_hash_test.GenericHashTest",
-            platform_dir="ptftests",
-            params=ptf_params,
-            log_file=PTF_LOG_PATH,
-            qlen=PTF_QLEN,
-            socket_recv_size=16384,
-            is_python3=True,
         )
 
 
@@ -1265,51 +1259,8 @@ def test_pkt_type_fast_boot(rand_selected_dut, tbinfo, ptfhost, localhost, mg_fa
     # Data-plane sanity check
     # ------------------------------------------------------------
     with allure.step("Verify data plane behavior after fast boot"):
-        if ecmp_hash and 'ecmp_ipv4' in test_configs:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['ecmp_ipv4'][0]
-            run_ecmp, run_lag = True, False
-        elif lag_hash and 'lag_ipv4' in test_configs:
-            pkt_type = 'ipv4'
-            hash_field = test_configs['lag_ipv4'][0]
-            run_ecmp, run_lag = False, True
-        else:
-            pytest.skip("No suitable packet-type config for data-plane validation")
-
-        uplink_interfaces, downlink_interfaces = get_interfaces_for_test(
-            rand_selected_dut, mg_facts, hash_field
-        )
-
-        pytest_assert(
-            wait_until(
-                60, 10, 0,
-                check_default_route,
-                rand_selected_dut,
-                uplink_interfaces.keys(),
-            ),
+        _run_ipv4_dataplane_ptf_test(
+            rand_selected_dut, tbinfo, ptfhost, mg_facts,
+            test_configs, ecmp_hash, lag_hash,
             "Default route not available after fast boot",
-        )
-
-        ptf_params = generate_packet_type_test_params(
-            rand_selected_dut,
-            tbinfo,
-            mg_facts,
-            pkt_type,
-            hash_field,
-            uplink_interfaces,
-            downlink_interfaces,
-            ecmp_hash=run_ecmp,
-            lag_hash=run_lag,
-        )
-
-        ptf_runner(
-            ptfhost,
-            "ptftests",
-            "generic_hash_test.GenericHashTest",
-            platform_dir="ptftests",
-            params=ptf_params,
-            log_file=PTF_LOG_PATH,
-            qlen=PTF_QLEN,
-            socket_recv_size=16384,
-            is_python3=True,
         )
