@@ -85,7 +85,7 @@
 
 - name: build fanout startup config
   template:
-    src: "sonic_deploy_202505.j2"
+    src: "sonic_deploy_202511.j2"
     dest: "/tmp/base_config.json"
 
 - name: generate config_db.json
