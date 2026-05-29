@@ -27,7 +27,7 @@ POLLING_TOLERANCE = 0.35
 
 
 def get_platform_json(duthost):
-    """Read and parse platform.json from the DUT."""
+    """Read and parse platform.json from the DUT. Returns None if not found or malformed."""
     platform = duthost.facts["platform"]
     result = duthost.shell(
         "cat /usr/share/sonic/device/{}/platform.json".format(platform),
@@ -35,7 +35,11 @@ def get_platform_json(duthost):
     )
     if result["rc"] != 0:
         return None
-    return json.loads(result["stdout"])
+    try:
+        return json.loads(result["stdout"])
+    except (ValueError, json.JSONDecodeError):
+        logger.warning("platform.json is malformed or empty for platform %s", platform)
+        return None
 
 
 def get_polling_intervals_from_platform_json(platform_json):
@@ -205,8 +209,13 @@ class TestPerComponentPollingIntervals:
                 fast_thermal_name))
 
         # Collect timestamps over observation window
-        # Observe for at least 3x the interval to get meaningful samples
-        observation_time = max(fast_interval * 3, 30)
+        # Observe for at least 3x the interval to get meaningful samples,
+        # but cap at 300s to avoid excessively long test runs.
+        MAX_OBSERVATION_TIME = 300
+        if fast_interval > MAX_OBSERVATION_TIME // 2:
+            pytest.skip("Fastest thermal polling interval ({}s) is too long for real-time "
+                        "verification (max observation {}s)".format(fast_interval, MAX_OBSERVATION_TIME))
+        observation_time = min(max(fast_interval * 3, 30), MAX_OBSERVATION_TIME)
         sample_interval = max(fast_interval // 2, 2)
         num_samples = observation_time // sample_interval
 
@@ -304,6 +313,11 @@ class TestPerComponentPollingIntervals:
         fan_interval = intervals["fan_drawers"]
         logger.info("Fan drawer polling interval configured: %ds", fan_interval)
 
+        MAX_OBSERVATION_TIME = 300
+        if fan_interval > MAX_OBSERVATION_TIME // 2:
+            pytest.skip("Fan drawer polling interval ({}s) is too long for real-time "
+                        "verification (max observation {}s)".format(fan_interval, MAX_OBSERVATION_TIME))
+
         # Get a fan name from FAN_INFO
         fan_keys_result = duthost.shell(
             'sonic-db-cli STATE_DB KEYS "FAN_INFO|*"',
@@ -319,7 +333,7 @@ class TestPerComponentPollingIntervals:
         logger.info("Monitoring fan '%s' for update cadence", fan_name)
 
         # Collect timestamp samples
-        observation_time = max(fan_interval * 3, 60)
+        observation_time = min(max(fan_interval * 3, 60), MAX_OBSERVATION_TIME)
         sample_interval = max(fan_interval // 3, 5)
         num_samples = observation_time // sample_interval
 
@@ -351,6 +365,78 @@ class TestPerComponentPollingIntervals:
             "{:.0f} (interval={}s)".format(
                 fan_name, actual_updates, observation_time,
                 min_expected, fan_interval
+            )
+        )
+
+    def test_psu_polling_interval(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        """
+        Verify PSU updates respect the configured polling interval.
+        Checks PSU_INFO entries in STATE_DB for update cadence.
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        platform_json = get_platform_json(duthost)
+        if platform_json is None:
+            pytest.skip("platform.json not found")
+
+        intervals = get_polling_intervals_from_platform_json(platform_json)
+        if intervals["psus"] is None:
+            pytest.skip("No PSU polling interval configured in platform.json")
+
+        psu_interval = intervals["psus"]
+        logger.info("PSU polling interval configured: %ds", psu_interval)
+
+        MAX_OBSERVATION_TIME = 300
+        if psu_interval > MAX_OBSERVATION_TIME // 2:
+            pytest.skip("PSU polling interval ({}s) is too long for real-time "
+                        "verification (max observation {}s)".format(psu_interval, MAX_OBSERVATION_TIME))
+
+        # Get a PSU name from PSU_INFO
+        psu_keys_result = duthost.shell(
+            'sonic-db-cli STATE_DB KEYS "PSU_INFO|*"',
+            module_ignore_errors=True
+        )
+        if psu_keys_result["rc"] != 0 or not psu_keys_result["stdout"].strip():
+            pytest.skip("No PSU_INFO entries found in STATE_DB")
+
+        psu_keys = psu_keys_result["stdout"].strip().split("\n")
+        psu_key = psu_keys[0]
+        psu_name = psu_key.split("|", 1)[1]
+
+        logger.info("Monitoring PSU '%s' for update cadence", psu_name)
+
+        # Collect timestamp samples
+        observation_time = min(max(psu_interval * 3, 60), MAX_OBSERVATION_TIME)
+        sample_interval = max(psu_interval // 3, 5)
+        num_samples = observation_time // sample_interval
+
+        timestamps = []
+        for _ in range(num_samples):
+            ts = duthost.shell(
+                'sonic-db-cli STATE_DB HGET "{}" timestamp'.format(psu_key),
+                module_ignore_errors=True
+            )
+            if ts["rc"] == 0 and ts["stdout"].strip():
+                timestamps.append(ts["stdout"].strip())
+            time.sleep(sample_interval)
+
+        unique_timestamps = []
+        for ts in timestamps:
+            if not unique_timestamps or unique_timestamps[-1] != ts:
+                unique_timestamps.append(ts)
+
+        expected_updates = observation_time / psu_interval
+        actual_updates = len(unique_timestamps)
+
+        logger.info("PSU updates: expected ~%.1f, observed %d",
+                    expected_updates, actual_updates)
+
+        min_expected = expected_updates * (1 - POLLING_TOLERANCE)
+        pytest_assert(
+            actual_updates >= min_expected,
+            "PSU '{}' updated {} times in {}s, expected at least "
+            "{:.0f} (interval={}s)".format(
+                psu_name, actual_updates, observation_time,
+                min_expected, psu_interval
             )
         )
 

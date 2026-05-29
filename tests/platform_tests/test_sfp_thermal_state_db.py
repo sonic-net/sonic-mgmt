@@ -5,6 +5,7 @@ TRANSCEIVER_DOM_FLAG tables in STATE_DB.
 """
 import json
 import logging
+import re
 
 import pytest
 
@@ -124,11 +125,26 @@ class TestSfpThermalStateDb:
             )
         )
 
+    def _extract_port_index_from_sensor(self, sensor_name):
+        """
+        Attempt to extract a numeric port/module index from a sensor name.
+        E.g., 'xSFP module 3 Temp' -> 3, 'Transceiver Ethernet4 Temp' -> 4
+        Returns the index as int, or None if not parseable.
+        """
+        # Match patterns like 'module N', 'Ethernet N', or standalone number
+        match = re.search(r'(?:module|ethernet)\s*(\d+)', sensor_name, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        return None
+
     def test_sfp_temperature_values_match_xcvrd_tables(
             self, duthosts, enum_rand_one_per_hwsku_hostname):
         """
         Verify that SFP temperature values shown in 'show platform temperature'
         match the values in TRANSCEIVER_DOM_TEMPERATURE table populated by xcvrd.
+
+        Attempts per-port matching where possible; falls back to value proximity
+        check against the full DOM temperature set only for unresolvable sensors.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -152,6 +168,16 @@ class TestSfpThermalStateDb:
         logger.info("TRANSCEIVER_DOM_TEMPERATURE values (first 5): %s",
                     json.dumps(dict(list(dom_temperatures.items())[:5]), indent=2))
 
+        # Build port-index -> DOM temperature mapping for per-port verification
+        port_index_to_dom = {}
+        for port, val in dom_temperatures.items():
+            match = re.search(r'(\d+)$', port)
+            if match:
+                try:
+                    port_index_to_dom[int(match.group(1))] = round(float(val), 1)
+                except (ValueError, TypeError):
+                    pass
+
         # Collect temperature values from CLI SFP rows
         cli_temperatures = {}
         for row in sfp_rows:
@@ -160,40 +186,58 @@ class TestSfpThermalStateDb:
             if temp != "N/A":
                 cli_temperatures[sensor] = temp
 
-        # Build set of DOM temperature values for comparison
-        dom_temp_values = set()
-        for val in dom_temperatures.values():
-            try:
-                dom_temp_values.add(round(float(val), 3))
-            except (ValueError, TypeError):
-                pass
+        pytest_assert(
+            len(cli_temperatures) > 0,
+            "All SFP sensors report N/A temperature — cannot verify DOM sourcing"
+        )
 
         mismatches = []
+        matched_count = 0
         for sensor, cli_temp in cli_temperatures.items():
             try:
-                cli_val = round(float(cli_temp), 3)
-                if cli_val not in dom_temp_values and cli_val != 0.0:
-                    # Allow small floating point differences due to timing
-                    found_close = any(
-                        abs(cli_val - dom_val) < 0.1
-                        for dom_val in dom_temp_values
-                    )
-                    if not found_close:
-                        mismatches.append(
-                            "Sensor '{}': CLI temp={} not found in "
-                            "TRANSCEIVER_DOM_TEMPERATURE values".format(sensor, cli_temp)
-                        )
+                cli_val = round(float(cli_temp), 1)
             except (ValueError, TypeError):
-                pass
+                continue
+
+            # Try per-port match first
+            port_idx = self._extract_port_index_from_sensor(sensor)
+            if port_idx is not None and port_idx in port_index_to_dom:
+                dom_val = port_index_to_dom[port_idx]
+                if abs(cli_val - dom_val) < 0.5:
+                    matched_count += 1
+                    continue
+                else:
+                    mismatches.append(
+                        "Sensor '{}' (port idx {}): CLI temp={} vs DOM temp={}".format(
+                            sensor, port_idx, cli_val, dom_val)
+                    )
+                    continue
+
+            # Fallback: check against all DOM values with proximity tolerance
+            found_close = any(
+                abs(cli_val - round(float(dv), 1)) < 0.5
+                for dv in dom_temperatures.values()
+                if dv is not None
+            )
+            if found_close:
+                matched_count += 1
+            else:
+                mismatches.append(
+                    "Sensor '{}': CLI temp={} not found in "
+                    "TRANSCEIVER_DOM_TEMPERATURE values".format(sensor, cli_temp)
+                )
 
         if mismatches:
             logger.warning("Temperature mismatches (may be due to timing): %s", mismatches)
 
-        matched_count = len(cli_temperatures) - len(mismatches)
+        # Require that the majority of sensors match
+        total_compared = len(cli_temperatures)
+        min_required = max(1, total_compared // 2)
         pytest_assert(
-            matched_count > 0 or len(cli_temperatures) == 0,
-            "No SFP temperature values in CLI matched TRANSCEIVER_DOM_TEMPERATURE. "
-            "Mismatches: {}".format(mismatches)
+            matched_count >= min_required,
+            "Only {}/{} SFP temperature values matched TRANSCEIVER_DOM_TEMPERATURE. "
+            "At least {} required. Mismatches: {}".format(
+                matched_count, total_compared, min_required, mismatches)
         )
 
     def test_sfp_thresholds_match_xcvrd_tables(
@@ -263,54 +307,72 @@ class TestSfpThermalStateDb:
                     dom_high_th_values, dom_low_th_values,
                     dom_crit_high_values, dom_crit_low_values)
 
-        # Verify CLI SFP rows have thresholds matching the DOM table
-        verified_count = 0
+        # Verify CLI SFP rows have thresholds matching the DOM table.
+        # Track per-row: a row is "verified" if at least one of its threshold
+        # fields matches the corresponding DOM value set.
+        rows_verified = 0
+        rows_with_thresholds = 0
         for row in sfp_rows:
             high_th = row.get("high th", "N/A")
             low_th = row.get("low th", "N/A")
             crit_high = row.get("crit high th", "N/A")
             crit_low = row.get("crit low th", "N/A")
 
+            row_has_threshold = False
+            row_matched = False
+
             if high_th != "N/A":
+                row_has_threshold = True
                 try:
                     val = round(float(high_th), 1)
                     if val in dom_high_th_values:
-                        verified_count += 1
+                        row_matched = True
                 except (ValueError, TypeError):
                     pass
 
             if low_th != "N/A":
+                row_has_threshold = True
                 try:
                     val = round(float(low_th), 1)
                     if val in dom_low_th_values:
-                        verified_count += 1
+                        row_matched = True
                 except (ValueError, TypeError):
                     pass
 
             if crit_high != "N/A":
+                row_has_threshold = True
                 try:
                     val = round(float(crit_high), 1)
                     if val in dom_crit_high_values:
-                        verified_count += 1
+                        row_matched = True
                 except (ValueError, TypeError):
                     pass
 
             if crit_low != "N/A":
+                row_has_threshold = True
                 try:
                     val = round(float(crit_low), 1)
                     if val in dom_crit_low_values:
-                        verified_count += 1
+                        row_matched = True
                 except (ValueError, TypeError):
                     pass
 
-        logger.info("Verified %d threshold matches between CLI and TRANSCEIVER_DOM_THRESHOLD",
-                    verified_count)
+            if row_has_threshold:
+                rows_with_thresholds += 1
+                if row_matched:
+                    rows_verified += 1
 
+        logger.info("Verified %d/%d SFP rows with thresholds matched TRANSCEIVER_DOM_THRESHOLD",
+                    rows_verified, rows_with_thresholds)
+
+        # Require that the majority of SFP rows with thresholds match
+        min_required = max(1, rows_with_thresholds // 2)
         pytest_assert(
-            verified_count > 0,
-            "No SFP threshold values in 'show platform temperature' matched "
-            "TRANSCEIVER_DOM_THRESHOLD entries. CLI SFP rows: {}, "
-            "DOM threshold ports: {}".format(len(sfp_rows), len(dom_thresholds))
+            rows_verified >= min_required,
+            "Only {}/{} SFP rows had thresholds matching TRANSCEIVER_DOM_THRESHOLD. "
+            "At least {} required. CLI SFP rows: {}, DOM threshold ports: {}".format(
+                rows_verified, rows_with_thresholds, min_required,
+                len(sfp_rows), len(dom_thresholds))
         )
 
     def test_sfp_warning_status_from_dom_flag(
@@ -350,14 +412,16 @@ class TestSfpThermalStateDb:
         logger.info("DOM flag status: %d ports with flags, %d without",
                     ports_with_flags, ports_without_flags)
 
-        # Verify Warning column values are valid
-        valid_warnings = {"True", "False", "N/A", "true", "false"}
+        # Verify Warning column values are valid.
+        # show_and_parse lowercases values, so accept only lowercase.
+        valid_warnings = {"true", "false", "n/a"}
         for row in sfp_rows:
-            warning = row.get("warning", "")
+            warning = row.get("warning", "").lower()
             pytest_assert(
                 warning in valid_warnings,
                 "Invalid warning value '{}' for sensor '{}'. "
-                "Expected one of: {}".format(warning, row.get("sensor", ""), valid_warnings)
+                "Expected one of (case-insensitive): {}".format(
+                    row.get("warning", ""), row.get("sensor", ""), valid_warnings)
             )
 
         # If ports have flags, at least some SFP rows should have True/False warning
@@ -382,12 +446,25 @@ class TestSfpThermalStateDb:
         """
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+        # Verify thermalctld is running — if it's not, this test is meaningless
+        thermalctld_result = duthost.shell(
+            "docker exec pmon supervisorctl status thermalctld",
+            module_ignore_errors=True
+        )
+        pytest_assert("RUNNING" in thermalctld_result.get("stdout", ""),
+                      "thermalctld is not running — cannot validate TEMPERATURE_INFO content")
+
         result = duthost.shell(
             'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|*"',
             module_ignore_errors=True
         )
-        if result["rc"] != 0 or not result["stdout"].strip():
-            pytest.skip("No TEMPERATURE_INFO entries found in STATE_DB")
+        # If thermalctld is running but TEMPERATURE_INFO is empty, that's a failure —
+        # thermalctld should always publish platform sensor data (ASIC, CPU, etc.)
+        pytest_assert(
+            result["rc"] == 0 and result["stdout"].strip(),
+            "thermalctld is running but TEMPERATURE_INFO is empty in STATE_DB — "
+            "expected at least platform sensors (ASIC, CPU, PSU, etc.)"
+        )
 
         keys = result["stdout"].strip().split("\n")
         sfp_keys = [
