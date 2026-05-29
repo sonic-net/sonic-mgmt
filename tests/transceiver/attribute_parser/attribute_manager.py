@@ -15,7 +15,11 @@ Shard contract (path => merged-tree slot the body is grafted into):
   Platform-level: ``<cat>/platforms/<PLATFORM>/<cat>.json``
         Body is grafted at ``tree['platforms'][<PLATFORM>]``.
   HWSKU-level:    ``<cat>/platforms/<PLATFORM>/hwskus/<HWSKU>.json``
-        Body is grafted at ``tree['hwskus'][<HWSKU>]``.
+        Body is grafted at ``tree['hwskus'][<PLATFORM>][<HWSKU>]`` so that
+        the same ``<HWSKU>`` name appearing under two different platform
+        directories never collides (each (platform, hwsku) pair is its own
+        disjoint leaf and only the current DUT's (platform, hwsku) is
+        consulted at resolution time).
   Vendor-level:   ``<cat>/transceivers/vendors/<V>/<cat>.json``
         Body is grafted at ``tree['transceivers']['vendors'][<V>]['defaults']``.
   Per-PN:         ``<cat>/transceivers/vendors/<V>/part_numbers/<PN>/<cat>.json``
@@ -49,7 +53,7 @@ Priority hierarchy (highest to lowest), applied per port:
 4. ``transceivers.vendors.<V>.part_numbers.<PN>`` (excluding override slots)
 5. ``transceivers.vendors.<V>.defaults``
 6. ``transceivers.deployment_configurations.<DEPLOYMENT>``
-7. ``hwskus.<HWSKU>``
+7. ``hwskus.<PLATFORM>.<HWSKU>`` (scoped by the DUT's platform)
 8. ``platforms.<PLATFORM>``
 9. ``defaults``
 """
@@ -267,7 +271,7 @@ class AttributeManager:
         """Graft each shard body into its merged-tree slot.
 
         Because each non-category shard owns a disjoint subtree
-        (``platforms.<P>``, ``hwskus.<H>``, ``transceivers.vendors.<V>``...),
+        (``platforms.<P>``, ``hwskus.<P>.<H>``, ``transceivers.vendors.<V>``...),
         no two shards can collide and a direct assignment per scope suffices.
         Only the category-level body needs key-by-key merging into the root.
         """
@@ -280,7 +284,12 @@ class AttributeManager:
             elif kind == 'platform':
                 tree.setdefault('platforms', {})[meta['platform']] = body
             elif kind == 'hwsku':
-                tree.setdefault('hwskus', {})[meta['hwsku']] = body
+                # Scope the HWSKU body by its parent platform so two
+                # ``platforms/<P>/hwskus/<H>.json`` shards under different
+                # platform directories with the same ``<H>`` filename do not
+                # silently overwrite each other based on walk order.
+                (tree.setdefault('hwskus', {})
+                     .setdefault(meta['platform'], {}))[meta['hwsku']] = body
             elif kind == 'vendor':
                 self._vendor_node(tree, meta['vendor'])['defaults'] = body
             elif kind == 'pn':
@@ -312,11 +321,19 @@ class AttributeManager:
         deployment = base_attrs.get('deployment')
         vendor_name = base_attrs.get('normalized_vendor_name')
         part_number = base_attrs.get('normalized_vendor_pn')
+        # ``active_firmware_version`` is a reserved BASE_ATTRIBUTES key:
+        # ``DutInfoLoader`` does not currently populate it, so
+        # ``firmware_overrides`` shards are silently inert until the producer
+        # (planned to live with the CDB FW upgrade test infrastructure)
+        # populates this key per port. The slot is reserved in the schema so
+        # contributors do not invent ad-hoc keys for firmware-conditional
+        # overrides; the resolver fail-safes to the empty layer when the key
+        # is absent.
         firmware_version = base_attrs.get('active_firmware_version')
 
         defaults_layer = tree.get('defaults', {})
         platform_layer = tree.get('platforms', {}).get(platform, {})
-        hwsku_layer = tree.get('hwskus', {}).get(hwsku, {})
+        hwsku_layer = tree.get('hwskus', {}).get(platform, {}).get(hwsku, {})
         dut_layer = tree.get('dut', {}).get(dut_name, {})
 
         transceivers = tree.get('transceivers', {})

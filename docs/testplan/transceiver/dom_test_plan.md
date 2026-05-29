@@ -80,17 +80,7 @@ The following example demonstrates `temperature_threshold_range` for different t
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "FINISAR": {
-        "part_numbers": {
-          "FTLX8571D3BCL-10GSFP": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
 }
 ```
 
@@ -98,17 +88,7 @@ The following example demonstrates `temperature_threshold_range` for different t
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "MELLANOX": {
-        "part_numbers": {
-          "MCP1600-C003-100G": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
 }
 ```
 
@@ -116,22 +96,12 @@ The following example demonstrates `temperature_threshold_range` for different t
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "MELLANOX": {
-        "part_numbers": {
-          "MMA1T00-VS-400G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
-            "voltage_deviation_range": {"min": -0.10, "max": 0.10},
-            "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
-            "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
-            "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
-            "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
+  "voltage_deviation_range": {"min": -0.10, "max": 0.10},
+  "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
+  "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
+  "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
+  "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
 }
 ```
 
@@ -139,17 +109,7 @@ The following example demonstrates `temperature_threshold_range` for different t
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "MARVELL": {
-        "part_numbers": {
-          "88X7120-800G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
 }
 ```
 

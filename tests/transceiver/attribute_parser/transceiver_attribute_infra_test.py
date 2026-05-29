@@ -918,6 +918,58 @@ def test_loader_category_disallows_vendors_block():
             print(f"  Correctly caught: {e}")
 
 
+def test_hwsku_same_name_under_different_platforms():
+    """Two ``platforms/<P>/hwskus/<H>.json`` shards with the same ``<H>`` filename
+    but under different platform directories must each be retained in the merged
+    tree and resolved by the current DUT's (platform, hwsku) pair - not silently
+    overwritten by walk order.
+    """
+    print("Testing HWSKU same-name-different-platform isolation...")
+    other_platform = 'x86_64-other_vendor_other_model-r0'
+    eeprom = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False, 'cmis_active_optical': False},
+        'transceivers': {
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {
+                        'PN-ABC-123DE': {'sff8024_identifier': 25}
+                    }
+                }
+            }
+        }
+    }
+    with test_temp_environment(prefix='sonic_test_hwsku_platform_scope_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        # Same HWSKU filename under two different platform directories with
+        # different bodies. Walk order is alphabetical by directory name, so
+        # ``other_platform`` is processed before ``TEST_PLATFORM`` - if the
+        # loader keyed solely by HWSKU name, the TEST_PLATFORM body would win
+        # in this layout. We verify both coexist and the resolver picks the
+        # one matching the DUT's platform.
+        _write_json(
+            attr_dir / 'eeprom' / 'platforms' / TEST_PLATFORM / 'hwskus' / f"{TEST_HWSKU}.json",
+            {'eeprom_dump_timeout_sec': 7},
+        )
+        _write_json(
+            attr_dir / 'eeprom' / 'platforms' / other_platform / 'hwskus' / f"{TEST_HWSKU}.json",
+            {'eeprom_dump_timeout_sec': 99},
+        )
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        merged = AttributeManager(temp_root, base).build_port_attributes(
+            TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+        for port, data in merged.items():
+            attrs = data['EEPROM_ATTRIBUTES']
+            assert attrs['eeprom_dump_timeout_sec'] == 7, (
+                f"{port}: expected current platform's HWSKU body (7); got {attrs['eeprom_dump_timeout_sec']} "
+                "- the other platform's HWSKU shard with the same filename leaked in."
+            )
+        print(f"  HWSKU correctly scoped by platform for {len(merged)} ports")
+
+
 def test_priority_dut_layer_overrides_all():
     """`dut.<DUT>` (priority 1) must override every lower-priority layer."""
     print("Testing dut-layer priority override...")
@@ -992,6 +1044,7 @@ if __name__ == "__main__":
         test_loader_pn_reserved_subslot_shape,
         test_loader_unrecognized_subdir,
         test_loader_category_disallows_vendors_block,
+        test_hwsku_same_name_under_different_platforms,
         test_priority_dut_layer_overrides_all,
     ]
     results = [run_test(test) for test in tests]

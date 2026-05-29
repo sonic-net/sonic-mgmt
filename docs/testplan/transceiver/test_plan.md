@@ -635,13 +635,13 @@ attributes/
 |----------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Category-level | `<category>/<category>.json`                                                        | Allowed top-level keys: `mandatory`, `defaults`, `dut`, `transceivers` (only `transceivers.deployment_configurations`)                                              |
 | Platform-level | `<category>/platforms/<PLATFORM>/<category>.json`                                    | Platform attribute body → grafted at `platforms.<PLATFORM>`                                                                                                         |
-| HWSKU-level    | `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`                                 | HWSKU attribute body → grafted at `hwskus.<HWSKU>` (parent `<PLATFORM>` segment identifies the platform that defines this HWSKU)                                    |
+| HWSKU-level    | `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`                                 | HWSKU attribute body → grafted at `hwskus.<PLATFORM>.<HWSKU>` (scoped by parent `<PLATFORM>` so the same `<HWSKU>` filename can appear under multiple platform directories without collision)                                    |
 | Vendor-level   | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/<category>.json`          | Vendor `defaults` body → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`                                                                        |
 | Per-PN         | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/part_numbers/<NORMALIZED_VENDOR_PN>/<category>.json` | PN body (attribute leaves + optional `firmware_overrides` / `platform_hwsku_overrides`) → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_VENDOR_PN>` |
 
 - Vendor and PN directory names under `<category>/transceivers/vendors/<V>/part_numbers/<PN>/` **must** appear as values of the corresponding `vendor_names` / `part_numbers` map in `normalization_mappings.json`. This requirement applies only when the vendor/PN owns a shard directory; vendors and PNs that only appear in `dut_info/<host>.json` without any category-shard overrides do **not** need an entry (raw name is used as-is per the [Field Handling Rules](#field-handling-rules)). Platform and HWSKU directory names are taken from the inventory and are not normalized.
 - Only the category-level file is required; every other shard appears only when its scope contributes attributes. A category with no directory under `attributes/` is skipped entirely.
-- Because each non-category shard owns a disjoint subtree of the merged tree (`platforms.<P>`, `hwskus.<H>`, `transceivers.vendors.<V>.defaults`, `transceivers.vendors.<V>.part_numbers.<PN>`), two shards can never write the same key path — the directory IS the schema. See [Loader Validation](#loader-validation) for the remaining checks.
+- Because each non-category shard owns a disjoint subtree of the merged tree (`platforms.<P>`, `hwskus.<P>.<H>`, `transceivers.vendors.<V>.defaults`, `transceivers.vendors.<V>.part_numbers.<PN>`), two shards can never write the same key path — the directory IS the schema. See [Loader Validation](#loader-validation) for the remaining checks.
 
 **Design notes:**
 
@@ -696,7 +696,7 @@ The category-level shard carries `mandatory`, `defaults`, `dut`, and `transceive
 // platforms/<PLATFORM>/<category>.json  → grafted at platforms.<PLATFORM>
 { "field_3": "platform_value" }
 
-// platforms/<PLATFORM>/hwskus/<HWSKU>.json  → grafted at hwskus.<HWSKU>
+// platforms/<PLATFORM>/hwskus/<HWSKU>.json  → grafted at hwskus.<PLATFORM>.<HWSKU>
 { "field_3": "hwsku_value" }
 
 // transceivers/vendors/<V>/<category>.json  → grafted at transceivers.vendors.<V>.defaults
@@ -752,7 +752,7 @@ Attributes are resolved using this hierarchy (highest to lowest priority):
 4. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
 5. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
 6. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved against the `deployment` field in `BASE_ATTRIBUTES`, which the framework parses from `transceiver_configuration` in `dut_info/<dut_hostname>.json`)
-7. **HWSKU-specific**: `hwskus.<HWSKU>` (from `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`, where `<PLATFORM>` is the platform of the DUT under test)
+7. **HWSKU-specific**: `hwskus.<PLATFORM>.<HWSKU>` (from `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`; the merged tree is keyed by both `<PLATFORM>` and `<HWSKU>` so the same `<HWSKU>` filename under different platform directories never collides)
 8. **Platform-specific**: `platforms.<PLATFORM>` (from `<category>/platforms/<PLATFORM>/<category>.json`)
 9. **Global defaults**: `defaults`
 
@@ -786,9 +786,7 @@ A complete `eeprom` category illustrated across the shard types:
 
 ```json
 {
-  "platforms": {
-    "x86_64-acme_as7726_32x-r0": { "sfputil_eeprom_dump_sec": 4 }
-  }
+  "sfputil_eeprom_dump_sec": 4
 }
 ```
 
@@ -796,9 +794,7 @@ A complete `eeprom` category illustrated across the shard types:
 
 ```json
 {
-  "hwskus": {
-    "ACME-AS7726-32X": { "sfputil_eeprom_dump_sec": 5 }
-  }
+  "sfputil_eeprom_dump_sec": 5
 }
 ```
 
@@ -806,13 +802,7 @@ A complete `eeprom` category illustrated across the shard types:
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "ACME_CORP": {
-        "defaults": { "vdm_supported": false }
-      }
-    }
-  }
+  "defaults": { "vdm_supported": false }
 }
 ```
 
@@ -820,23 +810,13 @@ A complete `eeprom` category illustrated across the shard types:
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "ACME_CORP": {
-        "part_numbers": {
-          "QSFP-2X100G-AOC-GENERIC_2_ENDM": {
-            "sff8024_identifier": "0x18",
-            "firmware_overrides": {
-              "1.2.3": { "eeprom_dump_timeout_sec": 7 }
-            },
-            "platform_hwsku_overrides": {
-              "x86_64-acme_as7726_32x-r0+ACME-AS7726-32X": {
-                "eeprom_dump_timeout_sec": 5
-              }
-            }
-          }
-        }
-      }
+  "sff8024_identifier": "0x18",
+  "firmware_overrides": {
+    "1.2.3": { "eeprom_dump_timeout_sec": 7 }
+  },
+  "platform_hwsku_overrides": {
+    "x86_64-acme_as7726_32x-r0+ACME-AS7726-32X": {
+      "eeprom_dump_timeout_sec": 5
     }
   }
 }
