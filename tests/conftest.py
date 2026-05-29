@@ -410,6 +410,18 @@ def pytest_addoption(parser):
     parser.addoption("--bgp_pc_config", action="store_true", default=False,
                      help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
 
+    ##########################################
+    #   Dualtor MUX_CABLE combo options      #
+    ##########################################
+    parser.addoption("--prober_type", action="store", default=None, type=str,
+                     choices=["hardware", "software"],
+                     help="MUX_CABLE prober_type value (hardware|software). "
+                          "Only applies to dualtor/dualtor_io suites.")
+    parser.addoption("--neighbor_mode", action="store", default=None, type=str,
+                     choices=["host-route", "prefix-route"],
+                     help="MUX_CABLE neighbor_mode value (host-route|prefix-route). "
+                          "Only applies to dualtor/dualtor_io suites.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
