@@ -36,6 +36,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     neigh_name = lldp_table[1]
@@ -84,6 +85,12 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
             peer_group_v6 is None or neigh_asn is None):
         pytest.skip("Failed to get neighbor info")
 
+    neigh_bgp_config = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']
+    peer_in_bgp_confed = neigh_bgp_config.get('peer_in_bgp_confed', False)
+    if peer_in_bgp_confed:
+        dut_asn = int(confed_asn)
+    else:
+        dut_asn = int(dut_asn)
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1].lower()
 

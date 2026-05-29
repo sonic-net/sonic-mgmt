@@ -159,11 +159,14 @@ def setup_bgp_peers(
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
+    elif dut_type in ["FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
             use_vtysh = True
+    elif dut_type in ["UpperSpineRouter"]:
+        neigh_type = "AZNGHub"
+        dut_asn = int(confed_asn)
     else:
         neigh_type = "ToRRouter"
 
