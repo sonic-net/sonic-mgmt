@@ -264,7 +264,7 @@ class TestFdbFlush:
             self.curr_exist_cores = existing_core_dumps
 
     def create_fdb_oper_files(self, duthost):
-        mac_addresses = ["00-11-22-33-55-66", "00-11-22-33-55-67", "00-11-22-33-55-68"]
+        mac_addresses = ["00-11-22-33-56-66", "00-11-22-33-56-67", "00-11-22-33-56-68"]
         vlan_id = 1000
         fdb_static_set = []
         fdb_static_del = []
