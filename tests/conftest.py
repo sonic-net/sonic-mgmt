@@ -1112,6 +1112,10 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+            if multi_vrf_peer:
+                device['host'].bgp_vrf = multi_vrf_data['vrf']
+                device['host'].bgp_prime_asn = multi_vrf_data['primary_host_asn']
+                device['host'].intf_map = multi_vrf_data['orig_intf_map']
         elif neighbor_type == "csonic":
             # cSONiC neighbors are docker-sonic-vs containers accessed via
             # "docker exec" (CsonicHost), not over SSH. Handle them before the

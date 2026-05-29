@@ -226,10 +226,13 @@ class SonicTopoConverger:
 
         # We don't need to change the host_interfaces portion of the passed topo, so
         # copy
-        # it over as is.
-        key = "host_interfaces"
-        if key in old_topo:
-            new_topo[key] = old_topo[key].copy()
+        # it over as is.  The same applies to disabled_host_interfaces, which must be
+        # preserved so the DUT minigraph keeps those ports admin-down; dropping it
+        # turns previously-disabled host interfaces into active ports and breaks
+        # buffer/qos deployment checks (e.g. qos/test_buffer.py).
+        for key in ("host_interfaces", "disabled_host_interfaces"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key].copy()
 
         key = "VMs"
         # Save off which vm had which interface index as we will need this later

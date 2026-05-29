@@ -22,6 +22,120 @@ FEC_MAP = {
 }
 
 
+_INTF_TOKEN_RE = re.compile(r'(?<=\binterface\s)(\S+)|(?<=\binterfaces\s)(\S+)')
+
+
+def _apply_intf_map(value, intf_map):
+    """Translate interface tokens via ``intf_map`` (converged-peer aware).
+
+    On converged (multi-VRF) topologies a single cEOS VM hosts every logical
+    neighbor and the per-logical-neighbor interface name (e.g. ``Ethernet1``
+    from minigraph) maps to a different physical interface on the shared VM
+    (e.g. ``Ethernet4``). ``ceos_topo_converger`` records that mapping in
+    ``intf_map`` (``{logical: converged}``).
+
+    This rewrites ``interface <name>`` / ``interfaces <name>`` tokens inside
+    ``value`` (string, dict with ``command`` key, or list of either) so test
+    code can keep using the per-logical name from minigraph.  Returns ``value``
+    untouched when ``intf_map`` is empty (stock topology) so behavior is
+    byte-identical there.
+    """
+    if not intf_map or value is None:
+        return value
+
+    def _sub(match):
+        name = match.group(1) or match.group(2)
+        return intf_map.get(name, name)
+
+    def _rewrite_one(item):
+        if isinstance(item, str):
+            return _INTF_TOKEN_RE.sub(_sub, item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            new_item = dict(item)
+            new_item['command'] = _INTF_TOKEN_RE.sub(_sub, item['command'])
+            return new_item
+        return item
+
+    if isinstance(value, list):
+        return [_rewrite_one(item) for item in value]
+    return _rewrite_one(value)
+
+
+def _vrf_scope_bgp_parents(parents, vrf, prime_asn):
+    """Rewrite ``router bgp <asn>`` config parents to be VRF-scoped.
+
+    On converged (multi-VRF) topologies a single cEOS VM hosts every logical
+    neighbor as a VRF under one global ``router bgp <prime_asn>`` process.
+    Legacy test code targets ``router bgp <asn>`` in the default VRF, which on
+    such a VM lands in the wrong place. This rewrites those parents to
+    ``router bgp <prime_asn>`` / ``vrf <vrf>`` so existing test code works
+    unchanged.
+
+    Returns ``parents`` untouched when no VRF scoping applies (vrf unset, no
+    ``router bgp`` parent, or the parents are already VRF-scoped).
+    """
+    if not vrf or parents is None:
+        return parents
+    as_list = parents if isinstance(parents, list) else [parents]
+    if any(str(p).strip().startswith('vrf ') for p in as_list):
+        return parents
+    rewritten = []
+    changed = False
+    for parent in as_list:
+        if str(parent).strip().startswith('router bgp'):
+            rewritten.append('router bgp {}'.format(prime_asn))
+            rewritten.append('vrf {}'.format(vrf))
+            changed = True
+        else:
+            rewritten.append(parent)
+    return rewritten if changed else parents
+
+
+_BASH_PREFIX_RE = re.compile(r'^(\s*)bash\s+')
+_BASH_ALREADY_SCOPED_RE = re.compile(r'^\s*bash\s+(?:sudo\s+)?ip\s+netns\s+exec\b')
+
+
+def _vrf_scope_bash_commands(commands, vrf):
+    """Wrap ``bash <cmd>`` invocations with ``sudo ip netns exec ns-<vrf>``.
+
+    On converged (multi-VRF) cEOS hosts BGP/data-plane routes live in the
+    per-VRF Linux network namespace ``ns-<vrf>`` (Arista's standard mapping
+    between EOS VRFs and Linux namespaces). A plain ``bash <cmd>`` invocation
+    via the EOS CLI runs in the *default* namespace which on converged has
+    no route to DUT data-plane IPs, so any network tool (snmpget, ping,
+    curl, traceroute, ...) fails with "Network is unreachable".
+
+    This rewrites ``bash <cmd>`` into
+    ``bash sudo ip netns exec ns-<vrf> <cmd>`` so the tool runs in the VRF
+    that carries the BGP-learned routes to the DUT. Native EOS CLI commands
+    (no ``bash`` prefix) and already-namespaced commands are left untouched.
+    Returns ``commands`` unchanged when no VRF is set (stock topology).
+    """
+    if not vrf or commands is None:
+        return commands
+    scope_prefix = 'bash sudo ip netns exec ns-{} '.format(vrf)
+
+    def _rewrite_text(text):
+        if not _BASH_PREFIX_RE.match(text):
+            return text
+        if _BASH_ALREADY_SCOPED_RE.match(text):
+            return text
+        return _BASH_PREFIX_RE.sub(scope_prefix, text, count=1)
+
+    def _rewrite_one(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        if isinstance(item, dict) and isinstance(item.get('command'), str):
+            new_item = dict(item)
+            new_item['command'] = _rewrite_text(item['command'])
+            return new_item
+        return item
+
+    if isinstance(commands, list):
+        return [_rewrite_one(c) for c in commands]
+    return _rewrite_one(commands)
+
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -47,6 +161,17 @@ class EosHost(AnsibleHostBase):
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         self.is_multi_asic = False
+        # VRF scoping for converged (multi-VRF) topologies. When set, BGP config
+        # parents are transparently rewritten to be VRF-scoped in eos_config().
+        # Left as None on stock topologies so behavior is byte-identical.
+        self.bgp_vrf = None
+        self.bgp_prime_asn = None
+        # Interface-name translation for converged topologies. When set, any
+        # ``interface <name>`` / ``interfaces <name>`` token in eos_config()
+        # parents/lines and eos_command() commands is translated through this
+        # ``{logical: converged}`` map so tests can keep using the per-logical
+        # name reported by minigraph. Left as None on stock topologies.
+        self.intf_map = None
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local',
                                        host_pattern="localhost")["localhost"]
@@ -82,6 +207,48 @@ class EosHost(AnsibleHostBase):
 
     def __repr__(self):
         return self.__str__()
+
+    def eos_config(self, *args, **kwargs):
+        """VRF-aware wrapper around the ``eos_config`` Ansible module.
+
+        All EosHost config writes (config(), shutdown(), no_shutdown_bgp(),
+        and direct test calls) funnel through here. On converged topologies
+        BGP config parents are transparently VRF-scoped and per-logical
+        interface names are translated to the converged VM's actual interface
+        names; on stock topologies the call is passed through unchanged.
+        """
+        if self.intf_map:
+            for key in ('parents', 'lines'):
+                if key in kwargs:
+                    kwargs[key] = _apply_intf_map(kwargs[key], self.intf_map)
+        if 'parents' in kwargs:
+            kwargs['parents'] = _vrf_scope_bgp_parents(
+                kwargs['parents'], self.bgp_vrf, self.bgp_prime_asn)
+        ansible_eos_config = self.__getattr__('eos_config')
+        return ansible_eos_config(*args, **kwargs)
+
+    def eos_command(self, *args, **kwargs):
+        """Converged-peer-aware wrapper around the ``eos_command`` Ansible module.
+
+        On converged topologies two transparent rewrites happen:
+
+        * ``interface <name>`` / ``interfaces <name>`` tokens in ``commands``
+          are translated through ``intf_map`` so tests can keep using the
+          per-logical-neighbor name from minigraph.
+        * ``bash <cmd>`` invocations are wrapped with
+          ``bash sudo ip netns exec ns-<bgp_vrf> <cmd>`` so network tools
+          (snmpget, ping, ...) execute in the VRF that holds the BGP routes
+          to the DUT instead of the route-less default namespace.
+
+        On stock topologies the call is passed through unchanged.
+        """
+        if self.intf_map and 'commands' in kwargs:
+            kwargs['commands'] = _apply_intf_map(kwargs['commands'], self.intf_map)
+        if self.bgp_vrf and 'commands' in kwargs:
+            kwargs['commands'] = _vrf_scope_bash_commands(
+                kwargs['commands'], self.bgp_vrf)
+        ansible_eos_command = self.__getattr__('eos_command')
+        return ansible_eos_command(*args, **kwargs)
 
     @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def shutdown(self, interface_name):
