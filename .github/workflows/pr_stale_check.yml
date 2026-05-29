@@ -1,0 +1,190 @@
+name: Stale PR Check
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not add labels or comments)'
+        required: false
+        default: 'false'
+      stale_days:
+        description: 'Number of days without activity to consider a PR stale'
+        required: false
+        default: '30'
+      ci_failing_days:
+        description: 'Number of days CI checks must be continuously failing to suggest close'
+        required: false
+        default: '14'
+
+jobs:
+  stale_pr_check:
+    if: github.repository_owner == 'sonic-net'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+    - name: Fetch open PRs
+      env:
+        TOKEN: ${{ secrets.TOKEN }}
+        GH_TOKEN: ${{ secrets.TOKEN }}
+      run: |
+        set -e
+
+        echo ${TOKEN} | gh auth login --with-token
+        # Fetch all open PRs with relevant fields
+        gh pr list -R ${{ github.repository }} -L 500 --state open \
+          --json number,url,title,author,createdAt,updatedAt,labels,isDraft,reviewDecision,statusCheckRollup \
+          > prs.log
+        echo "Total open PRs: $(cat prs.log | jq 'length')"
+        cat prs.log | jq
+
+    - name: Evaluate and label stale PRs
+      env:
+        GH_TOKEN: ${{ secrets.TOKEN }}
+        DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        STALE_DAYS: ${{ github.event.inputs.stale_days || '30' }}
+        CI_FAILING_DAYS: ${{ github.event.inputs.ci_failing_days || '14' }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -e
+
+        stale_threshold_date=$(date --date "${STALE_DAYS} days ago" -u +"%FT%TZ")
+        echo "Stale threshold date: $stale_threshold_date (${STALE_DAYS} days)"
+        echo "Dry run: $DRY_RUN"
+        echo ""
+
+        count=$(cat prs.log | jq 'length')
+        stale_count=0
+        close_suggested_count=0
+
+        for ((i=0;i<$count;i++))
+        do
+          number=$(cat prs.log | jq -r ".[$i].number")
+          url=$(cat prs.log | jq -r ".[$i].url")
+          title=$(cat prs.log | jq -r ".[$i].title")
+          author=$(cat prs.log | jq -r ".[$i].author.login")
+          created_at=$(cat prs.log | jq -r ".[$i].createdAt")
+          updated_at=$(cat prs.log | jq -r ".[$i].updatedAt")
+          is_draft=$(cat prs.log | jq -r ".[$i].isDraft")
+          review_decision=$(cat prs.log | jq -r ".[$i].reviewDecision")
+          labels=$(cat prs.log | jq -r ".[$i].labels[].name" 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+
+          echo "---"
+          echo "PR #$number: $title"
+          echo "  Author: $author, Created: $created_at, Updated: $updated_at"
+          echo "  Draft: $is_draft, Review: $review_decision, Labels: $labels"
+
+          # Skip if already labeled stale
+          if cat prs.log | jq -r ".[$i].labels[].name" | grep -q "^stale$"; then
+            echo "  [SKIP] Already labeled stale"
+            continue
+          fi
+
+          # Skip bot PRs (auto-merge PRs handled by automerge_scan)
+          if [[ "$author" == "mssonicbld" ]]; then
+            echo "  [SKIP] Bot PR (mssonicbld)"
+            continue
+          fi
+
+          # Determine if PR is stale (no update in STALE_DAYS days)
+          is_stale=false
+          if [[ "$updated_at" < "$stale_threshold_date" ]]; then
+            is_stale=true
+          fi
+
+          # Determine if CI has been failing for CI_FAILING_DAYS+ days
+          ci_failing_long=false
+          ci_failure_date=$(date --date "${CI_FAILING_DAYS} days ago" -u +"%FT%TZ")
+          checks=$(cat prs.log | jq ".[$i].statusCheckRollup")
+          checks_count=$(echo $checks | jq 'length')
+          all_checks_failed=true
+          has_checks=false
+          for ((j=0;j<$checks_count;j++))
+          do
+            check=$(echo $checks | jq ".[$j]")
+            name=$(echo $check | jq -r '.name')
+            state=$(echo $check | jq -r '.state')
+            conclusion=$(echo $check | jq -r '.conclusion')
+            completed_at=$(echo $check | jq -r '.completedAt // empty')
+
+            # Skip non-critical checks
+            echo "$name" | grep -q "cherry_pick" && continue
+            echo "$name" | grep -q "Semgrep" && continue
+
+            has_checks=true
+            if [[ "$state" == "SUCCESS" ]] || [[ "$conclusion" == "SUCCESS" ]] || [[ "$conclusion" == "NEUTRAL" ]]; then
+              all_checks_failed=false
+            elif [[ -n "$completed_at" ]] && [[ "$completed_at" < "$ci_failure_date" ]]; then
+              # Check has been failing for more than 14 days
+              ci_failing_long=true
+            fi
+          done
+
+          # Only flag CI failure if all checks failed and failure is long-running
+          if [[ "$has_checks" == "false" ]] || [[ "$all_checks_failed" == "false" ]]; then
+            ci_failing_long=false
+          fi
+
+          # Compose the suggestion reason
+          suggest_close=false
+          reasons=""
+          if [[ "$is_stale" == "true" ]]; then
+            suggest_close=true
+            reasons="no activity for more than ${STALE_DAYS} days (last updated: ${updated_at})"
+          fi
+          if [[ "$ci_failing_long" == "true" ]]; then
+            suggest_close=true
+            if [[ -n "$reasons" ]]; then
+              reasons="$reasons; "
+            fi
+            reasons="${reasons}CI checks have been failing for more than ${CI_FAILING_DAYS} days"
+          fi
+
+          if [[ "$suggest_close" == "true" ]]; then
+            stale_count=$((stale_count+1))
+            echo "  [STALE] Suggesting close: $reasons"
+
+            if [[ "$DRY_RUN" != "true" ]]; then
+              # Add stale label
+              gh pr edit $url --add-label "stale" -R $REPO 2>/dev/null || \
+                echo "  [WARN] Could not add stale label (label may not exist in repo)"
+
+              # Comment on the PR suggesting closure
+              comment="This PR has been flagged for review by the automated stale PR check.\n\n"
+              comment="${comment}**Reason(s):** ${reasons}\n\n"
+              comment="${comment}If this PR is still relevant and being worked on, please:\n"
+              comment="${comment}- Update the PR with a status comment or new commits\n"
+              comment="${comment}- Remove the \`stale\` label to prevent closure\n\n"
+              comment="${comment}If this PR is no longer needed, please close it to keep the PR queue clean.\n\n"
+              comment="${comment}*This comment was automatically generated by the [Stale PR Check](https://github.com/${REPO}/actions/workflows/pr_stale_check.yml) workflow.*"
+
+              # Check if we already commented recently (avoid duplicate comments)
+              already_commented=$(gh pr view $url --json comments -R $REPO | \
+                jq -r '.comments[] | select(.author.login == "github-actions[bot]") | .body' | \
+                grep -c "stale PR check" 2>/dev/null || echo "0")
+
+              if [[ "$already_commented" == "0" ]]; then
+                printf "%b" "$comment" | gh pr comment $url --body-file - -R $REPO || \
+                  echo "  [WARN] Could not add comment"
+                close_suggested_count=$((close_suggested_count+1))
+              else
+                echo "  [SKIP] Already commented recently"
+              fi
+            else
+              echo "  [DRY RUN] Would add stale label and comment to PR #$number"
+              close_suggested_count=$((close_suggested_count+1))
+            fi
+          else
+            echo "  [OK] PR is active"
+          fi
+        done
+
+        echo ""
+        echo "=============================="
+        echo "Summary:"
+        echo "  Total open PRs:         $count"
+        echo "  Stale PRs found:        $stale_count"
+        echo "  Close suggestions sent: $close_suggested_count"
+        echo "=============================="
