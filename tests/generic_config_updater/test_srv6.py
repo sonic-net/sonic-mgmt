@@ -15,6 +15,27 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True)
+def ignore_srv6_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Ignore expected SRv6 SAI related errors in syncd logs.
+
+    On platforms where SRv6 is unsupported, syncd may log errors that are
+    expected and benign during SRv6 GCU tests.
+
+    Args:
+        duthosts: DUT hosts fixture
+        rand_one_dut_hostname: Randomly selected DUT hostname
+        loganalyzer: Loganalyzer utility fixture
+    """
+    if loganalyzer:
+        duthost = duthosts[rand_one_dut_hostname]
+        if duthost.hostname in loganalyzer:
+            loganalyzer[duthost.hostname].ignore_regex.extend([
+                ".*ERR syncd[0-9]*#syncd.*",
+            ])
+    yield
+
+
+@pytest.fixture(autouse=True)
 def setup_and_cleanup(duthosts, rand_one_dut_hostname, enum_frontend_asic_index):
     """
     Setup/teardown fixture for SRv6 config
