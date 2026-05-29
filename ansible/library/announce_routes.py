@@ -1528,7 +1528,9 @@ def fib_t0_mclag(topo, ptf_ip, action="announce", topo_routes={}):
                 change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
+def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
+    if topo_routes is None:
+        topo_routes = {}
     T1_GROUP_SIZE = 2
     BASE_ADDR_V4 = "192.128.0.0/9"
     BASE_ADDR_V6 = "20c0:a800::0:0/108"
@@ -1541,9 +1543,15 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
     leaf_asn_start = common_config.get("leaf_asn_start", LEAF_ASN_START)
     tor_asn_start = common_config.get("tor_asn_start", TOR_ASN_START)
 
-    vms = sorted(topo['topology']['VMs'])
+    multi_vrf_data = topo.get('convergence_data', {})
+    if multi_vrf_data:
+        vms = sorted([vm for vrfs in multi_vrf_data['convergence_mapping'].values() for vm in vrfs])
+    else:
+        vms = sorted(topo['topology']['VMs'])
     t1_vms = list(filter(lambda vm: "T1" in vm, vms))
     ut2_vms = list(filter(lambda vm: "UT2" in vm, vms))
+
+    ptf_bp_addrs = multi_vrf_data.get('ptf_backplane_addrs', {})
 
     default_route_as_path = get_uplink_router_as_path("upperspine", None)
 
@@ -1553,12 +1561,16 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
     group_nums = int(math.ceil(float(len(t1_vms)) / T1_GROUP_SIZE))
     t1_route_per_group = int(math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums))
 
-    # 32 route each x 4 to match 110 T1
+    # 32 routes each x 8 to support up to 256 T1 VMs
     extra_ipv4_t1 = itertools.chain(
         ipaddress.ip_network("192.168.0.0/27"),
         ipaddress.ip_network("192.169.0.0/27"),
         ipaddress.ip_network("192.170.0.0/27"),
         ipaddress.ip_network("192.171.0.0/27"),
+        ipaddress.ip_network("192.172.0.0/27"),
+        ipaddress.ip_network("192.173.0.0/27"),
+        ipaddress.ip_network("192.174.0.0/27"),
+        ipaddress.ip_network("192.175.0.0/27"),
     )
 
     for group in range(group_nums):
@@ -1573,14 +1585,24 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
             vm_name = t1_vms[group * T1_GROUP_SIZE + vm_index]
             port, port6 = get_change_routes_ports(vm_name, topo)
 
+            # For converged topo, use per-VRF PTF backplane IP as nexthop.
+            # The global nhipv4 may equal a VRF's own cEOS IP (e.g. ARISTA78T1),
+            # causing cEOS to reject routes where next-hop == self.
+            if vm_name in ptf_bp_addrs:
+                vm_nhipv4 = ptf_bp_addrs[vm_name]['ipv4'].split('/')[0]
+                vm_nhipv6 = ptf_bp_addrs[vm_name]['ipv6'].split('/')[0]
+            else:
+                vm_nhipv4 = nhipv4
+                vm_nhipv6 = nhipv6
+
             ipv4_routes = []
             ipv6_routes = []
 
             for subnetv4, subnetv6 in zip(selected_v4_subnets, selected_v6_subnets):
-                ipv4_routes.append((str(subnetv4), nhipv4, as_path))
-                ipv6_routes.append((str(subnetv6), nhipv6, as_path))
+                ipv4_routes.append((str(subnetv4), vm_nhipv4, as_path))
+                ipv6_routes.append((str(subnetv6), vm_nhipv6, as_path))
 
-            ipv4_routes.append((str(next(extra_ipv4_t1)), nhipv4, as_path))
+            ipv4_routes.append((str(next(extra_ipv4_t1)), vm_nhipv4, as_path))
 
             topo_routes[vm_name] = {}
             topo_routes[vm_name][IPV4] = ipv4_routes
@@ -1590,22 +1612,29 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
                 change_routes(action, ptf_ip, port6, ipv6_routes)
 
     for device in range(len(ut2_vms)):
-        ipv4_routes = [
-            ("0.0.0.0/0", nhipv4, default_route_as_path),
-        ]
-
-        ipv6_routes = [
-            ("::/0", nhipv6, default_route_as_path),
-        ]
-
         group += 1
         as_path = "{} {}".format(leaf_asn_start + group, tor_asn_start + group)
 
         vm_name = ut2_vms[device]
         port, port6 = get_change_routes_ports(vm_name, topo)
 
-        ipv4_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv4'], nhipv4, as_path))
-        ipv6_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv6'], nhipv6, as_path))
+        if vm_name in ptf_bp_addrs:
+            vm_nhipv4 = ptf_bp_addrs[vm_name]['ipv4'].split('/')[0]
+            vm_nhipv6 = ptf_bp_addrs[vm_name]['ipv6'].split('/')[0]
+        else:
+            vm_nhipv4 = nhipv4
+            vm_nhipv6 = nhipv6
+
+        ipv4_routes = [
+            ("0.0.0.0/0", vm_nhipv4, default_route_as_path),
+        ]
+
+        ipv6_routes = [
+            ("::/0", vm_nhipv6, default_route_as_path),
+        ]
+
+        ipv4_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv4'], vm_nhipv4, as_path))
+        ipv6_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv6'], vm_nhipv6, as_path))
 
         if vm_name not in topo_routes:
             topo_routes[vm_name] = {}
