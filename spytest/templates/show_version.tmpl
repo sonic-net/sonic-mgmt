@@ -1,0 +1,58 @@
+Value Version (\S+)
+Value Product (.*)
+Value Distribution (\S+\s+\d+.\d+)
+Value Kernel (\S+)
+Value db_version (\S+)
+Value Build_commit (\S+)
+Value Build_date (.*)
+Value Built_by (\S+)
+Value Platform (\S+)
+Value HwSKU (\S+)
+Value ASIC (\S+)
+Value Serial_Number (\S+)
+Value Uptime (.*)
+Value user (\d+)
+Value load_average (.*)
+Value REPOSITORY (\S+)
+Value TAG (\S+)
+Value IMAGE_ID (\S+)
+Value SIZE (\S+)
+Value hw_version (\S+)
+Value mfg (\S+)
+
+Start
+  ^Software Version\s*:\s*${Version}\s*$$ -> KLISH
+  ^SONiC Software Version\s*:\s*${Version}\s*$$ -> CLICK
+
+CLICK
+  ^Product\s*:\s+${Product}\s*$$
+  ^Distribution\s*:\s+${Distribution}\s*$$
+  ^Kernel\s*:\s+${Kernel}\s*$$
+  ^Config DB Version:\s*${db_version}\s*$$
+  ^Build commit\s*:\s+${Build_commit}\s*$$
+  ^Build date\s*:\s+${Build_date}\s*$$
+  ^Built by\s*:\s+${Built_by}\s*$$
+  ^Platform\s*:\s+${Platform}\s*$$
+  ^HwSKU\s*:\s+${HwSKU}\s*$$
+  ^ASIC\s*:\s+${ASIC}\s*$$
+  ^Serial Number\s*:\s+${Serial_Number}\s*$$
+  ^Uptime:\s+${Uptime},\s+${user}\s+user,\s+load average:\s+${load_average}\s*$$
+  ^Docker images:\s*$$
+  ^REPOSITORY\s+TAG\s+IMAGE ID\s+SIZE\s*$$
+  ^${REPOSITORY}\s+${TAG}\s+${IMAGE_ID}\s+${SIZE}\s*$$ -> Record
+
+KLISH
+  ^Distribution\s*:\s+${Distribution}\s*$$
+  ^Kernel\s*:\s+${Kernel}\s*$$
+  ^Build Commit\s*:\s+${Build_commit}\s*$$
+  ^Build Date\s*:\s+${Build_date}\s*$$
+  ^Built By\s*:\s+${Built_by}\s*$$
+  ^Platform\s*:\s+${Platform}\s*$$
+  ^HwSKU\s*:\s+${HwSKU}\s*$$
+  ^ASIC\s*:\s+${ASIC}\s*$$
+  ^Hardware\s*Version\s*:\s+${hw_version}\s*$$
+  ^Serial Number\s*:\s+${Serial_Number}\s*$$
+  ^Uptime\s*:\s+${Uptime}\s*$$
+  ^Mfg\s*:\s*${mfg}\s*$$
+  ^REPOSITORY\s+TAG\s+IMAGE ID\s+SIZE\s*$$
+  ^${REPOSITORY}\s+${TAG}\s+${IMAGE_ID}\s+${SIZE}\s*$$ -> Record

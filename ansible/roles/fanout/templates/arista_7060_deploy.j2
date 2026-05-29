@@ -1,0 +1,105 @@
+!
+no errdisable detect cause link-flap
+no errdisable detect cause link-change
+!
+no schedule tech-support
+!
+transceiver qsfp default-mode 4x10G
+!
+no lldp run
+!
+hostname {{ inventory_hostname }}
+!
+ntp source vrf management Management1
+{% for ntp_server in ntp_servers %}
+ntp server vrf management {{ ntp_server }}
+{% endfor %}
+!
+spanning-tree mode none
+no spanning-tree vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
+!
+aaa authorization exec default local
+aaa root secret 0 {{ lab_admin_pass }}
+!
+username admin privilege 15 role network-admin secret 0 {{ lab_admin_pass }}
+username eapi privilege 15 secret 0 {{ lab_admin_pass }}
+!
+vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
+!
+vrf definition management
+   rd 1:1
+!
+interface defaults
+   ethernet
+      shutdown
+!
+{% for intf in device_port_vlans[inventory_hostname] %}
+interface {{ intf }}
+   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
+{%     if device_conn[inventory_hostname][intf].get('autoneg', '')|lower == "on" %}
+   speed auto {{ device_conn[inventory_hostname][intf]['speed'] }}full
+{%   else %}
+   speed force {{ device_conn[inventory_hostname][intf]['speed'] }}full
+{%     endif %}
+{%   if device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
+   switchport mode trunk
+   switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+{%   else %}
+   switchport mode dot1q-tunnel
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" and device_conn[inventory_hostname][intf].get('autoneg', '')|lower == "off" %}
+   error-correction encoding reed-solomon
+{%     else %}
+   no error-correction encoding
+{%     endif %}
+{%   endif %}
+   spanning-tree portfast
+   no switchport mac address learning
+   no shutdown
+!
+{% endfor %}
+!
+interface Management 1
+ description TO LAB MGMT SWITCH
+ ip address {{ device_info[inventory_hostname]["ManagementIp"] }}
+ no shutdown
+!
+# LACP packets pass through
+mac address-table reserved forward 0180.c200.0002
+# LLDP packets pass through
+mac address-table reserved forward 0180.c200.000e
+# EAPOL packets pass through
+mac address-table reserved forward 0180.c200.0003
+!
+ip route 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
+ip route vrf management 0.0.0.0/0 {{ device_info[inventory_hostname]["ManagementGw"] }}
+!
+ip routing
+no ip routing vrf management
+!
+banner login
+NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE
+
+Unauthorized access and/or use prohibited. All access and/or use subject to monitoring.
+
+NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE
+EOF
+!
+management api http-commands
+   vrf management
+      no shutdown
+!
+management api http-commands
+ no protocol https
+ protocol http
+ no shutdown
+!
+management console
+   idle-timeout 60
+!
+management ssh
+   idle-timeout 60
+   authentication mode password
+!
+!
+end

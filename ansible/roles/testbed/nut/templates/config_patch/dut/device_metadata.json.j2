@@ -1,0 +1,8 @@
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/hostname", "value": "{{ info.Hostname }}" },
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/type", "value": "{{ meta.type }}" },
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/bgp_asn", "value": "{{ meta.bgp_asn }}" },
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/bgp_router_id", "value": "{{ meta.bgp_router_id }}" },
+{% for key, value in meta.extra_meta.items() %}
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/{{ key }}", "value": "{{ value }}" },
+{% endfor %}
+{ "op": "add", "path": "/DEVICE_METADATA/localhost/deployment_id", "value": "1" }

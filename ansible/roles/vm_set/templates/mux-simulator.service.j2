@@ -1,0 +1,6 @@
+[Unit]
+Description=mux simulator
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/env {{python_command}} {{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py {{ mux_simulator_port }} {{ vm_set_name }} -v

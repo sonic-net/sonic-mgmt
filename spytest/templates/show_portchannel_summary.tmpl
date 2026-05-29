@@ -1,0 +1,15 @@
+Value Filldown group (\d+)
+Value Filldown name (\S+)
+Value Filldown state (D|U)
+Value Filldown type (\w+)
+Value Filldown protocol (LACP|NONE)
+Value port (\S+)
+Value port_state (D|U|P)
+
+Start
+  ^\s*${group}\s+${name}\s+\(${state}\)\s+${type}\s+${protocol}\s+${port}\(${port_state}\)\s*$$ -> Record
+  ^\s*${group}\s+${name}\s+\(${state}\)\s+${type}\s+${protocol}\s*$$ -> Record
+  ^\s*${port}\(${port_state}\)\s*$$ -> Record
+  ^$$
+
+EOF

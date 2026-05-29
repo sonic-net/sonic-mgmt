@@ -1,0 +1,18 @@
+- set_fact:
+    asn: "{{ item['asn'] }}"
+    name: "{{ item['name'] }}"
+    peer_addr: "{{ item['peer_addr'] }}"
+
+- set_fact:
+    hwsku: "{{ acs_devices[name]['hwsku'] }}"
+    cred: "{{ switch_login[acs_devices[name]['hwsku']] }}"
+
+- name: Gathering minigraph facts about neighbor
+  minigraph_facts: host={{ name }} filename="{{ vmhost_num }}-{{ name }}.xml"
+
+- name: Configure BGP session of neighbor router to up
+  action: cisco template=bgp_neighbor_noshut.j2
+  args:
+    host:  "{{ minigraph_mgmt_interface.addr }}"
+    login: "{{ cred }}"
+  connection: cisco

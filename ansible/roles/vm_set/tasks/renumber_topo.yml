@@ -1,0 +1,223 @@
+# Increase netdev_max_backlog to mitigate the packet drop issue
+# Ref https://www.kernel.org/doc/Documentation/sysctl/net.txt
+- name: Increase netdev_max_backlog
+  shell: echo 250000 > /proc/sys/net/core/netdev_max_backlog
+  become: yes
+
+- name: set "PTF" container type, by default
+  set_fact:
+    container_type: "PTF"
+
+- name: Restart the ptf container
+  block:
+  - name: Set default value for ptf_imagetag
+    set_fact:
+      ptf_imagetag: "latest"
+    when: ptf_imagetag is not defined
+
+  - name: Stop mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: stop
+    when: "'dualtor' in topo"
+
+  - name: Stop nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: stop
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
+  - name: Stop PTF portchannel service
+    include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: stop
+
+  - name: Kill exabgp and ptf_nn_agent processes in PTF container
+    ptf_control:
+      ctn_name: "ptf_{{ vm_set_name }}"
+      command: kill
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+
+  - name: Get infos of ptf container
+    docker_container_info:
+      name: ptf_{{ vm_set_name }}
+    register: ptf_docker_info
+
+  - debug: var=ptf_docker_info
+
+  - name: Flush ptf network info log
+    shell: |
+      date > /tmp/ptf_network_{{ vm_set_name }}.log
+
+  - name: Collect ptf network info before deleting
+    shell: |
+      echo "before deleting" >> /tmp/ptf_network_{{ vm_set_name }}.log
+      ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
+      echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
+    when: ptf_docker_info.exists
+
+  - name: Get dut ports
+    include_tasks: get_dut_port.yml
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "unbind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+    become: yes
+
+  - name: Stop ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
+
+  - name: Remove ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      force_kill: yes
+      state: absent
+    become: yes
+
+  - name: Try to login into docker registry
+    docker_login:
+      registry_url: "{{ docker_registry_host }}"
+      username: "{{ docker_registry_username }}"
+      password: "{{ docker_registry_password }}"
+    become: yes
+    when: docker_registry_username is defined and docker_registry_password is defined
+
+  - name: Collect ptf network info before recreating
+    shell: |
+      echo "Before recreating" >> /tmp/ptf_network_{{ vm_set_name }}.log
+      ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
+      echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
+    when: ptf_docker_info.exists
+
+  - name: Create ptf container ptf_{{ vm_set_name }}
+    docker_container:
+      name: ptf_{{ vm_set_name }}
+      image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+      pull: yes
+      state: started
+      restart: yes
+      network_mode: none
+      detach: True
+      capabilities:
+        - net_admin
+      privileged: yes
+      memory: 32G
+      memory_swap: 64G
+    become: yes
+
+  - name: Update ptf password
+    include_tasks: update_ptf_password.yml
+
+  - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    become: yes
+
+  - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
+    become: yes
+
+  - name: Create file to store dut type in PTF
+    command: docker exec -i ptf_{{ vm_set_name }} sh -c 'echo {{ hostvars[duts_name.split(',')[0]]['type'] }} > /sonic/dut_type.txt'
+    when:
+      - hostvars[duts_name.split(',')[0]] is defined
+      - hostvars[duts_name.split(',')[0]].type is defined
+    become: yes
+
+  - name: Create vlan ports for dut
+    include_tasks: create_dut_port.yml
+    when: external_port is defined
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - debug: msg="{{ duts_fp_ports }}"
+  - debug: msg="{{ duts_mgmt_port }}"
+
+  - name: Renumber topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "renumber"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
+      ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
+      ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+      ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+      ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+      ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
+      ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
+      mgmt_bridge: "{{ mgmt_bridge }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      fp_mtu: "{{ fp_mtu_size }}"
+      max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+    become: yes
+
+  - name: Change MAC address for PTF interfaces
+    include_tasks: ptf_change_mac.yml
+    when: topo != 'fullmesh'
+
+  - name: Send arp ping packet to gw for flusing the ARP table
+    command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
+    become: yes
+
+  - name: Start ptf_tgen service
+    include_tasks: start_ptf_tgen.yml
+    when: topo == 'fullmesh'
+
+  - name: Start PTF portchannel service
+    include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: start
+
+  - name: Announce routes
+    include_tasks: announce_routes.yml
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
+
+  - name: Start mux simulator
+    include_tasks: control_mux_simulator.yml
+    vars:
+      mux_simulator_action: start
+    when: "'dualtor' in topo"
+
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
+
+  - name: Start tacacs+ daily daemon
+    include_tasks: start_tacacs_daily_daemon.yml
+
+  when: container_type == "PTF"

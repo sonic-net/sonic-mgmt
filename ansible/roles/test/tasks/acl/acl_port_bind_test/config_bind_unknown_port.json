@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_TABLE:port_bind_test": {
+            "policy_desc" : "Table_for_ACL_port_bind_test",
+            "type" : "L3",
+            "ports" : "UnknownPort1,UnknownPort2"
+        },
+        "OP": "SET"
+    }
+]

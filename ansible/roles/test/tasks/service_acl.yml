@@ -1,0 +1,70 @@
+# Gather facts with SNMP version 2
+- name: Ensure we can gather basic SNMP facts from the device
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  delegate_to: localhost
+
+- name: Copy config_service_acls.sh to the DuT (this also ensures we can successfully SSH to the DuT)
+  become: true
+  copy:
+    src: roles/test/files/helpers/config_service_acls.sh
+    dest: /tmp/config_service_acls.sh
+    mode: 0755
+
+# We run the script in the background because if it works
+# properly, it will sever our SSH session, but we don't want
+# the script to get killed, because it is also responsible
+# for resetting the service ACLs back to their previous state
+- name: Run config_service_acls.sh in the background on the DuT
+  become: true
+  shell: "nohup /tmp/config_service_acls.sh < /dev/null > /dev/null 2>&1 &"
+
+- name: Ensure the SSH port on the DuT becomes closed to us
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: stopped
+    search_regex: "OpenSSH"
+    timeout: 10
+
+# Gather facts with SNMP version 2
+- name: Ensure attempt to gather basic SNMP facts about the device now times out
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  delegate_to: localhost
+  register: result
+  failed_when: "'No SNMP response received before timeout' not in result.msg"
+
+# Note that the timeout here should be sufficiently long enough to allow
+# config_service_acls.sh to reset the ACLs to their original configuration
+- name: Wait until the original service ACLs are reinstated and the SSH port on the DUT is open to us once again
+  local_action: wait_for
+  args:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    search_regex: "OpenSSH"
+    timeout: 90
+
+- name: Pause for 20s to prevent timeout error which may happen when deleting config_service_acls.sh
+  pause:
+    seconds: 20
+
+- name: Delete config_service_acls.sh from the DuT
+  become: true
+  file:
+    state: absent
+    path: /tmp/config_service_acls.sh
+
+# Gather facts with SNMP version 2
+- name: Ensure we can gather basic SNMP facts from the device once again
+  snmp_facts:
+    host: "{{ ansible_host }}"
+    version: "v2c"
+    community: "{{ snmp_rocommunity }}"
+  delegate_to: localhost

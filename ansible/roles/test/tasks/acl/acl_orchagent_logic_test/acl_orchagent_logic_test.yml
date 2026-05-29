@@ -1,0 +1,578 @@
+#----------------------------------------------
+# SYNTAX- AND DELETE-TESTING FOR ORCHAGENT.
+#----------------------------------------------
+
+- include_vars: "{{ vars_files_location }}/acl_orchagent_logic_test_vars.yml"
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+#----------------------------------------------------------------------------------
+#   Syntax-test uploads different valid and invalid configs
+# with correct and incorrect fields and values, and checks for the error-messages
+# in a log file.
+#----------------------------------------------------------------------------------
+
+#-----------------------------------------
+# TABLES TESTING
+#-----------------------------------------
+
+- block:
+    - name: Table test - invalid table type.
+      vars:
+        config_file: "{{ config_table_type_invalid_1 }}"
+        test_expect_file: "{{ config_table_type_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Table test - invalid table type.
+      vars:
+        config_file: "{{ config_table_type_invalid_2 }}"
+        test_expect_file: "{{ config_table_type_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Table test - invalid physical port.
+      vars:
+        config_file: "{{ config_port_invalid_1 }}"
+        test_expect_file: "{{ config_port_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Table test - invalid physical port.
+      vars:
+        config_file: "{{ config_port_invalid_2 }}"
+        test_expect_file: "{{ config_port_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Table test - invalid extra field.
+      vars:
+        config_file: "{{ config_extra_field_invalid }}"
+        test_expect_file: "{{ config_extra_field_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+      # Check return code from swssconfig
+    - name: Table test - invalid operation applied for table ("OP" field).
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_operation_invalid_1 }}
+      register: invalid_oper_1
+      failed_when: invalid_oper_1.rc == 0
+
+    - name: Table test - invalid operation applied for table ("OP" field).
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_operation_invalid_2 }}
+      register: invalid_oper_2
+      failed_when: invalid_oper_2.rc == 0
+
+    - name: Run config cleanup after.
+      include_tasks: "{{ run_config_cleanup }}"
+
+#------------------------------------------
+# RULES TESTING
+#------------------------------------------
+
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid priority value.
+      vars:
+        config_file: "{{ config_priority_invalid_1 }}"
+        test_expect_file: "{{ config_priority_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid priority value.
+      vars:
+        config_file: "{{ config_priority_invalid_2 }}"
+        test_expect_file: "{{ config_priority_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - max priority value.
+      vars:
+        config_file: "{{ config_priority_valid_max }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# ETHER_TYPE
+#----------------------------------------------
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid ether type.
+      vars:
+        config_file: "{{ config_ether_type_valid_1 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid ether type.
+      vars:
+        config_file: "{{ config_ether_type_valid_2 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid ether type.
+      vars:
+        config_file: "{{ config_ether_type_invalid_1 }}"
+        test_expect_file: "{{ config_ether_type_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid ether type.
+      vars:
+        config_file: "{{ config_ether_type_invalid_2 }}"
+        test_expect_file: "{{ config_ether_type_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# IP TYPE
+#----------------------------------------------
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid ip type.
+      vars:
+        config_file: "{{ config_ip_type_invalid_1 }}"
+        test_expect_file: "{{ config_ip_type_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid ip type.
+      vars:
+        config_file: "{{ config_ip_type_invalid_2 }}"
+        test_expect_file: "{{ config_ip_type_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid ip type.
+      vars:
+        config_file: "{{ config_ip_type_valid_1 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid ip type.
+      vars:
+        config_file: "{{ config_ip_type_valid_2 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# IP PROTO
+#----------------------------------------------
+
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid IP protocol.
+      vars:
+        config_file: "{{ config_ip_proto_valid_1 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid IP protocol.
+      vars:
+        config_file: "{{ config_ip_proto_valid_2 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP protocol.
+      vars:
+        config_file: "{{ config_ip_proto_invalid_1 }}"
+        test_expect_file: "{{ config_ip_proto_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP protocol.
+      vars:
+        config_file: "{{ config_ip_proto_invalid_2 }}"
+        test_expect_file: "{{ config_ip_proto_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# IP ADDRESS
+#----------------------------------------------
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_valid_1 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_valid_2 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_1 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_2 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_3 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_4 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_5 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_6 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid IP address.
+      vars:
+        config_file: "{{ config_ip_addr_invalid_7 }}"
+        test_expect_file: "{{ config_ip_addr_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# TCP FLAGS
+#----------------------------------------------
+
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        run_cleanup: false
+        errors_expected: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid TCP flags.
+      vars:
+        config_file: "{{ config_tcp_flags_valid_1 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid TCP flags.
+      vars:
+        config_file: "{{ config_tcp_flags_valid_2 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid TCP flags.
+      vars:
+        config_file: "{{ config_tcp_flags_invalid_1 }}"
+        test_expect_file: "{{ config_tcp_flags_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid TCP flags.
+      vars:
+        config_file: "{{ config_tcp_flags_invalid_2 }}"
+        test_expect_file: "{{ config_tcp_flags_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# L4 port
+#----------------------------------------------
+
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid L4 port.
+      vars:
+        config_file: "{{ config_l4_port_valid }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid L4 port.
+      vars:
+        config_file: "{{ config_l4_port_invalid_1 }}"
+        test_expect_file: "{{ config_l4_port_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid L4 port.
+      vars:
+        config_file: "{{ config_l4_port_invalid_2 }}"
+        test_expect_file: "{{ config_l4_port_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid L4 port.
+      vars:
+        config_file: "{{ config_l4_port_invalid_3 }}"
+        test_expect_file: "{{ config_l4_port_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------
+# Packet action
+#----------------------------------------------
+
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - valid packet action.
+      vars:
+        config_file: "{{ config_packet_action_valid }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid packet action.
+      vars:
+        config_file: "{{ config_packet_action_invalid_1 }}"
+        test_expect_file: "{{ config_packet_action_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid packet action.
+      vars:
+        config_file: "{{ config_packet_action_invalid_2 }}"
+        test_expect_file: "{{ config_packet_action_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - dscp in L3 table.
+      vars:
+        config_file: "{{ config_dscp_in_l3_table }}"
+        test_expect_file: "{{ config_dscp_in_l3_table_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+
+    - name: Rule test - create rule in non-existing table.
+      vars:
+        config_file: "{{ config_rule_in_non_existing_table }}"
+        test_expect_file: "{{ config_rule_in_non_existing_table_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+# Delete-test uploads different valid and invalid configs with OP: "DEL" and checks for the errors.
+#
+# Basic flow:
+#   1) Load valid ACL config, which creates table with rule (it's trusted config, so we don't check for errors).
+#   2) Upload some valid ACL configs with OP: "DEL". No errors should appear.
+#   3) Upload some invalid ACL config OP: "DEL" which tries to remove non-existing object.
+#      Error messages should appear.
+#----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+
+    # Prepare valid config: create ACL table.
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    # Prepare valid config: create ACL rule.
+    - name: Create a rule inside of ACL table (which is created previously).
+      vars:
+        config_file: "{{ config_rule }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    # Invalid table deletion: try to delete existing table that contains rules.
+    - name: Try to delete existing table with rules (errors expected).
+      vars:
+        config_file: "{{ config_del_table_with_rules }}"
+        test_expect_file: "{{ config_del_table_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    # Valid rule deletion.
+    - name: Delete an existing rule test.
+      vars:
+        config_file: "{{ config_del_rule_valid }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    # Valid table deletion.
+    - name: Delete an existing table test.
+      vars:
+        config_file: "{{ config_del_table_valid }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+    # Prepare valid config: create ACL table.
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    # Delete non-existing rule from existing table.
+    - name: Delete non-existing rule test.
+      vars:
+        config_file: "{{ config_del_rule_non_existing }}"
+        test_expect_file: "{{ config_del_rule_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Delete non-existing table test.
+      vars:
+        config_file: "{{ config_del_table_non_existing }}"
+        test_expect_file: "{{ config_del_table_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+
+    # Prepare valid config: create ACL table.
+    - name: Create L3 table.
+      vars:
+        config_file: "{{ config_table_type_l3 }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+      # delete table with different fields provided
+    - name: Delete table with different fields provided.
+      vars:
+        config_file: "{{ config_del_table_diff_fields }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+  always:
+    - name: Remove all the temporary files created by the test.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+          - "{{ config_files }}"

@@ -1,0 +1,2 @@
+[Service]
+Environment={% for proxy in docker_proxy_list %}"{{ proxy }}" {% endfor %}

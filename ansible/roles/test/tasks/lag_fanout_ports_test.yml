@@ -1,0 +1,60 @@
+#---------------------------------------------------------
+# --- Part of lagall.yml test ---
+#---------------------------------------------------------
+# Shutdown LAG ports on Fanout one by one and verify traffic runs correctly.
+# ("LAG ports" stands for ports on Fanout, that are connected to DUT LAg members)
+#
+# Actions to be performed by the test:
+#   1) Get list of LAG Fanout interfaces (fanout ports that are connected to DUT LAGs).
+#   2) Shut one of those ifaces.
+#   3) Verify all the traffic goes through another LAG member on VM and no packets lost.
+#---------------------------------------------------------
+
+- include_vars: vars/lag_fanout_ports_test_vars.yml
+
+# Get fanout credentials ("passwd" and "enable" fields should be formed as a list).
+- set_fact:
+    fanout_creds:
+       user: "{{ fanout_user }}"
+       passwd:
+           - "{{ fanout_pass }}"
+       enable:
+           - "{{ fanout_pass }}"
+
+- block:
+    - name: Put down {{ portmap_dut_fn[dut_lag_member] }} on Fanout.
+      include_tasks: run_cisco_script.yml
+      vars:
+        template: roles/fanout/templates/lag_fn_ports.j2
+        host: "{{ fanout_mgmt_ip }}"
+        log_in: "{{ fanout_creds }}"
+        config_iface: "{{ portmap_dut_fn[dut_lag_member] }}"
+        state: 'shutdown'
+
+    - debug:
+        msg: "Wait for configuration to be applied..."
+
+    - pause:
+        seconds: 60
+
+    - include_tasks: lag_run_ptf.yml
+      vars:
+        lag_ptf_test_name: LagMembersTrafficTest
+        params: "dst_addr='{{ lag_ip }}';src_iface={{ not_behind_lag_iface }};check_pkts_iface={{ ifaces_behind_lag_member[iface_behind_lag_member_index] }};num_of_pkts={{ num_of_pkts }};dut_mac='{{ dut_mac }}'"
+        change_dir: /tmp
+
+  always:
+    - name: Put up {{ portmap_dut_fn[dut_lag_member] }} on Fanout.
+      include_tasks: run_cisco_script.yml
+      vars:
+        template: roles/fanout/templates/lag_fn_ports.j2
+        host: "{{ fanout_mgmt_ip }}"
+        log_in: "{{ fanout_creds }}"
+        config_iface: "{{ portmap_dut_fn[dut_lag_member] }}"
+        state: 'no shutdown'
+
+    - debug:
+        msg: "Wait for configuration to be applied..."
+
+    - pause:
+        seconds: 100

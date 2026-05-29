@@ -1,0 +1,11 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_rule_full_range": {
+                    "priority" : "55",
+                    "PACKET_ACTION" : "FORWARD",
+                    "L4_SRC_PORT_RANGE" : "0-1028",
+                    "L4_DST_PORT_RANGE" : "0-1028"
+        },
+        "OP": "SET"
+    }
+]

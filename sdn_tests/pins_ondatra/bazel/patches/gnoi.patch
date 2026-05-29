@@ -1,0 +1,45 @@
+diff --git a/healthz/BUILD.bazel b/healthz/BUILD.bazel
+index 039f3b5..7c9940b 100644
+--- a/healthz/BUILD.bazel
++++ b/healthz/BUILD.bazel
+@@ -34,7 +34,7 @@ proto_library(
+     ],
+ )
+ 
+-go_proto_library(
++go_grpc_library(
+     name = "healthz_go_proto",
+     compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+     importpath = "github.com/openconfig/gnoi/healthz",
+
+diff --git a/types/BUILD.bazel b/types/BUILD.bazel
+index 921d7c1..995dd1e 100644
+--- a/types/BUILD.bazel
++++ b/types/BUILD.bazel
+@@ -32,6 +32,13 @@ proto_library(
+     deps = ["@com_google_protobuf//:descriptor_proto"],
+ )
+ 
++proto_library(
++    name = "gnoi_types_proto",
++    srcs = ["types.proto"],
++    import_prefix = "github.com/openconfig/gnoi",
++    deps = ["@com_google_protobuf//:descriptor_proto"],
++)
++
+ cc_proto_library(
+     name = "types_cc_proto",
+     deps = [":types_proto"],
+
+diff --git a/packet_link_qualification/BUILD.bazel b/packet_link_qualification/BUILD.bazel
+index 249bc3a..d215296 100644
+--- a/packet_link_qualification/BUILD.bazel
++++ b/packet_link_qualification/BUILD.bazel
+@@ -22,6 +22,6 @@ go_proto_library(
+     visibility = ["//visibility:public"],
+     deps = [
+         "//types:types_go_proto",
+-        "@go_googleapis//google/rpc:status_go_proto",
++        "@org_golang_google_genproto//googleapis/rpc/status",
+     ],
+ )

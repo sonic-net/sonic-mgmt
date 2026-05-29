@@ -1,0 +1,27 @@
+#-----------------------------------------
+# Run FIB test and Perform log analysis.
+#-----------------------------------------
+# Perform prechecks
+- include_tasks: shared-fib.yml
+
+- debug : msg="Start FIB Test"
+
+- set_fact: mtu=9114
+  when: mtu is not defined
+
+- name: "Start PTF runner"
+  include_tasks: ptf_runner.yml
+  vars:
+    ptf_test_name: FIB test
+    ptf_test_dir: ptftests
+    ptf_test_path: fib_test.FibTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fib_info='/root/fib_info.txt'
+      - ipv4={{ipv4}}
+      - ipv6={{ipv6}}
+      - testbed_mtu={{mtu}}
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"

@@ -1,0 +1,12 @@
+{
+    "is_chassis": true,
+    "is_supervisor": {{ "true" if card_type == 'supervisor' else "false" }},
+    "is_linecard": {{ "true" if card_type == 'linecard' else "false" }},
+{% if card_type == 'supervisor' %}
+    "sup_slot_num": {{ slot_num[4:] | int }},
+{% endif %}
+{% if card_type == 'linecard' %}
+    "lc_slot_num": {{ slot_num[4:] | int }},
+{% endif %}
+    "hw_sku": "{{ hwsku }}"
+}

@@ -1,0 +1,8 @@
+Value NETWORK (\d+\.\d+\.\d+\.\d+)
+Value ADDRESS (\d+\.\d+\.\d+\.\d+)
+Value PREFIX (\d+)
+Value INTF (\S+)
+
+Start
+  ^${NETWORK}/${PREFIX}\s+proto\s+kernel\s+scope\s+link\s+src\s+${ADDRESS} -> Record
+  ^${NETWORK}/${PREFIX}\s+dev\s+${INTF}\s+proto\s+kernel\s+scope\s+link\s+src\s+${ADDRESS} -> Record

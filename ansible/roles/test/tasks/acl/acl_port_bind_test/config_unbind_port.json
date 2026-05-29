@@ -1,0 +1,7 @@
+[
+    {
+        "ACL_TABLE:port_bind_test": {
+        },
+        "OP": "DEL"
+    }
+]

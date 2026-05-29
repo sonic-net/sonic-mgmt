@@ -1,0 +1,80 @@
+# Kusto script to setup a Kusto database for storing SAI interface scanning results
+#
+# See https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats
+# for details about how Kusto maps JSON test results to tabular formats.
+
+###############################################################################
+# TESTCASE TABLE SETUP                                                        #
+# 1. Create a CaseInvocationCoverage table                                      #
+# 2. Setup a policy to automatically ingest data from local JSON results      #
+###############################################################################
+.create table CaseInvocationCoverage
+(
+id: string,
+is_azure_used: bool,
+file_name: string,
+case_name: string,
+class_name: string,
+case_invoc: string,
+sai_header: string,
+saiintf_id: string,
+saiintf_method_table: string,
+sai_feature: string,
+sai_api: string,
+saiintf_alias: string,
+test_set: string,
+test_platform: string,
+sai_obj_attr_key: string,
+sai_obj_attr_value: string,
+runnable: bool,
+sai_folder: string,
+upload_time: string
+)
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
+.create table CaseInvocationCoverage ingestion json mapping
+'CaseInvocationCoverageMapping' '['
+'{"column":"id","Properties":{"path":"$.id"}},'
+'{"column":"is_azure_used","Properties":{"path":"$.is_azure_used"}},'
+'{"column":"file_name","Properties":{"path":"$.file_name"}},'
+'{"column":"case_name","Properties":{"path":"$.case_name"}},'
+'{"column":"class_name","Properties":{"path":"$.class_name"}},'
+'{"column":"case_invoc","Properties":{"path":"$.case_invoc"}},'
+'{"column":"sai_header","Properties":{"path":"$.sai_header"}},'
+'{"column":"saiintf_id","Properties":{"path":"$.saiintf_id"}},'
+'{"column":"saiintf_method_table","Properties":{"path":"$.saiintf_method_table"}},'
+'{"column":"sai_feature","Properties":{"path":"$.sai_feature"}},'
+'{"column":"sai_api","Properties":{"path":"$.sai_api"}},'
+'{"column":"saiintf_alias","Properties":{"path":"$.saiintf_alias"}},'
+'{"column":"test_set","Properties":{"path":"$.test_set"}},'
+'{"column":"test_platform","Properties":{"path":"$.test_platform"}},'
+'{"column":"sai_obj_attr_key","Properties":{"path":"$.sai_obj_attr_key"}},'
+'{"column":"sai_obj_attr_value","Properties":{"path":"$.sai_obj_attr_value"}},'
+'{"column":"runnable","Properties":{"path":"$.runnable"}},'
+'{"column":"sai_folder","Properties":{"path":"$.sai_folder"}},'
+'{"column":"upload_time","Properties":{"path":"$.upload_time"}}]'
+
+###############################################################################
+# SAI HEADER TABLE SETUP                                                        #
+# 1. Create a SAIHeaderDefinition table                                      #
+# 2. Setup a policy to automatically ingest data from local JSON results      #
+###############################################################################
+.create table SAIHeaderDefinition
+(
+sai_header: string,
+sai_id: string,
+sai_method_table: string,
+sai_feature: string,
+sai_api: string,
+sai_alias: string
+)
+
+# See: https://docs.microsoft.com/en-us/azure/data-explorer/ingest-json-formats#ingest-json-records-containing-arrays
+.create table SAIHeaderDefinition ingestion json mapping
+'SAIHeaderDefinitionMapping' '['
+'{"column":"sai_header","Properties":{"path":"$.sai_header"}},'
+'{"column":"sai_id","Properties":{"path":"$.sai_id"}},'
+'{"column":"sai_method_table","Properties":{"path":"$.sai_method_table"}},'
+'{"column":"sai_feature","Properties":{"path":"$.sai_feature"}},'
+'{"column":"sai_api","Properties":{"path":"$.sai_api"}},'
+'{"column":"sai_alias","Properties":{"path":"$.sai_alias"}}]'

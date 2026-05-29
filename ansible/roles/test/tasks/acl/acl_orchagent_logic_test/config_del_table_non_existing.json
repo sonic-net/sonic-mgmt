@@ -1,0 +1,7 @@
+[
+    {
+        "ACL_TABLE:non_existing_table": {
+        },
+        "OP": "DEL"
+    }
+]

@@ -1,0 +1,26 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "hostname": "{{ inventory_hostname }}"
+        }
+    },
+    "CONSOLE_PORT": {
+{% set ns = namespace(first=true) %}
+{% for device, console_info in device_console_link.items() %}
+{% if "ConsolePort" in console_info and console_info["ConsolePort"]["peerdevice"] == inventory_hostname %}
+{% if ns.first != true %},
+{% endif %}
+        "{{ console_info["ConsolePort"]["peerport"] }}": {
+            "baud_rate": "{{ console_info["ConsolePort"]["baud_rate"] }}",
+            "flow_control": "0",
+            "remote_device": "{{ device }}"
+        }{% set ns.first = false %}
+{% endif %}
+{% endfor %}
+    },
+    "CONSOLE_SWITCH": {
+        "console_mgmt": {
+            "enabled": "yes"
+        }
+    }
+}

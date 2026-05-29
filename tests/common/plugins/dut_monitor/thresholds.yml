@@ -1,0 +1,17 @@
+# Thresholds example per platform or HWSKU
+# [ONIE platform]:
+#   hwsku:
+#     [HWSKU]:
+#       [THRESHOLD_FIELD]: [VALUE]
+#   default:
+#     [THRESHOLD_FIELD]: [VALUE]
+
+# Defaults. Required field.
+default:
+  cpu_total: 90
+  cpu_process: 60
+  cpu_measure_duration: 10
+  cpu_total_average: 90
+  ram_peak: 80
+  ram_delta: 1
+  hdd_used: 80

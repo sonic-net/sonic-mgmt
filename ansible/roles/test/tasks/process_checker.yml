@@ -1,0 +1,33 @@
+# Common process checker
+#
+# Parameters:
+#     process - the process to check
+#     running - yes/no (optional default:yes)
+#
+# Example:
+#     - include_tasks: process_checker.yml
+#       vars:
+#         process: {{ item }}
+#       with_items:
+#         - orchagent
+#         - portsyncd
+#         - intfsyncd
+#         - neighsyncd
+#         - routesyncd
+
+- fail: msg="Please provide the process name"
+  when: process is not defined
+
+# In Ansible the option line is always a string
+- set_fact:
+    expect_rc={{ 0 if running is not defined or running == "yes" else 1 }}
+
+- name: Check {{ process }} is running or not
+  shell: pidof {{ process }}
+  register: output
+  ignore_errors: yes
+
+- name: Verify {{ process }} state is {{ "not running" if expect_rc else "running" }}
+  assert:
+    that:
+      - output.rc == {{ expect_rc | int }}

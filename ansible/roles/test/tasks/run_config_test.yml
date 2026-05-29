@@ -1,0 +1,22 @@
+#-----------------------------------------
+# Test json-configuration:
+#   1) Upload json-config through swssconfig.
+#   2) Check log through the loganalyzer.
+#   3) Run cleanup if needed.
+#-----------------------------------------
+
+
+- block:
+
+    - name: Load JSON config {{ config_file }}
+      command: docker exec -i swss swssconfig {{ docker_testdir }}/{{ config_file }}
+
+    - name: Run command.
+      vars:
+        command_to_run: "docker exec -i swss swssconfig {{ docker_testdir }}/{{ config_file }}"
+      include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
+
+  always:
+    - name: Do configuration cleanup after {{ testname }} / {{ config_file }}
+      include_tasks: roles/test/tasks/run_config_cleanup.yml
+      when: run_cleanup == true

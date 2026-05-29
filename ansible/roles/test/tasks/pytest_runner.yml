@@ -1,0 +1,72 @@
+- name: print a warning
+  debug:
+    msg:
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!! Ansible playbook for running {{ testcase_name }} is now deprecated !!!!!!"
+      - "!!!!!! This playbook is just a wrapper to run pytest in sonic-mgmt/tests  !!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!! Consider using pytest !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+      - "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+- fail:
+    msg: Test node is not defined
+  when: test_node is not defined
+
+- fail:
+    msg: Testbed is not defined
+  when: testbed_name is not defined
+
+- name: set pytest command variable
+  set_fact:
+    pytest_cmd: 'pytest {{ test_node }}'
+
+- name: append filter expression if needed
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} -k "{{ test_filter }}"'
+  when: test_filter is defined
+
+- name: append mark if needed
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} -m {{ test_mark }}'
+  when: test_mark is defined
+
+- name: append testbed name
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --testbed={{ testbed_name }}'
+
+- name: append inventory file
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --inventory={{ inventory_file }}'
+
+- name: append testbed file
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --testbed_file=../ansible/{{ testbed_file }}'
+
+- name: append host pattern
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --host-pattern={{ testbed_name }}'
+
+- name: append module path
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} --module-path=../ansible/library'
+
+- name: append verbosity flag
+  set_fact:
+    pytest_cmd: '{{ pytest_cmd }} -v'
+
+- debug: var=pytest_cmd
+
+- name: run pytest
+  delegate_to: localhost
+  shell: '{{ pytest_cmd }}'
+  args:
+    chdir: ../tests/
+  environment:
+    ANSIBLE_LIBRARY: ../ansible/library/
+  register: out
+  ignore_errors: True
+
+- debug: msg='{{ out.stdout_lines }}'
+
+- fail:
+    msg: 'pytest run failed'
+  when: out.rc != 0

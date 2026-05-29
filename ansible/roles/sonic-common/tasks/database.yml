@@ -1,0 +1,19 @@
+- name: clean up old container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: docker-database
+    docker_image: "{{ image_id_database }}"
+    docker_state: absent
+
+
+- name: Start the database docker container (redis-server)
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: database
+    docker_image: "{{ image_id_database }}"
+    docker_state: reloaded
+    docker_log_driver: syslog
+    docker_volumes:
+    - /var/run/redis/
+#   docker_net: bridge
+#   docker_host_address: "{{ remote_facts.ansible_facts.ansible_docker0.ipv4.address }}"

@@ -1,0 +1,137 @@
+#-----------------------------------
+# File: lagall.yml
+# Author: Anton Patenko <c_antonp@mellanox.com>
+#-----------------------------------
+# This file runs all the LAG tests.
+#
+# In order to have info about devices to run tests it performs the list of actions:
+#   1) Reads DUT minigraph facts.
+#   2) Creates a list "dut_lag_members" of DUT LAG members, using minigraph facts.
+#   3) Reads LLDP information.
+#   4) Creates a dictionary "lag_vms" of VMs that have LAG configured, using LLDP data and DUT LAG members:
+#       "VM name": [ "VM mgmt IP"]
+#   5) Gathers VM LAG interface IP and some other data about interfaces (see vars-sections in "Start tests" block).
+#   6) Runs the tests.
+#
+# Warning! This test is supposed to be ran on T1-LAG topology.
+#
+# Run command:
+#       cd ansible;
+#       ansible-playbook test_sonic.yml -i inventory --limit <DUT-inventory-hostname> --tags lag -e "fanout_switch=<fanout-inventory-hostname> ; ptf_host=<ptf-docker-inventory-hostname> ; dut_mac=<dut_mac_addr>" -vvvvv
+#-----------------------------------
+
+- fail: msg="Please define fanout_switch"
+  when: fanout_switch is not defined
+
+- fail: msg="Please define ptf_host"
+  when: ptf_host is not defined
+
+- fail: msg="Please define dut_mac"
+  when: dut_mac is not defined
+
+- name: Read DUT minigraph facts.
+  minigraph_facts: host={{ inventory_hostname }}
+
+- set_fact:
+    dut_lag_members: []
+
+# item.1 - reference to list's element value
+# minigraph_portchannel_interfaces  -   taken from minigraph_facts
+- name: Create a list of LAG members.
+  set_fact:
+    dut_lag_members: "{{ dut_lag_members }} + [ '{{ item.1['members'][0] }}' ] + [ '{{ item.1['members'][1] }}' ]"
+  with_indexed_items: "{{ minigraph_portchannel_interfaces }}"
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+      container_name: lldp
+
+- name: Gather information from LLDP.
+  lldp:
+  delegate_to: "{{ ansible_host }}_lldp"
+
+- debug:
+    msg: "{{ dut_lag_members }}"
+
+- debug:
+    msg: "{{ lldp }}"
+
+# Create dictionary { "VM hostname" : "VM mgmt-ip" } to store info about LAG VMs;
+# "combine" filter is used for appending to the dictionary.
+- name: Get VMs that have LAG configured.
+  set_fact:
+    lag_vms: "{{ lag_vms|default({}) | combine( {lldp[item.1]['chassis']['name']: [ lldp[item.1]['chassis']['mgmt-ip'] ]} ) }}"
+  with_indexed_items: "{{ dut_lag_members }}"
+
+# Append VM LAG members to the previous dictionary.
+- name: Get LAG members for each VM.
+  set_fact:
+    lag_vms: "{{ lag_vms | combine( { lldp[item.1]['chassis']['name']: lag_vms[lldp[item.1]['chassis']['name']] | union([ lldp[item.1]['port']['ifname'] ]) }) }}"
+  with_indexed_items: "{{ dut_lag_members }}"
+
+- debug:
+    msg: "VMs that have LAG configured - {{ lag_vms.keys() }}"
+
+- name: Get credentials for Arista VMs.
+  include_vars: group_vars/str/strinfo.json
+
+- name: Add VMs information to in-memory inventory.
+  add_host: name={{ lag_vms[item][0] }} ansible_ssh_user={{ switch_login['Arista']['user'] }} ansible_ssh_pass={{ switch_login['Arista']['passwd'][0] }}
+  with_items: "{{ lag_vms.keys() }}"
+
+#-----------------------------------
+# Start tests
+#-----------------------------------
+
+- name: Copy PTF test into PTF-docker.
+  copy: src=roles/test/files/acstests/{{ item }} dest=/tmp/{{ item }}
+  with_items:
+    - lag_test.py
+    - acs_base_test.py
+    - router_utils.py
+  delegate_to: "{{ ptf_host }}"
+
+- name: Include testbed topology configuration (to get LAG IP and PTF docker ifaces, that are behind LAG VMs).
+  include_vars: vars/topo_t1-lag.yml
+
+- name: --TEST-- LACP verification on all VMs.
+  include_tasks: lag_vm_lacp_test.yml
+  vars:
+    login_creds: "{{ switch_login['Arista'] }}"
+    lag_member_0: "{{ lag_vms[item][1] }}"
+    lag_member_1: "{{ lag_vms[item][2] }}"
+    vm_ip: "{{ lag_vms[item][0] }}"
+    vm_name: "{{ item }}"
+  with_items: "{{ lag_vms.keys() }}"
+
+# Get a list of LAGs on DUT.
+- set_fact:
+    dut_lags: []
+
+- name: Get a list of LAGs on DUT.
+  set_fact:
+    dut_lags: "{{ dut_lags }} + [ '{{ item.1['name'] }}' ]"
+  with_indexed_items: "{{ minigraph_portchannel_interfaces }}"
+
+- name: --TEST-- LACP verification on DUT LAGs.
+  include_tasks: lag_dut_lacp_test.yml
+  vars:
+    lag_iface: "{{ dut_lags[1] }}"
+  when: dut_lags is defined
+
+- set_fact:
+    iface_behind_lag_member_index: 0
+
+- name: --TEST-- Fanout ports test.
+  include_tasks: lag_fanout_ports_test.yml
+  vars:
+    fanout_mgmt_ip: "{{ hostvars[fanout_switch]['ansible_host'] }}"
+    fanout_user: "{{ hostvars[fanout_switch]['ansible_ssh_user'] }}"
+    fanout_pass: "{{ hostvars[fanout_switch]['ansible_ssh_pass'] }}"
+    dut_mac_addr: "{{ dut_mac }}"
+    lag_ip: "{{ configuration[lldp[dut_lag_members[1]]['chassis']['name']]['interfaces']['Port-Channel1']['ipv4'] }}"
+    ifaces_behind_lag_member: "{{ topology['VMs'][lldp[dut_lag_members[1] ]['chassis']['name']]['vlans'] }}"
+    not_behind_lag_iface: 29
+    dut_lag_member: "{{ dut_lag_members[1] }}"
+    num_of_pkts: 100
+  when: dut_lag_members is defined

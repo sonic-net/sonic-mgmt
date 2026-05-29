@@ -1,0 +1,12 @@
+[Unit]
+Description=LLDP container
+Requires=database.service
+After=database.service
+
+[Service]
+User={{ sonicadmin_user }}
+ExecStart=/usr/bin/docker start -a lldp
+ExecStop=/usr/bin/docker stop lldp
+
+[Install]
+WantedBy=multi-user.target

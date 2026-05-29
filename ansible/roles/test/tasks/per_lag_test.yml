@@ -1,0 +1,30 @@
+#--------------------------------------------------------------------
+# Run test per lag
+#--------------------------------------------------------------------
+
+- set_fact:
+    lag_name: "{{item.name}}"
+    lag_index: "{{(item.name|replace('PortChannel','')|int / 8)|int}}"
+    member_0_name: "{{item.members[0]}}"
+    member_1_name: "{{item.members[1]}}"
+    member_0_index: "{{(item.members[0]|replace('Ethernet','')|int / 4)|int}}"
+    member_1_index: "{{(item.members[1]|replace('Ethernet','')|int / 4)|int}}"
+
+- debug: msg="lag name {{lag_name}}"
+- debug: msg="lag index {{lag_index}}"
+- debug: msg="member-0 name  {{member_0_name}}"
+- debug: msg="member-0 index {{member_0_index}}"
+- debug: msg="member-1 name  {{member_1_name}}"
+- debug: msg="member-1 index {{member_1_index}}"
+
+- debug: msg="Test current lag with member-0 port put down"
+- set_fact:
+    cur_lag_member_name: "{{member_0_name}}"
+    cur_lag_member_index: "{{member_0_index}}"
+- include_tasks: roles/test/tasks/per_lag_member_test.yml
+
+- debug: msg="Test current lag with member-1 port put down"
+- set_fact:
+    cur_lag_member_name: "{{member_1_name}}"
+    cur_lag_member_index: "{{member_1_index}}"
+- include_tasks: roles/test/tasks/per_lag_member_test.yml

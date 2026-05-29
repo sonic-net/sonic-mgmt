@@ -1,0 +1,63 @@
+- set_fact:
+    run_dir: /home/admin/everflow_tests
+    out_dir: /home/admin/everflow_tests/results
+    docker_testdir: /tmp
+    tests_location: roles/test/tasks/everflow_testbed
+    testname: apply_config
+
+- name: Create running directory
+  command: "mkdir -p {{ run_dir }}"
+
+- name: Get session info.
+  include_tasks: roles/test/tasks/everflow_testbed/get_session_info.yml
+
+- name: Set Everflow table name
+  set_fact:
+    acl_table_name: "EVERFLOW"
+
+- block:
+  - name: Init variables
+    set_fact:
+      acl_table_name: "EVERFLOW_EGRESS"
+      acl_table_ports: "{{ everflow_table_ports }}"
+      acl_table_stage: "{{ acl_stage }}"
+      acl_table_type: "MIRROR"
+
+  - name: Remove default SONiC Everflow table (since SONiC allows only one mirror table)
+    command: "config acl remove table EVERFLOW"
+    become: yes
+
+  - name: Set a flag that need recover config from config_db.json
+    set_fact:
+      recover_from_cfgdb_file: True
+
+  - name: Generate config for egress Everflow table
+    template:
+      src: "roles/test/templates/acltb_table.j2"
+      dest: "{{ run_dir }}/everflow_egress_table.json"
+
+  - name: Create egress Everflow table
+    command: "sonic-cfggen -j {{ run_dir }}/everflow_egress_table.json --write-to-db"
+    become: yes
+  when: acl_stage == "egress"
+
+- name: Copy ACL rules configuration file
+  template:
+    src={{ tests_location }}/{{ testname}}/acl_rule_persistent.json.j2
+    dest={{ run_dir }}/acl_rule_persistent.json
+
+- command: "config mirror_session add {{session_name}} {{session_src_ip}} {{session_dst_ip}} {{session_dscp}} {{session_ttl}} {{session_gre}} {{session_queue}}"
+  become: yes
+
+- name: Set acl-loader command
+  set_fact:
+    load_rule_cmd: "acl-loader update full {{ run_dir }}/acl_rule_persistent.json --session_name={{ session_name }}"
+
+- name: Append stage parameter if needed
+  set_fact:
+    load_rule_cmd: "{{ load_rule_cmd }} --mirror_stage={{ mirror_stage }}"
+  when: mirror_stage == "egress"
+
+- name: Load ACL mirror rules
+  command: "{{ load_rule_cmd }}"
+  become: yes

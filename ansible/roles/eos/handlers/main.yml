@@ -1,0 +1,29 @@
+# Notify handlers are always run in the same order they are defined, not in the order listed in the notify-statement.
+# This is also the case for handlers using listen.
+
+- name: Reboot the VM
+  command: /sbin/shutdown -r now "Ansible updates triggered"
+  async: 300
+  poll: 0
+  ignore_errors: true
+  listen: "Update VM state"
+
+- name: Wait for VM to shutdown
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: stopped
+    delay: 10
+    timeout: 600
+  delegate_to: "{{ VM_host[0] }}"
+  listen: "Update VM state"
+
+- name: Wait for VM to startup
+  wait_for:
+    host: "{{ ansible_host }}"
+    port: 22
+    state: started
+    delay: 10
+    timeout: 1500
+  delegate_to: "{{ VM_host[0] }}"
+  listen: "Update VM state"

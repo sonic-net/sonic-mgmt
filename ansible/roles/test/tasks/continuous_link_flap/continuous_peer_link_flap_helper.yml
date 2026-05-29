@@ -1,0 +1,73 @@
+- block:
+    - debug: msg="Interface to flap on peer {{interface}}"
+
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+
+    - conn_graph_facts: host={{ peer_device }}
+      delegate_to: localhost
+
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+        peer_type: "{{device_info['Type']}}"
+
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+
+    - name: Shut down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+      when: peer_type == "FanoutLeaf"
+
+    - name: find interface name mapping
+      port_alias: hwsku="{{peer_hwsku}}"
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - name: Shutting down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      become: true
+      shell: ip link set {{port_alias_map[neighbor_interface]}} down
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"
+
+    - pause:
+        seconds: 1
+
+    - name: Watch memory status
+      shell: show system-memory
+      register: memory_output
+
+    - debug: msg="Memory Status {{memory_output.stdout}}"
+
+    - name: watch orchagent CPU utilization
+      shell: show processes cpu | grep orchagent | awk '{print $9}'
+      register: orch_cpu
+
+    - debug: msg="Orchagent CPU Util {{orch_cpu.stdout|int}}"
+
+    - name: watch Redis Memory
+      shell: redis-cli info memory | grep used_memory_human
+      register: redis_memory
+
+    - debug: msg="Redis Memory {{redis_memory.stdout}}"
+
+
+  always:
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+      when: peer_type == "FanoutLeaf"
+
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      become: true
+      shell: ip link set {{port_alias_map[neighbor_interface]}} up
+      delegate_to: "{{peer_host}}"
+      when: peer_type == "FanoutLeafSonic"

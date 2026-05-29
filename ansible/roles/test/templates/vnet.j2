@@ -1,0 +1,14 @@
+{
+    "minigraph_port_indices": {{ minigraph_port_indices | to_nice_json }},
+    "minigraph_portchannel_interfaces": {{ minigraph_portchannel_interfaces | to_nice_json }},
+    "minigraph_portchannels": {{ minigraph_portchannels | to_nice_json }},
+    "minigraph_lo_interfaces": {{ minigraph_lo_interfaces | to_nice_json }},
+    "minigraph_vlans": {{ minigraph_vlans | to_nice_json }},
+    "minigraph_vlan_interfaces": {{ minigraph_vlan_interfaces | to_nice_json }},
+    "dut_mac": {{ ansible_Ethernet0['macaddress'] | to_nice_json }},
+    "vnet_interfaces": {{ vnet_intf_list | to_nice_json }},
+    "vnet_routes": {{ vnet_route_list | to_nice_json }},
+    "vnet_local_routes": {{ vnet_local_routes | to_nice_json }},
+    "vnet_neighbors": {{ vnet_nbr_list | to_nice_json }},
+    "vnet_peers": {{ vnet_peer_list | to_nice_json }}
+}

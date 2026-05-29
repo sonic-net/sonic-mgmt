@@ -1,0 +1,25 @@
+diff --git a/proto/p4/config/v1/p4info.proto b/proto/p4/config/v1/p4info.proto
+index badddd9..079f258 100644
+--- a/proto/p4/config/v1/p4info.proto
++++ b/proto/p4/config/v1/p4info.proto
+@@ -15,7 +15,7 @@
+ syntax = "proto3";
+ 
+ import "google/protobuf/any.proto";
+-import "p4/config/v1/p4types.proto";
++import "proto/p4/config/v1/p4types.proto";
+ 
+ // This package and its contents are a work-in-progress.
+
+diff --git a/go/p4/v1/BUILD.bazel b/go/p4/v1/BUILD.bazel
+index 6445fff..17a350c 100644
+--- a/go/p4/v1/BUILD.bazel
++++ b/go/p4/v1/BUILD.bazel
+@@ -17,6 +17,7 @@ go_library(
+         "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+         "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
+         "@org_golang_google_protobuf//types/known/anypb:go_default_library",
++        "@com_github_p4lang_p4runtime//go/p4/config/v1:go_default_library"
+     ],
+ )
+ 
