@@ -75,7 +75,7 @@ def test_console_loopback_echo(setup_c0, creds, conn_graph_facts, baud_rate, flo
         if duthost.facts['platform'] in ['arm64-nokia_ixs7215_c1xa-r0']:
             delay_factor *= 10.0
     if duthost.facts['platform'].startswith('arm64-c8220tg_48a'):
-        delay_factor *= 25.0
+        delay_factor *= 4.0
 
     dutip, dutuser, dutpass = get_host_ip_and_creds(duthost, creds)
 
