@@ -18,6 +18,8 @@ TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = [20, 10]
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = [20, 20]
+EXPECTED_BG_LOSS_PERCENT = 10
+BG_LOSS_TOLERANCE_PERCENT = 1.5
 DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
@@ -406,9 +408,13 @@ def verify_m2o_fluctuating_lossless_result(rows,
         N/A
     """
     background_loss = 0
+    background_flow_count = 0
     for row in rows:
         if 'Test Flow' in row.name:
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
+            background_flow_count += 1
             background_loss += float(row.loss)
-    pytest_assert((abs(background_loss/4) - 10) < 1, "Each Background Flow must have an avg of 10% loss ")
+    avg_loss = background_loss / background_flow_count
+    pytest_assert(abs(avg_loss - EXPECTED_BG_LOSS_PERCENT) < BG_LOSS_TOLERANCE_PERCENT,
+                  "Each Background Flow must have an avg of 10% loss ")
