@@ -1,0 +1,11 @@
+[
+    {
+        "ROUTE_TABLE:192.168.0.1": {
+            "nexthop": "{{ dst_peer_addr }}",
+            "ifname": "{{ dst_port }}",
+            "mpls_nh": "push1000001",
+            "weight": "1"
+        },
+        "OP": "SET"
+    }
+]

@@ -1,0 +1,136 @@
+- fail: msg="Destination port type is not defined"
+  when: dst_port_type not in ['tor', 'spine']
+
+- fail: msg="TOR/SPINE ports are not defined"
+  when: tor_ports is not defined or spine_ports is not defined
+
+- name: Init variables.
+  set_fact:
+      dst_port_1_is_lag_member: ""
+      dst_port_1_ptf_id: ""
+      dst_port_2: ""
+      dst_port_2_is_lag_member: ""
+      dst_port_2_ptf_id: ""
+      dst_port_3: ""
+      dst_port_3_is_lag_member: ""
+      dst_port_3_ptf_id: ""
+
+- name: Define SRC port variables.
+  set_fact:
+      src_port: "{{ spine_ports[0] }}"
+  when: "dst_port_type == 'tor'"
+
+- name: Define SRC port variables.
+  set_fact:
+      src_port: "{{ tor_ports[0] }}"
+  when: "dst_port_type == 'spine'"
+
+- name: Define SRC PTF port IDs
+  set_fact:
+      src_port_ptf_id: "{{ minigraph_port_indices[src_port] }}"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_1: "{{ tor_ports[1] }}"
+  when: "dst_port_type == 'tor'"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_1: "{{ spine_ports[1] }}"
+  when: "dst_port_type == 'spine'"
+
+- name: Check if DST port in LAG member
+  set_fact:
+      dst_port_1_is_lag_member: "{{ item.members }}"
+  with_items: "{{ minigraph_portchannels.values() }}"
+  when: "dst_port_1 in item.members"
+
+- name: Define PTF port IDs for dst_port_1
+  set_fact:
+      dst_port_1_ptf_id: "{{ minigraph_port_indices[dst_port_1]}}"
+  when: "not dst_port_1_is_lag_member"
+
+- name: Define PTF port IDs for dst_port_1
+  set_fact:
+      dst_port_1_ptf_id: "{{ minigraph_port_indices[item] }},{{ dst_port_1_ptf_id }}"
+
+  with_items: "{{ dst_port_1_is_lag_member }}"
+  when: "dst_port_1_is_lag_member"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_2: "{{ item }}"
+  with_items: "{{ tor_ports }}"
+  when: "(dst_port_type == 'tor') and (not dst_port_2) and (item != dst_port_1) and (item not in dst_port_1_is_lag_member)"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_2: "{{ item }}"
+  with_items: "{{ spine_ports }}"
+  when: "(dst_port_type == 'spine') and (not dst_port_2) and (item != dst_port_1) and (item not in dst_port_1_is_lag_member)"
+
+- name: Check if DST port in LAG member
+  set_fact:
+      dst_port_2_is_lag_member: "{{ item.members }}"
+  with_items: "{{ minigraph_portchannels.values() }}"
+  when: "dst_port_2 in item.members"
+
+- name: Print port channels
+  debug:
+      var: dst_port_2_is_lag_member
+
+- name: Define PTF port IDs for dst_port_2
+  set_fact:
+      dst_port_2_ptf_id: "{{ minigraph_port_indices[dst_port_2]}}"
+  when: "not dst_port_2_is_lag_member"
+
+- name: Define PTF port IDs for dst_port_2
+  set_fact:
+      dst_port_2_ptf_id: "{{ minigraph_port_indices[item] }},{{ dst_port_2_ptf_id }}"
+  with_items: "{{ dst_port_2_is_lag_member }}"
+  when: "dst_port_2_is_lag_member"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_3: "{{ item }}"
+  with_items: "{{ tor_ports }}"
+  when: "(dst_port_type == 'tor') and (not dst_port_3) and (item != dst_port_1) and (item != dst_port_2) and (item not in dst_port_1_is_lag_member) and (item not in dst_port_2_is_lag_member)"
+
+- name: Define port variables.
+  set_fact:
+      dst_port_3: "{{ item }}"
+  with_items: "{{ spine_ports }}"
+  when: "(dst_port_type == 'spine') and (not dst_port_3) and (item != dst_port_1) and (item != dst_port_2) and (item not in dst_port_1_is_lag_member) and (item not in dst_port_2_is_lag_member)"
+
+- name: Check if DST port in LAG member
+  set_fact:
+      dst_port_3_is_lag_member: "{{ item.members }}"
+  with_items: "{{ minigraph_portchannels.values() }}"
+  when: "dst_port_3 in item.members"
+
+- name: Print port channels
+  debug:
+      var: dst_port_3_is_lag_member
+
+- name: Define PTF port IDs for dst_port_3
+  set_fact:
+      dst_port_3_ptf_id: "{{ minigraph_port_indices[dst_port_3] }}"
+  when: "not dst_port_3_is_lag_member"
+
+- name: Define PTF port IDs for dst_port_3
+  set_fact:
+      dst_port_3_ptf_id: "{{ minigraph_port_indices[item]}},{{ dst_port_3_ptf_id }}"
+  with_items: "{{ dst_port_3_is_lag_member }}"
+  when: "dst_port_3_is_lag_member"
+
+- name: Print PTF port ID.
+  debug: msg="{{ src_port }} = {{ src_port_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_1 }} = {{ dst_port_1_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_2 }} = {{ dst_port_2_ptf_id }}"
+
+- name: Print PTF port ID
+  debug: msg="{{ dst_port_3 }} = {{ dst_port_3_ptf_id }}"

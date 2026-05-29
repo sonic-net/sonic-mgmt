@@ -1,0 +1,7 @@
+- hosts: servers:&vm_host
+  tasks:
+  - name: Get VM statuses from Testbed server
+    shell: virsh list
+    register: virsh_list
+  - name: Show VM statuses
+    debug: msg="{{ virsh_list['stdout_lines'] }}"

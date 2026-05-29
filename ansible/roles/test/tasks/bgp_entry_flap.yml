@@ -1,0 +1,86 @@
+- debug: msg="testing bgp neighbor {{ item }}"
+
+- set_fact:
+    addr: "{{ item['addr'] }}"
+    asn: "{{ item['asn'] }}"
+    name: "{{ item['name'] }}"
+    peer_addr: "{{ item['peer_addr'] }}"
+
+- set_fact:
+    hwsku: "{{ acs_devices[name]['hwsku'] }}"
+    cred: "{{ switch_login[acs_devices[name]['hwsku']] }}"
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: sswsyncd
+
+- name: Get ASIC tables
+  switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
+  become: yes
+  delegate_to: "{{ ansible_host }}_sswsyncd"
+
+- block:
+  - name: Assert the particular entry is in nexthopgroup table
+    assert:
+      that: nexthop[addr] in nexthopgroup[item]
+    with_items: "{{ nexthopgroup }}"
+
+  - name: Gathering minigraph facts about neighbor
+    minigraph_facts: host={{ name }} filename="{{ vmhost_num }}-{{ name }}.xml"
+    delegate_to: localhost
+    become: no
+
+  - name: Shut down BGP session from neighbor
+    action: cisco template=bgp_neighbor_shut.j2
+    args:
+      host:  "{{ minigraph_mgmt_interface.addr }}"
+      login: "{{ cred }}"
+    connection: cisco
+
+  - name: Pause for ASIC reprogramming
+    pause: seconds=10
+
+  - name: Debug Current Peer Info
+    debug: msg="Current Peer = {{ item }}"
+
+  - name: Update list of current nexthop group(s)
+    switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
+    become: yes
+    delegate_to: "{{ ansible_host }}_sswsyncd"
+
+  - name: Poll for updated tables until peer is not in nexthop groups
+    switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
+    become: yes
+    register: table_result
+    until: "{{ ( table_result.nexthop[addr] not in nexthopgroup[item] ) or ( table_result.nexthopgroup[item] is undefined ) }}"
+    retries: 6
+    delay: 10
+    with_items: "{{ nexthopgroup }}"
+    delegate_to: "{{ ansible_host }}_sswsyncd"
+
+  - name: Restart BGP session from neighbor
+    action: cisco template=bgp_neighbor_noshut.j2
+    args:
+      host:  "{{ minigraph_mgmt_interface.addr }}"
+      login: "{{ cred }}"
+    connection: cisco
+
+  - name: Pause for ASIC reprogramming
+    pause: seconds=10
+
+  - name: Update list of current nexthop group(s)
+    switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
+    become: yes
+    delegate_to: "{{ ansible_host }}_sswsyncd"
+
+  - name: Poll for updated tables until peer is in nexthop groups
+    switch_tables: asic="{{asic}}" nexthop=yes nexthopgroup=yes
+    become: yes
+    register: table_result
+    until: "{{ ( table_result.nexthopgroup[item] is defined ) and ( table_result.nexthop[addr] in table_result.nexthopgroup[item] ) }}"
+    retries: 6
+    delay: 10
+    with_items: "{{ nexthopgroup }}"
+    delegate_to: "{{ ansible_host }}_sswsyncd"
+
+  when: "'T2' in name"

@@ -1,0 +1,28 @@
+[
+  {
+    "data": 8500.0,
+    "labels": {
+      "device.fan.id": "Fan-1",
+      "device.id": "leaf-01"
+    },
+    "metric": {
+      "description": "Fan speed (%)",
+      "metric_type": "gauge",
+      "name": "fan.speed",
+      "unit": "percent"
+    }
+  },
+  {
+    "data": 1.0,
+    "labels": {
+      "device.fan.id": "Fan-1",
+      "device.id": "leaf-01"
+    },
+    "metric": {
+      "description": "Fan operational status (0=N/A, 1=ok, 2=error)",
+      "metric_type": "gauge",
+      "name": "fan.status",
+      "unit": "count"
+    }
+  }
+]

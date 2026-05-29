@@ -1,0 +1,25 @@
+- name: Get current image version
+  shell: sonic_installer list | grep Current | cut -f2 -d " "
+  register: cur_image
+  become: true
+
+- name: Get next image version
+  shell: sonic_installer list | grep Next | cut -f2 -d " "
+  register: next_image
+  become: true
+
+- set_fact:
+    current_sonic_image={{cur_image.stdout}}
+    next_sonic_image={{next_image.stdout}}
+
+- debug:
+    msg: "current: {{current_sonic_image}} next: {{next_sonic_image}} reboot: {{reboot_type}}"
+
+- block:
+    - name: Run the FW upgrade script
+      script: roles/test/files/mlnx/upgrade_mlnx_fw.sh
+      become: true
+
+  when:
+    - current_sonic_image | search('SONiC-OS-201803')
+    - next_sonic_image | search('SONiC-OS-201811')

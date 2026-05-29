@@ -1,0 +1,97 @@
+# This playbook tests neighbor interface flap and ACS interface status work properly
+#
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: lldp
+
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: Ensure LLDP Daemon started and Enabled
+  become: true
+  service: name=lldpd
+           state=started
+           enabled=yes
+  delegate_to: "{{ ansible_host }}_lldp"
+
+- name: Gather information from lldp
+  lldp:
+  delegate_to: "{{ ansible_host }}_lldp"
+
+- name: If underlay exists, use underlay to replace it.
+  set_fact:
+    minigraph_neighbors: "{{ minigraph_underlay_neighbors }}"
+    minigraph_devices: "{{ minigraph_underlay_devices }}"
+  when: minigraph_underlay_neighbors is defined
+
+- name: no shutdown neighbor interfaces if it was down based on the graph file
+  action: cisco template=neighbor_interface_no_shut_single.j2
+  args:
+       host: "{{ minigraph_devices[minigraph_neighbors[item]['name']]['mgmt_addr'] }}"
+       login: "{{ switch_login[minigraph_devices[minigraph_neighbors[item]['name']]['hwsku']] }}"
+       skip_default_user: "yes"
+  connection: cisco
+  with_items: "{{ minigraph_neighbors.keys() | difference(lldp.keys()) }}"
+
+- name: sleep for some time
+  pause: seconds=5
+
+- name: gather interface facts
+  setup:
+
+- name: verify all local interfaces are up
+  assert: { that: "ansible_{{ item }}['active']  == true" }
+  with_items: "{{ ansible_interfaces }}"
+  when:
+    - item | match("Ethernet.*")
+
+- name: Gather information from lldp again after ports are enabled
+  lldp:
+  delegate_to: "{{ ansible_host }}_lldp"
+
+- name: rearrange lldp received data structure for interface up down test
+  interface_up_down_data_struct_facts: data="{{ lldp }}"
+  delegate_to: localhost
+  become: no
+
+- name:  shutdown neighbor interfaces
+  action: cisco template=neighbor_interface_shut.j2
+  args:
+     host: "{{ item }}"
+     login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
+     skip_default_user:   "yes"
+  connection: cisco
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
+
+- name: sleep for some time
+  pause: seconds=5
+
+- name: gather interface facts
+  setup:
+
+- name: verify all local interfaces are down
+  assert: { that: "ansible_{{ item }}['active']  == false" }
+  with_items: "{{ ansible_interfaces }}"
+  when:
+    - item | match("Ethernet.*")
+
+- name: no shutdown neighbor interfaces
+  action: cisco template=neighbor_interface_no_shut.j2
+  args:
+        host: "{{ item }}"
+        login: "{{ switch_login[ansible_interface_up_down_data_struct_facts[item]['nei_device_type']] }}"
+        skip_default_user:   "yes"
+  connection: cisco
+  with_items: "{{ ansible_interface_up_down_data_struct_facts.keys() }}"
+
+- name: sleep for some time
+  pause: seconds=5
+
+- name: gather interface facts
+  setup:
+
+- name: verify all local interfaces are up
+  assert: { that: "ansible_{{ item }}['active']  == true" }
+  with_items: "{{ ansible_interfaces }}"
+  when:
+    - item | match("Ethernet.*")

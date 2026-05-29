@@ -1,0 +1,22 @@
+{
+  "COMMON": [
+    {
+      "name": "monit",
+      "order": 100,
+      "cmd": "sudo monit status",
+      "memory_params": {
+        "memory_usage": {
+          "memory_increase_threshold": {
+            "type": "value",
+            "value": 50
+          },
+          "memory_high_threshold": {
+            "type": "value",
+            "value": 90
+          }
+        }
+      },
+      "memory_check": "parse_monit_validate_output"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# This is link flap test. In this test, all DUT's neighbor interfaces are
+# flapped. During each flap, the DUT's interface is verified to see if it
+# is updated to the correct up/down state.
+
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  delegate_to: localhost
+  tags: always
+
+- name: Set neighbor facts
+  set_fact:
+    neighbors: "{{ device_conn[inventory_hostname] }}"
+
+- include_tasks: link_flap/link_flap_helper.yml
+  with_items: "{{ device_conn[inventory_hostname].keys() }}"

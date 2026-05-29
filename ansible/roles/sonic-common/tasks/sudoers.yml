@@ -1,0 +1,12 @@
+# Setup Sudoers file
+- name: Copy sudoers file to /etc/sudoers.tmp (and kept here for later change checks)
+  action: template src=../templates/sudoers.j2 dest=/etc/sudoers.tmp mode=440 owner=root group=root
+  register: sudoers_copy_result
+  become: yes
+  tags: sudoers, ad-integration
+
+- name: Install /etc/sudoers file (and fail if invalid)
+  action: shell visudo -q -c -f /etc/sudoers.tmp && cp /etc/sudoers.tmp /etc/sudoers
+  when: sudoers_copy_result.changed
+  become: yes
+  tags: sudoers, ad-integration

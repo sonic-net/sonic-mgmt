@@ -1,0 +1,10 @@
+---
+
+# Actions for SONiC switches
+- include_tasks: sonic.yml
+  when: scope == 'sonic'
+
+# Actions for lldp_neighbors
+- include_tasks: lldp_neighbor.yml
+  when: scope == 'lldp_neighbors'
+  tags: lldp

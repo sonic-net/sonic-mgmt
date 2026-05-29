@@ -1,0 +1,269 @@
+#----------------------------------------------
+# L4 PORT RANGE TESTING.
+# This script performs both traffic and configuration testing.
+#
+# It includes:
+#   1) Testing of the valid configuration (both L3 and mirror)
+#   2) Testing of the invalid configuration (L3)
+#   3) Testing of the deleting configuration (L3)
+#   4) Traffic testing (L3)
+#----------------------------------------------
+
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- fail: msg="Please set ptf_host_if variable (interface that host is connected to switch)"
+  when: ptf_host_if is not defined
+
+- fail: msg="Please set switch_if variable (interface that switch is connected to host)"
+  when: switch_if is not defined
+
+- include_vars: "{{ vars_files_location }}/acl_port_range_test_vars.yml"
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+#----------------- START TESTING ----------------------------
+- block:
+
+  #----------------------------------------------
+  # CONFIG TESTING.
+  #----------------------------------------------
+      #--------------------------------
+      # Valid configuration testing
+      #--------------------------------
+
+      # L3 table testing.
+    - name: Create an L3 table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+
+    - name: Rule test - valid port range on L3 table.
+      vars:
+        config_file: "{{ config_l4_port_range_1_on_l3_table }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - block:
+        - name: See that Redis DB has got an appropriate field.
+          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          register: grep
+          failed_when: grep.rc != 0
+
+      always:
+        - fail: msg="Redis DB has NOT got an appropriate field for rule (config file used - {{ config_l4_port_range_1_on_l3_table }})"
+          when: grep.rc != 0
+
+    - name: Rule test - put L4_DST_RANGE and L4_SRC_RANGE into one rule.
+      vars:
+        config_file: "{{ config_l4_port_range_2_on_l3_table }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Run config cleanup after.
+      include_tasks: "{{ run_config_cleanup }}"
+
+      #--------------------------------
+      # Invalid configuration testing (valid L3 table + invalid rules).
+      #--------------------------------
+    - name: Create an L3 table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+
+    - name: Rule test - negative numbers used in range.
+      vars:
+        config_file: "{{ config_l4_port_range_invalid_1 }}"
+        test_expect_file: "{{ config_l4_port_range_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - boundaries reversed.
+      vars:
+        config_file: "{{ config_l4_port_range_invalid_2 }}"
+        test_expect_file: "{{ config_l4_port_range_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - port out of range.
+      vars:
+        config_file: "{{ config_l4_port_range_invalid_3 }}"
+        test_expect_file: "{{ config_l4_port_range_expect }}"
+        errors_expected: true
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - name: Rule test - invalid syntax used in range.
+      vars:
+        config_file: "{{ config_l4_port_range_invalid_4 }}"
+        test_expect_file: "{{ config_l4_port_range_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_config_test }}"
+
+#--------------------------------
+# Test the configuration deleting.
+#--------------------------------
+    - name: Create an L3 table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+
+    - name: Create the rule with limited port range permitted (1028 - 4096).
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+
+    - name: Delete rule test - rule with port range.
+      vars:
+        config_file: "{{ config_delete_limited_port_range }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - block:
+        - name: See that Redis-DB has NOT got an appropriate field.
+          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          register: grep
+          failed_when: grep.rc == 0
+
+      always:
+        - fail: msg="Redis-DB has got data about deleted rule (config file used - {{ config_delete_limited_port_range }})"
+          when: grep.rc == 0
+
+      # Try to delete the same rule, but use another port range in delete-json.
+      # This should not make any difference, so we dont expect any errors.
+    - name: Create the rule with limited port range permitted (1028 - 4096).
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+
+    - name: Delete rule test - rule with port range.
+      vars:
+        config_file: "{{ config_delete_different_port_range }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: false
+      include_tasks: "{{ run_config_test }}"
+
+    - block:
+        - name: See that Redis-DB has NOT got an appropriate field.
+          shell: docker exec -i database redis-cli -n 1 KEYS \* | grep SAI_OBJECT_TYPE_ACL_RANGE
+          register: grep
+          failed_when: grep.rc == 0
+
+      always:
+        - fail: msg="Redis-DB has got data about deleted rule (config file used - {{ config_delete_different_port_range }})"
+          when: grep.rc == 0
+
+  #----------------------------------------------
+  # TRAFFIC TESTING.
+  #----------------------------------------------
+
+    - block:
+        - name: Initialize loganalizer. Put start marker to log file.
+          vars:
+            test_expect_file: "{{ config_empty_expect }}"
+            loganalyzer_run_init: true
+            loganalyzer_run_analyze: false
+          include_tasks: "{{ run_loganalyzer }}"
+
+        - name: Create target directory
+          file: path={{ host_testdir }} state=directory
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Copy PTF tests
+          copy: src="roles/test/files/acstests/{{ item }}" dest="{{ host_testdir }}/{{ item }}"
+          with_items:
+            - "acl_port_range_traffic_test.py"
+            - "acs_base_test.py"
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Create an L3 table.
+          shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+
+        - name: Create the rule with limited port range permitted (1028 - 4096).
+          shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_l4_limited_port_range }}
+
+          # Sending packets with L4 port permitted (counters value should be increased).
+        - name: Read initial counters value (before sending packets).
+          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          register: counters_value_initial
+        - debug: var="counters_value_initial.stdout|int"
+
+        - name: Send TCP packets with permitted L4 port (2100).
+          shell: python2.7 /root/ptf/ptf --test-dir . acl_port_range_traffic_test.SendTCP  --interface 0@{{ ptf_host_if }} \
+                 --test-params="count={{ packets_sent|int }}; port_number=2100"
+          args:
+            chdir: "{{ host_testdir }}"
+          register: ptfrc
+          failed_when: ptfrc.rc != 0
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Wait for counters to update (it updates every 10 sec) ...
+          pause:
+            seconds: 10
+
+        - name: Read result counters value (after sending packets).
+          command: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          register: counters_value_result
+        - debug: var="counters_value_result.stdout|int"
+
+        - fail: msg="Counters value is not equal to number of packets transmitted"
+          when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != packets_sent|int
+
+          # Sending packets with L4 port forbidden (counters value should NOT be increased).
+        - name: Read initial counters value (before sending packets).
+          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          register: counters_value_initial
+        - debug: var="counters_value_initial.stdout|int"
+
+        - name: Send TCP packets with forbidden L4 port (80).
+          shell: python2.7 /root/ptf/ptf --test-dir . acl_port_range_traffic_test.SendTCP  --interface 0@{{ ptf_host_if }} \
+                 --test-params="count={{ packets_sent|int }}; port_number=80"
+          args:
+            chdir: "{{ host_testdir }}"
+          register: ptfrc
+          failed_when: ptfrc.rc != 0
+          delegate_to: "{{ ptf_host }}"
+
+        - name: Wait for counters to update (it updates every 10 sec) ...
+          pause:
+            seconds: 10
+
+        - name: Read result counters value (after sending packets).
+          shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_limited_port_range_name }}" Packets
+          register: counters_value_result
+        - debug: var="counters_value_result.stdout|int"
+
+        - fail: msg="Counters value was increased while it shouldn't have been"
+          when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != 0
+
+      always:
+        - name: Run analyze-phase and check if no errors occured.
+          vars:
+            test_expect_file: "{{ config_empty_expect }}"
+            loganalyzer_run_analyze: true
+            loganalyzer_run_init: false
+          include_tasks: "{{ run_loganalyzer }}"
+
+  always:
+    - name: Remove all the temporary files from switch.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+          - "{{ config_files }}"
+
+    - name: Remove all the temporary files from host.
+      file: path="{{ host_testdir }}/{{ item }}" state=absent
+      with_items:
+        - "acl_port_range_traffic_test.py"
+        - "acs_base_test.py"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Run config cleanup after {{ testname}}
+      include_tasks: "{{ run_config_cleanup }}"

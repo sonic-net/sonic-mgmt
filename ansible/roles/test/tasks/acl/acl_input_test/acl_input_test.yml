@@ -1,0 +1,45 @@
+# Tests json-file correctness.
+# Syntax correctness analysis is performed by Orchagent.
+
+- include_vars: "{{ vars_files_location }}/acl_input_test_vars.yml"
+
+- name: Copy JSON configs onto switch
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ acl_config_valid }}"
+      - "{{ acl_config_invalid }}"
+
+- name: Copy JSON configs from switch into docker filesystem
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ acl_config_valid }}"
+      - "{{ acl_config_invalid }}"
+
+- block:
+    - name: Load valid JSON config.
+      command: docker exec -i {{ orchagent }} swssconfig "{{ docker_testdir }}/{{ acl_config_valid }}"
+      register: valid_config_upload
+      failed_when: valid_config_upload.rc != 0
+
+    - name: Load invalid JSON config and check that errors returned.
+      command: docker exec -i {{ orchagent }} swssconfig "{{ docker_testdir }}/{{ acl_config_invalid }}"
+      register: invalid_config_upload
+      failed_when: invalid_config_upload.rc == 0
+
+  always:
+
+      # Print appropriate message, so user can see what exactly went wrong.
+    - fail: msg="swssconfig - failed to upload {{ acl_config_valid }}"
+      when: valid_config_upload.rc != 0
+
+    - fail: msg="swssconfig - no error caught when uploading {{ acl_config_invalid }}"
+      when: invalid_config_upload.rc == 0
+
+    - name: Do configuration cleanup.
+      include_tasks: "{{ run_config_cleanup }}"
+
+    - name: Remove all the files created by test.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+        - "{{ acl_config_valid }}"
+        - "{{ acl_config_invalid }}"

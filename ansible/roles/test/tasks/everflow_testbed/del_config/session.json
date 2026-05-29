@@ -1,0 +1,7 @@
+[
+    {
+        "MIRROR_SESSION_TABLE:test_session_1": {
+        },
+        "OP": "DEL"
+    }
+]

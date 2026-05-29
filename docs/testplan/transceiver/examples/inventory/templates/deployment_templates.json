@@ -1,0 +1,16 @@
+{
+  "deployment_templates": {
+    "8x100G_DR8": {
+      "required_attributes": {
+        "EEPROM_ATTRIBUTES": [
+          "sff8024_identifier"
+        ]
+      },
+      "optional_attributes": {
+        "EEPROM_ATTRIBUTES": [
+          "vdm_supported"
+        ]
+      }
+    }
+  }
+}

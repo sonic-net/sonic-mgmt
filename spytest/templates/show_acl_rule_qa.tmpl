@@ -1,0 +1,14 @@
+Value Filldown Table (\S+)
+Value Filldown Rule (\S+)
+Value Filldown Priority (\d+)
+Value Filldown Action (\S+)
+Value Match (.+)
+
+Start
+  ^\s*Table\s+Rule\s+Priority\s+Action\s+Match\s*$$
+  ^(-+\s*)*$$
+  ^\s*${Table}\s+${Rule}\s+${Priority}\s+${Action}\s+${Match}\s*$$ -> Record
+  ^\s+${Match}\s*$$ -> Record
+  ^$$
+
+EOF

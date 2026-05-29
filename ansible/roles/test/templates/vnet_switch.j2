@@ -1,0 +1,11 @@
+{% set vxlan_port = 13330 %}
+{% set vxlan_mac = "00:aa:bb:cc:78:9a"  %}
+[
+    {
+        "SWITCH_TABLE:switch": {
+            "vxlan_port": "{{ vxlan_port }}",
+            "vxlan_router_mac": "{{ vxlan_mac }}"
+        },
+        "OP": "SET"
+    }
+]

@@ -1,0 +1,32 @@
+- block:
+    - debug: msg="Interface to flap {{interface}}"
+
+    - name: Shutting down interface
+      become: true
+      shell: config interface shutdown {{interface}}
+
+    - pause:
+        seconds: 1
+
+    - name: Watch memory status
+      shell: show system-memory
+      register: memory_output
+
+    - debug: msg="Memory Status {{memory_output.stdout}}"
+
+    - name: watch orchagent CPU utilization
+      shell: show processes cpu | grep orchagent | awk '{print $9}'
+      register: orch_cpu
+
+    - debug: msg="Orchagent CPU Util {{orch_cpu.stdout|int}}"
+
+    - name: watch Redis Memory
+      shell: redis-cli info memory | grep used_memory_human
+      register: redis_memory
+
+    - debug: msg="Redis Memory {{redis_memory.stdout}}"
+
+  always:
+    - name: Bring up interface {{interface}}
+      become: true
+      shell: config interface startup {{interface}}

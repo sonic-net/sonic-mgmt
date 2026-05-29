@@ -1,0 +1,32 @@
+diff --git a/gnoigo.go b/gnoigo.go
+index cc1a3ec..f656e0e 100644
+--- a/gnoigo.go
++++ b/gnoigo.go
+@@ -27,10 +27,10 @@ import (
+ 	fpb "github.com/openconfig/gnoi/file"
+ 	hpb "github.com/openconfig/gnoi/healthz"
+ 	lpb "github.com/openconfig/gnoi/layer2"
++	plqpb "github.com/openconfig/gnoi/linkqual"
+ 	mpb "github.com/openconfig/gnoi/mpls"
+ 	ospb "github.com/openconfig/gnoi/os"
+ 	otpb "github.com/openconfig/gnoi/otdr"
+-	plqpb "github.com/openconfig/gnoi/packet_link_qualification"
+ 	spb "github.com/openconfig/gnoi/system"
+ 	wrpb "github.com/openconfig/gnoi/wavelength_router"
+ 	"github.com/openconfig/gnoigo/internal"
+diff --git a/internal/clients.go b/internal/clients.go
+index f49e470..b634ab3 100644
+--- a/internal/clients.go
++++ b/internal/clients.go
+@@ -23,10 +23,10 @@ import (
+ 	fpb "github.com/openconfig/gnoi/file"
+ 	hpb "github.com/openconfig/gnoi/healthz"
+ 	lpb "github.com/openconfig/gnoi/layer2"
++	plqpb "github.com/openconfig/gnoi/linkqual"
+ 	mpb "github.com/openconfig/gnoi/mpls"
+ 	ospb "github.com/openconfig/gnoi/os"
+ 	otpb "github.com/openconfig/gnoi/otdr"
+-	plqpb "github.com/openconfig/gnoi/packet_link_qualification"
+ 	spb "github.com/openconfig/gnoi/system"
+ 	wrpb "github.com/openconfig/gnoi/wavelength_router"
+ )

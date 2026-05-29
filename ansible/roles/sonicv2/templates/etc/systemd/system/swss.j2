@@ -1,0 +1,18 @@
+[Unit]
+Description=switch state service container
+Requires=database.service
+After=database.service
+
+[Service]
+User={{ sonicadmin_user }}
+# Wait for redis server start before database clean
+ExecStartPre=/bin/bash -c "while true; do if [ \"$(/usr/bin/docker exec database redis-cli ping)\" == \"PONG\" ]; then break; fi; sleep 1; done"
+ExecStartPre=/usr/bin/docker exec database redis-cli -n 0 FLUSHDB
+ExecStartPre=/usr/bin/docker exec database redis-cli -n 1 FLUSHDB
+ExecStartPre=/usr/bin/docker exec database redis-cli -n 2 FLUSHDB
+ExecStart=/usr/bin/docker start -a swss
+ExecStop=/usr/bin/docker stop swss
+ExecStopPost=/usr/bin/docker stop syncd
+
+[Install]
+WantedBy=multi-user.target

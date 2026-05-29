@@ -1,0 +1,153 @@
+topology:
+  VMs:
+    ARISTA01T2:
+      vlans:
+        - 0
+      vm_offset: 0
+    ARISTA02T2:
+      vlans:
+        - 1
+      vm_offset: 1
+    ARISTA01T0:
+      vlans:
+        - 2
+      vm_offset: 2
+    ARISTA02T0:
+      vlans:
+        - 3
+      vm_offset: 3
+  DPUs:
+    SONIC01DPU:
+      vlans:
+        - 4
+        - 5
+      vm_offset: 4
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: LeafRouter
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 2
+    tor_subnet_number: 2
+    max_tor_subnet_number: 2
+    tor_subnet_size: 128
+  spine:
+    swrole: spine
+  tor:
+    swrole: tor
+
+configuration:
+  ARISTA01T2:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.0
+        - FC00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        ipv4: 10.0.0.1/31
+        ipv6: fc00::2/126
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  ARISTA02T2:
+    properties:
+    - common
+    - spine
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.2
+        - FC00::5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
+      Ethernet1:
+        ipv4: 10.0.0.3/31
+        ipv6: fc00::6/126
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::5/64
+
+  ARISTA01T0:
+    properties:
+    - common
+    - tor
+    tornum: 1
+    bgp:
+      asn: 64001
+      peers:
+        65100:
+        - 10.0.0.32
+        - FC00::41
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.17/32
+        ipv6: 2064:100::11/128
+      Ethernet1:
+        ipv4: 10.0.0.33/31
+        ipv6: fc00::42/126
+    bp_interface:
+      ipv4: 10.10.246.17/24
+      ipv6: fc0a::22/64
+
+  ARISTA02T0:
+    properties:
+    - common
+    - tor
+    tornum: 2
+    bgp:
+      asn: 64002
+      peers:
+        65100:
+        - 10.0.0.34
+        - FC00::45
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.18/32
+        ipv6: 2064:100::12/128
+      Ethernet1:
+        ipv4: 10.0.0.35/31
+        ipv6: fc00::46/126
+    bp_interface:
+      ipv4: 10.10.246.18/24
+      ipv6: fc0a::25/64
+
+  SONIC01DPU:
+    properties:
+    - common
+    - SonicHost
+    bgp:
+      asn: 64003
+      peers:
+        65100:
+        - 10.0.0.36
+        - FC00::49
+        - 10.0.0.38
+        - FC00::4D
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.19/32
+        ipv6: 2064:100::13/128
+      Ethernet0:
+         ipv4: 10.0.0.37/31
+         ipv6: fc00::4a/126
+      Ethernet4:
+        ipv4: 10.0.0.39/31
+        ipv6: fc00::4e/126
+    bp_interface:
+      ipv4: 10.10.246.19/24
+      ipv6: fc0a::26/64

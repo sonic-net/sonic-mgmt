@@ -1,0 +1,12 @@
+[
+{% for prefix in prefix_list %}
+{% set acl_tag_name = acl_tag + loop.index|string %}
+    {
+        "DASH_PREFIX_TAG_TABLE:{{ acl_tag_name }}": {
+            "ip_version": "{{ip_version}}",
+            "prefix_list": "{{prefix}}"
+        },
+        "OP": "{{op}}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+]

@@ -1,0 +1,54 @@
+{
+"ISIS_GLOBAL": {
+        "1": {
+            {% if inventory_hostname == "vlab-01" %}
+            "net": "49.0001.1040.4400.0252.00",
+            {% elif inventory_hostname == "vlab-02" %}
+            "net": "49.0001.1040.4400.0253.00",
+            {% endif %}
+            "dynamic-hostname": "true",
+            "level-capability": "level-2",
+            "lsp-mtu-size": "1383",
+            "log-adjacency-changes": "true"
+        }
+    },
+    "ISIS_INTERFACE": {
+        "1|Loopback0": {
+            "instance":"1",
+            "ifname": "Loopback0",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        },
+        {% if topo == "wan-ecmp" %}
+        "1|Ethernet12": {
+            "instance":"1",
+            "ifname": "Ethernet12",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        },
+        "1|PortChannel103": {
+            "instance":"1",
+            "ifname": "PortChannel103",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        },
+        {% endif %}
+        "1|PortChannel101": {
+            "instance":"1",
+            "ifname": "PortChannel101",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        },
+        "1|PortChannel102": {
+            "instance":"1",
+            "ifname": "PortChannel102",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        }
+    }
+}

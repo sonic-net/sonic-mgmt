@@ -1,0 +1,54 @@
+{
+    "VXLAN_TUNNEL": {
+{%- if ipv6_vxlan_test == true %}
+        "tunnel_v6": {
+            "src_ip": "{{ minigraph_lo_interfaces[1]['addr'] }}"
+        },
+{%- endif %}
+        "tunnel_v4": {
+            "src_ip": "{{ minigraph_lo_interfaces[0]['addr'] }}"
+        }
+    },
+
+    "VNET": {
+{%- for vnet in vnet_id_list %}
+        "{{ vnet  }}": {
+{%- if (ipv6_vxlan_test == false) or ((loop.index0%num_vnet_batch) < vnet_v6_base) %}
+            "vxlan_tunnel": "tunnel_v4",
+{%- else %}
+            "vxlan_tunnel": "tunnel_v6",
+{%- endif %}
+            "vni": "{{ vnet | replace("Vnet", "") |int + 10000}}",
+            "peer_list": ""
+        }{{ "," if not loop.last else "" }}
+{%- endfor %}
+    },
+
+    "VLAN": {
+{%- for vlan_intf in vlan_intf_list %}
+        "Vlan{{ vlan_intf.vlan_id }}": {
+            "vlanid": {{ vlan_intf.vlan_id }}
+        }{{ "," if not loop.last else "" }}
+{%- endfor %}
+    },
+
+    "VLAN_INTERFACE": {
+{%- for vlan_intf in vlan_intf_list %}
+{%- for vnet_intf in vnet_intf_list %}
+{%- if vnet_intf.ifname == vlan_intf.ifname %}
+        "Vlan{{ vlan_intf.vlan_id }}": {
+            "vnet_name": "{{ vnet_intf.vnet }}"
+        }{{ "," if not loop.last else "" }}
+{%- endif %}
+{%- endfor %}
+{%- endfor %}
+    },
+
+    "VLAN_MEMBER": {
+{%- for vlan_intf in vlan_intf_list %}
+        "Vlan{{ vlan_intf.vlan_id }}|{{ vlan_intf.port }}": {
+            "tagging_mode": "tagged"
+        }{{ "," if not loop.last else "" }}
+{%- endfor %}
+    }
+}

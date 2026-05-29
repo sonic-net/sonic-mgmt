@@ -1,0 +1,349 @@
+- name: Init variables.
+  set_fact:
+      ptf_interfaces: []
+      dut_switch_ports: []
+      ptf_lag_interfaces: []
+      dut_switch_lag_members: []
+      testing_ptf_interfaces: []
+
+- name: Getting minigraph facts
+  minigraph_facts: host={{inventory_hostname}}
+  become: no
+
+# Index stored in ptf_interfaces list is the index
+# to its corresponding connected dut port name in dut_switch_ports list
+- name: Get PTF interfaces from map
+  set_fact:
+    ptf_interfaces: "{{ptf_interfaces + [item.split('@')[0]]}}"
+  with_lines: cat {{ptf_portmap}}
+  when: "'#' not in item"
+
+- name: Get switch ports from map
+  set_fact:
+    dut_switch_ports: "{{dut_switch_ports + [item.split('@')[1]]}}"
+  with_lines: cat {{ptf_portmap}}
+  when: "'#' not in item"
+
+- name: Print switch ports and PTF interfaces
+  debug: msg="ptf_interfaces={{ptf_interfaces}} dut_switch_ports={{dut_switch_ports}} total_ports={{dut_switch_ports|length}}"
+
+
+- name: Set ptf LAG interfaces
+  set_fact:
+    ptf_lag_interfaces: "{{ptf_lag_interfaces + [ (item|replace(\"PortChannel\", \"\")|int / 4)|int ]}}"
+  with_items: "{{minigraph_portchannels.keys()}}"
+
+- name: Get switch LAG members
+  set_fact:
+    dut_switch_lag_members: "{{dut_switch_lag_members + item['members']}}"
+  with_items: "{{minigraph_portchannels.values()}}"
+
+- name: Print LAG members
+  debug: msg="ptf_lag_interfaces={{ptf_lag_interfaces}} dut_switch_lag_members={{dut_switch_lag_members}}"
+
+
+- name: Init testing port count
+  set_fact:
+    testing_ports_count: 0
+    testing_ports_id: []
+
+- name: Find the not lag ports for testing
+  set_fact:
+    testing_ports_id: "{{testing_ports_id + [item]}}"
+  with_items: "{{ptf_interfaces}}"
+  when:
+    - dut_switch_ports[item|int] in minigraph_ports.keys()
+    - dut_switch_ports[item|int] not in dut_switch_lag_members
+    - item != '31' # Only for Mellanox testbed. The last port is used for up link from DUT switch
+
+# TODO: make port selection random
+- name: Set DST port ID
+  set_fact:
+    dst_port_id: "{{testing_ports_id[0]}}"
+
+- name: Set DST port 2 ID
+  set_fact:
+    dst_port_2_id: "{{testing_ports_id[1]}}"
+
+- name: Set SRC port ID
+  set_fact:
+    src_port_id: "{{testing_ports_id[2]}}"
+
+- name: Set DST port 3 ID
+  set_fact:
+    dst_port_3_id: "{{testing_ports_id[3]}}"
+
+
+- name: Get IPs for non-vlan testing ports
+  testing_port_ip_facts:
+    testing_ports_id: "{{testing_ports_id}}"
+    dut_switch_ports: "{{dut_switch_ports}}"
+    minigraph_bgp: "{{minigraph_bgp}}"
+    minigraph_neighbors: "{{minigraph_neighbors}}"
+  delegate_to: localhost
+
+- debug:
+    var: testing_ports_ip
+
+
+- name: Set unique MACs to PTF interfaces
+  script: roles/test/files/helpers/change_mac.sh
+  delegate_to: "{{ptf_host}}"
+  when: minigraph_vlans | length >0
+
+
+- set_fact:
+    vlan_members: "{{minigraph_vlans[minigraph_vlans.keys()[0]]['members']}}"
+  when: minigraph_vlans | length >0
+
+- name: Generate IPs in VLAN range
+  get_ip_in_range: num="{{dut_switch_ports|length}}" prefix="{{minigraph_vlan_interfaces[0]['addr']}}/{{minigraph_vlan_interfaces[0]['prefixlen']}}" exclude_ips="{{minigraph_vlan_interfaces[0]['addr']}}"
+  become: no
+  delegate_to: localhost
+  failed_when: False
+  when: minigraph_vlans | length > 0
+
+- debug:
+    var: generated_ips
+
+- name: Assign IPs to vlan testing ports
+  set_fact:
+    testing_ports_ip: "{{testing_ports_ip | combine({item: generated_ips[item|int].split('/')[0]})}}"
+  when:
+    testing_ports_ip[item] is not defined and dut_switch_ports[item|int] in vlan_members
+  with_items: "{{testing_ports_id}}"
+
+- debug:
+    var: testing_ports_ip
+
+
+- name: Set DST port 1 IP
+  set_fact:
+    dst_port_ip: "{{testing_ports_ip[dst_port_id]}}"
+
+- name: Set DST port 2 IP
+  set_fact:
+    dst_port_2_ip: "{{testing_ports_ip[dst_port_2_id]}}"
+
+- name: Set SRC port IP
+  set_fact:
+    src_port_ip: "{{testing_ports_ip[src_port_id]}}"
+
+- name: Set DST port 3 IP
+  set_fact:
+    dst_port_3_ip: "{{testing_ports_ip[dst_port_3_id]}}"
+
+
+# Get buffers size
+# Ingress lossless
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_PG'
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
+    target_pg: '3-4'
+    target_buffer_profile_type: 'ingress lossless'
+
+- name: Set lossless buffer profile
+  set_fact:
+    lossless_buffer_profile: "{{ buffer_profile }}"
+
+- name: Set lossless MAX buffer size
+  set_fact:
+    lossless_buffer_max_size: "{{buffer_headroom.stdout|int}}"
+
+- name: Set lossless ingress buffer pool ROID
+  set_fact:
+    lossless_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+  when: not disable_test
+
+
+# Ingress lossy
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_PG'
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
+    target_pg: '0'
+    target_buffer_profile_type: 'ingress lossy'
+
+- name: Set lossy MAX buffer size
+  set_fact:
+    lossy_buffer_max_size: "{{buffer_max_size}}"
+
+- name: Set lossy headroom size
+  set_fact:
+    lossy_headroom_size: "{{buffer_headroom.stdout|int}}"
+
+- name: Set lossy ingress buffer pool ROID
+  set_fact:
+    lossy_ingr_buf_pool_roid: "{{buffer_pool_roid}}"
+  when: not disable_test
+
+
+# Egress lossless
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_QUEUE'
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
+    target_pg: '3-4'
+    target_buffer_profile_type: 'egress lossless'
+
+- name: Set MAX queue size for {{dut_switch_ports[src_port_id|int]}}
+  set_fact:
+    lossless_queue_max_size: "{{buffer_max_size}}"
+
+- name: Set lossless egress buffer pool ROID
+  set_fact:
+    lossless_egr_buf_pool_roid: "{{buffer_pool_roid}}"
+
+
+# Egress lossy
+- include_tasks: roles/test/tasks/qos_get_max_buff_size.yml
+  vars:
+    target_table: 'BUFFER_QUEUE'
+    target_port_name: "{{dut_switch_ports[src_port_id|int]}}"
+    target_pg: '0-2'
+    target_buffer_profile_type: 'egress lossy'
+
+- name: Set MAX queue size for {{dut_switch_ports[src_port_id|int]}}
+  set_fact:
+    lossy_queue_max_size: "{{buffer_max_size}}"
+
+- name: Set lossy egress buffer pool ROID
+  set_fact:
+    lossy_egr_buf_pool_roid: "{{buffer_pool_roid}}"
+
+
+# ECN/WRED
+- block:
+  - name: Determine the target queue of the WRED profile
+    set_fact:
+      target_q_wred: '3'
+
+  - debug: var=target_q_wred
+
+- name: Get the WRED profile key for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 KEYS "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_wred}}"
+  register: wred_profile_name
+
+- fail:
+    msg: "Unable to get the wred profile key for {{dut_switch_ports[dst_port_id|int]}}"
+  when: wred_profile_name.stdout == ""
+
+- name: Parse WRED profile key
+  set_fact:
+    wred_profile_name="{{wred_profile_name.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get the WRED profile for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{wred_profile_name}}" wred_profile
+  register: wred_profile
+
+- fail:
+    msg: "Unable to get the buffer profile for {{dut_switch_ports[dst_port_id|int]}}"
+  when: wred_profile.stdout == ""
+
+- name: Parse WRED profile name
+  set_fact:
+    wred_profile="{{wred_profile.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get green_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
+  shell: redis-cli -n 4 HGET "{{wred_profile}}" green_max_threshold
+  register: green_max_threshold
+
+- fail:
+    msg: "Unable to get the green_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}"
+  when: green_max_threshold.stdout == ""
+
+- name: Parse WRED green_max_threshold
+  set_fact:
+    green_max_threshold="{{green_max_threshold.stdout|int}}"
+
+- name: Get yellow_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
+  shell: redis-cli -n 4 HGET "{{wred_profile}}" yellow_max_threshold
+  register: yellow_max_threshold
+
+- fail:
+    msg: "Unable to get the yellow_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}"
+  when: yellow_max_threshold.stdout == ""
+
+- name: Parse WRED yellow_max_threshold
+  set_fact:
+    yellow_max_threshold="{{yellow_max_threshold.stdout|int}}"
+
+- name: Get red_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}
+  shell: redis-cli -n 4 HGET "{{wred_profile}}" red_max_threshold
+  register: red_max_threshold
+
+- fail:
+    msg: "Unable to get the red_max_threshold for {{dut_switch_ports[dst_port_id|int]}} from {{wred_profile}}"
+  when: red_max_threshold.stdout == ""
+
+- name: Parse WRED red_max_threshold
+  set_fact:
+    red_max_threshold="{{red_max_threshold.stdout|int}}"
+
+
+# Get watermark polling status
+- debug:
+    msg="Get watermark counter status before the test"
+
+- name: Get watermark polling status before the test
+  shell: redis-cli -n 4 HGET "FLEX_COUNTER_TABLE|QUEUE_WATERMARK" FLEX_COUNTER_STATUS
+  register: watermark_status
+
+- debug:
+    msg="Watermark polling status {{watermark_status.stdout}}"
+
+
+# Get scheduler weight
+- name: Set target lossy queue to query the lossy scheduler profile
+  set_fact:
+    target_q_sched: '0'
+
+- debug: var=target_q_sched
+
+- name: Get lossy scheduler profile for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  register: lossy_sched_profile
+
+- fail:
+    msg: "Unable to get the lossy scheduler profile for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossy_sched_profile.stdout == ""
+
+- name: Process lossy scheduler profile name
+  set_fact:
+    lossy_sched_profile="{{lossy_sched_profile.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get lossy scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{lossy_sched_profile}}" weight
+  register: lossy_sched_weight
+
+- fail:
+    msg: "Unable to get lossy scheduler weight for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossy_sched_weight.stdout == ""
+
+
+- name: Set target lossless queue to query the lossless scheduler profile
+  set_fact:
+    target_q_sched: '3'
+
+- debug: var=target_q_sched
+
+- name: Get lossless scheduler profile "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "QUEUE|{{dut_switch_ports[dst_port_id|int]}}|{{target_q_sched}}" scheduler
+  register: lossless_sched_profile
+
+- fail:
+    msg: "Unable to get the lossless scheduler profile for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossless_sched_profile.stdout == ""
+
+- name: Process lossless scheduler profile name
+  set_fact:
+    lossless_sched_profile="{{lossless_sched_profile.stdout|replace('[','')|replace(']','')}}"
+
+- name: Get lossless scheduler weight for "{{dut_switch_ports[dst_port_id|int]}}"
+  shell: redis-cli -n 4 HGET "{{lossless_sched_profile}}" weight
+  register: lossless_sched_weight
+
+- fail:
+    msg: "Unable to get lossless scheduler weight for {{dut_switch_ports[dst_port_id|int]}}"
+  when: lossless_sched_weight.stdout == ""

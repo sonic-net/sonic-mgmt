@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value TC (\d+)
+Value DOT1P (\d+)
+
+
+Start
+  ^\s*Traffic-Class-Dot1P-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${TC}\s+${DOT1P}\s*$$ -> Record
+  ^$$
+
+EOF

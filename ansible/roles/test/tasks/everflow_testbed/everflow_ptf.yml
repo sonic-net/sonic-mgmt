@@ -1,0 +1,27 @@
+- set_fact:
+    expect_received: True
+  when: expect_received is not defined
+
+- name: Send traffic and verify that packets with correct Everflow header are {{ expect_received | ternary('', 'not') }} received on destination port {{ dst_port }}
+  include_tasks: roles/test/tasks/ptf_runner.yml
+  vars:
+    ptf_test_name: Everflow Test
+    ptf_test_dir: acstests
+    ptf_test_path: everflow_tb_test.EverflowTest
+    ptf_platform_dir: ptftests
+    ptf_platform: remote
+    ptf_test_params:
+      - asic_type='{{ sonic_asic_type }}'
+      - hwsku='{{ sonic_hwsku }}'
+      - router_mac='{{ ansible_Ethernet0['macaddress'] }}'
+      - src_port='{{ src_port_ptf_id }}'
+      - dst_ports='{{ dst_port_ptf_id }}'
+      - session_src_ip='{{ session_src_ip }}'
+      - session_dst_ip='{{ session_dst_ip }}'
+      - session_ttl='{{ session_ttl }}'
+      - session_dscp='{{ session_dscp }}'
+      - acl_stage='{{ acl_stage }}'
+      - mirror_stage='{{ mirror_stage }}'
+      - expect_received={{ expect_received }}
+      - verbose=True
+    ptf_extra_options:  "--log-file /tmp/everflow_tb_test.EverflowTest.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log"

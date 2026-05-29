@@ -1,0 +1,34 @@
+Value Interface (\S+)
+Value Lanes (\S+)
+Value Speed (\S+)
+Value MTU (\S+)
+Value FEC (\S+)
+Value Alias (\S+)
+Value Filldown Vlan (\S+)
+Value Oper (\S+)
+Value Admin (\S+)
+Value Type (\S+[\S ]+)
+Value AsymPFC (\S+)
+
+Start
+  ^\s*Interface\s+Lanes\s+Speed\s+MTU\s+Alias\s+Vlan\s+Oper\s+Admin\s+Type\s+Asym PFC\s*$$ -> Continue
+  ^\s*Interface\s+Lanes\s+Speed\s+MTU\s+Alias\s+Oper\s+Admin\s+Type\s+Asym PFC\s*$$ -> TYPE1
+  ^\s*Interface\s+Lanes\s+Speed\s+MTU\s+Alias\s+Vlan\s+Oper\s+Admin\s+Type\s+Asym PFC\s*$$ -> TYPE2
+  ^\s*Interface\s+Lanes\s+Speed\s+MTU\s+FEC\s+Alias\s+Vlan\s+Oper\s+Admin\s+Type\s+Asym PFC\s*$$ -> TYPE3
+
+TYPE1
+  ^(-+\s*)*$$
+  ^\s*${Interface}\s+${Lanes}\s+${Speed}\s+${MTU}\s+${Alias}\s+${Oper}\s+${Admin}\s+${Type}\s+${AsymPFC}\s*$$ -> Record
+  ^$$
+
+TYPE2
+  ^(-+\s*)*$$
+  ^\s*${Interface}\s+${Lanes}\s+${Speed}\s+${MTU}\s+${Alias}\s+${Vlan}\s+${Oper}\s+${Admin}\s+${Type}\s+${AsymPFC}\s*$$ -> Record
+  ^$$
+  
+TYPE3
+  ^(-+\s*)*$$
+  ^\s*${Interface}\s+${Lanes}\s+${Speed}\s+${MTU}\s+${FEC}\s+${Alias}\s+${Vlan}\s+${Oper}\s+${Admin}\s+${Type}\s+${AsymPFC}\s*$$ -> Record
+  ^$$
+
+EOF

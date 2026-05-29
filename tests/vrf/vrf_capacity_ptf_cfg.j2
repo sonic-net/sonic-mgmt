@@ -1,0 +1,20 @@
+#! /bin/bash
+
+{% for vrf_idx in random_vrf_list %}
+{% set vid = src_base_vid + vrf_idx %}
+{% set vid2 = dst_base_vid + vrf_idx %}
+{% set sub_if_name1 = sub_if_name_tpl.format(ptf_port1, vid) %}
+{% set sub_if_name2 = sub_if_name_tpl.format(ptf_port2, vid2) %}
+{% set vlan_ip1 = ip1.next(vrf_idx - 1) %}
+{% set vlan_ip2 = ip2.next(vrf_idx - 1) %}
+
+ip link add link eth{{ptf_port1}} name {{sub_if_name1}} type vlan id {{vid}}
+ip link add link eth{{ptf_port2}} name {{sub_if_name2}} type vlan id {{vid2}}
+ip link set {{sub_if_name1}} up
+ip link set {{sub_if_name2}} up
+ip address add {{vlan_ip1[-1]}}/{{vlan_ip1.prefixlen}} dev {{sub_if_name1}}
+ip address add {{vlan_ip2[-1]}}/{{vlan_ip2.prefixlen}} dev {{sub_if_name2}}
+
+{% endfor %}
+
+sleep 5

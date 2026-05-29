@@ -1,0 +1,2 @@
+docker_registry_host: sonicdev-microsoft.azurecr.io:443
+debian_docker_registry_host: publicmirror.azurecr.io:443

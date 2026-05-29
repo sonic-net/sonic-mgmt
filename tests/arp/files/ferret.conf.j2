@@ -1,0 +1,10 @@
+[program:ferret]
+command=/root/env-python3/bin/python3 /opt/ferret.py {{ ferret_args }}
+process_name=ferret
+stdout_logfile=/tmp/ferret.out.log
+stderr_logfile=/tmp/ferret.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1

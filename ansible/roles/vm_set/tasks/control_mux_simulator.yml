@@ -1,0 +1,80 @@
+
+- name: Get absolute path of {{ root_path }}
+  command: "realpath {{ root_path }}"
+  register: real_root_path
+
+- name: Set variable abs_root_path
+  set_fact:
+    abs_root_path: "{{ real_root_path.stdout }}"
+    mux_simulator_port: "{{ mux_simulator_http_port[testbed_name] }}"
+
+- name: Start mux simulator
+  block:
+
+  - name: Set Flask and Werkzeug versions
+    set_fact:
+      flask_version: "2.3.3"
+      werkzeug_version: "2.3.7"
+
+  - name: Check installed Flask and Werkzeug versions
+    command: >-
+      {{ sonic_testbed_venv }}/bin/python -c
+      "import flask, werkzeug; print(flask.__version__); print(werkzeug.__version__)"
+    register: flask_versions
+    changed_when: false
+    failed_when: false
+
+  - name: Install Flask and Werkzeug in venv
+    command: >-
+      uv pip install
+      --python {{ sonic_testbed_venv }}/bin/python
+      flask=={{ flask_version }} werkzeug=={{ werkzeug_version }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+    when: flask_versions.rc != 0
+          or flask_versions.stdout_lines != [flask_version, werkzeug_version]
+
+  - name: Copy the mux simulator to test server
+    copy:
+      src: mux_simulator.py
+      dest: "{{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py"
+      mode: 0755
+
+  - name: Generate mux-simulator systemd service file
+    template:
+      src: mux-simulator.service.j2
+      dest: /etc/systemd/system/mux-simulator-{{ mux_simulator_port }}.service
+    become: yes
+
+  - name: Start the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+      state: started
+      daemon_reload: yes
+    become: yes
+
+  - name: wait for mux-simulator service to fully start for {{ testbed_name }}
+    pause: seconds=1
+
+  - name: Get the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+    register: mux_simulator_status
+
+  - name: Fail if the mux-simulator service has exited for testbed {{ testbed_name }}
+    fail: msg="Mux simulator service is not running for {{ testbed_name }}"
+    when: mux_simulator_status.status.ActiveState != "active"
+
+  when: mux_simulator_action == "start"
+
+- name: Stop mux simulator
+  block:
+
+  - name: Stop the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
+
+  when: mux_simulator_action == "stop"
