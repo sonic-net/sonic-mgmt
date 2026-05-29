@@ -10,7 +10,6 @@ from tests.common.snappi_tests.snappi_fixtures import (  # noqa: F401
     get_snappi_ports,
     get_snappi_ports_multi_dut,
     get_snappi_ports_single_dut,
-    is_snappi_multidut,
     snappi_api,
     snappi_api_serv_ip,
     snappi_api_serv_port,

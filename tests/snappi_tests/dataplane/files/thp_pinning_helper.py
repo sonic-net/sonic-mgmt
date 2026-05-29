@@ -68,7 +68,7 @@ def select_snappi_test_ports(snappi_ports, required_ports=5):
 
     selected_ports = sorted(
         eligible_groups,
-        key=lambda group: len(group),
+        key=len,
         reverse=True
     )[0][:required_ports]
     duthost = selected_ports[0]["duthost"]
@@ -116,6 +116,7 @@ def find_unused_vlan_id(duthost, start=3000, stop=3999):
         if vlan_id not in used_vlans:
             return vlan_id
     pytest.fail("No unused VLAN ID found in range {}-{}".format(start, stop))
+    return None
 
 
 def configure_dut_for_fdb_storm(duthost, ingress_ports, egress_port, pinning_ports, vlan_id):
