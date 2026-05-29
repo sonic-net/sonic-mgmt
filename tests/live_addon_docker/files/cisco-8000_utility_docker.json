@@ -1,0 +1,43 @@
+{
+  "vendor": "cisco",
+  "description": "Cisco 8000 utility docker. Registry pull like syncd-rpc; --public_docker_registry for public.",
+  "tarball_filename": "docker-cisco-utility.gz",
+  "dut_tarball_home": "/home/admin",
+  "candidate_image_refs": [],
+  "version_matrix": [
+    {
+      "utility_package_version_glob": "202405*",
+      "compatible_sonic_globs": ["202411*", "202505*"]
+    },
+    {
+      "utility_package_version_glob": "202411*",
+      "compatible_sonic_globs": ["202411*", "202505*"]
+    }
+  ],
+  "docker_run": {
+    "container_name": "cisco-utility",
+    "cli_args": [
+      "-t",
+      "--privileged",
+      "--pid=host",
+      "-v", "/:/hostroot:rw",
+      "-v", "/opt/cisco:/opt/cisco",
+      "--tmpfs", "/tmp/",
+      "--net=host",
+      "--log-opt", "max-size=2M",
+      "--log-opt", "max-file=5"
+    ]
+  },
+  "health": {
+    "port": 50200,
+    "url_path": "/health",
+    "bind_host": "127.0.0.1",
+    "expect_http_code": 200,
+    "wait_seconds_before_check": 0,
+    "probe_interval_seconds": 30,
+    "probe_timeout_seconds": 900
+  },
+  "validation": {
+    "docker_container_name": "cisco-utility"
+  }
+}
