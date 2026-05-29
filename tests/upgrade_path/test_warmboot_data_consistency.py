@@ -80,6 +80,55 @@ def test_warmboot_data_consistency(localhost, duthosts, rand_one_dut_hostname, t
     duthost = duthosts[rand_one_dut_hostname]
     from_image, to_image = _resolve_test_params(request)
 
+    # Capture original image version before any changes so teardown can restore the DUT.
+    # The test installs multiple images and leaves the DUT on 'to_image' when finished.
+    # Pass --restore_to_image=<url> so the restore_image fixture can reinstall the original image.
+    original_sonic_version = get_current_sonic_version(duthost)
+    restore_to_image_url = request.config.getoption("restore_to_image", default=None)
+    if not restore_to_image_url:
+        logger.warning(
+            "No --restore_to_image provided. After this test the DUT will remain on '%s' "
+            "instead of the original '%s'. Pass --restore_to_image=<url> to restore properly.",
+            to_image, original_sonic_version
+        )
+
+    def _restore_dut_to_original_image():
+        """
+        Fallback teardown: restore the DUT to its original image if --restore_to_image was not
+        provided (in which case the module-scoped restore_image fixture does nothing).
+
+        Since reduce_and_add_sonic_images removes the original image when installing the base
+        image, restoration via set_next_boot is only possible if the original image is still
+        present in the installer list. If it has been removed, a clear error is raised so
+        operators know the testbed requires manual attention.
+        """
+        if restore_to_image_url:
+            # The restore_image module-scoped fixture will handle this via install_sonic.
+            return
+        current_version = get_current_sonic_version(duthost)
+        if current_version == original_sonic_version:
+            logger.info("DUT is already on original image %s, no restore needed.", original_sonic_version)
+            return
+        installed_images = duthost.shell("sudo sonic-installer list")["stdout"]
+        if original_sonic_version in installed_images:
+            logger.info(
+                "Restoring DUT from '%s' to original image '%s' via set_next_boot + cold reboot.",
+                current_version, original_sonic_version
+            )
+            duthost.shell("sudo sonic-installer set_next_boot {}".format(original_sonic_version))
+            reboot(duthost, localhost, reboot_type="cold", safe_reboot=True)
+        else:
+            raise AssertionError(
+                "DUT is on '{}' after test but cannot restore to original '{}': image is no longer "
+                "installed (reduce_and_add_sonic_images removed it). "
+                "Pass --restore_to_image=<original_image_url> in the test plan to enable "
+                "proper testbed restoration via the restore_image fixture.".format(
+                    current_version, original_sonic_version
+                )
+            )
+
+    request.addfinalizer(_restore_dut_to_original_image)
+
     # Install base image, erase config and boot into base image so there is a clean slate for the upgrade test
     cleanup_prev_images(duthost)
     boot_into_base_image(duthost, localhost, from_image, tbinfo)
