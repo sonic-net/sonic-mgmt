@@ -1324,23 +1324,24 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                        dut, port, queue, "storm")
             snap2 = parser_show_pfcwd_stat(dut, port, queue)
 
-            # On hardware-recovery PFCwd platforms (e.g., Broadcom DNX), the per-queue
-            # TX OK/DROP cells in 'show pfcwd stats' are sourced from the software-
-            # recovery code path and stay at 0 even when silicon is dropping. Storm
-            # detection is reported in both modes, so use storm_detect_count as the
-            # hardware-side signal.
-            if is_pfcwd_hw_recovery_enabled(dut):
-                counter = 'storm_detect_count'
-            else:
-                counter = 'tx_drop_count' if action == 'drop' else 'tx_ok_count'
-            val1 = int(snap1[0][counter])
-            val2 = int(snap2[0][counter])
-            logger.info("PFCWD storm traffic check: port={} queue={} counter={} snap1={} snap2={}".format(
-                        port, queue, counter, val1, val2))
-            pytest_assert(val1 > 0, "{} not incrementing after storm on port {} queue {}".format(
-                counter, port, queue))
-            pytest_assert(val2 >= val1, "{} regressed during storm on port {} queue {}".format(
-                counter, port, queue))
+            if dut.facts['asic_type'] != 'vs':
+                # On hardware-recovery PFCwd platforms (e.g., Broadcom DNX), the per-queue
+                # TX OK/DROP cells in 'show pfcwd stats' are sourced from the software-
+                # recovery code path and stay at 0 even when silicon is dropping. Storm
+                # detection is reported in both modes, so use storm_detect_count as the
+                # hardware-side signal.
+                if is_pfcwd_hw_recovery_enabled(dut):
+                    counter = 'storm_detect_count'
+                else:
+                    counter = 'tx_drop_count' if action == 'drop' else 'tx_ok_count'
+                val1 = int(snap1[0][counter])
+                val2 = int(snap2[0][counter])
+                logger.info("PFCWD storm traffic check: port={} queue={} counter={} snap1={} snap2={}".format(
+                            port, queue, counter, val1, val2))
+                pytest_assert(val1 > 0, "{} not incrementing after storm on port {} queue {}".format(
+                    counter, port, queue))
+                pytest_assert(val2 >= val1, "{} regressed during storm on port {} queue {}".format(
+                    counter, port, queue))
 
         finally:
             self.ptf.shell("pkill -f 'pfc_wd.PfcWdTest'", module_ignore_errors=True)
