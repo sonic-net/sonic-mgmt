@@ -40,11 +40,27 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
         r".*tac_connect_single: .*",
         r".*nss_tacplus: .*",
     ]
+    # On cisco-8000 platforms (e.g. Cisco-8101), the test teardown path that restores
+    # LAG / port-channel members re-binds cached QoS TC->Queue map and PFC settings
+    # on the affected ports. The underlying SAI objects can be recreated during the
+    # test, leaving orchagent with stale OIDs. The re-bind then fails in syncd with
+    # SAI_STATUS_ITEM_NOT_FOUND and orchagent logs ERR for handlePortQosMapTable /
+    # setPortPfc. The test itself passes; only loganalyzer flags these as failures.
+    Cisco8000IgnoreRegex = [
+        r".*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_ITEM_NOT_FOUND.*",
+        r".*processQuadEvent: VID: oid:0x[0-9a-f]+ RID: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL: \d+.*",
+        r".*handlePortQosMapTable: Failed to apply \S+ to port Ethernet\d+, rv:-7.*",
+        r".*setPortPfc: Failed to set PFC 0x[0-9a-f]+ to port id 0x[0-9a-f]+ \(rc:-7\).*",
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
         loganalyzer[duthost.hostname].ignore_regex.extend(TacacsIgnoreRegex)
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        if duthost.facts["asic_type"] == "cisco-8000":
+            loganalyzer[duthost.hostname].ignore_regex.extend(Cisco8000IgnoreRegex)
 
 
 @pytest.fixture(scope='function', autouse=True)
