@@ -4,9 +4,12 @@ SRv6 Max Throughput Minimum Packet Size test.
 Sends SRv6 IPv6-in-IPv6 traffic bidirectionally across 32 ports at 100% line rate
 and verifies zero drops at known minimum packet sizes per feature-configuration scenario.
 """
+import ipaddress
+
 from tests.snappi_tests.dataplane.imports import *  # noqa: F403
 from snappi_tests.dataplane.files.helper import *  # noqa: F403
 from snappi_tests.dataplane.files.max_throughput_helper import (
+    _load_json_output,
     load_max_throughput_config,
     get_platform_thresholds,
     configure_scenario,
@@ -143,9 +146,12 @@ def _build_and_run_traffic(
     """Build fresh snappi config with SRv6 IPv6-in-IPv6 flows, run traffic, and assert loss."""
     flow_name = "max_tput_{}_{}B".format(scenario_name, frame_size)
     srv6_cfg = config.get("srv6", {})
+    validate_srv6_stats = config["scenarios"][scenario_name].get(
+        "usid_decap", False
+    )
 
     snappi_extra_params = SnappiTestParams()  # noqa: F405
-    ranges = ROUTE_RANGES["IPv6"] * len(snappi_ports)
+    ranges = _generate_unique_route_ranges("IPv6", len(snappi_ports))
     snappi_extra_params.protocol_config = {
         "Tx": {
             "route_ranges": ranges,
@@ -171,14 +177,8 @@ def _build_and_run_traffic(
             "frame_size": frame_size,
             "is_rdma": False,
             "flow_name": flow_name,
-            "tx_names": (
-                snappi_obj_handles["Tx"]["network_group"]
-                + snappi_obj_handles["Rx"]["network_group"]
-            ),
-            "rx_names": (
-                snappi_obj_handles["Rx"]["network_group"]
-                + snappi_obj_handles["Tx"]["network_group"]
-            ),
+            "tx_names": snappi_obj_handles["Tx"]["network_group"],
+            "rx_names": snappi_obj_handles["Rx"]["network_group"],
             "mesh_type": "mesh",
         }
     ]
@@ -193,17 +193,25 @@ def _build_and_run_traffic(
     ixnet.Traffic.TrafficItem.find().update(BiDirectional=True, SrcDestMesh="fullMesh")
 
     _apply_srv6_packet_headers(ixnet, srv6_cfg)
+    _clear_dut_counters(duthost)
+    srv6_counters_before = (
+        _get_srv6_mysid_counters(duthost, srv6_cfg)
+        if validate_srv6_stats else None
+    )
 
     start_stop(snappi_api, operation="start", op_type="traffic")  # noqa: F405
 
-    # Verify SRv6 mySID counters are incrementing to confirm traffic matches the SID
     time.sleep(5)  # noqa: F405
-    _verify_srv6_mysid_stats(duthost, srv6_cfg)
+    if validate_srv6_stats:
+        _verify_srv6_mysid_counter_delta(
+            duthost, srv6_cfg, srv6_counters_before
+        )
 
     logger.info("Traffic running for %d seconds ...", duration_sec)
     wait_with_message("Running traffic for", duration_sec)  # noqa: F405
 
     start_stop(snappi_api, operation="stop", op_type="traffic")  # noqa: F405
+    _verify_no_dut_drops(duthost, snappi_ports)
 
     df = get_stats(  # noqa: F405
         snappi_api, "Traffic Item Statistics", columns=None, return_type="df"
@@ -232,30 +240,141 @@ def _build_and_run_traffic(
     logger.info("Scenario '%s' PASSED at %dB (loss %.4f%%)", scenario_name, frame_size, max_loss)
 
 
-def _verify_srv6_mysid_stats(duthost, srv6_cfg):
-    """Check that SRv6 mySID entries exist in ASIC_DB, confirming traffic matches the SID."""
-    sid_ip = srv6_cfg.get("sid_ip", "fcbb:bbbb:1::")
-    result = duthost.shell(
-        'sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"',
-        module_ignore_errors=True,
-    )["stdout"].strip()
-
-    if not result:
-        logger.warning("No SRv6 mySID entries found in ASIC_DB — SID may not be programmed")
-        return
-
-    if sid_ip not in result:
-        logger.warning("SRv6 mySID %s not found in ASIC_DB entries", sid_ip)
-        return
-
-    logger.info("SRv6 mySID %s confirmed present in ASIC_DB — traffic should match", sid_ip)
-
-    # Check CRM counters to confirm mySID resource is in use
-    crm_output = duthost.shell(
-        "crm show resources srv6-my-sid-entry", module_ignore_errors=True
+def _generate_unique_route_ranges(ip_version, port_count):
+    """Generate one unique advertised route prefix per Snappi port."""
+    base_ip, prefix, route_count = ROUTE_RANGES[ip_version][0][0]
+    ip_class = (
+        ipaddress.IPv4Address
+        if ip_version == "IPv4" else ipaddress.IPv6Address
     )
-    if crm_output["rc"] == 0:
-        logger.info("SRv6 mySID CRM resources:\n%s", crm_output["stdout"])
+    base_ip = int(ip_class(base_ip))
+    increment = route_count if ip_version == "IPv4" else 1 << 96
+    return [
+        [[str(ip_class(base_ip + count * increment)), prefix, route_count]]
+        for count in range(port_count)
+    ]
+
+
+def _counter_to_int(value):
+    """Convert SONiC CLI counter output to an integer."""
+    if value in (None, "", "N/A"):
+        return 0
+    return int(str(value).replace(",", ""))
+
+
+def _get_srv6_mysid_counters(duthost, srv6_cfg):
+    """Read packet and byte counters for the configured SRv6 mySID."""
+    sid_ip = srv6_cfg.get("sid_ip", "fcbb:bbbb:1::")
+    sid_with_prefix = "{}/{}".format(
+        sid_ip, srv6_cfg.get("sid_prefix_len", 48)
+    )
+    stats_list = duthost.show_and_parse("show srv6 stats")
+
+    for stats in stats_list:
+        mysid = stats.get("mysid", "")
+        if (
+            mysid in (sid_ip, sid_with_prefix) or
+            mysid.startswith("{}/".format(sid_ip))
+        ):
+            return {
+                "packets": _counter_to_int(stats.get("packets")),
+                "bytes": _counter_to_int(stats.get("bytes")),
+            }
+
+    pytest_assert(  # noqa: F405
+        False,
+        "SRv6 mySID {} not found in 'show srv6 stats': {}".format(
+            sid_ip, stats_list
+        ),
+    )
+
+
+def _verify_srv6_mysid_counter_delta(duthost, srv6_cfg, before):
+    """Verify SRv6 mySID counters increment while traffic is running."""
+    after = _get_srv6_mysid_counters(duthost, srv6_cfg)
+    pytest_assert(  # noqa: F405
+        after["packets"] > before["packets"] and
+        after["bytes"] > before["bytes"],
+        "SRv6 mySID counters did not increment. Before: {}, after: {}".format(
+            before, after
+        ),
+    )
+    logger.info(
+        "SRv6 mySID counters incremented. Before: %s, after: %s",
+        before,
+        after,
+    )
+
+
+def _get_dut_ports(snappi_ports):
+    """Return unique DUT front-panel ports used by the Snappi test."""
+    return sorted({port["peer_port"] for port in snappi_ports})
+
+
+def _clear_dut_counters(duthost):
+    """Clear DUT port and queue counters before traffic starts."""
+    duthost.shell("sonic-clear counters")
+    duthost.shell("sonic-clear queuecounters")
+
+
+def _verify_no_port_drops(duthost, dut_ports):
+    """Verify no RX/TX drops on DUT ports used by the test."""
+    output = duthost.shell(
+        "portstat -i {} -j".format(",".join(dut_ports))
+    )["stdout"]
+    stats = _load_json_output(output)
+    drops = []
+
+    for port in dut_ports:
+        port_stats = stats.get(port, {})
+        pytest_assert(  # noqa: F405
+            port_stats,
+            "No portstat counters found for {}".format(port),
+        )
+        for counter in ("RX_DRP", "TX_DRP"):
+            value = _counter_to_int(port_stats.get(counter))
+            if value:
+                drops.append("{} {}={}".format(port, counter, value))
+
+    pytest_assert(  # noqa: F405
+        not drops,
+        "Unexpected DUT port drops: {}".format(", ".join(drops)),
+    )
+
+
+def _verify_no_queue_drops(duthost, dut_ports):
+    """Verify no queue drops on DUT ports used by the test."""
+    drops = []
+    output = duthost.shell("show queue counters --all -j")["stdout"]
+    queue_stats = _load_json_output(output)
+
+    for port in dut_ports:
+        port_queues = queue_stats.get(port, {})
+        pytest_assert(  # noqa: F405
+            port_queues,
+            "No queue counters found for {}".format(port),
+        )
+
+        for queue, queue_stats in port_queues.items():
+            if not isinstance(queue_stats, dict):
+                continue
+            drop_packets = _counter_to_int(queue_stats.get("droppacket"))
+            if drop_packets:
+                drops.append(
+                    "{} {} droppacket={}".format(port, queue, drop_packets)
+                )
+
+    pytest_assert(  # noqa: F405
+        not drops,
+        "Unexpected DUT queue drops: {}".format(", ".join(drops)),
+    )
+
+
+def _verify_no_dut_drops(duthost, snappi_ports):
+    """Verify DUT port and queue counters did not record drops."""
+    dut_ports = _get_dut_ports(snappi_ports)
+    _verify_no_port_drops(duthost, dut_ports)
+    _verify_no_queue_drops(duthost, dut_ports)
 
 
 def _apply_srv6_packet_headers(ixnet, srv6_cfg):
@@ -263,42 +382,84 @@ def _apply_srv6_packet_headers(ixnet, srv6_cfg):
     outer_dst_ip = srv6_cfg.get("outer_dst_ip", "fcbb:bbbb:1:11a::2")
 
     traffic_items = ixnet.Traffic.TrafficItem.find()
+    configured_elements = 0
     for ti in traffic_items:
         config_elements = ti.ConfigElement.find()
         for ce in config_elements:
             stacks = ce.Stack.find()
+            ipv6_stacks = [
+                s for s in stacks
+                if "IPv6" in s.DisplayName or "ipv6" in s.StackTypeId
+            ]
+            pytest_assert(  # noqa: F405
+                ipv6_stacks, "Traffic item has no outer IPv6 stack"
+            )
 
-            for stack in stacks:
-                if "IPv6" in stack.DisplayName or "ipv6" in stack.StackTypeId:
-                    for field in stack.Field.find():
-                        if "Destination Address" in field.DisplayName:
-                            field.SingleValue = outer_dst_ip
-                        elif "Next Header" in field.DisplayName:
-                            field.SingleValue = "41"  # IPv6-in-IPv6
-                    break
+            outer_ipv6 = ipv6_stacks[0]
+            outer_dst_set = False
+            outer_next_header_set = False
+            for field in outer_ipv6.Field.find():
+                if "Destination Address" in field.DisplayName:
+                    field.SingleValue = outer_dst_ip
+                    outer_dst_set = True
+                elif "Next Header" in field.DisplayName:
+                    field.SingleValue = "41"  # IPv6-in-IPv6
+                    outer_next_header_set = True
+            pytest_assert(  # noqa: F405
+                outer_dst_set, "Outer IPv6 destination field was not found"
+            )
+            pytest_assert(  # noqa: F405
+                outer_next_header_set,
+                "Outer IPv6 next-header field was not found",
+            )
 
-            proto_template = ixnet.Traffic.ProtocolTemplate.find(StackTypeId="ipv6")
-            if proto_template:
-                for stack in stacks:
-                    if "IPv6" in stack.DisplayName or "ipv6" in stack.StackTypeId:
-                        stack.Append(proto_template)
-                        break
-
+            proto_template = ixnet.Traffic.ProtocolTemplate.find(
+                StackTypeId="ipv6"
+            )
+            pytest_assert(  # noqa: F405
+                proto_template,
+                "IxNetwork IPv6 protocol template was not found",
+            )
+            if len(ipv6_stacks) < 2:
+                outer_ipv6.Append(proto_template)
                 stacks = ce.Stack.find()
-                ipv6_stacks = [s for s in stacks
-                               if "IPv6" in s.DisplayName or "ipv6" in s.StackTypeId]
-                if len(ipv6_stacks) >= 2:
-                    inner_ipv6 = ipv6_stacks[1]
-                    for field in inner_ipv6.Field.find():
-                        if "Source Address" in field.DisplayName:
-                            field.ValueType = "increment"
-                            field.StartValue = "2001:db8:1::1"
-                            field.StepValue = "::1"
-                            field.CountValue = "1000"
-                        elif "Destination Address" in field.DisplayName:
-                            field.ValueType = "increment"
-                            field.StartValue = "2001:db8:2::1"
-                            field.StepValue = "::1"
-                            field.CountValue = "1000"
+                ipv6_stacks = [
+                    s for s in stacks
+                    if "IPv6" in s.DisplayName or "ipv6" in s.StackTypeId
+                ]
 
+            pytest_assert(
+                len(ipv6_stacks) >= 2,
+                "Traffic item has no inner IPv6 stack after SRv6 header "
+                "configuration",
+            )  # noqa: F405
+            inner_ipv6 = ipv6_stacks[1]
+            inner_src_set = False
+            inner_dst_set = False
+            for field in inner_ipv6.Field.find():
+                if "Source Address" in field.DisplayName:
+                    field.ValueType = "increment"
+                    field.StartValue = "2001:db8:1::1"
+                    field.StepValue = "::1"
+                    field.CountValue = "1000"
+                    inner_src_set = True
+                elif "Destination Address" in field.DisplayName:
+                    field.ValueType = "increment"
+                    field.StartValue = "2001:db8:2::1"
+                    field.StepValue = "::1"
+                    field.CountValue = "1000"
+                    inner_dst_set = True
+
+            pytest_assert(  # noqa: F405
+                inner_src_set, "Inner IPv6 source field was not found"
+            )
+            pytest_assert(  # noqa: F405
+                inner_dst_set, "Inner IPv6 destination field was not found"
+            )
+            configured_elements += 1
+
+    pytest_assert(  # noqa: F405
+        configured_elements > 0,
+        "No SRv6 traffic config elements were updated",
+    )
     traffic_items.Generate()

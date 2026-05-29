@@ -68,12 +68,59 @@ scenarios:
     ipinip_decap: false
     usid_decap: false
 
+# Optional aliases for lab names or platform names that differ from HwSku.
+platform_aliases:
+  "sn5640": "Mellanox-SN5640-C512S2"
+  "Nvidia 5640": "Mellanox-SN5640-C512S2"
+  "Arista 7260": "Arista-7260CX3-C64"
+  "Cisco 8102": "Cisco-8102-C64"
+
 # Per-platform minimum packet sizes (bytes) for zero-drop at 100% line rate.
 platform_thresholds:
-  "Nvidia 5640":
-    all_features: 2100
-    dataacl_usid: 2100
-    dataacl_ipinip_usid: 2100
-    ipinip_usid: 2100
-    dataacl_only: 2100
-    no_features: 2100
+  "Mellanox-SN5640-C512S2":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Mellanox-SN5640-C448O16":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7260CX3-C64":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7260CX3-D108C8":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Cisco-8102-C64":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Cisco-8102-28FH-DPU-O":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
