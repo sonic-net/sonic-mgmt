@@ -1211,9 +1211,9 @@ def recover_acl_rule(duthost, data_acl):
     duthost.command("acl-loader update full {}".format(dut_conf_file_path))
 
 
-def get_ipv4_loopback_ip(duthost):
+def get_loopback_ip(duthost, identify_ip_ver=is_ipv4_address):
     """
-    Get the first valid ipv4 loopback ip address
+    Get the first valid loopback ip address by the identify_ip_ver function
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
@@ -1224,13 +1224,20 @@ def get_ipv4_loopback_ip(duthost):
             loopback_ips = los[key]
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
-                if is_ipv4_address(ip):
+                if identify_ip_ver(ip):
                     selected_loopback_ip = ip
                     break
         if selected_loopback_ip is not None:
             break
 
     return selected_loopback_ip
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get the first valid ipv4 loopback ip address
+    """
+    return get_loopback_ip(duthost, is_ipv4_address)
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
