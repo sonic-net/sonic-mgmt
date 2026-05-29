@@ -35,8 +35,8 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             if oper == "add":
                 logger.debug("adding ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell(
-                    "sudo ip -6 neigh add {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
-                                                                             member['Vlanid']))
+                    "sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
+                                                                                 member['Vlanid']))
             elif oper == "del":
                 logger.debug("deleting ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell("sudo ip -6 neigh del {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],

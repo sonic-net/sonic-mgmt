@@ -62,12 +62,19 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     CopperCableIgnoreRegex = [
         ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
     ]
+    # Ignore transient syncd error during config_reload when FlexCounter polls a port VID that was
+    # briefly removed/re-created (e.g. after port split). syncd self-heals by removing the stale entry.
+    FlexCounterPortNotFoundRegex = [
+        r".* ERR syncd\d*#syncd: :- processFlexCounterEvent: port VID .* was not found "
+        r"\(probably port was removed/splitted\) and will remove from counters now"
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(FlexCounterPortNotFoundRegex)
         if duthost.sonichost.facts['platform_asic'] == 'broadcom':
             ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
                 r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
