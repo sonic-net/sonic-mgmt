@@ -145,15 +145,23 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
             neigh_ipv6 = neigh_ip
             break
 
-    # Get DUT's addresses on this PortChannel
+    # Get DUT's addresses on this PortChannel (preserve prefix length
+    # so teardown removes with the exact same prefix it was configured with)
     dut_ipv4 = None
     dut_ipv6 = None
+    dut_ipv4_prefixlen = None
+    dut_ipv6_prefixlen = None
     for addr_key in config_facts.get('PORTCHANNEL_INTERFACE', {}).get(selected['pc'], {}):
-        addr = addr_key.split('/')[0] if '/' in addr_key else addr_key
+        if '/' in addr_key:
+            addr, prefixlen = addr_key.split('/', 1)
+        else:
+            addr, prefixlen = addr_key, None
         if ':' in addr:
             dut_ipv6 = addr
+            dut_ipv6_prefixlen = prefixlen
         else:
             dut_ipv4 = addr
+            dut_ipv4_prefixlen = prefixlen
 
     # Get DUT's link-local on this PortChannel
     result = duthost.shell("ip -6 addr show dev {} scope link".format(selected['pc']))
@@ -206,6 +214,8 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
         'neigh_ipv4': selected['neigh_ipv4'],
         'neigh_ipv6': neigh_ipv6,
         'neigh_pc_intf': neigh_pc_intf,
+        'dut_ipv4_prefixlen': dut_ipv4_prefixlen,
+        'dut_ipv6_prefixlen': dut_ipv6_prefixlen,
     }
 
     logger.info("Setup: DUT %s (%s) <-> %s (%s) via %s/%s",
@@ -297,10 +307,33 @@ def break_lag_to_ethernet(duthost, neigh_host, setup_info):
     except Exception as e:
         logger.warning("Could not detect VRF on %s: %s", neigh_pc_intf, e)
 
-    # Derive EOS Ethernet from Port-Channel number
-    # EOS Port-Channel1 members are typically Ethernet1, etc.
-    pc_num = ''.join(c for c in neigh_pc_intf if c.isdigit())
-    eos_eth_intf = "Ethernet{}".format(pc_num)
+    # Determine the actual Ethernet member of the EOS Port-Channel.
+    # Port-Channel<N> -> Ethernet<N> is only a naming convention; the real
+    # active member could be any Ethernet, so query the device.
+    eos_eth_intf = None
+    try:
+        pc_info = neigh_host.eos_command(
+            commands=["show port-channel {} | json".format(neigh_pc_intf)])
+        port_channels = (pc_info.get('stdout', [{}])[0] or {}).get(
+            'portChannels', {})
+        active_ports = (port_channels.get(neigh_pc_intf, {}) or {}).get(
+            'activePorts', {})
+        if active_ports:
+            # Pick the deterministic first active member (sorted)
+            eos_eth_intf = sorted(active_ports.keys())[0]
+            logger.info("Selected EOS PC member %s for %s (active members: %s)",
+                        eos_eth_intf, neigh_pc_intf, sorted(active_ports.keys()))
+    except Exception as e:
+        logger.warning("Could not query port-channel members of %s: %s",
+                       neigh_pc_intf, e)
+
+    if not eos_eth_intf:
+        # Fallback: derive Ethernet from Port-Channel number
+        pc_num = ''.join(c for c in neigh_pc_intf if c.isdigit())
+        eos_eth_intf = "Ethernet{}".format(pc_num)
+        logger.warning(
+            "Falling back to name-derived EOS member %s for %s",
+            eos_eth_intf, neigh_pc_intf)
 
     # Remove Port-Channel on EOS and configure freed Ethernet
     logger.info("Breaking LAG: removing EOS %s, configuring %s",
@@ -479,8 +512,10 @@ def configure_unnumbered_bgp(request, setup_info):
         if eos_config_backup:
             restore_eos_full_config(neigh_host, eos_config_backup)
         if stop_bgpcfgd:
-            duthost.shell("docker exec bgp supervisorctl start bgpcfgd",
-                          module_ignore_errors=True)
+            for daemon in ["bgpcfgd", "frrcfgd"]:
+                duthost.shell(
+                    "docker exec bgp supervisorctl start {}".format(daemon),
+                    module_ignore_errors=True)
         config_reload(duthost, wait=120, wait_for_bgp=True)
 
         # Wait for all original BGP sessions to re-establish
@@ -527,11 +562,16 @@ def configure_unnumbered_bgp(request, setup_info):
     logger.info("Initial prefix count from %s: %d (v4), %d (v6)",
                 neigh_ipv4, initial_prefixes, initial_prefixes_v6)
 
-    # Optionally stop bgpcfgd to isolate FRR behavior for regression testing
+    # Optionally stop bgp config daemon(s) to isolate FRR behavior for
+    # regression testing. Depending on frr_mgmt_framework_config, the active
+    # daemon is either bgpcfgd (legacy) or frrcfgd (new framework). Stop both
+    # with module_ignore_errors so the inactive one's failure is harmless.
     if stop_bgpcfgd:
-        logger.info("Stopping bgpcfgd (FRR isolation mode)")
-        duthost.shell("docker exec bgp supervisorctl stop bgpcfgd",
-                      module_ignore_errors=True)
+        logger.info("Stopping bgp config daemons (FRR isolation mode)")
+        for daemon in ["bgpcfgd", "frrcfgd"]:
+            duthost.shell(
+                "docker exec bgp supervisorctl stop {}".format(daemon),
+                module_ignore_errors=True)
 
     # For ethernet variant: break LAG and prepare freed Ethernet
     if intf_type == 'ethernet':
@@ -574,13 +614,29 @@ def configure_unnumbered_bgp(request, setup_info):
     wait_until(30, 3, 0, old_neighbor_removed)
 
     # Remove IPv4/IPv6 addresses from DUT interface to prevent
-    # FRR numbered fallback
+    # FRR numbered fallback. Use the actual prefix length captured from
+    # config_facts during setup so the remove command matches what was
+    # configured (don't rely on module_ignore_errors to mask a mismatch).
+    dut_ipv4_prefixlen = setup_info.get('dut_ipv4_prefixlen')
+    dut_ipv6_prefixlen = setup_info.get('dut_ipv6_prefixlen')
     if dut_ipv4:
-        duthost.shell("sudo config interface ip remove {} {}/31".format(
-            dut_intf, dut_ipv4), module_ignore_errors=True)
+        pytest_assert(dut_ipv4_prefixlen,
+                      "IPv4 prefix length missing from config_facts for {}".format(dut_intf))
+        result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
+            dut_intf, dut_ipv4, dut_ipv4_prefixlen))
+        pytest_assert(result['rc'] == 0,
+                      "Failed to remove IPv4 {}/{} from {}: {}".format(
+                          dut_ipv4, dut_ipv4_prefixlen, dut_intf,
+                          result.get('stderr', '')))
     if dut_ipv6:
-        duthost.shell("sudo config interface ip remove {} {}/126".format(
-            dut_intf, dut_ipv6), module_ignore_errors=True)
+        pytest_assert(dut_ipv6_prefixlen,
+                      "IPv6 prefix length missing from config_facts for {}".format(dut_intf))
+        result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
+            dut_intf, dut_ipv6, dut_ipv6_prefixlen))
+        pytest_assert(result['rc'] == 0,
+                      "Failed to remove IPv6 {}/{} from {}: {}".format(
+                          dut_ipv6, dut_ipv6_prefixlen, dut_intf,
+                          result.get('stderr', '')))
 
     # Configure unnumbered BGP on DUT
     if stop_bgpcfgd:
