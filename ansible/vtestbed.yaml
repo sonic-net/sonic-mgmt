@@ -13,6 +13,7 @@
     - vlab-01
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual switch vm
 
 - conf-name: vms-kvm-t0-csonic
