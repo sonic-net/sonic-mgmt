@@ -1422,7 +1422,18 @@ def deploy_dchal_helper(dut):
     Deploys dchal_qi.py (queuing), dchal_aqm.py (AQM hw-info),
     and dchal_wred_var.py (WRED variance).
     Safe to call multiple times — idempotent.
+
+    Honors the QOS_SKIP_DCHAL opt-out env var: when set to a truthy
+    value, this function logs once and returns without doing the
+    base64-encode + docker-exec dance.  All five DCHAL consumer
+    helpers below ALSO honor QOS_SKIP_DCHAL and return their
+    documented failure-shape sentinel (None or '') immediately, so
+    skipping the deploy here is safe (nothing downstream will try
+    to invoke a missing script).
     """
+    if _dchal_skip_via_env():
+        st.log("DCHAL: skipping script deploy (QOS_SKIP_DCHAL is set)")
+        return
     for name, script in [('dchal_qi.py', DCHAL_QI_SCRIPT),
                          ('dchal_aqm.py', DCHAL_AQM_SCRIPT),
                          ('dchal_wred_var.py', DCHAL_WRED_VARIANCE_SCRIPT),
@@ -1434,12 +1445,86 @@ def deploy_dchal_helper(dut):
                   skip_error_check=True)
 
 
+# ── DCHAL global opt-out env-var ─────────────────────────────────────────
+#
+# On the new SONiC image (202505c.1.0.0-23I-42045-20260523.192029+) the
+# `insshell` binary moved to the host while its config files (sai.profile,
+# etc.) stayed inside the syncd container, breaking every DCHAL read --
+# both the legacy 'docker exec syncd insshell ...' path AND a host-side
+# direct invocation.  Until the underlying image-side split is resolved
+# (image-team fix to either restore insshell in syncd OR bind-mount the
+# config files to the host), running ANY DCHAL helper produces a noisy
+# RuntimeError traceback that adds zero signal to the test under
+# investigation.
+#
+# QOS_SKIP_DCHAL gives operators a single global switch to silence ALL
+# DCHAL reads for the duration of a test session.  Other diagnostics
+# (Ixia TX/RX stats, ARP/NDP, encap/decap correctness, CLI counters)
+# continue to run -- only the per-queue/AQM/peak/WRED-variance ASIC
+# register reads via insshell are skipped.
+#
+# Truthy values (case-insensitive):  1, true, yes, on
+# Falsy (default):                    unset, empty, 0, false, no, off
+#
+# Each consumer function checks this exactly once at the top and
+# returns its documented failure-shape sentinel:
+#   dchal_dump_platform_intfs -> ''     (str)
+#   dchal_show_queuing        -> ''     (str)
+#   dchal_peak_stats          -> None   (dict-or-None contract)
+#   dchal_aqm_hw_info         -> None   (dict-or-None contract)
+#   dchal_wred_variance       -> None   (list-or-None contract)
+#
+# Returning the SAME sentinel each helper would emit on a real DCHAL
+# failure means existing callers need no changes -- they already
+# tolerate the None/empty branches.
+#
+# Sample usage (one-shot test invocation):
+#   QOS_SKIP_DCHAL=1 ./bin/spytest --testbed-file ... \
+#       cisco/fx3/qos/qos_map/test_dscp_to_tc_portchannel_smoke_leaf0.py::...
+# ─────────────────────────────────────────────────────────────────────────
+
+_DCHAL_SKIP_ENV = 'QOS_SKIP_DCHAL'
+_DCHAL_SKIP_TRUTHY = ('1', 'true', 'yes', 'on')
+
+# Module-level latch to ensure the "DCHAL is being skipped" banner only
+# prints once per session no matter how many helpers get called.  Resets
+# only on process restart, which is the desired granularity.
+_dchal_skip_logged = False
+
+
+def _dchal_skip_via_env():
+    """Return True if the global QOS_SKIP_DCHAL env-var requests skipping
+    all DCHAL helpers, False otherwise.
+
+    First call (in a process) that returns True also emits a one-shot
+    st.log banner so the operator sees WHY DCHAL output is missing from
+    the test log.  Subsequent True returns are silent to avoid pollution.
+
+    Why a module-level latch and not a one-line check inline:
+      Putting the truthy check inline in each of the five helpers would
+      duplicate the parsing rule and risk drift (one place upgrades
+      'TRUE' acceptance, another doesn't).  Centralising here keeps the
+      contract a single grep'able definition.
+    """
+    global _dchal_skip_logged
+    raw = os.environ.get(_DCHAL_SKIP_ENV, '').strip().lower()
+    if raw not in _DCHAL_SKIP_TRUTHY:
+        return False
+    if not _dchal_skip_logged:
+        st.log("DCHAL: all helpers globally skipped via {}={}"
+               .format(_DCHAL_SKIP_ENV, raw))
+        _dchal_skip_logged = True
+    return True
+
+
 def dchal_dump_platform_intfs(dut):
     """Diagnostic: list interface names from platform.json inside syncd.
 
     Useful for figuring out the correct naming convention when DCHAL
     reports 'cannot resolve' for an interface.
     """
+    if _dchal_skip_via_env():
+        return ''
     cmd = (
         "sudo docker exec syncd python3 -c \""
         "import json, glob, os; "
@@ -1463,6 +1548,8 @@ def dchal_show_queuing(dut, label, interface):
     can be passed directly to parse_dchal_egress_bw() or
     validate_dchal_bw_vs_weights().
     """
+    if _dchal_skip_via_env():
+        return ''
     st.log("=== DCHAL queuing [{}] for {} ===".format(label, interface))
     out = st.show(
         dut,
@@ -1757,6 +1844,8 @@ def dchal_peak_stats(dut, interface, label="peak stats"):
        'mem_cells': int, 'mem_bytes': int}
     or None on failure.
     """
+    if _dchal_skip_via_env():
+        return None
     st.log("=== DCHAL peak stats [{}] for {} ===".format(label, interface))
     out = st.show(
         dut,
@@ -1879,6 +1968,8 @@ def dchal_aqm_hw_info(dut, interface):
       ecn_enable, drop_en, q_depth, mfair, qold
     Returns None if DCHAL fails.
     """
+    if _dchal_skip_via_env():
+        return None
     st.log("=== DCHAL AQM hw-info for {} ===".format(interface))
     out = st.show(
         dut,
@@ -1905,6 +1996,8 @@ def dchal_wred_variance(dut):
     with keys: intf, table, field, expected, actual.
     Returns None on error.
     """
+    if _dchal_skip_via_env():
+        return None
     st.log("=== DCHAL WRED variance check ===")
     out = st.show(
         dut,
@@ -2492,6 +2585,511 @@ def clear_dut_counters(dut_handle):
               skip_error_check=True)
 
     st.log("DUT counters cleared (CLI + Redis watermarks)")
+
+
+# --------------------------------------------------------------------------
+# Diagnostic-only `show queue counters` dump (CLI source of truth)
+# --------------------------------------------------------------------------
+# Purpose: complement the DCHAL ASIC-counter snapshots with a parallel
+# capture from `show queue counters`, which reads COUNTERS_DB (populated
+# by counterpoll's queue stats poller).  This is a SECOND data source --
+# the DCHAL path is still authoritative for PASS/FAIL.
+#
+# Why we want it on top of DCHAL:
+#   * On new SONiC images dchal_qi.py can fail silently with empty output
+#     (split insshell host/container runtime, missing sai.profile, etc.).
+#     When that happens the test today logs "(no DUT2 per-queue deltas
+#     available)" and we lose visibility.  A CLI snapshot survives those
+#     failures.
+#   * Operators can correlate the CLI numbers (queue 0..7 packet / byte /
+#     drop columns) against the DCHAL output to catch drift between the
+#     two paths -- itself diagnostic information.
+#
+# Why we don't use it as the AUTHORITATIVE source (yet):
+#   * Counter poll cadence is 10s by default -- the AFTER snapshot can
+#     race ahead of the most recent COUNTERS_DB update.
+#   * The legacy "_QueueCounterSnap ... unreliable on FX3" verdict still
+#     stands for assertion logic.  This helper exists purely to
+#     supplement the log, not to drive verdicts.
+#
+# Pattern:
+#   sonic-clear queuecounters    # called at BEFORE (per DUT, once)
+#   ... traffic ...
+#   show queue counters <port>   # called at AFTER (per port) -- already
+#                                # displays delta-from-baseline because
+#                                # sonic-clear saved /tmp/.queuestat-iterate
+def _parse_show_queue_counters(raw):
+    """Parse the `show queue counters <port>` text into per-queue dicts.
+
+    Observed format on this build (SONiC FX3, mid-2026):
+
+        For namespace :
+                Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
+        ------------  -----  --------------  ---------------  -----------  ------------
+        Ethernet1_49   ALL0              30             3360            0             0
+        Ethernet1_49   ALL1               0                0            0             0
+        ...
+        Ethernet1_49   ALL7               0                0            0             0
+
+    On older builds the TxQ column may show ``UC0``/``MC0``/``UC1``/``MC1``
+    style labels (UC + MC split into separate rows).  This parser
+    handles both by stripping the alpha prefix and using the trailing
+    digit(s) as the queue index, then SUMMING any rows that map to the
+    same queue index.  That gives us per-queue UC+MC totals on both
+    flavors of build with zero special-casing.
+
+    Args:
+        raw: full stdout from one `show queue counters <port>` call
+            (skip_tmpl=True).  May be None or empty.
+
+    Returns:
+        {qi: {'pkts': int, 'bytes': int, 'drop_pkts': int,
+              'drop_bytes': int}} for qi in 0..7.  Queues not seen in
+        the input map to all-zero dicts so callers can index any of
+        0..7 without KeyError.  On parse failure, returns the
+        all-zeros dict (does not raise).
+    """
+    # Pre-populate so every consumer can index 0..7 without guarding.
+    parsed = {qi: {'pkts': 0, 'bytes': 0, 'drop_pkts': 0, 'drop_bytes': 0}
+              for qi in range(8)}
+    if not raw:
+        return parsed
+
+    # Match rows like "<port>  ALL0  30  3360  0  0" or "<port>  UC0 ..."
+    # Whitespace separators (no fixed column widths -- the dashes-row
+    # under each header gives the eye a column boundary but the data
+    # rows use plain whitespace).  Anchored at the queue-label column;
+    # the leading port name is whatever the caller passed and we
+    # don't constrain it.
+    #
+    # Numbers may include comma thousands separators (e.g. "1,280")
+    # on some SONiC builds -- this is purely a display convention
+    # added by sonic-cli's queuestat helper when the value exceeds
+    # 999.  Accept the commas in the regex and strip them before
+    # int() conversion.  This was a real bug: bursts of >=100 packets
+    # produced byte counts >=1000 (e.g. 100 pkts * 128 bytes = 12,800),
+    # which the comma-less regex silently rejected -- the entire row
+    # got dropped and the queue's parsed entry stayed at zero, so
+    # the flow table showed "Q5 D2-OUT 0->0(+0)" even when the raw
+    # CLI dump above clearly showed "Ethernet1_49 ALL5 10 1,280 0 0".
+    #
+    # Group breakdown:
+    #   (\S+)        port name (e.g. Ethernet1_49)
+    #   ([A-Z]+)     queue-label prefix: ALL / UC / MC / etc.
+    #   (\d+)        queue index (0..7 on this build, but we allow more)
+    #   then four space-separated unsigned integers in this order:
+    #     counter/pkts  counter/bytes  drop/pkts  drop/bytes
+    #   each may carry comma thousands separators.
+    row_re = re.compile(
+        r"^\s*(\S+)\s+"                  # port name (e.g. Ethernet1_49)
+        r"([A-Za-z]+)(\d+)\s+"           # ALL0 / UC3 / MC5 ...
+        r"([\d,]+)\s+([\d,]+)\s+"        # pkts, bytes (commas OK)
+        r"([\d,]+)\s+([\d,]+)\s*$"       # drop_pkts, drop_bytes (commas OK)
+    )
+
+    # Track how many rows looked like data but failed to parse.
+    # Most filtered lines are header/banner noise (already pre-filtered
+    # below), so a non-zero count here indicates a real format drift
+    # that callers should know about.  Currently logged only when
+    # >0 to avoid noise on healthy parses.
+    unparseable_data_rows = 0
+
+    for line in raw.splitlines():
+        # Cheap pre-filter -- skip headers, the dash row, namespace
+        # banner, "Last cached time" annotations, and blank lines
+        # without paying the regex cost.  All of these are normal
+        # CLI noise, NOT a format mismatch.
+        stripped = line.strip()
+        if not stripped \
+                or stripped.startswith('-') \
+                or stripped.startswith('For namespace') \
+                or stripped.lower().startswith('port') \
+                or 'Last cached time' in stripped \
+                or stripped.startswith('admin@'):
+            continue
+        m = row_re.match(line)
+        if not m:
+            # Looks like a data row (passed the pre-filter) but the
+            # regex didn't match.  Could be a format drift on a new
+            # SONiC build.  Bump the counter so we can warn the
+            # caller once; don't try to recover.
+            unparseable_data_rows += 1
+            continue
+        _port, _qkind, qi_str, pkts, _bytes, dpkts, dbytes = m.groups()
+        try:
+            qi = int(qi_str)
+        except ValueError:
+            continue
+        if qi < 0 or qi >= 8:
+            # Out-of-range queue index -- belongs in a future-flexible
+            # bucket but we don't have one.  Skip without noise.
+            continue
+        # SUM into the bucket: lets us collapse UC<N>/MC<N> rows on
+        # older builds while being a no-op on ALL<N> builds.  Strip
+        # comma thousands separators before int() conversion.
+        parsed[qi]['pkts']       += int(pkts.replace(',', ''))
+        parsed[qi]['bytes']      += int(_bytes.replace(',', ''))
+        parsed[qi]['drop_pkts']  += int(dpkts.replace(',', ''))
+        parsed[qi]['drop_bytes'] += int(dbytes.replace(',', ''))
+
+    if unparseable_data_rows:
+        # Format drift: emit a single warning per parse call so the
+        # operator sees there's data we couldn't interpret.  We don't
+        # raise -- the partial result is still useful (other queues
+        # may have parsed cleanly), and the raw dump is already in
+        # the log if anyone wants to eyeball it.
+        try:
+            st.log(
+                "_parse_show_queue_counters: {} data row(s) didn't match "
+                "the regex -- possible format drift on this SONiC build. "
+                "Parsed result may be incomplete; raw CLI text was "
+                "already dumped above for forensic comparison.".format(
+                    unparseable_data_rows))
+        except Exception:
+            # Never let logging trouble break the parser.
+            pass
+
+    return parsed
+
+
+def format_queue_flow_table(snap_before, snap_after, port_order,
+                            title=None, ixia_columns=None,
+                            extra_rows=None, footer=None):
+    """Render a BEFORE -> AFTER (delta) per-queue table across many hops.
+
+    Used by the smoke test to visualize the queue counter progression
+    along the full data path:
+
+        IXIA-TX -> D1-IN -> D1-OUT -> D2-IN -> D2-OUT -> IXIA-RX
+
+    SONiC hops (D1/D2 ports) get per-queue B->A(D) cells from the CLI
+    `show queue counters` snapshots.  Ixia hops have NO queue concept
+    on the wire, so their cells are filled from a separate
+    ``ixia_columns`` dict that the caller pre-populates with the
+    burst's expected_tc-row totals and per-protocol noise classification
+    counts.
+
+    Args:
+        snap_before: dict keyed by (dut_handle, port) -> {qi: {'pkts',
+            'drop_pkts', ...}}.  Output of dump_show_queue_counters().
+            Only SONiC ports go in here.
+        snap_after:  same shape, captured AFTER traffic.
+        port_order:  list of (label, dut_handle, port) triples in the
+            order columns should appear, left-to-right.  Label is the
+            human-readable hop name (e.g. "D1-IN", "D1-OUT", "IXIA-TX").
+            For Ixia columns the dut_handle field is None and the
+            port field carries the Ixia port-handle string (used as
+            a stable key into ixia_columns).
+        title: optional banner string prepended to the table.
+        ixia_columns: optional dict keyed by the Ixia column's port-
+            handle string ->
+                {
+                  'per_q': {qi: {'pkts': N, 'drops': N}},  # one row per queue
+                  'extras': {row_label: {'pkts': N, 'drops': N}},
+                                                            # extra rows
+                                                            #   like LACP/ARP
+                }
+            Cells for queue rows that lack a 'per_q' entry render as
+            '-' so the operator can tell "Ixia has no per-queue notion
+            here" rather than "Ixia received zero".  Extras populate
+            the rows named by extra_rows (see below).
+        extra_rows: optional list of extra row labels to add BELOW the
+            8 queue rows.  Typically the union of protocol classes
+            seen across all Ixia capture buffers (e.g. ['LACP', 'ARP',
+            'BGP-TCP']).  Per-row SONiC cells render as '-' (no per-
+            protocol breakdown in SONiC queue stats); per-row Ixia
+            cells render from ixia_columns[col]['extras'][row_label].
+        footer: optional multi-line string appended below the table.
+            Used to dump Ixia aggregate counters (IxNet TX, agg RX,
+            capture-decoded count) so all three Ixia-side numbers are
+            visible in one place.
+
+    Returns:
+        Multi-line string suitable for st.log().  Always 8 queue rows
+        (0..7), plus zero or more extra rows below them.  If both
+        snapshots are empty AND no Ixia columns are supplied, returns
+        a single "(no CLI snapshots captured)" line.
+
+    Does not raise.
+    """
+    if not snap_before and not snap_after and not ixia_columns:
+        return "{}\n(no CLI snapshots captured)".format(title or "")
+
+    snap_before  = snap_before  or {}
+    snap_after   = snap_after   or {}
+    port_order   = port_order   or []
+    ixia_columns = ixia_columns or {}
+    extra_rows   = extra_rows   or []
+
+    # Per-column width budget: "B->A(+D)" where each number is up to
+    # 10 digits (10 + 2 + 10 + 4 + 10 = ~36).  Bursts in this test are
+    # 5 packets so most cells will be much narrower, but we size for
+    # the worst case so cumulative-counter fallback (when sonic-clear
+    # fails) still renders without truncation.
+    cell_w = 22
+    # Width of the leading queue-label / row-label column.  Wide
+    # enough for "BGPv6-TCP" + a little slack so the extra-rows
+    # section never breaks alignment.
+    rowlbl_w = 12
+
+    def _fmt_triple(b, a):
+        # b/a are ints.  Compose "b->a(+d)" or "b->a(d)" honoring sign.
+        d = a - b
+        sign = "+" if d >= 0 else ""
+        return "{}->{}({}{})".format(b, a, sign, d)
+
+    def _fmt_ixia_pkts(pkts, ref_pkts=None):
+        # For Ixia columns we display absolute count, optionally with
+        # a "/ref" reference (so "5/5" means we got 5, expected 5).
+        # Loss = ref - pkts is shown in the drops row below.
+        if ref_pkts is None:
+            return "{}".format(pkts)
+        return "{}/{}".format(pkts, ref_pkts)
+
+    def _cell(text):
+        # Pad / truncate to cell_w.  Truncation is unlikely but if
+        # cumulative counters are huge we'd rather show ">99...<" than
+        # break alignment.
+        if len(text) > cell_w:
+            return text[:cell_w - 1] + ">"
+        return text.ljust(cell_w)
+
+    def _rowlbl(text):
+        if len(text) > rowlbl_w:
+            return text[:rowlbl_w - 1] + ">"
+        return text.ljust(rowlbl_w)
+
+    def _is_ixia_col(dut, port):
+        # Convention: Ixia columns have dut=None.  Use port string as
+        # the key into ixia_columns.
+        return dut is None and port in ixia_columns
+
+    lines = []
+    if title:
+        lines.append(title)
+    n_cols = max(1, len(port_order))
+    border = "=" * (rowlbl_w + 2 + (cell_w + 3) * n_cols)
+    lines.append(border)
+
+    # ── Header rows ───────────────────────────────────────────────────
+    hdr_labels = _rowlbl("Queue") + " |"
+    hdr_pkts   = _rowlbl("")      + " |"
+    hdr_drops  = _rowlbl("")      + " |"
+    for label, dut_h, port in port_order:
+        hdr_labels += " " + _cell(label) + " |"
+        if _is_ixia_col(dut_h, port):
+            # Ixia columns: counts are absolute rx vs. ref, drop = loss
+            hdr_pkts   += " " + _cell("pkts: rx/ref") + " |"
+            hdr_drops  += " " + _cell("drop: tx-rx")  + " |"
+        else:
+            hdr_pkts   += " " + _cell("pkts: B->A(D)") + " |"
+            hdr_drops  += " " + _cell("drop: B->A(D)") + " |"
+    lines.append(hdr_labels)
+    lines.append(hdr_pkts)
+    lines.append(hdr_drops)
+    lines.append("-" * len(border))
+
+    # ── Data rows: one block per queue (always 8) ─────────────────────
+    for qi in range(8):
+        pkts_row  = _rowlbl("  Q{}".format(qi)) + " |"
+        drops_row = _rowlbl("")                 + " |"
+        for _label, dut_h, port in port_order:
+            if _is_ixia_col(dut_h, port):
+                # Ixia cell: fill ONLY at the queues we have data for
+                # (typically just expected_tc).  Other queues render
+                # as "-" because Ixia has no per-queue counter.
+                col       = ixia_columns.get(port, {}) or {}
+                per_q     = col.get('per_q', {}) or {}
+                q_entry   = per_q.get(qi)
+                if q_entry is None:
+                    pkts_row  += " " + _cell("-") + " |"
+                    drops_row += " " + _cell("-") + " |"
+                    continue
+                pkts   = int(q_entry.get('pkts',  0))
+                drops  = int(q_entry.get('drops', 0))
+                ref    = q_entry.get('ref')
+                pkts_row  += " " + _cell(
+                    _fmt_ixia_pkts(pkts, ref)) + " |"
+                drops_row += " " + _cell(str(drops)) + " |"
+                continue
+            # SONiC cell.
+            key = (dut_h, port)
+            bsnap = snap_before.get(key)
+            asnap = snap_after.get(key)
+            if bsnap is None and asnap is None:
+                pkts_row  += " " + _cell("n/a") + " |"
+                drops_row += " " + _cell("n/a") + " |"
+                continue
+            # Tolerate one-sided snapshots: missing side = zeros.
+            bq = (bsnap or {}).get(qi, {})
+            aq = (asnap or {}).get(qi, {})
+            b_pkts  = int(bq.get('pkts', 0))
+            a_pkts  = int(aq.get('pkts', 0))
+            b_drops = int(bq.get('drop_pkts', 0))
+            a_drops = int(aq.get('drop_pkts', 0))
+            pkts_row  += " " + _cell(_fmt_triple(b_pkts,  a_pkts))  + " |"
+            drops_row += " " + _cell(_fmt_triple(b_drops, a_drops)) + " |"
+        lines.append(pkts_row)
+        lines.append(drops_row)
+
+    # ── Extra rows (LACP / ARP / etc.) below the queue rows ───────────
+    if extra_rows:
+        lines.append("-" * len(border))
+        for row_label in extra_rows:
+            pkts_row  = _rowlbl(row_label) + " |"
+            drops_row = _rowlbl("")        + " |"
+            for _label, dut_h, port in port_order:
+                if _is_ixia_col(dut_h, port):
+                    col     = ixia_columns.get(port, {}) or {}
+                    extras  = col.get('extras', {}) or {}
+                    entry   = extras.get(row_label)
+                    if entry is None:
+                        pkts_row  += " " + _cell("-") + " |"
+                        drops_row += " " + _cell("-") + " |"
+                        continue
+                    pkts  = int(entry.get('pkts',  0))
+                    drops = int(entry.get('drops', 0))
+                    pkts_row  += " " + _cell(str(pkts))  + " |"
+                    drops_row += " " + _cell(str(drops)) + " |"
+                    continue
+                # SONiC has no per-protocol classification in queue
+                # stats -- mark these cells as "-" so it's obvious
+                # the row is Ixia-only.
+                pkts_row  += " " + _cell("-") + " |"
+                drops_row += " " + _cell("-") + " |"
+            lines.append(pkts_row)
+            lines.append(drops_row)
+
+    lines.append(border)
+    if footer:
+        lines.append(footer)
+        lines.append(border)
+    return "\n".join(lines)
+
+
+def dump_show_queue_counters(label, duts_ports, clear_first=False):
+    """Dump `show queue counters <port>` for each (dut, ports) pair.
+
+    Args:
+        label: human-readable banner (e.g. "BEFORE leaf0-ucast[tc5-dscp46]").
+            Printed in the log so consumers can pair BEFORE/AFTER blocks.
+        duts_ports: iterable of (dut_handle, [port, port, ...]) tuples.
+            Each port gets one `show queue counters <port>` call.
+            Ports may be physical interfaces (Ethernet*) or LAG names
+            (PortChannel*); SONiC's CLI accepts both, though LAG
+            aggregation may be partial depending on build.
+        clear_first: when True, runs `sonic-clear queuecounters` on each
+            DUT BEFORE the dump.  Use this at the BEFORE point of a
+            BEFORE/AFTER pair so the AFTER dump naturally shows
+            delta-from-baseline (the SONiC CLI displays values relative
+            to the saved /tmp/.queuestat-iterate file).
+            At the AFTER point pass clear_first=False so the dump
+            reflects "what arrived during the test".
+
+    Behavior:
+        * Every shell call is wrapped in try/except.  A CLI hiccup never
+          propagates out of this helper -- it just logs the exception
+          and moves on.  This is a DIAGNOSTIC dump: it must never be the
+          reason a test fails.
+        * Output is logged in raw form (skip_tmpl=True) under a clear
+          banner per port.  Operators can grep the log by the `label`
+          string to pair BEFORE/AFTER blocks.
+
+    Returns:
+        Dict {(dut_handle, port): {qi: {'pkts', 'bytes', 'drop_pkts',
+        'drop_bytes'}}} for every port we successfully read.  Ports
+        that failed to read are simply absent from the dict (the
+        failure is logged).  Callers may ignore the return value if
+        they only want the raw log dump.
+
+    Does not raise.
+    """
+    parsed_snap = {}
+
+    if not duts_ports:
+        st.log("dump_show_queue_counters[{}]: no DUT/port pairs supplied -- "
+               "nothing to dump".format(label))
+        return parsed_snap
+
+    border = "=" * 78
+    st.log(border)
+    st.log("show queue counters dump :: {} :: clear_first={}".format(
+        label, clear_first))
+    st.log(border)
+
+    for entry in duts_ports:
+        try:
+            dut_handle, ports = entry
+        except (TypeError, ValueError):
+            st.log("dump_show_queue_counters[{}]: skipping malformed entry "
+                   "{!r} (expected (dut, [ports]))".format(label, entry))
+            continue
+        if dut_handle is None:
+            st.log("dump_show_queue_counters[{}]: skipping entry with None "
+                   "DUT handle (likely single-DUT topology)".format(label))
+            continue
+        port_list = [p for p in (ports or []) if p]
+        if not port_list:
+            st.log("dump_show_queue_counters[{}]: DUT {} has no ports to "
+                   "dump -- skipping".format(label, dut_handle))
+            continue
+
+        if clear_first:
+            try:
+                # Note: sonic-clear queuecounters saves the current
+                # cumulative counter values as a delta baseline in
+                # /tmp/.queuestat-iterate.  Subsequent `show queue
+                # counters` then renders values relative to that file.
+                # We must NOT delete /tmp/.queuestat-iterate -- doing
+                # so causes the CLI to flip back to absolute values.
+                # See clear_dut_counters() docstring for the full
+                # description of this contract.
+                st.config(dut_handle, "sonic-clear queuecounters",
+                          skip_error_check=True, sudo=False)
+                st.log("dump_show_queue_counters[{}]: DUT {} -- "
+                       "sonic-clear queuecounters issued; subsequent "
+                       "`show queue counters` will report deltas from "
+                       "this baseline".format(label, dut_handle))
+            except Exception as exc:
+                # If clear fails we still proceed with the dump.  The
+                # numbers will be cumulative-since-boot instead of
+                # delta-since-clear, but they're still useful for
+                # eyeballing whether traffic moved at all.  This is
+                # exactly the fallback behavior requested in the
+                # original feature ticket: "if clear counter not work,
+                # we should keep counter baseline before sending".
+                st.log("dump_show_queue_counters[{}]: DUT {} -- "
+                       "sonic-clear queuecounters FAILED ({}); "
+                       "dump will show CUMULATIVE values instead of "
+                       "deltas".format(label, dut_handle, exc))
+
+        for port in port_list:
+            try:
+                # skip_tmpl=True: return raw CLI text instead of a
+                # parsed list-of-dicts.  We want the human-readable
+                # table in the log AND the parsed dict for the
+                # summary table renderer.
+                out = st.show(dut_handle,
+                              "show queue counters {}".format(port),
+                              skip_tmpl=True)
+                st.log("--- show queue counters {} (DUT {}) [{}] ---\n{}"
+                       .format(port, dut_handle, label,
+                               out if out else "<empty output>"))
+                # Parse defensively -- failures inside the parser
+                # return all-zero dicts rather than raising, so we
+                # always have something to put in the snapshot.
+                parsed_snap[(dut_handle, port)] = \
+                    _parse_show_queue_counters(out)
+            except Exception as exc:
+                # Per-port failure is non-fatal: continue to the next
+                # port so a single bad port doesn't blank out the
+                # whole snapshot.
+                st.log("dump_show_queue_counters[{}]: DUT {} port {} -- "
+                       "show queue counters FAILED ({}); skipping this "
+                       "port".format(label, dut_handle, port, exc))
+
+    st.log(border)
+    return parsed_snap
 
 
 def dchal_clear_counters(dut_handle, interface):

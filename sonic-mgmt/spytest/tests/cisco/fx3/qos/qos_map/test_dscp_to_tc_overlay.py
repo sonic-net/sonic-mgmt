@@ -74,6 +74,7 @@ tests prefer ingress_b but fall back to ingress_a on single-D1T1P
 testbeds (degenerate -- L2VNI and L3VNI share a physical port).
 """
 
+import os
 import time
 import warnings
 
@@ -104,8 +105,44 @@ from qos_helpers import (
     dchal_show_queuing,
     parse_dchal_queue_counters,
     deploy_dchal_helper,
+    dump_show_queue_counters,
+    format_queue_flow_table,
     setup_topo_common,
 )
+
+
+# ── Stash for the BEFORE/AFTER `show queue counters` snapshots ────────
+# Keyed by test_label so the analysis/scorecard section near the end
+# of _smoke_run_one() can re-render the same per-queue flow table
+# alongside the DCHAL deltas. Module-level (rather than threaded
+# through the smoke runner's return value) so the scorecard hook is
+# a one-line read; this matches the existing pattern for other
+# diagnostic globals (e.g. tg, port_info, dut2_port_info).
+#
+# Shape:
+#   _smoke_cli_q_snaps[test_label] = {
+#       'before':     {(dut, port): {qi: {pkts, bytes, drop_pkts, drop_bytes}}},
+#       'after':      {(dut, port): ...},
+#       'port_order': [(label, dut, port), ...]
+#                     # Table-only walk in flow order:
+#                     #   IXIA-TX -> D1-OUT -> D2-OUT -> IXIA-RX
+#                     # The D1-IN / D2-IN ingress hops are intentionally
+#                     # omitted from the rendered table because SONiC
+#                     # `show queue counters` reports TX-queue (egress)
+#                     # stats only -- ingress columns would always be
+#                     # "0->0(+0)" and mislead.  The raw `show queue
+#                     # counters` blocks above the table STILL cover
+#                     # ingress ports (collected via
+#                     # _build_cli_dump_pairs(), which uses
+#                     # _collect_flow_hops(for_table=False)).
+#                     # See _collect_flow_hops() for_table=True for
+#                     # the rationale.
+#   }
+# Mutated by _smoke_run_one() at BEFORE/AFTER hooks; read by the
+# evidence-assembly block.  Cleared at module init only -- left
+# populated across iterations so post-run forensics can compare
+# multiple smokes back-to-back if needed.
+_smoke_cli_q_snaps = {}
 
 # Per-role Ixia source MACs for our streams.  The overlay e2e/smoke tests
 # use IXIA_SRC_MAC['ingress_a'] (and 'ingress_b' on multi-D1T1P testbeds)
@@ -1533,11 +1570,212 @@ def test_vxlan_l2vni_e2e_all_64_dscp(af):
 # to a failures list and the test fails if any HARD assertion failed.
 # ══════════════════════════════════════════════════════════════════════════════
 
-_SMOKE_PKTS_PER_BURST = 5     # Tiny burst - small enough to fit any cap buf
+# ── Burst size: env-var overridable, range-clamped to [1, 1000] ───────
+# Default 5 is the long-standing "tiny burst that fits any Ixia capture
+# buffer and never approaches the FX3 QoS-policer thresholds".  Bump
+# via QOS_SMOKE_PKTS_PER_BURST=<N> when you need a wider sample (e.g.
+# to exercise DWRR weight ratios that only become observable at higher
+# packet counts, or to flush a queue's WRED profile in the wider J3/J4
+# parametric sweeps).
+#
+# Clamping:
+#   * Floor 1: a "0-packet smoke" is nonsensical and would deadlock
+#     the capture engine waiting for a frame that never comes.  Any
+#     value <1 (including non-integers) falls back to the default 5
+#     with a warning.
+#   * Ceiling 1000: the FX3 Ixia capture buffer is configured for
+#     ~2k frames per port; 1000 leaves headroom for noise frames
+#     (LACP / ARP / BGP keepalives) sharing the same capture window.
+#     Larger values are silently capped at 1000 and the original
+#     request is logged so the operator knows we clamped.
+#
+# Logged ONCE: at module-import time via print() (st.log is unsafe
+# during pytest collect -- spytest's workarea singleton is None until
+# the test session is set up, so calling st.log() here raises
+# 'NoneType has no attribute log'), AND deferred to the first
+# _smoke_run_one() call via st.log() so the message also appears in
+# the per-test log stream where operators look for run-time context.
+# Belt-and-suspenders: stdout/stderr for collect-time visibility,
+# st.log for the captured-log audit trail.
+_QOS_SMOKE_PKTS_ENV = 'QOS_SMOKE_PKTS_PER_BURST'
+_QOS_SMOKE_PKTS_DEFAULT = 5
+_QOS_SMOKE_PKTS_MIN, _QOS_SMOKE_PKTS_MAX = 1, 1000
+
+# ── Noise-frame per-line logging gate ────────────────────────────────
+# When the RX capture buffer contains LACP/LLDP/ARP/BGP/etc. (i.e. any
+# lab control-plane chatter that landed in the same capture window as
+# our 5..1000-packet UDP test burst), each such frame triggers a single
+# st.log() line of the form
+#
+#   "RX frame[42] skipped non-test frame (eth_type=34825, len=128,
+#    kind=LACP); treating as control-plane noise"
+#
+# On a 1 Gbps lab leg with LACPDUs every 1s and LLDP every 30s, a
+# 10-packet burst captured over a 12s wait window can pull in 40+ such
+# frames -- which is 40+ INFO lines of duplicate signal, all already
+# summarized in the table footer's "noise=42: 40 LACP + 2 LLDP" line.
+#
+# Default is "suppress" because:
+#   - operators reading the log care about WHAT noise was seen (the
+#     summary answers that), not WHICH frame index;
+#   - the per-frame lines add zero diagnostic value once you have the
+#     classification breakdown -- they're a debugging hold-over from
+#     when the classifier was first being tuned;
+#   - large bursts (QOS_SMOKE_PKTS_PER_BURST=1000) at heavily
+#     instrumented links can produce hundreds of noise frames per
+#     test, drowning real signal in the log.
+#
+# Set QOS_SMOKE_LOG_NOISE_FRAMES=1 to re-enable the per-frame lines
+# when triaging classifier regressions or investigating "where did
+# THIS specific control-plane packet come from" questions.  The
+# noise_breakdown counter that feeds the table footer is always
+# populated regardless of this flag, so the summary numbers stay
+# correct.
+_QOS_SMOKE_NOISE_LOG_ENV = 'QOS_SMOKE_LOG_NOISE_FRAMES'
+
+# Buffer for any audit messages produced during _resolve_*().  Flushed
+# into the spytest log on the first _smoke_run_one() invocation by
+# _flush_qos_smoke_audit_log() (see definition further below).
+_QOS_SMOKE_AUDIT_MSGS = []
+_QOS_SMOKE_AUDIT_FLUSHED = False
+
+
+def _qos_smoke_log_noise_frames():
+    """Return True if per-noise-frame lines should be emitted to st.log.
+
+    Driven by env-var QOS_SMOKE_LOG_NOISE_FRAMES (default False).
+    Accepted truthy values: '1', 'true', 'yes', 'on' (case-insensitive).
+    Anything else (including unset) keeps the lines suppressed.
+
+    Called once per noise frame in _smoke_check_each_frame() -- cheap
+    enough to read os.environ each time so test code can flip the
+    flag mid-session for targeted debug.
+    """
+    raw = os.environ.get(_QOS_SMOKE_NOISE_LOG_ENV, '')
+    return raw.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _resolve_smoke_pkts_per_burst():
+    """Read QOS_SMOKE_PKTS_PER_BURST from the env, clamp, and audit.
+
+    Returns the effective integer used for ``_SMOKE_PKTS_PER_BURST``.
+
+    Side effects:
+      * Appends any audit message to _QOS_SMOKE_AUDIT_MSGS for later
+        flushing into st.log (deferred -- spytest workarea isn't ready
+        at module-import time).
+      * Mirrors the same message to stderr via print() so it's visible
+        in the pytest collect output without waiting for the first
+        test to run.
+
+    DO NOT call st.log() here -- this function runs at module-import
+    time (during pytest collection), and st.log() requires spytest's
+    workarea singleton which has not been initialized yet.  Attempting
+    to call it raises 'NoneType has no attribute log' and aborts
+    collection entirely.
+    """
+    def _audit(msg):
+        # Mirror to both stderr (collect-time visibility) and the
+        # buffered list (later flushed to st.log).  The two channels
+        # are intentionally redundant: stderr is fragile (captured
+        # differently by pytest depending on -s / --capture flags),
+        # st.log is the canonical run-log destination but isn't
+        # available yet.  Either one alone risks the audit being
+        # invisible on some invocation paths.
+        try:
+            import sys as _sys
+            _sys.stderr.write("[qos-smoke] " + msg + "\n")
+            _sys.stderr.flush()
+        except Exception:
+            # stderr write failure (unusual) must not break import.
+            pass
+        _QOS_SMOKE_AUDIT_MSGS.append(msg)
+
+    raw = os.environ.get(_QOS_SMOKE_PKTS_ENV)
+    if raw is None or raw.strip() == '':
+        return _QOS_SMOKE_PKTS_DEFAULT
+    try:
+        requested = int(raw.strip())
+    except (TypeError, ValueError):
+        _audit("QOS smoke: {}={!r} is not an integer; falling back to "
+               "default {}".format(_QOS_SMOKE_PKTS_ENV, raw,
+                                   _QOS_SMOKE_PKTS_DEFAULT))
+        return _QOS_SMOKE_PKTS_DEFAULT
+    if requested < _QOS_SMOKE_PKTS_MIN:
+        _audit("QOS smoke: {}={} is below the floor {}; falling back to "
+               "default {}".format(_QOS_SMOKE_PKTS_ENV, requested,
+                                   _QOS_SMOKE_PKTS_MIN,
+                                   _QOS_SMOKE_PKTS_DEFAULT))
+        return _QOS_SMOKE_PKTS_DEFAULT
+    if requested > _QOS_SMOKE_PKTS_MAX:
+        _audit("QOS smoke: {}={} exceeds the ceiling {}; clamping to {} "
+               "(FX3 capture buffer ~2k frames -- larger values risk "
+               "buffer overflow when noise frames share the window)"
+               .format(_QOS_SMOKE_PKTS_ENV, requested,
+                       _QOS_SMOKE_PKTS_MAX, _QOS_SMOKE_PKTS_MAX))
+        return _QOS_SMOKE_PKTS_MAX
+    if requested != _QOS_SMOKE_PKTS_DEFAULT:
+        _audit("QOS smoke: {}={} (default would be {}); active for all "
+               "_smoke_run_one() iterations in this session"
+               .format(_QOS_SMOKE_PKTS_ENV, requested,
+                       _QOS_SMOKE_PKTS_DEFAULT))
+    return requested
+
+
+def _flush_qos_smoke_audit_log():
+    """Drain _QOS_SMOKE_AUDIT_MSGS into st.log exactly once.
+
+    Called at the top of _smoke_run_one() -- by which time spytest's
+    workarea is fully initialized and st.log is safe to use.  The
+    _QOS_SMOKE_AUDIT_FLUSHED flag guards against re-emitting the same
+    messages on every iteration; a second + later call is a no-op.
+    """
+    global _QOS_SMOKE_AUDIT_FLUSHED
+    if _QOS_SMOKE_AUDIT_FLUSHED:
+        return
+    _QOS_SMOKE_AUDIT_FLUSHED = True
+    if not _QOS_SMOKE_AUDIT_MSGS:
+        return
+    for msg in _QOS_SMOKE_AUDIT_MSGS:
+        try:
+            st.log(msg)
+        except Exception:
+            # If even the deferred flush fails (very unlikely), don't
+            # let it kill the test -- the message already went to
+            # stderr at import time.
+            pass
+
+
+_SMOKE_PKTS_PER_BURST = _resolve_smoke_pkts_per_burst()
 _SMOKE_SENT_TTL       = 64    # ip_ttl / ipv6_hop_limit on every smoke packet
-_SMOKE_RATE_PPS       = 100   # Slow enough that 5 packets land cleanly
-_SMOKE_TRAFFIC_WAIT   = 2     # Seconds to let 5 pps complete (5 pkts in <1s,
-                              # 2 s gives plenty of slack)
+_SMOKE_RATE_PPS       = 100   # Slow enough that the default 5-pkt burst
+                              # lands cleanly; rate is constant regardless
+                              # of QOS_SMOKE_PKTS_PER_BURST -- only the
+                              # number of packets in the burst scales.
+
+# Traffic wait: at _SMOKE_RATE_PPS=100, sending N packets takes ~N/100 s.
+# The original constant was 2 (set when N was hard-coded to 5 -- burst
+# takes 50 ms, plenty of slack inside a 2-second wait).  When the env
+# var bumps the burst size (e.g. N=1000 takes ~10 s to transmit) we
+# MUST extend the wait or the capture engine stops polling before all
+# frames cross the wire -- a silent partial-RX bug that surfaces as
+# "captured only 700/1000 frames" on a perfectly healthy run.
+#
+# Formula: max(2, 2 + floor(N/RATE)) seconds.  The floor preserves
+# the original 2 s wait for any N up to RATE (default 5 -> still 2 s,
+# matching pre-env-var behavior exactly).  Above N=RATE the wait
+# grows linearly with the additional seconds the burst takes.  Capped
+# at 60 s as a safety ceiling against operator typos like '99999'.
+_SMOKE_TRAFFIC_WAIT   = min(
+    60, max(2, 2 + (_SMOKE_PKTS_PER_BURST // _SMOKE_RATE_PPS)))
+
+# Headroom on Ixia capture retrieval, ON TOP of _SMOKE_PKTS_PER_BURST.
+# Sizes how many extra frames smoke_stop_capture(... max_frames=...) will
+# pull from the rolling buffer to cover non-test (LACP/LLDP/ARP/BGP)
+# control-plane frames that share the capture port over the run window.
+# 100 is generous for a typical LAG-bonded run; bump if a noisy testbed
+# pushes test frames out of the buffer before they can be read.
+_SMOKE_CAPTURE_NOISE_HEADROOM = 100
 
 # Last-known preflight result, set by _smoke_preflight() at the start
 # of each TestSmokeL3VNI / TestSmokeL2VNIBum class. The per-instance
@@ -1800,7 +2038,23 @@ def _smoke_run_with_rx_capture(label, ingress_ph, egress_ph):
     st.wait(1)  # let apply settle on Ixia before arming the capture
 
     # Single capture on the RX-side port (ingress_ph stays for the log
-    # banners but is NOT armed).
+    # banners but is NOT armed).  smoke_start_capture defaults to
+    # capture_mode='continuous' which:
+    #   1. programs the rolling buffer via tg_packet_config_buffers(
+    #      capture_mode='continuous',
+    #      control_plane_capture_enable=1, data_plane_capture_enable=1)
+    #   2. arms via the wrapper tg.tg_packet_control(action='start')
+    #      (the wrapper's pre_proc only sets data_plane_capture_enable=1
+    #      again, it does NOT override our capture_mode='continuous').
+    #
+    # Earlier we tried ixia_eval('packet_control', action='start') with
+    # control_plane=0 to "bypass the wrapper".  That broke the STOP
+    # phase with
+    #   ERROR-Control capture is not selected on the specified port
+    # (smoke_leaf0_lag_one_non_breakout_I.log:3257) -- the wrapper's
+    # stop-side state read always queries -controlCaptureState and
+    # aborts when it finds it unset.  Reverting to the wrapper + both
+    # capture planes enabled fixes that without losing 'continuous'.
     rx_ok = smoke_start_capture(tg, egress_ph,
                                 port_alias="{} RX dut2_egress".format(label))
 
@@ -1810,8 +2064,20 @@ def _smoke_run_with_rx_capture(label, ingress_ph, egress_ph):
     tg.tg_traffic_control(action='stop')
     st.wait(2)  # let frames drain into capture buffers
 
-    # Stop the RX capture and decode
-    rx_pkts = smoke_stop_capture(tg, egress_ph, max_frames=64,
+    # Stop the RX capture and decode.
+    #
+    # max_frames sizes the retrieval window dynamically with the test
+    # burst plus a headroom for control-plane noise (LACP/LLDP/ARP/BGP)
+    # captured alongside it.  This replaces the original hardcoded 64
+    # cap that silently truncated 1000-packet bursts to 64 retrieved
+    # frames (see smoke_leaf0_lag_one_II.log: DUT2 egressed 1000 pkts on
+    # Q5 but Ixia capture_decoded showed 62 -- the 64-frame cap, minus 2
+    # LACP-noise frames).  Together with capture_mode='continuous' in
+    # smoke_start_capture, this lets the smoke test scale cleanly from
+    # the legacy 5-pkt burst up to the QOS_SMOKE_PKTS_PER_BURST=1000
+    # ceiling without losing visibility into per-frame correctness.
+    _rx_cap_max = _SMOKE_PKTS_PER_BURST + _SMOKE_CAPTURE_NOISE_HEADROOM
+    rx_pkts = smoke_stop_capture(tg, egress_ph, max_frames=_rx_cap_max,
                                   port_alias="{} RX".format(label)) \
               if rx_ok else None
 
@@ -1957,10 +2223,16 @@ def _smoke_assert_frames(decoded, side_label, expected_spec,
             # 0x0806=ARP, 0x86dd=IPv6 (handled), 0x0800=IPv4 (handled).
             # Anything not IPv4/IPv6 is by definition not our UDP test
             # stream and is safe to ignore.
-            st.log(
-                "  {} skipped non-test frame (eth_type={}, len={}, "
-                "kind={}); treating as control-plane noise".format(
-                    frame_label, eth_type, d.get('len'), noise_kind))
+            # The per-frame line is suppressed by default (see
+            # QOS_SMOKE_LOG_NOISE_FRAMES env-var) because the table
+            # footer already summarizes the classification counts.
+            # The noise_breakdown counter below is ALWAYS updated, so
+            # the summary numbers stay correct regardless of the flag.
+            if _qos_smoke_log_noise_frames():
+                st.log(
+                    "  {} skipped non-test frame (eth_type={}, len={}, "
+                    "kind={}); treating as control-plane noise".format(
+                        frame_label, eth_type, d.get('len'), noise_kind))
             if noise_breakdown is not None:
                 noise_breakdown.append(noise_kind)
             continue
@@ -1972,10 +2244,15 @@ def _smoke_assert_frames(decoded, side_label, expected_spec,
         # which never collides with any well-known service port.
         if test_dport is not None and d.get('l4_dport') != test_dport:
             noise_kind = _smoke_classify_noise_frame(d)
-            st.log(
-                "  {} skipped non-test frame (l4_dport={}, expected={}, "
-                "kind={}); treating as control-plane noise".format(
-                    frame_label, d.get('l4_dport'), test_dport, noise_kind))
+            # Suppressed by default -- see QOS_SMOKE_LOG_NOISE_FRAMES
+            # gate above.  The footer summary still reports counts.
+            if _qos_smoke_log_noise_frames():
+                st.log(
+                    "  {} skipped non-test frame (l4_dport={}, "
+                    "expected={}, kind={}); treating as control-plane "
+                    "noise".format(
+                        frame_label, d.get('l4_dport'),
+                        test_dport, noise_kind))
             if noise_breakdown is not None:
                 noise_breakdown.append(noise_kind)
             continue
@@ -1984,6 +2261,668 @@ def _smoke_assert_frames(decoded, side_label, expected_spec,
             hard_failures.append(fail)
         for fail in smoke_check_frame(d, soft_spec, frame_label):
             soft_warns.append(fail)
+
+
+def _collect_flow_hops(include_ixia=False, ixia_tx_ph=None,
+                       ixia_rx_ph=None, for_table=False):
+    """Return the full data-path walk in traffic-flow order.
+
+    Reads the module-level globals (dut, dut2, port_info,
+    dut2_port_info) populated by setup_topo and returns a list of
+    (label, dut_handle, port) triples in traffic-flow order:
+
+        [
+          ("IXIA-TX", None, ingress_ph),   # optional, Ixia TX port
+          ("D1-IN",   dut,  Ethernet1_49), # DUT1 ingress
+          ("D1-OUT",  dut,  Ethernet1_54), # DUT1 egress (encap)
+          ("D2-IN",   dut2, Ethernet1_54), # DUT2 ingress (fabric peer)
+          ("D2-OUT",  dut2, Ethernet1_49), # DUT2 egress (Ixia)
+          ("IXIA-RX", None, egress_ph),    # optional, Ixia RX port
+        ]
+
+    Args:
+        include_ixia: when True, prepend an IXIA-TX hop and append an
+            IXIA-RX hop to the walk.  Ixia hops use dut=None as a
+            sentinel so the table renderer treats them differently
+            from SONiC hops (no `show queue counters` for them; data
+            comes from ixia_columns instead).
+        ixia_tx_ph: Ixia port handle for the TX side (typically the
+            module-local `ingress_ph` variable inside _smoke_run_one).
+            Required when include_ixia=True; otherwise the IXIA-TX
+            hop is omitted with a log line.
+        ixia_rx_ph: Ixia port handle for the RX side (typically
+            `egress_ph` -- the Ixia port connected to DUT2 egress).
+            Required when include_ixia=True.
+        for_table: when True, OMIT the D1-IN and D2-IN hops from the
+            returned walk.  Rationale: SONiC's `show queue counters`
+            CLI only reports TX-queue (egress) counters; there is no
+            per-queue ingress counter exposed via this command, so
+            the ingress columns in the flow table would always show
+            "0->0(+0)" and mislead the operator into thinking traffic
+            never reached the DUT.  The raw `show queue counters`
+            dumps in the log STILL cover those ingress ports (callers
+            of _build_cli_dump_pairs() use for_table=False) -- this
+            switch only affects which columns appear in the rendered
+            table.  See the footer note in the table for the user-
+            facing explanation.
+
+    Hops where the underlying DUT handle or port string is missing
+    are dropped from the list (so a single-DUT testbed yields only
+    the first two hops, etc).
+
+    This is the canonical "where does traffic go" walk used by both
+    _build_cli_dump_pairs() (for `show queue counters` collection)
+    and the format_queue_flow_table() summary renderer.  Keeping
+    them sourced from one helper ensures the dump and the table
+    always agree on which ports were sampled.
+    """
+    hops = []
+    if include_ixia and ixia_tx_ph is not None:
+        hops.append(("IXIA-TX", None, str(ixia_tx_ph)))
+    if not for_table:
+        if dut is not None and port_info.get('ingress'):
+            hops.append(("D1-IN",  dut,  port_info['ingress']))
+    if dut is not None and port_info.get('egress'):
+        hops.append(("D1-OUT", dut,  port_info['egress']))
+    if not for_table:
+        if dut2 is not None and dut2_port_info.get('peer'):
+            hops.append(("D2-IN",  dut2, dut2_port_info['peer']))
+    if dut2 is not None and dut2_port_info.get('egress_ixia'):
+        hops.append(("D2-OUT", dut2, dut2_port_info['egress_ixia']))
+    if include_ixia and ixia_rx_ph is not None:
+        hops.append(("IXIA-RX", None, str(ixia_rx_ph)))
+    return hops
+
+
+def _build_cli_dump_pairs():
+    """Build the (dut, [ports]) input list for dump_show_queue_counters().
+
+    Derived from _collect_flow_hops() (Ixia hops EXCLUDED -- we don't
+    run `show queue counters` against Ixia).  Groups the per-hop
+    (dut, port) pairs by DUT so each DUT's CLI invocations are
+    batched.  Tolerates partial topology (missing dut2, missing port
+    keys -- handled by _collect_flow_hops()).
+    """
+    grouped = {}
+    order   = []
+    for _label, dut_h, port in _collect_flow_hops(include_ixia=False):
+        if dut_h not in grouped:
+            grouped[dut_h] = []
+            order.append(dut_h)
+        if port not in grouped[dut_h]:
+            grouped[dut_h].append(port)
+    return [(dut_h, grouped[dut_h]) for dut_h in order]
+
+
+def _build_q_placement_deltas(dut2_q_deltas, test_label,
+                              rx_n=0, noise_n=0, expected_tc=None):
+    """Return ({qi: {'pkts','drop_pkts'}}, source_label) for the table.
+
+    Picks the best available data source for the "DSCP Queue-Placement
+    Results" table on the DUT2 egress port, in this priority order:
+
+      1. DUT2 DCHAL deltas (``dut2_q_deltas``) -- primary, per-queue
+         ASIC counts from the egress scheduler.  Used as-is when
+         non-empty AND it contains at least one non-zero queue
+         (empty/all-zero indicates DCHAL was skipped or its CLI
+         returned nothing -- which we can't tell apart, so we treat
+         both the same way: fall back to CLI+Ixia).
+      2. DUT2 `show queue counters` CLI delta on the egress port +
+         Ixia RX decoded test-frame count -- fallback.  CLI delta
+         provides per-queue Tx counts; Ixia RX (``rx_n - noise_n``)
+         is used ONLY to fill the expected_tc cell when the CLI
+         path also returns 0 (rare; can happen if sonic-clear
+         queuecounters silently failed).  Other queues come straight
+         from the CLI delta, which is 0 for un-targeted queues on a
+         small smoke burst.
+      3. All-zero deltas -- last resort.  source_label says so.
+
+    Args:
+        dut2_q_deltas: dict from _CounterCtx.deltas() on DUT2 egress.
+            Shape {qi: {'pkts': N, 'drop_pkts': N, ...}}.  May be {}.
+        test_label: key into the module-level _smoke_cli_q_snaps dict.
+            Used to look up the CLI before/after snapshots for the
+            DUT2 egress port.
+        rx_n: total decoded frames in the Ixia RX capture buffer
+            (includes test + control-plane noise).
+        noise_n: count of classified noise frames inside ``rx_n``.
+            ``rx_n - noise_n`` is the test-frame count.
+        expected_tc: integer 0..7 -- the queue the burst should land
+            on.  Used only by the fallback path to know which cell
+            to back-fill from the Ixia RX count.
+
+    Returns:
+        (deltas, source_label) where:
+          * ``deltas`` is {qi: {'pkts': int, 'drop_pkts': int}} for
+            qi in 0..7, ready to pass to smoke_log_q_results().
+          * ``source_label`` is a short human string identifying the
+            data origin, e.g. "DCHAL (DUT2 egress)" or "CLI `show
+            queue counters` (DUT2 egress) + Ixia RX fallback
+            (DCHAL skipped/empty)".
+
+    Never raises; on any unexpected error returns all-zero deltas
+    with source_label="all-zero (data source unavailable)".
+    """
+    zero = {qi: {'pkts': 0, 'drop_pkts': 0} for qi in range(8)}
+
+    def _normalize(src_dict):
+        out = {}
+        for qi in range(8):
+            entry = (src_dict or {}).get(qi) or {}
+            out[qi] = {
+                'pkts': int(entry.get('pkts', 0) or 0),
+                'drop_pkts': int(entry.get('drop_pkts', 0) or 0),
+            }
+        return out
+
+    try:
+        primary = _normalize(dut2_q_deltas)
+        if any(primary[qi]['pkts'] for qi in range(8)):
+            return primary, "DCHAL (DUT2 egress)"
+
+        # Primary is all-zero -- fall back to CLI snapshots.
+        stash = _smoke_cli_q_snaps.get(test_label) or {}
+        before = stash.get('before') or {}
+        after  = stash.get('after')  or {}
+        dut2_egr_port = (dut2_port_info or {}).get('egress_ixia')
+
+        cli_deltas = dict(zero)
+        cli_key = (dut2, dut2_egr_port) if dut2_egr_port else None
+        if cli_key and cli_key in before and cli_key in after:
+            bsnap = before[cli_key] or {}
+            asnap = after[cli_key]  or {}
+            for qi in range(8):
+                bq = bsnap.get(qi, {}) or {}
+                aq = asnap.get(qi, {}) or {}
+                cli_deltas[qi] = {
+                    'pkts': max(0,
+                                int(aq.get('pkts', 0))
+                                - int(bq.get('pkts', 0))),
+                    'drop_pkts': max(0,
+                                     int(aq.get('drop_pkts', 0))
+                                     - int(bq.get('drop_pkts', 0))),
+                }
+
+        # Backfill the expected_tc cell from Ixia RX if the CLI path
+        # is also silent there.  Don't touch other queues -- if the
+        # CLI shows 0 on Q3 we believe it (no test traffic on Q3).
+        ixia_test_n = max(0, int(rx_n) - int(noise_n))
+        if expected_tc is not None:
+            try:
+                tc = int(expected_tc)
+            except (TypeError, ValueError):
+                tc = None
+            if tc is not None and 0 <= tc <= 7:
+                if cli_deltas[tc]['pkts'] == 0 and ixia_test_n > 0:
+                    cli_deltas[tc]['pkts'] = ixia_test_n
+                    return (cli_deltas,
+                            "Ixia RX (decoded test frames) -- DCHAL "
+                            "and CLI both silent")
+
+        if any(cli_deltas[qi]['pkts'] for qi in range(8)):
+            return (cli_deltas,
+                    "CLI `show queue counters` (DUT2 egress) -- "
+                    "DCHAL skipped/empty")
+
+        return zero, "all-zero (data source unavailable)"
+    except Exception as exc:
+        st.warn(
+            "_build_q_placement_deltas error (non-fatal): {}: {}".format(
+                type(exc).__name__, exc))
+        return zero, "all-zero (helper raised: {})".format(
+            type(exc).__name__)
+
+
+def _collect_q_placement_witnesses(test_label, dut1_q_deltas,
+                                   dut2_q_deltas, rx_n=0, noise_n=0):
+    """Collect up to 5 per-queue witnesses on the DSCP->TC->Q chain.
+
+    Each witness is an independent measurement of WHERE on the queue
+    map the burst landed.  We collect everything that's available
+    (DCHAL on either DUT only when QOS_SKIP_DCHAL is unset, CLI on
+    both DUTs always, Ixia RX always) and let
+    _evaluate_majority_verdict() vote.
+
+    Args:
+        test_label: key into module-level ``_smoke_cli_q_snaps``.
+        dut1_q_deltas: DUT1 egress (encap port) DCHAL deltas.  Empty
+            ``{}`` when DCHAL is skipped or returned nothing.
+        dut2_q_deltas: DUT2 egress (Ixia-facing port) DCHAL deltas.
+            Same semantics as dut1_q_deltas.
+        rx_n: total decoded frames in the Ixia RX capture buffer
+            (test + noise).
+        noise_n: count of classified noise frames inside ``rx_n``.
+
+    Returns:
+        Ordered list of (witness_key, port_label, per_q_dict) tuples
+        for every witness that has data.  ``per_q_dict`` is
+        ``{qi: {'pkts': int, 'drop_pkts': int}}`` for qi in 0..7.
+        Witnesses with no data (DCHAL skipped, CLI snap missing,
+        capture failed) are simply omitted -- the caller treats
+        absence as UNAVAILABLE.  Witness keys, in chain order
+        (DUT1-side first, then DUT2, then wire):
+          * "dut1_dchal" -- DUT1 egress per-queue from DCHAL
+          * "dut1_cli"   -- DUT1 egress per-queue from `show queue counters`
+          * "dut2_dchal" -- DUT2 egress per-queue from DCHAL
+          * "dut2_cli"   -- DUT2 egress per-queue from `show queue counters`
+          * "ixia_rx"    -- decoded test-frame count on the Ixia RX port
+                            (aggregate -- has no per-queue breakdown, so it
+                             populates ONLY the cell at expected_tc;
+                             other queues stay 0.  Used as a tiebreaker /
+                             "did it at least reach the wire" witness.)
+    """
+    out = []
+
+    def _normalize(src):
+        if not src:
+            return None
+        n = {}
+        any_nonzero = False
+        for qi in range(8):
+            entry = (src or {}).get(qi) or {}
+            p = int(entry.get('pkts', 0) or 0)
+            d = int(entry.get('drop_pkts', 0) or 0)
+            n[qi] = {'pkts': p, 'drop_pkts': d}
+            if p > 0 or d > 0:
+                any_nonzero = True
+        return n if any_nonzero else None
+
+    # DUT1 DCHAL (encap egress)
+    d1_dchal = _normalize(dut1_q_deltas)
+    if d1_dchal is not None:
+        out.append(("dut1_dchal",
+                    (port_info or {}).get('egress', '?'),
+                    d1_dchal))
+
+    # DUT2 DCHAL (Ixia-facing egress)
+    d2_dchal = _normalize(dut2_q_deltas)
+    if d2_dchal is not None:
+        out.append(("dut2_dchal",
+                    (dut2_port_info or {}).get('egress_ixia', '?'),
+                    d2_dchal))
+
+    # CLI snapshots -- always collected by _smoke_run_one regardless
+    # of QOS_SKIP_DCHAL, so they're the most reliable always-on
+    # witness aside from Ixia.
+    stash = _smoke_cli_q_snaps.get(test_label) or {}
+    before = stash.get('before') or {}
+    after  = stash.get('after')  or {}
+
+    def _cli_delta(dut_h, port):
+        if dut_h is None or not port:
+            return None
+        key = (dut_h, port)
+        bsnap = before.get(key)
+        asnap = after.get(key)
+        if bsnap is None and asnap is None:
+            return None
+        n = {}
+        any_nonzero = False
+        for qi in range(8):
+            bq = (bsnap or {}).get(qi, {}) or {}
+            aq = (asnap or {}).get(qi, {}) or {}
+            p = max(0, int(aq.get('pkts', 0))
+                       - int(bq.get('pkts', 0)))
+            d = max(0, int(aq.get('drop_pkts', 0))
+                       - int(bq.get('drop_pkts', 0)))
+            n[qi] = {'pkts': p, 'drop_pkts': d}
+            if p > 0 or d > 0:
+                any_nonzero = True
+        return n if any_nonzero else None
+
+    d1_cli = _cli_delta(dut,  (port_info or {}).get('egress'))
+    if d1_cli is not None:
+        out.append(("dut1_cli",
+                    (port_info or {}).get('egress', '?'),
+                    d1_cli))
+
+    d2_cli = _cli_delta(dut2, (dut2_port_info or {}).get('egress_ixia'))
+    if d2_cli is not None:
+        out.append(("dut2_cli",
+                    (dut2_port_info or {}).get('egress_ixia', '?'),
+                    d2_cli))
+
+    # Ixia RX (aggregate -- no per-queue notion on the wire).  We
+    # encode the decoded test-frame count as a pseudo-per-queue dict
+    # where ALL the count goes to the expected_tc cell -- but we
+    # don't know expected_tc here, so we store it in a sentinel
+    # 'aggregate' key and let _evaluate_majority_verdict() decide
+    # how to score it.  Convention: per_q[-1]['pkts'] = ixia_test_n.
+    ixia_test_n = max(0, int(rx_n) - int(noise_n))
+    if ixia_test_n > 0:
+        ixia_per_q = {qi: {'pkts': 0, 'drop_pkts': 0} for qi in range(8)}
+        ixia_per_q[-1] = {'pkts': ixia_test_n, 'drop_pkts': 0}
+        out.append(("ixia_rx", "ixia-rx", ixia_per_q))
+
+    return out
+
+
+def _evaluate_majority_verdict(witnesses, expected_tc, expected_pkts,
+                               tolerance_pct=15):
+    """Score each witness against expected_tc / expected_pkts; vote.
+
+    Per-witness verdict ∈ {PASS, WRONG_Q, NO_DATA}:
+      * PASS    -- pkts on expected_tc within ±tolerance of expected_pkts.
+                   For the ixia_rx witness (no per-queue notion on the
+                   wire), PASS = ``per_q[-1]['pkts']`` within tolerance.
+      * WRONG_Q -- some queue got non-zero pkts but expected_tc did not.
+                   Ixia is never WRONG_Q (no per-queue data to vote with).
+      * NO_DATA -- all queues report 0 (witness collected but saw
+                   nothing).  Shouldn't happen because
+                   _collect_q_placement_witnesses() filters out all-
+                   zero per-queue dicts; defense in depth here.
+
+    Majority rule:
+      * N = number of witnesses (UNAVAILABLE excluded, since they're
+        not in the input list at all).
+      * If N == 0   -> "INSUFFICIENT" (caller should not HARD-fail).
+      * If PASS    >= ceil(N/2) -> overall "PASS".
+      * Else                    -> overall "FAIL".
+
+    Returns:
+        dict with keys::
+          {
+            'overall':       'PASS' | 'FAIL' | 'INSUFFICIENT',
+            'pass_count':    int,
+            'wrong_q_count': int,
+            'no_data_count': int,
+            'total':         int,                 # = N
+            'per_witness':   [
+                {
+                  'key':       'dut2_cli',
+                  'port':      'Ethernet1_49',
+                  'verdict':   'PASS' | 'WRONG_Q' | 'NO_DATA',
+                  'tc_pkts':   int,               # pkts on expected_tc
+                  'tot_pkts':  int,               # sum over all queues
+                  'wrong_q':   int|None,          # queue that DID get pkts
+                                                  # (highest count) when
+                                                  # verdict == WRONG_Q
+                },
+                ...
+            ],
+          }
+    """
+    try:
+        tc = int(expected_tc)
+    except (TypeError, ValueError):
+        tc = None
+    try:
+        exp = int(expected_pkts)
+    except (TypeError, ValueError):
+        exp = 0
+    lo = int(exp * (1.0 - tolerance_pct / 100.0)) if exp > 0 else 0
+    hi = int(exp * (1.0 + tolerance_pct / 100.0)) if exp > 0 else 0
+
+    per_witness = []
+    pass_count = wrong_q_count = no_data_count = 0
+
+    for key, port, per_q in witnesses:
+        # Ixia-rx is aggregate -- score against per_q[-1]['pkts'].
+        if key == "ixia_rx":
+            tc_pkts = int((per_q.get(-1) or {}).get('pkts', 0))
+            tot_pkts = tc_pkts  # no per-queue notion
+            if exp > 0 and lo <= tc_pkts <= hi:
+                verdict = 'PASS'
+                pass_count += 1
+            elif tc_pkts == 0:
+                verdict = 'NO_DATA'
+                no_data_count += 1
+            else:
+                # Out-of-tolerance -- count as NO_DATA (not PASS, but
+                # not WRONG_Q either; Ixia can't say "wrong queue").
+                # Loss or burst overrun ends up here.
+                verdict = 'NO_DATA'
+                no_data_count += 1
+            per_witness.append({
+                'key': key, 'port': port, 'verdict': verdict,
+                'tc_pkts': tc_pkts, 'tot_pkts': tot_pkts,
+                'wrong_q': None,
+            })
+            continue
+
+        # DCHAL / CLI: per-queue.
+        if tc is None or not (0 <= tc <= 7):
+            per_witness.append({
+                'key': key, 'port': port, 'verdict': 'NO_DATA',
+                'tc_pkts': 0, 'tot_pkts': 0, 'wrong_q': None,
+            })
+            no_data_count += 1
+            continue
+
+        tc_pkts = int((per_q.get(tc) or {}).get('pkts', 0))
+        tot_pkts = sum(int((per_q.get(qi) or {}).get('pkts', 0))
+                       for qi in range(8))
+        if tot_pkts == 0:
+            verdict = 'NO_DATA'
+            no_data_count += 1
+            wrong_q = None
+        elif tc_pkts == 0:
+            verdict = 'WRONG_Q'
+            wrong_q_count += 1
+            wrong_q = max(
+                ((qi, int((per_q.get(qi) or {}).get('pkts', 0)))
+                 for qi in range(8)),
+                key=lambda kv: kv[1])[0]
+        else:
+            # Some pkts on expected_tc -- accept within tolerance, or
+            # accept any non-zero when expected==0 (smoke bursts always
+            # have exp > 0, so this branch is mostly defensive).
+            if exp > 0 and not (lo <= tc_pkts <= hi):
+                # Out-of-tolerance but on the RIGHT queue -- not a
+                # classifier bug.  Score as PASS for queue-placement
+                # purposes; loss is reported by the existing rx_n vs.
+                # _SMOKE_PKTS_PER_BURST soft warn elsewhere.
+                pass
+            verdict = 'PASS'
+            pass_count += 1
+            wrong_q = None
+
+        per_witness.append({
+            'key': key, 'port': port, 'verdict': verdict,
+            'tc_pkts': tc_pkts, 'tot_pkts': tot_pkts,
+            'wrong_q': wrong_q,
+        })
+
+    total = len(per_witness)
+    if total == 0:
+        overall = 'INSUFFICIENT'
+    else:
+        # Majority threshold = ceil(N/2).  For N=1 that's 1 (one PASS
+        # is enough).  For N=2 that's 1.  For N=3 that's 2 (2-of-3).
+        # For N=4 that's 2.  For N=5 that's 3.
+        threshold = (total + 1) // 2
+        overall = 'PASS' if pass_count >= threshold else 'FAIL'
+
+    return {
+        'overall':       overall,
+        'pass_count':    pass_count,
+        'wrong_q_count': wrong_q_count,
+        'no_data_count': no_data_count,
+        'total':         total,
+        'per_witness':   per_witness,
+    }
+
+
+def _log_cross_check_table(verdict, expected_tc, expected_pkts,
+                           test_label):
+    """Render the multi-witness cross-check as a readable log table.
+
+    Renders ONE line per witness with the per-witness verdict, then
+    a final summary line with the majority vote.  Always emitted via
+    st.log() (so it appears in the captured log alongside the
+    placement-results table); does NOT mutate hard_failures /
+    soft_warns -- callers do that based on verdict['overall'].
+
+    Sample output::
+
+      Cross-check :: SMOKE-L3VNI-... expected Q5 = 10 pkts (+/-15%)
+      ----------------------------------------------------------------
+        witness         port            verdict   tc_pkts  tot_pkts notes
+      ----------------------------------------------------------------
+        dut1_dchal      Ethernet1_54    PASS      10       10       on Q5
+        dut1_cli        Ethernet1_54    PASS      10       10       on Q5
+        dut2_dchal      (n/a -- skipped)
+        dut2_cli        Ethernet1_49    PASS      10       10       on Q5
+        ixia_rx         ixia-rx         PASS      10       10       aggregate
+      ----------------------------------------------------------------
+      Majority verdict: PASS (4/4 witnesses agree; threshold = 2/4)
+    """
+    st.log("")
+    st.log("  Cross-check :: {} expected Q{} = {} pkts (+/-15%)".format(
+        test_label, expected_tc, expected_pkts))
+    bar = "  " + "-" * 72
+    st.log(bar)
+    st.log("  {:<14} {:<16} {:<8} {:>8} {:>9}  {}".format(
+        "witness", "port", "verdict", "tc_pkts", "tot_pkts", "notes"))
+    st.log(bar)
+    for w in verdict['per_witness']:
+        if w['verdict'] == 'PASS':
+            notes = "on Q{}".format(expected_tc) \
+                if w['key'] != 'ixia_rx' else "aggregate (wire count)"
+        elif w['verdict'] == 'WRONG_Q':
+            notes = "landed on Q{} instead!".format(w['wrong_q'])
+        elif w['verdict'] == 'NO_DATA':
+            notes = ("aggregate=0 (loss?)"
+                     if w['key'] == 'ixia_rx' else "all queues = 0")
+        else:
+            notes = ""
+        st.log("  {:<14} {:<16} {:<8} {:>8} {:>9}  {}".format(
+            w['key'], str(w['port']), w['verdict'],
+            int(w['tc_pkts']), int(w['tot_pkts']), notes))
+    st.log(bar)
+    if verdict['overall'] == 'INSUFFICIENT':
+        st.log("  Majority verdict: INSUFFICIENT (no witnesses available "
+               "-- cannot cross-check)")
+    else:
+        threshold = (verdict['total'] + 1) // 2
+        st.log("  Majority verdict: {} ({}/{} witnesses agree on PASS; "
+               "threshold = {}/{})".format(
+                   verdict['overall'], verdict['pass_count'],
+                   verdict['total'], threshold, verdict['total']))
+    st.log("")
+
+
+def _build_ixia_flow_extras(ixia_tx_ph, ixia_rx_ph, expected_tc,
+                            agg_tx, agg_rx, cap, udp_dst):
+    """Build the ixia_columns + extra_rows kwargs for the flow table.
+
+    Slices the available Ixia-side telemetry into the per-column
+    dicts that format_queue_flow_table() consumes.  This is where
+    we decide WHERE on the table the Ixia numbers go:
+
+      * The burst's expected-TC queue row (e.g. Q5 for DSCP46) gets
+        the IXIA-TX pkts count (= ``agg_tx``, total transmitted by
+        IxNetwork) and the IXIA-RX pkts count (= number of TEST
+        frames in the decoded capture buffer, matched by UDP dport).
+        Loss = TX - RX is shown in the drops sub-row.
+      * Other queue rows (Q0..Q7 \\ {expected_tc}) get NO Ixia entry
+        and render as '-' -- Ixia has no per-queue counter; "0" would
+        be misleading because we just don't measure it.
+      * Each protocol classification (LACP / LLDP / ARP / ICMP* /
+        BGP-TCP / etc.) seen in the capture buffer becomes an extra
+        row below the 8 queue rows, with the count in the IXIA-RX
+        column.  IXIA-TX has no equivalent (we don't decode TX
+        captures), so it shows '-'.
+
+    Args:
+        ixia_tx_ph, ixia_rx_ph: Ixia port-handle strings, same values
+            passed to _collect_flow_hops().
+        expected_tc: integer 0..7 -- the queue row where the burst
+            should land.
+        agg_tx, agg_rx: aggregate IxNetwork stream stats (TX and RX
+            packet counts).  Either may be 0 if the stats fetch
+            failed (caller already handles that path).
+        cap: dict returned by _smoke_run_with_rx_capture(), with at
+            least ``cap['rx']['decoded']`` -- a list of per-frame
+            decoded dicts (l3, l4, l4_dport, ethertype, ...).
+            May be None if capture failed.
+        udp_dst: the UDP destination port the test stream targets.
+            Frames with l4_dport == udp_dst are the test traffic;
+            everything else is "noise" and gets classified into the
+            extra rows.  May be None if stream build failed.
+
+    Returns:
+        (ixia_columns, extra_rows) tuple ready to pass into
+        format_queue_flow_table() as keyword args.  Both may be {}
+        or [] -- the renderer tolerates that.
+    """
+    if ixia_tx_ph is None and ixia_rx_ph is None:
+        return {}, []
+
+    try:
+        exp_tc = int(expected_tc)
+    except (TypeError, ValueError):
+        exp_tc = None
+
+    # ── Count test vs. noise frames in the RX capture ────────────────
+    rx_test_count = 0
+    noise_counts  = {}  # {classifier_label: count}
+    try:
+        decoded = (cap or {}).get('rx', {}).get('decoded') or []
+    except Exception:
+        decoded = []
+    for d in decoded:
+        try:
+            is_noise = (d.get('l3') == 'other'
+                        or (udp_dst is not None
+                            and d.get('l4_dport') != udp_dst))
+            if is_noise:
+                kind = _smoke_classify_noise_frame(d)
+                noise_counts[kind] = noise_counts.get(kind, 0) + 1
+            else:
+                rx_test_count += 1
+        except Exception:
+            # Don't let one malformed frame dict kill the count.
+            continue
+
+    # ── IXIA-TX column: only the expected_tc row has data ────────────
+    ixia_cols = {}
+    if ixia_tx_ph is not None and exp_tc is not None:
+        ixia_cols[str(ixia_tx_ph)] = {
+            'per_q': {
+                # IxNet TX counter -- we send all of agg_tx into the
+                # one expected_tc bucket.  Drops at TX side are
+                # always 0 (an Ixia port can't drop its own egress
+                # before it leaves).
+                exp_tc: {
+                    'pkts':  int(agg_tx or 0),
+                    'drops': 0,
+                    # ref omitted: IXIA-TX is itself the reference
+                },
+            },
+            'extras': {},   # IXIA-TX has no per-protocol decode
+        }
+
+    # ── IXIA-RX column: expected_tc row + per-noise-class extra rows ─
+    if ixia_rx_ph is not None and exp_tc is not None:
+        rx_col = {
+            'per_q': {
+                # pkts = test frames received (matches the burst's
+                # expected DSCP -> TC).  ref = TX count, so the cell
+                # renders as "rx/tx".  drops = end-to-end loss
+                # (TX - RX).  Negative drops mean we received MORE
+                # frames than TX claims sent -- shouldn't happen on
+                # a healthy run; surfacing it is itself useful.
+                exp_tc: {
+                    'pkts':  rx_test_count,
+                    'drops': int(agg_tx or 0) - rx_test_count,
+                    'ref':   int(agg_tx or 0),
+                },
+            },
+            'extras': {},
+        }
+        for kind, n in noise_counts.items():
+            rx_col['extras'][kind] = {'pkts': n, 'drops': 0}
+        ixia_cols[str(ixia_rx_ph)] = rx_col
+
+    # ── Stable, deterministic order for the noise rows ───────────────
+    # Sort by count desc, then alphabetical -- same convention as
+    # _smoke_format_noise_breakdown(), so the table and the breakdown
+    # string match.  This also keeps the extra-row block stable
+    # across iterations even if the noise mix shifts slightly.
+    extra_rows = sorted(noise_counts.keys(),
+                        key=lambda k: (-noise_counts[k], k))
+    return ixia_cols, extra_rows
 
 
 def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
@@ -2107,6 +3046,17 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
     #     a tagged member of Vlan{_L2_VLAN_ID} and the SVI is
     #     bound to _I_VRF. dst_mac resolves to the SVI MAC and
     #     Ixia adds an 802.1Q tag on the wire.
+
+    # Flush any deferred env-var audit messages (e.g. the
+    # QOS_SMOKE_PKTS_PER_BURST override notice) into the spytest log.
+    # This is a no-op after the first call -- the flush function
+    # guards itself with a flag.  We do it here, at the top of the
+    # very first _smoke_run_one() invocation, because by now the
+    # spytest workarea is fully initialized and st.log is safe to
+    # use.  At module-import time st.log raises 'NoneType has no
+    # attribute log' (see _resolve_smoke_pkts_per_burst docstring).
+    _flush_qos_smoke_audit_log()
+
     is_l3vni_family = mode in ('l3vni', 'l3vni_tagged')
     is_l3vni_tagged = (mode == 'l3vni_tagged')
 
@@ -2420,6 +3370,55 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
         # ── DUT2 INGRESS aggregate snap BEFORE (fabric peer port) ────────
         dut2_in_ctx.snap_before()
 
+        # ── DIAGNOSTIC: `show queue counters` dump on both DUT egress AND
+        #    ingress ports, BEFORE traffic.
+        #
+        # This is a parallel data source to the DCHAL snapshots above --
+        # it survives DCHAL failures and provides a second perspective
+        # (CLI vs. ASIC register) for operators to eyeball. It does NOT
+        # influence PASS/FAIL.
+        #
+        # `clear_first=True` issues `sonic-clear queuecounters` on each
+        # DUT BEFORE this dump, so the matching AFTER dump (below) shows
+        # delta-from-baseline rather than cumulative-since-boot. If
+        # sonic-clear fails, the helper falls back to dumping
+        # cumulative values, which still answer "did anything move?"
+        # (the original requirement: "if clear counter not work, we
+        # should keep counter baseline before sending").
+        #
+        # Scope: all four traffic-bearing ports across both DUTs --
+        #   DUT1 ingress + DUT1 egress (encap side)
+        #   DUT2 ingress (fabric peer) + DUT2 egress (Ixia side)
+        # This matches the egress_and_ingress option from the feature
+        # ticket.
+        try:
+            _cli_snap_before = dump_show_queue_counters(
+                "BEFORE " + test_label,
+                _build_cli_dump_pairs(),
+                clear_first=True)
+        except Exception as exc:
+            st.warn("  show-queue-counters BEFORE dump failed "
+                    "(non-fatal): {}".format(exc))
+            _cli_snap_before = {}
+
+        # Stash the BEFORE snap + flow hop order for the matching
+        # AFTER block (below) and the scorecard hook (further below)
+        # to re-render the same per-queue flow table.  We capture the
+        # flow hops here, NOT at AFTER, so a topology change mid-test
+        # (extremely unlikely but cheap to guard) doesn't cause the
+        # BEFORE and AFTER ports to mismatch.
+        _smoke_cli_q_snaps[test_label] = {
+            'before':     _cli_snap_before,
+            'after':      {},
+            # Table-only walk: D1-IN/D2-IN are intentionally omitted
+            # (SONiC `show queue counters` reports egress-queue stats
+            # only; ingress columns would always render as 0->0(+0)
+            # and mislead).  The raw `show queue counters` block
+            # above still covers ingress ports via
+            # _build_cli_dump_pairs(for_table=False).
+            'port_order': _collect_flow_hops(for_table=True),
+        }
+
         # ── Run with RX-only capture (see helper docstring for why) ──────
         # Mark BEFORE the call so the finally:-block correctly distinguishes
         # "TGenFail/build-stream error before capture" (capture_attempted
@@ -2458,6 +3457,62 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
         dut2_in_ctx.snap_after()
         dut2_in_agg = dut2_in_ctx.aggregate_deltas() \
             if dut2_in_ctx.is_real() else {}
+
+        # ── DIAGNOSTIC: `show queue counters` dump AFTER traffic. ────────
+        # No clear here -- the BEFORE block above did the clear, so this
+        # dump shows delta-from-baseline directly (SONiC CLI reads
+        # /tmp/.queuestat-iterate to compute the diff).
+        try:
+            _cli_snap_after = dump_show_queue_counters(
+                "AFTER " + test_label,
+                _build_cli_dump_pairs(),
+                clear_first=False)
+        except Exception as exc:
+            st.warn("  show-queue-counters AFTER dump failed "
+                    "(non-fatal): {}".format(exc))
+            _cli_snap_after = {}
+
+        # Stash AFTER snap + Ixia port handles for the render points
+        # further below.  We CANNOT render the table here because the
+        # Ixia aggregate stats (agg_tx / agg_rx) and capture-derived
+        # noise breakdown aren't computed yet -- those happen after
+        # the IxNetwork stream-sum fetch and the noise-classification
+        # walk over cap['rx']['decoded'].  Rendering early would
+        # leave the IXIA-TX and IXIA-RX columns blank, defeating the
+        # purpose of adding them.  The actual flow-table render
+        # happens twice:
+        #
+        #   1. Right after `noise_summary` is computed (~50 lines down)
+        #      so the operator scanning the log sees the full table
+        #      next to the noise breakdown line.
+        #   2. In the evidence-assembly block (~400 lines down) so the
+        #      table also sits next to the DCHAL deltas in the
+        #      scorecard section.
+        #
+        # Both renders pull from the same stashed BEFORE/AFTER CLI
+        # snapshots plus the live agg_tx/agg_rx/cap variables -- one
+        # data set, two presentation points.
+        _stash = _smoke_cli_q_snaps.setdefault(test_label, {
+            'before': {}, 'after': {}, 'port_order': []})
+        _stash['after'] = _cli_snap_after
+        # ixia_tx_ph / ixia_rx_ph stash so the render points don't
+        # need to know how to look them up.  They're the SAME values
+        # as the local `ingress_ph` / `egress_ph` variables right
+        # here, but stashing them decouples the renderer from those
+        # local names (rename-resilient).
+        _stash['ixia_tx_ph'] = ingress_ph
+        _stash['ixia_rx_ph'] = egress_ph
+        # Build the full flow walk INCLUDING the two Ixia hops so
+        # both renderers see the same column layout.  for_table=True
+        # drops the D1-IN/D2-IN columns (always-zero noise -- see
+        # _collect_flow_hops docstring).  Resulting table columns:
+        #
+        #   IXIA-TX -> D1-OUT -> D2-OUT -> IXIA-RX
+        _stash['port_order'] = _collect_flow_hops(
+            include_ixia=True,
+            ixia_tx_ph=ingress_ph,
+            ixia_rx_ph=egress_ph,
+            for_table=True)
 
         # ── Ixia aggregate counters: TX-port and RX-port totals ──────────
         # This is independent of the per-frame decoded capture: the
@@ -2706,6 +3761,74 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
         noise_n = len(noise_breakdown)
         noise_summary = _smoke_format_noise_breakdown(noise_breakdown)
 
+        # ── DIAGNOSTIC: CLI per-queue flow table WITH Ixia columns ────────
+        # Render #1 of 2 (the second one lives in the evidence/scorecard
+        # block further down).  This one fires right after noise
+        # classification so all Ixia-side data is fresh in scope:
+        #
+        #   * cap['rx']['decoded']         -- decoded RX frames
+        #   * agg_tx / agg_rx              -- IxNet stream-sum stats
+        #   * udp_dst                      -- test-stream UDP dport
+        #     (used to separate test frames from noise)
+        #
+        # The table format follows the data path:
+        #
+        #   IXIA-TX -> D1-IN -> D1-OUT -> D2-IN -> D2-OUT -> IXIA-RX
+        #
+        # Each SONiC hop shows per-queue B->A(delta) from `show queue
+        # counters`.  Ixia hops have no per-queue notion, so only the
+        # expected_tc row carries a number; other queue rows show '-'.
+        # Below the 8 queue rows, one extra row per protocol class
+        # (LACP/ARP/...) seen in the capture buffer dumps those counts
+        # in the IXIA-RX column.
+        try:
+            _stash = _smoke_cli_q_snaps.get(test_label) or {}
+            _ixia_cols, _extra_rows = _build_ixia_flow_extras(
+                _stash.get('ixia_tx_ph'),
+                _stash.get('ixia_rx_ph'),
+                expected_tc,
+                # agg_tx / agg_rx may be undefined if the IxNet
+                # stats fetch raised -- the except-block above set
+                # ixia_agg=None in that case, but the *names*
+                # agg_tx/agg_rx stay whatever they were last bound
+                # to (could be NameError).  Guard with locals().
+                locals().get('agg_tx') or 0,
+                locals().get('agg_rx') or 0,
+                cap,
+                udp_dst)
+            _footer = (
+                "IxNet stats :: TX={tx}  agg_RX={rx}  capture_decoded={cap_rx}"
+                "  (test={tn}  noise={nn}{ns})\n"
+                "NOTE: D1-IN / D2-IN columns intentionally omitted -- "
+                "SONiC `show queue counters` reports TX-queue (egress) "
+                "stats only.\n"
+                "      For per-port ingress visibility, see the raw "
+                "`show queue counters` blocks above (ingress ports are "
+                "still dumped),\n"
+                "      `show interfaces counters <port>` for aggregate "
+                "rx_ok / rx_err, or DCHAL ingress helpers when "
+                "QOS_SKIP_DCHAL is unset.").format(
+                    tx=locals().get('agg_tx') or 0,
+                    rx=locals().get('agg_rx') or 0,
+                    cap_rx=rx_n,
+                    tn=rx_n - noise_n,
+                    nn=noise_n,
+                    ns=("  [" + noise_summary + "]") if noise_summary else "")
+            st.log(format_queue_flow_table(
+                _stash.get('before') or {},
+                _stash.get('after')  or {},
+                _stash.get('port_order') or [],
+                title=("CLI+Ixia per-queue flow table :: " + test_label),
+                ixia_columns=_ixia_cols,
+                extra_rows=_extra_rows,
+                footer=_footer))
+        except Exception as exc:
+            # Renderer is pure-Python and shouldn't fail; if it does
+            # the raw `show queue counters` dumps above + the
+            # noise_summary line still have all the data.
+            st.warn("  flow-table render failed (non-fatal): {}: {}"
+                    .format(type(exc).__name__, exc))
+
         if rx_n == 0:
             hard_failures.append(
                 "{}: RX-side captured 0 frames - DUT2 egress port may not "
@@ -2718,10 +3841,65 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
                 "dropped or missed by the capture trigger window"
                 .format(test_label, rx_n, _SMOKE_PKTS_PER_BURST))
 
-        # ── DUT2-evidence soft assertions ────────────────────────────────
-        # These are SOFT because they're diagnostic: the per-frame TX/RX
-        # decode is the authoritative gate. But they're crucial when
-        # rx_n=0 because they tell us WHERE in DUT2 the packet died.
+        # ── Multi-witness queue-placement cross-check ────────────────────
+        # Collect up to 5 INDEPENDENT measurements of where the burst
+        # landed (DUT1-DCHAL, DUT1-CLI, DUT2-DCHAL, DUT2-CLI, Ixia-RX)
+        # and require a MAJORITY of available witnesses to agree on the
+        # expected_tc queue.
+        #
+        # Why multi-witness?  Each source has a different failure mode:
+        #   * DCHAL can be skipped (QOS_SKIP_DCHAL=1) or silently empty
+        #     (sai.profile missing on host, syncd gRPC down, ...).
+        #   * `show queue counters` CLI can show cached/stale values
+        #     for ~10 s and is sensitive to sonic-clear races.
+        #   * Ixia RX captures the wire but has no per-queue notion.
+        # Single-source verdicts misfire when ANY of those break.  A
+        # majority over the available subset is robust to each
+        # individual source going dark.
+        #
+        # Verdict feeds into hard_failures so a real classifier bug
+        # (e.g. DSCP46 landing on Q4 instead of Q5) trips the test in
+        # BOTH DCHAL and non-DCHAL runs.  Previously the equivalent
+        # check was DCHAL-only and silently disabled by
+        # QOS_SKIP_DCHAL=1.
+        witnesses = _collect_q_placement_witnesses(
+            test_label, dut1_q_deltas, dut2_q_deltas,
+            rx_n=rx_n, noise_n=noise_n)
+        xc_verdict = _evaluate_majority_verdict(
+            witnesses, expected_tc,
+            expected_pkts=_SMOKE_PKTS_PER_BURST)
+        _log_cross_check_table(xc_verdict, expected_tc,
+                               _SMOKE_PKTS_PER_BURST, test_label)
+
+        if xc_verdict['overall'] == 'FAIL':
+            # Summarize the disagreement compactly in the HARD failure
+            # message.  Operators need to see which witnesses voted
+            # how, which queue the misbehaving witness(es) named, and
+            # whether the failure is "wrong queue" vs "no data
+            # anywhere on the DUT side".
+            bad_w = [w for w in xc_verdict['per_witness']
+                     if w['verdict'] != 'PASS']
+            bad_summary = "; ".join(
+                "{}={}{}".format(
+                    w['key'], w['verdict'],
+                    " (saw Q{})".format(w['wrong_q'])
+                    if w['wrong_q'] is not None else "")
+                for w in bad_w)
+            hard_failures.append(
+                "{}: queue-placement cross-check FAILED "
+                "({}/{} witnesses voted PASS for expected TC{}; "
+                "non-PASS witnesses: {}); DSCP {} classifier or "
+                "egress-queue accounting is broken -- check "
+                "PORT_QOS_MAP|<egress>.dscp_to_tc_map on both DUTs "
+                "and confirm AZURE map content is intact".format(
+                    test_label, xc_verdict['pass_count'],
+                    xc_verdict['total'], expected_tc,
+                    bad_summary, dscp))
+
+        # Did packets show up on the right queue but get dropped on
+        # DUT2?  Kept as the legacy DCHAL-only soft warn -- CLI counter
+        # delta on drops is reliable enough but adding a second
+        # witness here doesn't change actionability.
         if dut2_q_deltas:
             tc_q = dut2_q_deltas.get(int(expected_tc), {}) or {}
             tc_p = int(tc_q.get('pkts',      0))
@@ -2739,30 +3917,6 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
                     "vrf, show evpn vni {}) OR the peer-link is not "
                     "forwarding".format(test_label,
                                         _I_VNI if is_l3vni_family else _J_VNI))
-
-            # Did the right queue receive the traffic?
-            #
-            # HARD failure: the DSCP-to-TC classifier landing on the wrong
-            # queue is a deterministic functional contract violation, not a
-            # transient "could be congestion" case. The map binding is
-            # verified upstream (PORT_QOS_MAP|<egress>.dscp_to_tc_map=AZURE)
-            # and the AZURE map content is verified in preflight (golden-
-            # map drift check, line 2010 of smoke_one_tag.log). If both of
-            # those passed AND the queue is still wrong, SAI/asic isn't
-            # honouring the classifier and the smoke must FAIL so it gets
-            # visibility in the matrix line (vs being buried in 'soft warns'
-            # under a green PASS).
-            if tot_p > 0 and tc_p == 0:
-                # Find which queue actually got it (highest pkts in deltas).
-                wrong_q = max(
-                    ((qi, int(q.get('pkts', 0)))
-                     for qi, q in dut2_q_deltas.items()),
-                    key=lambda kv: kv[1], default=(None, 0))
-                hard_failures.append(
-                    "{}: DUT2 egress-port classifier sent traffic to TC{} "
-                    "instead of expected TC{} (DSCP {} classifier mismatch "
-                    "on DUT2 - check PORT_QOS_MAP|<egress_port>.dscp_to_tc_map)"
-                    .format(test_label, wrong_q[0], expected_tc, dscp))
 
             # Did packets show up on the right queue but get dropped?
             if tc_p > 0 and tc_d > 0:
@@ -2927,18 +4081,40 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
         # ── QoS verdict: DSCP -> TC -> Q placement on DUT2 egress ────────
         # Mirrors test_dscp_to_tc.py:_log_queue_placement_table style.
         # Renders the canonical DSCP Queue-Placement Results table.
+        #
+        # Data-source policy:
+        #   1. PRIMARY  -- DUT2 DCHAL per-queue deltas (dut2_q_deltas).
+        #      Captured by _CounterCtx on the DUT2 egress port via the
+        #      `dchal_qi.py` script.  Most precise: per-queue ASIC
+        #      counts straight from the egress scheduler.
+        #   2. FALLBACK -- when DCHAL is skipped (QOS_SKIP_DCHAL=1) or
+        #      the DCHAL script returned empty (new SONiC image bug,
+        #      sai.profile missing, docker exec hiccup, etc.), reuse
+        #      the `show queue counters` snapshots already stashed in
+        #      `_smoke_cli_q_snaps[test_label]` plus the Ixia RX
+        #      decoded count.  The CLI delta on the DUT2 egress port
+        #      gives per-queue Tx counts; the Ixia decoded count
+        #      (rx_n - noise_n) gives the end-to-end witness.  Both
+        #      are accurate for the expected_tc queue on a small
+        #      smoke burst; other queues read 0 and PASS (no traffic
+        #      expected).
+        #
+        # Without the fallback, when DCHAL is skipped the table reads
+        # "Q5 expected=10 actual=0 FAIL" even though Ixia got 10/10 --
+        # which is alarming and a known false negative.  See user log
+        # smoke_leaf0_lag_one_I.log @ 23:43:11 for the original
+        # symptom.
         try:
             if dut2_ctx.is_real():
-                deltas = {}
-                for qi in range(8):
-                    entry = (dut2_q_deltas or {}).get(qi) or {}
-                    deltas[qi] = {
-                        'pkts': int(entry.get('pkts', 0) or 0),
-                        'drop_pkts': int(entry.get('drop_pkts', 0) or 0),
-                    }
+                deltas, source_label = _build_q_placement_deltas(
+                    dut2_q_deltas, test_label,
+                    rx_n=locals().get('rx_n') or 0,
+                    noise_n=locals().get('noise_n') or 0,
+                    expected_tc=expected_tc)
                 expected = {qi: (_SMOKE_PKTS_PER_BURST if qi == int(expected_tc)
                                  else 0)
                             for qi in range(8)}
+                st.log("  DSCP queue-placement source: {}".format(source_label))
                 smoke_log_q_results(
                     deltas,
                     label="[{} DSCP={} TC={}]".format(
@@ -3162,6 +4338,53 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
             if dut1_agg_deltas:
                 evidence['dut1_agg_deltas'] = dut1_agg_deltas
 
+            # 7c. CLI+Ixia per-queue flow table (re-render).  Same data
+            #     as the first render emitted right after noise
+            #     classification; we render it here AGAIN so the table
+            #     also lands next to the DCHAL deltas above -- operators
+            #     triaging a failure can read CLI, DCHAL, and Ixia
+            #     side-by-side without scrolling back to the dump
+            #     block.  Two presentation points, one data set.
+            _cli_snap = _smoke_cli_q_snaps.get(test_label) or {}
+            if _cli_snap.get('port_order'):
+                try:
+                    _ixia_cols2, _extra_rows2 = _build_ixia_flow_extras(
+                        _cli_snap.get('ixia_tx_ph'),
+                        _cli_snap.get('ixia_rx_ph'),
+                        expected_tc,
+                        locals().get('agg_tx') or 0,
+                        locals().get('agg_rx') or 0,
+                        cap,
+                        udp_dst)
+                    _footer2 = (
+                        "IxNet stats :: TX={tx}  agg_RX={rx}  "
+                        "capture_decoded={cap_rx}\n"
+                        "NOTE: D1-IN / D2-IN columns intentionally "
+                        "omitted -- SONiC `show queue counters` "
+                        "reports TX-queue (egress) stats only.\n"
+                        "      For per-port ingress visibility, see "
+                        "the raw `show queue counters` blocks above "
+                        "(ingress ports are still dumped),\n"
+                        "      `show interfaces counters <port>` for "
+                        "aggregate rx_ok / rx_err, or DCHAL ingress "
+                        "helpers when QOS_SKIP_DCHAL is unset.").format(
+                            tx=locals().get('agg_tx') or 0,
+                            rx=locals().get('agg_rx') or 0,
+                            cap_rx=locals().get('rx_n') or 0)
+                    st.log(format_queue_flow_table(
+                        _cli_snap.get('before') or {},
+                        _cli_snap.get('after')  or {},
+                        _cli_snap['port_order'],
+                        title=("CLI+Ixia per-queue flow table "
+                               "(scorecard view) :: " + test_label),
+                        ixia_columns=_ixia_cols2,
+                        extra_rows=_extra_rows2,
+                        footer=_footer2))
+                except Exception as exc:
+                    st.warn("  flow-table scorecard render failed "
+                            "(non-fatal): {}: {}".format(
+                                type(exc).__name__, exc))
+
             # Optional Ixia stream handle for GUI cross-reference.
             if stream_handle is not None:
                 evidence['tg_streams'] = {'tx': str(stream_handle)}
@@ -3202,11 +4425,13 @@ def _smoke_run_one(test_label, af, dscp, expected_tc, mode,
             st.warn("scorecard evidence assembly failed (non-fatal): {}"
                     .format(exc))
 
+    test_n = max(0, rx_n - noise_n)
     st.log("  {} summary: hard_failures={}  soft_warns={}  "
-           "captured={} (test=5 + noise={}{})".format(
+           "captured={} (test={} + noise={}{})  expected_burst={}".format(
                 test_label, len(hard_failures), len(soft_warns),
-                rx_n, noise_n,
-                ': ' + noise_summary if noise_summary else ''))
+                rx_n, test_n, noise_n,
+                ': ' + noise_summary if noise_summary else '',
+                _SMOKE_PKTS_PER_BURST))
     for w in soft_warns:
         st.log("    WARN: {}".format(w))
     for f in hard_failures:
@@ -4049,8 +5274,8 @@ class TestSmokeL3VNI:
             st.report_fail('msg', "{} HARD failures ({}):\n  ".format(
                 test_label, len(hard_failures)) + "\n  ".join(hard_failures))
         st.report_pass('msg',
-            "{}: 5 pkts L3VNI UC e2e PASS (soft_warns={})".format(
-                test_label, len(soft_warns)))
+            "{}: {} pkts L3VNI UC e2e PASS (soft_warns={})".format(
+                test_label, _SMOKE_PKTS_PER_BURST, len(soft_warns)))
 
 
 class TestSmokeL3VNITagged:
@@ -4165,8 +5390,8 @@ class TestSmokeL3VNITagged:
                 test_label, len(hard_failures))
                 + "\n  ".join(hard_failures))
         st.report_pass('msg',
-            "{}: 5 pkts L3VNI-tagged UC e2e PASS (soft_warns={})".format(
-                test_label, len(soft_warns)))
+            "{}: {} pkts L3VNI-tagged UC e2e PASS (soft_warns={})".format(
+                test_label, _SMOKE_PKTS_PER_BURST, len(soft_warns)))
 
 
 class TestSmokeL2VNIBum:
@@ -4242,8 +5467,8 @@ class TestSmokeL2VNIBum:
             st.report_fail('msg', "{} HARD failures ({}):\n  ".format(
                 test_label, len(hard_failures)) + "\n  ".join(hard_failures))
         st.report_pass('msg',
-            "{}: 5 pkts L2VNI BUM e2e PASS (soft_warns={})".format(
-                test_label, len(soft_warns)))
+            "{}: {} pkts L2VNI BUM e2e PASS (soft_warns={})".format(
+                test_label, _SMOKE_PKTS_PER_BURST, len(soft_warns)))
 
 
 class TestSmokeL2VNIUcast:
@@ -4307,8 +5532,8 @@ class TestSmokeL2VNIUcast:
             st.report_fail('msg', "{} HARD failures ({}):\n  ".format(
                 test_label, len(hard_failures)) + "\n  ".join(hard_failures))
         st.report_pass('msg',
-            "{}: 5 pkts L2VNI UC e2e PASS (soft_warns={})".format(
-                test_label, len(soft_warns)))
+            "{}: {} pkts L2VNI UC e2e PASS (soft_warns={})".format(
+                test_label, _SMOKE_PKTS_PER_BURST, len(soft_warns)))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

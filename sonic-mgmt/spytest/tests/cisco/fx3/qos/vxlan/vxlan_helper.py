@@ -1682,47 +1682,157 @@ __all__ = [
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def smoke_start_capture(tg, port_handle, port_alias="port"):
+def smoke_start_capture(tg, port_handle, port_alias="port",
+                        capture_mode='continuous'):
     """Reset + start unfiltered data-plane capture on an Ixia port.
 
-    Wraps tg.tg_packet_control with the action sequence:
-        reset -> start (which internally pushes config + enables data plane
-        capture in spytest's wrapper).
+    Two start paths are supported, picked from capture_mode:
 
-    Note: spytest's tg_packet_control(action='start') uses Ixia's default
-    capture_mode (trigger), which is fine for the 5-packet smoke. For larger
-    captures see qos_test_utils.start_packet_capture which uses
-    capture_mode='continuous' via ixia_eval to bypass the wrapper.
+      capture_mode='continuous'  (DEFAULT, recommended for ALL burst sizes)
+        ROLLING BUFFER. Capture keeps the most-recent N frames in a ring
+        until we explicitly stop. Works for any burst size (5..1000) and
+        survives the small drift between tg_traffic_control(action='run')
+        and the first frame hitting the wire.
+
+        Implementation pattern (mirror of
+        cisco/tortuga/qos/qos_test_utils.py::start_ecn_ce_capture --
+        the actively-used capture path in tortuga ECN tests today):
+
+          1. tg.tg_packet_control(port_handle, action='reset')
+          2. tg.tg_packet_config_buffers(port_handle,
+                                         capture_mode='continuous',
+                                         control_plane_capture_enable=1,
+                                         data_plane_capture_enable=1)
+          3. tg.ixia_eval('packet_control',
+                          port_handle=port_handle, action='start')
+
+        Step 3 deliberately bypasses the spytest wrapper.  The
+        wrapper's tg.tg_packet_control(action='start') has a pre_proc
+        (sonic-mgmt/spytest/spytest/tgen/tg.py:2145-2152) that
+        unconditionally re-issues packet_config_buffers WITHOUT a
+        capture_mode kwarg, which IxNet HLTAPI interprets as "use
+        default" -- 'trigger', ~64-frame ring.  Once the engine
+        commits the ring at arm time, runtime re-flips of capture_mode
+        are accepted by the API but do NOT resize the live buffer
+        (confirmed by Plan II's failed post-start re-flip in
+        smoke_leaf0_lag_one_breakout_II.log).  Calling ixia_eval
+        invokes the HLTAPI directly and skips the pre_proc, so our
+        Step-2 'continuous' selection survives.
+
+        Both control_plane_capture_enable AND data_plane_capture_enable
+        MUST be 1.  An earlier attempt to set control_plane=0 broke
+        the STOP side with:
+
+            TG API Fatal Error:
+            ::ixNet::ERROR-Control capture is not selected on the
+            specified port.
+
+        (see smoke_leaf0_lag_one_non_breakout_I.log line 3257.)
+
+        The error comes from the spytest wrapper's
+        get_capture_stats_state in tg_packet_stats / tg_packet_control
+        (action='stop'); it ALWAYS queries -controlCaptureState even
+        when the caller only cares about data-plane.  When we disabled
+        control-plane on the engine, the state read returned 'unset'
+        and the wrapper aborted with the fatal above.  Easiest fix:
+        leave control-plane capture enabled (it's only a few bytes per
+        sec of LACP/LLDP overhead, irrelevant to the data-path checks).
+
+      capture_mode='trigger'  (legacy)
+        First-N capture.  The original 5-packet smoke design path,
+        kept for back-compat.  NOT recommended for burst sizes >5:
+        trigger-mode buffer is small enough that slow-arming captures
+        or noisy LAGs (LACP/LLDP) can push the test frames out of the
+        buffer before they can be read.
 
     Args:
-        tg:          TGEN handle from setup_topo_common (tg_handle).
-        port_handle: Ixia port_handle to capture on (e.g. tg_ph['ingress']
-                     for TX-side or tg_ph['egress'] for RX-side).
-        port_alias:  Human label for log lines, e.g. "TX dut1_ingress".
+        tg:           TGEN handle from setup_topo_common (tg_handle).
+        port_handle:  Ixia port_handle to capture on (e.g. tg_ph['ingress']
+                      for TX-side or tg_ph['egress'] for RX-side).
+        port_alias:   Human label for log lines, e.g. "TX dut1_ingress".
+        capture_mode: 'continuous' (default, rolling) or 'trigger'
+                      (legacy first-N).
 
     Returns:
         True on success, False on exception (logged but non-fatal so the
         smoke test can decide whether to proceed without that side's data).
     """
     try:
+        # Always reset any previous state first so we start from a clean slate.
         tg.tg_packet_control(port_handle=port_handle, action='reset')
-        tg.tg_packet_control(port_handle=port_handle, action='start')
+
+        if capture_mode == 'continuous':
+            # Step 1: program the rolling-buffer mode BEFORE arming.
+            tg.tg_packet_config_buffers(
+                port_handle=port_handle,
+                capture_mode='continuous',
+                control_plane_capture_enable=1,
+                data_plane_capture_enable=1,
+            )
+
+            # Step 2: arm the capture via the LOW-LEVEL HLTAPI call,
+            # bypassing the spytest wrapper.
+            #
+            # WHY BYPASS THE WRAPPER:
+            #   spytest's tg.tg_packet_control(action='start') has a
+            #   pre_proc (sonic-mgmt/spytest/spytest/tgen/tg.py:2145-
+            #   2152) that unconditionally re-issues
+            #       packet_config_buffers(control_plane_capture_enable
+            #       ='1', data_plane_capture_enable='1')
+            #   WITHOUT a capture_mode kwarg.  IxNet HLTAPI treats the
+            #   missing kwarg as "use default", which is 'trigger'
+            #   (~64-frame ring).  Once the engine commits that ring
+            #   at arm time, a later runtime re-flip of capture_mode
+            #   is accepted by the API but does NOT resize the live
+            #   buffer.  An earlier Plan II attempt confirmed this in
+            #   smoke_leaf0_lag_one_breakout_II.log: the post-start
+            #   re-flip returned cleanly yet captured stayed at 64.
+            #
+            # Calling ixia_eval('packet_control', action='start')
+            # invokes the HLTAPI directly and skips the pre_proc, so
+            # our 'continuous' selection from Step 1 survives.  This
+            # mirrors cisco/tortuga/qos/qos_test_utils.py
+            # start_ecn_ce_capture (the actively-used capture path in
+            # tortuga ECN tests today), which documents the same
+            # wrapper bug.
+            #
+            # control_plane_capture_enable=1 is REQUIRED.  Earlier
+            # attempts to set it to 0 broke the stop side with
+            # "Control capture is not selected on the specified port"
+            # (smoke_leaf0_lag_one_non_breakout_I.log:3257) because
+            # the wrapper's stop-side state read always queries
+            # -controlCaptureState.
+            tg.ixia_eval('packet_control',
+                         port_handle=port_handle,
+                         action='start')
+        else:
+            # Legacy first-N path.  The wrapper's implicit apply +
+            # data_plane_capture_enable=1 is sufficient here because
+            # 'trigger' is also the engine default.
+            tg.tg_packet_control(port_handle=port_handle, action='start')
+
         return True
     except Exception as e:
-        st.warn("smoke_start_capture failed on {}: {}".format(port_alias, e))
+        st.warn("smoke_start_capture failed on {} (mode={}): {}".format(
+            port_alias, capture_mode, e))
         return False
 
 
-def smoke_stop_capture(tg, port_handle, max_frames=64, port_alias="port"):
+def smoke_stop_capture(tg, port_handle, max_frames=1100, port_alias="port"):
     """Stop capture and fetch the raw frame bytes from Ixia.
 
     Args:
         tg:          TGEN handle.
         port_handle: Ixia port_handle previously passed to
                      smoke_start_capture.
-        max_frames:  Upper bound on number of frames to retrieve. 64 is a
-                     safe default that exceeds any 5-packet smoke run while
-                     still being fast.
+        max_frames:  Upper bound on number of frames to retrieve. Default
+                     is 1100 which comfortably covers the test burst
+                     (default 5, max 1000) plus typical LAG / control-
+                     plane noise (LACP/LLDP/ARP/BGP) over the capture
+                     window. Callers SHOULD pass an explicit value sized
+                     to their burst (e.g. `_SMOKE_PKTS_PER_BURST + 100`)
+                     to avoid pulling stale rolling-buffer history on
+                     very large captures.
         port_alias:  Human label for log lines.
 
     Returns:
