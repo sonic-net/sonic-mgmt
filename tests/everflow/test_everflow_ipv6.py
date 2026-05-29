@@ -15,7 +15,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "m1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
