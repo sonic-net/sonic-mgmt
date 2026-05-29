@@ -94,8 +94,8 @@ def _wait_for_vlan_routes(duthost, vlan_intfs_dict):
     """Wait for VLAN interface routes to be programmed in ASIC_DB.
     After VLAN creation, there's a race condition where orchagent may try to add
     routes before the VLAN interface is ready as a next hop. This function waits
-    until the directly connected routes appear in ASIC_DB.This happens only for 
-    newly created vlans,skipping for VLANs already present on DUT.
+    until the directly connected routes appear in ASIC_DB. This happens only for
+    newly created vlans, skipping for VLANs already present on DUT.
     """
     import ipaddress
 
