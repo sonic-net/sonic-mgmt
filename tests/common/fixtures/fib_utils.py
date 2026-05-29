@@ -35,7 +35,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
-    route_key = 'ROUTE*'
+    route_key = 'ROUTE_TABLE:*'
     if 'test_ecmp_group_member_flap' in testname:
         route_key = 'ROUTE_TABLE:0\.0\.0\.0*'    # noqa: W605
 
@@ -192,7 +192,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
     """
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
-    route_key = 'ROUTE*'
+    route_key = 'ROUTE_TABLE:*'
     if 'test_ecmp_group_member_flap' in testname:
         route_key = r'ROUTE_TABLE:0\.0\.0\.0*'
 
