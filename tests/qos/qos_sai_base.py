@@ -706,6 +706,13 @@ class QosSaiBase(QosBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         src_testPortIds = dutConfig["testPortIds"][src_dut_index][src_asic_index]
         dst_testPortIds = dutConfig["testPortIds"][dst_dut_index][dst_asic_index]
+
+        # Save unfiltered port pools for qosParams replacement later.
+        # Speed filtering should only constrain dutConfig["testPorts"] replacements,
+        # not qosParams ports which are already selected by qos_param_generator.
+        src_testPortIds_unfiltered = list(src_testPortIds)
+        dst_testPortIds_unfiltered = list(dst_testPortIds)
+
         # Keep src and dest ports separate so we can pick a valid replacement from the correct asic
         src_portIdNames = []
         src_portIds = []
@@ -804,6 +811,17 @@ class QosSaiBase(QosBase):
         logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
         if qosParams is not None:
+            # Use unfiltered port pools for qosParams replacement.
+            # qosParams ports (e.g., hdrm_pool_size.src_port_ids) are selected by
+            # qos_param_generator for the specific test and typically already exist
+            # in the test port map. Speed filtering should not exclude them.
+            src_qosPortIds = list(src_testPortIds_unfiltered)
+            dst_qosPortIds = list(dst_testPortIds_unfiltered)
+            # Remove ports already consumed by dutConfig["testPorts"] to avoid conflicts
+            if sameSrcDestDutAndAsic:
+                src_qosPortIds = list(set(src_qosPortIds) - set(src_portIds))
+                dst_qosPortIds = list(set(dst_qosPortIds) - set(dst_portIds) - set(src_portIds))
+
             for idName in list(qosParams.keys()):
                 if re.match(r'src_port\S+ids?', idName):
                     port_list = qosParams[idName]
@@ -811,30 +829,30 @@ class QosSaiBase(QosBase):
                     if not isinstance(port_list, list):
                         port_list = [port_list]
                         isList = False
-                    pytest_assert(self.replaceNonExistentPortId(src_testPortIds, port_list),
+                    pytest_assert(self.replaceNonExistentPortId(src_qosPortIds, port_list),
                                   f"Not enough src test ports in qosParams for {idName}")
 
                     # update qosParams for this param and remove from available src ports
                     qosParams[idName] = port_list if isList else port_list[0]
-                    src_testPortIds = list(set(src_testPortIds) - set(port_list))
+                    src_qosPortIds = list(set(src_qosPortIds) - set(port_list))
                     # if same dut and same asic, then also remove from the dest ports
                     if sameSrcDestDutAndAsic:
-                        dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                        dst_qosPortIds = list(set(dst_qosPortIds) - set(port_list))
                 elif re.match(r'dst_port\S+ids?', idName):
                     port_list = qosParams[idName]
                     isList = True
                     if not isinstance(port_list, list):
                         port_list = [port_list]
                         isList = False
-                    pytest_assert(self.replaceNonExistentPortId(dst_testPortIds, port_list),
+                    pytest_assert(self.replaceNonExistentPortId(dst_qosPortIds, port_list),
                                   f"Not enough dst test ports in qosParams for {idName}")
 
                     # update qosParams for this param and remove from available dest ports
                     qosParams[idName] = port_list if isList else port_list[0]
-                    dst_testPortIds = list(set(dst_testPortIds) - set(port_list))
+                    dst_qosPortIds = list(set(dst_qosPortIds) - set(port_list))
                     # if same dut and same asic, then also remove from the src ports
                     if sameSrcDestDutAndAsic:
-                        src_testPortIds = list(set(src_testPortIds) - set(port_list))
+                        src_qosPortIds = list(set(src_qosPortIds) - set(port_list))
 
             logger.debug(f'updateTestPortIdIp qosParams: {qosParams}')
 
