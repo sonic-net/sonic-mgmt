@@ -2320,7 +2320,7 @@ fib/test_fib.py:
   skip:
     reason: 'Skip on t1-isolated-d32/128 topos or due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
     conditions:
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32', 't1-isolated-d32u1s2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
