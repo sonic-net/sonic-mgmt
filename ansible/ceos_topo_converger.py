@@ -8,6 +8,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from typing import Dict, List, Union
 import yaml
+import os
 import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
@@ -224,12 +225,25 @@ class SonicTopoConverger:
 
         self.converged_topo["topo_is_multi_vrf"] = True
 
+        # Copy all topology sub-keys that are not explicitly handled below
+        # (e.g. disabled_host_interfaces, console_interfaces,
+        # devices_interconnect_interfaces) so they are not silently dropped.
+        handled_topo_keys = {"host_interfaces", "dut_num", "VMs", "DUT"}
+        for key in old_topo:
+            if key not in handled_topo_keys and key not in new_topo:
+                val = old_topo[key]
+                new_topo[key] = val.copy() if hasattr(val, 'copy') else val
+
         # We don't need to change the host_interfaces portion of the passed topo, so
         # copy
         # it over as is.
         key = "host_interfaces"
         if key in old_topo:
             new_topo[key] = old_topo[key].copy()
+
+        key = "dut_num"
+        if key in old_topo:
+            new_topo[key] = old_topo[key]
 
         key = "VMs"
         # Save off which vm had which interface index as we will need this later
@@ -241,6 +255,12 @@ class SonicTopoConverger:
         vms = self.converge_vms()
         new_topo[key] = vms
 
+        # Compute max_fp_num needed for the converged topology so that
+        # enough OVS bridges are created per prime VM.
+        max_vlans = max((len(v["vlans"]) for v in vms.values()), default=0)
+        if max_vlans > 0:
+            new_topo["max_fp_num"] = max_vlans
+
         # The DUT configuration and general configuration properties should be
         # unchanged as well.
         key = "DUT"
@@ -249,6 +269,16 @@ class SonicTopoConverger:
 
         new_topo = self.converged_topo
         old_topo = self.topo
+
+        # Copy all top-level keys that are not explicitly handled below
+        handled_top_keys = {"topology", "topo_is_multi_vrf",
+                            "configuration_properties", "configuration",
+                            "convergence_data"}
+        for key in old_topo:
+            if key not in handled_top_keys and key not in new_topo:
+                val = old_topo[key]
+                new_topo[key] = val.copy() if hasattr(val, 'copy') else val
+
         key = "configuration_properties"
         new_topo[key] = old_topo[key].copy()
 
@@ -260,6 +290,8 @@ class SonicTopoConverger:
     def run(self) -> None:
         self.parse_properties()
         self.converge_topo()
+        if self.file_out == os.devnull:
+            return
         with open(self.file_out, "w", encoding="utf-8") as out_file:
             yaml.dump(self.converged_topo, out_file,
                       Dumper=ListIndentDumper, sort_keys=False)
@@ -270,6 +302,9 @@ def converge_testbed(input_file: str, output_file: str) -> None:
         topo = yaml.safe_load(in_file)
     if topo.get("topo_is_multi_vrf", False):
         print("Topology already converged, skipping convergence.")
+        return
+    if not os.access(output_file, os.W_OK) and os.path.exists(output_file):
+        print(f"Warning: {output_file} is not writable, skipping disk convergence.")
         return
     converger = SonicTopoConverger(topo, output_file)
     converger.run()

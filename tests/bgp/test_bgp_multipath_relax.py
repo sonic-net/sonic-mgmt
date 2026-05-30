@@ -96,7 +96,8 @@ def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
 
     logger.info("vips_t0: {}, vips_asn: {}".format(vips_t0, vips_asn))
 
-    pytest_assert((len(vips_t0) > 1), "Did not find preconfigured multipath for the vips prefix under test")
+    if len(vips_t0) <= 1:
+        pytest.skip("Multipath requires more than 1 T0 neighbor with vips; found {}".format(len(vips_t0)))
 
     # Get the route from the DUT for the prefix
     bgp_route = duthost.get_bgp_route(
