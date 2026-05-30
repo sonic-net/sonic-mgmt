@@ -75,10 +75,11 @@ class SonicTopoConverger:
 
             for label in device_properties:
                 if label in labels:
-                    if label not in cur_prime_devs or create_new_prime:
-                        cur_prime_devs[label] = device
+                    role = roles_by_label[label]
+                    if role not in cur_prime_devs or create_new_prime:
+                        cur_prime_devs[role] = device
                         self.prime_devices.append(device)
-                    prime = cur_prime_devs[label]
+                    prime = cur_prime_devs[role]
                     if prime not in self.prime_device_mapping:
                         self.prime_device_mapping[prime] = []
                     self.prime_device_mapping[prime].append(device)
@@ -256,6 +257,15 @@ class SonicTopoConverger:
         key = "configuration"
         new_topo[key] = old_topo[key].copy()
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
+
+        # Pass through any other top-level keys (e.g. max_fp_num_provided)
+        # so converged topologies don't lose YAML fields handled by the
+        # outer ansible playbooks.
+        handled_keys = {"topology", "configuration_properties", "configuration",
+                        "topo_is_multi_vrf", "convergence_data"}
+        for key, value in self.topo.items():
+            if key not in handled_keys and key not in new_topo:
+                new_topo[key] = deepcopy(value)
 
     def run(self) -> None:
         self.parse_properties()
