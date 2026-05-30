@@ -10,6 +10,7 @@ from jinja2 import Template
 import logging
 import json
 import ipaddress
+import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
@@ -133,6 +134,33 @@ class GenerateGoldenConfigDBModule(object):
 
         with open(GOLDEN_CONFIG_TEMPLATE_PATH) as template_file:
             return json.loads(Template(template_file.read()).render(profile))
+
+    def get_frr_version(self):
+        try:
+            frr_version_output = subprocess.check_output(["vtysh", "-c", "show version"]).decode("utf-8")
+            frr_version_match = re.search(r"FRRouting (\d+\.\d+\.\d+)", frr_version_output)
+            if frr_version_match:
+                return frr_version_match.group(1)
+            else:
+                return None
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return None
+
+    def compare_frr_version(self, version1, version2):
+        v1 = list(map(int, version1.split('.')))
+        v2 = list(map(int, version2.split('.')))
+        for i in range(max(len(v1), len(v2))):
+            v1_val = v1[i] if i < len(v1) else 0
+            v2_val = v2[i] if i < len(v2) else 0
+            if v1_val > v2_val:
+                return 1
+            elif v1_val < v2_val:
+                return -1
+        return 0
+
+    def should_use_unified_mode(self):
+        frr_version = self.get_frr_version()
+        return frr_version is not None and self.compare_frr_version(frr_version, "8.5.0") >= 0
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -1097,6 +1125,12 @@ class GenerateGoldenConfigDBModule(object):
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+
+        # update router_config_mode
+        if self.should_use_unified_mode():
+            if ("DEVICE_METADATA" in config and "localhost" in config["DEVICE_METADATA"]):
+                if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
+                    config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
