@@ -79,6 +79,8 @@ class TestHeadroomPoolProbingInstance:
         self.def_vlan_mac = None
         self.cell_size = 208
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
         self.ingress_drop_counter_mode = 'port_drop'
 
         # Probing configuration
