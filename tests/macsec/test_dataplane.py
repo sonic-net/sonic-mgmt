@@ -27,6 +27,9 @@ class TestDataPlane():
                                 upstream_links, ptfadapter, wait_mka_establish):
         ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
 
+        if len(downstream_links) == 0:
+            pytest.skip("No downstream links")
+
         down_link = list(downstream_links.values())[0]
         dut_macaddress = duthost.get_dut_iface_mac(list(ctrl_links.keys())[0])
 
