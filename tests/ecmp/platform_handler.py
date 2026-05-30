@@ -196,12 +196,81 @@ class MellanoxPlatformHandler(ECMPHashPlatformHandler):
         raise NotImplementedError("Mellanox platform support not implemented yet")
 
 
+class VPPPlatformHandler(ECMPHashPlatformHandler):
+    """Platform handler for sonic-vpp (VPP-backed virtual SONiC).
+
+    Reports basic ECMP test capability (5-tuple-based packet distribution)
+    on t0/t1 topologies. The hash-offset-modification capability used by
+    ``test_udp_packets_ecmp`` is NOT implemented: VPP does not yet expose
+    a per-switch SAI hash-seed setter, so any call to the offset helpers
+    raises ``NotImplementedError``. The ``test_udp_packets_ecmp`` variant
+    is explicitly skipped via conditional_mark for sonic-vpp; the base
+    ``test_udp_packets`` runs and exercises the 5-tuple ECMP path.
+
+    Unlike the Broadcom / Mellanox handlers, sonic-vpp's ECMP behaviour is
+    driven purely by VPP (SAI -> VPP wire-level), so the emulated DUT HWSKU
+    does not change behaviour. No SKU allow-list is enforced.
+    """
+
+    SUPPORTED_SKUS = []  # No SKU restriction: any sonic-vpp testbed works.
+
+    def get_supported_skus(self):
+        return self.SUPPORTED_SKUS
+
+    def is_supported(self, duthost=None, hwsku=None, asic_type=None, topology=None, topo_name=None):
+        """Return True when the testbed is a VPP-backed switch on t0/t1.
+
+        sonic-vpp supports basic 5-tuple ECMP balance verification on any
+        HWSKU. Dualtor topologies are skipped (downstream PTF ports go
+        through the mux cable, same constraint Mellanox handler applies).
+        """
+        if asic_type and asic_type.lower() != "vpp":
+            logger.debug(f"ASIC type '{asic_type}' not supported by VPP platform handler")
+            return False
+
+        if topology and not any(topo in topology.lower() for topo in ["t0", "t1"]):
+            logger.info(f"Topology '{topology}' not supported by VPP platform handler")
+            return False
+
+        if topo_name and "dualtor" in topo_name.lower():
+            logger.info(f"Topology '{topo_name}' (dualtor) not supported by VPP platform handler")
+            return False
+
+        return True
+
+    def get_hash_offset_command(self, action="get", value=None):
+        """VPP does not expose a SAI per-switch hash-seed setter today.
+
+        Tests that need to mutate the ECMP hash offset must be excluded
+        via conditional_mark for asic_type=='vpp'. See
+        ``tests_mark_conditions_sonic_vpp.yaml`` for the explicit skip
+        on ``ecmp/test_ecmp_balance.py::test_udp_packets_ecmp``.
+        """
+        raise NotImplementedError(
+            "sonic-vpp lacks SAI ECMP hash-seed setter; "
+            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
+        )
+
+    def parse_hash_offset_output(self, output):
+        raise NotImplementedError(
+            "sonic-vpp lacks SAI ECMP hash-seed setter; "
+            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
+        )
+
+    def get_default_offset_value(self):
+        raise NotImplementedError(
+            "sonic-vpp lacks SAI ECMP hash-seed setter; "
+            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
+        )
+
+
 class PlatformHandlerFactory:
     """Factory class to create appropriate platform handlers."""
 
     _handlers = {
         "broadcom": BroadcomPlatformHandler,
         "mellanox": MellanoxPlatformHandler,
+        "vpp": VPPPlatformHandler,
     }
 
     @classmethod
@@ -241,7 +310,8 @@ class PlatformHandlerFactory:
         # Direct ASIC type to platform mapping for faster and more accurate detection
         asic_to_platform_map = {
             'broadcom': 'broadcom',
-            'mellanox': 'mellanox'
+            'mellanox': 'mellanox',
+            'vpp': 'vpp'
         }
 
         # Try direct ASIC type mapping first
