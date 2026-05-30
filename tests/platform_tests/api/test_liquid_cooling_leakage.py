@@ -12,7 +12,7 @@ from tests.common.helpers.liquid_leakage_control_test_helper import is_liquid_co
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('bmc'),
     pytest.mark.device_type('physical')
 ]
 
