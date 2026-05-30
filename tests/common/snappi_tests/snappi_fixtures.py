@@ -1510,7 +1510,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     """
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
     ptype = "--snappi_macsec" in sys.argv
-    num_of_non_macsec_snappi_devices = 7
+    num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
     static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
     for index, port in enumerate(snappi_ports):
         if port['duthost'] == duthost:
@@ -1568,7 +1568,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         if setup is False:
             continue
         port['intf_config_changed'] = True
-        if ptype and port_id == 1:
+        if ptype and port_id >= 1:
             device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
@@ -1607,7 +1607,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                             format(port['asic_value'], port['peer_port'], tgenIp, mac))
             # Tx Port
             ip1 = ethernet.ipv4_addresses.add()
-            ip1.name = "ip2"
+            ip1.name = "ip2_{}".format(port_id)
             ip1.address = tgenIp
             ip1.prefix = int(prefix_length)
             ip1.gateway = dutIp
@@ -1620,7 +1620,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             macsec1_int = macsec1.ethernet_interfaces.add()
             macsec1_int.eth_name = ethernet.name
             secy1 = macsec1_int.secure_entity
-            secy1.name = "macsec1"
+            secy1.name = "macsec{}".format(port_id)
 
             # Data plane and crypto engine
             secy1.data_plane.choice = "encapsulation"
@@ -1642,7 +1642,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             secy1_key_gen_proto = secy1.key_generation_protocol
             secy1_key_gen_proto.choice = "mka"
             kay1 = secy1_key_gen_proto.mka
-            kay1.name = "mka1"
+            kay1.name = "mka1_{}".format(port_id)
             # Basic properties
             kay1.basic.key_derivation_function = all_values['snappi']['key_derivation_function']
             kay1.basic.actor_priority = all_values['snappi']['actor_priority']
@@ -1678,7 +1678,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             # Tx SC
             kay1_tx = kay1.tx
             kay1_txsc1 = kay1_tx.secure_channels.add()
-            kay1_txsc1.name = "txsc1"
+            kay1_txsc1.name = "txsc{}".format(port_id)
             kay1_txsc1.system_id = mac
             # Remaining Tx SC settings autofilled
             eotr = config.egress_only_tracking
@@ -1691,7 +1691,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
 
             # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
             eotr1_mt1 = eotr1.metric_tags.add()
-            eotr1_mt1.name = "pause traffic"
+            eotr1_mt1.name = "pause traffic {}".format(port_id)
             eotr1_mt1.rx_offset = 0
             eotr1_mt1.length = 8
             eotr1_mt1.tx_offset.choice = "custom"
