@@ -1121,6 +1121,10 @@
             delay: 10
             until: chrony_start_result is succeeded
 
+          - name: Wait before forcing NTP polling
+            pause:
+              seconds: 3
+
           - name: Force rapid NTP polling with chrony
             become: true
             command: chronyc burst 4/4
