@@ -300,7 +300,7 @@ class QosParamMellanox(object):
             margin_ratio = 0.02
             self.qos_params_mlnx['lossy_queue_1']['pkts_num_margin'] = int(
                 self.qos_params_mlnx['lossy_queue_1']['pkts_num_trig_egr_drp'] * margin_ratio)
-            wm_margin_ratio = 0.001
+            wm_margin_ratio = 0.002
             self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'] = max(
                 self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'],
                 int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))
