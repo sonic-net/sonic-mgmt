@@ -1010,3 +1010,8 @@ zmq/test_gnmi_zmq.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+zmq/test_gnmi_zmq_mgmt_vrf.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
