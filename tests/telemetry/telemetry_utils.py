@@ -134,17 +134,16 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     if subscribe_mode == SUBSCRIBE_MODE_POLL:
         poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
         cmd += poll_cmd.format(subscribe_mode, polling_interval, update_count, max_sync_count, timeout)
-        return cmd
-
-    if method == METHOD_SUBSCRIBE:
+    elif method == METHOD_SUBSCRIBE:
         cmd += " --subscribe_mode {0} --submode {1} --interval {2} --update_count {3} --create_connections {4}".format(
                 subscribe_mode,
                 submode, intervalms,
                 update_count, create_connections)
-        if filter_event_regex != "":
-            cmd += " --filter_event_regex {}".format(filter_event_regex)
         if timeout > 0:
             cmd += " --timeout {}".format(timeout)
+
+    if filter_event_regex != "" and method == METHOD_SUBSCRIBE:
+        cmd += " --filter_event_regex {}".format(filter_event_regex)
     return cmd
 
 
