@@ -6,6 +6,7 @@ import logging
 import natsort
 import random
 import six
+import re
 from collections import defaultdict
 from contextlib import contextmanager
 
@@ -22,6 +23,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
@@ -37,6 +39,25 @@ pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
+
+logger = logging.getLogger(__name__)
+allure.logger = logger
+
+added_routes = set()
+
+
+@pytest.fixture(scope='function', autouse=False)
+def clear_static_route(rand_selected_dut):
+    """Clear route configuration
+
+    Args:
+        rand_selected_dut (object): DUT object
+    """
+    yield
+    for route in added_routes:
+        rand_selected_dut.shell('config route del prefix {} nexthop {}'.format(
+            route[0], route[1]), module_ignore_errors=True)
+    added_routes.clear()
 
 
 def is_dualtor(tbinfo):
@@ -683,3 +704,73 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
             duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config save -y')
+
+
+def test_static_route_no_bgp_churn(rand_selected_dut, clear_static_route):
+
+    def get_nexthop(duthost):
+        """Get next hop from BGP neighbors
+
+        Args:
+            duthost (object): DUT object
+
+        Returns:
+            str: Nexthop IP
+        """
+
+        cmd = 'show ip bgp summary'
+        parse_result = duthost.show_and_parse(cmd)
+        if 'neighbor' in parse_result[0]:
+            return parse_result[0]['neighbor']
+        else:
+            return parse_result[0]['neighbhor']
+
+    def add_route(duthost, prefix, nexthop):
+        """Add static route
+
+        Args:
+            duthost (object): DUT object
+            prefix (str): Route prefix
+            nexthop (str): Route nexthop
+        """
+        duthost.shell(
+            'config route add prefix {} nexthop {}'.format(prefix, nexthop))
+        added_routes.add((prefix, nexthop))
+
+    def routes_from_swss_delta(delta):
+        """ROUTE_TABLE:<prefix> segments in delta order."""
+        return re.findall(r"ROUTE_TABLE:([^|]+)", delta)
+
+    """When adding N static routes, swss.rec delta must be exactly N non-empty lines of
+    ROUTE_TABLE|SET matching prefixes."""
+    duthost = rand_selected_dut
+    prefixes = ["1.1.{}.0/24".format(i) for i in range(1, 3)]
+    nexthop = get_nexthop(duthost)
+    n = len(prefixes)
+    wait_time = 3
+
+    with allure.step("Record swss.rec baseline then add static routes {}".format(prefixes)):
+        mark = int(duthost.shell("sudo stat -c %s /var/log/swss/swss.rec")["stdout"].strip())
+        for p in prefixes:
+            add_route(duthost, p, nexthop)
+
+    tail_offset = mark + 1
+    with allure.step("Wait then dump swss.rec incremental content"):
+        time.sleep(wait_time)
+        delta = duthost.shell(
+            f"sudo tail -c +{tail_offset} /var/log/swss/swss.rec")["stdout"]
+
+        non_empty_lines = [ln for ln in delta.splitlines() if ln.strip() and 'eth0' not in ln]
+        logger.info(
+            f"swss.rec new content after static routes: {len(non_empty_lines)} non-empty line(s)")
+
+        pytest_assert(
+            len(non_empty_lines) == n,
+            f"Expected exactly {n} non-empty lines in swss.rec delta, got {len(non_empty_lines)}: {non_empty_lines}")
+
+        routes = routes_from_swss_delta(delta)
+        pytest_assert(
+            set(routes) == set(prefixes),
+            f"Routes from swss delta {routes} do not match expected prefixes {prefixes}")
+        logger.info(f"swss.rec ROUTE_TABLE prefixes: {routes}")
+        logger.info(f"swss.rec delta raw:\n{delta}")
