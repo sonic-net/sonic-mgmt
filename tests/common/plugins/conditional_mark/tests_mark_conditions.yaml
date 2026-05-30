@@ -2514,6 +2514,12 @@ generic_config_updater/add_cluster/test_port_speed_change.py:
       - "hwsku not in ['Nokia-IXR7250E-36x400G']"
       - "asic_type in ['vs']"
 
+generic_config_updater/test_apply_patch_perf.py:
+  xfail:
+    reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/24984"
+
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
