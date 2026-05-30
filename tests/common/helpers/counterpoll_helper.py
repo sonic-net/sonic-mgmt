@@ -1,3 +1,4 @@
+import logging
 from tests.common.constants import CounterpollConstants
 
 
@@ -8,14 +9,13 @@ class ConterpollHelper:
 
     @staticmethod
     def get_available_counterpoll_types(duthost):
-        available_option_list = []
-        COMMANDS = 'Commands:'
-        counterpoll_show = duthost.command(CounterpollConstants.COUNTERPOLL_QUEST)[CounterpollConstants.STDOUT]
-        index = counterpoll_show.find(COMMANDS) + len(COMMANDS) + 1
-        for line in counterpoll_show[index:].splitlines():
-            available_option_list.append(line.split()[0])
-        return [option for option in available_option_list
-                if option not in CounterpollConstants.EXCLUDE_COUNTER_SUB_COMMAND]
+        logger = logging.getLogger(__name__)
+        current_status = ConterpollHelper.get_counterpoll_show_output(duthost)
+        available_types = [CounterpollConstants.COUNTERPOLL_MAPPING.get(counter[CounterpollConstants.TYPE])
+                           for counter in current_status]
+        available_types = [t for t in available_types if t]
+        logger.info("Available counterpoll types: {}".format(available_types))
+        return available_types
 
     @staticmethod
     def get_parsed_counterpoll_show(counterpoll_show):
