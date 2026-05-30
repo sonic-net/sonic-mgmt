@@ -703,13 +703,13 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-64-breakout', 'dualtor-120']"
+      - "'dualtor' not in topo_name"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
+      - "'dualtor' in topo_name"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -4392,6 +4392,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox'] and topo_type not in ['lrh', 'urh']"
       - "topo_type not in ['t0'] and asic_type in ['marvell-teralynx']"
+      - "asic_subtype in ['broadcom-dnx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
