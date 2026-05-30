@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C508O1X2'})
 
 
 def is_full_lossy_hwsku(hwsku):
