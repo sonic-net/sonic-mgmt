@@ -415,6 +415,47 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
         self.assert_expectations()
 
+    def test_pdbs(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        platform_expects_pdbs = (duthost.facts.get("chassis") and
+                                 duthost.facts["chassis"].get("pdbs"))
+        num_pdbs = None
+        try:
+            num_pdbs_raw = chassis.get_num_pdbs(platform_api_conn)
+            if num_pdbs_raw is None:
+                if platform_expects_pdbs:
+                    pytest.fail("get_num_pdbs returned None but platform.json has pdbs defined")
+                pytest.skip("get_num_pdbs API not supported on this platform")
+            num_pdbs = int(num_pdbs_raw)
+        except Exception:
+            if platform_expects_pdbs:
+                pytest.fail("num_pdbs is not an integer")
+            pytest.skip("get_num_pdbs API not supported on this platform")
+
+        if num_pdbs is None:
+            pytest.fail("num_pdbs should have been initialized")
+
+        if duthost.facts.get("chassis") and duthost.facts["chassis"].get("pdbs"):
+            expected_num_pdbs = len(duthost.facts["chassis"]["pdbs"])
+            pytest_assert(num_pdbs == expected_num_pdbs,
+                          f"Number of PDBs ({num_pdbs}) does not match expected number "
+                          f"({expected_num_pdbs})")
+        else:
+            pytest_assert(num_pdbs == 0,
+                          f"platform.json has no pdbs array but get_num_pdbs() returned {num_pdbs}")
+
+        if num_pdbs == 0:
+            pytest.skip("No PDBs found on device (PSU platform)")
+
+        pdb_list = chassis.get_all_pdbs(platform_api_conn)
+        pytest_assert(pdb_list is not None, "Failed to retrieve PDBs")
+        pytest_assert(isinstance(pdb_list, list) and len(pdb_list) == num_pdbs, "PDBs appear to be incorrect")
+
+        for i in range(num_pdbs):
+            single_pdb = chassis.get_pdb(platform_api_conn, i)
+            self.expect(single_pdb and single_pdb == pdb_list[i], f"PDB {i} is incorrect")
+        self.assert_expectations()
+
     def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         try:
