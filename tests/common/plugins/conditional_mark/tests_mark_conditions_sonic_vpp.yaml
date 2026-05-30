@@ -179,6 +179,51 @@ dut_console/test_idle_timeout.py:
       - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
+#####             ECMP            #####
+#######################################
+# Issue #25760: enable ecmp data-plane testing on sonic-vpp t1-lag.
+#
+# In scope (runs on sonic-vpp):
+#   ecmp/test_ecmp_balance.py::test_udp_packets[ipv4/ipv6]
+#       Basic 5-tuple ECMP distribution. Works out of the box because
+#       VPP's default ip4-lookup / ip6-lookup hash already uses
+#       src-ip / dst-ip / proto / src-port / dst-port. The new
+#       VPPPlatformHandler in tests/ecmp/platform_handler.py reports
+#       basic capability.
+#
+# Out of scope (skipped here):
+#   ecmp/test_ecmp_balance.py::test_udp_packets_ecmp
+#       Requires the SAI ECMP hash-seed setter to mutate VPP's hash
+#       offset and validate "offset change changes paths". saivpp does
+#       not yet implement SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED, so
+#       set_ecmp_offset cannot be exercised. Skipped via this rule.
+#       The fixture also catches NotImplementedError defensively as a
+#       second line of defence.
+#   ecmp/test_ecmp_sai_value.py
+#       Uses bcmcmd RTAG7_HASH_SEED_A register reads -- Broadcom RTAG7
+#       hardware-specific. Already skipped by the main conditions yaml
+#       (broadcom-only file-level rule).
+#   ecmp/test_fgnhg.py
+#       Fine-Grained Next-Hop Groups, Mellanox-only and t0-only.
+#       Already skipped by the main conditions yaml.
+#   ecmp/inner_hashing/*
+#       Programmable Bitmap Hashing (PBH) via SAI hash-group APIs
+#       (SAI_HASH / SAI_FINE_GRAINED_HASH). saivpp does not implement
+#       these APIs. inner_hashing/ also requires t0 topology and the
+#       wr_* variants require warm-reboot which sonic-vpp lacks.
+ecmp/test_ecmp_balance.py::test_udp_packets_ecmp:
+  skip:
+    reason: >
+            sonic-vpp does not yet expose a SAI ECMP hash-seed setter
+            (SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED). Without the
+            setter, set_ecmp_offset cannot mutate distribution, so
+            the test cannot validate "offset change changes paths".
+            Tracked as saivpp follow-up; see issue #25760.
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+#######################################
 #####         Everflow            #####
 #######################################
 everflow:

@@ -1789,11 +1789,11 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
 
 ecmp/test_ecmp_balance.py:
   skip:
-    reason: "Only support Broadcom T1/T0 topology for now"
+    reason: "Only support Broadcom and sonic-vpp T1/T0 topology for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
-      - "asic_type not in ['broadcom']"
+      - "asic_type not in ['broadcom', 'vpp']"
 
 ecmp/test_ecmp_group_members_increment.py:
   skip:
