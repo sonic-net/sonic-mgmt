@@ -325,7 +325,7 @@ def test_wol_parameter_invalid_password(
 ):
     random_dut_intf, random_ptf_index = random_intf_pair
     verify_invalid_wol_cmd(duthost, build_wol_cmd(random_dut_intf, password=password, broadcast=True),
-                           ["invalid password",
+                           ["Invalid password",
                             "invalid value '{}' for '--password <PASSWORD>'".format(password)])
 
 
@@ -347,7 +347,7 @@ def test_wol_parameter_invalid_interval(
     random_dut_intf, random_ptf_index = random_intf_pair
     invalid_interval = "2001"
     verify_invalid_wol_cmd(duthost,
-                           build_wol_cmd(random_dut_intf, broadcast=True, count="2", interval=invalid_interval),
+                           build_wol_cmd(random_dut_intf, broadcast=True, count="5", interval=invalid_interval),
                            ["Invalid value for \"-i\": 2001 is not in the valid range of 0 to 2000.",
                             "Invalid value for \"INTERVAL\": interval must between 0 and 2000"])
 
