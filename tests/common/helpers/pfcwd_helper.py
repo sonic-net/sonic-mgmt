@@ -11,6 +11,8 @@ from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
@@ -429,6 +431,40 @@ def fetch_vendor_specific_diagnosis_re(duthost):
         return ""
 
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
+
+
+def is_pfcwd_port_restored(dut, storm_port):
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port and item['status'] == 'operational':
+            return True
+    return False
+
+
+def wait_until_pfcwd_restored(dut, storm_port):
+    is_restored = wait_until(120, 5, 0, is_pfcwd_port_restored, dut, storm_port)
+    pytest_assert(is_restored, f"Port {storm_port} did not restore storm!")
+
+
+def get_storm_detected_count(dut, storm_port):
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port:
+            storm_detect_count = item['storm detected/restored'].split('/')[0]
+            return int(storm_detect_count)
+    return 0
+
+
+def get_storm_restored_count(dut, storm_port):
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    for item in pfcwd_stat_output:
+        port = item['queue'].split(':')[0]
+        if port == storm_port:
+            storm_restored_count = item['storm detected/restored'].split('/')[1]
+            return int(storm_restored_count)
+    return 0
 
 
 @pytest.fixture(scope='class', autouse=False)
