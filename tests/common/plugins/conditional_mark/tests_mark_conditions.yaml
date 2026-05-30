@@ -2882,6 +2882,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
     conditions:
       - "'bmc' in topo_type"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_set_authenticate:
+  skip:
+    reason: "gNMI SetRequest on CONFIG_DB invokes org.SONiC.HostService.gcu DBus, not provided by BMC image"
+    conditions:
+      - "'bmc' in topo_type"
+
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -2906,10 +2912,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
   skip:
-    reason: "dut ipv6 mgmt ip not supported"
+    reason: "dut ipv6 mgmt ip not supported / Implicitly depends on cloudtype written by test_gnmi_configdb_set_authenticate, which is skipped/fails on BMC"
+    conditions_logical_operator: or
     conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py:
   xfail:
@@ -2981,6 +2988,18 @@ gnmi/test_gnmic.py:
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
+
+gnmi/test_gnoi_os.py:
+  skip:
+    reason: "The SONiC.HostService is not provided by BMC image"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/test_gnoi_system_reboot.py:
+  skip:
+    reason: "The SONiC.HostService is not provided by BMC image"
+    conditions:
+      - "'bmc' in topo_type"
 
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
   skip:
