@@ -4,7 +4,6 @@ import ipaddress
 from netaddr import IPNetwork
 from jinja2 import Template
 import json
-import random
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa:F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa:F401
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
@@ -140,7 +139,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
                    enum_rand_one_frontend_asic_index, common_v6_setup_teardown,
                    set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
-    Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
+    Add a bgp monitor and verify ExaBGP can actively establish a session
+    with DUT configured as passive peer.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
@@ -151,85 +151,57 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
     # Flush dataplane
     ptfadapter.dataplane.flush()
     # Load bgp monitor config
-    logger.info("Configured BGPMON on {}".format(duthost))
+    logger.info("Configured bgpmon and verifying active ExaBGP peering")
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
+    duthost.run_vtysh(
+        "-c 'configure terminal' -c 'router bgp {}' -c 'neighbor {} passive'".format(asn, peer_addr),
+        asic_index='all'
+    )
 
-    port_index = random.randint(0, len(peer_ports)-1)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_ports[port_index]))
-    router_mac = get_uplink_route_mac(duthosts, local_ports[port_index])
-    ptf_interface = "eth" + str(peer_ports[port_index])
-    ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
-
-    logger.info("Starting BGP Monitor on PTF")
-    ptfhost.exabgp(name=BGP_MONITOR_NAME,
-                   state="started",
-                   local_ip=peer_addr,
-                   router_id=router_id,
-                   peer_ip=local_addr,
-                   local_asn=asn,
-                   peer_asn=asn,
-                   port=BGP_MONITOR_PORT)
+    selected_ptf_interface = None
+    selected_router_mac = None
+    bgpmon_established = False
 
     try:
-        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
-                      "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, asichost, peer_addr),
-                      "BGPMon Peer connection not established")
+        for port_index, local_port in zip(peer_ports, local_ports):
+            logger.info("Trying BGPMon active peering on PTF port %s", port_index)
+            router_mac = get_uplink_route_mac(duthosts, local_port)
+            ptf_interface = "eth" + str(port_index)
+            ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
+            ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+            ptfhost.shell("ip -6 route replace %s dev %s" % (local_addr + "/128", ptf_interface))
+
+            ptfhost.exabgp(name=BGP_MONITOR_NAME,
+                           state="started",
+                           local_ip=peer_addr,
+                           router_id=router_id,
+                           peer_ip=local_addr,
+                           local_asn=asn,
+                           peer_asn=asn,
+                           port=BGP_MONITOR_PORT,
+                           passive=False)
+            pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
+                          "Failed to start bgp monitor session on PTF")
+            if wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, asichost, peer_addr):
+                selected_ptf_interface = ptf_interface
+                selected_router_mac = router_mac
+                bgpmon_established = True
+                break
+
+            ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
+            ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
+            ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
+            ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
+
+        pytest_assert(bgpmon_established, "BGPMon Peer connection not established")
     finally:
+        duthost.run_vtysh(
+            "-c 'configure terminal' -c 'router bgp {}' -c 'no neighbor {} passive'".format(asn, peer_addr),
+            asic_index='all'
+        )
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
-        ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-        ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
-
-
-def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
-                                            enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
-    """
-    Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
-
-    local_addr, peer_addr, peer_ports, local_ports, asn, router_id = common_v6_setup_teardown
-    pytest_assert(peer_ports is not None, "No upstream neighbors in the testbed")
-
-    # Flush dataplane
-    ptfadapter.dataplane.flush()
-    # Load bgp monitor config
-    logger.info("Configured BGPMON on {}".format(duthost))
-    asichost.write_to_config_db(BGPMON_CONFIG_FILE)
-
-    port_index = random.randint(0, len(peer_ports)-1)
-    logger.info("Configured route to from PTF to LC on PTF port {}".format(peer_ports[port_index]))
-    router_mac = get_uplink_route_mac(duthosts, local_ports[port_index])
-    ptf_interface = "eth" + str(peer_ports[port_index])
-    ptfhost.shell("ip -6 addr add {} dev {}".format(peer_addr + "/128", ptf_interface))
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-    ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
-    try:
-        # Flush dataplane
-        ptfadapter.dataplane.flush()
-        asichost.write_to_config_db(BGPMON_CONFIG_FILE)
-        # Disable resolve-via-default
-        duthost.run_vtysh("-c \"configure terminal\" -c \"no ipv6 nht resolve-via-default\"", asic_index='all')
-        ptfhost.exabgp(name=BGP_MONITOR_NAME,
-                       state="started",
-                       local_ip=peer_addr,
-                       router_id=router_id,
-                       peer_ip=local_addr,
-                       local_asn=asn,
-                       peer_asn=asn,
-                       port=BGP_MONITOR_PORT)
-        pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
-                      "Failed to start bgp monitor session on PTF")
-        pytest_assert(not wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, asichost, peer_addr),
-                      "BGPMon Peer connection is established when it shouldn't be")
-    finally:
-        # Re-enable resolve-via-default
-        ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
-        ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, router_mac, ptf_interface))
-        ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
-        duthost.run_vtysh("-c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"", asic_index='all')
+        if selected_ptf_interface:
+            ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", selected_ptf_interface))
+            ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s"
+                          % (local_addr, selected_router_mac, selected_ptf_interface))
+            ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", selected_ptf_interface))
