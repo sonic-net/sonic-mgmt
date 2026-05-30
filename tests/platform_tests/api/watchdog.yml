@@ -13,9 +13,10 @@
 # NOTE: more specific regular expression must be defined after less specific.
 
 default:
-  valid_timeout: 10     # A valid timeout the watchdog has to accept
-  greater_timeout: 20   # A greater timeout value that watchdog has to accept, put None if single timeout value is a watchdog limitation
-  too_big_timeout: 100  # A timeout which is too big for HW watchdog, put None if there is no such limitation
+  valid_timeout: 10             # A valid timeout the watchdog has to accept
+  greater_timeout: 20           # A greater timeout value that watchdog has to accept, put None if single timeout value is a watchdog limitation
+  too_big_timeout: 100          # A timeout which is too big for HW watchdog, put None if there is no such limitation
+  has_watchdog_punching: false  # Whether watchdog is armed permanently and is punched regularly
 
 # Mellanox watchdog type 1
 x86_64-mlnx_msn2.*-r0:
@@ -230,3 +231,4 @@ x86_64-nexthop_.*:
     valid_timeout: 10
     greater_timeout: 16777
     too_big_timeout: 16778
+    has_watchdog_punching: true
