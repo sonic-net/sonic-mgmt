@@ -15,10 +15,14 @@ VM_CA_SUBNET = "10.0.0.0/16"
 PE_PA = "101.1.2.3"  # private endpoint physical address
 PE_CA = "10.2.0.100"  # private endpoint customer address
 PE_CA_SUBNET = "10.2.0.0/16"
-PL_ENCODING_IP = "fd40::d107:64:ff71:0:0"
-PL_ENCODING_MASK = "fffe:0:0:ffff:ffff:ffff::"
-PL_OVERLAY_SIP = "1:108:20::"
-PL_OVERLAY_SIP_MASK = "1:ffff:ffff::"
+PL_ENCODING_IP = "::d107:64:ff71:0:0"
+PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
+PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
+PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
+PL_ENCODING_IP_ALTERNATE = "fd40::d107:64:ff71:0:0"
+PL_ENCODING_MASK_ALTERNATE = "fffe:0:0:ffff:ffff:ffff::"
+PL_OVERLAY_SIP_ALTERNATE = "1:108:20::"
+PL_OVERLAY_SIP_MASK_ALTERNATE = "1:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
@@ -190,3 +194,12 @@ METER_RULE2_V4_CONFIG = {
         "metering_class": 2,
     }
 }
+
+DEFAULT_PL_SIP = (PL_ENCODING_IP, PL_ENCODING_MASK, PL_OVERLAY_SIP, PL_OVERLAY_SIP_MASK)
+PL_SIP_ALTERNATE = (
+    PL_ENCODING_IP_ALTERNATE,
+    PL_ENCODING_MASK_ALTERNATE,
+    PL_OVERLAY_SIP_ALTERNATE,
+    PL_OVERLAY_SIP_MASK_ALTERNATE,
+)
+PL_SIP_CONFIGS = (ENI_CONFIG, PE_VNET_MAPPING_CONFIG)
