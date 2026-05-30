@@ -108,9 +108,36 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
         testutils.send(ptfadapter, val['ptf_port_index'], inner_pkt)
 
         # Verify VXLAN encapsulated pkt on T1 port with rewritten inner src MAC
-        testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, test_configs["t1_ptf_port_nums"], timeout=2)
+        try:
+            testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt,
+                                             test_configs["t1_ptf_port_nums"], timeout=2)
+        except Exception:
+            dump_encap_failure_diagnostics(duthost, val, test_configs)
+            raise
 
     logger.info("WL to T1 VXLAN encapsulation test passed.")
+
+
+def dump_encap_failure_diagnostics(duthost, subintf_info, test_configs):
+    """
+    Dump bounded DUT state for VXLAN encap packet verification failures.
+    """
+    logger.error("VXLAN encap verification failed for subintf %s with T1 PTF ports %s",
+                 subintf_info, test_configs["t1_ptf_port_nums"])
+    commands = [
+        "show interfaces portchannel",
+        "show ip bgp vrf {} summary".format(subintf_info["vnet"]),
+        "show vnet routes all",
+        "aclshow -a",
+        "sonic-db-cli APPL_DB HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
+    ]
+    for cmd in commands:
+        try:
+            result = duthost.shell(cmd, module_ignore_errors=True)
+            logger.error("Diagnostic command '%s' rc=%s stdout=%s stderr=%s",
+                         cmd, result.get("rc"), result.get("stdout"), result.get("stderr"))
+        except Exception as err:
+            logger.error("Diagnostic command '%s' failed: %r", cmd, err)
 
 
 def validate_decap_t1_to_wl(duthost, ptfadapter, wl_portchannel_info, subintfs_info, test_configs):
@@ -187,66 +214,80 @@ def cleanup(duthost, ptfhost, localhost, wl_portchannel_info, subintfs_info):
         ptfhost: PTF host
         bond_port_mapping: map of bond port name (bond#) to ptf port name (eth#)
     """
-    # Restore config db
-    logger.debug("cleanup: Loading backup config db json.")
-    duthost.shell(f"mv {CONFIG_DB_PATH}.bak {CONFIG_DB_PATH}")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    def cleanup_step(name, func):
+        try:
+            func()
+        except Exception as err:
+            logger.error("cleanup step '%s' failed: %r", name, err)
 
-    # clean up gnmi server
-    recover_cert_config(duthost)
+    def restore_config_db():
+        logger.debug("cleanup: Loading backup config db json.")
+        backup_exists = duthost.shell(f"test -f {CONFIG_DB_PATH}.bak",
+                                      module_ignore_errors=True).get("rc") == 0
+        if not backup_exists:
+            logger.error("cleanup: backup config db %s.bak does not exist.", CONFIG_DB_PATH)
+            return
+        duthost.shell(f"mv -f {CONFIG_DB_PATH}.bak {CONFIG_DB_PATH}")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
-    cmds = []
-    # Remove sub port
-    try:
+    def cleanup_sub_interfaces():
+        if not subintfs_info:
+            logger.info("cleanup: no sub interfaces were created.")
+            return
+        cmds = []
         for _, val in subintfs_info.items():
             sub_port = val["bond_name"]
-            ip = val['ptf_ip']
+            ip = val["ptf_ip"]
             cmds.append("ip address del {} dev {}".format(ip, sub_port))
             cmds.append("ip link del {}".format(sub_port))
-        ptfhost.shell_cmds(cmds=cmds)
-    except Exception as e:
-        logger.error(f"Error occurred while cleaning up sub interfaces: {e}")
+        ptfhost.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)
 
-    cmds = []
-    # Remove bond ports
-    try:
-        for key, val in wl_portchannel_info.items():
+    def cleanup_bond_interfaces():
+        if not wl_portchannel_info:
+            logger.info("cleanup: no bond interfaces were created.")
+            return
+        cmds = []
+        for _, val in wl_portchannel_info.items():
             bond_port = val["bond_port"]
             port_name = val["ptf_port_name"]
             cmds.append("ip link set {} nomaster".format(bond_port))
             cmds.append("ip link set {} nomaster".format(port_name))
             cmds.append("ip link set {} up".format(port_name))
             cmds.append("ip link del {}".format(bond_port))
-        ptfhost.shell_cmds(cmds=cmds)
-    except Exception as e:
-        logger.error(f"Error occurred while cleaning up bond interfaces: {e}")
+        ptfhost.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)
 
-    # Stop exabgp process
-    kill_exabgp = f"""
+    def stop_exabgp_processes():
+        kill_exabgp = f"""
 MAIN_PID=$(pgrep -f "exabgp {EXABGP_CONFIG_PATH}")
 if [ -n "$MAIN_PID" ]; then
     echo "Killing test ExaBGP instance PID=$MAIN_PID"
     kill -9 $MAIN_PID 2>/dev/null
 fi
 """
-    ptfhost.shell(kill_exabgp, module_ignore_errors=True)
+        ptfhost.shell(kill_exabgp, module_ignore_errors=True)
 
-    kill_http_api = f"""
+        kill_http_api = f"""
 API_PID=$(pgrep -f "/usr/share/exabgp/http_api.py {EXABGP_PORT}")
 if [ -n "$API_PID" ]; then
     echo "Killing test http_api.py PID=$API_PID"
     kill -9 $API_PID 2>/dev/null
 fi
 """
-    ptfhost.shell(kill_http_api, module_ignore_errors=True)
+        ptfhost.shell(kill_http_api, module_ignore_errors=True)
 
-    # Remove tmp files
-    for file in temp_files:
-        if os.path.exists(file):
-            os.remove(file)
+    def remove_temp_files():
+        for file in temp_files:
+            ptfhost.shell("rm -f /tmp/{}".format(file), module_ignore_errors=True)
+            if os.path.exists(file):
+                os.remove(file)
 
-    # cleanup gnmi cert files
-    delete_gnmi_certs(localhost)
+    cleanup_step("restore config db", restore_config_db)
+    cleanup_step("recover gnmi cert config", lambda: recover_cert_config(duthost))
+    cleanup_step("remove ptf sub interfaces", cleanup_sub_interfaces)
+    cleanup_step("remove ptf bond interfaces", cleanup_bond_interfaces)
+    cleanup_step("stop exabgp processes", stop_exabgp_processes)
+    cleanup_step("remove temporary files", remove_temp_files)
+    cleanup_step("delete gnmi cert files", lambda: delete_gnmi_certs(localhost))
 
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
