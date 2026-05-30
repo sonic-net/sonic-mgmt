@@ -690,11 +690,13 @@ def creds_on_dut(duthost):
         creds["ansible_altpasswords"].append(hostvars["ansible_altpassword"])
 
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    port = hostvars.get("ansible_port", 22)
     creds['sonicadmin_password'] = get_dut_current_passwd(
         duthost.mgmt_ip,
         duthost.mgmt_ipv6,
         creds['sonicadmin_user'],
-        passwords
+        passwords,
+        port=port
     )
 
     for k, v in list(console_login_creds.items()):
