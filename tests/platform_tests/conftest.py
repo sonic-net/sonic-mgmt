@@ -207,6 +207,28 @@ def pytest_addoption(parser):
                      help="Fail the test if the hardware watchdog is not armed "
                           "(default: warn and skip the test when unarmed)")
 
+    # Options for test_breakout_config_db.py (defaults: 4x100G from 400G)
+    parser.addoption(
+        "--breakout-count", dest="breakout_count", type=int, default=None,
+        help="Number of breakout ports per base port (default: 4).",
+    )
+    parser.addoption(
+        "--breakout-speed", dest="breakout_speed", default=None,
+        help="Breakout port speed (default: '100000').",
+    )
+    parser.addoption(
+        "--breakout-total", dest="breakout_total", type=int, default=None,
+        help="Total breakout ports to create. Defaults to all matching base-speed ports.",
+    )
+    parser.addoption(
+        "--base-speed", dest="base_speed", default=None,
+        help="Base port speed to match when selecting ports (default: '400000').",
+    )
+    parser.addoption(
+        "--default-cable-length", dest="default_cable_length", default=None,
+        help="Fallback cable length when base port has none (e.g. 40m).",
+    )
+
 
 @pytest.fixture(scope="function", autouse=False)
 def suspend_and_resume_hw_tc_on_mellanox_device(duthosts, enum_rand_one_per_hwsku_hostname):
