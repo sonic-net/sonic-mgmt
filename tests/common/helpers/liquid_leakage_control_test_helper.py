@@ -60,7 +60,7 @@ def get_leakage_status(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: The leakage status of the DUT.
     """
-    return dut.show_and_parse("show platform leakage status")
+    return dut.show_and_parse("show platform leak status")
 
 
 def get_leakage_status_in_health_system(dut):
