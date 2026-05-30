@@ -299,15 +299,18 @@ def wait_for_rib_stable(duthost, timeout=120, poll_interval=10, stable_checks=2)
     """
     prev_count = None
     stable_streak = 0
-    deadline = time.time() + timeout
+    start = time.time()
+    deadline = start + timeout
 
     while time.time() < deadline:
+        elapsed = time.time() - start
         ipv4_summary, _ = duthost.get_ip_route_summary()
         curr_count = ipv4_summary.get("Totals", {}).get("routes", 0)
         if curr_count == prev_count:
             stable_streak += 1
             if stable_streak >= stable_checks:
-                logger.info("RIB stable: %d routes (confirmed %d times)", curr_count, stable_checks)
+                logger.info("RIB stable: %d routes (confirmed %d times, elapsed=%.0fs)",
+                            curr_count, stable_checks, elapsed)
                 return
         else:
             stable_streak = 0
