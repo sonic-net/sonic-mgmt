@@ -52,6 +52,8 @@ def setup_env(duthost):
         th5_queue = {
             'Arista-7060X6-64PE-B-C448O16': 4,
             'Arista-7060X6-64PE-B-C512S2': 4,
+            'Arista-7060X6-64PE-B-O128': 4,
+            'Arista-7060X6-16PE-384C-B-O128S2': 4,
         }
 
         # TH5 trim queue defaults to 9 unless otherwise configured
