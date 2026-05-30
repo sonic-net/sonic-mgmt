@@ -276,8 +276,18 @@ class GenerateGoldenConfigDBModule(object):
                                                      state="enabled", feature_data=None):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
-            # need dump running config FEATURE + selected feature
-            gold_config_db = self.get_multiasic_feature_config()
+            # Merge running config FEATURE into existing config instead of replacing,
+            # to preserve other tables (e.g. BGP_DEVICE_GLOBAL) already in full_config.
+            feature_config = self.get_multiasic_feature_config()
+            if full_config == {}:
+                gold_config_db = feature_config
+            else:
+                for ns, ns_data in feature_config.items():
+                    if ns in full_config:
+                        full_config[ns].update(ns_data)
+                    else:
+                        full_config[ns] = ns_data
+                gold_config_db = full_config
         else:
             # need existing config + selected feature
             gold_config_db = full_config
