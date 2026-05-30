@@ -1106,6 +1106,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+            if multi_vrf_peer:
+                device['host'].bgp_vrf = multi_vrf_data['vrf']
+                device['host'].bgp_prime_asn = multi_vrf_data['primary_host_asn']
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
