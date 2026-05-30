@@ -16,6 +16,8 @@ import time
 from copy import deepcopy
 from threading import Thread, Event
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.duthost_utils import start_route_checker_on_duthost, \
+        stop_route_checker_on_duthost
 import ptf
 import ptf.packet as scapy
 from ptf.testutils import simple_icmpv6_packet
@@ -54,6 +56,23 @@ ICMP_TYPE_MAX = 125
 _icmp_type_generator = itertools.cycle(range(ICMP_TYPE_MIN, ICMP_TYPE_MAX + 1))
 test_results = {}
 current_test = ""
+
+
+@pytest.fixture(autouse=True)
+def disable_route_check_in_setup_and_call(tbinfo, duthost):
+    topo_type = tbinfo['topo']['type']
+    allowed_topos = {"t1"}
+    if topo_type in allowed_topos:
+        stop_route_checker_on_duthost(duthost)
+        logger.info(f"The routeCheck is disabled on DUT {duthost}")
+    else:
+        logger.warning(f"Skip disable routeCheck on topo {topo_type}")
+
+    yield
+
+    if topo_type in allowed_topos:
+        start_route_checker_on_duthost(duthost)
+        logger.info(f"The routeCheck is enabled on DUT {duthost}")
 
 
 @pytest.fixture(scope="module", autouse=True)
