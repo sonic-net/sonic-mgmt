@@ -73,6 +73,66 @@ def is_macsec_capable_node(inv_files, hostname):
     return False
 
 
+def get_admin_down_dpu_hostnames(tbinfo):
+    """Return the set of DPU hostnames that are administratively down per testbed.yaml.
+
+    A DPU hostname has the form ``<npu_hostname>-dpu-<index>``. The testbed.yaml
+    ``enabled_dpus`` mapping (added by PR #24573) lists the DPU indices that
+    should be admin-up for each NPU; any DPU index missing from that list is
+    treated as admin-down.
+
+    Behavior:
+        - If ``enabled_dpus`` is absent for the testbed → returns empty set
+          (legacy behavior: no DPUs are filtered out).
+        - If ``enabled_dpus`` is present but the parent NPU is not listed →
+          DPUs of that NPU are NOT filtered (legacy behavior for that NPU).
+        - If ``enabled_dpus[npu]`` is an explicit empty list → every DPU of
+          that NPU is marked admin-down.
+
+    Args:
+        tbinfo: Testbed info dict (from the ``tbinfo`` fixture).
+
+    Returns:
+        set[str]: DPU hostnames that should be skipped by sanity/health checks.
+    """
+    admin_down = set()
+    if not tbinfo:
+        return admin_down
+
+    enabled_dpus = tbinfo.get('enabled_dpus')
+    if not enabled_dpus:
+        return admin_down
+
+    duts = tbinfo.get('duts', []) or []
+    for npu_host, dpu_entries in enabled_dpus.items():
+        enabled_indices = set()
+        for entry in (dpu_entries or []):
+            if isinstance(entry, dict) and 'dpu_index' in entry:
+                try:
+                    enabled_indices.add(int(entry['dpu_index']))
+                except (TypeError, ValueError):
+                    continue
+            else:
+                try:
+                    enabled_indices.add(int(entry))
+                except (TypeError, ValueError):
+                    continue
+
+        prefix = "{}-dpu-".format(npu_host)
+        for dut in duts:
+            if not dut.startswith(prefix):
+                continue
+            suffix = dut[len(prefix):]
+            try:
+                idx = int(suffix)
+            except ValueError:
+                continue
+            if idx not in enabled_indices:
+                admin_down.add(dut)
+
+    return admin_down
+
+
 def is_container_running(duthost, container_name):
     """Decides whether the container is running or not
     @param duthost: Host DUT.
