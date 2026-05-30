@@ -28,6 +28,30 @@ def shutdown_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         duthost.no_shutdown_interface(intf_to_restore)
 
 
+def _pick_neighbor(asichost):
+    """Pick a routed interface with an IPv4 or IPv6 peer.
+
+    Returns a tuple (dut_intf, neighbor_ip, is_ipv6) or (None, None, None) if no
+    suitable neighbor is found. IPv4 is preferred for backward compatibility; if
+    no IPv4 peer is present (e.g. IPv6-only topologies) we fall back to IPv6.
+    """
+    # Prefer IPv4 peers when available
+    ip_interfaces = asichost.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+    for intf, attrs in ip_interfaces.items():
+        peer = attrs.get("peer_ipv4")
+        if peer and peer != "N/A":
+            return intf, peer, False
+
+    # Fall back to IPv6 peers
+    ipv6_interfaces = asichost.show_ipv6_interface()["ansible_facts"].get("ipv6_interfaces", {})
+    for intf, attrs in ipv6_interfaces.items():
+        peer = attrs.get("peer_ipv6")
+        if peer and peer != "N/A":
+            return intf, peer, True
+
+    return None, None, None
+
+
 class TestNeighborMacAging:
     def testNeighborMacAgingAfterIntfDown(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                           enum_rand_one_frontend_asic_index, shutdown_interface):
@@ -36,37 +60,32 @@ class TestNeighborMacAging:
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
-        ip_interfaces = asichost.show_ip_interface()["ansible_facts"]['ip_interfaces']
-        logger.debug("ip_interfaces: " + str(ip_interfaces))
 
-        dut_intf = None
-        neighbor_ip = None
-        for intf in ip_interfaces.keys():
-            if "peer_ipv4" in ip_interfaces[intf] and ip_interfaces[intf]["peer_ipv4"] != "N/A":
-                dut_intf = intf
-                neighbor_ip = ip_interfaces[intf]["peer_ipv4"]
-                break
-        pytest_assert(dut_intf is not None, "No IP interface found on DUT")
-        logger.debug("DUT interface: {}, neighbor IP: {}".format(dut_intf, neighbor_ip))
+        dut_intf, neighbor_ip, is_ipv6 = _pick_neighbor(asichost)
+        if dut_intf is None:
+            pytest.skip("No IPv4 or IPv6 routed neighbor found on DUT; nothing to age out")
+        logger.info("DUT interface: %s, neighbor IP: %s (ipv6=%s)", dut_intf, neighbor_ip, is_ipv6)
 
-        # Verify that the MAC address is present in the ARP table and ASIC_DB
-        arp_entry = duthost.command("{} neigh show {}".format(asichost.ip_cmd, neighbor_ip))['stdout_lines'][0]
-        redis_entry = duthost.command("{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\\\"{}\\\"*\""
-                                      .format(asichost.sonic_db_cli, neighbor_ip))['stdout_lines'][0]
-        pytest_assert(arp_entry, "ARP entry not found")
-        pytest_assert(redis_entry, "Redis entry not found")
+        neigh_cmd = "{} {} neigh show {}".format(
+            asichost.ip_cmd, "-6" if is_ipv6 else "-4", neighbor_ip)
+        asic_db_cmd = ("{} ASIC_DB KEYS "
+                       "\"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\\\"{}\\\"*\"").format(
+            asichost.sonic_db_cli, neighbor_ip)
+
+        # Verify that the MAC address is present in the neighbor table and ASIC_DB
+        arp_entry = duthost.command(neigh_cmd)['stdout_lines']
+        redis_entry = duthost.command(asic_db_cmd)['stdout_lines']
+        pytest_assert(arp_entry, "Neighbor entry not found for {}".format(neighbor_ip))
+        pytest_assert(redis_entry, "Redis ASIC_DB entry not found for {}".format(neighbor_ip))
 
         # Shutdown the interface on DUT
         shutdown_interface(dut_intf)
 
         def check_neighbor_aged_out():
-            arp_lines = duthost.command("{} neigh show {}".format(
-                asichost.ip_cmd, neighbor_ip))['stdout_lines']
-            redis_lines = duthost.command(
-                "{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\\\"{}\\\"*\"".format(
-                    asichost.sonic_db_cli, neighbor_ip))['stdout_lines']
+            arp_lines = duthost.command(neigh_cmd)['stdout_lines']
+            redis_lines = duthost.command(asic_db_cmd)['stdout_lines']
             return len(arp_lines) == 0 and len(redis_lines) == 0
 
-        # Verify that the MAC address is aged out from the ARP table and ASIC_DB
+        # Verify that the neighbor entry is aged out from the table and ASIC_DB
         pytest_assert(wait_until(120, 10, 0, check_neighbor_aged_out),
-                      "ARP/Redis entry not aged out after interface down")
+                      "Neighbor/Redis entry not aged out after interface down")
