@@ -17,6 +17,7 @@ Note: Uses mocking to avoid PTF dependencies during import.
 import pytest
 import sys
 import os
+from contextlib import ExitStack
 from unittest.mock import Mock, patch, MagicMock
 
 # Add probe directory to path
@@ -604,6 +605,37 @@ class TestProbingBaseSetUp:
         print(f"  Result: mode={pb.ingress_drop_counter_mode}")
         assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
         print("[OK] port_buffer_drop mode")
+
+    @pytest.mark.order(941)
+    def test_setUp_applies_ingress_drop_counter_mode_pg_drop_param(self):
+        """Test real setUp() preserves ingress_drop_counter_mode='pg_drop'"""
+        print("\n=== Testing setUp() - Real ingress_drop_counter_mode='pg_drop' Param ===")
+
+        class MockThriftInterfaceDataPlane:
+            @staticmethod
+            def setUp(_test):
+                return None
+
+        pb = ConcreteProbingBase()
+        assert not hasattr(pb, 'ingress_drop_counter_mode'), \
+            "test relies on setUp() reading the preconfigured ingress_drop_counter_mode"
+        pb.ingress_drop_counter_mode = 'pg_drop'
+        pb.clients = Mock()
+
+        with ExitStack() as stack:
+            stack.enter_context(patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
+                                      MockThriftInterfaceDataPlane))
+            stack.enter_context(patch('probing_base.switch_init'))
+            stack.enter_context(patch('probing_base.time.sleep'))
+            mock_trace = stack.enter_context(patch('probing_observer.ProbingObserver.trace'))
+            pb.setUp()
+
+        assert pb.ingress_drop_counter_mode == 'pg_drop'
+        assert not hasattr(pb, 'use_pg_drop_counter')
+        trace_messages = [str(call_args) for call_args in mock_trace.call_args_list]
+        assert any("ingress_drop_counter_mode=pg_drop" in message for message in trace_messages), \
+            f"expected ingress_drop_counter_mode=pg_drop trace; got {trace_messages}"
+        print("[OK] real setUp() preserves ingress_drop_counter_mode='pg_drop'")
 
 
 class TestProbingBaseTearDown:
