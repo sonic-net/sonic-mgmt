@@ -15,7 +15,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
     configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
-    get_test_ports)
+    get_test_ports, configure_srv6_loop_break_acl, cleanup_srv6_loop_break_acl)
 
 
 logger = logging.getLogger(__name__)
@@ -277,9 +277,13 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
     )
     logger.info(f"Added static route {SRV6_ROUTE_PREFIX} -> {nexthop} via {egress_intf}")
 
+    # Install ingress ACL on the egress physical port to drop decap SRv6 packets coming back from the neighbor
+    configure_srv6_loop_break_acl(rand_selected_dut, test_params['egress_ports'][0]['dut_members'])
+
     yield dscp_mode
 
-    # Cleanup: Remove static route
+    # Cleanup: remove ingress ACL first, then the static route
+    cleanup_srv6_loop_break_acl(rand_selected_dut)
     rand_selected_dut.command(f'sonic-db-cli CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
     logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
