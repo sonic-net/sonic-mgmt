@@ -44,8 +44,19 @@ class VxlanEcmpTest(BaseTest):
             with open(params["macs_file"], "r") as f:
                 self.mac_list = json.load(f)
         else:
-            self.mac_list = params.get("mac_address", [])
+            self.mac_list = params.get("mac_address", ["00:aa:bb:cc:dd:ee"] * len(self.endpoints))
+        self.mac_list = self.mac_list + [self.mac_list[-1]] * \
+            (len(self.endpoints) - len(self.mac_list))  # pad if shorter than endpoints
 
+        if "vni_file" in params and os.path.exists(params["vni_file"]):
+            with open(params["vni_file"], "r") as f:
+                self.vni_list = json.load(f)
+        else:
+            self.vni_list = params.get("vni", [0] * len(self.endpoints))
+        self.vni_list = self.vni_list + [self.vni_list[-1]] * \
+            (len(self.endpoints) - len(self.vni_list))  # pad if shorter than endpoints
+
+        self.endpoints_mac_vni_tuple_list = list(zip(self.endpoints, self.mac_list, self.vni_list))
         self.dst_ip = params.get("dst_ip")
         self.src_ip = params.get("ptf_src_ip")
         self.dut_vtep = params.get("dut_vtep")
@@ -54,7 +65,6 @@ class VxlanEcmpTest(BaseTest):
         self.vxlan_port = int(params.get("vxlan_port", 4789))
         self.send_port = int(params.get("ptf_ingress_port", 0))
         self.mac_vni_verify = params.get("mac_vni_verify", "") == "yes"
-        self.vni = params.get("vni")
         self.deleted_endpoints = params.get("deleted_endpoints", [])
         self.modified_mac_index = params.get("modified_mac_index")
         self.modified_mac_value = params.get("modified_mac_value")
@@ -109,7 +119,7 @@ class VxlanEcmpTest(BaseTest):
             udp_sport=12345,
             udp_dport=self.vxlan_port,
             with_udp_chksum=False,
-            vxlan_vni=self.vni,
+            vxlan_vni=self.vni_list[idx],
             inner_frame=inner_exp,
         )
         encap[scapy.IP].flags = 0x2
@@ -128,7 +138,7 @@ class VxlanEcmpTest(BaseTest):
     def verify_mac_vni_encap(self):
         logger.info("=== MAC+VNI multi-endpoint ECMP validation ===")
         src_mac = self.dataplane.get_mac(0, self.send_port)
-        endpoint_hits = {ep: 0 for ep in self.endpoints}
+        endpoint_mac_vni_hits = [0 for _ in range(len(self.endpoints))]
         mismatch_count = 0
         if self.modified_mac_index is not None:
             self.mac_list[self.modified_mac_index] = self.modified_mac_value
@@ -168,12 +178,20 @@ class VxlanEcmpTest(BaseTest):
                 if outer_dst not in self.endpoints:
                     logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
                     continue
+                dst_mac = pkt[scapy.VXLAN][scapy.Ether].dst
+                if dst_mac not in self.mac_list:
+                    logger.error(f"Received VXLAN pkt with unexpected dst MAC {dst_mac}")
+                    continue
+                received_vni = pkt[scapy.VXLAN].vni
+                if received_vni not in self.vni_list:
+                    logger.error(f"Received VXLAN pkt with unexpected VNI {received_vni}")
+                    continue
 
-                idx = self.endpoints.index(outer_dst)
+                idx = self.endpoints_mac_vni_tuple_list.index((outer_dst, dst_mac, received_vni))
                 exp = self._build_expected_for_index(idx, inner)
 
                 if exp.pkt_match(pkt):
-                    endpoint_hits[outer_dst] += 1
+                    endpoint_mac_vni_hits[idx] += 1
                     break
                 else:
                     mismatch_count += 1
@@ -182,14 +200,14 @@ class VxlanEcmpTest(BaseTest):
                         f"\n\nExpected:\n{exp}\n\nReceived:\n{pkt}\n\n"
                     )
 
-        logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_hits}")
+        logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_mac_vni_hits}")
         if mismatch_count > 0:
             raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation")
-        used = [ep for ep, c in endpoint_hits.items() if c > 0]
+        used = [self.endpoints_mac_vni_tuple_list[idx] for idx, c in enumerate(endpoint_mac_vni_hits) if c > 0]
         if len(used) == 0:
             raise AssertionError("NO endpoints used VXLAN not working")
         if len(used) < len(self.endpoints):
-            missing = set(self.endpoints) - set(used)
+            missing = set(self.endpoints_mac_vni_tuple_list) - set(used)
             raise AssertionError(f"Missing endpoint hits: {missing}")
 
         logger.info("MAC+VNI multi-endpoint ECMP validation PASSED.")
