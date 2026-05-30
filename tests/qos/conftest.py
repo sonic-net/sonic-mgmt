@@ -175,6 +175,51 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
         pytest.skip("Skip test for lossy only pool")
 
 
+# Global variable to track fixture failures per parameter set for TestQosSai
+_fixture_failures = {}
+
+
+def pytest_sessionstart(session):
+    """Clear fixture failure tracking to prevent stale state in pytest-xdist workers."""
+    _fixture_failures.clear()
+
+
+def pytest_runtest_makereport(item, call):
+    """Record testParameter setup failures to cascade-skip subsequent tests in the same parameter set."""
+    if not (hasattr(item, 'cls') and item.cls and item.cls.__name__ == 'TestQosSai'):
+        return
+    if 'fixture_seed' not in item.keywords:
+        return
+
+    if call.when == "setup" and call.excinfo is not None:
+        callspec = getattr(item, 'callspec', None)
+        if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+            param_set = callspec.params['select_src_dst_dut_and_asic']
+        else:
+            param_set = 'default'
+
+        _fixture_failures[param_set] = True
+
+
+def pytest_runtest_setup(item):
+    """Skip tests if fixtures failed for this parameter set."""
+    if not (hasattr(item, 'cls') and item.cls and item.cls.__name__ == 'TestQosSai'):
+        return
+
+    # Don't skip seed tests - let them fail naturally to show the root cause
+    if 'fixture_seed' in item.keywords:
+        return
+
+    callspec = getattr(item, 'callspec', None)
+    if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+        param_set = callspec.params['select_src_dst_dut_and_asic']
+    else:
+        param_set = 'default'
+
+    if param_set in _fixture_failures:
+        pytest.skip(f"Skipping because fixtures failed for parameter set [{param_set}]")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
