@@ -665,7 +665,13 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     marker = loganalyzer.init()
 
-    timeout_status_change = 30  # monit has a 5s cycle interval per test parameters
+    # Bumped from 30s -> 200s to match the same wait helper used by
+    # consumes_memory_and_checks_container_restart() elsewhere in this file.
+    # The 30s budget was too tight on slow ARM/Marvell-Prestera platforms
+    # (Nokia-7215 ~48% pass rate vs 100% elsewhere). 200s gives monit's 5s
+    # cycle plenty of headroom under load while still failing fast on a
+    # real regression.
+    timeout_status_change = 200
 
     container.start_consume_memory()
     container.wait_monit_mem_last_failed(timeout_status_change)
