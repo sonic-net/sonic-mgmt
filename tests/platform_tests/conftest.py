@@ -12,6 +12,7 @@ from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
 from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
 from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
 from tests.common.platform.interface_utils import get_ports_with_flat_memory
+from tests.common.helpers.platform_api import bmc
 
 logger = logging.getLogger(__name__)
 
@@ -183,8 +184,9 @@ def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
 
 def pytest_generate_tests(metafunc):
     val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames and val:
-        metafunc.parametrize('fw_pkg_name', val.split(','), scope="module")
+    if 'fw_pkg_name' in metafunc.fixturenames:
+        param_values = val.split(',') if val else [None]
+        metafunc.parametrize('fw_pkg_name', param_values, scope="module")
 
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')
@@ -275,7 +277,11 @@ def cmis_cable_ports_and_ver(duthosts):
 
 
 @pytest.fixture(scope='module')
-def fw_pkg(fw_pkg_name):
+def fw_pkg(duthosts, enum_rand_one_per_hwsku_hostname, fw_pkg_name):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not bmc.is_bmc_exists(duthost):
+        pytest.skip("BMC is not present, skipping BMC platform API tests")
+
     if fw_pkg_name is None:
         pytest.skip("No fw package specified.")
 
