@@ -12,6 +12,7 @@ try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
+from netmiko.exceptions import ReadTimeout
 from paramiko.ssh_exception import SSHException
 
 
