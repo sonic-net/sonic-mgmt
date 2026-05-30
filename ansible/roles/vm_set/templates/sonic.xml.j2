@@ -57,9 +57,15 @@
   <resource>
     <partition>/machine</partition>
   </resource>
-  <os>
+  <os firmware='efi'>
+    <firmware>
+      <feature enabled='yes' name='secure-boot'/>
+      <feature enabled='no' name='enrolled-keys'/>
+    </firmware>
     <type arch='x86_64' machine='q35'>hvm</type>
     <boot dev='hd'/>
+    <loader readonly="yes" secure="yes" type="pflash" format="raw">/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
+    <nvram template="/usr/share/OVMF/OVMF_VARS_4M.fd" templateFormat="raw" format="raw">{{ efi_vars }}</nvram>
   </os>
   <features>
     <acpi/>
