@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('tgen'),
     pytest.mark.disable_memory_utilization,
+    pytest.mark.enable_proc_mem_cpu_monitor,
 ]
 
 # Test parameters (not from files)
@@ -113,11 +114,11 @@ def _apply_config_db_profile(duthost, profile_config, original_config):
     config['DEVICE_METADATA']['localhost'].update(meta)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(config, f, indent=4)
-        tmp_path = f.name
+        config_tmp_path = f.name
     try:
-        duthost.copy(src=tmp_path, dest='/etc/sonic/config_db.json')
+        duthost.copy(src=config_tmp_path, dest='/etc/sonic/config_db.json')
     finally:
-        os.unlink(tmp_path)
+        os.unlink(config_tmp_path)
 
 
 def _revert_config_db(duthost):
@@ -186,6 +187,8 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             MULTIPATH,
                             NUMBER_OF_ROUTES,
                             batch_value,
+                            mem_cpu_monitor,
+                            tmp_path,
                             route_type,):
     """
     Run RIB-IN convergence test for one (profile, bulk_value, batch_value, route_type).
@@ -197,6 +200,10 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
     supports --bgp_pc_config:
     when --bgp_pc_config is passed, tgen_ports uses port-channel info from config_db
     and run_rib_in_convergence_test skips duthost_bgp_config (port-channels preconfigured).
+
+    Same flow as test_rib_route_opt_perf with ``mem_cpu_monitor``:
+    ``start()`` before convergence, ``get_rib_in_convergence`` snapshots before/after
+    RIB-IN metrics and ``stop()`` in ``finally``; optional ``plot()`` to tmp_path.
 
     """
     if duthost.is_multi_asic:
@@ -212,12 +219,33 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
 
     logger.info('Running RIB-IN convergence test')
 
-    run_rib_in_convergence_test(snappi_api,
-                                duthost,
-                                tgen_ports,
-                                CONVERGENCE_TEST_ITERATIONS,
-                                MULTIPATH,
-                                NUMBER_OF_ROUTES,
-                                route_type,
-                                timeout=RIB_TIMEOUT,
-                                skip_duthost_bgp_config=use_bgp_pc_config,)
+    mem_cpu_monitor.start(
+        duthost,
+        ["bgpd", "zebra"],
+        interval=2.0,
+        include_host_free=True,
+        host_top_all_procs=True,
+        capture_raw_stdout=True,
+        output_basename_style="short_node",
+    )
+
+    try:
+        run_rib_in_convergence_test(snappi_api,
+                                    duthost,
+                                    tgen_ports,
+                                    CONVERGENCE_TEST_ITERATIONS,
+                                    MULTIPATH,
+                                    NUMBER_OF_ROUTES,
+                                    route_type,
+                                    timeout=RIB_TIMEOUT,
+                                    skip_duthost_bgp_config=use_bgp_pc_config,
+                                    mem_cpu_monitor=mem_cpu_monitor)
+    finally:
+        mem_cpu_monitor.stop()
+
+    plot_path = mem_cpu_monitor.plot(out_dir=str(tmp_path))
+    if plot_path:
+        logger.info('mem_cpu_monitor plot written to %s', plot_path)
+    exported = mem_cpu_monitor.export_samples(out_dir=str(tmp_path))
+    for fmt, p in exported.items():
+        logger.info('mem_cpu_monitor export_samples (%s) wrote %s', fmt, p)
