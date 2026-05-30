@@ -770,7 +770,8 @@ class GenerateGoldenConfigDBModule(object):
                 "Vnet_55": {
                     "scope": "default",
                     "vni": "10000",
-                    "vxlan_tunnel": "t4"
+                    "vxlan_tunnel": "t4",
+                    "advertise_prefix": "true"
                 }
             },
             "VXLAN_TUNNEL": {
