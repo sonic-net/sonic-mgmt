@@ -180,11 +180,11 @@ Verify LeakageSensorBase identity attributes: name, type, location.
 **Test Steps**:
 1. Skip if no leak sensors detected
 2. For each sensor, call `get_name()` — verify non-empty string, consistent across calls
-3. For each sensor, call `get_type()` — verify string or None, non-empty if present
-4. For each sensor, call `get_location()` — verify string or None, non-empty if present
+3. For each sensor, call `get_leak_sensor_type()` — verify string or None, non-empty if present
+4. For each sensor, call `get_leak_sensor_location()` — verify string or None, non-empty if present
 
 **Expected Result**:
-- All sensors return valid name, type, and location values
+- `get_name()`, `get_leak_sensor_type()`, `get_leak_sensor_location()` return non-empty strings
 - Values are consistent across repeated calls
 
 ---
@@ -194,12 +194,12 @@ Verify LeakageSensorBase identity attributes: name, type, location.
 **File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`
 
 **Test Objective**:
-Verify LeakageSensorBase status attributes: is_leak, is_leak_sensor_ok, severity.
+Verify LeakageSensorBase status attributes: `is_leak()`, `is_leak_sensor_ok()`, `get_leak_severity()`.
 
 **Test Steps**:
 1. Skip if no leak sensors detected
-2. For each sensor, call `get_is_leak()` — verify boolean, consistent
-3. For each sensor, call `get_is_leak_sensor_ok()` — verify boolean, consistent
+2. For each sensor, call `is_leak()` — verify boolean, consistent
+3. For each sensor, call `is_leak_sensor_ok()` — verify boolean, consistent
 4. For each sensor, call `get_leak_severity()` — verify value in {MINOR, CRITICAL}
 
 **Expected Result**:
@@ -287,23 +287,26 @@ Verify SWITCH-HOST admin/oper status attributes and their consistency relationsh
 
 **Test Steps**:
 1. Skip if SWITCH-HOST not supported
-2. Call `get_admin_status()` — cast to `str()`; verify value in {up, down}, consistent
-3. Call `get_oper_status()` — cast to `str()`; verify consistent across calls
-4. Verify admin/oper relationship (no fallback — must match exact valid set):
-   - admin=up → oper must be one of {PRESENT, ONLINE, PoweredOn}
-   - admin=down → oper must be one of {PoweredDown, OFFLINE, POWERED_DOWN}
-5. Call `set_admin_status()` with current value — verify accessible without crash
-6. **Power-on verification (when `admin_status` transitions down→up)**:
+2. Call `module.get_oper_status()` — verify return is one of the `MODULE_STATUS_*` values:
+   `Empty`, `Offline`, `PoweredDown`, `Present`, `Fault`, `Online`
+3. Read admin status from CONFIG_DB on the BMC — `CHASSIS_MODULE|SWITCH-HOST admin_status`
+   (`ModuleBase` exposes only `set_admin_state(up)`, no getter)
+4. Verify admin/oper relationship:
+   - `admin_status=up` → oper must be one of `{Present, Online}`
+   - `admin_status=down` → oper must be one of `{Offline, PoweredDown, Empty}`
+5. Call `module.set_admin_state(up: bool)` passing the current effective state as a no-op —
+   verify return is `bool` and no exception
+6. **Power-on verification (when transitioning admin down→up via `set_admin_state(True)`)**:
    - Resolve paired switch via `duthost.get_bmc_host()`
    - Wait up to `power_on_delay + graceful_shutdown_timeout` for SSH to come up on the switch
    - Read `uptime -s` and `show reboot-cause` on the switch — assert uptime is recent (< 5 min)
      and reboot cause is one of `{Power Loss, power down request from BMC, graceful shutdown from BMC}`
-   - Restore the original admin_status in `finally`
+   - Restore original admin state via `set_admin_state(False)` in `finally`
 
 **Expected Result**:
-- Admin status is one of the valid values (Ansible string normalized via `str()`)
-- Oper status matches the expected set for the current admin state
-- set_admin_status is callable
+- `get_oper_status()` returns one of the `MODULE_STATUS_*` strings
+- CONFIG_DB `admin_status` matches the effective oper status per the table above
+- `set_admin_state(up)` is callable and returns `bool`
 - After a real down→up transition the paired switch boots and reports the expected reboot cause
 
 ---
@@ -372,16 +375,16 @@ Verify module enumeration APIs: `get_num_modules()`, `get_all_modules()`, `get_m
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
 **Test Objective**:
-Verify `get_serial()` for the SWITCH-HOST module — the `get_switch_host_serial` pattern from design doc section 2.3.2.
+Verify `get_serial()` for the SWITCH-HOST module (the `get_switch_host_serial` pattern).
 
 **Test Steps**:
-1. Call `get_module_index('SWITCH-HOST')` — skip if not found
-2. Call `get_module_serial('SWITCH-HOST')` via the chassis platform API helper
+1. Call `chassis.get_module_index('SWITCH-HOST')` — skip if not found
+2. Call `module.get_serial(idx)` on the SWITCH-HOST module
 3. Verify the returned value is a non-empty string
 
 **Expected Result**:
-- `get_module_index('SWITCH-HOST')` returns a valid non-negative index
-- `get_module_serial()` returns a non-empty string serial number (e.g., `"SN12345"`)
+- `chassis.get_module_index('SWITCH-HOST')` returns a valid non-negative index
+- `module.get_serial()` returns a non-empty string serial number (e.g., `"SN12345"`)
 
 ---
 
@@ -398,7 +401,7 @@ Verify the `do_power_cycle()` platform API powers the SWITCH-HOST off and back o
 3. Call `module.do_power_cycle()` via platform API — assert return is `True`
 4. Wait up to `graceful_shutdown_timeout + power_on_delay + 180 s` for SSH to come back on the paired switch (`wait_until` polling)
 5. Run `uptime -s` on the paired switch — assert post-cycle boot timestamp is newer than pre-cycle
-6. Run `show reboot-cause` on the paired switch — assert cause is `power down request from BMC` or `graceful shutdown from BMC` (per design doc §2.4.2)
+6. Run `show reboot-cause` on the paired switch — assert cause is `power down request from BMC` or `graceful shutdown from BMC`
 
 **Expected Result**:
 - `do_power_cycle()` returns `True`
@@ -917,7 +920,7 @@ thermalctld first and observes the next initialization + injection cycle.
 #### Test Case #35: test_show_chassis_module_status
 
 **Test Objective**:
-Verify `show chassis module status` (design doc section 2.3.2) returns SWITCH-HOST entry with oper status (LC, AC).
+Verify `show chassis module status` returns SWITCH-HOST entry with oper status (LC, AC).
 
 **Test Steps**:
 1. Execute `show chassis module status` — verify rc=0, non-empty output
@@ -934,7 +937,7 @@ Verify `show chassis module status` (design doc section 2.3.2) returns SWITCH-HO
 #### Test Case #36: test_show_platform_temperature
 
 **Test Objective**:
-Verify `show platform temperature` (design doc section 2.3.2) lists thermal sensors with threshold columns (LC, AC).
+Verify `show platform temperature` lists thermal sensors with threshold columns (LC, AC).
 
 **Test Steps**:
 1. Execute `show platform temperature` — verify rc=0, non-empty output
@@ -951,7 +954,7 @@ Verify `show platform temperature` (design doc section 2.3.2) lists thermal sens
 #### Test Case #37: test_config_chassis_modules
 
 **Test Objective**:
-Verify `config chassis modules` subcommands match design doc section 2.3.1: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC), and that each shutdown / startup transition is functionally honoured by the paired Switch-Host.
+Verify `config chassis modules` subcommands `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC), and that each shutdown / startup transition is functionally honoured by the paired Switch-Host.
 
 **Test Steps**:
 1. Execute `config chassis modules --help` — verify help text returned or graceful skip on non-BMC

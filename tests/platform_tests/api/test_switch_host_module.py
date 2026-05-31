@@ -72,21 +72,26 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
     def test_switch_host_status_control(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
-        """Verify get_oper_status() and that set_admin_state() is callable."""
-        # get_oper_status() — design doc section 2.2.1: ONLINE or OFFLINE
+        """Verify get_oper_status() and that set_admin_state() is callable.
+
+        get_oper_status() returns one of the MODULE_STATUS_* constants:
+        'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'.
+        set_admin_state(up) takes a boolean and returns bool.
+        """
+        valid_oper = {'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'}
         oper_status = module_api.get_oper_status(platform_api_conn, self.sw_idx)
         self.expect(isinstance(oper_status, str),
                     f"get_oper_status() should return string, got {type(oper_status)}")
-        self.expect(oper_status in ['ONLINE', 'OFFLINE'],
-                    f"get_oper_status() should be 'ONLINE' or 'OFFLINE', got {oper_status!r}")
+        self.expect(oper_status in valid_oper,
+                    f"get_oper_status() should be one of {sorted(valid_oper)}, got {oper_status!r}")
 
         logger.info(f"SWITCH-HOST oper_status: {oper_status}")
 
-        # set_admin_state() — verify API is callable without changing state
         try:
-            # Pass current powered state as a no-op (False = keep powered down for safety)
-            module_api.set_admin_state(platform_api_conn, self.sw_idx, False)
-            logger.info("set_admin_state() is accessible")
+            ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, False)
+            self.expect(isinstance(ret, bool),
+                        f"set_admin_state(up) should return bool per ModuleBase, got {type(ret)}")
+            logger.info(f"set_admin_state(False) returned {ret}")
         except (NotImplementedError, Exception) as e:
             logger.info(f"set_admin_state() note: {e}")
 
