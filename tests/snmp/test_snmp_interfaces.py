@@ -33,11 +33,19 @@ def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
     :param enum_rand_one_per_hwsku_hostname: hostname of the DUT to run the test on
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    ConterpollHelper.disable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
-                                                                     CounterpollConstants.RIF])
+    counter_type_list = [CounterpollConstants.PORT,
+                         CounterpollConstants.RIF]
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            ConterpollHelper.disable_counterpoll(duthost, counter_type_list, asic)
+    else:
+        ConterpollHelper.disable_counterpoll(duthost, counter_type_list)
     yield
-    ConterpollHelper.enable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
-                                                                    CounterpollConstants.RIF])
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            ConterpollHelper.enable_counterpoll(duthost, counter_type_list, asic)
+    else:
+        ConterpollHelper.enable_counterpoll(duthost, counter_type_list)
 
 
 @pytest.fixture(scope="module")
