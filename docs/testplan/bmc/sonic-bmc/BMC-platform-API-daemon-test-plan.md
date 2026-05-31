@@ -3,7 +3,6 @@
 * [Definitions/Abbreviation](#definitionsabbreviation)
 * [Overview](#overview)
   * [HLD](#hld)
-  * [Scope](#scope)
   * [Testbed](#testbed)
   * [Setup Configuration](#setup-configuration)
 * [Test Cases](#test-cases)
@@ -20,10 +19,6 @@
 | **Term** | **Description** |
 |----------|-----------------|
 | BMC | Baseboard Management Controller |
-| API | Application Programming Interface |
-| Platform API | Hardware abstraction layer providing access to platform components |
-| Daemon | Background service process (bmcctld, thermalctld, etc.) |
-| State DB | Redis database storing system state information |
 | SWITCH-HOST | Module representing the Switch and CPU cards in a BMC-managed system |
 | LeakageSensorBase | Platform API for liquid cooling leak detection sensors |
 | ModuleBase | Platform API for controlling switch modules |
@@ -46,42 +41,13 @@ This test plan covers comprehensive testing of new BMC platform APIs and daemon 
 5. **Thermalctld Enhancements** - Updates to thermal daemon for leak detection and escalation
 6. **CLI Commands** - New and updated CLI commands for BMC management
 
-These features enable BMC systems to:
-- Monitor and detect liquid cooling leaks
-- Manage switch-host power states
-- Enforce thermal policies with leak detection
-- Provide user-friendly CLI access to BMC features
-
 ### HLD
 
 - **BMC Design Document**: https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md
 
-### Scope
-
-#### In Scope
-
-- LeakageSensorBase platform API validation (identity, state, severity)
-- ModuleBase SWITCH-HOST API validation (identity and status control)
-- Leak detection State DB schema validation
-- Bmcctld daemon initialization and functionality
-- Thermalctld leak detection enhancements
-- CLI commands for BMC, chassis, leak, and thermal management
-- Admin status configuration mirroring
-- Critical event handling and power gating
-- SWITCH-HOST module admin/oper status synchronization
-
-#### Out of Scope
-
-- Data plane functionality (not applicable to BMC)
-- ASIC-specific features (BMC has no ASIC)
-- Physical hardware testing (software API validation only)
-- Performance testing of daemon response times
-- Stress testing with thousands of sensors
-- Hardware-specific platform implementations
-
 ### Testbed
 
-Any SONiC BMC system or compatible virtual testbed with:
+Any SONiC BMC testbed with:
 - BMC running SONiC
 - Optional liquid cooling system (for leak detection tests)
 - Optional SWITCH-HOST module support (for module control tests)
@@ -95,7 +61,6 @@ Tests will gracefully skip features not available on the target platform.
 1. **System Requirements**:
    - BMC must be running SONiC
    - Access to platform APIs via `platform_api_conn` fixture
-   - Access to State DB (Redis DB 6)
 
 2. **Skip Conditions**:
    - Leak detection tests skip if system has no liquid cooling support
@@ -108,10 +73,92 @@ Tests will gracefully skip features not available on the target platform.
    - All tests are read-only against State DB
    - No configuration changes persist after test completion
 
-#### Common Tests Cleanup
 
-- No persistent state modifications required
-- Tests leave system unchanged after execution
+## Test Architecture
+
+This section captures the BMC-specific additions on top of the existing sonic-mgmt test framework.
+
+### 1. Inventory and Testbed Wiring
+
+Follows the internal `sonic-mgmt-int` convention: BMC and switch hosts live as plain entries in the regular `sonic` inventory group with a `-bmc` suffix on the BMC host (e.g. `host1-switch` / `host1-switch-bmc`). No dedicated BMC inventory group is introduced. The pair is wired at the testbed layer — the `dut:` list holds the BMC and the existing `bmc_host:` field points at the paired switch — so `duthost` resolves to the BMC and `tbinfo['bmc_host']` to the switch.
+
+Sample inventory entry (fields follow the existing `ansible/lab` style — `model`, `serial`, `base_mac`, `syseeprom_info` map of ONIE TLVs):
+
+```yaml
+sonic:
+  hosts:
+    host1-switch:
+      ansible_host: 192.168.200.20
+      hwsku: <switch-hwsku>
+      mgmt_subnet_mask_length: 24
+      model: <switch-model>
+      serial: <switch-serial>
+      base_mac: 24:8a:07:11:22:33
+      syseeprom_info:
+        "0x21": "<part-number>"
+        "0x22": "<part-number-alt>"
+        "0x23": "<serial>"
+        "0x24": "24:8a:07:11:22:33"
+        "0x25": "<mfg-date>"
+
+    host1-switch-bmc:
+      ansible_host: 192.168.200.10
+      hwsku: <bmc-hwsku>
+      mgmt_subnet_mask_length: 24
+      console_baudrate: 115200
+      model: <bmc-model>
+      serial: <bmc-serial>
+      base_mac: 24:8a:07:11:22:34
+      syseeprom_info:
+        "0x21": "<part-number>"
+        "0x22": "<part-number-alt>"
+        "0x23": "<serial>"
+        "0x24": "24:8a:07:11:22:34"
+        "0x25": "<mfg-date>"
+```
+
+Corresponding `ansible/testbed.yaml` entry:
+
+```yaml
+- conf-name: testbed-host1-switch-bmc
+  topo: bmc-dual-mgmt
+  dut:
+    - host1-switch-bmc
+  bmc_host: host1-switch
+  inv_name: <inventory-file>
+```
+
+### 2. BMC vs Switch Host Discrimination
+
+`is_bmc()` on `SonicHost` returns `self.facts.get('router_type') == 'NetworkBmc'`. Cross-side traversal uses the existing `get_bmc_host()` (switch → BMC) and a new `get_paired_bmc()` (BMC → switch) on `MultiAsicSonicHost`.
+
+### 3. Topology Marker
+
+Tests mark `@pytest.mark.topology('bmc')` to opt into the BMC topology. No new topo file is introduced — the existing `topo_bmc-dual-mgmt.yml` is reused.
+
+### 4. Platform API Connection
+
+Two new helpers under `tests/common/helpers/platform_api/` mirror the upstream classes and call through the existing `platform_api_conn` fixture:
+
+| Helper | Upstream class | Endpoint prefix |
+|---|---|---|
+| `liquid_cooling.py` | `LiquidCoolingBase` | `/platform/chassis/liquid_cooling/{name}` |
+| `leak_sensor.py` | `LeakageSensorBase` / `LeakSensorProfileBase` | `/platform/chassis/liquid_cooling/leak_sensor/{index}/{name}` |
+
+### 5. Liquid Cooling Feature Gate
+
+A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. No `pmon_daemon_control.json` fallback — the upstream API is the single source of truth.
+
+### 6. Leak Sensor Enumeration (Two-Gate Pattern)
+
+The per-test setup reads `duthost.facts['chassis']['leak_sensors']` (the `platform.json` list, merged in by `sonic_basic_facts`) and skips if empty. Combined with §5 this gives two independent gates: chassis-level (API says liquid-cooled) and data-level (`platform.json` declares sensors).
+
+### 7. Test Style Conventions
+
+- One API call per assertion; no duplicate consecutive reads to "confirm consistency."
+- Identity attributes compared against `platform.json` values, not hardcoded strings.
+- Chassis-level feature gates are module-scoped; per-test state is function-scoped.
+- Use `@pytest.mark.topology('bmc')` unless a test is exclusive to one BMC topology.
 
 ---
 
@@ -187,17 +234,26 @@ Verify LeakageSensorBase handles boundary conditions and invalid inputs graceful
 **File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`
 
 **Test Objective**:
-Verify `get_leak_profile()` and `get_leak_max_minor_duration_sec()` on `LeakageSensorBase` and `get_all_profiles()` on the liquid cooling device.
+Verify the `LeakSensorProfileBase` methods (`get_type()`, `get_leak_max_minor_duration_sec()`) and `get_all_profiles()` on the liquid cooling device.
+
+**Note on invocation**: The test process never calls these methods as Python objects on the DUT. All calls go through the `platform_api_conn` HTTP proxy (`start_platform_api_service` fixture) that runs inside pmon on the DUT. Profile methods are routed server-side via the URL path `/platform/chassis/liquid_cooling/leak_sensor/{idx}/leak_profile/{name}`, which inside pmon resolves to `chassis.get_liquid_cooling().get_leak_sensor(idx).get_leak_profile().{name}()`. Concretely, the test does NOT invoke `get_leak_profile()` itself — that hop is implicit in the URL — it only invokes the profile's leaf methods (`get_type`, `get_leak_max_minor_duration_sec`).
 
 **Test Steps**:
 1. Skip if no leak sensors detected
-2. For each sensor index: call `get_leak_profile()` — verify non-None profile object
-3. For each sensor with a valid profile: call `get_leak_max_minor_duration_sec()` — verify non-negative number
-4. Call `get_all_profiles()` — verify returns a list (if supported)
+2. For each sensor index: call `get_leak_max_minor_duration_sec()` over the REST proxy
+   (URL: `.../leak_sensor/{idx}/leak_profile/get_leak_max_minor_duration_sec`) — verify
+   non-`None` and a non-negative number. A successful response implicitly proves
+   `get_leak_profile()` returned a valid profile object on the server side.
+3. For each sensor index: call `get_type()` over the REST proxy
+   (URL: `.../leak_sensor/{idx}/leak_profile/get_type`) — verify a non-empty string
+   (e.g., `'rope'`, `'spot'`, `'flex_pcb'`)
+4. Call `get_all_profiles()` on the liquid cooling device (URL: `.../liquid_cooling/get_all_profiles`)
+   — verify returns a list (if supported)
 
 **Expected Result**:
-- `get_leak_profile()` returns a non-None profile object for every valid sensor index
-- `get_leak_max_minor_duration_sec()` returns a non-negative integer/float (e.g., 300, 600)
+- The REST call for `get_leak_max_minor_duration_sec()` returns a non-negative integer/float (e.g., 300, 600)
+  for every valid sensor index — implicitly confirming the server-side `get_leak_profile()` hop succeeded
+- `get_type()` returns a non-empty profile-type string
 - `get_all_profiles()` returns a list of profile objects
 
 ---
@@ -237,11 +293,18 @@ Verify SWITCH-HOST admin/oper status attributes and their consistency relationsh
    - admin=up → oper must be one of {PRESENT, ONLINE, PoweredOn}
    - admin=down → oper must be one of {PoweredDown, OFFLINE, POWERED_DOWN}
 5. Call `set_admin_status()` with current value — verify accessible without crash
+6. **Power-on verification (when `admin_status` transitions down→up)**:
+   - Resolve paired switch via `duthost.get_bmc_host()`
+   - Wait up to `power_on_delay + graceful_shutdown_timeout` for SSH to come up on the switch
+   - Read `uptime -s` and `show reboot-cause` on the switch — assert uptime is recent (< 5 min)
+     and reboot cause is one of `{Power Loss, power down request from BMC, graceful shutdown from BMC}`
+   - Restore the original admin_status in `finally`
 
 **Expected Result**:
 - Admin status is one of the valid values (Ansible string normalized via `str()`)
 - Oper status matches the expected set for the current admin state
 - set_admin_status is callable
+- After a real down→up transition the paired switch boots and reports the expected reboot cause
 
 ---
 
@@ -327,18 +390,53 @@ Verify `get_serial()` for the SWITCH-HOST module — the `get_switch_host_serial
 **File**: `tests/platform_tests/api/test_switch_host_module.py`
 
 **Test Objective**:
-Verify the `do_power_cycle()` platform API is present and returns a boolean for the SWITCH-HOST module.
-
-**Note**: This test validates the API contract only. It does NOT trigger an actual power cycle to avoid disrupting the DUT.
+Verify the `do_power_cycle()` platform API powers the SWITCH-HOST off and back on, and that the switch genuinely came back up afterwards.
 
 **Test Steps**:
 1. Call `get_module_index('SWITCH-HOST')` — skip if not found
-2. Call `module.do_power_cycle()` via platform API
-3. Verify the return value is a boolean (`True` or `False`)
+2. Resolve paired switch via `duthost.get_bmc_host()`; record pre-cycle `uptime -s`
+3. Call `module.do_power_cycle()` via platform API — assert return is `True`
+4. Wait up to `graceful_shutdown_timeout + power_on_delay + 180 s` for SSH to come back on the paired switch (`wait_until` polling)
+5. Run `uptime -s` on the paired switch — assert post-cycle boot timestamp is newer than pre-cycle
+6. Run `show reboot-cause` on the paired switch — assert cause is `power down request from BMC` or `graceful shutdown from BMC` (per design doc §2.4.2)
 
 **Expected Result**:
-- `do_power_cycle()` is callable and returns a boolean
-- No exception is raised during the call
+- `do_power_cycle()` returns `True`
+- Paired switch's `uptime -s` advances (newer boot timestamp)
+- `show reboot-cause` reports a BMC-initiated cause
+
+---
+
+### CLI Tests
+
+These tests use vendor SONiC CLI commands on the DUT (and, for cross-side cases, on the paired host via `get_bmc_host()` / `get_paired_bmc()`). They complement the Platform API tests by validating that the same data is exposed consistently through CLI and the inventory.
+
+#### Test Case #11a: test_show_version_serial_numbers_bmc
+
+**File**: `tests/platform_tests/cli/test_show_platform.py`
+
+**Test Objective**:
+On BMC topology, `show version` on the BMC exposes two serial fields per the SONiC BMC design ([pmon-bmc-design §2.3.2](https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md#232-show-commands)):
+
+```
+Serial Number: <BMC serial number>
+Switch-Host Serial Number: <Switch serial number>
+```
+
+Verify both serials match the corresponding inventory `serial:` fields for the BMC host and its paired switch host.
+
+**Test Steps**:
+1. Run `show version` on the BMC (`duthost`)
+2. Parse the `Serial Number:` line → `bmc_serial`
+3. Parse the `Switch-Host Serial Number:` line → `sw_serial`
+4. Compare `bmc_serial` to inventory `serial:` for the BMC hostname
+5. Resolve the paired switch via `duthost.get_bmc_host()`
+6. Compare `sw_serial` to inventory `serial:` for the paired switch hostname
+
+**Expected Result**:
+- `show version` output contains both `Serial Number:` and `Switch-Host Serial Number:` fields
+- When `serial:` is declared in inventory for either host, it matches the corresponding field from `show version`
+- Inventory comparison is best-effort: an absent `serial:` is logged but not failed
 
 ---
 
@@ -364,6 +462,8 @@ applies the boot delay only on a power-loss reboot.
 - bmcctld is running
 - State DB tables initialized with required fields on BMC platforms
 - Boot delay is applied only after `REBOOT_CAUSE_POWER_LOSS`; skipped on all other reboot types
+
+**Reviewer note (warm/fast reboot)**: Warm and fast reboot are not supported on the BMC SONiC instance itself. To exercise step 5's "skip boot-delay" branch we trigger a `warm-reboot` / `fast-reboot` on the **paired Switch-Host** (resolved via `duthost.get_paired_bmc()` from a switch test, or the inverse from a BMC test) and then verify the BMC pmon journal contains `"Skipping SWITCH_HOST_POWER_ON_DELAY"` for that reboot — i.e., we test the BMC's *handling* of the Switch-Host's warm/fast reboot cause, not warm/fast reboot of the BMC.
 
 ---
 
@@ -400,6 +500,15 @@ Verify bmcctld detects critical events and coordinates with thermalctld and psud
 - bmcctld service active
 - Critical events prevent power-on (if present)
 - Daemon coordination is in place
+
+**Reviewer note (how to trigger `SYSTEM_LEAK_STATUS`)**: vendor hardware paths to inject a real leak differ per platform (some expose a debug sysfs/i2c knob, some have no in-band trigger at all). For deterministic CI we inject the table directly into STATE_DB on the BMC:
+
+```
+sonic-db-cli STATE_DB HSET 'SYSTEM_LEAK_STATUS|system' \
+    device_leak_status MINOR timestamp "$(date -Iseconds)"
+```
+
+The injected row is deleted in `finally`. Vendor-specific hardware-injection (where supported) is out of scope for this generic test and will be covered as platform-specific add-ons.
 
 ---
 
@@ -454,6 +563,14 @@ original value (or deletes the injected key).
 - Duplicate HSET with the same value is ignored (dedup added in bmc_enhance)
 - All injected keys are cleaned up regardless of test outcome
 - Platforms without BMC support log info messages and the assertion is skipped
+
+**Reviewer note (CRITICAL leak → reboot)**: Trigger 2 above only injects `MINOR` (default action `syslog_only`). To exercise the `power_off` action path we add an additional sub-test guarded by `--bmc-allow-disruptive`:
+1. Snapshot `uptime -s` on the paired Switch-Host (via `duthost.get_bmc_host()`)
+2. Set `LEAK_CONTROL_POLICY system_critical_leak_action = power_off` (default)
+3. HSET `SYSTEM_LEAK_STATUS|system device_leak_status = CRITICAL`
+4. Wait up to 120 s for the Switch-Host SSH to drop, then for `show reboot-cause` on the Switch-Host to report `power down request from BMC` (or `graceful shutdown from BMC` if `graceful_shutdown_timeout > 0`)
+5. Assert post-reboot `uptime -s` is newer than the snapshot
+6. Restore `device_leak_status` and policy in `finally`; if Switch-Host did not auto-power-on, issue `config chassis modules startup SWITCH-HOST` to recover the testbed
 
 ---
 
@@ -517,14 +634,21 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 
 #### Test Case #21: test_pmon_bmcctld_kill_and_start_status
 
-**Test Objective**: Verify bmcctld auto-restarts after SIGKILL (supervisord autorestart).
+**Test Objective**: Verify bmcctld auto-restarts after SIGKILL (supervisord autorestart) and remains functional afterwards.
 
 **Test Steps**:
 1. Record pre-kill pid
 2. `stop_pmon_daemon(bmcctld, "-9", pid)` — send SIGKILL
 3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+4. **Post-restart smoke** — verify bmcctld is functional again:
+   - HSET `CONFIG_DB CHASSIS_MODULE|SWITCH-HOST admin_status` to its current value (no-op flip-restore)
+   - Confirm syslog records the subscription-handler entry within 30 s (proves SubscriberStateTable callbacks reattached)
+   - Read `STATE_DB CHASSIS_MODULE_TABLE|SWITCH-HOST oper_status` — assert non-empty
+   - Read `STATE_DB HOST_STATE|switch-host device_status` — assert non-empty
 
-**Expected Result**: bmcctld auto-restarts after SIGKILL.
+**Expected Result**:
+- bmcctld auto-restarts after SIGKILL with a new pid
+- After restart the daemon serves at least one CONFIG_DB subscription event and STATE_DB tables remain populated
 
 ---
 
@@ -572,43 +696,42 @@ Verify State DB values written by thermalctld are valid and within expected rang
 
 **Test Objective**:
 Verify thermalctld initializes leak monitoring tables on startup, including the startup
-seed row for `SYSTEM_LEAK_STATUS|system`.
+seed row for `SYSTEM_LEAK_STATUS|system`. To avoid asserting on a stale row populated long
+before this test ran, restart thermalctld first and verify the row is re-seeded fresh.
 
 **Test Steps**:
 1. Verify thermalctld process is running in pmon container
-2. Query `SYSTEM_LEAK_STATUS:system` — verify row exists with `device_leak_status` and `timestamp`
-   fields (seeded at startup with `'None'` even before any leak event)
-3. Query LEAK_PROFILE keys — log count if present
+2. **Restart thermalctld** (`stop_pmon_daemon` + `start_pmon_daemon`) and wait up to 120 s for new pid
+3. Within 60 s of the new pid, query `SYSTEM_LEAK_STATUS:system` — verify row exists with
+   `device_leak_status` and `timestamp` fields, and that `timestamp` is **newer than the restart
+   moment** (proves the row was just seeded, not pre-existing)
+4. Query LEAK_PROFILE keys — log count if present
 
 **Expected Result**:
-- thermalctld is running
-- `SYSTEM_LEAK_STATUS:system` row is present with `device_leak_status` in `{None, MINOR, CRITICAL}`
-  and a non-empty `timestamp` (startup seed ensures the row always exists)
+- thermalctld is running with a new pid after the restart
+- `SYSTEM_LEAK_STATUS:system` row is re-seeded with `device_leak_status` in `{None, MINOR, CRITICAL}`
+  and a `timestamp` newer than the restart moment
 - Graceful info-only on non-liquid-cooled platforms (row may be absent)
 
 ---
 
 #### Test Case #25: test_thermalctld_leak_status
 
-**Test Objective**:
-Verify thermalctld tracks leak status per sensor, MINOR→CRITICAL escalation config, and
-bmcctld integration.
+**Status**: **Deferred / Not currently supported**
 
-**Test Steps**:
+**Reason**: Reliable verification of `SYSTEM_LEAK_STATUS device_leak_status` requires either a real hardware leak (cannot be exercised in the test fleet) or a vendor-specific leak-injection knob (not yet standardised across platforms). Direct STATE_DB injection bypasses thermalctld's own state-machine and would only re-test what TC#16 / TC#26 already cover.
+
+This test will be enabled once a generic vendor-agnostic leak-injection mechanism is added to `sonic-platform-common` (tracked separately). Until then the test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
+
+**Planned Test Steps (for reference, not executed)**:
 1. Query `SYSTEM_LEAK_STATUS:system device_leak_status` — verify in {MINOR, CRITICAL, None}
 2. For each `LIQUID_COOLING_INFO` sensor:
    - `leaking` must be `Yes | No | N/A`
    - `leak_sensor_status` must be `Good | Fault`
    - `severity` must be `MINOR | CRITICAL`
-3. Query each `LEAK_PROFILE` entry — verify `max_minor_duration_sec > 0` (escalation threshold)
+3. Query each `LEAK_PROFILE` entry — verify `max_minor_duration_sec > 0`
 4. When `device_leak_status = CRITICAL`, assert at least one sensor shows `severity = CRITICAL`
 5. Verify CRITICAL leak propagates to `HOST_STATE:switch-host device_status`
-
-**Expected Result**:
-- All field values match the schema from `LiquidCoolingUpdater._refresh_leak_status`
-- Each profile has a positive escalation threshold (`MINOR` → `CRITICAL` after timeout)
-- System `CRITICAL` correlates with at least one `CRITICAL` sensor
-- bmcctld coordination is in place
 
 ---
 
@@ -686,17 +809,21 @@ Verify `SYSTEM_LEAK_STATUS|system` is present immediately after thermalctld star
 
 **Test Objective**:
 Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's STATE_DB.
+To avoid asserting on stale journal/STATE_DB content, the test restarts thermalctld first
+and observes the next mirror cycle.
 
 **Test Steps**:
 1. Skip if not a Switch-Host (`switch_host=1` absent in `/etc/sonic/platform_env.conf`)
-2. Scan pmon journal for `"Mirroring TEMPERATURE_INFO to BMC STATE_DB"` or
+2. **Restart thermalctld** on the Switch-Host (`stop_pmon_daemon` + `start_pmon_daemon`); wait up to 120 s for new pid
+3. After the restart, scan pmon journal **since the new pid** for `"Mirroring TEMPERATURE_INFO to BMC STATE_DB"` or
    `"Failed to open remote BMC TEMPERATURE_INFO table"`
-3. Verify local `TEMPERATURE_INFO:*` keys are populated
-4. Log BMC connectivity status from journal entries
+4. Verify local `TEMPERATURE_INFO:*` keys are populated post-restart
+5. Resolve the paired BMC via `duthost.get_paired_bmc()` and verify the mirrored
+   `TEMPERATURE_INFO:*` keys appear on the BMC STATE_DB within one polling interval
 
 **Expected Result**:
-- Switch-Host logs confirm BMC mirror init or graceful degradation on unreachable BMC
-- Local `TEMPERATURE_INFO` is populated (source data for the mirror)
+- After restart, thermalctld logs confirm BMC mirror init or graceful degradation on unreachable BMC
+- Local `TEMPERATURE_INFO` is populated and (when BMC is reachable) the mirror is observed on the paired BMC
 - Graceful skip on non-Switch-Host platforms
 
 ---
@@ -705,18 +832,20 @@ Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's ST
 
 **Test Objective**:
 Verify thermalctld on the BMC logs CRITICAL threshold breaches in `TEMPERATURE_INFO`
-to `/host/bmc/event.log`.
+to `/host/bmc/event.log`. To avoid asserting on a stale init log, the test restarts
+thermalctld first and observes the next initialization + injection cycle.
 
 **Test Steps**:
 1. Skip if not a BMC (`duthost.is_bmc()` returns False)
-2. Check pmon journal for `"Monitoring chassis thermals"` initialization message
-3. Inject `TEMPERATURE_INFO:test_critical_thermal_monitor` with `temperature=120.0`,
+2. **Restart thermalctld** on the BMC (`stop_pmon_daemon` + `start_pmon_daemon`); wait up to 120 s for new pid
+3. After the restart, check pmon journal **since the new pid** for `"Monitoring chassis thermals"` initialization message
+4. Inject `TEMPERATURE_INFO:test_critical_thermal_monitor` with `temperature=120.0`,
    `critical_high_threshold=80.0`
-4. Wait up to 90 s for event.log entry matching the test sensor (fallback: syslog)
-5. Delete injected entry in `finally`
+5. Wait up to 90 s for event.log entry matching the test sensor (fallback: syslog)
+6. Delete injected entry in `finally`
 
 **Expected Result**:
-- Init log confirms Switch-Host thermal monitoring is active
+- Post-restart init log confirms Switch-Host thermal monitoring is active
 - CRITICAL breach logs `"CRITICAL chassis thermal: <name> temperature <T>C >= critical_high_threshold <T>C"` within 90 s
 - Injected key is cleaned up regardless of outcome
 
@@ -763,14 +892,21 @@ to `/host/bmc/event.log`.
 
 #### Test Case #34: test_pmon_thermalctld_kill_and_start_status
 
-**Test Objective**: Verify thermalctld auto-restarts after SIGKILL.
+**Test Objective**: Verify thermalctld auto-restarts after SIGKILL and remains functional afterwards.
 
 **Test Steps**:
 1. Record pre-kill pid
 2. `stop_pmon_daemon(thermalctld, "-9", pid)` — send SIGKILL
 3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
+4. **Post-restart smoke** — verify thermalctld is functional again:
+   - Read `STATE_DB SYSTEM_LEAK_STATUS|system timestamp` — assert it advances within one
+     polling interval after the new pid (proves the leak-status loop has resumed)
+   - Read at least one `STATE_DB TEMPERATURE_INFO|<sensor>` row — assert non-empty
+     (proves the thermal-polling loop has resumed)
 
-**Expected Result**: thermalctld auto-restarts after SIGKILL.
+**Expected Result**:
+- thermalctld auto-restarts after SIGKILL with a new pid
+- After restart, leak-status timestamp advances and TEMPERATURE_INFO continues to be updated
 
 ---
 
@@ -815,17 +951,27 @@ Verify `show platform temperature` (design doc section 2.3.2) lists thermal sens
 #### Test Case #37: test_config_chassis_modules
 
 **Test Objective**:
-Verify `config chassis modules` subcommands match design doc section 2.3.1: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC).
+Verify `config chassis modules` subcommands match design doc section 2.3.1: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC), and that each shutdown / startup transition is functionally honoured by the paired Switch-Host.
 
 **Test Steps**:
 1. Execute `config chassis modules --help` — verify help text returned or graceful skip on non-BMC
 2. Verify help mentions: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout`
 3. Execute `config chassis modules startup --help` — verify available
 4. Execute `config chassis modules shutdown --help` — verify available
+5. **Post shutdown/startup functional smoke** (gated by `--bmc-allow-disruptive`; skip otherwise):
+   - Resolve paired switch via `duthost.get_bmc_host()`; record pre-action `uptime -s`
+   - `config chassis modules shutdown SWITCH-HOST` — wait up to `graceful_shutdown_timeout + 60 s`
+     for SSH to drop on the paired switch and `STATE_DB HOST_STATE|switch-host device_status`
+     to read `OFFLINE` / `POWERED_OFF`
+   - `config chassis modules startup SWITCH-HOST` — wait up to `power_on_delay + 180 s` for
+     SSH to come back; verify `uptime -s` is newer than pre-action snapshot and
+     `show reboot-cause` reports `power down request from BMC` or `graceful shutdown from BMC`
+   - Restore original `admin_status` in `finally`
 
 **Expected Result**:
 - Help text documents all four subcommands
 - startup/shutdown subcommands are individually invokable
+- After the shutdown/startup pair, the Switch-Host's `uptime -s` advances and `show reboot-cause` reports a BMC-initiated cause
 
 ---
 
