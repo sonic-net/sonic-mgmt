@@ -21,11 +21,15 @@
     mode: '0755'
   become: yes
 
+- name: Check if venv exists
+  stat:
+    path: "{{ sonic_testbed_venv }}/bin/python"
+  register: venv_stat
+
 - name: Create Python venv with system site-packages
-  command:
-    cmd: uv venv --python /usr/bin/python3 --system-site-packages {{ sonic_testbed_venv }}
-    creates: "{{ sonic_testbed_venv }}/bin/python"
+  command: uv venv --python /usr/bin/python3 --system-site-packages {{ sonic_testbed_venv }}
   become: yes
+  when: not venv_stat.stat.exists
 
 - name: Check installed versions of pinned Python packages
   command: >-
