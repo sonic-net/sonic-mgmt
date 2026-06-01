@@ -4,7 +4,6 @@
 * [Overview](#overview)
   * [HLD](#hld)
   * [Testbed](#testbed)
-  * [Setup Configuration](#setup-configuration)
 * [Test Cases](#test-cases)
   * [Platform API Tests](#platform-api-tests)
   * [Bmcctld Daemon Tests](#bmcctld-daemon-tests)
@@ -44,6 +43,7 @@ This test plan covers comprehensive testing of new BMC platform APIs and daemon 
 ### HLD
 
 - **BMC Design Document**: https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md
+- **BMC High-Level Test Plan**: https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/bmc/BMC-high-level-test-plan.md
 
 ### Testbed
 
@@ -54,33 +54,13 @@ Any SONiC BMC testbed with:
 
 Tests will gracefully skip features not available on the target platform.
 
-### Setup Configuration
-
-#### Common Test Configuration
-
-1. **System Requirements**:
-   - BMC must be running SONiC
-   - Access to platform APIs via `platform_api_conn` fixture
-
-2. **Skip Conditions**:
-   - Leak detection tests skip if system has no liquid cooling support
-   - SWITCH-HOST module tests skip if system has no SWITCH-HOST module
-   - Bmcctld tests skip if system is not BMC-managed
-   - CLI tests for unavailable features gracefully skip
-
-3. **Test Isolation**:
-   - Tests do not modify persistent system state
-   - All tests are read-only against State DB
-   - No configuration changes persist after test completion
-
-
 ## Test Architecture
 
 This section captures the BMC-specific additions on top of the existing sonic-mgmt test framework.
 
 ### 1. Inventory and Testbed Wiring
 
-Follows the internal `sonic-mgmt-int` convention: BMC and switch hosts live as plain entries in the regular `sonic` inventory group with a `-bmc` suffix on the BMC host (e.g. `host1-switch` / `host1-switch-bmc`). No dedicated BMC inventory group is introduced. The pair is wired at the testbed layer — the `dut:` list holds the BMC and the existing `bmc_host:` field points at the paired switch — so `duthost` resolves to the BMC and `tbinfo['bmc_host']` to the switch.
+BMC and switch host live as regular entries in the `sonic` inventory group with a `-bmc` suffix on the BMC host (e.g. `host1-switch` / `host1-switch-bmc`). The pair is wired at the testbed layer — the `dut:` list holds the BMC and the existing `bmc_host:` field points at the paired switch — so `duthost` resolves to the BMC and `tbinfo['bmc_host']` to the switch.
 
 Sample inventory entry (fields follow the existing `ansible/lab` style — `model`, `serial`, `base_mac`, `syseeprom_info` map of ONIE TLVs):
 
@@ -125,12 +105,14 @@ Corresponding `ansible/testbed.yaml` entry:
   dut:
     - host1-switch-bmc
   bmc_host: host1-switch
-  inv_name: <inventory-file>
+  inv_name: lab
 ```
 
 ### 2. BMC vs Switch Host Discrimination
 
-`is_bmc()` on `SonicHost` returns `self.facts.get('router_type') == 'NetworkBmc'`. Cross-side traversal uses the existing `get_bmc_host()` (switch → BMC) and a new `get_paired_bmc()` (BMC → switch) on `MultiAsicSonicHost`.
+`is_bmc()` on `SonicHost` returns `self.facts.get('router_type') == 'NetworkBmc'`. Cross-side traversal on `MultiAsicSonicHost`:
+- `get_bmc_host()` (BMC → switch) — existing
+- `get_bmc_from_host()` (switch → BMC) — new
 
 ### 3. Topology Marker
 
@@ -147,13 +129,9 @@ Two new helpers under `tests/common/helpers/platform_api/` mirror the upstream c
 
 ### 5. Liquid Cooling Feature Gate
 
-A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. No `pmon_daemon_control.json` fallback — the upstream API is the single source of truth.
+Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. Per-test setup also reads `duthost.facts['chassis']['leak_sensors']` (the `platform.json` list) and skips if empty.
 
-### 6. Leak Sensor Enumeration (Two-Gate Pattern)
-
-The per-test setup reads `duthost.facts['chassis']['leak_sensors']` (the `platform.json` list, merged in by `sonic_basic_facts`) and skips if empty. Combined with §5 this gives two independent gates: chassis-level (API says liquid-cooled) and data-level (`platform.json` declares sensors).
-
-### 7. Test Style Conventions
+### 6. Test Style Conventions
 
 - One API call per assertion; no duplicate consecutive reads to "confirm consistency."
 - Identity attributes compared against `platform.json` values, not hardcoded strings.
@@ -286,28 +264,28 @@ Verify SWITCH-HOST module identity attributes: name, description, serial.
 Verify SWITCH-HOST admin/oper status attributes and their consistency relationship.
 
 **Test Steps**:
-1. Skip if SWITCH-HOST not supported
-2. Call `module.get_oper_status()` — verify return is one of the `MODULE_STATUS_*` values:
+1. Call `module.get_oper_status()` — verify return is one of the `MODULE_STATUS_*` values:
    `Empty`, `Offline`, `PoweredDown`, `Present`, `Fault`, `Online`
-3. Read admin status from CONFIG_DB on the BMC — `CHASSIS_MODULE|SWITCH-HOST admin_status`
+2. Read admin status from CONFIG_DB on the BMC — `CHASSIS_MODULE|SWITCH-HOST admin_status`
    (`ModuleBase` exposes only `set_admin_state(up)`, no getter)
-4. Verify admin/oper relationship:
+3. Verify admin/oper relationship:
    - `admin_status=up` → oper must be one of `{Present, Online}`
    - `admin_status=down` → oper must be one of `{Offline, PoweredDown, Empty}`
-5. Call `module.set_admin_state(up: bool)` passing the current effective state as a no-op —
-   verify return is `bool` and no exception
-6. **Power-on verification (when transitioning admin down→up via `set_admin_state(True)`)**:
-   - Resolve paired switch via `duthost.get_bmc_host()`
-   - Wait up to `power_on_delay + graceful_shutdown_timeout` for SSH to come up on the switch
-   - Read `uptime -s` and `show reboot-cause` on the switch — assert uptime is recent (< 5 min)
-     and reboot cause is one of `{Power Loss, power down request from BMC, graceful shutdown from BMC}`
-   - Restore original admin state via `set_admin_state(False)` in `finally`
+4. **Disruptive shutdown/startup cycle** (actually power-cycles the paired Switch-Host):
+   - Resolve paired switch via `duthost.get_bmc_host()`; record pre-action `uptime -s`
+   - Call `module.set_admin_state(False)` — assert return is `True`; wait for SSH to drop on
+     the paired switch and `get_oper_status()` to read one of `{Offline, PoweredDown}`
+   - Call `module.set_admin_state(True)` — assert return is `True`
+   - Wait for `host.critical_services_fully_started()` (up to `power_on_delay + 300 s`)
+   - Verify `uptime -s` is newer than pre-action snapshot and `show reboot-cause` reports
+     one of `{Power Loss, power down request from BMC, graceful shutdown from BMC}`
+   - Verify `get_oper_status()` now reads one of `{Present, Online}`
 
 **Expected Result**:
 - `get_oper_status()` returns one of the `MODULE_STATUS_*` strings
 - CONFIG_DB `admin_status` matches the effective oper status per the table above
-- `set_admin_state(up)` is callable and returns `bool`
-- After a real down→up transition the paired switch boots and reports the expected reboot cause
+- `set_admin_state(up: bool)` returns `True`
+- After the down→up cycle the paired switch boots and reports the expected reboot cause
 
 ---
 
@@ -396,10 +374,10 @@ Verify `get_serial()` for the SWITCH-HOST module (the `get_switch_host_serial` p
 Verify the `do_power_cycle()` platform API powers the SWITCH-HOST off and back on, and that the switch genuinely came back up afterwards.
 
 **Test Steps**:
-1. Call `get_module_index('SWITCH-HOST')` — skip if not found
+1. Call `chassis.get_module_index('SWITCH-HOST')` — skip if not found
 2. Resolve paired switch via `duthost.get_bmc_host()`; record pre-cycle `uptime -s`
 3. Call `module.do_power_cycle()` via platform API — assert return is `True`
-4. Wait up to `graceful_shutdown_timeout + power_on_delay + 180 s` for SSH to come back on the paired switch (`wait_until` polling)
+4. Wait for `host.critical_services_fully_started()` (up to `graceful_shutdown_timeout + power_on_delay + 300 s`)
 5. Run `uptime -s` on the paired switch — assert post-cycle boot timestamp is newer than pre-cycle
 6. Run `show reboot-cause` on the paired switch — assert cause is `power down request from BMC` or `graceful shutdown from BMC`
 
@@ -412,7 +390,7 @@ Verify the `do_power_cycle()` platform API powers the SWITCH-HOST off and back o
 
 ### CLI Tests
 
-These tests use vendor SONiC CLI commands on the DUT (and, for cross-side cases, on the paired host via `get_bmc_host()` / `get_paired_bmc()`). They complement the Platform API tests by validating that the same data is exposed consistently through CLI and the inventory.
+These tests use vendor SONiC CLI commands on the DUT (and, for cross-side cases, on the paired host via `get_bmc_host()` / `get_bmc_from_host()`). They complement the Platform API tests by validating that the same data is exposed consistently through CLI and the inventory.
 
 #### Test Case #11a: test_show_version_serial_numbers_bmc
 
@@ -466,7 +444,7 @@ applies the boot delay only on a power-loss reboot.
 - State DB tables initialized with required fields on BMC platforms
 - Boot delay is applied only after `REBOOT_CAUSE_POWER_LOSS`; skipped on all other reboot types
 
-**Reviewer note (warm/fast reboot)**: Warm and fast reboot are not supported on the BMC SONiC instance itself. To exercise step 5's "skip boot-delay" branch we trigger a `warm-reboot` / `fast-reboot` on the **paired Switch-Host** (resolved via `duthost.get_paired_bmc()` from a switch test, or the inverse from a BMC test) and then verify the BMC pmon journal contains `"Skipping SWITCH_HOST_POWER_ON_DELAY"` for that reboot — i.e., we test the BMC's *handling* of the Switch-Host's warm/fast reboot cause, not warm/fast reboot of the BMC.
+**Note (warm/fast reboot)**: Warm and fast reboot are not supported on the BMC SONiC instance itself. To exercise step 5's "skip boot-delay" branch we trigger a `warm-reboot` / `fast-reboot` on the **paired Switch-Host** (resolved via `duthost.get_bmc_from_host()` from a switch test, or the inverse from a BMC test) and then verify the BMC pmon journal contains `"Skipping SWITCH_HOST_POWER_ON_DELAY"` for that reboot — i.e., we test the BMC's *handling* of the Switch-Host's warm/fast reboot cause, not warm/fast reboot of the BMC.
 
 ---
 
@@ -504,7 +482,7 @@ Verify bmcctld detects critical events and coordinates with thermalctld and psud
 - Critical events prevent power-on (if present)
 - Daemon coordination is in place
 
-**Reviewer note (how to trigger `SYSTEM_LEAK_STATUS`)**: vendor hardware paths to inject a real leak differ per platform (some expose a debug sysfs/i2c knob, some have no in-band trigger at all). For deterministic CI we inject the table directly into STATE_DB on the BMC:
+**Note (how to trigger `SYSTEM_LEAK_STATUS`)**: vendor hardware paths to inject a real leak differ per platform (some expose a debug sysfs/i2c knob, some have no in-band trigger at all). For deterministic CI we inject the table directly into STATE_DB on the BMC:
 
 ```
 sonic-db-cli STATE_DB HSET 'SYSTEM_LEAK_STATUS|system' \
@@ -540,40 +518,85 @@ Verify bmcctld logs critical events to /host/bmc/event.log using structured mess
 #### Test Case #16: test_bmcctld_event_trigger
 
 **Test Objective**:
-Verify bmcctld reacts to HSET writes on all four `SubscriberStateTable`-monitored tables
-and logs the corresponding event in syslog or /host/bmc/event.log.
+Verify bmcctld reacts to HSET writes on all four `SubscriberStateTable`-monitored tables, logs the corresponding event, and dispatches the configured power action when severity escalates to `CRITICAL`.
 
 **Test Steps**:
 
-Each step injects a value, waits up to 30 s for a log entry, then restores the
+Each non-disruptive step injects a value, waits up to 30 s for a log entry, then restores the
 original value (or deletes the injected key).
 
 1. **CONFIG_DB `CHASSIS_MODULE|SWITCH-HOST` `admin_status`** — flip the value (up↔down)
    and check syslog for `SWITCH-HOST`.  Restores the original value in `finally`.
-2. **STATE_DB `SYSTEM_LEAK_STATUS:system` `device_leak_status`** — inject `MINOR`
-   (skip if already `CRITICAL`) and check syslog for `leak`.  Default action is
-   `syslog_only`; no power action is dispatched.
-3. **STATE_DB `RACK_MANAGER_COMMAND:test_trigger_cmd` `command`** — inject unknown
-   value `TEST_TRIGGER` with empty `status`.  Handler logs a warning and marks the
-   entry `FAILED`; no power action is dispatched.  Key is deleted in `finally`.
-4. **STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert` `severity`** — inject `MINOR`.
+2. **MINOR leak (`syslog_only`)** — STATE_DB `SYSTEM_LEAK_STATUS:system` `device_leak_status`
+   = `MINOR` (skip if already `CRITICAL`). Default `system_minor_leak_action = syslog_only`.
+   - Verify syslog contains a `leak` entry within 30 s
+   - Verify **no power action** is dispatched: paired Switch-Host SSH stays up, `uptime -s`
+     unchanged, no `power down request from BMC` reboot cause
+   - Restore `device_leak_status` in `finally`
+3. **CRITICAL leak → Switch-Host power off** (disruptive — reboots the paired Switch-Host):
+   - Resolve paired Switch-Host via `duthost.get_bmc_host()`; snapshot `uptime -s`
+   - Set `LEAK_CONTROL_POLICY system_critical_leak_action = power_off` (default)
+   - HSET STATE_DB `SYSTEM_LEAK_STATUS:system device_leak_status = CRITICAL`
+   - Wait up to 120 s for Switch-Host SSH to drop
+   - Wait for `host.critical_services_fully_started()` (up to `power_on_delay + 300 s`)
+   - Assert post-reboot `uptime -s` advanced and `show reboot-cause` on the Switch-Host
+     reports `power down request from BMC` or `graceful shutdown from BMC`
+   - Restore `device_leak_status` and policy in `finally`; if Switch-Host did not auto-power-on,
+     issue `config chassis modules startup SWITCH-HOST` to recover the testbed
+4. **STATE_DB `RACK_MANAGER_COMMAND:test_trigger_cmd` `command`** — inject unknown value `TEST_TRIGGER` with empty `status`. Handler logs a warning and marks the entry `FAILED`; no power action is dispatched. Key is deleted in `finally`.
+5. **STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert` `severity`** — inject `MINOR`.
    Default `rack_mgr_minor_alert_action` is `syslog_only`; no power action is
    dispatched.  Key is deleted in `finally`.
 
 **Expected Result**:
-- On a live BMC system at least one of the four triggers produces a log entry
-- No power action is dispatched for any trigger (safe payloads)
+- Each trigger produces the expected log entry
+- MINOR leak: syslog only, paired Switch-Host stays up
+- CRITICAL leak: paired Switch-Host is powered off and reboots; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
 - Duplicate HSET with the same value is ignored (dedup added in bmc_enhance)
 - All injected keys are cleaned up regardless of test outcome
 - Platforms without BMC support log info messages and the assertion is skipped
 
-**Reviewer note (CRITICAL leak → reboot)**: Trigger 2 above only injects `MINOR` (default action `syslog_only`). To exercise the `power_off` action path we add an additional sub-test guarded by `--bmc-allow-disruptive`:
-1. Snapshot `uptime -s` on the paired Switch-Host (via `duthost.get_bmc_host()`)
-2. Set `LEAK_CONTROL_POLICY system_critical_leak_action = power_off` (default)
-3. HSET `SYSTEM_LEAK_STATUS|system device_leak_status = CRITICAL`
-4. Wait up to 120 s for the Switch-Host SSH to drop, then for `show reboot-cause` on the Switch-Host to report `power down request from BMC` (or `graceful shutdown from BMC` if `graceful_shutdown_timeout > 0`)
-5. Assert post-reboot `uptime -s` is newer than the snapshot
-6. Restore `device_leak_status` and policy in `finally`; if Switch-Host did not auto-power-on, issue `config chassis modules startup SWITCH-HOST` to recover the testbed
+---
+
+#### Test Case #16a: test_bmcctld_rack_manager_command
+
+**File**: `tests/platform_tests/daemon/test_bmcctld.py`
+
+**Test Objective**:
+Verify bmcctld dispatches the correct power action for each valid `RACK_MANAGER_COMMAND` (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`), the `status` field transitions `PENDING → IN_PROGRESS → DONE`, and the paired Switch-Host actually undergoes the requested power transition with a BMC-initiated reboot cause.
+
+**Test Steps**:
+
+For each scenario, resolve the paired Switch-Host via `duthost.get_bmc_host()` and snapshot `uptime -s` before the action. After each transition, restore the testbed via `config chassis modules startup SWITCH-HOST` if needed.
+
+1. **POWER_OFF then POWER_ON** (full off/on cycle):
+   - HSET `RACK_MANAGER_COMMAND|test_power_off command=POWER_OFF status=PENDING`
+   - Wait ≤180 s for Switch-Host SSH to drop; assert command `status = DONE`
+   - HSET `RACK_MANAGER_COMMAND|test_power_on command=POWER_ON status=PENDING`
+   - Wait for `host.critical_services_fully_started()` (≤420 s); assert command `status = DONE`
+   - Assert post-cycle `uptime -s` advanced
+   - Assert `show reboot-cause` on the Switch-Host reports `power down request from BMC` or `graceful shutdown from BMC`
+2. **GRACEFUL_SHUT then POWER_ON** (graceful shutdown variant):
+   - HSET `RACK_MANAGER_COMMAND|test_graceful_shut command=GRACEFUL_SHUT status=PENDING`
+   - Wait ≤`graceful_shutdown_timeout + 60 s` for Switch-Host SSH to drop; assert command `status = DONE`
+   - HSET `RACK_MANAGER_COMMAND|test_power_on2 command=POWER_ON status=PENDING`
+   - Wait for `host.critical_services_fully_started()`; assert command `status = DONE`
+   - Assert `uptime -s` advanced and `show reboot-cause` reports `graceful shutdown from BMC`
+3. **POWER_CYCLE** (single-command round trip):
+   - HSET `RACK_MANAGER_COMMAND|test_power_cycle command=POWER_CYCLE status=PENDING`
+   - Wait for `host.critical_services_fully_started()`; assert command `status = DONE`
+   - Assert `uptime -s` advanced and `show reboot-cause` reports a BMC-initiated cause
+4. **POWER_ON when CRITICAL leak is present** (negative case):
+   - HSET `SYSTEM_LEAK_STATUS|system device_leak_status=CRITICAL`
+   - HSET `RACK_MANAGER_COMMAND|test_blocked_power_on command=POWER_ON status=PENDING`
+   - Assert command `status = FAILED` and `error/reason` field contains `CRITICAL_LEAK_PRESENT`
+   - Restore `device_leak_status` in `finally`
+
+**Expected Result**:
+- For each valid command (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`) the command `status` transitions to `DONE`
+- Switch-Host undergoes the requested power transition; `uptime -s` advances; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
+- `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `CRITICAL_LEAK_PRESENT`
+- All injected keys are deleted and the Switch-Host is left powered on in `finally`
 
 ---
 
@@ -593,6 +616,64 @@ Verify bmcctld applies the startup boot delay only after a full power-loss reboo
 - Boot delay log matches the actual reboot cause
 - No delay on warm/fast/soft reboots
 - Graceful info-only if no startup log found within 60-min window
+
+---
+
+#### Test Case #17a: test_bmcctld_power_on_delay
+
+**File**: `tests/platform_tests/daemon/test_bmcctld.py`
+
+**Test Objective**:
+Verify that `power_on_delay` is configurable via `config chassis modules power-on-delay`, that bmcctld picks up the new value from CONFIG_DB, and that the configured delay is honored on the power-loss boot path (bmcctld waits ≈`power_on_delay` seconds before dispatching POWER_ON to the Switch-Host).
+
+**Test Steps**:
+1. Snapshot current `power_on_delay` from CONFIG_DB `CHASSIS_MODULE|SWITCH-HOST`
+2. Set a short test value (e.g., 30 s) via `config chassis modules power-on-delay SWITCH-HOST 30`
+3. Read back `CONFIG_DB CHASSIS_MODULE|SWITCH-HOST power_on_delay` — assert it equals `30`
+4. Record pre-action `uptime -s` from the paired Switch-Host
+5. Stage the power-loss boot path:
+   - Power off the Switch-Host (e.g., `config chassis modules shutdown SWITCH-HOST`)
+   - Overwrite `/host/reboot-cause/reboot-cause` with a `Power Loss` marker so bmcctld re-evaluates the cause as power-loss on next start
+6. Restart pmon (`systemctl restart pmon`) and record the restart timestamp
+7. Scan the BMC pmon journal since the restart:
+   - Assert `"SWITCH_HOST_POWER_ON_DELAY 30"` (or matching delay value) appears
+   - Find the subsequent `"Issuing power_on"` (or equivalent action-dispatch) log line
+   - Assert the elapsed time between the two log lines is ≥ `30 s` (with a small upper tolerance, e.g., ≤ `30 + 15 s`)
+8. Wait for `host.critical_services_fully_started()` to confirm Switch-Host fully booted
+9. Verify Switch-Host `uptime -s` advanced and `show reboot-cause` reports a BMC-initiated cause
+   (`power down request from BMC`, `graceful shutdown from BMC`, or `power loss`)
+10. In `finally`: restore the original `power_on_delay` value, restore reboot-cause marker, and best-effort `config chassis modules startup SWITCH-HOST`
+
+**Expected Result**:
+- `config chassis modules power-on-delay` updates CONFIG_DB and the new value is reflected in `CHASSIS_MODULE|SWITCH-HOST power_on_delay`
+- After a bmcctld restart with a `Power Loss` reboot-cause marker, the journal shows `SWITCH_HOST_POWER_ON_DELAY <value>` and the actual POWER_ON dispatch occurs ≥`<value>` seconds later
+- Switch-Host comes back online (services up, `uptime -s` advanced) and `show reboot-cause` reports a BMC-initiated cause
+- Original `power_on_delay` is restored
+
+---
+
+#### Test Case #17b: test_bmc_reboot_does_not_affect_switch_host
+
+**File**: `tests/platform_tests/daemon/test_bmcctld.py`
+
+**Test Objective**:
+Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Switch-Host must NOT power-cycle, reboot, or see any service interruption. Confirmed via reboot-cause history on both sides — a new entry must appear on the BMC, and no new entry must appear on the Switch-Host.
+
+**Test Steps**:
+1. Resolve the paired Switch-Host via `duthost.get_bmc_host()`
+2. Snapshot pre-reboot state on both sides:
+   - Switch-Host: `uptime -s`, length of `show reboot-cause history`
+   - BMC: `uptime -s`, length of `show reboot-cause history`
+3. Cold-reboot the BMC (`reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD)`)
+4. After BMC SSH returns and `critical_services_fully_started()` passes, snapshot post-reboot state on both sides
+5. Assert BMC `uptime -s` advanced and `show reboot-cause history` grew by exactly one entry
+6. Assert Switch-Host `uptime -s` is unchanged and `show reboot-cause history` length is unchanged
+7. (Optional) Verify Switch-Host `critical_services_fully_started()` is still true throughout
+
+**Expected Result**:
+- BMC reboot succeeds; BMC's own reboot-cause history shows a new "User issued 'reboot' command" entry
+- Switch-Host is undisturbed: uptime unchanged, no new reboot-cause history entry
+- This confirms BMC↔Switch-Host fault isolation: a BMC self-reboot does not trigger any `POWER_OFF`, `POWER_ON`, or `POWER_CYCLE` action on the Switch-Host
 
 ---
 
@@ -821,7 +902,7 @@ and observes the next mirror cycle.
 3. After the restart, scan pmon journal **since the new pid** for `"Mirroring TEMPERATURE_INFO to BMC STATE_DB"` or
    `"Failed to open remote BMC TEMPERATURE_INFO table"`
 4. Verify local `TEMPERATURE_INFO:*` keys are populated post-restart
-5. Resolve the paired BMC via `duthost.get_paired_bmc()` and verify the mirrored
+5. Resolve the paired BMC via `duthost.get_bmc_from_host()` and verify the mirrored
    `TEMPERATURE_INFO:*` keys appear on the BMC STATE_DB within one polling interval
 
 **Expected Result**:
@@ -961,13 +1042,13 @@ Verify `config chassis modules` subcommands `startup`, `shutdown`, `power-on-del
 2. Verify help mentions: `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout`
 3. Execute `config chassis modules startup --help` — verify available
 4. Execute `config chassis modules shutdown --help` — verify available
-5. **Post shutdown/startup functional smoke** (gated by `--bmc-allow-disruptive`; skip otherwise):
+5. **Post shutdown/startup functional smoke** (disruptive — actually reboots the paired Switch-Host):
    - Resolve paired switch via `duthost.get_bmc_host()`; record pre-action `uptime -s`
    - `config chassis modules shutdown SWITCH-HOST` — wait up to `graceful_shutdown_timeout + 60 s`
      for SSH to drop on the paired switch and `STATE_DB HOST_STATE|switch-host device_status`
      to read `OFFLINE` / `POWERED_OFF`
-   - `config chassis modules startup SWITCH-HOST` — wait up to `power_on_delay + 180 s` for
-     SSH to come back; verify `uptime -s` is newer than pre-action snapshot and
+   - `config chassis modules startup SWITCH-HOST` — wait for `host.critical_services_fully_started()`
+     (up to `power_on_delay + 300 s`); verify `uptime -s` is newer than pre-action snapshot and
      `show reboot-cause` reports `power down request from BMC` or `graceful shutdown from BMC`
    - Restore original `admin_status` in `finally`
 

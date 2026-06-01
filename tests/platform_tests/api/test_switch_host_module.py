@@ -30,6 +30,7 @@ def skip_if_no_switch_host_module(duthosts, enum_rand_one_per_hwsku_hostname):
     out = duthost.shell(f"python3 -c \"{probe}\"", module_ignore_errors=True)
     if out.get('rc') != 0:
         pytest.skip(f"Could not verify SWITCH-HOST support: {out.get('stderr', '').strip()}")
+    idx = -1
     try:
         idx = int(out.get('stdout', '').strip())
     except ValueError:
@@ -72,28 +73,54 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
     def test_switch_host_status_control(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
-        """Verify get_oper_status() and that set_admin_state() is callable.
+        """Disruptive: verify get_oper_status() and drive a real set_admin_state down→up cycle.
 
         get_oper_status() returns one of the MODULE_STATUS_* constants:
         'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'.
         set_admin_state(up) takes a boolean and returns bool.
         """
+        from tests.common.utilities import wait_until
+
         valid_oper = {'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'}
+        down_set = {'Offline', 'PoweredDown'}
+        up_set = {'Present', 'Online'}
+
         oper_status = module_api.get_oper_status(platform_api_conn, self.sw_idx)
         self.expect(isinstance(oper_status, str),
                     f"get_oper_status() should return string, got {type(oper_status)}")
         self.expect(oper_status in valid_oper,
                     f"get_oper_status() should be one of {sorted(valid_oper)}, got {oper_status!r}")
+        logger.info(f"SWITCH-HOST initial oper_status: {oper_status}")
 
-        logger.info(f"SWITCH-HOST oper_status: {oper_status}")
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        host = duthost.get_bmc_host()
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
 
         try:
             ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, False)
-            self.expect(isinstance(ret, bool),
-                        f"set_admin_state(up) should return bool per ModuleBase, got {type(ret)}")
-            logger.info(f"set_admin_state(False) returned {ret}")
-        except (NotImplementedError, Exception) as e:
-            logger.info(f"set_admin_state() note: {e}")
+            self.expect(ret is True, f"set_admin_state(False) should return True, got {ret!r}")
+            wait_until(180, 10, 0,
+                       lambda: module_api.get_oper_status(platform_api_conn, self.sw_idx) in down_set)
+
+            ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, True)
+            self.expect(ret is True, f"set_admin_state(True) should return True, got {ret!r}")
+            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+
+            post_boot = host.shell("uptime -s").get('stdout', '').strip()
+            self.expect(post_boot and post_boot != pre_boot,
+                        f"Paired switch uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
+
+            cause_out = host.show_and_parse('show reboot-cause')
+            cause = (cause_out[0].get('cause') or '').lower() if cause_out else ''
+            valid_causes = ('power down request from bmc', 'graceful shutdown from bmc', 'power loss')
+            self.expect(any(c in cause for c in valid_causes),
+                        f"reboot-cause {cause!r} not in expected BMC-initiated set {valid_causes}")
+
+            final_oper = module_api.get_oper_status(platform_api_conn, self.sw_idx)
+            self.expect(final_oper in up_set,
+                        f"After admin-up, get_oper_status() should be in {sorted(up_set)}, got {final_oper!r}")
+        finally:
+            module_api.set_admin_state(platform_api_conn, self.sw_idx, True)
 
 
 class TestChassisBmcModuleApi(PlatformApiTestBase):
@@ -168,14 +195,36 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
 
     def test_switch_host_do_power_cycle(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
-        """Verify do_power_cycle() is callable on SWITCH-HOST and returns a bool. Does NOT trigger an actual cycle."""
+        """Power-cycle the SWITCH-HOST and verify the paired switch actually came back up.
+
+        Disruptive: triggers a real power cycle on the paired Switch-Host.
+        """
+        from tests.common.utilities import wait_until
+
         sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
         if sw_idx is None or sw_idx < 0:
             pytest.skip("SWITCH-HOST module not found; skipping do_power_cycle test")
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        host = duthost.get_bmc_host()
+
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        logger.info(f"Pre-cycle paired switch boot timestamp: {pre_boot!r}")
+
         result = module_api.do_power_cycle(platform_api_conn, sw_idx)
-        self.expect(result is not None,
-                    "do_power_cycle() should return a boolean (not None)")
-        if result is not None:
-            self.expect(isinstance(result, bool),
-                        f"do_power_cycle() should return bool, got {type(result).__name__}")
+        self.expect(result is True,
+                    f"do_power_cycle() should return True, got {result!r}")
+
+        wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+
+        post_boot = host.shell("uptime -s").get('stdout', '').strip()
+        logger.info(f"Post-cycle paired switch boot timestamp: {post_boot!r}")
+        self.expect(post_boot and post_boot != pre_boot,
+                    f"Paired switch uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
+
+        cause_out = host.show_and_parse('show reboot-cause')
+        self.expect(bool(cause_out), "show reboot-cause returned empty output")
+        cause = (cause_out[0].get('cause') or '').lower() if cause_out else ''
+        valid_causes = ('power down request from bmc', 'graceful shutdown from bmc', 'power loss')
+        self.expect(any(c in cause for c in valid_causes),
+                    f"reboot-cause {cause!r} not in expected BMC-initiated set {valid_causes}")

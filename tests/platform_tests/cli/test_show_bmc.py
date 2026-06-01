@@ -13,6 +13,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +89,16 @@ class TestBmcCliCommands:
         logger.info(f"show platform temperature output:\n{output}")
 
     def test_config_chassis_modules(self):
-        """
-        Verify 'config chassis modules' subcommands (design doc section 2.3.1, LC+AC).
+        """Verify 'config chassis modules' help surface + functional shutdown/startup cycle.
 
-        Validates:
-        - config chassis modules --help is available
-        - Help output documents: startup, shutdown, power-on-delay, shutdown-timeout
+        Help-text smoke (non-disruptive):
+        - config chassis modules --help documents startup/shutdown/power-on-delay/shutdown-timeout
+        - startup/shutdown subcommands are individually invokable
+
+        Functional smoke (disruptive — actually reboots the paired Switch-Host):
+        - shutdown SWITCH-HOST → wait offline
+        - startup SWITCH-HOST → wait critical_services_fully_started, verify uptime advanced
+          and reboot-cause on switch-host reports a BMC-initiated cause
         """
         result = self.duthost.shell(
             "config chassis modules --help",
@@ -108,7 +113,6 @@ class TestBmcCliCommands:
             present = subcmd in output
             logger.info(f"config chassis modules --help mentions '{subcmd}': {present}")
 
-        # Verify startup/shutdown subcommands accept SWITCH-HOST
         for subcmd in ['startup', 'shutdown']:
             result = self.duthost.shell(
                 f"config chassis modules {subcmd} --help 2>&1",
@@ -116,6 +120,34 @@ class TestBmcCliCommands:
             )
             if result['rc'] == 0:
                 logger.info(f"config chassis modules {subcmd} --help: available")
+
+        host = self.duthost.get_bmc_host()
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+
+        try:
+            self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
+                               module_ignore_errors=True)
+            wait_until(300, 10, 10,
+                       lambda: host.shell("true", module_ignore_errors=True).get('rc') != 0)
+
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
+            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+
+            post_boot = host.shell("uptime -s").get('stdout', '').strip()
+            pytest_assert(post_boot and post_boot != pre_boot,
+                          f"Switch-Host uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
+
+            cause_rows = host.show_and_parse('show reboot-cause')
+            cause = (cause_rows[0].get('cause', '') if cause_rows else '').lower()
+            expected = ('power down request from bmc',
+                        'graceful shutdown from bmc',
+                        'power loss')
+            pytest_assert(any(e in cause for e in expected),
+                          f"Unexpected reboot cause on switch-host: {cause!r}")
+        finally:
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
 
     def test_liquid_cool_config_commands(self):
         """

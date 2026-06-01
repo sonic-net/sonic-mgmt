@@ -392,6 +392,51 @@ class TestBmcctldDaemon:
                     module_ignore_errors=True
                 )
 
+        # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
+        # Handler: _handle_system_leak with severity=CRITICAL dispatches the configured
+        # LEAK_CONTROL_POLICY.system_critical_leak_action (default: power_off) on the
+        # paired Switch-Host. Verify the Switch-Host actually powered off and rebooted.
+        host = self.duthost.get_bmc_host()
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        # Ensure policy is power_off (the default).
+        self.duthost.shell(
+            "sonic-db-cli CONFIG_DB HSET 'LEAK_CONTROL_POLICY|system'"
+            " system_critical_leak_action power_off",
+            module_ignore_errors=True
+        )
+        try:
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{SYSTEM_LEAK_STATUS_TABLE}:system'"
+                f" device_leak_status CRITICAL",
+                module_ignore_errors=True
+            )
+            logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
+            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+            post_boot = host.shell("uptime -s").get('stdout', '').strip()
+            pytest_assert(post_boot and post_boot != pre_boot,
+                          f"Switch-Host uptime did not advance after CRITICAL leak: "
+                          f"pre={pre_boot!r} post={post_boot!r}")
+            cause_out = host.show_and_parse('show reboot-cause')
+            cause = (cause_out[0].get('cause') or '').lower() if cause_out else ''
+            valid_causes = ('power down request from bmc',
+                            'graceful shutdown from bmc',
+                            'power loss')
+            pytest_assert(any(c in cause for c in valid_causes),
+                          f"Switch-Host reboot-cause {cause!r} not in expected "
+                          f"BMC-initiated set {valid_causes}")
+            trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
+        finally:
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{SYSTEM_LEAK_STATUS_TABLE}:system'"
+                f" device_leak_status {orig_leak}",
+                module_ignore_errors=True
+            )
+            # Best-effort recovery if Switch-Host did not auto-power-on.
+            self.duthost.shell(
+                "config chassis modules startup SWITCH-HOST",
+                module_ignore_errors=True
+            )
+
         # --- Trigger 3: STATE_DB RACK_MANAGER_COMMAND unknown command ---
         # Handler: _handle_rack_mgr_command → logs "Unknown Rack Manager command: TEST_TRIGGER"
         # and sets status=FAILED; no power action is dispatched for unknown commands.
@@ -443,6 +488,134 @@ class TestBmcctldDaemon:
             any(trigger_results.values()),
             f"bmcctld did not log any event after HSET on: {list(trigger_results.keys())}"
         )
+
+    def test_bmcctld_rack_manager_command(self):
+        """Disruptive: exercise all valid RACK_MANAGER_COMMAND values end-to-end.
+
+        Issues POWER_OFF, GRACEFUL_SHUT, POWER_ON, POWER_CYCLE commands via
+        RACK_MANAGER_COMMAND table and verifies each command transitions to status=DONE,
+        the paired Switch-Host actually powered off/on, and the reboot-cause on the
+        Switch-Host is BMC-initiated. Also verifies POWER_ON is rejected when a
+        CRITICAL leak is present.
+        """
+        host = self.duthost.get_bmc_host()
+        valid_causes = ('power down request from bmc',
+                        'graceful shutdown from bmc',
+                        'power loss')
+
+        def hset_cmd(key, command):
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{RACK_MANAGER_COMMAND_TABLE}:{key}'"
+                f" command {command} status PENDING",
+                module_ignore_errors=True
+            )
+            logger.info(f"RACK_MANAGER_COMMAND[{key}]: command={command}")
+
+        def hget_status(key):
+            return self.duthost.shell(
+                f"redis-cli -n 6 HGET '{RACK_MANAGER_COMMAND_TABLE}:{key}' status",
+                module_ignore_errors=True
+            ).get('stdout', '').strip()
+
+        def del_cmd(*keys):
+            for k in keys:
+                self.duthost.shell(
+                    f"redis-cli -n 6 DEL '{RACK_MANAGER_COMMAND_TABLE}:{k}'",
+                    module_ignore_errors=True
+                )
+
+        def wait_off():
+            wait_until(180, 10, 30,
+                       lambda: host.shell("true", module_ignore_errors=True).get('rc') != 0)
+
+        def wait_on():
+            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+
+        def verify_reboot_cause(pre_boot):
+            post_boot = host.shell("uptime -s").get('stdout', '').strip()
+            pytest_assert(post_boot and post_boot != pre_boot,
+                          f"Switch-Host uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
+            cause_out = host.show_and_parse('show reboot-cause')
+            cause = (cause_out[0].get('cause') or '').lower() if cause_out else ''
+            pytest_assert(any(c in cause for c in valid_causes),
+                          f"Switch-Host reboot-cause {cause!r} not in {valid_causes}")
+
+        # --- Scenario 1: POWER_OFF then POWER_ON ---
+        off_key, on_key = 'test_power_off', 'test_power_on'
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        try:
+            hset_cmd(off_key, 'POWER_OFF')
+            wait_off()
+            pytest_assert(hget_status(off_key) == 'DONE',
+                          f"POWER_OFF status expected DONE, got {hget_status(off_key)!r}")
+            hset_cmd(on_key, 'POWER_ON')
+            wait_on()
+            pytest_assert(hget_status(on_key) == 'DONE',
+                          f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
+            verify_reboot_cause(pre_boot)
+        finally:
+            del_cmd(off_key, on_key)
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
+
+        # --- Scenario 2: GRACEFUL_SHUT then POWER_ON ---
+        gs_key, on2_key = 'test_graceful_shut', 'test_power_on2'
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        try:
+            hset_cmd(gs_key, 'GRACEFUL_SHUT')
+            wait_off()
+            pytest_assert(hget_status(gs_key) == 'DONE',
+                          f"GRACEFUL_SHUT status expected DONE, got {hget_status(gs_key)!r}")
+            hset_cmd(on2_key, 'POWER_ON')
+            wait_on()
+            pytest_assert(hget_status(on2_key) == 'DONE',
+                          f"POWER_ON status expected DONE, got {hget_status(on2_key)!r}")
+            verify_reboot_cause(pre_boot)
+        finally:
+            del_cmd(gs_key, on2_key)
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
+
+        # --- Scenario 3: POWER_CYCLE (single command round-trip) ---
+        pc_key = 'test_power_cycle'
+        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        try:
+            hset_cmd(pc_key, 'POWER_CYCLE')
+            wait_on()
+            pytest_assert(hget_status(pc_key) == 'DONE',
+                          f"POWER_CYCLE status expected DONE, got {hget_status(pc_key)!r}")
+            verify_reboot_cause(pre_boot)
+        finally:
+            del_cmd(pc_key)
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
+
+        # --- Scenario 4: POWER_ON blocked by CRITICAL leak ---
+        blocked_key = 'test_blocked_power_on'
+        orig_leak = self.duthost.shell(
+            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' device_leak_status",
+            module_ignore_errors=True
+        ).get('stdout', '').strip() or 'OK'
+        try:
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{SYSTEM_LEAK_STATUS_TABLE}:system'"
+                f" device_leak_status CRITICAL",
+                module_ignore_errors=True
+            )
+            hset_cmd(blocked_key, 'POWER_ON')
+            wait_until(30, 3, 0, lambda: hget_status(blocked_key) == 'FAILED')
+            pytest_assert(hget_status(blocked_key) == 'FAILED',
+                          f"POWER_ON during CRITICAL leak should fail, got "
+                          f"status={hget_status(blocked_key)!r}")
+        finally:
+            del_cmd(blocked_key)
+            self.duthost.shell(
+                f"redis-cli -n 6 HSET '{SYSTEM_LEAK_STATUS_TABLE}:system'"
+                f" device_leak_status {orig_leak}",
+                module_ignore_errors=True
+            )
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
 
     def test_bmcctld_reboot_cause_boot_delay(self):
         """
@@ -511,6 +684,160 @@ class TestBmcctldDaemon:
                 skip_logged or not delay_logged,
                 f"Non-power-loss reboot ({reboot_cause}) but power-loss delay was applied"
             )
+
+    def test_bmcctld_power_on_delay(self):
+        """Verify power_on_delay is configurable and honored on the power-loss boot path.
+
+        1. Set a short power_on_delay (30 s) via CLI; verify CONFIG_DB read-back
+        2. Stage the power-loss boot path: power off SWITCH-HOST and overwrite the
+           reboot-cause marker to 'Power Loss'
+        3. Restart pmon; scan journal for 'SWITCH_HOST_POWER_ON_DELAY 30' and the
+           subsequent power_on dispatch; assert elapsed time >= configured delay
+        4. Wait for Switch-Host to come back; restore original delay and reboot-cause
+        """
+        import re
+
+        host = self.duthost.get_bmc_host()
+        test_delay = 30
+        tolerance_upper = 30  # generous upper bound for CI scheduling jitter
+        reboot_cause_path = '/host/reboot-cause/reboot-cause'
+
+        orig_delay = self.duthost.shell(
+            "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
+            module_ignore_errors=True
+        ).get('stdout', '').strip()
+        orig_cause = self.duthost.shell(
+            f"cat {reboot_cause_path} 2>/dev/null", module_ignore_errors=True
+        ).get('stdout', '')
+
+        try:
+            self.duthost.shell(
+                f"config chassis modules power-on-delay SWITCH-HOST {test_delay}",
+                module_ignore_errors=True
+            )
+            readback = self.duthost.shell(
+                "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay"
+            ).get('stdout', '').strip()
+            pytest_assert(readback == str(test_delay),
+                          f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
+
+            pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+
+            self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
+                               module_ignore_errors=True)
+            wait_until(180, 10, 10,
+                       lambda: host.shell("true", module_ignore_errors=True).get('rc') != 0)
+
+            self.duthost.shell(
+                f"sudo bash -c 'echo \"Power Loss\" > {reboot_cause_path}'",
+                module_ignore_errors=True
+            )
+
+            restart_marker = self.duthost.shell("date '+%Y-%m-%d %H:%M:%S'").get('stdout', '').strip()
+            self.duthost.shell("systemctl restart pmon", module_ignore_errors=True)
+            wait_until(60, 5, 5,
+                       lambda: check_pmon_daemon_enable_status(self.duthost, "bmcctld"))
+
+            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+
+            post_boot = host.shell("uptime -s").get('stdout', '').strip()
+            pytest_assert(post_boot and post_boot != pre_boot,
+                          f"Switch-Host uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
+            cause_rows = host.show_and_parse('show reboot-cause')
+            sw_cause = (cause_rows[0].get('cause', '') if cause_rows else '').lower()
+            valid_causes = ('power down request from bmc',
+                            'graceful shutdown from bmc',
+                            'power loss')
+            pytest_assert(any(c in sw_cause for c in valid_causes),
+                          f"Switch-Host reboot-cause {sw_cause!r} not in {valid_causes}")
+
+            journal = self.duthost.shell(
+                f"journalctl -u pmon --since '{restart_marker}' --no-pager"
+                " | grep -iE 'SWITCH_HOST_POWER_ON_DELAY|power_on|POWER_ON'",
+                module_ignore_errors=True
+            ).get('stdout', '')
+            logger.info(f"pmon journal since restart:\n{journal}")
+
+            delay_match = re.search(
+                r'(\S+\s+\S+\s+\S+).*SWITCH_HOST_POWER_ON_DELAY[^\d]*(\d+)', journal
+            )
+            poweron_match = re.search(
+                r'(\S+\s+\S+\s+\S+).*(?:Issuing power_on|POWER_ON dispatched|action=power_on)',
+                journal
+            )
+            pytest_assert(delay_match,
+                          "Expected 'SWITCH_HOST_POWER_ON_DELAY <N>' log not found in journal")
+            logged_delay = int(delay_match.group(2))
+            pytest_assert(logged_delay == test_delay,
+                          f"Logged power_on_delay {logged_delay} != configured {test_delay}")
+
+            if poweron_match:
+                from datetime import datetime
+                fmt = '%b %d %H:%M:%S'
+                t_delay = datetime.strptime(delay_match.group(1), fmt)
+                t_on = datetime.strptime(poweron_match.group(1), fmt)
+                elapsed = (t_on - t_delay).total_seconds()
+                pytest_assert(test_delay <= elapsed <= test_delay + tolerance_upper,
+                              f"Elapsed {elapsed}s between delay-log and power_on-dispatch "
+                              f"outside expected [{test_delay}, {test_delay + tolerance_upper}]s")
+                logger.info(f"Power-on delay honored: elapsed={elapsed}s, configured={test_delay}s")
+            else:
+                logger.warning("No 'Issuing power_on' log found; timing assertion skipped")
+        finally:
+            if orig_delay and orig_delay.isdigit():
+                self.duthost.shell(
+                    f"config chassis modules power-on-delay SWITCH-HOST {orig_delay}",
+                    module_ignore_errors=True
+                )
+            if orig_cause:
+                self.duthost.shell(
+                    f"sudo bash -c \"cat > {reboot_cause_path}\" <<'EOF'\n{orig_cause}EOF",
+                    module_ignore_errors=True
+                )
+            self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                               module_ignore_errors=True)
+
+    def test_bmc_reboot_does_not_affect_switch_host(self, localhost):
+        """Verify a BMC cold reboot does not power-cycle or reboot the paired Switch-Host.
+
+        Confirms BMC↔Switch-Host fault isolation: rebooting the BMC SONiC instance
+        must not trigger any POWER_OFF/POWER_ON/POWER_CYCLE on the Switch-Host.
+        - BMC: uptime advances, reboot-cause history grows by one entry
+        - Switch-Host: uptime unchanged, reboot-cause history length unchanged
+        """
+        from tests.common.reboot import reboot, REBOOT_TYPE_COLD
+
+        host = self.duthost.get_bmc_host()
+
+        sw_uptime_pre = host.shell("uptime -s").get('stdout', '').strip()
+        sw_history_pre = host.show_and_parse('show reboot-cause history') or []
+        bmc_uptime_pre = self.duthost.shell("uptime -s").get('stdout', '').strip()
+        bmc_history_pre = self.duthost.show_and_parse('show reboot-cause history') or []
+
+        reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
+               wait_for_ssh=True, safe_reboot=True)
+
+        wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
+
+        bmc_uptime_post = self.duthost.shell("uptime -s").get('stdout', '').strip()
+        bmc_history_post = self.duthost.show_and_parse('show reboot-cause history') or []
+        pytest_assert(bmc_uptime_post and bmc_uptime_post != bmc_uptime_pre,
+                      f"BMC uptime did not advance after reboot: "
+                      f"pre={bmc_uptime_pre!r} post={bmc_uptime_post!r}")
+        pytest_assert(len(bmc_history_post) > len(bmc_history_pre),
+                      f"BMC reboot-cause history did not grow: "
+                      f"pre={len(bmc_history_pre)} post={len(bmc_history_post)}")
+
+        sw_uptime_post = host.shell("uptime -s").get('stdout', '').strip()
+        sw_history_post = host.show_and_parse('show reboot-cause history') or []
+        pytest_assert(sw_uptime_post == sw_uptime_pre,
+                      f"Switch-Host uptime advanced after BMC reboot — isolation broken: "
+                      f"pre={sw_uptime_pre!r} post={sw_uptime_post!r}")
+        pytest_assert(len(sw_history_post) == len(sw_history_pre),
+                      f"Switch-Host reboot-cause history grew after BMC reboot — "
+                      f"isolation broken: pre={len(sw_history_pre)} post={len(sw_history_post)}")
+        pytest_assert(host.critical_services_fully_started(),
+                      "Switch-Host critical services not fully started after BMC reboot")
 
 
 # ---------------------------------------------------------------------------

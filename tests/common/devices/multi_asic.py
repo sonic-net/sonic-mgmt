@@ -367,10 +367,10 @@ class MultiAsicSonicHost(object):
         pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
         return SonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname)
 
-    def get_paired_bmc(self):
+    def get_bmc_from_host(self):
         """Return the SonicHost of the paired BMC for this switch host (reverse of get_bmc_host)."""
         pytest_assert(not self.sonichost.is_bmc(),
-                      "get_paired_bmc() can only be called on a switch-host device")
+                      "get_bmc_from_host() can only be called on a switch-host device")
         my_hostname = self.sonichost.hostname
         tbinfo = self.duthosts.tbinfo
         pytest_assert(tbinfo.get('bmc_host') == my_hostname,
