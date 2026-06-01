@@ -1550,6 +1550,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
         vms = sorted(topo['topology']['VMs'])
     t1_vms = list(filter(lambda vm: "T1" in vm, vms))
     ut2_vms = list(filter(lambda vm: "UT2" in vm, vms))
+    t0_vms = list(filter(lambda vm: vm.endswith("T0"), vms))
 
     ptf_bp_addrs = multi_vrf_data.get('ptf_backplane_addrs', {})
 
@@ -1638,6 +1639,41 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
 
         if vm_name not in topo_routes:
             topo_routes[vm_name] = {}
+        topo_routes[vm_name][IPV4] = ipv4_routes
+        topo_routes[vm_name][IPV6] = ipv6_routes
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, ipv4_routes)
+            change_routes(action, ptf_ip, port6, ipv6_routes)
+
+    BASE_ADDR_V4_T0 = "192.0.0.0/9"
+    BASE_ADDR_V6_T0 = "20c0:a900::0:0/108"
+    T0_ROUTES_PER_VM = 128  # 128 unique IPv4 + 128 unique IPv6 routes per T0 VM
+    T0_ASN_OFFSET = 200  # Offset to avoid collision with T1/UT2 ASN range
+
+    all_subnetv4_t0 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V4_T0)).subnets(new_prefix=24))
+    all_subnetv6_t0 = list(ipaddress.ip_network(UNICODE_TYPE(BASE_ADDR_V6_T0)).subnets(new_prefix=124))
+
+    for t0_group, vm_name in enumerate(t0_vms):
+        port, port6 = get_change_routes_ports(vm_name, topo)
+
+        if vm_name in ptf_bp_addrs:
+            vm_nhipv4 = ptf_bp_addrs[vm_name]['ipv4'].split('/')[0]
+            vm_nhipv6 = ptf_bp_addrs[vm_name]['ipv6'].split('/')[0]
+        else:
+            vm_nhipv4 = nhipv4
+            vm_nhipv6 = nhipv6
+
+        selected_v4 = all_subnetv4_t0[
+            t0_group * T0_ROUTES_PER_VM:t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
+        selected_v6 = all_subnetv6_t0[
+            t0_group * T0_ROUTES_PER_VM:t0_group * T0_ROUTES_PER_VM + T0_ROUTES_PER_VM]
+        as_path = "{} {}".format(leaf_asn_start + T0_ASN_OFFSET + t0_group,
+                                 tor_asn_start + T0_ASN_OFFSET + t0_group)
+
+        ipv4_routes = [(str(s), vm_nhipv4, as_path) for s in selected_v4]
+        ipv6_routes = [(str(s), vm_nhipv6, as_path) for s in selected_v6]
+
+        topo_routes[vm_name] = {}
         topo_routes[vm_name][IPV4] = ipv4_routes
         topo_routes[vm_name][IPV6] = ipv6_routes
         if action != GENERATE_WITHOUT_APPLY:
