@@ -14,9 +14,10 @@ Validates:
 
 import logging
 import re
-import time
+
 import pytest
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -62,118 +63,119 @@ class TestBmcWatchdog:
         """Helper for soft assertions"""
         pytest_assert(condition, message)
 
-    def test_watchdog_status_and_configuration(self):
-        """
-        Verify watchdog service status, timeout configuration, performance and error handling
-
-        Validates:
-        - watchdogutil status output is valid (Armed/Unarmed)
-        - Remaining time between 30s and 180s (when armed)
-        - Command latency < 5 seconds
-        - Service stays responsive after invalid command
-        """
-        # Measure latency while getting status
-        start = time.time()
-        result = self.duthost.shell("watchdogutil status", module_ignore_errors=True)
-        elapsed = time.time() - start
-
-        self.expect(result['rc'] == 0,
-                    f"watchdogutil status failed: {result['stderr']}")
-
-        output = result['stdout'].strip()
-        self.expect(len(output) > 0, "watchdogutil status returned empty output")
-        self.expect("Armed" in output or "Unarmed" in output,
-                    f"watchdogutil output format unexpected: {output}")
-
-        logger.info(f"Watchdog status: {output}, latency: {elapsed:.3f}s")
-        self.expect(elapsed < 5.0, f"watchdogutil took too long: {elapsed:.3f}s")
-
-        # Validate timeout when armed
-        if "Armed" in output:
-            match = re.search(r"Time remaining:\s*(\d+)\s*seconds", output)
-            if match:
-                remaining = int(match.group(1))
-                logger.info(f"Watchdog remaining time: {remaining}s (target: 180s)")
-                self.expect(remaining <= 180,
-                            f"Remaining time {remaining}s exceeds 180s timeout")
-                self.expect(remaining >= 30,
-                            f"Remaining time {remaining}s below minimum 30s")
-            else:
-                logger.warning("Could not parse remaining time from watchdogutil output")
-        else:
-            logger.warning("Watchdog not armed - cannot verify timeout configuration")
-
-        # Verify service stays responsive after invalid command
-        self.duthost.shell("watchdogutil invalid_command 2>&1 || true",
-                           module_ignore_errors=True)
-        result = self.duthost.shell("watchdogutil status", module_ignore_errors=True)
-        self.expect(result['rc'] == 0,
-                    "watchdogutil status failed after invalid command")
-
     def test_watchdog_bmc_integration(self):
         """
-        Verify watchdog integrates correctly with BMC infrastructure
+        Verify BMC watchdog: arm/disarm via `watchdogutil` round-trips correctly
+        AND `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed
+        `watchdog-keepalive.sh` daemon (sonic-buildimage commit bc13e6afa,
+        platform/aspeed/aspeed-platform-services/scripts/watchdog-keepalive.sh).
 
-        Validates:
-        - systemd watchdog service existence and configuration
-        - Log storage in /host/bmc/ directory
-        - Reboot reason accessible (dmesg/cmdline)
-        - State DB reflects watchdog status (if supported)
+        The keepalive script:
+          - Creates /host/bmc/ if missing, writes lifecycle and keepalive lines
+            to /host/bmc/watchdog.log
+          - Arms the watchdog with `watchdogutil arm -s 180` on start
+          - Kicks /dev/watchdog0 every 60s independently of `watchdogutil disarm`
+            — so this test is safe to run on a live BMC.
+
+        Pre-test arm state is restored in `finally`.
         """
-        # Check systemd watchdog service
-        result = self.duthost.shell(
-            "systemctl list-units --type=service | grep -i watchdog || echo 'no-services'",
-            module_ignore_errors=True
-        )
-        if 'no-services' in result['stdout']:
-            logger.info("No systemd watchdog services found")
-        else:
-            logger.info(f"Watchdog services: {result['stdout'][:200]}")
+        # --- /host/bmc/watchdog.log presence and content ---
+        # Asserts the BMC log-routing contract: persistent watchdog log lives
+        # in /host/bmc/, not /var/log/.
+        r = self.duthost.shell("test -f /host/bmc/watchdog.log && echo yes || echo no",
+                               module_ignore_errors=True)
+        pytest_assert(r.get('stdout', '').strip() == 'yes',
+                      "Expected /host/bmc/watchdog.log to exist (Aspeed "
+                      "watchdog-keepalive.sh persistent log sink)")
 
-            # Check service configuration (petting interval, timeout)
-            result = self.duthost.shell(
-                "grep -E 'ExecStart|Interval|Timer' "
-                "/etc/systemd/system/*watchdog*.service 2>/dev/null || echo 'no-config'",
-                module_ignore_errors=True
+        r = self.duthost.shell("wc -l < /host/bmc/watchdog.log", module_ignore_errors=True)
+        try:
+            lines = int((r.get('stdout', '') or '0').strip())
+        except ValueError:
+            lines = 0
+        pytest_assert(lines > 0,
+                      "/host/bmc/watchdog.log exists but is empty — keepalive "
+                      "daemon did not write any lifecycle entries")
+        logger.info(f"/host/bmc/watchdog.log has {lines} line(s)")
+
+        # Negative: /var/log/watchdog* must NOT exist — that location violates
+        # the BMC persistent-log convention.
+        r = self.duthost.shell("ls /var/log/watchdog* 2>/dev/null | wc -l",
+                               module_ignore_errors=True)
+        stray = int((r.get('stdout', '') or '0').strip())
+        pytest_assert(stray == 0,
+                      f"Found {stray} watchdog log file(s) in /var/log — "
+                      "BMC convention requires persistent logs in /host/bmc/")
+
+        # --- Arm/Disarm transitions ---
+        initial_state, initial_remaining = self._read_watchdog_status()
+        pytest_assert(initial_state in ('Armed', 'Unarmed'),
+                      f"Unexpected initial watchdog state: {initial_state!r}")
+        logger.info(f"Initial watchdog state: {initial_state} (remaining={initial_remaining})")
+
+        try:
+            # If we start Unarmed, arm first so the disarm below is meaningful
+            if initial_state == 'Unarmed':
+                r = self.duthost.shell("watchdogutil arm -s 180", module_ignore_errors=True)
+                pytest_assert(r['rc'] == 0,
+                              f"watchdogutil arm failed: rc={r['rc']} stderr={r['stderr']!r}")
+                pytest_assert(
+                    wait_until(15, 2, 0, lambda: self._read_watchdog_status()[0] == 'Armed'),
+                    "watchdogutil status did not report Armed after `watchdogutil arm -s 180`"
+                )
+
+            # Transition 1: Armed → Unarmed
+            r = self.duthost.shell("watchdogutil disarm", module_ignore_errors=True)
+            pytest_assert(r['rc'] == 0,
+                          f"watchdogutil disarm failed: rc={r['rc']} stderr={r['stderr']!r}")
+            pytest_assert(
+                wait_until(15, 2, 0, lambda: self._read_watchdog_status()[0] == 'Unarmed'),
+                "watchdogutil status did not report Unarmed after `watchdogutil disarm`"
             )
-            if 'no-config' not in result['stdout']:
-                logger.info(f"Watchdog service config: {result['stdout']}")
+            logger.info("Disarm transition confirmed: status reports Unarmed")
 
-        # Check persistent log storage in /host/bmc
-        result = self.duthost.shell("test -d /host/bmc && echo 'exists' || echo 'missing'",
-                                    module_ignore_errors=True)
-        if 'missing' in result['stdout']:
-            logger.info("BMC directory not found - skipping persistent log check")
-        else:
-            result = self.duthost.shell("ls -la /host/bmc/ | grep -i watch || echo 'no-logs'",
-                                        module_ignore_errors=True)
-            if 'no-logs' in result['stdout']:
-                logger.info("No watchdog logs in /host/bmc yet - expected on new systems")
+            # Transition 2: Unarmed → Armed
+            r = self.duthost.shell("watchdogutil arm -s 180", module_ignore_errors=True)
+            pytest_assert(r['rc'] == 0,
+                          f"watchdogutil arm failed: rc={r['rc']} stderr={r['stderr']!r}")
+            pytest_assert(
+                wait_until(15, 2, 0, lambda: self._read_watchdog_status()[0] == 'Armed'),
+                "watchdogutil status did not report Armed after `watchdogutil arm -s 180`"
+            )
+            state, remaining = self._read_watchdog_status()
+            # Validate timeout when armed
+            if state == 'Armed':
+                if remaining is not None:
+                    logger.info(f"Watchdog remaining time: {remaining}s (target: 180s)")
+                    pytest_assert(remaining <= 180,
+                                  f"Remaining time {remaining}s exceeds 180s timeout")
+                    pytest_assert(remaining >= 30,
+                                  f"Remaining time {remaining}s below minimum 30s")
+                else:
+                    logger.warning("Could not parse remaining time from watchdogutil output")
             else:
-                logger.info(f"Watchdog logs in /host/bmc: {result['stdout'][:200]}")
+                logger.warning("Watchdog not armed - cannot verify timeout configuration")
 
-            # Warn if watchdog logs exist in /var/log (should be in /host/bmc)
-            result = self.duthost.shell("ls /var/log/watchdog* 2>/dev/null | wc -l",
-                                        module_ignore_errors=True)
-            if result['rc'] == 0 and int(result['stdout'].strip()) > 0:
-                logger.warning("Found watchdog logs in /var/log (expected in /host/bmc)")
+        finally:
+            current_state, _ = self._read_watchdog_status()
+            if initial_state == 'Unarmed' and current_state != 'Unarmed':
+                self.duthost.shell("watchdogutil disarm", module_ignore_errors=True)
+            elif initial_state == 'Armed' and current_state != 'Armed':
+                self.duthost.shell("watchdogutil arm -s 180", module_ignore_errors=True)
 
-        # Reboot reason detection (user vs watchdog reset)
-        result = self.duthost.shell(
-            "dmesg | grep -i 'watchdog\\|reboot' | tail -5 || echo 'no-matches'",
-            module_ignore_errors=True
-        )
-        if 'no-matches' not in result['stdout']:
-            logger.info(f"Reboot-related logs: {result['stdout'][:200]}")
-        else:
-            logger.info("No watchdog/reboot entries in dmesg - expected on running system")
-
-        # State DB consistency check
-        result = self.duthost.shell(
-            "sonic-db-cli STATE_DB KEYS '*WATCH*' 2>/dev/null || echo 'not-available'",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0 and 'not-available' not in result['stdout']:
-            logger.info(f"State DB watchdog entries: {result['stdout'].strip()}")
-        else:
-            logger.info("No watchdog entries in State DB - expected if not supported")
+    def _read_watchdog_status(self):
+        """Return (state, remaining) where state is 'Armed'|'Unarmed'|'' and remaining is int|None."""
+        result = self.duthost.shell("watchdogutil status", module_ignore_errors=True)
+        pytest_assert(result['rc'] == 0,
+                      f"watchdogutil status failed: rc={result['rc']} stderr={result['stderr']!r}")
+        out = result['stdout']
+        state = ''
+        if 'Armed' in out:
+            state = 'Armed'
+        elif 'Unarmed' in out:
+            state = 'Unarmed'
+        remaining = None
+        m = re.search(r"Time remaining:\s*(\d+)\s*seconds", out)
+        if m:
+            remaining = int(m.group(1))
+        return state, remaining

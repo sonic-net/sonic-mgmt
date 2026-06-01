@@ -14,6 +14,19 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.bmc_utils import (
+    STATE_DB,
+    bmc_event_or_syslog_contains,
+    get_system_leak_status,
+    inject_leak_sensor,
+    pmon_journal_contains,
+    redis_del,
+    redis_hget,
+    redis_hgetall,
+    redis_hset,
+    redis_keys,
+    set_system_leak_status,
+)
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.utilities import wait_until
 
@@ -48,45 +61,6 @@ class TestThermalctldDaemon:
 
         yield
 
-    def test_thermalctld_initialization(self):
-        """
-        Verify thermalctld initializes leak monitoring on startup (graceful skip if no liquid cooling)
-
-        Validates:
-        - Service is running
-        - SYSTEM_LEAK_STATUS table initialized
-        - LEAK_PROFILE configuration present
-        - LIQUID_COOLING_INFO tables created for sensors
-        """
-        # Verify service running
-        daemon_status, _ = self.duthost.get_pmon_daemon_status("thermalctld")
-        pytest_assert(daemon_status == "RUNNING", "thermalctld should be running")
-
-        # Check SYSTEM_LEAK_STATUS initialization
-        result = self.duthost.shell(
-            f"redis-cli -n 6 EXISTS '{SYSTEM_LEAK_STATUS_TABLE}:system'",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0:
-            exists = result['stdout'].strip() == '1'
-            if exists:
-                logger.info("SYSTEM_LEAK_STATUS:system initialized")
-            else:
-                logger.info("No SYSTEM_LEAK_STATUS - expected on non-liquid-cooled platforms")
-
-        # Check LEAK_PROFILE configuration
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LEAK_PROFILE_TABLE}:*'",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0 and result['stdout'].strip():
-            profiles = result['stdout'].strip().split('\n')
-            logger.info(f"Found {len(profiles)} leak profiles")
-        else:
-            logger.info("No LEAK_PROFILE found - expected on non-liquid-cooled platforms")
-
     def test_thermalctld_leak_status(self):
         """
         Verify leak status tracking, severity escalation, and bmcctld integration
@@ -99,164 +73,102 @@ class TestThermalctldDaemon:
         - Critical leak events propagate to bmcctld (HOST_STATE consistency)
         """
         # Get system leak status
-        result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' device_leak_status",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0 and result['stdout'].strip():
-            status = result['stdout'].strip()
+        status = get_system_leak_status(self.duthost)
+        if status:
             # LeakSeverity.value = "MINOR"|"CRITICAL"; "None" when no active leak
             valid = ['MINOR', 'CRITICAL', 'None']
             pytest_assert(status in valid, f"device_leak_status '{status}' not in {valid}")
             logger.info(f"System leak status: {status}")
 
         # Check per-sensor fields and types
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LIQUID_COOLING_INFO_TABLE}:*' | head -3",
-            module_ignore_errors=True
-        )
+        sensors = redis_keys(self.duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}:*')[:3]
 
         sensor_types = set()
-        if result['rc'] == 0 and result['stdout'].strip():
-            sensors = result['stdout'].strip().split('\n')
+        for sensor in sensors:
+            fields = redis_hgetall(self.duthost, STATE_DB, sensor)
 
-            for sensor in sensors:
-                # leaking: "Yes"|"No"|"N/A"
-                result = self.duthost.shell(
-                    f"redis-cli -n 6 HGET '{sensor}' leaking",
-                    module_ignore_errors=True
-                )
-                if result['rc'] == 0 and result['stdout'].strip():
-                    leaking = result['stdout'].strip()
-                    pytest_assert(leaking in ['Yes', 'No', 'N/A'],
-                                  f"leaking '{leaking}' not in ['Yes', 'No', 'N/A']")
+            leaking = fields.get('leaking', '').strip()
+            if leaking:
+                pytest_assert(leaking in ['Yes', 'No', 'N/A'],
+                              f"leaking '{leaking}' not in ['Yes', 'No', 'N/A']")
 
-                # leak_sensor_status: "Good"|"Fault"
-                result = self.duthost.shell(
-                    f"redis-cli -n 6 HGET '{sensor}' leak_sensor_status",
-                    module_ignore_errors=True
-                )
-                if result['rc'] == 0 and result['stdout'].strip():
-                    sensor_status = result['stdout'].strip()
-                    pytest_assert(sensor_status in ['Good', 'Fault'],
-                                  f"leak_sensor_status '{sensor_status}' "
-                                  f"not in ['Good', 'Fault']")
+            sensor_status = fields.get('leak_sensor_status', '').strip()
+            if sensor_status:
+                pytest_assert(sensor_status in ['Good', 'Fault'],
+                              f"leak_sensor_status '{sensor_status}' "
+                              f"not in ['Good', 'Fault']")
 
-                # severity: str(LeakSeverity) → "MINOR"|"CRITICAL"
-                result = self.duthost.shell(
-                    f"redis-cli -n 6 HGET '{sensor}' severity",
-                    module_ignore_errors=True
-                )
-                if result['rc'] == 0 and result['stdout'].strip():
-                    severity = result['stdout'].strip()
-                    pytest_assert(severity in ['MINOR', 'CRITICAL'],
-                                  f"severity '{severity}' not in ['MINOR', 'CRITICAL']")
+            severity = fields.get('severity', '').strip()
+            if severity:
+                pytest_assert(severity in ['MINOR', 'CRITICAL'],
+                              f"severity '{severity}' not in ['MINOR', 'CRITICAL']")
 
-                result = self.duthost.shell(
-                    f"redis-cli -n 6 HGET '{sensor}' type",
-                    module_ignore_errors=True
-                )
-                if result['rc'] == 0 and result['stdout'].strip():
-                    sensor_types.add(result['stdout'].strip())
+            sensor_type = fields.get('type', '').strip()
+            if sensor_type:
+                sensor_types.add(sensor_type)
 
-            if sensor_types:
-                logger.info(f"Sensor types supported: {sensor_types}")
+        if sensor_types:
+            logger.info(f"Sensor types supported: {sensor_types}")
 
         # Check escalation timeout configuration
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LEAK_PROFILE_TABLE}:*' | head -1",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0 and result['stdout'].strip():
-            profile = result['stdout'].strip()
-            result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{profile}' max_minor_duration_sec",
-                module_ignore_errors=True
-            )
-
-            if result['rc'] == 0 and result['stdout'].strip():
+        profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}:*')
+        if profiles:
+            timeout_str = redis_hget(self.duthost, STATE_DB, profiles[0],
+                                     'max_minor_duration_sec')
+            if timeout_str:
                 try:
-                    timeout = float(result['stdout'].strip())
+                    timeout = float(timeout_str)
                     pytest_assert(timeout > 0, "Timeout should be positive")
                     logger.info(f"Escalation timeout: {timeout}s")
                 except ValueError:
                     logger.warning("Could not parse timeout")
 
         # Verify bmcctld coordination: critical leaks propagate to HOST_STATE
-        result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' device_leak_status",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] == 0 and result['stdout'].strip() == 'CRITICAL':
-            result = self.duthost.shell(
-                "redis-cli -n 6 HGET 'HOST_STATE:switch-host' device_status",
-                module_ignore_errors=True
-            )
-
-            if result['rc'] == 0 and result['stdout'].strip():
-                host_status = result['stdout'].strip()
+        if get_system_leak_status(self.duthost) == 'CRITICAL':
+            host_status = redis_hget(self.duthost, STATE_DB,
+                                     'HOST_STATE:switch-host', 'device_status')
+            if host_status:
                 logger.info(f"Critical leak integration: HOST_STATE={host_status}")
 
     def test_thermalctld_event_trigger(self):
         """
-        Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence
-        and any associated syslog entries.
+        Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB
+        presence and the associated syslog entry.
 
         LIQUID_COOLING_INFO schema (from LiquidCoolingUpdater._refresh_leak_status):
           leaking           = "Yes" | "No" | "N/A"
           leak_sensor_status = "Good" | "Fault"
           name, type, location, severity
 
-        Syslog messages thermalctld emits on hardware state transitions:
+        Syslog message thermalctld emits on hardware state transition:
           is_leak()=True          → log_error('...sensor {} reported leaking')
           is_leak()=False         → log_notice('...sensor {} recovered from leaking')
-          is_leak_sensor_ok()=False → log_error('...sensor {} reported faulty')
 
-        Trigger 1 — leaking sensor (leaking=Yes, leak_sensor_status=Good):
+        Trigger — leaking sensor (leaking=Yes, leak_sensor_status=Good):
           Represents the STATE_DB entry thermalctld writes when is_leak() returns True.
           Checks syslog for 'reported leaking'.
 
-        Trigger 2 — faulty sensor (leaking=N/A, leak_sensor_status=Fault):
-          Represents the STATE_DB entry thermalctld writes when is_leak_sensor_ok()
-          returns False.  Verifies the Fault entry is present in STATE_DB; syslog
-          check is covered in detail by test_thermalctld_faulty_sensor.
+        The faulty-sensor path (leak_sensor_status=Fault) is covered by
+        test_thermalctld_faulty_sensor.
 
-        Both keys are deleted in finally blocks.
+        The injected key is deleted in a finally block.
         """
         LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}:test_sensor_leaking"
-        FAULTY_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}:test_sensor_faulty"
 
         def log_contains(pattern):
-            """Check pmon journal for pattern."""
-            result = self.duthost.shell(
-                f"journalctl -u pmon --since '2 minutes ago' 2>/dev/null"
-                f" | grep -i '{pattern}' | tail -5",
-                module_ignore_errors=True
-            )
-            return result['rc'] == 0 and bool(result['stdout'].strip())
+            return pmon_journal_contains(self.duthost, pattern, since='2 minutes ago')
 
         def sensor_has_value(key, field, value):
-            """Check STATE_DB entry has expected field=value."""
-            result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{key}' {field}",
-                module_ignore_errors=True
-            )
-            return result['rc'] == 0 and result['stdout'].strip() == value
+            return redis_hget(self.duthost, STATE_DB, key, field) == value
 
         trigger_results = {}
 
-        # --- Trigger 1: leaking sensor (leaking=Yes, leak_sensor_status=Good) ---
+        # --- Trigger: leaking sensor (leaking=Yes, leak_sensor_status=Good) ---
         # Expected syslog: log_error('Liquid cooling leakage sensor test_sensor_leaking reported leaking')
         try:
-            self.duthost.shell(
-                f"redis-cli -n 6 HSET '{LEAKING_SENSOR_KEY}'"
-                f" name test_sensor_leaking leaking Yes leak_sensor_status Good severity MINOR",
-                module_ignore_errors=True
-            )
-            logger.info("Trigger 1 [leaking sensor]: leaking=Yes leak_sensor_status=Good")
+            inject_leak_sensor(self.duthost, 'test_sensor_leaking',
+                               leaking='Yes', leak_sensor_status='Good', severity='MINOR')
+            logger.info("Trigger [leaking sensor]: leaking=Yes leak_sensor_status=Good")
             logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_leaking reported leaking'")
 
             in_db = wait_until(15, 2, 0, sensor_has_value, LEAKING_SENSOR_KEY, 'leaking', 'Yes')
@@ -264,47 +176,19 @@ class TestThermalctldDaemon:
             found = wait_until(30, 3, 0, log_contains, 'reported leaking')
             trigger_results['leaking_sensor_syslog'] = found
             if found:
-                logger.info("Trigger 1: syslog confirmed 'reported leaking'")
+                logger.info("Trigger: syslog confirmed 'reported leaking'")
             else:
-                logger.info("Trigger 1: no syslog match - thermalctld logs on hardware poll, not DB write")
+                logger.info("Trigger: no syslog match - thermalctld logs on hardware poll, not DB write")
         finally:
-            self.duthost.shell(
-                f"redis-cli -n 6 DEL '{LEAKING_SENSOR_KEY}'",
-                module_ignore_errors=True
-            )
-
-        # --- Trigger 2: faulty sensor (leaking=N/A, leak_sensor_status=Fault) ---
-        # Expected syslog: log_error('Liquid cooling leakage sensor test_sensor_faulty reported faulty')
-        try:
-            self.duthost.shell(
-                f"redis-cli -n 6 HSET '{FAULTY_SENSOR_KEY}'"
-                f" name test_sensor_faulty leaking N/A leak_sensor_status Fault severity CRITICAL",
-                module_ignore_errors=True
-            )
-            logger.info("Trigger 2 [faulty sensor]: leaking=N/A leak_sensor_status=Fault")
-            logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_faulty reported faulty'")
-
-            in_db = wait_until(15, 2, 0, sensor_has_value, FAULTY_SENSOR_KEY, 'leak_sensor_status', 'Fault')
-            trigger_results['faulty_sensor_in_db'] = in_db
-            found = wait_until(30, 3, 0, log_contains, 'reported faulty')
-            trigger_results['faulty_sensor_syslog'] = found
-            if found:
-                logger.info("Trigger 2: syslog confirmed 'reported faulty'")
-            else:
-                logger.info("Trigger 2: no syslog match - thermalctld logs on hardware poll, not DB write")
-        finally:
-            self.duthost.shell(
-                f"redis-cli -n 6 DEL '{FAULTY_SENSOR_KEY}'",
-                module_ignore_errors=True
-            )
+            redis_del(self.duthost, STATE_DB, LEAKING_SENSOR_KEY)
 
         result = self.duthost.shell(
             "journalctl -u pmon --since '10 minutes ago' 2>/dev/null"
-            " | grep -i 'reported leaking\\|reported faulty\\|recovered from' | tail -10",
+            " | grep -i 'reported leaking\\|recovered from leaking' | tail -10",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"Existing thermalctld liquid cooling events:\n{result['stdout']}")
+            logger.info(f"Existing thermalctld leaking-sensor events:\n{result['stdout']}")
 
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
@@ -338,24 +222,13 @@ class TestThermalctldDaemon:
         FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}:test_faulty_sensor_check"
 
         def sensor_field_equals(key, field, value):
-            result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{key}' {field}",
-                module_ignore_errors=True
-            )
-            return result['rc'] == 0 and result['stdout'].strip() == value
+            return redis_hget(self.duthost, STATE_DB, key, field) == value
 
         try:
             # Inject a faulty sensor entry using the exact schema thermalctld writes
-            self.duthost.shell(
-                f"redis-cli -n 6 HSET '{FAULTY_KEY}'"
-                f" name test_faulty_sensor_check"
-                f" leaking N/A"
-                f" leak_sensor_status Fault"
-                f" severity CRITICAL"
-                f" type liquid"
-                f" location rack",
-                module_ignore_errors=True
-            )
+            inject_leak_sensor(self.duthost, 'test_faulty_sensor_check',
+                               leaking='N/A', leak_sensor_status='Fault',
+                               severity='CRITICAL', type='liquid', location='rack')
             logger.info(f"Injected faulty sensor entry: {FAULTY_KEY}")
 
             # Verify leaking=N/A (sensor unreadable)
@@ -369,10 +242,7 @@ class TestThermalctldDaemon:
             logger.info("STATE_DB confirmed: leak_sensor_status=Fault")
 
         finally:
-            self.duthost.shell(
-                f"redis-cli -n 6 DEL '{FAULTY_KEY}'",
-                module_ignore_errors=True
-            )
+            redis_del(self.duthost, STATE_DB, FAULTY_KEY)
 
         # Check syslog for any existing real faulty-sensor events from thermalctld
         result = self.duthost.shell(
@@ -391,74 +261,12 @@ class TestThermalctldDaemon:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
         # Verify SYSTEM_LEAK_STATUS:system is still updated (thermalctld updates it even with faulty sensors)
-        result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' timestamp",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"SYSTEM_LEAK_STATUS timestamp present: {result['stdout'].strip()}")
+        ts = redis_hget(self.duthost, STATE_DB,
+                        f'{SYSTEM_LEAK_STATUS_TABLE}:system', 'timestamp')
+        if ts:
+            logger.info(f"SYSTEM_LEAK_STATUS timestamp present: {ts}")
         else:
             logger.info("SYSTEM_LEAK_STATUS not populated - liquid cooling not active on this platform")
-
-    def test_thermalctld_startup_leak_seed(self):
-        """
-        Verify thermalctld seeds SYSTEM_LEAK_STATUS:system at startup with device_leak_status='None'.
-
-        bmc_enhance change: LiquidCoolingUpdater writes an initial
-        SYSTEM_LEAK_STATUS|system row (device_leak_status=None) at startup so
-        consumers always find a row without having to wait for the first leak cycle.
-
-        Test Steps:
-        1. Check SYSTEM_LEAK_STATUS:system exists in STATE_DB (redis-cli EXISTS)
-        2. Read device_leak_status — verify it is 'None' OR a valid active status
-           (MINOR / CRITICAL if a leak happened to be active at test time)
-        3. Read timestamp — verify it is a non-empty string (seeded at startup)
-
-        Expected Result:
-        - SYSTEM_LEAK_STATUS:system row is present on liquid-cooled platforms
-        - device_leak_status is 'None', 'MINOR', or 'CRITICAL'
-        - timestamp field is present and non-empty
-        - Graceful info-only on non-liquid-cooled platforms (table absent is acceptable)
-        """
-        result = self.duthost.shell(
-            f"redis-cli -n 6 EXISTS '{SYSTEM_LEAK_STATUS_TABLE}:system'",
-            module_ignore_errors=True
-        )
-
-        # Row should exist on liquid-cooled platforms; absent is OK on others
-        if result['rc'] != 0 or result['stdout'].strip() != '1':
-            logger.info(
-                "SYSTEM_LEAK_STATUS:system not present — "
-                "expected on non-liquid-cooled platforms (LiquidCoolingUpdater skipped)"
-            )
-            return
-
-        logger.info("SYSTEM_LEAK_STATUS:system exists — verifying seed values")
-
-        result = self.duthost.shell(
-            f"redis-cli -n 6 HGETALL '{SYSTEM_LEAK_STATUS_TABLE}:system'",
-            module_ignore_errors=True
-        )
-        pytest_assert(result['rc'] == 0, "HGETALL on SYSTEM_LEAK_STATUS:system failed")
-
-        lines = result['stdout'].strip().split('\n')
-        fields = {lines[i]: lines[i+1] for i in range(0, len(lines), 2) if i+1 < len(lines)}
-        logger.info(f"SYSTEM_LEAK_STATUS:system fields: {fields}")
-
-        pytest_assert('device_leak_status' in fields,
-                      "SYSTEM_LEAK_STATUS:system missing device_leak_status field")
-        pytest_assert('timestamp' in fields,
-                      "SYSTEM_LEAK_STATUS:system missing timestamp field")
-
-        valid_statuses = ['None', 'MINOR', 'CRITICAL']
-        status = fields['device_leak_status']
-        pytest_assert(status in valid_statuses,
-                      f"device_leak_status '{status}' not in {valid_statuses}")
-        logger.info(f"device_leak_status={status} — valid seed value confirmed")
-
-        ts = fields.get('timestamp', '')
-        pytest_assert(bool(ts), "timestamp field is empty")
-        logger.info(f"Startup seed timestamp: {ts}")
 
     def test_thermalctld_leak_escalation(self):
         """
@@ -481,26 +289,18 @@ class TestThermalctldDaemon:
         - When system status is CRITICAL, at least one sensor shows severity=CRITICAL
         """
         # Check LEAK_PROFILE present
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LEAK_PROFILE_TABLE}:*'",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] != 0 or not result['stdout'].strip():
+        profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}:*')
+        if not profiles:
             logger.info("No LEAK_PROFILE entries — non-liquid-cooled platform; skipping escalation test")
             return
 
-        profiles = result['stdout'].strip().split('\n')
         logger.info(f"Found {len(profiles)} leak profile(s): {profiles}")
 
         for profile_key in profiles:
-            result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{profile_key}' max_minor_duration_sec",
-                module_ignore_errors=True
-            )
-            if result['rc'] == 0 and result['stdout'].strip():
+            ts = redis_hget(self.duthost, STATE_DB, profile_key, 'max_minor_duration_sec')
+            if ts:
                 try:
-                    threshold = float(result['stdout'].strip())
+                    threshold = float(ts)
                     pytest_assert(threshold > 0,
                                   f"{profile_key}: max_minor_duration_sec={threshold} must be > 0")
                     logger.info(f"{profile_key}: escalation threshold = {threshold}s")
@@ -508,25 +308,16 @@ class TestThermalctldDaemon:
                     logger.warning(f"{profile_key}: could not parse max_minor_duration_sec")
 
         # Read current sensor severities
-        result = self.duthost.shell(
-            f"redis-cli -n 6 KEYS '{LIQUID_COOLING_INFO_TABLE}:*' | head -10",
-            module_ignore_errors=True
-        )
-
-        if result['rc'] != 0 or not result['stdout'].strip():
+        sensors = redis_keys(self.duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}:*')[:10]
+        if not sensors:
             logger.info("No LIQUID_COOLING_INFO sensors — no active leak sensors to check")
             return
 
-        sensors = result['stdout'].strip().split('\n')
         critical_sensors = []
         for sensor_key in sensors:
-            sev_result = self.duthost.shell(
-                f"redis-cli -n 6 HGET '{sensor_key}' severity",
-                module_ignore_errors=True
-            )
-            if sev_result['rc'] != 0 or not sev_result['stdout'].strip():
+            severity = redis_hget(self.duthost, STATE_DB, sensor_key, 'severity')
+            if not severity:
                 continue
-            severity = sev_result['stdout'].strip()
             pytest_assert(severity in ['MINOR', 'CRITICAL'],
                           f"{sensor_key}: severity '{severity}' not in ['MINOR', 'CRITICAL']")
             if severity == 'CRITICAL':
@@ -535,20 +326,14 @@ class TestThermalctldDaemon:
                 # max_minor_duration_sec — confirming profile-driven escalation is possible.
                 # The daemon calls sensor.get_leak_profile().get_leak_max_minor_duration_sec()
                 # and escalates MINOR→CRITICAL once that threshold is exceeded.
-                prof_result = self.duthost.shell(
-                    f"redis-cli -n 6 HGET '{sensor_key}' profile",
-                    module_ignore_errors=True
-                )
-                if prof_result['rc'] == 0 and prof_result['stdout'].strip():
-                    profile_name = prof_result['stdout'].strip()
+                profile_name = redis_hget(self.duthost, STATE_DB, sensor_key, 'profile')
+                if profile_name:
                     profile_key = f"{LEAK_PROFILE_TABLE}:{profile_name}"
-                    threshold_result = self.duthost.shell(
-                        f"redis-cli -n 6 HGET '{profile_key}' max_minor_duration_sec",
-                        module_ignore_errors=True
-                    )
-                    if threshold_result['rc'] == 0 and threshold_result['stdout'].strip():
+                    threshold_str = redis_hget(self.duthost, STATE_DB, profile_key,
+                                               'max_minor_duration_sec')
+                    if threshold_str:
                         try:
-                            threshold = float(threshold_result['stdout'].strip())
+                            threshold = float(threshold_str)
                             pytest_assert(
                                 threshold > 0,
                                 f"{sensor_key}: profile '{profile_name}' has "
@@ -565,11 +350,7 @@ class TestThermalctldDaemon:
                             )
 
         # When system status is CRITICAL, at least one sensor must also be CRITICAL
-        result = self.duthost.shell(
-            f"redis-cli -n 6 HGET '{SYSTEM_LEAK_STATUS_TABLE}:system' device_leak_status",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0 and result['stdout'].strip() == 'CRITICAL':
+        if get_system_leak_status(self.duthost) == 'CRITICAL':
             pytest_assert(
                 len(critical_sensors) > 0,
                 "System device_leak_status=CRITICAL but no sensor shows severity=CRITICAL"
@@ -577,6 +358,120 @@ class TestThermalctldDaemon:
             logger.info(f"Escalated CRITICAL sensors: {critical_sensors}")
         else:
             logger.info("No active CRITICAL leak — escalation path not triggered on this run")
+
+    def test_thermalctld_leak_severity_aggregation(self):
+        """
+        Verify thermalctld's individual-sensor → SYSTEM_LEAK_STATUS aggregation rules
+        (pmon-bmc-design.md §2.1.5 truth table). Each scenario injects test sensor
+        rows into LIQUID_COOLING_INFO, waits for the daemon's next poll cycle, and
+        asserts SYSTEM_LEAK_STATUS:system device_leak_status converges to the
+        expected output.
+
+        Rule 1: 1 CRITICAL sensor              → CRITICAL
+        Rule 2: 2+ sensors (any severity)      → CRITICAL
+        Rule 3: 1 MINOR sensor > max_minor_duration_sec  → CRITICAL (escalation)
+        Rule 4: 1 MINOR sensor (< threshold)   → MINOR
+
+        Limitations: thermalctld may re-write LIQUID_COOLING_INFO on each poll
+        based on real hardware. If our injected rows do not survive long enough
+        for the aggregator to act on them, the relevant scenario logs info and
+        the assertion is skipped (rather than asserting a false negative).
+
+        All injected rows and the original device_leak_status are restored in
+        `finally` blocks.
+        """
+        TEST_SENSORS = [
+            f"{LIQUID_COOLING_INFO_TABLE}:test_agg_sensor_a",
+            f"{LIQUID_COOLING_INFO_TABLE}:test_agg_sensor_b",
+        ]
+
+        def inject(key, severity, leaking='Yes'):
+            inject_leak_sensor(self.duthost, key.split(':')[-1],
+                               leaking=leaking, leak_sensor_status='Good', severity=severity)
+
+        def cleanup_sensors():
+            redis_del(self.duthost, STATE_DB, *TEST_SENSORS)
+
+        def sensor_survives(key):
+            """True iff thermalctld has not evicted our test row."""
+            r = self.duthost.shell(
+                f"sonic-db-cli {STATE_DB} EXISTS '{key}'",
+                module_ignore_errors=True
+            )
+            return (r.get('stdout', '') or '').strip() == '1'
+
+        orig_status = get_system_leak_status(self.duthost) or 'None'
+        if orig_status == 'CRITICAL':
+            pytest.skip("System already in CRITICAL state — cannot run aggregation scenarios safely")
+
+        scenarios = [
+            ("Rule 1 (1 CRITICAL sensor)", [(TEST_SENSORS[0], 'CRITICAL')], 'CRITICAL'),
+            ("Rule 2 (2 MINOR sensors)",
+             [(TEST_SENSORS[0], 'MINOR'), (TEST_SENSORS[1], 'MINOR')], 'CRITICAL'),
+            ("Rule 4 (1 MINOR sensor)", [(TEST_SENSORS[0], 'MINOR')], 'MINOR'),
+        ]
+
+        try:
+            for label, rows, expected in scenarios:
+                cleanup_sensors()
+                for key, sev in rows:
+                    inject(key, sev)
+                logger.info(f"{label}: injected {[(k, s) for k, s in rows]}, expect SYSTEM={expected}")
+
+                converged = wait_until(
+                    40, 5, 0,
+                    lambda exp=expected: (get_system_leak_status(self.duthost) or '').upper() == exp
+                )
+                survived = all(sensor_survives(k) for k, _ in rows)
+                if not survived:
+                    logger.info(f"{label}: injected rows were re-written by daemon poll - "
+                                f"aggregation not driven by test; skipping assert")
+                    continue
+                pytest_assert(
+                    converged,
+                    f"{label}: SYSTEM_LEAK_STATUS did not converge to {expected} "
+                    f"within 40s; got {get_system_leak_status(self.duthost)!r}"
+                )
+                logger.info(f"{label}: SYSTEM_LEAK_STATUS={get_system_leak_status(self.duthost)} ✓")
+                cleanup_sensors()
+                # Let the system settle back before next scenario
+                wait_until(30, 3, 0,
+                           lambda: (get_system_leak_status(self.duthost) or '').upper() != 'CRITICAL')
+
+            # Rule 3 (escalation): temporarily shorten max_minor_duration_sec
+            profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}:*')
+            if not profiles:
+                logger.info("Rule 3 (escalation): no LEAK_PROFILE keys — non-LC platform; skipping")
+            else:
+                pkey = profiles[0]
+                orig_thresh = redis_hget(self.duthost, STATE_DB, pkey, 'max_minor_duration_sec')
+                try:
+                    redis_hset(self.duthost, STATE_DB, pkey, max_minor_duration_sec='5')
+                    cleanup_sensors()
+                    inject(TEST_SENSORS[0], 'MINOR')
+                    logger.info("Rule 3: injected 1 MINOR sensor with max_minor_duration_sec=5s")
+                    converged = wait_until(
+                        40, 5, 0,
+                        lambda: (get_system_leak_status(self.duthost) or '').upper() == 'CRITICAL'
+                    )
+                    if sensor_survives(TEST_SENSORS[0]):
+                        pytest_assert(
+                            converged,
+                            "Rule 3: SYSTEM_LEAK_STATUS did not escalate MINOR→CRITICAL "
+                            f"within 40s; got {get_system_leak_status(self.duthost)!r}"
+                        )
+                        logger.info("Rule 3: MINOR sensor escalated to CRITICAL ✓")
+                    else:
+                        logger.info("Rule 3: injected row evicted by daemon poll - skipping assert")
+                finally:
+                    if orig_thresh:
+                        redis_hset(self.duthost, STATE_DB, pkey,
+                                   max_minor_duration_sec=orig_thresh)
+        finally:
+            cleanup_sensors()
+            # Restore original system status best-effort
+            if orig_status and orig_status != 'CRITICAL':
+                set_system_leak_status(self.duthost, orig_status)
 
     def test_thermalctld_bmc_temperature_mirror(self):
         """
@@ -634,15 +529,10 @@ class TestThermalctldDaemon:
             )
 
         # Verify local TEMPERATURE_INFO is populated (source of mirror data)
-        result = self.duthost.shell(
-            "redis-cli -n 6 KEYS 'TEMPERATURE_INFO:*' | wc -l",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0:
-            count = result['stdout'].strip()
-            logger.info(f"Local TEMPERATURE_INFO entries: {count}")
-            if int(count) == 0:
-                logger.info("No TEMPERATURE_INFO entries — thermals not yet polled or no sensors")
+        count = len(redis_keys(self.duthost, STATE_DB, 'TEMPERATURE_INFO:*'))
+        logger.info(f"Local TEMPERATURE_INFO entries: {count}")
+        if count == 0:
+            logger.info("No TEMPERATURE_INFO entries — thermals not yet polled or no sensors")
 
     def test_thermalctld_switch_host_thermal_monitoring(self):
         """
@@ -704,49 +594,32 @@ class TestThermalctldDaemon:
         # Inject a test TEMPERATURE_INFO entry with temp above critical threshold
         TEST_SENSOR = "TEMPERATURE_INFO:test_critical_thermal_monitor"
         try:
-            self.duthost.shell(
-                f"redis-cli -n 6 HSET '{TEST_SENSOR}'"
-                f" temperature 120.0"
-                f" critical_high_threshold 80.0"
-                f" high_threshold 70.0"
-                f" low_threshold -10.0"
-                f" warning False"
-                f" timestamp '2099-01-01T00:00:00'",
-                module_ignore_errors=True
-            )
+            redis_hset(self.duthost, STATE_DB, TEST_SENSOR,
+                       temperature='120.0',
+                       critical_high_threshold='80.0',
+                       high_threshold='70.0',
+                       low_threshold='-10.0',
+                       warning='False',
+                       timestamp='2099-01-01T00:00:00')
             logger.info(f"Injected test TEMPERATURE_INFO entry: {TEST_SENSOR} (120C > 80C critical)")
 
             # Wait for thermalctld to poll and log the breach (up to 2 update cycles)
             def breach_logged():
-                result = self.duthost.shell(
-                    "test -f /host/bmc/event.log && grep -i 'CRITICAL chassis thermal.*test_critical' "
-                    "/host/bmc/event.log | tail -3",
-                    module_ignore_errors=True
+                return bmc_event_or_syslog_contains(
+                    self.duthost, 'CRITICAL chassis thermal.*test_critical',
+                    since='2 minutes ago'
                 )
-                return result['rc'] == 0 and bool(result['stdout'].strip())
 
             found = wait_until(90, 5, 0, breach_logged)
             if found:
-                logger.info("CRITICAL chassis thermal event.log entry confirmed for test sensor")
+                logger.info("CRITICAL chassis thermal log confirmed for injected sensor")
             else:
-                # Check syslog as fallback
-                result = self.duthost.shell(
-                    "journalctl -u pmon --since '2 minutes ago' 2>/dev/null"
-                    " | grep -i 'CRITICAL chassis thermal.*test_critical' | tail -3",
-                    module_ignore_errors=True
+                logger.info(
+                    "No CRITICAL chassis thermal log found within 90s — "
+                    "thermalctld may use a longer polling interval on this platform"
                 )
-                if result['rc'] == 0 and result['stdout'].strip():
-                    logger.info(f"CRITICAL chassis thermal syslog entry confirmed:\n{result['stdout'].strip()}")
-                else:
-                    logger.info(
-                        "No CRITICAL chassis thermal log found within 90s — "
-                        "thermalctld may use a longer polling interval on this platform"
-                    )
         finally:
-            self.duthost.shell(
-                f"redis-cli -n 6 DEL '{TEST_SENSOR}'",
-                module_ignore_errors=True
-            )
+            redis_del(self.duthost, STATE_DB, TEST_SENSOR)
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,13 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, get_inventory_files, get_host_visible_vars
+from tests.common.platform.bmc_utils import (
+    get_host_uptime,
+    verify_bmc_initiated_reboot,
+    wait_host_off,
+    wait_host_on,
+)
+from tests.common.utilities import get_inventory_files, get_host_visible_vars
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +77,9 @@ class TestBmcCliCommands:
         - Command succeeds and returns non-empty output
         - Output includes sensor names and temperature values
         - High/critical threshold columns are present
+        - On BMC: output includes at least one Switch-Host sensor name
+          (BMC mirrors Switch-Host TEMPERATURE_INFO and must surface it
+          via its own 'show platform temperature')
         """
         result = self.duthost.shell(
             "show platform temperature",
@@ -89,6 +98,28 @@ class TestBmcCliCommands:
         has_threshold = any(term in output_lower for term in ['high th', 'crit', 'threshold'])
         logger.info(f"show platform temperature: threshold columns present={has_threshold}")
         logger.info(f"show platform temperature output:\n{output}")
+
+        # Cross-check: BMC must surface paired Switch-Host sensors in its CLI output
+        host = self.duthost.get_bmc_host()
+
+        def _sensor_names(rows):
+            names = set()
+            for row in rows or []:
+                for k, v in row.items():
+                    if k and 'sensor' in k.lower() and v:
+                        names.add(v.strip())
+                        break
+            return names
+
+        host_sensors = _sensor_names(host.show_and_parse('show platform temperature'))
+        bmc_sensors = _sensor_names(self.duthost.show_and_parse('show platform temperature'))
+        pytest_assert(host_sensors,
+                      "Switch-Host 'show platform temperature' returned no sensor rows")
+        overlap = host_sensors & bmc_sensors
+        pytest_assert(overlap,
+                      f"BMC 'show platform temperature' must include ≥1 Switch-Host sensor; "
+                      f"switch_host={sorted(host_sensors)} bmc={sorted(bmc_sensors)}")
+        logger.info(f"BMC surfaces {len(overlap)} Switch-Host sensor(s): {sorted(overlap)}")
 
     def test_config_chassis_modules(self):
         """Verify 'config chassis modules' help surface + functional shutdown/startup cycle.
@@ -124,65 +155,140 @@ class TestBmcCliCommands:
                 logger.info(f"config chassis modules {subcmd} --help: available")
 
         host = self.duthost.get_bmc_host()
-        pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
+        pre_boot = get_host_uptime(host)
 
         try:
             self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
                                module_ignore_errors=True)
-            wait_until(300, 10, 10,
-                       lambda: host.shell("true", module_ignore_errors=True).get('rc') != 0)
+            wait_host_off(host, timeout=300)
 
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
-            wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
+            wait_host_on(host)
 
-            post_boot = host.shell("uptime -s").get('stdout', '').strip()
-            pytest_assert(post_boot and post_boot != pre_boot,
-                          f"Switch-Host uptime did not advance: pre={pre_boot!r} post={post_boot!r}")
-
-            cause_rows = host.show_and_parse('show reboot-cause')
-            cause = (cause_rows[0].get('cause', '') if cause_rows else '').lower()
-            expected = ('power down request from bmc',
-                        'graceful shutdown from bmc',
-                        'power loss')
-            pytest_assert(any(e in cause for e in expected),
-                          f"Unexpected reboot cause on switch-host: {cause!r}")
+            verify_bmc_initiated_reboot(host, pre_boot)
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
 
     def test_liquid_cool_config_commands(self):
         """
-        Verify config liquid-cool leak-control and leak-action command syntax (LC platforms)
+        Verify `config liquid-cool leak-control` and `config liquid-cool leak-action`
+        functionally update LEAK_CONTROL_POLICY and are reflected in
+        `show platform leak control-policy` (not just help text).
 
-        Validates:
-        - config liquid-cool leak-control --help is parseable
-        - config liquid-cool leak-action --help is parseable
-        - Commands accept [system|rack_mgr] and correct action values
-        - Graceful skip on non-liquid-cooled systems
+        Approach (LC platforms only — graceful skip elsewhere):
+          1. Snapshot current policy via `show platform leak control-policy`
+          2. For each (target, severity) pair, set the action to a safe alternative
+             via `config liquid-cool leak-action` and assert the new value appears
+             in `show platform leak control-policy`
+          3. Toggle `config liquid-cool leak-control` (disable→enable) and assert
+             the change is reflected in the show output
+          4. Restore all original values in `finally`
         """
-        for subcmd in ['leak-control', 'leak-action']:
-            result = self.duthost.shell(
-                f"config liquid-cool {subcmd} --help 2>&1",
-                module_ignore_errors=True
-            )
-            if result['rc'] != 0:
-                logger.info(f"config liquid-cool {subcmd} not available (expected on non-LC systems)")
-                continue
-            output = result['stdout']
-            has_system = 'system' in output.lower()
-            has_rack = 'rack' in output.lower() or 'rack_mgr' in output.lower()
-            logger.info(f"config liquid-cool {subcmd}: system={has_system} rack_mgr={has_rack}")
+        SAFE_ACTIONS = ['syslog_only', 'graceful_shutdown', 'power_off']
 
-        # Verify leak-action mentions action values
-        result = self.duthost.shell(
-            "config liquid-cool leak-action --help 2>&1",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0:
-            output = result['stdout']
-            for action in ['syslog_only', 'graceful_shutdown', 'power_off']:
-                logger.info(f"config liquid-cool leak-action mentions '{action}': {action in output}")
+        def snapshot_policy():
+            """Parse `show platform leak control-policy` into {key: value} dict."""
+            rows = self.duthost.show_and_parse('show platform leak control-policy')
+            policy = {}
+            for row in rows or []:
+                # Heuristic: rows look like {'parameter': '...', 'value': '...'}
+                # or table form {'system_leak_policy': '...', ...}
+                if 'parameter' in row and 'value' in row:
+                    policy[row['parameter'].strip()] = row['value'].strip()
+                else:
+                    for k, v in row.items():
+                        if k and v:
+                            policy[k.strip()] = v.strip()
+            return policy
+
+        def policy_has(field_substr, expected_value):
+            """Return True iff any policy field whose name contains field_substr
+            has value == expected_value (case-insensitive)."""
+            for k, v in snapshot_policy().items():
+                if field_substr.lower() in k.lower() and v.lower() == expected_value.lower():
+                    return True
+            return False
+
+        # --- Pre-flight: must be LC platform ---
+        result = self.duthost.shell("config liquid-cool --help 2>&1", module_ignore_errors=True)
+        if result['rc'] != 0:
+            pytest.skip("config liquid-cool not available (non-LC platform)")
+
+        original = snapshot_policy()
+        pytest_assert(original,
+                      "`show platform leak control-policy` returned no parseable rows on an LC platform")
+        logger.info(f"Original LEAK_CONTROL_POLICY snapshot: {original}")
+
+        applied_changes = []  # list of (target, severity, original_action) to restore
+
+        try:
+            # --- leak-action functional round-trip ---
+            for target in ['system', 'rack_mgr']:
+                for severity in ['minor', 'critical']:
+                    # Find current action for this (target, severity) in snapshot
+                    field_substr = f"{target}_{severity}_leak_action"
+                    current_action = next(
+                        (v for k, v in original.items()
+                         if field_substr.lower() in k.lower()),
+                        None
+                    )
+                    if current_action is None:
+                        logger.info(f"Skipping {target}/{severity}: not in policy snapshot")
+                        continue
+                    # Pick a different safe action
+                    new_action = next((a for a in SAFE_ACTIONS if a != current_action.lower()),
+                                      'syslog_only')
+                    cmd = f"config liquid-cool leak-action {target} {severity} {new_action}"
+                    result = self.duthost.shell(cmd, module_ignore_errors=True)
+                    pytest_assert(result['rc'] == 0,
+                                  f"{cmd!r} failed rc={result['rc']} stderr={result['stderr']!r}")
+                    applied_changes.append((target, severity, current_action))
+                    pytest_assert(policy_has(field_substr, new_action),
+                                  f"After {cmd!r}, show platform leak control-policy does not "
+                                  f"reflect {field_substr}={new_action}")
+                    logger.info(f"Verified via show: {field_substr}={new_action}")
+
+            # --- leak-control functional toggle ---
+            for target in ['system', 'rack_mgr']:
+                field_substr = f"{target}_leak_control"
+                current_state = next(
+                    (v for k, v in original.items() if field_substr.lower() in k.lower()),
+                    None
+                )
+                if current_state is None:
+                    logger.info(f"Skipping leak-control {target}: not in policy snapshot")
+                    continue
+                new_state = 'disable' if current_state.lower() in ('enable', 'enabled', 'true') \
+                    else 'enable'
+                cmd = f"config liquid-cool leak-control {target} {new_state}"
+                result = self.duthost.shell(cmd, module_ignore_errors=True)
+                pytest_assert(result['rc'] == 0,
+                              f"{cmd!r} failed rc={result['rc']} stderr={result['stderr']!r}")
+                # Re-snapshot and assert the value changed
+                post = snapshot_policy()
+                post_state = next(
+                    (v for k, v in post.items() if field_substr.lower() in k.lower()),
+                    None
+                )
+                pytest_assert(post_state and post_state.lower() != current_state.lower(),
+                              f"After {cmd!r}, show platform leak control-policy still reports "
+                              f"{field_substr}={post_state!r} (expected change from {current_state!r})")
+                logger.info(f"Verified via show: {field_substr} {current_state} → {post_state}")
+                # Restore immediately so each target's restore is independent
+                self.duthost.shell(
+                    f"config liquid-cool leak-control {target} {current_state.lower()}",
+                    module_ignore_errors=True
+                )
+
+        finally:
+            # Restore all leak-action changes
+            for target, severity, orig_action in applied_changes:
+                self.duthost.shell(
+                    f"config liquid-cool leak-action {target} {severity} {orig_action}",
+                    module_ignore_errors=True
+                )
 
     def test_show_platform_leak_commands(self):
         """
@@ -193,20 +299,7 @@ class TestBmcCliCommands:
         - show platform leak rack-manager alerts: shows alert table
         - show platform leak profiles: shows sensor type and max-minor-duration columns
         - show platform leak status: shows per-sensor name/leak/severity columns
-        - show chassis module status: shows SWITCH-HOST entry with oper status
         """
-        # show chassis module status — applicable to LC and AC
-        result = self.duthost.shell(
-            "show chassis module status 2>&1",
-            module_ignore_errors=True
-        )
-        if result['rc'] == 0:
-            output = result['stdout']
-            has_switch_host = 'SWITCH-HOST' in output or 'Switch-Host' in output
-            logger.info(f"show chassis module status: SWITCH-HOST present={has_switch_host}")
-        else:
-            logger.info("show chassis module status not available")
-
         leak_commands = [
             ("show platform leak control-policy",
              ['system_leak_policy', 'rack_mgr_leak_policy']),

@@ -379,63 +379,14 @@ after a BMC reboot, and skips the boot delay for non-power-loss reboot causes.
 - bmcctld is running after reboot
 - State DB tables initialized with required fields on BMC platforms
 - pmon journal contains `"Skipping SWITCH_HOST_POWER_ON_DELAY"` — boot delay is
-  skipped for non-power-loss reboot causes (power-loss path covered by TC#15)
+  skipped for non-power-loss reboot causes (power-loss path covered by TC#13)
 
 ---
 
-#### Test Case #11: test_bmcctld_event_handling
+#### Test Case #11: test_bmcctld_event_trigger
 
 **Test Objective**:
-Verify bmcctld detects critical events and coordinates with thermalctld and psud.
-
-**Test Steps**:
-1. Verify bmcctld service is active
-2. Check SYSTEM_LEAK_STATUS for any critical events — verify power-on is blocked if present
-3. Check thermalctld is running alongside bmcctld
-4. Check psud is running and CONFIG_DB integration is present
-
-**Expected Result**:
-- bmcctld service active
-- Critical events prevent power-on (if present)
-- Daemon coordination is in place
-
-**Note (how to trigger `SYSTEM_LEAK_STATUS`)**: vendor hardware paths to inject a real leak differ per platform (some expose a debug sysfs/i2c knob, some have no in-band trigger at all). For deterministic CI we inject the table directly into STATE_DB on the BMC:
-
-```
-sonic-db-cli STATE_DB HSET 'SYSTEM_LEAK_STATUS|system' \
-    device_leak_status MINOR timestamp "$(date -Iseconds)"
-```
-
-The injected row is deleted in `finally`. Vendor-specific hardware-injection (where supported) is out of scope for this generic test and will be covered as platform-specific add-ons.
-
----
-
-#### Test Case #12: test_bmcctld_event_log
-
-**Test Objective**:
-Verify bmcctld logs critical events to /host/bmc/event.log using structured messages.
-
-**Test Steps**:
-1. Check if /host/bmc/event.log exists — skip gracefully if absent
-2. Read last 20 log entries
-3. Verify log entries have timestamps
-4. Verify log entries contain severity levels (CRITICAL, ERROR, WARN, INFO)
-5. Verify log entries contain BMC-relevant event types (leak, power, status, module)
-6. Check for structured event message formats: `RACK_MGR_CMD FAILED`, `CHASSIS_MODULE admin_down NOOP`,
-   `GRACEFUL_SHUTDOWN done`
-
-**Expected Result**:
-- Event log is present on BMC systems
-- Log entries are timestamped and severity-marked
-- Structured log messages follow `EVENT_TYPE: key=... result=...` format
-- Empty or absent log is acceptable on new/non-BMC systems
-
----
-
-#### Test Case #13: test_bmcctld_event_trigger
-
-**Test Objective**:
-Verify bmcctld reacts to HSET writes on all four `SubscriberStateTable`-monitored tables, logs the corresponding event, and dispatches the configured power action when severity escalates to `CRITICAL`.
+Verify bmcctld reacts to HSET writes on all four `SubscriberStateTable`-monitored tables, logs the corresponding event, and dispatches the configured power action when severity escalates to `CRITICAL`. Also verifies bmcctld's daemon integrations (`thermalctld` running, `config chassis modules` CLI present) and that the BMC event log file `/host/bmc/event.log` exists with fresh entries after triggers.
 
 **Test Steps**:
 
@@ -449,6 +400,10 @@ original value (or deletes the injected key).
    - Verify syslog contains a `leak` entry within 30 s
    - Verify **no power action** is dispatched: paired Switch-Host SSH stays up, `uptime -s`
      unchanged, no `power down request from BMC` reboot cause
+   - **Routing assertion**: snapshot `/host/bmc/event.log` line count before the trigger;
+     after the trigger, assert any new lines appended to `event.log` do NOT contain a
+     MINOR leak entry (MINOR severity must be syslog-only; `event.log` is reserved for
+     CRITICAL events — TC#24 covers the positive CRITICAL → `event.log` case)
    - Restore `device_leak_status` in `finally`
 3. **CRITICAL leak → Switch-Host power off** (disruptive — reboots the paired Switch-Host):
    - Resolve paired Switch-Host via `duthost.get_bmc_host()`; snapshot `uptime -s`
@@ -460,10 +415,13 @@ original value (or deletes the injected key).
      reports `power down request from BMC` or `graceful shutdown from BMC`
    - Restore `device_leak_status` and policy in `finally`; if Switch-Host did not auto-power-on,
      issue `config chassis modules startup SWITCH-HOST` to recover the testbed
-4. **STATE_DB `RACK_MANAGER_COMMAND:test_trigger_cmd` `command`** — inject unknown value `TEST_TRIGGER` with empty `status`. Handler logs a warning and marks the entry `FAILED`; no power action is dispatched. Key is deleted in `finally`.
-5. **STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert` `severity`** — inject `MINOR`.
+4. **STATE_DB `RACK_MANAGER_ALERT:test_trigger_alert` `severity`** — inject `MINOR`.
    Default `rack_mgr_minor_alert_action` is `syslog_only`; no power action is
    dispatched.  Key is deleted in `finally`.
+5. **Pre-flight checks** — assert `thermalctld` is RUNNING and `config chassis modules --help` exposes the `admin` subcommand (CONFIG_DB CLI integration).
+6. **Post-check `/host/bmc/event.log`** — if the file exists, assert it has fresh entries after the triggers; otherwise log info (platform may emit only to syslog).
+
+> **Note**: `RACK_MANAGER_COMMAND` triggers (both valid commands and the unknown-command negative path) are covered end-to-end in TC#12 `test_bmcctld_rack_manager_command`.
 
 **Expected Result**:
 - Each trigger produces the expected log entry
@@ -472,15 +430,17 @@ original value (or deletes the injected key).
 - Duplicate HSET with the same value is ignored (dedup added in bmc_enhance)
 - All injected keys are cleaned up regardless of test outcome
 - Platforms without BMC support log info messages and the assertion is skipped
+- `thermalctld` running and `config chassis modules` CLI present
+- `/host/bmc/event.log` (when present) contains fresh entries after the triggers
 
 ---
 
-#### Test Case #14: test_bmcctld_rack_manager_command
+#### Test Case #12: test_bmcctld_rack_manager_command
 
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
 **Test Objective**:
-Verify bmcctld dispatches the correct power action for each valid `RACK_MANAGER_COMMAND` (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`), the `status` field transitions `PENDING → IN_PROGRESS → DONE`, and the paired Switch-Host actually undergoes the requested power transition with a BMC-initiated reboot cause.
+Verify bmcctld dispatches the correct power action for each valid `RACK_MANAGER_COMMAND` (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`), the `status` field transitions `PENDING → IN_PROGRESS → DONE`, the paired Switch-Host actually undergoes the requested power transition with a BMC-initiated reboot cause, and unknown commands are rejected with `status = FAILED` without any power action.
 
 **Test Steps**:
 
@@ -508,16 +468,23 @@ For each scenario, resolve the paired Switch-Host via `duthost.get_bmc_host()` a
    - HSET `RACK_MANAGER_COMMAND|test_blocked_power_on command=POWER_ON status=PENDING`
    - Assert command `status = FAILED` and `error/reason` field contains `CRITICAL_LEAK_PRESENT`
    - Restore `device_leak_status` in `finally`
+5. **Unknown command rejected** (negative case, non-disruptive):
+   - Snapshot Switch-Host `uptime -s`
+   - HSET `RACK_MANAGER_COMMAND|test_unknown_cmd command=TEST_UNKNOWN_COMMAND status=PENDING`
+   - Wait ≤30 s; assert command `status = FAILED`
+   - Assert Switch-Host `uptime -s` unchanged (no power action dispatched)
+   - Key is deleted in `finally`
 
 **Expected Result**:
 - For each valid command (`POWER_OFF`, `GRACEFUL_SHUT`, `POWER_ON`, `POWER_CYCLE`) the command `status` transitions to `DONE`
 - Switch-Host undergoes the requested power transition; `uptime -s` advances; `show reboot-cause` on the Switch-Host reports a BMC-initiated cause
 - `POWER_ON` issued while a CRITICAL leak is present fails with status `FAILED` and reason `CRITICAL_LEAK_PRESENT`
+- Unknown commands fail with status `FAILED` and the paired Switch-Host is not power-cycled
 - All injected keys are deleted and the Switch-Host is left powered on in `finally`
 
 ---
 
-#### Test Case #15: test_bmcctld_power_on_delay
+#### Test Case #13: test_bmcctld_power_on_delay
 
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
@@ -555,7 +522,7 @@ Verify that `power_on_delay` is configurable via `config chassis modules power-o
 
 ---
 
-#### Test Case #16: test_bmc_reboot_does_not_affect_switch_host
+#### Test Case #14: test_bmc_reboot_does_not_affect_switch_host
 
 **File**: `tests/platform_tests/daemon/test_bmcctld.py`
 
@@ -580,7 +547,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 
 ---
 
-#### Test Case #17: test_pmon_bmcctld_running_status
+#### Test Case #15: test_pmon_bmcctld_running_status
 
 **Test Objective**: Verify bmcctld is in RUNNING state with a valid pid at test start.
 
@@ -592,7 +559,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 
 ---
 
-#### Test Case #18: test_pmon_bmcctld_stop_and_start_status
+#### Test Case #16: test_pmon_bmcctld_stop_and_start_status
 
 **Test Objective**: Verify bmcctld stops cleanly via supervisorctl and recovers after start.
 
@@ -606,7 +573,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 
 ---
 
-#### Test Case #19: test_pmon_bmcctld_term_and_start_status
+#### Test Case #17: test_pmon_bmcctld_term_and_start_status
 
 **Test Objective**: Verify bmcctld auto-restarts after SIGTERM (supervisord autorestart).
 
@@ -619,7 +586,7 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 
 ---
 
-#### Test Case #20: test_pmon_bmcctld_kill_and_start_status
+#### Test Case #18: test_pmon_bmcctld_kill_and_start_status
 
 **Test Objective**: Verify bmcctld auto-restarts after SIGKILL (supervisord autorestart) and remains functional afterwards.
 
@@ -643,34 +610,11 @@ Verify the BMC SONiC instance can be cold-rebooted in isolation: the paired Swit
 
 **File**: `tests/platform_tests/daemon/test_thermalctld.py`
 
-#### Test Case #21: test_thermalctld_initialization
-
-**Test Objective**:
-Verify thermalctld initializes leak monitoring tables on startup, including the startup
-seed row for `SYSTEM_LEAK_STATUS|system`. To avoid asserting on a stale row populated long
-before this test ran, restart thermalctld first and verify the row is re-seeded fresh.
-
-**Test Steps**:
-1. Verify thermalctld process is running in pmon container
-2. **Restart thermalctld** (`stop_pmon_daemon` + `start_pmon_daemon`) and wait up to 120 s for new pid
-3. Within 60 s of the new pid, query `SYSTEM_LEAK_STATUS:system` — verify row exists with
-   `device_leak_status` and `timestamp` fields, and that `timestamp` is **newer than the restart
-   moment** (proves the row was just seeded, not pre-existing)
-4. Query LEAK_PROFILE keys — log count if present
-
-**Expected Result**:
-- thermalctld is running with a new pid after the restart
-- `SYSTEM_LEAK_STATUS:system` row is re-seeded with `device_leak_status` in `{None, MINOR, CRITICAL}`
-  and a `timestamp` newer than the restart moment
-- Graceful info-only on non-liquid-cooled platforms (row may be absent)
-
----
-
-#### Test Case #22: test_thermalctld_leak_status
+#### Test Case #19: test_thermalctld_leak_status
 
 **Status**: **Deferred / Not currently supported**
 
-**Reason**: Reliable verification of `SYSTEM_LEAK_STATUS device_leak_status` requires either a real hardware leak (cannot be exercised in the test fleet) or a vendor-specific leak-injection knob (not yet standardised across platforms). Direct STATE_DB injection bypasses thermalctld's own state-machine and would only re-test what TC#13 / TC#23 already cover.
+**Reason**: Reliable verification of `SYSTEM_LEAK_STATUS device_leak_status` requires either a real hardware leak (cannot be exercised in the test fleet) or a vendor-specific leak-injection knob (not yet standardised across platforms). Direct STATE_DB injection bypasses thermalctld's own state-machine and would only re-test what TC#11 / TC#20 already cover.
 
 This test will be enabled once a generic vendor-agnostic leak-injection mechanism is added to `sonic-platform-common` (tracked separately). Until then the test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
 
@@ -686,36 +630,95 @@ This test will be enabled once a generic vendor-agnostic leak-injection mechanis
 
 ---
 
-#### Test Case #23: test_thermalctld_event_trigger
+#### Test Case #20: test_thermalctld_event_trigger
 
 **Test Objective**:
-Inject sensor states into LIQUID_COOLING_INFO and verify STATE_DB presence and syslog entries.
+Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB presence and the associated syslog entry. The faulty-sensor path is covered separately by TC#22 `test_thermalctld_faulty_sensor`.
 
 **LIQUID_COOLING_INFO schema** (from `LiquidCoolingUpdater._refresh_leak_status`):
 - `leaking` — `Yes | No | N/A`
 - `leak_sensor_status` — `Good | Fault`
 - `name`, `type`, `location`, `severity`
 
-**Syslog messages thermalctld emits on hardware transitions**:
+**Syslog message thermalctld emits on hardware transition**:
 - `is_leak()=True` → `log_error('...sensor {} reported leaking')`
-- `is_leak_sensor_ok()=False` → `log_error('...sensor {} reported faulty')`
-- Recovery → `log_notice('...sensor {} recovered from leaking/fault')`
+- Recovery → `log_notice('...sensor {} recovered from leaking')`
 
 **Test Steps**:
-1. **Trigger 1 — leaking sensor** (`leaking=Yes, leak_sensor_status=Good`):
+1. **Trigger — leaking sensor** (`leaking=Yes, leak_sensor_status=Good`):
    Inject entry, verify STATE_DB presence, check syslog for `reported leaking`.
-   Key deleted in `finally`.
-2. **Trigger 2 — faulty sensor** (`leaking=N/A, leak_sensor_status=Fault`):
-   Inject entry, verify STATE_DB presence, check syslog for `reported faulty`.
    Key deleted in `finally`.
 
 **Expected Result**:
-- At least one trigger produces STATE_DB evidence or syslog entry on a liquid-cooled system
-- Both injected keys are cleaned up regardless of outcome
+- The trigger produces STATE_DB evidence or a syslog entry on a liquid-cooled system
+- The injected key is cleaned up regardless of outcome
 
 ---
 
-#### Test Case #24: test_thermalctld_faulty_sensor
+#### Test Case #21: test_thermalctld_leak_escalation
+
+**File**: `tests/platform_tests/daemon/test_thermalctld.py`
+
+**Test Objective**:
+Verify the MINOR→CRITICAL leak escalation configuration is in place and that, when the system reports a CRITICAL leak, the responsible sensor is also CRITICAL — i.e. escalation is profile-driven, not a side-effect of an unrelated daemon path.
+
+**Background** (bmc_enhance):
+`LiquidCoolingUpdater` queries `profile.get_leak_max_minor_duration_sec()` for each leaking sensor. Once a sensor has been MINOR for longer than the configured threshold, the daemon escalates it to CRITICAL, which propagates into `SYSTEM_LEAK_STATUS:system device_leak_status`. The escalation threshold is stored per profile in `LEAK_PROFILE`.
+
+**Test Steps**:
+1. List all `LEAK_PROFILE:*` keys (skip if none — non-liquid-cooled platform)
+2. For **every** profile, assert `max_minor_duration_sec > 0`
+3. List sensors from `LIQUID_COOLING_INFO:*`; for each sensor:
+   - Assert `severity ∈ {MINOR, CRITICAL}`
+   - For any CRITICAL sensor, look up its `profile` field, resolve the corresponding `LEAK_PROFILE` entry, and assert that profile's `max_minor_duration_sec > 0` (cross-reference: a CRITICAL sensor must trace back to a profile with a valid escalation threshold)
+4. Read `SYSTEM_LEAK_STATUS:system device_leak_status`; when it equals `CRITICAL`, assert at least one sensor in `LIQUID_COOLING_INFO` has `severity = CRITICAL` (system status must be backed by a sensor)
+
+**Expected Result**:
+- Every `LEAK_PROFILE` has `max_minor_duration_sec > 0`
+- All sensor severities are valid
+- Every CRITICAL sensor maps to a profile with a valid escalation threshold
+- `SYSTEM_LEAK_STATUS = CRITICAL` correlates with at least one CRITICAL sensor
+
+**Note**: The CRITICAL cross-correlation branches only execute when a CRITICAL leak is currently active on the testbed (rare in normal CI). The profile-threshold checks always run on liquid-cooled platforms.
+
+---
+
+#### Test Case #22: test_thermalctld_leak_severity_aggregation
+
+**File**: `tests/platform_tests/daemon/test_thermalctld.py`
+
+**Test Objective**:
+Verify thermalctld's individual-sensor → `SYSTEM_LEAK_STATUS` aggregation rules from `pmon-bmc-design.md` §2.1.5 by actively injecting sensor combinations into `LIQUID_COOLING_INFO` and asserting that `SYSTEM_LEAK_STATUS:system device_leak_status` converges to the expected aggregated value.
+
+**Aggregation truth table** (the design contract under test):
+
+| # | Individual Leak Sensors                              | System Leak (expected output) |
+|---|------------------------------------------------------|-------------------------------|
+| 1 | 1 CRITICAL sensor                                    | `CRITICAL`                    |
+| 2 | 2+ sensors of any severity                           | `CRITICAL`                    |
+| 3 | 1 MINOR sensor staying for > `max_minor_duration_sec`| `CRITICAL` (escalation)       |
+| 4 | 1 MINOR sensor (< escalation threshold)              | `MINOR`                       |
+
+**Test Steps**:
+1. Pre-flight: skip if `SYSTEM_LEAK_STATUS:system device_leak_status` is already `CRITICAL` (cannot run safely)
+2. For each scenario, inject the corresponding test sensor row(s) into `LIQUID_COOLING_INFO` (key prefix `test_agg_sensor_*`) with the daemon's wire schema (`name`, `leaking=Yes`, `leak_sensor_status=Good`, `severity=<MINOR|CRITICAL>`)
+3. Wait up to ~2 poll cycles (40 s, polled every 5 s) for `device_leak_status` to converge to the expected value
+4. Confirm the injected rows survived the daemon's next poll (skip assertion if rows were evicted — the daemon may overwrite test entries from real hardware on its next cycle)
+5. Assert `device_leak_status == <expected>` and clean up injected rows; wait for the system to settle back before the next scenario
+6. Rule 3 (escalation) only: temporarily HSET `LEAK_PROFILE:<first_profile> max_minor_duration_sec = 5`, inject 1 MINOR sensor, wait up to 40 s for escalation to CRITICAL, restore the original threshold in `finally`
+7. Restore all injected rows and the original `device_leak_status` in `finally`
+
+**Expected Result**:
+- Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS = CRITICAL`
+- Rule 2: 2 MINOR sensors → `SYSTEM_LEAK_STATUS = CRITICAL`
+- Rule 3: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS = CRITICAL` (escalation)
+- Rule 4: 1 MINOR sensor (default threshold) → `SYSTEM_LEAK_STATUS = MINOR`
+- All test sensor rows are deleted and the original `device_leak_status` is restored
+- Scenarios where the daemon evicted the injected rows on its next poll log info and skip the assertion (rather than asserting a false negative)
+
+---
+
+#### Test Case #23: test_thermalctld_faulty_sensor
 
 **Test Objective**:
 Verify thermalctld correctly represents a faulty/unreadable sensor in STATE_DB and
@@ -739,24 +742,7 @@ confirm the associated syslog format.
 
 ---
 
-#### Test Case #25: test_thermalctld_startup_leak_seed
-
-**Test Objective**:
-Verify `SYSTEM_LEAK_STATUS|system` is present immediately after thermalctld starts.
-
-**Test Steps**:
-1. Verify `SYSTEM_LEAK_STATUS:system` key exists (`redis-cli EXISTS`)
-2. Read `device_leak_status` — must be `'None'`, `'MINOR'`, or `'CRITICAL'`
-3. Read `timestamp` — must be a non-empty string
-
-**Expected Result**:
-- Row present on startup even with no active leaks (`device_leak_status='None'`)
-- `timestamp` is non-empty (written at init time)
-- Info-only skip on platforms without liquid cooling
-
----
-
-#### Test Case #26: test_thermalctld_bmc_temperature_mirror
+#### Test Case #24: test_thermalctld_bmc_temperature_mirror
 
 **Test Objective**:
 Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's STATE_DB.
@@ -779,7 +765,7 @@ and observes the next mirror cycle.
 
 ---
 
-#### Test Case #27: test_thermalctld_switch_host_thermal_monitoring
+#### Test Case #25: test_thermalctld_switch_host_thermal_monitoring
 
 **Test Objective**:
 Verify thermalctld on the BMC logs CRITICAL threshold breaches in `TEMPERATURE_INFO`
@@ -802,7 +788,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #28: test_pmon_thermalctld_running_status
+#### Test Case #26: test_pmon_thermalctld_running_status
 
 **Test Objective**: Verify thermalctld is in RUNNING state with a valid pid at test start.
 
@@ -814,7 +800,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #29: test_pmon_thermalctld_stop_and_start_status
+#### Test Case #27: test_pmon_thermalctld_stop_and_start_status
 
 **Test Objective**: Verify thermalctld stops cleanly via supervisorctl and recovers after start.
 
@@ -828,7 +814,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #30: test_pmon_thermalctld_term_and_start_status
+#### Test Case #28: test_pmon_thermalctld_term_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGTERM.
 
@@ -841,7 +827,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #31: test_pmon_thermalctld_kill_and_start_status
+#### Test Case #29: test_pmon_thermalctld_kill_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGKILL and remains functional afterwards.
 
@@ -865,7 +851,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
-#### Test Case #32: test_show_version_serial_numbers_bmc
+#### Test Case #30: test_show_version_serial_numbers_bmc
 
 **Test Objective**:
 On BMC topology, `show version` on the BMC exposes two serial fields per the SONiC BMC design ([pmon-bmc-design §2.3.2](https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md#232-show-commands)):
@@ -892,7 +878,7 @@ Verify both serials match the corresponding inventory `serial:` fields for the B
 
 ---
 
-#### Test Case #33: test_show_chassis_module_status
+#### Test Case #31: test_show_chassis_module_status
 
 **Test Objective**:
 Verify `show chassis module status` returns SWITCH-HOST entry with oper status (LC, AC).
@@ -909,24 +895,28 @@ Verify `show chassis module status` returns SWITCH-HOST entry with oper status (
 
 ---
 
-#### Test Case #34: test_show_platform_temperature
+#### Test Case #32: test_show_platform_temperature
 
 **Test Objective**:
-Verify `show platform temperature` lists thermal sensors with threshold columns (LC, AC).
+Verify `show platform temperature` lists thermal sensors with threshold columns (LC, AC) and, on a BMC, surfaces the paired Switch-Host's sensors as well (so a single CLI on the BMC gives a unified thermal view of both BMC-local and Switch-Host sensors).
 
 **Test Steps**:
-1. Execute `show platform temperature` — verify rc=0, non-empty output
+1. Execute `show platform temperature` on the BMC — verify rc=0, non-empty output
 2. Verify sensor name and temperature value columns present
 3. Verify high threshold / critical threshold columns present
+4. Resolve paired Switch-Host via `duthost.get_bmc_host()`; run `show platform temperature` on the Switch-Host and collect its sensor names
+5. Parse BMC `show platform temperature` sensor names
+6. Assert the BMC output includes **at least one** Switch-Host sensor name (presence-only check; values are not compared)
 
 **Expected Result**:
 - Command succeeds with rc=0
 - Sensor rows are present with temperature readings
 - Threshold columns (High TH, Crit High TH) are shown
+- BMC's `show platform temperature` includes ≥1 Switch-Host sensor name — confirming the BMC mirrors the paired Switch-Host thermals into its own CLI surface
 
 ---
 
-#### Test Case #35: test_config_chassis_modules
+#### Test Case #33: test_config_chassis_modules
 
 **Test Objective**:
 Verify `config chassis modules` subcommands `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC), and that each shutdown / startup transition is functionally honoured by the paired Switch-Host.
@@ -953,41 +943,49 @@ Verify `config chassis modules` subcommands `startup`, `shutdown`, `power-on-del
 
 ---
 
-#### Test Case #36: test_liquid_cool_config_commands
+#### Test Case #34: test_liquid_cool_config_commands
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
 **Test Objective**:
-Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` command syntax on liquid-cooled (LC) platforms.
+Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` on liquid-cooled (LC) platforms functionally update `LEAK_CONTROL_POLICY` and the change is reflected in `show platform leak control-policy` — the test asserts behaviour, not just help text.
 
 **Test Steps**:
-1. Run `config liquid-cool leak-control --help` — verify help text returned or graceful skip on non-LC
-2. Verify help mentions `[system|rack_mgr]` and `[enabled|disabled]` options
-3. Run `config liquid-cool leak-action --help` — verify help text returned
-4. Verify help mentions action values: `syslog_only`, `graceful_shutdown`, `power_off`
+1. Pre-flight: run `config liquid-cool --help`; skip the test on non-LC platforms (non-zero rc)
+2. Snapshot the current policy by parsing `show platform leak control-policy`
+3. For each `(target, severity)` in `{system, rack_mgr} × {minor, critical}`:
+   - Determine current `<target>_<severity>_leak_action` from the snapshot
+   - Pick a different safe action from `{syslog_only, graceful_shutdown, power_off}`
+   - Run `config liquid-cool leak-action <target> <severity> <new_action>` (assert rc=0)
+   - Re-parse `show platform leak control-policy` and assert the field now equals `<new_action>`
+4. For each `target ∈ {system, rack_mgr}`:
+   - Determine current `<target>_leak_control` state from the snapshot
+   - Issue `config liquid-cool leak-control <target> <toggled>` (assert rc=0)
+   - Re-parse `show platform leak control-policy` and assert the state value changed
+   - Restore the original state immediately
+5. In `finally`, restore every leak-action change recorded in step 3 to its original value
 
 **Expected Result**:
-- On LC systems: help output includes correct option keywords
-- On non-LC systems: command returns gracefully (non-zero rc tolerated)
+- On LC systems: every `config liquid-cool …` command returns rc=0 and its effect is visible in `show platform leak control-policy`
+- On non-LC systems: the test is skipped via `pytest.skip`
+- All original policy values are restored after the test completes
 
 ---
 
-#### Test Case #37: test_show_platform_leak_commands
+#### Test Case #35: test_show_platform_leak_commands
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
 **Test Objective**:
-Verify `show chassis module status` and all `show platform leak` sub-commands produce valid output on LC/AC platforms.
+Verify all `show platform leak` sub-commands produce valid output on LC platforms.
 
 **Test Steps**:
-1. Run `show chassis module status` — verify SWITCH-HOST entry present (if BMC platform)
-2. Run `show platform leak control-policy` — verify `system_leak_policy` and `rack_mgr_leak_policy` fields
-3. Run `show platform leak rack-manager alerts` — verify `Severity` and `Timestamp` columns
-4. Run `show platform leak profiles` — verify `Sensor-Type` and `Max-Minor-Duration-Sec` columns
-5. Run `show platform leak status` — verify `Name`, `Leak`, and `leak-severity` columns
+1. Run `show platform leak control-policy` — verify `system_leak_policy` and `rack_mgr_leak_policy` fields
+2. Run `show platform leak rack-manager alerts` — verify `Severity` and `Timestamp` columns
+3. Run `show platform leak profiles` — verify `Sensor-Type` and `Max-Minor-Duration-Sec` columns
+4. Run `show platform leak status` — verify `Name`, `Leak`, and `leak-severity` columns
 
 **Expected Result**:
-- `show chassis module status` shows SWITCH-HOST with an oper-status field
 - Each `show platform leak` sub-command outputs the expected column headers
 - Non-LC platforms return gracefully (non-zero rc tolerated for LC-only commands)
 
@@ -995,51 +993,28 @@ Verify `show chassis module status` and all `show platform leak` sub-commands pr
 
 ### BMC Watchdog Tests
 
-**Files**:
-- `tests/platform_tests/api/test_watchdog.py` — platform API tests (`topology('any')`); runs on BMC
-  and all other topologies. Covers arm/disarm/remaining-time via `platform_api_conn`.
-- `tests/platform_tests/daemon/test_bmc_watchdog.py` — BMC-specific integration tests
-  (`topology('bmc')`). Covers `watchdogutil` CLI, `/host/bmc` persistent log storage,
-  reboot differentiation, and State DB. Uses `duthost.shell()` directly (no platform API server).
+There are watchdog tests which are run on BMC platforms. Add an explicit watchdog tests in test_bmc_watchdog to test bmc specific characteristics
+- `tests/platform_tests/api/test_watchdog.py` — platform API arm/disarm/remaining-time via `platform_api_conn`; runs on BMC (handles the keepalive timer).
+- `tests/platform_tests/test_hw_watchdog.py` — generic `watchdogutil` CLI/format/remaining-time coverage (runs on BMC too)
+- `tests/platform_tests/daemon/test_bmc_watchdog.py` — BMC-specific: `/host/bmc/watchdog.log` routing and `watchdogutil` arm/disarm round-trip.
 
-These two files are complementary: `test_watchdog.py` validates the platform API contract;
-`test_bmc_watchdog.py` validates BMC-specific integration behavior.
-
-#### Test Case #38: test_watchdog_status_and_configuration
+#### Test Case #36: test_watchdog_bmc_integration
 
 **Test Objective**:
-Verify watchdog service status, timeout configuration, performance, and error handling.
+Verify BMC watchdog: `watchdogutil arm`/`disarm` round-trips correctly **and** `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed `watchdog-keepalive.sh` daemon (sonic-buildimage commit `bc13e6afa`, `platform/aspeed/aspeed-platform-services/scripts/watchdog-keepalive.sh`).
 
 **Test Steps**:
-1. Skip if watchdogutil not available
-2. Run `watchdogutil status` — measure latency, verify rc=0, non-empty output with Armed/Unarmed
-3. Verify latency < 5 seconds
-4. If armed, parse `Time remaining` — verify value between 30s and 180s
-5. Issue invalid command — verify service stays responsive
+1. Assert `/host/bmc/watchdog.log` exists and is non-empty (keepalive daemon lifecycle entries)
+2. Assert no `/var/log/watchdog*` files exist — BMC persistent-log convention requires `/host/bmc/`
+3. Capture initial `watchdogutil status` state; if `Unarmed`, arm with `watchdogutil arm -s 180` first
+4. `watchdogutil disarm` → assert `watchdogutil status` reports `Unarmed` within 15s
+5. `watchdogutil arm -s 180` → assert `watchdogutil status` reports `Armed`; if armed, parse `Time remaining` and assert `remaining <= 180` (timeout sanity) and `remaining >= 30` (liveness floor). Warn-log if remaining cannot be parsed or state is not Armed.
+6. Restore the pre-test arm state in `finally`
 
 **Expected Result**:
-- watchdogutil responds correctly
-- Timeout is configured to 180s (armed state)
-- Command latency is acceptable
-- Service recovers gracefully after invalid input
-
----
-
-#### Test Case #39: test_watchdog_bmc_integration
-
-**Test Objective**:
-Verify watchdog integrates with BMC infrastructure: systemd service, persistent logs, reboot differentiation, State DB.
-
-**Test Steps**:
-1. List systemd watchdog services — log if found, check service config
-2. Check /host/bmc directory for watchdog logs — warn if found in /var/log instead
-3. Check dmesg for watchdog/reboot entries — log if present
-4. Query State DB for WATCH* keys — log if present
-
-**Expected Result**:
-- Watchdog systemd service exists with correct configuration (60s petting, 180s timeout)
-- Logs stored in /host/bmc (not /var/log)
-- Reboot reason is accessible
-- State DB is consistent with watchdog state
+- `/host/bmc/watchdog.log` exists and has at least one keepalive-daemon entry
+- No stray `/var/log/watchdog*` files
+- `watchdogutil` disarm/arm transitions are visible in `watchdogutil status` within 15s
+- Safe on a live BMC: the keepalive script continues kicking `/dev/watchdog0` every 60s independently of `watchdogutil disarm`
 
 ---
