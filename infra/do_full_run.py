@@ -229,7 +229,7 @@ def run_test(args):
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, "", "", local_log_dir, remote_file)
+                exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, "", "", local_log_dir, testbed_info_dict, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
                     client.close()
@@ -267,7 +267,7 @@ def run_test(args):
     elif test_suites_arg and "," in test_suites_arg: # multiple test suites passed as parameters
         test_suites_array = test_suites_arg.split(",")  # ['bgp', 'monit']
         for test_suite in test_suites_array:
-            exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders_final, skip_tests_final, local_log_dir)
+            exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders_final, skip_tests_final, local_log_dir, testbed_info_dict)
             if exit_code!=0:
                 time.sleep(30)
                 client.close()
@@ -277,7 +277,7 @@ def run_test(args):
 
         exit_code, results = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name,
                                                 test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final,
-                                                local_log_dir)
+                                                local_log_dir, testbed_info_dict)
 
         log_file_contents, _, _ = _run_cmd_in_ssh_container(client,
                                                             container_name,
@@ -360,7 +360,7 @@ def run_test(args):
                                                         container_name, test_suites_arg, test_suites_arg,
                                                         skip_folders_final,
                                                         skip_tests_final + " " + extra_skip_tests_str,
-                                                        local_log_dir)
+                                                        local_log_dir, testbed_info_dict)
                 log_file_contents, _, _ = _run_cmd_in_ssh_container(client,
                                                                     container_name,
                                                                     f"tail -n 50 /data/tests/{results.run_tests_log_file}")
@@ -378,7 +378,7 @@ def run_test(args):
     elif test_suites_arg:  # test_suites provided, other than "All"
         exit_code, results = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name,
                                                 test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final,
-                                                local_log_dir)
+                                                local_log_dir, testbed_info_dict)
 
     else:
         log.error(f"No tests found! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")

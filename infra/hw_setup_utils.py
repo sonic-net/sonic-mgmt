@@ -411,6 +411,29 @@ def getTestbedInfoDict(testbed):
         log.error(f"No testbed info found for '{testbed}'!")
         return {}
 
+_SENSITIVE_LOG_KEY_PARTS = ("password", "secret", "passkey", "token", "credential")
+_LOG_REDACTED = "***REDACTED***"
+
+
+def _is_sensitive_log_key(key):
+    key_lower = str(key).lower()
+    return any(part in key_lower for part in _SENSITIVE_LOG_KEY_PARTS)
+
+
+def redact_for_logging(value):
+    """Return a copy of value safe for debug logs (secrets replaced)."""
+    if isinstance(value, dict):
+        return {
+            key: _LOG_REDACTED if _is_sensitive_log_key(key) else redact_for_logging(nested)
+            for key, nested in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_for_logging(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(redact_for_logging(item) for item in value)
+    return value
+
+
 def getImageUCS(testbed):
     hw_config = load_json(HW_CONFIG_FILE)
     testbed_image_ucs_map = hw_config["testbed_image_ucs_map"]
@@ -1083,15 +1106,17 @@ def flushChannel(thread):
             break
     log.debug("flush complete")
 
-def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites, test_name, skip_folders, skip_tests, local_log_dir, remote_file=None):
-    log.debug(f"runIndividualTests local scope")
-    local_scope = locals()
+def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites, test_name, skip_folders, skip_tests, local_log_dir, testbed_info_dict, remote_file=None):
+    log.debug("runIndividualTests local scope")
+    local_scope = {
+        name: redact_for_logging(val) if name == "testbed_info_dict" else val
+        for name, val in locals().items()
+    }
     log.debug(local_scope)
 
     testcase_start = datetime.now()
     testcase_start_time = testcase_start.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
-    testbed_info_dict = getTestbedInfoDict(testbed)
     t1 = testbed_info_dict['ucs_tb']
     t2 = testbed_info_dict['mth_tb']
     t = testbed_info_dict['topology']
@@ -1100,6 +1125,7 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
     docker_prompt = testbed_info_dict['docker_prompt']
     allure_id = create_allure_id(build_id, image_id, testbed)
     run_tests_log_file = ""
+    test_suites = test_suites.strip()
 
     if test_suites.startswith("file:"):
         # if test_suites.startswith("file:"):
@@ -1145,13 +1171,17 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
                 if test_suites in ["pretest", "posttest"]:
                     test_name = f"test_{test_suites}.py"
             now = datetime.now()
-
+            if ".py" in test_suites:
+                run_flags = f"-c {test_name}"
+            else:
+                run_flags = f"-I {test_name} -t {t} -m individual"
             # Format the datetime object as a string
             formatted_time = now.strftime("%Y%m%d%H%M%S")
             test_name_output = test_name.replace("/","_").replace(".py","")
             run_tests_log_file = f"run_test_{test_name_output}_{formatted_time}.log"
-            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders}\" -u {extra_params} -c {test_name} -s \"{skip_tests}\" -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders}\" -u {extra_params} {run_flags} -s \"{skip_tests}\" -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
     
+            log.debug(f"run_cmd for test - {test_suites}: {run_cmd}")
     log.debug(f'To check logs of the tests, go to ucs:{dut_log_dir}')
     stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)
     log.debug(f"{run_cmd} output:\n{stdout}")
@@ -1185,7 +1215,7 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
     log.debug(f'Time elapsed - {now-testcase_start}')
     output = f'Testcase - {test_name}'+'\n'+f'start time - {testcase_start_time}'+'\n'+f'end time - {testcase_end_time}'+'\n'+f'Time elapsed - {test_name} - {now-testcase_start}'+'\n'
 
-    rc = copy_logfiles(client, container_name, run_tests_log_file, local_log_dir)
+    rc = copy_logfiles(client, container_name, run_tests_log_file, local_log_dir, testbed_info_dict['ucs_username'])
 
     TestRunResults = namedtuple("TestRunResults", ["combined_output", "run_tests_log_file"])
     results = TestRunResults(combined_output=combined_output,

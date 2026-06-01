@@ -13,7 +13,7 @@ import shutil
 from enum import Enum
 
 BASE_LOG_PATH_HW = '/data/tests/'
-BASE_UCS_HOME_DIR = '/home/sonic/'
+BASE_UCS_HOME_DIR = '/home'
 SANITY_LOG_TARBALL = 'sanity_logs.tar.gz'
 WORKSPACE = os.getenv("WORKSPACE")
 SANITY_LOGS_PATH = 'sanity_logs'
@@ -101,7 +101,7 @@ def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
     docker_exec_cmd = f'docker exec {container_name} sh -c "{cmd_str}"'
     return _run_cmd_in_ssh(ssh, docker_exec_cmd, timeout)
 
-def copy_logfiles(ssh, docker_mgmt_container, filename, destination_path):
+def copy_logfiles(ssh, docker_mgmt_container, filename, destination_path, hostname):
     
     log.debug("Entered copy_logfiles")
 
@@ -109,17 +109,18 @@ def copy_logfiles(ssh, docker_mgmt_container, filename, destination_path):
         ftp_client=ssh.open_sftp()
         # ftp_client.chdir(source)
 
+        ucs_home_dir = f"{BASE_UCS_HOME_DIR}/{hostname}"
         source_file_path  = f"{BASE_LOG_PATH_HW}{filename}"
         log.debug(f"log file path: {filename}")
 
         # copy allure report tar file to the VM
-        log.debug("Copying log files from container {}:{} to the UCS:{}".format(docker_mgmt_container, source_file_path, BASE_UCS_HOME_DIR))
-        cmd = 'docker cp {}:{} {}\n'.format(docker_mgmt_container, source_file_path, BASE_UCS_HOME_DIR)
+        log.debug("Copying log files from container {}:{} to the UCS:{}".format(docker_mgmt_container, source_file_path, ucs_home_dir))
+        cmd = 'docker cp {}:{} {}\n'.format(docker_mgmt_container, source_file_path, ucs_home_dir)
 
         log.debug(f"Execute cmd: {cmd}")
         _, stdout, stderr = ssh.exec_command(cmd)
         if stdout.channel.recv_exit_status() != 0:
-            log.error("Error! Could not copy allure report from {}:{} to {}: {}".format(docker_mgmt_container, source_file_path, BASE_UCS_HOME_DIR, stderr.read().decode("ascii")))
+            log.error("Error! Could not copy allure report from {}:{} to {}: {}".format(docker_mgmt_container, source_file_path, ucs_home_dir, stderr.read().decode("ascii")))
             ssh.close()
             ftp_client.close()
             return -1
