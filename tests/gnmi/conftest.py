@@ -34,7 +34,11 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     duthost_mgmt_info = duthost.get_mgmt_ip()
     use_v6 = duthost_mgmt_info["version"] == "v6"
     with setup_ntp_context(ptfhost, duthost, use_v6):
+        # Persist NTP config so it survives DUT reboot (gNOI reboot tests)
+        duthost.shell("config save -y", module_ignore_errors=True)
         yield
+    # After teardown restores original NTP servers, save again
+    duthost.shell("config save -y", module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +56,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     create_gnmi_certs(duthost, localhost, ptfhost)
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
+    stopped_programs = apply_cert_config(duthost)
 
     yield
 
@@ -63,7 +67,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     # Save the configuration
     cmd = "config save -y"
     duthost.shell(cmd, module_ignore_errors=True)
-    recover_cert_config(duthost)
+    recover_cert_config(duthost, stopped_programs)
 
 
 @pytest.fixture(scope="module")

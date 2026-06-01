@@ -24,7 +24,7 @@ from constants import LOCAL_CA_IP, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
-from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
+from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file, apply_messages
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
@@ -32,11 +32,18 @@ from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
-    set_dead_dash_ha_scope
+    set_dash_ha_scope
 )
 
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="session")
+def dpuhosts(dpuhosts):
+    """Limit to the first 2 DPU hosts for all HA tests."""
+    return dpuhosts.nodes[:2]
+
 
 ha_scope_per_dut = [
     (
@@ -222,6 +229,16 @@ def skip_cert_cleanup(request):
 @pytest.fixture(scope="module")
 def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+
+@pytest.fixture(scope="module")
+def primary_vdpu_key(dpuhosts):
+    return f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+
+
+@pytest.fixture(scope="module")
+def standby_vdpu_key(dpuhosts):
+    return f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
 
 def get_intf_from_ip(local_ip, config_facts):
@@ -507,27 +524,47 @@ def ha_owner(dpuhosts):
     yield owner
 
 
-def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+def setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
+    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
+    ha_scope_per_dut_modified = []
     for index, (name, data) in enumerate(ha_scope_per_dut):
+        if name == "vdpu0_0:haset0_0":
+            name = primary_vdpu_key
+        elif name == "vdpu1_0:haset0_0":
+            name = standby_vdpu_key
+        ha_scope_per_dut_modified.append((name, data))
+
+    for index, (name, data) in enumerate(ha_scope_per_dut_modified):
         # Update the 'owner' key in the dictionary
-        ha_scope_per_dut[index][1]['owner'] = ha_owner
+        ha_scope_per_dut_modified[index][1]['owner'] = ha_owner
 
     logger.info("HA: setup from json for Primary and Standby")
 
     # Workaround for the neigh resolve issue
     # To be removed after fixes are merged: PR 147, 148 in sonic-dash-ha
     for i in range(len(duthosts)):
-        logger.info(f"Sending ping to DPU0 for {duthosts[i].hostname}")
+        logger.info(f"Sending ping to DPU{dpuhosts[i].dpu_index} for {duthosts[i].hostname}")
         ip_part = 200 + i
-        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.1", module_ignore_errors=True)["stdout"]
+        ip_last = dpuhosts[i].dpu_index + 1
+        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
         logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    # Update the entry for "haset0_0"
+    ha_set_entry = ha_set_data.get("haset0_0", {})
+
+    ha_set_entry["vdpu_ids"] = [f"vdpu0_{dpuhosts[0].dpu_index}", f"vdpu1_{dpuhosts[1].dpu_index}"]
+    ha_set_entry["preferred_vdpu_id"] = f"vdpu0_{dpuhosts[0].dpu_index}"
+
+    # Save the modified data back into the dictionary
+    ha_set_data["haset0_0"] = ha_set_entry
 
     # -------------------------------------------------
     # Step 1: Program HA SET on BOTH DUTs
@@ -546,7 +583,7 @@ def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server
     # Step 2: Initial HA SCOPE per DUT
     # -------------------------------------------------
 
-    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
+    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut_modified):
         vdpu_id, ha_set_id = key.split(":", 1)
         ha_scope_messages = ha_scope_config(
             vdpu_id=vdpu_id,
@@ -561,17 +598,28 @@ def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server
         )
 
 
-def remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+def remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
-    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_config_table.json")
 
+    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+
+    ha_scope_per_dut_modified = []
     for index, (name, data) in enumerate(ha_scope_per_dut):
-        # Update the 'owner' key in the dictionary
-        ha_scope_per_dut[index][1]['owner'] = ha_owner
+        if name == "vdpu0_0:haset0_0":
+            name = primary_vdpu_key
+        elif name == "vdpu1_0:haset0_0":
+            name = standby_vdpu_key
+        ha_scope_per_dut_modified.append((name, data))
 
-    logger.info("HA: remove SCOPE from json for Primary and Standby")
-    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
+    for index, (name, data) in enumerate(ha_scope_per_dut_modified):
+        # Update the 'owner' key in the dictionary
+        ha_scope_per_dut_modified[index][1]['owner'] = ha_owner
+
+    logger.info("HA: remove SCOPE for Primary and Standby")
+    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut_modified):
         vdpu_id, ha_set_id = key.split(":", 1)
         ha_scope_messages = ha_scope_config(
             vdpu_id=vdpu_id,
@@ -586,7 +634,7 @@ def remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi
             set_db=False
         )
 
-    logger.info("HA: remove SET from json for Primary and Standby")
+    logger.info("HA: remove SET for Primary and Standby")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -603,38 +651,49 @@ def remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi
 
 
 @pytest.fixture(scope="module")
-def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
-    setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+def setup_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
-    remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+    remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
 @pytest.fixture(scope="function")
-def setup_dash_ha_from_json_func_scope(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
-    setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+def setup_dash_ha_from_json_func_scope(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
-    remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+    remove_setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
-def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+def activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
 
+    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
+
+    activate_scope_per_dut_modified = []
     for index, (name, data) in enumerate(activate_scope_per_dut):
-        # Update the 'owner' key in the dictionary
-        activate_scope_per_dut[index][1]['owner'] = ha_owner
+        if name == "vdpu0_0:haset0_0":
+            name = primary_vdpu_key
+        elif name == "vdpu1_0:haset0_0":
+            name = standby_vdpu_key
+        activate_scope_per_dut_modified.append((name, data))
+
+    for index, (name, data) in enumerate(activate_scope_per_dut_modified):
+        activate_scope_per_dut_modified[index][1]['owner'] = ha_owner
 
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
     logger.info("HA: activate Primary and Standby")
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut_modified):
         is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
         if not is_active:
             break
 
     if is_active:
         logger.info("HA: Primary and Standby already active")
+        return
     else:
-        for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+        for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut_modified):
             vdpu_id, ha_set_id = key.split(":", 1)
             ha_scope_messages = ha_scope_config(
                 vdpu_id=vdpu_id,
@@ -647,12 +706,14 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
                 ptfhost=ptfhost,
                 messages=ha_scope_messages,
             )
-        for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
+        for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut_modified)):
+            # Wait up to 300s — after a process-crash test the HA state machine
+            # may need significant time to re-enter the activate_role flow.
             pending_id = wait_for_pending_operation_id(
                 duthost,
                 scope_key=key,
                 expected_op_type="activate_role",
-                timeout=120,
+                timeout=300,
                 interval=2
             )
             assert pending_id, (
@@ -679,7 +740,7 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
                 expected_state = "active"
             else:
                 # Expect standby state on vDPU1
-                if key == "vdpu1_0:haset0_0":
+                if key == standby_vdpu_key:
                     expected_state = "standby"
                 else:
                     expected_state = "active"
@@ -694,35 +755,92 @@ def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_ser
         logger.info("HA: activate completed for Primary and Standby")
 
 
-def deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
 
-    for index, (name, data) in enumerate(activate_scope_per_dut):
-        # Update the 'owner' key in the dictionary
-        activate_scope_per_dut[index][1]['owner'] = ha_owner
+    primary_vdpu_key = f"vdpu0_{dpuhosts[0].dpu_index}:haset0_0"
+    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
     logger.info("HA: de-activate Primary and Standby")
-    # First set Primary and Standby to dead
-    for index, duthost in enumerate(duthosts):
-        set_dead_dash_ha_scope(localhost, duthost, ptfhost, f"vdpu{index}_0:haset0_0")
-
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        vdpu_id, ha_set_id = key.split(":", 1)
-        ha_scope_messages = ha_scope_config(
-            vdpu_id=vdpu_id,
-            ha_set_id=ha_set_id,
-            **fields,
-        )
-        apply_ha_messages(
-            localhost=localhost,
-            duthost=duthost,
-            ptfhost=ptfhost,
-            messages=ha_scope_messages,
-            set_db=False
-        )
+    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner)
 
 
 @pytest.fixture(scope="function")
-def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
-    activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server,
+                               setup_dash_ha_from_json_func_scope, ha_owner):
+    activate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
-    deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+    deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+
+
+def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
+    """
+    Apply DASH Private Link pipeline config (appliance, routing type, VNET,
+    ENI, routes, meters) on all DPUs. Required by any test that sends PL
+    traffic and does not already pull in the steady-state common_setup_teardown.
+    """
+
+    for i in range(len(duthosts)):
+        duthost = duthosts[i]
+        dpuhost = dpuhosts[i]
+
+        base_config_messages = {
+            **pl.APPLIANCE_CONFIG,
+            **pl.ROUTING_TYPE_PL_CONFIG,
+            **pl.VNET_CONFIG,
+            **pl.ROUTE_GROUP1_CONFIG,
+            **pl.METER_POLICY_V4_CONFIG,
+        }
+        logger.info(
+            f"setup_dash_pl_pipeline: applying base config on "
+            f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+        )
+        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+        route_and_mapping_messages = {
+            **pl.PE_VNET_MAPPING_CONFIG,
+            **pl.PE_SUBNET_ROUTE_CONFIG,
+            **pl.VM_SUBNET_ROUTE_CONFIG,
+        }
+        if "bluefield" in dpuhost.facts["asic_type"]:
+            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+        meter_rule_messages = {
+            **pl.METER_RULE1_V4_CONFIG,
+            **pl.METER_RULE2_V4_CONFIG,
+        }
+        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+
+
+@pytest.fixture(scope="function")
+def setup_dash_pl_pipeline(
+     localhost, duthosts, ptfhost, dpu_index, skip_config,
+     dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+):
+    if skip_config:
+        yield
+        return
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
+    yield
+    logger.info("setup_dash_pl_pipeline: cleanup.")
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="module")
+def setup_dash_pl_pipeline_module_scope(
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
+    dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+):
+    if skip_config:
+        yield
+        return
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
+    yield
+    logger.info("setup_dash_pl_pipeline: cleanup.")
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)

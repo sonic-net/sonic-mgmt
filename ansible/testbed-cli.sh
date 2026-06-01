@@ -33,6 +33,7 @@ function usage
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
+  echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo
   echo "Options:"
@@ -94,6 +95,9 @@ function usage
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
+  echo "To install an image on DPUs of a testbed: $0 install-dpu-image 'testbed-name' 'inventory' 'image-url' [dpu-index]"
+  echo "    Optional argument for install-dpu-image:"
+  echo "        <dpu-index>              # Upgrade only the DPU at this index (default: all DPUs)"
   echo "To collect show techsupport result of a testbed: $0 collect-show-tech 'testbed-name' 'inventory' ~/.password"
   echo "    collect-show-tech supports specify output path for dumped files"
   echo "        -e output_path=<user-specified-path>"
@@ -418,6 +422,7 @@ function wait_parallel_processes() {
   local operation_type=$1
   local -n pids_ref=$2
   local server_count=$3
+  local log_timestamp=$4
 
   # Wait for all parallel processes to complete
   if [[ "$parallel_execution" == "true" ]]; then
@@ -436,10 +441,11 @@ function wait_parallel_processes() {
       else
         echo "${operation_type}_topo output for server $i:"
       fi
-      if [ -f "/tmp/${operation_type}_topo_$i.log" ]; then
-        cat "/tmp/${operation_type}_topo_$i.log"
+      local log_file="/tmp/${operation_type}_topo_${i}_${log_timestamp}.log"
+      if [ -f "$log_file" ]; then
+        cat "$log_file"
       else
-        echo "Warning: Log file /tmp/${operation_type}_topo_$i.log not found"
+        echo "Warning: Log file $log_file not found"
       fi
     done
   fi
@@ -476,6 +482,9 @@ function add_topo
   # Array to store process IDs for parallel execution
   declare -a pids
 
+  # Timestamp for log files to avoid overwriting logs across retries
+  log_timestamp=$(date +%Y%m%d_%H%M%S)
+
   for i in $(seq 0 $(($server_count-1)))
   do
     if [ -n "$servers" ]; then
@@ -495,7 +504,7 @@ function add_topo
 
     if [[ "$parallel_execution" == "true" ]]; then
       # Parallel execution: run in background and capture PID
-      eval "$ansible_cmd" > "/tmp/add_topo_$i.log" 2>&1 &
+      eval "$ansible_cmd" > "/tmp/add_topo_${i}_${log_timestamp}.log" 2>&1 &
       pids[$i]=$!
     else
       # Serial execution: run synchronously
@@ -504,7 +513,7 @@ function add_topo
   done
 
   # Wait for all parallel processes to complete
-  wait_parallel_processes "add" pids "$server_count"
+  wait_parallel_processes "add" pids "$server_count" "$log_timestamp"
 
   # Execute fanout connection and cleanup steps
   for i in $(seq 0 $(($server_count-1)))
@@ -573,6 +582,9 @@ function remove_topo
   # Array to store process IDs for parallel execution
   declare -a pids
 
+  # Timestamp for log files to avoid overwriting logs across retries
+  log_timestamp=$(date +%Y%m%d_%H%M%S)
+
   for i in $(seq 0 $(($server_count-1)))
   do
     if [ -n "$servers" ]; then
@@ -591,7 +603,7 @@ function remove_topo
 
     if [[ "$parallel_execution" == "true" ]]; then
       # Parallel execution: run in background and capture PID
-      eval "$ansible_cmd" > "/tmp/remove_topo_$i.log" 2>&1 &
+      eval "$ansible_cmd" > "/tmp/remove_topo_${i}_${log_timestamp}.log" 2>&1 &
       pids[$i]=$!
     else
       # Serial execution: run synchronously
@@ -600,7 +612,7 @@ function remove_topo
   done
 
   # Wait for all parallel processes to complete
-  wait_parallel_processes "remove" pids "$server_count"
+  wait_parallel_processes "remove" pids "$server_count" "$log_timestamp"
 
   echo Done
 }
@@ -1040,6 +1052,28 @@ function install_image
   echo Done
 }
 
+function install_dpu_image
+{
+  testbed_name=$1
+  inventory=$2
+  image_url=$3
+  dpu_index=${4:--1}
+  shift
+  shift
+  shift
+  if [ $# -gt 0 ]; then shift; fi
+
+  echo "Upgrading DPU image on '$testbed_name' (dpu_index=$dpu_index)"
+
+  ansible-playbook upgrade_dpu_sonic.yml -i "$inventory" \
+    -e testbed_name="$testbed_name" \
+    -e testbed_file=$tbfile \
+    -e image_url="$image_url" \
+    -e target_dpu_index="$dpu_index"
+
+  echo Done
+}
+
 function collect_show_tech
 {
   testbed_name=$1
@@ -1312,6 +1346,8 @@ case "${subcmd}" in
   restart-ptf) restart_ptf $@
                ;;
   install-image) install_image $@
+               ;;
+  install-dpu-image) install_dpu_image $@
                ;;
   collect-show-tech) collect_show_tech $@
                ;;

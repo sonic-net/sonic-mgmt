@@ -20,6 +20,8 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -608,25 +610,23 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    host = None
     for attempt in range(1, 4):
         try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type],
-                               console_device=console_device)
-            break
+            return ConsoleHost(
+                console_type=console_type,
+                console_host=console_host,
+                console_port=console_port,
+                sonic_username=creds["sonicadmin_user"],
+                sonic_password=sonic_password,
+                console_username=console_username,
+                console_password=creds["console_password"][console_type],
+                console_device=console_device,
+            )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-    return host
 
 
 def creds_on_dut(duthost):
@@ -671,7 +671,7 @@ def creds_on_dut(duthost):
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
 
     creds["console_login_options"] = hostvars.get("console_login_options", {})
 
@@ -722,10 +722,10 @@ def duthost_clear_console_port(
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
     """
-    if menu_type == "console_ssh_":
+    if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
 
-    if menu_type == "console_conserver_":
+    if menu_type == "console_conserver":
         logger.info("Skip clearing conserver console port")
         return
 
@@ -877,3 +877,29 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def get_random_reload_type(duthost):
+    """
+    Get a random reload type from the list of reload types
+    :param duthost: duthost object
+    :return: a random reload type
+    """
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    reboot_type = random.choice(reload_types)
+    logger.info(f"Selected reload type: {reboot_type}")
+    return reboot_type
+
+
+def migrate_container_systemd(duthost, service, parameters):
+    # Remove --net=host in parameters because it is already existed in /usr/bin/{service}.sh
+    parts = parameters.split()
+    no_network_parts = [p for p in parts if p != "--net=host"]
+    no_network_parameters = " ".join(no_network_parts)
+
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {no_network_parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)

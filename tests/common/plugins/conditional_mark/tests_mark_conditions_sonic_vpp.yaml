@@ -202,14 +202,6 @@ drop_packets/test_configurable_drop_counters.py:
     conditions:
       - "asic_type in ['vpp']"
 
-drop_packets/test_drop_counters.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 #######################################
 #####          DUT Console        #####
 #######################################
@@ -219,7 +211,7 @@ dut_console/test_console_baud_rate.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_console_chassis_conn.py:
   skip:
@@ -227,7 +219,7 @@ dut_console/test_console_chassis_conn.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_escape_character.py:
   skip:
@@ -235,7 +227,7 @@ dut_console/test_escape_character.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_idle_timeout.py:
   skip:
@@ -243,7 +235,7 @@ dut_console/test_idle_timeout.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
 #####         Everflow            #####
@@ -636,16 +628,6 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           Route             #####
-#######################################
-route/test_route_flow_counter.py:
-  skip:
-    reason: "per route counter is not supported in sonic-vpp but is supported in vpp dataplane. To be included after per route counter support is added in sonic-vpp."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"

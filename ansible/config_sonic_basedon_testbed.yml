@@ -167,6 +167,10 @@
       set_fact:
         is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
 
+    - name: check if testbed has L1 switches
+      set_fact:
+        is_l1_testbed: "{{ testbed_facts.l1s is defined and (testbed_facts.l1s | length > 0) }}"
+
     - block:
         - name: Set L1 connection script path
           set_fact:
@@ -236,10 +240,10 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
-  - name: override group_file for route-conv
+  - name: override group_file for snappi testbed
     set_fact:
       conn_graph_group: "{{ testbed_facts['inv_name'] }}"
-    when: is_ixia_testbed or is_stc_testbed
+    when: is_ixia_testbed or is_stc_testbed or is_l1_testbed
 
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts:
@@ -615,6 +619,11 @@
       - name: Load variables from topology file for topo_{{ topo }}.yml
         include_vars: "vars/topo_{{ topo }}.yml"
 
+      - name: set BGP confd ASN facts
+        set_fact:
+          bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
+          bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
+
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
@@ -875,10 +884,14 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
-          duts_list: "{{ testbed_facts['duts'] | default([]) }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
+          duts_list: "{{ testbed_facts['duts'] | default([]) | reject('search', '-dpu-') | list }}"
           dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
+          enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
         become: true
+        when: enable_macsec is not defined
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -897,8 +910,10 @@
           topo_name: "{{ topo }}"
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
         become: true
-        when: "('t2' in topo) and (macsec_profile is defined)"
+        when: "('t2' in topo) and (enable_macsec is defined)"
 
       - name: Use minigraph case
         block:
@@ -1173,6 +1188,7 @@
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true

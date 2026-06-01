@@ -2,7 +2,7 @@ import re
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from ipaddress import ip_interface, ip_network, IPv4Network
+from ipaddress import ip_address, ip_interface, ip_network, IPv4Network
 
 
 logger = logging.getLogger(__name__)
@@ -113,3 +113,21 @@ def get_vlan_last_ipv4(config_facts):
         if intf_ipv4 is not None:
             return intf_ipv4
     return None, None
+
+
+def get_vlan_ipv4_for_subnet(config_facts, target_ip):
+    """
+    Find the VLAN interface whose IPv4 subnet contains target_ip.
+    Returns (vlan_name, vlan_ip, prefix_len) or (None, None, None).
+    """
+    target = ip_address(str(target_ip))
+    vlan_intfs = config_facts.get("VLAN_INTERFACE", {})
+    for intf, addrs in vlan_intfs.items():
+        for addr in addrs:
+            try:
+                iface = ip_interface(addr)
+                if isinstance(iface.network, IPv4Network) and target in iface.network:
+                    return intf, iface.ip, iface.network.prefixlen
+            except ValueError:
+                continue
+    return None, None, None

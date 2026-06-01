@@ -333,7 +333,12 @@ def pytest_addoption(parser):
     ############################
     #   SmartSwitch options    #
     ############################
-    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+    parser.addoption(
+        "--dpu-pattern",
+        action="store",
+        default="None",
+        help="Smartswitch dpus that should be involved in the test (e.g. 'dut-dpu-0,dut-dpu-1')"
+    )
     parser.addoption(
         "--ss_target_index",
         action="store",
@@ -352,6 +357,18 @@ def pytest_addoption(parser):
         type=int,
         default=4,
         help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
+    parser.addoption(
+        "--ss_npu_target_image",
+        action="store",
+        default="",
+        help="SmartSwitch NPU image URL used in the full upgrade test (DPUs staged first, then NPU rebooted)",
+    )
+    parser.addoption(
+        "--ss_npu_target_version",
+        action="store",
+        default="",
+        help="SmartSwitch NPU version string used in the full upgrade test (e.g. SONiC-OS-internal-202511.xxx)",
     )
     ##################################
     #   Container Upgrade options    #
@@ -385,6 +402,13 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False, dest="skip_yang",
                      help="Skip YANG validation")
+
+    #################################
+    #   BGP convergence options     #
+    #################################
+    # BGP RIB tests: use port-channel info from config_db (minigraph) for tgen_ports
+    parser.addoption("--bgp_pc_config", action="store_true", default=False,
+                     help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
 
 
 def pytest_configure(config):
@@ -764,6 +788,12 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_n
         request.config.cache.set("dpuhosts_fixture_failed", True)
         pt_assert(False, "!!!!!!!!!!!!!!!! dpuhosts fixture failed !!!!!!!!!!!!!!!!"
                   "Exception: {}".format(repr(e)))
+
+
+@pytest.fixture(scope="session")
+def all_dpuhosts(dpuhosts):
+    """All DPU hosts unfiltered. Use this when a conftest overrides dpuhosts with a subset."""
+    return dpuhosts
 
 
 @pytest.fixture(scope="session")
