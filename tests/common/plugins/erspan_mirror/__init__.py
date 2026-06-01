@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 
 import allure
 import pytest
@@ -81,8 +82,9 @@ def _erspan_mirror(request, ptfhost, tbinfo, erspan_mirror_targets):
         remove the mirror session.
     """
     targets = erspan_mirror_targets
-    # remove brackets from parameterized test names
-    test_name = request.node.name.replace("[", "_").replace("]", "")
+    # sanitize test name so the pcap path has no spaces/brackets that would
+    # break the tcpdump/editcap/pgrep shell commands that embed the path
+    test_name = re.sub(r"[^\w.-]+", "_", request.node.name)
     # session name has length limit so keep only first 20 characters
     session_base_name = test_name[:20]
     sessions = []
