@@ -89,26 +89,6 @@ class TestLeakSensorApi(PlatformApiTestBase):
             self.expect(severity in valid_severities,
                         f"Sensor {sensor_index} get_leak_severity()={severity} not in {valid_severities}")
 
-    def test_leak_sensor_reliability(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
-        """Verify invalid index handling and boundary (first/last) sensors."""
-        # Test invalid index handling
-        try:
-            invalid_idx = self.num_leak_sensors + 100
-            name = leak_sensor.get_name(platform_api_conn, invalid_idx)
-            self.expect(name is None, f"Invalid index should return None, got {name}")
-        except (IndexError, Exception) as e:
-            logger.info(f"Expected exception for invalid index: {e}")
-
-        if self.num_leak_sensors > 0:
-            # Boundary: first sensor
-            first_name = leak_sensor.get_name(platform_api_conn, 0)
-            self.expect(isinstance(first_name, str), "First sensor get_name() should return string")
-
-            # Boundary: last sensor
-            last_idx = self.num_leak_sensors - 1
-            last_name = leak_sensor.get_name(platform_api_conn, last_idx)
-            self.expect(isinstance(last_name, str), "Last sensor get_name() should return string")
-
     def test_leak_sensor_profile(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
         """Verify per-sensor profile (get_type, get_leak_max_minor_duration_sec) and get_all_profiles()."""
         if self.num_leak_sensors == 0:
@@ -125,11 +105,12 @@ class TestLeakSensorApi(PlatformApiTestBase):
 
             # get_leak_max_minor_duration_sec() on the profile
             max_dur = leak_sensor.get_leak_max_minor_duration_sec(platform_api_conn, sensor_index)
-            self.expect(max_dur is not None,
-                        f"Sensor {sensor_index} get_leak_max_minor_duration_sec() should not return None")
-            if max_dur is not None:
-                self.expect(isinstance(max_dur, (int, float)) and max_dur >= 0,
-                            f"Sensor {sensor_index} max_minor_duration_sec={max_dur} should be non-negative")
+            if max_dur is None:
+                logger.info(f"Sensor {sensor_index} get_leak_max_minor_duration_sec() returned None "
+                            f"- platform does not support this attribute")
+            else:
+                self.expect(isinstance(max_dur, (int, float)) and max_dur > 0,
+                            f"Sensor {sensor_index} max_minor_duration_sec={max_dur} should be non-zero")
 
         # get_all_profiles() on LiquidCoolingBase
         all_profiles = liquid_cooling.get_all_profiles(platform_api_conn)

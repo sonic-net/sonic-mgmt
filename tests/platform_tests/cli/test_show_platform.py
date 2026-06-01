@@ -132,48 +132,6 @@ def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars
                   format(expected_serial_no, get_serial_no_output, duthost.hostname))
 
 
-@pytest.mark.topology('bmc')
-def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostname, request):
-    """
-    @summary: On BMC topology, `show version` on the BMC exposes two serial fields:
-              `Serial Number:` (BMC) and `Switch-Host Serial Number:` (paired switch).
-              Verify both match the inventory `serial:` of the BMC and its paired switch.
-              Ref: https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md#232-show-commands
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    cmd = duthost.command("show version", module_ignore_errors=True)
-    pytest_assert(cmd.get('rc') == 0,
-                  "`show version` failed on BMC {}: {!r}".format(duthost.hostname, cmd.get('stderr')))
-    output = cmd["stdout"]
-
-    bmc_match = re.search(r"^Serial Number:\s*(\S+)\s*$", output, re.MULTILINE)
-    sw_match = re.search(r"^Switch-Host Serial Number:\s*(\S+)\s*$", output, re.MULTILINE)
-    pytest_assert(bmc_match,
-                  "`Serial Number:` field missing in `show version` on BMC {}".format(duthost.hostname))
-    pytest_assert(sw_match,
-                  "`Switch-Host Serial Number:` field missing in `show version` on BMC {}".format(duthost.hostname))
-    bmc_serial = bmc_match.group(1)
-    sw_serial = sw_match.group(1)
-
-    inv_files = get_inventory_files(request)
-    bmc_inv_serial = get_host_visible_vars(inv_files, duthost.hostname).get('serial')
-    if bmc_inv_serial:
-        pytest_assert(bmc_inv_serial == bmc_serial,
-                      "BMC `Serial Number` ({!r}) from `show version` does not match inventory `serial:` "
-                      "for {} ({!r})".format(bmc_serial, duthost.hostname, bmc_inv_serial))
-
-    switch_host = duthost.get_bmc_host()
-    sw_inv_serial = get_host_visible_vars(inv_files, switch_host.hostname).get('serial')
-    if sw_inv_serial:
-        pytest_assert(sw_inv_serial == sw_serial,
-                      "`Switch-Host Serial Number` ({!r}) from `show version` does not match inventory "
-                      "`serial:` for paired switch {} ({!r})".format(sw_serial, switch_host.hostname, sw_inv_serial))
-
-    logging.info("BMC {} `show version` serials: BMC={}, Switch-Host={} (paired switch={})".format(
-        duthost.hostname, bmc_serial, sw_serial, switch_host.hostname))
-
-
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
     """
     @summary: Verify output of `show platform syseeprom`

@@ -62,8 +62,8 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
         # get_serial()
         serial = module_api.get_serial(platform_api_conn, self.sw_idx)
-        self.expect(serial is None or isinstance(serial, str),
-                    "SWITCH-HOST get_serial() should return str or None")
+        self.expect(isinstance(serial, str) and len(serial) > 0,
+                    f"SWITCH-HOST get_serial() should return non-empty string, got {serial!r}")
 
         # get_type()
         mod_type = module_api.get_type(platform_api_conn, self.sw_idx)
@@ -179,19 +179,6 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
                 logger.info("SWITCH-HOST not found via get_module_index — skipping round-trip")
         else:
             logger.info("No modules reported — skipping enumeration checks")
-
-    def test_switch_host_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
-        """Verify SWITCH-HOST module.get_serial() returns a non-empty string."""
-        sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
-        if sw_idx is None or sw_idx < 0:
-            pytest.skip("SWITCH-HOST module not found; skipping serial test")
-
-        serial = module_api.get_serial(platform_api_conn, sw_idx)
-        self.expect(serial is not None, "module.get_serial() should not return None for SWITCH-HOST")
-        if serial is not None:
-            self.expect(isinstance(serial, str) and len(serial) > 0,
-                        f"SWITCH-HOST serial should be non-empty string, got {serial!r}")
-            logger.info(f"SWITCH-HOST serial: {serial}")
 
     def test_switch_host_do_power_cycle(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
