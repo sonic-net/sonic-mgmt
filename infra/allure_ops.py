@@ -9,6 +9,7 @@ import paramiko
 import yaml
 
 from urllib import parse
+from hw_setup_utils import getSonicMgmtContainterName
 
 
 # Path to config file
@@ -56,7 +57,9 @@ def _create_parser():
                       required=True)
     parser.add_argument('--ssh-port', type=str, help='optional: ssh port, if applicable',
                       required=False, default='22')
-    parser.add_argument('--docker-container-name', type=str, help='name of docker container to go into',
+    parser.add_argument('--stream', type=str, help='stream of the image',
+                      required=True,default="")
+    parser.add_argument('--testbed', type=str, help='testbed',
                       required=True,default="")
     
     parser.add_argument('--install-allure', action='store_true', help='install allure inside container')
@@ -224,10 +227,12 @@ def main():
     password = args['password']
     host_address = args['host_address']
     ssh_port = args['ssh_port']
-    docker_container_name = args['docker_container_name']
     install_allure = args['install_allure']
     generate_report = args['generate_report']
     report_name = args['report_name'] if generate_report else ""
+    stream = args['stream']
+    testbed = args['testbed']
+    docker_container_name = getSonicMgmtContainterName(stream, testbed)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

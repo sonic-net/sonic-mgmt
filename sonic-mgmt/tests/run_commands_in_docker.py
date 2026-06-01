@@ -3,6 +3,7 @@
 import argparse
 import paramiko
 import time
+from hw_setup_utils import getSonicMgmtContainterName
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute commands inside a docker container in a remote server')
@@ -14,7 +15,9 @@ def _create_parser():
                       required=True)
     parser.add_argument('--ssh-port', type=str, help='optional: ssh port, if applicable',
                       required=False, default='22')
-    parser.add_argument('--docker-container-name', type=str, help='name of docker container to go into',
+    parser.add_argument('--stream', type=str, help='stream of the image',
+                      required=True,default="")
+    parser.add_argument('--testbed', type=str, help='testbed',
                       required=True,default="")
     parser.add_argument('--command', type=str, help='command to run inside container',
                       required=True)
@@ -28,8 +31,10 @@ def main():
     password = args['password']
     host_address = args['host_address']
     ssh_port = args['ssh_port']
-    docker_container_name = args['docker_container_name']
     command = args['command']
+    stream = args['stream']
+    testbed = args['testbed']
+    docker_container_name = getSonicMgmtContainterName(stream, testbed)
 
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())

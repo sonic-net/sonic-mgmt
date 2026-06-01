@@ -1459,7 +1459,7 @@
             "ucs_password": "roZes@123",
             "ucs_key": "ssh-keygen -f \"/users/sonicci/.ssh/known_hosts\" -R \"172.27.147.154\"",
             "mth_tb": "mth64-m5-2",
-            "scp_ip":" 1.74.23.14",
+            "scp_ip":"1.74.23.14",
             "installer_mode":"sonic",
             "ucs_tb": "ucs-m5-2",
             "telnet_host": ["172.27.147.153"],
