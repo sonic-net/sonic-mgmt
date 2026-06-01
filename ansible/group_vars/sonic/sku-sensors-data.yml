@@ -9109,8 +9109,8 @@ sensors_checks:
       - - mp29816-i2c-15-69/PMIC-10 Temp 2/temp2_input
         - mp29816-i2c-15-69/PMIC-10 Temp 2/temp2_crit
 
-      - - nvme-pci-0300/SSD Temp/temp1_input
-        - nvme-pci-0300/SSD Temp/temp1_crit
+      - - nvme-pci-0100/SSD Temp/temp1_input
+        - nvme-pci-0100/SSD Temp/temp1_crit
 
       - - raa228004-i2c-6-60/PDB PWR_CONV Temp/temp2_input
         - raa228004-i2c-6-60/PDB PWR_CONV Temp/temp2_crit
