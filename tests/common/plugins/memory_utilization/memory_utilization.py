@@ -520,9 +520,13 @@ class MemoryMonitor:
             logger.debug("Formatted simple threshold as: {}".format(result))
             return result
 
-    def parse_and_register_commands(self, hwsku=None):
-        """Initialize the MemoryMonitor by reading commands from JSON files and registering them."""
-        logger.info("Loading memory monitoring commands for hwsku: {}".format(hwsku))
+    def parse_and_register_commands(self, hwsku=None, topo_name=None):
+        """Initialize the MemoryMonitor by reading commands from JSON files and registering them.
+
+        Override precedence (later overrides earlier):
+            COMMON (common.json) -> COMMON (dependence.json) -> HWSKU -> TOPO
+        """
+        logger.info("Loading memory monitoring commands for hwsku: {}, topo: {}".format(hwsku, topo_name))
 
         parameter_dict = {}
         with open(MEMORY_UTILIZATION_COMMON_JSON_FILE, 'r') as file:
@@ -582,6 +586,39 @@ class MemoryMonitor:
                                 else:
                                     # New command specific to this hwsku
                                     logger.info("Adding new hwsku-specific command: {}".format(name))
+                                    parameter_dict[name] = {
+                                        'name': name,
+                                        'cmd': command,
+                                        'memory_params': memory_params,
+                                        'memory_check_fn': memory_check_fn,
+                                        'order': item.get('order', 0)
+                                    }
+
+            if topo_name:
+                topo_found = any(topo_name in topo_list for topo_list in data.get("TOPO", {}).values())
+                if topo_found:
+                    for key, value in data["TOPO"].items():
+                        if topo_name in value:
+                            for item in data[key]:
+                                name = item["name"]
+                                command = item["cmd"]
+                                memory_params = item["memory_params"]
+                                memory_check_fn = item["memory_check"]
+
+                                # Check if this command already exists (from common or hwsku config)
+                                if name in parameter_dict:
+                                    logger.info("Merging topo-specific config for command: {}".format(name))
+                                    # Merge memory_params instead of overwriting
+                                    existing_params = parameter_dict[name]['memory_params']
+                                    for mem_item, thresholds in memory_params.items():
+                                        logger.debug("Overriding memory params for {}:{}".format(name, mem_item))
+                                        existing_params[mem_item] = thresholds
+                                    # Update cmd and memory_check_fn if needed
+                                    parameter_dict[name]['cmd'] = command
+                                    parameter_dict[name]['memory_check_fn'] = memory_check_fn
+                                else:
+                                    # New command specific to this topo
+                                    logger.info("Adding new topo-specific command: {}".format(name))
                                     parameter_dict[name] = {
                                         'name': name,
                                         'cmd': command,

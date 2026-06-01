@@ -20,6 +20,7 @@
 - [Advanced Usage](#advanced-usage)
   - [Global Memory Items](#global-memory-items)
   - [HWSKU-Specific Memory Items](#hwsku-specific-memory-items)
+  - [Topology-Specific Memory Items](#topology-specific-memory-items)
   - [Test-Specific Memory Items](#test-specific-memory-items)
 - [Troubleshooting](#troubleshooting)
 
@@ -434,6 +435,54 @@ Example:
 ```
 
 In this example, specific Arista SKUs will use a higher memory_high_threshold (85% instead of 70%).
+
+### Topology-Specific Memory Items
+
+Some topologies (e.g., `m1-128`) put extra pressure on certain daemons such as `bgpd` because of the
+larger number of neighbors. You can raise thresholds for a specific topology in
+`memory_utilization_dependence.json` using a `TOPO` section that mirrors the `HWSKU` pattern.
+
+Override precedence (later wins):
+
+```
+COMMON (common.json) -> COMMON (dependence.json) -> HWSKU -> TOPO
+```
+
+Topology overrides are matched against `tbinfo["topo"]["name"]` (e.g., `m1-128`, `t1-lag`,
+`dualtor-aa`).
+
+Example: raise the `bgpd` increase threshold from the COMMON 128 MB up to 192 MB only on `m1-128`:
+
+```json
+{
+  "TOPO": {
+    "topo-m1-128": ["m1-128"]
+  },
+  "topo-m1-128": [
+    {
+      "name": "top",
+      "cmd": "top -b -n 1",
+      "memory_params": {
+        "bgpd": {
+          "memory_increase_threshold": {
+            "type": "value",
+            "value": 192
+          },
+          "memory_high_threshold": null
+        }
+      },
+      "memory_check": "parse_top_output"
+    }
+  ]
+}
+```
+
+Notes:
+- `TOPO` collection keys (e.g., `topo-m1-128`) must not collide with `HWSKU` collection keys
+  since both reference top-level lists by name. Prefix with `topo-` to avoid clashes.
+- Only the `memory_params` entries you specify are merged; everything else from the COMMON /
+  HWSKU layers is preserved.
+- A topology block can also introduce a new command not present in COMMON.
 
 ### Test-Specific Memory Items
 

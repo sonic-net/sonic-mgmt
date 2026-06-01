@@ -184,15 +184,23 @@ def memory_utilization(duthosts, request):
     memory_monitors = {}
     memory_values = {"before_test": {}, "after_test": {}}
 
+    topo_name = None
+    try:
+        tbinfo = request.getfixturevalue("tbinfo")
+        topo_name = tbinfo.get("topo", {}).get("name")
+    except Exception as e:
+        logger.warning("Could not resolve tbinfo for topo-specific memory thresholds: {}".format(e))
+
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
         memory_monitor = MemoryMonitor(ansible_host=duthost)
         memory_values["before_test"][duthost.hostname] = {}
         memory_values["after_test"][duthost.hostname] = {}
-        logger.info("Hostname: {}, Hwsku: {}, Platform: {}".format(
-            duthost.hostname, duthost.sonichost._facts["hwsku"], duthost.sonichost._facts["platform"]))
-        memory_monitor.parse_and_register_commands(hwsku=duthost.sonichost._facts["hwsku"])
+        logger.info("Hostname: {}, Hwsku: {}, Platform: {}, Topo: {}".format(
+            duthost.hostname, duthost.sonichost._facts["hwsku"], duthost.sonichost._facts["platform"], topo_name))
+        memory_monitor.parse_and_register_commands(
+            hwsku=duthost.sonichost._facts["hwsku"], topo_name=topo_name)
         memory_monitors[duthost.hostname] = memory_monitor
 
     yield memory_monitors, memory_values
