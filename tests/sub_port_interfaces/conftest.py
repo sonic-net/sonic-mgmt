@@ -134,18 +134,11 @@ def define_sub_ports_configuration(request, duthost, ptfhost, ptfadapter, port_t
     if 'invalid' in request._pyfuncitem.name:
         vlan_ranges_ptf = list(range(21, 41, 10))
 
+    # Subinterfaces are generated with abbreviated parent names (Po/Eth),
+    # so keep the full requested max_numbers range for LAG ports as well.
     if 'max_numbers' in request._pyfuncitem.name:
         vlan_ranges_dut = list(range(11, max_numbers_of_sub_ports + 11))
         vlan_ranges_ptf = list(range(11, max_numbers_of_sub_ports + 11))
-
-        # Linux has the limitation of 15 characters on an interface name,
-        # but name of LAG port should have prefix 'PortChannel' and suffix
-        # '<0-9999>' on SONiC. So max length of LAG port suffix have be 3 characters
-        # For example: 'PortChannel1.99'
-        if 'port_in_lag' in port_type:
-            vlan_range_end = min(100, max_numbers_of_sub_ports + 11)
-            vlan_ranges_dut = list(range(11, vlan_range_end))
-            vlan_ranges_ptf = list(range(11, vlan_range_end))
 
     interface_num = 2
     ip_subnet = '172.16.0.0/16'
