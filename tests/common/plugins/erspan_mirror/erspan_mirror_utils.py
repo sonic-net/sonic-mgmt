@@ -50,7 +50,7 @@ def get_monitor_ptf_intf(duthost, session_name, tbinfo):
 
 
 def run_pcap(ptfhost, pcap_path, monitor_ptf_intf, tcpdump_filter):
-    """Start a backgrounded tcpdump on the PTF monitor interface and return the pcap path."""
+    """Start a backgrounded tcpdump on the PTF monitor interface"""
     tcpdump_cmd = (
         f"nohup tcpdump -U -i {monitor_ptf_intf} -w {pcap_path} '{tcpdump_filter}' &"
     )

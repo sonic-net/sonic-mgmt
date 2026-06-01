@@ -37,9 +37,11 @@ Mirroring all DPC ports means the capture set does not depend on
 `--dpu-pattern` ordering or on which DPUs a particular test happens to
 exercise.
 
-> Note: ERSPAN session names are capped at the first 20 characters of the
-> pytest node name (with `[`/`]` from parameterization replaced by `_`),
-> followed by `_<n>`. Long parameterized test names will therefore share a
+> Note: the pytest node name is sanitized for use in the pcap path and session
+> name -- every run of characters outside `[A-Za-z0-9_.-]` (spaces, brackets
+> from parameterization, etc.) is collapsed to a single `_`. ERSPAN session
+> names are additionally capped at the first 20 characters of the sanitized
+> name, followed by `_<n>`, so long parameterized test names will share a
 > session-name prefix.
 
 If `--enable-dpc-mirroring` is not passed, or if `erspan_mirror_targets`
