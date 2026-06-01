@@ -219,8 +219,9 @@ def fixture_setUp(duthosts,
         data['loopback_v4'] = data['minigraph_facts']['minigraph_lo_interfaces'][1]['addr']
         data['loopback_v6'] = data['minigraph_facts']['minigraph_lo_interfaces'][0]['addr']
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox"]:
-        pytest.skip(f"{asic_type} is not a supported platform for this test. Only support MNLX and CISCO platforms.")
+    if asic_type not in ["cisco-8000", "mellanox", "vpp"]:
+        pytest.skip(f"{asic_type} is not a supported platform for this test. "
+                    f"Only support MNLX, CISCO and VPP platforms.")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
