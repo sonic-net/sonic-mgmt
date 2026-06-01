@@ -7,6 +7,8 @@ from .base_console_conn import (
     BaseConsoleConn,
     CONSOLE_SSH,
     CONSOLE_SSH_TO_PORT,
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG,
 )
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
@@ -38,7 +40,13 @@ class SSHConsoleConn(BaseConsoleConn):
             # Login to the per-line SSH/TCP port
             kwargs["username"] = kwargs["console_username"]
             kwargs["port"] = kwargs["direct_ssh_port"]
-        elif self.console_type.endswith("config"):
+        elif self.console_type in (
+            CONSOLE_SSH_DIGI_CONFIG,
+            CONSOLE_SSH_LANTRONIX_CONFIG,
+            CONSOLE_SSH_RARITAN_CONFIG,
+            CONSOLE_SSH_SONIC_CONFIG,
+            CONSOLE_SSH_CISCO_CONFIG,
+        ):
             # Login to config menu only requires username
             kwargs["username"] = kwargs["console_username"]
         else:
