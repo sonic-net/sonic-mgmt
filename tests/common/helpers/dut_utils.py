@@ -501,6 +501,60 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_unsupported_fanout_ports(duthost, localhost):
+    """
+    Identifies and returns the set of DUT interface ports connected to fanout devices
+    that modify packet checksums. Some platforms, when used as a fanout, recalculate
+    and correct the checksum of transit packets, causing the DUT to receive packets
+    with a valid checksum instead of the intended invalid one.
+    """
+    unsupported_fanout_skus = {"DellEMC-Z9332f-O32", "NH-5010-F-O64", "Arista-7280R4K-32QF-32DF-64O"}
+    unsupported_dut_ports = set()
+
+    if duthost.facts.get("asic_type") == "vs":
+        return unsupported_dut_ports
+
+    try:
+        dut_facts = localhost.conn_graph_facts(host=duthost.hostname,
+                                               filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+    except RunAnsibleModuleFail as e:
+        logger.info("Get dut_facts failed, reason: %s", e.results.get('msg', e))
+        return unsupported_dut_ports
+
+    try:
+        dev_conn = dut_facts["device_conn"][duthost.hostname]
+    except KeyError:
+        logger.info("device_conn missing for %s in connection graph", duthost.hostname)
+        return unsupported_dut_ports
+
+    device_info = dut_facts.get("device_info", {})
+    fanout_sku_cache = {}
+
+    for dut_port, conn_metadata in dev_conn.items():
+        fanout_host = conn_metadata.get("peerdevice")
+        if not fanout_host:
+            continue
+
+        if fanout_host in fanout_sku_cache:
+            fanout_sku = fanout_sku_cache[fanout_host]
+        else:
+            fanout_sku = device_info.get(fanout_host, {}).get("HwSku")
+            if fanout_sku is None:
+                try:
+                    fanout_facts = localhost.conn_graph_facts(
+                        host=fanout_host, filepath=LAB_CONNECTION_GRAPH_PATH)["ansible_facts"]
+                    fanout_sku = fanout_facts["device_info"][fanout_host]["HwSku"]
+                except (RunAnsibleModuleFail, KeyError):
+                    fanout_sku_cache[fanout_host] = None
+                    continue
+            fanout_sku_cache[fanout_host] = fanout_sku
+
+        if fanout_sku in unsupported_fanout_skus:
+            unsupported_dut_ports.add(dut_port)
+
+    return unsupported_dut_ports
+
+
 def get_supervisor_for_linecard(duthost, duthosts, inv_files):
     """
     Returns the supervisor duthost for a given linecard duthost.

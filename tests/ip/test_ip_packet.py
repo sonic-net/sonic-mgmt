@@ -9,7 +9,7 @@ from ptf import mask, packet
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.common.helpers.dut_utils import is_mellanox_fanout
+from tests.common.helpers.dut_utils import is_mellanox_fanout, get_unsupported_fanout_ports
 from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import parse_interfaces, sum_ifaces_counts, random_mac
 
@@ -307,6 +307,41 @@ class TestIPPacket(object):
             pytest.skip("Not supported at Mellanox fanout")
         (peer_ip_ifaces_pair, rif_rx_ifaces, rif_support, ptf_port_idx,
          pc_ports_map, ptf_indices, ingress_router_mac) = common_param
+
+        # Some fanout platforms recalculate and correct packet checksums in transit,
+        # causing the DUT to receive a valid checksum instead of the intended invalid one.
+        # We skip ports connected to such fanouts to ensure the invalid checksum test is valid.
+        unsupported_dut_ports = get_unsupported_fanout_ports(duthost, localhost)
+        unsupported_ptf_ports = {ptf_indices[p] for p in unsupported_dut_ports if p in ptf_indices}
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        ingress_namespace = peer_ip_ifaces_pair[0][2]
+
+        ingress_iface = next((iface for iface, idx in ptf_indices.items() if idx == ptf_port_idx), None)
+        if ingress_iface is None:
+            pytest.skip("Failed to resolve DUT interface for the specified PTF port index")
+
+        # If current ingress PTF port is not supported, choose a supported one in the same namespace
+        if ptf_port_idx in unsupported_ptf_ports:
+            supported_ingress_ptf_ports = [
+                idx for iface, idx in ptf_indices.items()
+                if idx not in unsupported_ptf_ports
+                and iface.startswith("Ethernet")
+                and mg_facts["minigraph_neighbors"].get(iface, {}).get("namespace") == ingress_namespace]
+            if not supported_ingress_ptf_ports:
+                pytest.skip("All ingress ports in namespace '{}' connect to fanouts"
+                            " that modify the checksum".format(ingress_namespace))
+            ptf_port_idx = supported_ingress_ptf_ports[0]
+            ingress_iface = next((iface for iface, idx in ptf_indices.items() if idx == ptf_port_idx), ingress_iface)
+            logger.info("Switched ingress to %s (PTF %d)", ingress_iface, ptf_port_idx)
+
+            # Recompute router MAC and RIF interface for the new ingress port (multi-ASIC safe)
+            asic_id = duthost.get_asic_id_from_namespace(ingress_namespace)
+            ingress_router_mac = duthost.asic_instance(asic_id).get_router_mac()
+            rif_rx_ifaces = ingress_iface
+
+        rx_port = ingress_iface
+
         pkt = testutils.simple_ip_packet(
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
@@ -330,7 +365,17 @@ class TestIPPacket(object):
 
         out_rif_ifaces, out_ifaces = parse_interfaces(
             duthost.command("show ip route 10.156.94.34")["stdout_lines"], pc_ports_map)
-        out_ptf_indices = [ptf_indices[iface] for iface in out_ifaces]
+        egress_ptf_ports_all = [ptf_indices[i] for i in out_ifaces if i in ptf_indices]
+        egress_ptf_ports_supported = [
+            ptf_indices[i] for i in out_ifaces
+            if i in ptf_indices and ptf_indices[i] not in unsupported_ptf_ports]
+
+        out_ptf_indices = egress_ptf_ports_supported or egress_ptf_ports_all
+        if not out_ptf_indices:
+            pytest.skip("No egress PTF port indices are mapped to DUT interfaces")
+        if not egress_ptf_ports_supported:
+            logger.warning("All egress ports are on fanouts that modify checksums. "
+                           "Proceeding because packet should be dropped before egress.")
 
         duthost.command("portstat -c")
         if rif_support:
@@ -350,8 +395,8 @@ class TestIPPacket(object):
 
         # In different platforms, IP packets with specific checksum will be dropped in different layer
         # We use both layer 2 counter and layer 3 counter to check where packet are dropped
-        rx_ok = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_ok"].replace(",", ""))
-        rx_drp = int(portstat_out[peer_ip_ifaces_pair[0][1][0]]["rx_drp"].replace(",", ""))
+        rx_ok = int(portstat_out[rx_port]["rx_ok"].replace(",", ""))
+        rx_drp = int(portstat_out[rx_port]["rx_drp"].replace(",", ""))
         rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) if rif_support else 0
         tx_ok = sum_ifaces_counts(portstat_out, out_ifaces, "tx_ok")
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
