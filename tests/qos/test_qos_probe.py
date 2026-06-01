@@ -55,6 +55,20 @@ class TestQosProbe(QosSaiBase):
                     return result
         return None
 
+    @staticmethod
+    def get_ingress_drop_counter_mode(dutTestParams):
+        """Determine ingress drop counter mode based on platform capability.
+
+        3-level fallback: pg_drop > port_buffer_drop > port_drop
+        Currently only cisco-8000 is verified to support pg_drop and port_buffer_drop.
+        Broadcom/Mellanox default to port_drop until verified.
+        Tracked by: https://github.com/sonic-net/sonic-mgmt/issues/24738
+        """
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        if platform_asic == "cisco-8000":
+            return "pg_drop"
+        return "port_drop"
+
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, disable_voq_watchdog_class_scope):
         return
@@ -276,6 +290,8 @@ class TestQosProbe(QosSaiBase):
 
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
@@ -666,6 +682,8 @@ class TestQosProbe(QosSaiBase):
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
             testParams['src_port_vlan'] = src_port_vlans
+
+        testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
         self.runPtfTest(
             ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",

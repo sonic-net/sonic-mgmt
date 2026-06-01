@@ -8,6 +8,8 @@ Traffic Pattern: 1 src -> N dst
 - Single source port sends to multiple destination ports
 - Detects the PFC Xoff threshold by observing PFC frame generation
 
+CI: changes to this file trigger the probe-tests stage UT/IT.
+
 Design:
 - setUp(): PTF initialization + parse_param
 - setup_traffic(): Build stream_mgr (1 src -> N dst)
