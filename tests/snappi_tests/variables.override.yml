@@ -1,4 +1,4 @@
-yy40-mixed-tb:
+vms-snappi-sonic-multidut:
   multidut_port_info:
     - multi-dut-single-asic:
         rx_ports:
@@ -7,75 +7,28 @@ yy40-mixed-tb:
           - hostname: sonic-s6100-dut2
             port_name: Ethernet76
         tx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-        rx_ports:
-          - hostname: yy40-mixed-long
-            port_name: Ethernet280
-
-    - multi-dut-single-asic-dir2:
-        rx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-        tx_ports:
-          - hostname: yy40-mixed-long
-            port_name: Ethernet280
-
+          - hostname: sonic-s6100-dut2
+            port_name: Ethernet64
+          - hostname: sonic-s6100-dut2
+            port_name: Ethernet68
     - single-dut-single-asic:
         rx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet72
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet76
         tx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-
-    - single-dut-multi-asic:
-        rx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-        tx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet192
-          - hostname: yy40-mixed-short
-            port_name: Ethernet200
-
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet64
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet68
   mixed_speed_port_info:
-    yy40-mixed-tb:
-      - multidut-any-asic-dir1:
+    vms-snappi-sonic-multidut:
+      - multidut-any-asic:
         rx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-          - hostname: yy40-mixed-short
-            port_name: Ethernet192
-          - hostname: yy40-mixed-short
-            port_name: Ethernet200
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet0
         tx_ports:
-          - hostname: yy40-mixed-long
-            port_name: Ethernet280
-          - hostname: yy40-mixed-short
-            port_name: Ethernet248
-
-      - multidut-any-asic-dir2:
-        tx_ports:
-          - hostname: yy40-mixed-short
-            port_name: Ethernet128
-          - hostname: yy40-mixed-short
-            port_name: Ethernet136
-          - hostname: yy40-mixed-short
-            port_name: Ethernet192
-          - hostname: yy40-mixed-short
-            port_name: Ethernet200
-        rx_ports:
-          - hostname: yy40-mixed-long
-            port_name: Ethernet280
-          - hostname: yy40-mixed-short
-            port_name: Ethernet248
-  pfcQueueGroupSize: 4
+          - hostname: sonic-s6100-dut2
+            port_name: Ethernet0
+  pfcQueueGroupSize: 8
