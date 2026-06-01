@@ -228,7 +228,7 @@ class TestThermalctldDaemon:
             # Inject a faulty sensor entry using the exact schema thermalctld writes
             inject_leak_sensor(self.duthost, 'test_faulty_sensor_check',
                                leaking='N/A', leak_sensor_status='Fault',
-                               severity='CRITICAL', type='liquid', location='rack')
+                               severity='CRITICAL', sensor_type='liquid', location='rack')
             logger.info(f"Injected faulty sensor entry: {FAULTY_KEY}")
 
             # Verify leaking=N/A (sensor unreadable)

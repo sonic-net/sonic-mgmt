@@ -295,8 +295,6 @@ class TestBmcctldDaemon:
         # --- Post-check: BMC event log file exists and captured fresh entries ---
         post_lines = bmc_event_log_line_count(self.duthost)
         if post_lines > 0:
-            pytest_assert(post_lines > 0,
-                          f"{BMC_EVENT_LOG} exists but has no entries after event triggers")
             logger.info(f"{BMC_EVENT_LOG} has {post_lines} total line(s)")
         else:
             logger.info(f"{BMC_EVENT_LOG} not present - platform may log only to syslog")

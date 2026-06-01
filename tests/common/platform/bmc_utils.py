@@ -62,6 +62,8 @@ def redis_hgetall(duthost, db, key):
             if isinstance(parsed, dict):
                 return {str(k): str(v) for k, v in parsed.items()}
         except (ValueError, SyntaxError):
+            # Not a Python literal — fall through to the line-pair parser below
+            # for raw redis-cli style output.
             pass
     lines = out.split('\n')
     return {lines[i]: lines[i + 1] for i in range(0, len(lines), 2) if i + 1 < len(lines)}
@@ -154,11 +156,15 @@ def bmc_event_or_syslog_contains(duthost, pattern, since='1 minute ago', tail=5)
 # --- Leak-sensor injection helpers ----------------------------------------
 
 def inject_leak_sensor(duthost, key, severity, leaking='Yes', leak_sensor_status='Good',
-                       extra_fields=None):
+                       sensor_type=None, location=None):
     """HSET a LIQUID_COOLING_INFO row using the daemon's wire schema.
 
     `key` should already include the table prefix, e.g.
     'LIQUID_COOLING_INFO:test_sensor_xyz'.
+
+    Schema fields (per thermalctld): name, type, location, severity,
+    leaking, leak_sensor_status. `sensor_type` (written to the `type`
+    field) and `location` are optional and only written when provided.
     """
     fields = {
         'name': key.split(':')[-1],
@@ -166,8 +172,10 @@ def inject_leak_sensor(duthost, key, severity, leaking='Yes', leak_sensor_status
         'leak_sensor_status': leak_sensor_status,
         'severity': severity,
     }
-    if extra_fields:
-        fields.update(extra_fields)
+    if sensor_type is not None:
+        fields['type'] = sensor_type
+    if location is not None:
+        fields['location'] = location
     redis_hset(duthost, STATE_DB, key, **fields)
 
 
