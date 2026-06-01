@@ -28,7 +28,7 @@ SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
 DPU_MAX_ONLINE_TIMEOUT = 360
-DPU_FULLY_STARTUP_TIMEOUT = 760
+DPU_READY_TIMEOUT = 760
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -713,7 +713,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name,
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
     dpu_online_time = time.time() - check_start_time
-    dpu_proccess_up_timeout = DPU_FULLY_STARTUP_TIMEOUT - dpu_online_time
+    dpu_proccess_up_timeout = DPU_READY_TIMEOUT - dpu_online_time
 
     dpu_id = int(re.search(r'\d+', dpu_name).group())
     logging.info(f"Checking critical processes on {dpu_name}")
