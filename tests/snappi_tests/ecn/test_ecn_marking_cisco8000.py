@@ -30,7 +30,11 @@ def number_of_tx_rx_ports():
 
 
 @pytest.fixture
-def skip_ecn_multilossless_prio(rand_one_dut_portname_oper_up, rand_one_dut_hostname, tgen_port_info):
+def skip_ecn_multilossless_prio(
+        duthosts,
+        rand_one_dut_portname_oper_up,
+        rand_one_dut_hostname,
+        tgen_port_info):    # noqa: F811
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
@@ -43,7 +47,8 @@ def skip_ecn_multilossless_prio(rand_one_dut_portname_oper_up, rand_one_dut_host
     if is_snappi_multidut(duthosts):
         pytest.skip("Test is not supported on multi-dut")
 
-    yield testbed_config, port_config_list, snappi_ports, dut_host, dut_port
+    yield testbed_config, port_config_list, snappi_ports, duthost, dut_port
+
 
 def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
                                  conn_graph_facts,  # noqa: F811
@@ -52,7 +57,7 @@ def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
                                  rand_one_dut_hostname,
                                  rand_one_dut_portname_oper_up,
                                  lossless_prio_list,  # noqa: F811
-                                 prio_dscp_map,
+                                 prio_dscp_map,        # noqa: F811
                                  skip_ecn_multilossless_prio   # noqa: F811
                                  ):
 
@@ -75,8 +80,6 @@ def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
         N/A
     """
 
-
-
     testbed_config, port_config_list, snappi_ports, dut_host, dut_port = skip_ecn_multilossless_prio
     test_prio_list = lossless_prio_list
     run_ecn_test_cisco8000(api=snappi_api,
@@ -84,7 +87,7 @@ def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
                            port_config_list=port_config_list,
                            conn_data=conn_graph_facts,
                            fanout_data=fanout_graph_facts,
-                           duthost=duthost,
+                           duthost=dut_host,
                            dut_port=dut_port,
                            test_prio_list=test_prio_list,
                            prio_dscp_map=prio_dscp_map,
