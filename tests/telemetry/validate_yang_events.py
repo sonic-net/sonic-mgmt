@@ -1,4 +1,4 @@
-import yang as ly
+import libyang as ly
 import sys
 import json
 import argparse
@@ -30,7 +30,7 @@ class YangValidator:
         try:
             yangFiles = glob(YANG_DIR + "/*.yang")
             for file in yangFiles:
-                module = self.ctx.parse_module_path(file, ly.LYS_IN_YANG)
+                module = self.ctx.parse_module(file, ly.IOType.FILEPATH, "yang")
                 if module is None:
                     logging.info("Could not load module from file {}".format(file))
                     raise Exception(INVALID_YANG_ERROR)
@@ -57,8 +57,9 @@ class YangValidator:
             data_json = "{\"" + self.yangModule + ":" + self.yangModule + "\":" + data_json + "}"
 
             try:
-                self.ctx.parse_data_mem(data_json, ly.LYD_JSON,
-                                        ly.LYD_OPT_CONFIG | ly.LYD_OPT_STRICT)
+                self.ctx.parse_data_mem(data_json, "json",
+                                        no_state=True, strict=True,
+                                        json_string_datatypes=True)
             except Exception as e:
                 logging.info("Exception thrown: {}".format(e))
                 raise e
