@@ -455,10 +455,8 @@ Example: raise the `bgpd` increase threshold from the COMMON 128 MB up to 192 MB
 
 ```json
 {
-  "TOPO": {
-    "topo-m1-128": ["m1-128"]
-  },
-  "topo-m1-128": [
+  "TOPO": ["m1-128"],
+  "m1-128": [
     {
       "name": "top",
       "cmd": "top -b -n 1",
@@ -478,8 +476,12 @@ Example: raise the `bgpd` increase threshold from the COMMON 128 MB up to 192 MB
 ```
 
 Notes:
-- `TOPO` collection keys (e.g., `topo-m1-128`) must not collide with `HWSKU` collection keys
-  since both reference top-level lists by name. Prefix with `topo-` to avoid clashes.
+- `TOPO` is a flat list of topology names that have an override block.
+- Each topo name listed in `TOPO` has a matching top-level key holding the list of memory items
+  to override (in the example above, the `"m1-128"` key).
+- Pick topo-section keys that don't collide with `HWSKU` collection keys, since both reference
+  top-level lists by name. Topology names from `tbinfo["topo"]["name"]` are usually distinctive
+  enough (e.g., `m1-128`, `dualtor-aa`).
 - Only the `memory_params` entries you specify are merged; everything else from the COMMON /
   HWSKU layers is preserved.
 - A topology block can also introduce a new command not present in COMMON.

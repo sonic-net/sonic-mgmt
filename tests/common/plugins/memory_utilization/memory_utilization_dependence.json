@@ -10,9 +10,7 @@
     "Cisco-C8220TG": ["Cisco-C8220TG-48A-O", "Cisco-C8220TG-G1S2"],
     "Mellanox-SN6600":["Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"]
   },
-  "TOPO": {
-    "topo-m1-128": ["m1-128"]
-  },
+  "TOPO": ["m1-128"],
   "COMMON": [
     {
       "name": "top",
@@ -443,7 +441,7 @@
       "memory_check": "parse_frr_memory_output"
     }
   ],
-  "topo-m1-128": [
+  "m1-128": [
     {
       "name": "top",
       "cmd": "top -b -n 1",

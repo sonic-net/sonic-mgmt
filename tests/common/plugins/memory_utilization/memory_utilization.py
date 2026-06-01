@@ -595,37 +595,34 @@ class MemoryMonitor:
                                     }
 
             if topo_name:
-                topo_found = any(topo_name in topo_list for topo_list in data.get("TOPO", {}).values())
-                if topo_found:
-                    for key, value in data["TOPO"].items():
-                        if topo_name in value:
-                            for item in data[key]:
-                                name = item["name"]
-                                command = item["cmd"]
-                                memory_params = item["memory_params"]
-                                memory_check_fn = item["memory_check"]
+                if topo_name in data.get("TOPO", []):
+                    for item in data.get(topo_name, []):
+                        name = item["name"]
+                        command = item["cmd"]
+                        memory_params = item["memory_params"]
+                        memory_check_fn = item["memory_check"]
 
-                                # Check if this command already exists (from common or hwsku config)
-                                if name in parameter_dict:
-                                    logger.info("Merging topo-specific config for command: {}".format(name))
-                                    # Merge memory_params instead of overwriting
-                                    existing_params = parameter_dict[name]['memory_params']
-                                    for mem_item, thresholds in memory_params.items():
-                                        logger.debug("Overriding memory params for {}:{}".format(name, mem_item))
-                                        existing_params[mem_item] = thresholds
-                                    # Update cmd and memory_check_fn if needed
-                                    parameter_dict[name]['cmd'] = command
-                                    parameter_dict[name]['memory_check_fn'] = memory_check_fn
-                                else:
-                                    # New command specific to this topo
-                                    logger.info("Adding new topo-specific command: {}".format(name))
-                                    parameter_dict[name] = {
-                                        'name': name,
-                                        'cmd': command,
-                                        'memory_params': memory_params,
-                                        'memory_check_fn': memory_check_fn,
-                                        'order': item.get('order', 0)
-                                    }
+                        # Check if this command already exists (from common or hwsku config)
+                        if name in parameter_dict:
+                            logger.info("Merging topo-specific config for command: {}".format(name))
+                            # Merge memory_params instead of overwriting
+                            existing_params = parameter_dict[name]['memory_params']
+                            for mem_item, thresholds in memory_params.items():
+                                logger.debug("Overriding memory params for {}:{}".format(name, mem_item))
+                                existing_params[mem_item] = thresholds
+                            # Update cmd and memory_check_fn if needed
+                            parameter_dict[name]['cmd'] = command
+                            parameter_dict[name]['memory_check_fn'] = memory_check_fn
+                        else:
+                            # New command specific to this topo
+                            logger.info("Adding new topo-specific command: {}".format(name))
+                            parameter_dict[name] = {
+                                'name': name,
+                                'cmd': command,
+                                'memory_params': memory_params,
+                                'memory_check_fn': memory_check_fn,
+                                'order': item.get('order', 0)
+                            }
 
         for param in sorted(parameter_dict.values(), key=lambda x: x.get('order', 0)):
             # Normalize thresholds in memory_params to ensure consistent behavior
