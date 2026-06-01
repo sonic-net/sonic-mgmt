@@ -13,9 +13,11 @@ import random
 from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
 from tests.common.macsec.macsec_helper import MACSEC_INFO
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "m1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -225,6 +227,9 @@ class EverflowIPv6Tests(BaseEverflowTest):
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
+            # Wait for ACL rules to be programmed
+            pytest_assert(wait_until(120, 2, 0, everflow_utils.validate_acl_rules_in_asic_db, duthost),
+                          "ACL rules are not programmed")
 
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 

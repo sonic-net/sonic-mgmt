@@ -15,7 +15,7 @@ from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 BGP_WAIT_TIMEOUT = 90

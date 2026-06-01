@@ -20,6 +20,7 @@ import logging
 
 from .exceptions import AttributeMergeError
 from .paths import REL_ATTR_DIR
+from .attribute_keys import BASE_ATTRIBUTES_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ class AttributeManager:
                 category_path,
             )
             for port_name, port_data in self.base_port_dict.items():
-                base_attrs = port_data.get('BASE_ATTRIBUTES', {})
+                base_attrs = port_data.get(BASE_ATTRIBUTES_KEY, {})
                 merged_attrs = self._resolve_priority(category_data, base_attrs, dut_name, platform, hwsku)
                 try:
                     self._validate_mandatory(category_data, merged_attrs, category_path)
