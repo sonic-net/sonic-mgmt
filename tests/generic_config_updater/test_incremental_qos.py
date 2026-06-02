@@ -260,6 +260,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.disable_loganalyzer
 def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cli_namespace_prefix):
     """
     Test creating and removing a buffer profile via jsonpatch and rollback to checkpoint.
