@@ -148,7 +148,7 @@ def get_change_routes_ports(vm, topo):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2|lrh|urh)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -158,6 +158,9 @@ def get_topo_type(topo_name):
         topo_type = 't0'
     if topo_type in ['mc0']:
         topo_type = 'm0'
+    # Temporarily map DRH topos to T2 routes
+    if topo_type in ['lrh', 'urh']:
+        topo_type = 't2'
     return topo_type
 
 
@@ -1304,12 +1307,12 @@ def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes={}):
         else:
             m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
             dut_index = int(m.group(1))
-        if 'T1' in key or 'LT2' in key:
+        if 'T1' in key or 'LT2' in key or (key.endswith('T2') or 'LRH' in key):  # Temporarily map DRH to T2 routes
             if dut_index not in t1_vms:
                 t1_vms[dut_index] = list()
             t1_vms[dut_index].append(key)
 
-        if 'T3' in key:
+        if 'T3' in key or ('FRH' in key or 'URH' in key or 'RWA' in key):  # Temporarily map DRH to T2 routes
             if dut_index not in t3_vms:
                 t3_vms[dut_index] = list()
             t3_vms[dut_index].append(key)
