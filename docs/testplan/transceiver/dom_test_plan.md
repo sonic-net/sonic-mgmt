@@ -27,14 +27,14 @@ Before executing the DOM tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
-- `dom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test
+- `dom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test (see [Attributes](#attributes) for the shard layout)
 - DOM monitoring is enabled in CONFIG_DB for all relevant ports under test (verified once at session start — see [Common Test Setup and Teardown](#common-test-setup-and-teardown))
 
 System health (running daemons, fresh logs) and transceiver baseline (presence, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates DOM consumes.
 
 ## Attributes
 
-A `dom.json` file is used to define the attributes for the DOM tests for the various types of transceivers the system supports.
+A `dom.json` file is used to define the attributes for the DOM tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/dom/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
 **Note on Operational vs. Threshold Ranges:** The DOM test framework uses dual-range validation to provide more nuanced testing. Realistic operational ranges represent the expected values during normal, healthy operation in typical data center environments. These ranges are tighter than the absolute EEPROM threshold ranges and help distinguish between normal operation and edge cases that, while within specification, may indicate environmental stress, aging components, or suboptimal conditions. This approach enables early detection of potential issues before they trigger formal alarms, providing better system health monitoring and preventive maintenance capabilities.
 
@@ -72,45 +72,44 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 
 **Post-test deviation rule:** For tests that restore a port to steady-state operation, the test captures a baseline DOM reading before the disruptive operation and a post-test reading after recovery. For each configured `_deviation_range` attribute, compute `difference = post-test value − baseline value` and verify `min <= difference <= max`. The baseline is the first reading recorded at the start of the test (or the average of multiple pre-test readings if the test collects them). The check applies only to attributes that are present in the configuration. Lane-based entries such as TX bias and TX/RX power use the `LANE_NUM` expansion and are validated per lane. The test fails if any enabled field's deviation falls outside its configured range.
 
-## Example `dom.json` File
+## Example `dom` Category Shards
 
-The following example demonstrates a complete `dom.json` file focusing on `temperature_threshold_range` for different transceiver types:
+The following example demonstrates `temperature_threshold_range` for different transceivers across the sharded `dom` category. Each PN lives in its own file under its vendor directory.
+
+**`attributes/dom/transceivers/vendors/FINISAR/part_numbers/FTLX8571D3BCL-10GSFP/dom.json`:**
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "finisar": {
-        "part_numbers": {
-          "FTLX8571D3BCL-10GSFP": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
-          }
-        }
-      },
-      "mellanox": {
-        "part_numbers": {
-          "MCP1600-C003-100G": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
-          },
-          "MMA1T00-VS-400G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
-            "voltage_deviation_range": {"min": -0.10, "max": 0.10},
-            "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
-            "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
-            "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
-            "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
-          }
-        }
-      },
-      "marvell": {
-        "part_numbers": {
-          "88X7120-800G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MELLANOX/part_numbers/MCP1600-C003-100G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MELLANOX/part_numbers/MMA1T00-VS-400G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
+  "voltage_deviation_range": {"min": -0.10, "max": 0.10},
+  "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
+  "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
+  "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
+  "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MARVELL/part_numbers/88X7120-800G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
 }
 ```
 
