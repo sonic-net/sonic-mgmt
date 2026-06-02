@@ -244,12 +244,34 @@ def withdraw_contributing_routes(setup, prefixes, ip_version="ipv4"):
 
 
 # ---- M2 (upstream) route verification helpers ----
-def check_route_on_neighbor(nbrhosts, neighbor, prefix):
+def _as_path_contains_asn(as_path_str, asn):
+    """Return True if ``asn`` appears as a token in a space-separated AS-path string."""
+    return str(asn) in as_path_str.split()
+
+
+def _eos_path_has_asn(path, asn):
+    """Return True if an EOS bgpRoutePaths entry's AS-path contains ``asn``."""
+    as_path_str = path.get('asPathEntry', {}).get('asPath', '')
+    return _as_path_contains_asn(as_path_str, asn)
+
+
+def _frr_path_has_asn(path, asn):
+    """Return True if an FRR/vtysh path entry's AS-path contains ``asn``."""
+    as_path_str = path.get('aspath', {}).get('string', '')
+    return _as_path_contains_asn(as_path_str, asn)
+
+
+def check_route_on_neighbor(nbrhosts, neighbor, prefix, expected_asn=None):
     """Check whether a prefix exists and is active in the BGP table of a neighbor VM.
 
     Returns True if the route is present with at least one BGP path, False otherwise.
     On EOS, a withdrawn route may briefly remain in bgpRouteEntries with empty
     bgpRoutePaths; checking for non-empty paths avoids false positives.
+
+    When ``expected_asn`` is provided, only paths whose AS-path contains that ASN
+    are counted.  This makes the check origin-aware so that stale or foreign
+    routes for the same prefix (e.g. left over from a previous run on a shared
+    neighbor VM, or originated by another DUT) do not cause false positives.
     """
     host = nbrhosts[neighbor]['host']
     route_info = host.get_route(prefix)
@@ -259,22 +281,31 @@ def check_route_on_neighbor(nbrhosts, neighbor, prefix):
             return False
         # Verify the entry has at least one BGP path (not a stale/withdrawn entry)
         paths = entries[prefix].get('bgpRoutePaths', [])
+        if expected_asn is not None:
+            paths = [p for p in paths if _eos_path_has_asn(p, expected_asn)]
         return len(paths) > 0
     else:
         # SonicHost — route_info is the JSON from vtysh show bgp
-        return bool(route_info) and 'paths' in route_info
+        if not route_info or 'paths' not in route_info:
+            return False
+        if expected_asn is not None:
+            return any(_frr_path_has_asn(p, expected_asn) for p in route_info['paths'])
+        return True
 
 
-def verify_route_on_m2(nbrhosts, upstream_neighbors, prefix, expected_present=True):
+def verify_route_on_m2(nbrhosts, upstream_neighbors, prefix, expected_present=True, expected_asn=None):
     """Verify a route is present or absent on upstream M2 neighbors.
 
     Checks at least one upstream neighbor (the first one) for the route.
     Uses wait_until for convergence tolerance.
+
+    When ``expected_asn`` is provided, only paths originated through that ASN
+    count as present, so stale/foreign routes for the same prefix are ignored.
     """
     neighbor = upstream_neighbors[0]
 
     def _check():
-        return check_route_on_neighbor(nbrhosts, neighbor, prefix) == expected_present
+        return check_route_on_neighbor(nbrhosts, neighbor, prefix, expected_asn) == expected_present
 
     action = "present" if expected_present else "absent"
     pytest_assert(
@@ -283,12 +314,13 @@ def verify_route_on_m2(nbrhosts, upstream_neighbors, prefix, expected_present=Tr
     )
 
 
-def verify_contributing_routes_on_m2(nbrhosts, upstream_neighbors, prefixes, expected_present=True):
+def verify_contributing_routes_on_m2(nbrhosts, upstream_neighbors, prefixes,
+                                     expected_present=True, expected_asn=None):
     """Verify contributing routes are present or absent on upstream M2 neighbors."""
     neighbor = upstream_neighbors[0]
     for prefix in prefixes:
         def _check(p=prefix):
-            return check_route_on_neighbor(nbrhosts, neighbor, p) == expected_present
+            return check_route_on_neighbor(nbrhosts, neighbor, p, expected_asn) == expected_present
         action = "present" if expected_present else "absent"
         pytest_assert(
             wait_until(120, 5, 0, _check),

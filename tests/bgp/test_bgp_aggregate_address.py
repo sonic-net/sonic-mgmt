@@ -22,6 +22,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
+    BGP_SETTLE_WAIT,
     PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
@@ -31,6 +32,8 @@ from bgp_aggregate_helpers import (
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
 )
+import time
+
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 
 logger = logging.getLogger(__name__)
@@ -82,20 +85,40 @@ def test_bgp_aggregate_address(duthosts, rand_one_dut_hostname, ip_version, bbr_
     else:
         cfg = AggregateCfg(prefix=AGGR_V6, bbr_required=bbr_required, summary_only=summary_only, as_set=as_set)
 
-    # get default bbr state
-    bbr_enabled = is_bbr_enabled(duthost)
+    # Determine the BBR state to validate against.  A bbr-required aggregate
+    # only becomes "active" once bgpcfgd has actually applied BBR-enabled.  The
+    # ambient value read by is_bbr_enabled() (CONFIG_DB / constants.yml) can
+    # disagree with the operational state left behind by a previous run, which
+    # makes the predicted state wrong and the test flaky.  For bbr-required
+    # cases, force a real disabled->enabled transition so bgpcfgd reconciles to
+    # a deterministic, known state; restore the original state afterwards.
+    bbr_supported, original_bbr_state = get_bbr_default_state(duthost)
+    restore_bbr = False
+    if bbr_required and bbr_supported:
+        config_bbr_by_gcu(duthost, "disabled")
+        config_bbr_by_gcu(duthost, "enabled")
+        time.sleep(BGP_SETTLE_WAIT)
+        bbr_enabled = True
+        restore_bbr = original_bbr_state != "enabled"
+    else:
+        bbr_enabled = is_bbr_enabled(duthost)
 
-    # Apply aggregate via GCU
-    gcu_add_aggregate(duthost, cfg)
+    try:
+        # Apply aggregate via GCU
+        gcu_add_aggregate(duthost, cfg)
 
-    # Verify config db, state db and running config
-    verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg)
+        # Verify config db, state db and running config
+        verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg)
 
-    # Cleanup
-    gcu_remove_aggregate(duthost, cfg.prefix)
+        # Cleanup
+        gcu_remove_aggregate(duthost, cfg.prefix)
 
-    # Verify config db, state db and running config are cleanup
-    verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
+        # Verify config db, state db and running config are cleanup
+        verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
+    finally:
+        # Restore the original BBR state if we changed it
+        if restore_bbr:
+            config_bbr_by_gcu(duthost, original_bbr_state)
 
 
 # Test BBR Features State Change

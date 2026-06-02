@@ -49,8 +49,15 @@ from tests.common.config_reload import config_reload as config_reload_func
 
 logger = logging.getLogger(__name__)
 
+# This is a capacity/stress module that intentionally installs ~1000 aggregate
+# addresses and runs 100 rapid add/remove cycles.  Doing so legitimately grows
+# bgpd RSS (FRR/glibc does not return freed heap to the OS after cleanup), so
+# the autouse memory_utilization monitor flags the increase as a leak.  That is
+# expected for this stress test, so opt the module out of memory-increase
+# gating to avoid flaky teardown failures.
 pytestmark = [
     pytest.mark.topology("m1"),
+    pytest.mark.disable_memory_utilization,
 ]
 
 # ---- Test data ----
