@@ -3,6 +3,7 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+import paramiko
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
 try:
@@ -47,6 +48,46 @@ class BaseConsoleConn(CiscoBaseConnection):
         for key in key_to_rm:
             if key in kwargs:
                 del kwargs[key]
+
+        # Allow legacy KEX and host key algorithms for older console servers
+        # (e.g. Cisco SSH-2.0-Cisco-1.25) that only support legacy crypto.
+        # paramiko 5.x removed these from _preferred_kex, _kex_info,
+        # _preferred_keys, _key_info, and RSAKey.HASHES.
+        try:
+            from paramiko.kex_group14 import KexGroup14SHA256
+            from paramiko.kex_gex import KexGexSHA256
+            from paramiko.rsakey import RSAKey
+            from hashlib import sha1 as _sha1
+            from cryptography.hazmat.primitives.hashes import SHA1
+
+            # Reconstruct legacy KEX classes from existing SHA256 variants
+            class _KexGroup14SHA1(KexGroup14SHA256):
+                name = "diffie-hellman-group14-sha1"
+                hash_algo = _sha1
+
+            class _KexGexSHA1(KexGexSHA256):
+                name = "diffie-hellman-group-exchange-sha1"
+                hash_algo = _sha1
+
+            _legacy_kex = {
+                "diffie-hellman-group14-sha1": _KexGroup14SHA1,
+                "diffie-hellman-group-exchange-sha1": _KexGexSHA1,
+            }
+            for kex_name, kex_cls in _legacy_kex.items():
+                if kex_name not in paramiko.Transport._preferred_kex:
+                    paramiko.Transport._preferred_kex += (kex_name,)
+                if kex_name not in paramiko.Transport._kex_info:
+                    paramiko.Transport._kex_info[kex_name] = kex_cls
+
+            # Re-enable ssh-rsa host key support
+            if "ssh-rsa" not in paramiko.Transport._preferred_keys:
+                paramiko.Transport._preferred_keys += ("ssh-rsa",)
+            if "ssh-rsa" not in paramiko.Transport._key_info:
+                paramiko.Transport._key_info["ssh-rsa"] = RSAKey
+            if "ssh-rsa" not in RSAKey.HASHES:
+                RSAKey.HASHES["ssh-rsa"] = SHA1
+        except Exception:
+            pass  # Best effort — skip if paramiko internals changed
 
         for i in range(0, len(all_passwords)):
             kwargs['password'] = all_passwords[i]
