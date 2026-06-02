@@ -517,3 +517,7 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# Memory Broadcom-DNX recycle port attribute errors (unsupported attrs 149/170 on Q3D)
+r, ".* ERR syncd#syncd:.*_brcm_sai_get_recycle_port_attribute.*Unknown port attribute.*"
+r, ".* ERR syncd#syncd:.*_brcm_sai_get_recycle_port_attribute.*Error processing port attributes.*"
