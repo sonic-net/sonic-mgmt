@@ -158,6 +158,38 @@ def get_loopback_interfaces_dynamic(device):
         return loopback_intfs
 
 
+BREAKOUT_MAX_RETRIES = 3
+BREAKOUT_RETRY_WAIT = 30
+INTER_BREAKOUT_DELAY = 10
+
+
+def configure_dynamic_breakout_with_retry(node, data, verify="True", undo=False):
+    result = True
+    intf_list = list(data.items())
+
+    for idx, (intf, mode) in enumerate(intf_list):
+        success = False
+        for attempt in range(1, BREAKOUT_MAX_RETRIES + 1):
+            st.log("Breakout {} -> {} (attempt {}/{})".format(intf, mode, attempt, BREAKOUT_MAX_RETRIES))
+            success = common_obj.configure_dynamic_breakout(node, {intf: mode}, verify=verify, undo=undo)
+            if success:
+                break
+            if attempt < BREAKOUT_MAX_RETRIES:
+                st.log("Breakout failed for {}, waiting {} seconds before retry".format(intf, BREAKOUT_RETRY_WAIT))
+                st.wait(BREAKOUT_RETRY_WAIT)
+            else:
+                st.error("Breakout failed for {} after {} attempts".format(intf, BREAKOUT_MAX_RETRIES))
+
+        if not success:
+            return False
+
+        if idx < len(intf_list) - 1:
+            st.log("Waiting {} seconds before next breakout".format(INTER_BREAKOUT_DELAY))
+            st.wait(INTER_BREAKOUT_DELAY)
+
+    return result
+
+
 def test_single_leaf_loopback_short_circuit(setup_teardown_stp):
 
     st.banner("Create a Short Circuit in Vlan 2 and 3 on Leaf0")
@@ -400,7 +432,7 @@ def test_dpb_with_STP(setup_teardown_stp):
 
     st.log("Dynamic breakout mapping: {}".format(breakout_mapping))
 
-    if common_obj.configure_dynamic_breakout(data_glob.leaf0, breakout_mapping):
+    if configure_dynamic_breakout_with_retry(data_glob.leaf0, breakout_mapping):
         st.log("Successfully configured DPB with STP configured on Node.")
     else:
         result=False
@@ -463,7 +495,7 @@ def test_dpb_with_STP(setup_teardown_stp):
             else:
                 st.error("Unsupported speed {} on {}".format(speed, intf))
 
-    if common_obj.configure_dynamic_breakout(data_glob.leaf0, breakout_mapping, undo = True):
+    if configure_dynamic_breakout_with_retry(data_glob.leaf0, breakout_mapping, undo=True):
         st.log("Undo DPB successful.")
     else:
         result=False
@@ -545,11 +577,9 @@ def test_dpb_scale():
         if port_count >= max_ports_to_break:
             break
     st.banner("Ports being broken down")
-    print("DEBUG: breakout_mapping = {}".format(breakout_mapping))
-
     st.log("Breaking out {} ports. Dynamic breakout mapping: {}".format(port_count, breakout_mapping))
     st.banner("Configure DPB on all intfs")
-    if common_obj.configure_dynamic_breakout(data_glob.leaf1, breakout_mapping):
+    if configure_dynamic_breakout_with_retry(data_glob.leaf1, breakout_mapping):
         st.log("Successfully configured DPB on all intfs.")
     else:
         result=False
@@ -623,7 +653,7 @@ def test_dpb_scale():
                 breakout_mapping[intf] = "1x800G"
 
     st.log("Undo DPB on all intfs")
-    if common_obj.configure_dynamic_breakout(data_glob.leaf1, breakout_mapping, undo = True):
+    if configure_dynamic_breakout_with_retry(data_glob.leaf1, breakout_mapping, undo=True):
         st.log("Successfully Undo DPB on all intfs.")
     else:
         result=False
