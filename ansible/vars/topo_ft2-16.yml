@@ -385,4 +385,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.62/24
       ipv6: fc0a::3e/64
-
