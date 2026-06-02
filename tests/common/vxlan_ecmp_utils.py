@@ -115,17 +115,18 @@ class Ecmp_Utils(object):
             "for the DUT:{} from minigraph.".format(af, duthost.hostname))
 
     def select_required_interfaces(
-            self, duthost, number_of_required_interfaces, minigraph_data, af):
+            self, duthost, number_of_required_interfaces, minigraph_data, af, topo="T1"):
         '''
         Pick the required number of interfaces to use for tests.
         These interfaces will be selected based on if they are currently
-        running a established BGP.  The interfaces will be picked from the T0
-        facing side.
+        running a established BGP.  The interfaces will be picked from those that face
+        the neighbors of the specified topology (i.e., T0 if topo == "T1" or T1 if topo == "T0").
         '''
+        neigh_topo = "T1" if topo == "T0" else "T0"
         bgp_interfaces = self.get_all_interfaces_running_bgp(
             duthost,
             minigraph_data,
-            "T0")
+            neigh_topo)
 
         # Randomly pick the interface from the above list
         list_of_bgp_ips = []
