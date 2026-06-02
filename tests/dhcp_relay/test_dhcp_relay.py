@@ -466,7 +466,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                                     testing_config, relay_agent):
     """Test DHCP relay functionality on T0 topology after uplinks flap
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
-       then test whether the DHCP relay agent relays packets properly.
+       then   test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost = testing_config
 
