@@ -18,10 +18,9 @@ VNI = 1000
 VNET2_VNI = 2000
 ROUTE_OVERRIDE_VNI = 5001
 PREFIX = "150.0.3.1/24"
-BUCKET_SIZE = 125
-BUCKET_SIZE_LARGE = 2048
+BUCKET_SIZE = 511
 NUM_INITIAL_ENDPOINTS = 10
-LARGE_ENDPOINT_COUNT = 128
+LARGE_ENDPOINT_COUNT = 511
 ENDPOINT_BASE_IP = "100.0.1."
 VNET2_ENDPOINT_BASE_IP = "100.0.2."
 VNET2_DUT_IP = "202.0.1.1"
@@ -65,7 +64,7 @@ def get_loopback_ip(cfg_facts):
     for key in cfg_facts.get("LOOPBACK_INTERFACE", {}):
         if key.startswith("Loopback0|") and "." in key:
             return key.split("|")[1].split("/")[0]
-    pytest.fail("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
+    raise AssertionError("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
 
 
 def apply_chunk(duthost, payload, name):
@@ -100,7 +99,9 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed, exclude_ports=N
                 logger.debug(f"Vlan {vlan_id} has available ports: {possible_ports}")
                 return vlan_id, possible_ports
 
-    pytest.fail(f"Could not find a VLAN with {num_ports_needed} up port(s) (excluding {excluded})")
+    raise AssertionError(
+        f"Could not find a VLAN with {num_ports_needed} up port(s) (excluding {excluded})"
+    )
 
 
 def set_route_tunnel_regular(duthost, endpoints):
@@ -458,6 +459,31 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
         vnet2_endpoints=vnet2_endpoints,
         ptf_ingress_port_vnet2=vnet2["ptf_ingress_port"],
         ptf_src_ip_vnet2=vnet2["ptf_src_ip"],
+    )
+
+
+def test_vxlan_fg_ecmp_large_endpoints(ptfhost, common_setup_teardown):
+    """
+    Validate FG ECMP behavior with a large endpoint set (128 endpoints).
+    """
+    logger.info("Running test_vxlan_fg_ecmp_large_endpoints")
+    setup, duthost, _ = common_setup_teardown
+
+    endpoints = generate_large_endpoint_list(LARGE_ENDPOINT_COUNT)
+    set_route_tunnel(duthost, endpoints)
+
+    run_vxlan_ptf_test(
+        ptfhost, endpoints, setup, "create_flows",
+        num_packets=NUM_FLOWS,
+        check_distribution=False,
+        require_all_endpoints_hit=False,
+    )
+
+    run_vxlan_ptf_test(
+        ptfhost, endpoints, setup, "verify_consistent_hash",
+        num_packets=NUM_FLOWS,
+        check_distribution=False,
+        require_all_endpoints_hit=False,
     )
 
 
