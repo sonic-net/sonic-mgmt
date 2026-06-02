@@ -5,17 +5,6 @@
 #######################################
 
 #######################################
-#####           ACL               #####
-#######################################
-acl/test_stress_acl.py::test_acl_add_del_stress:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           BFD               #####
 #######################################
 bfd/test_bfd.py::test_bfd_multihop:
@@ -429,17 +418,6 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
 #####     Golden Config Infra     #####
 #######################################
 golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           IP                #####
-#######################################
-ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
   skip:
     reason: >
             Failed/Errored: To be included
