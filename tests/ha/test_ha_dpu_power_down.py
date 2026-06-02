@@ -14,17 +14,18 @@ from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
 from ha_dpu_utils import dpu_power_off_for_index, dpu_power_on_for_index
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1-smartswitch-ha')
+    pytest.mark.topology('t1-smartswitch-ha'),
+    pytest.mark.skip_check_dut_health
 ]
 
 
-THRESHOLD_LOSS_PERCENT = 2.0
+TRAFFIC_LOSS_DURATION_CAP = 2.0
 RATE_PPS = 20
 INITIAL_SEND_COUNT = 100
 
@@ -130,7 +131,10 @@ def test_ha_dpu_failure(
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     dpu_shut = "Standby DPU shut" if standby_dpu_fail else "Primary DPU shut"
     encap_proto = "vxlan"
-    dpu_id = 0
+    if standby_dpu_fail:
+        dpu_id = dpuhosts[1].dpu_index
+    else:
+        dpu_id = dpuhosts[0].dpu_index
     rate_pps = RATE_PPS
     initial_send_count = INITIAL_SEND_COUNT
     delay = 1.0 / rate_pps
@@ -184,7 +188,7 @@ def test_ha_dpu_failure(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to standby received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1], verbose=True)
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -194,7 +198,7 @@ def test_ha_dpu_failure(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to primary received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
@@ -213,17 +217,18 @@ def test_ha_dpu_failure(
 
     t.join()
     time.sleep(2)
+
     # bring back up the DPU
     dut = duthosts[1] if standby_dpu_fail else duthosts[0]
     dpu_name = f"DPU{dpu_id}"
     logger.info(f"Startup {dpu_name} on {dut.hostname}")
     pytest_assert(dpu_power_on_for_index(dut, dpu_id), f"Failed to bring up {dpu_name} on {dut.hostname}")
 
-    threshold_loss = THRESHOLD_LOSS_PERCENT
-    percentage_loss = (failed_count / send_count) * 100
-    if (percentage_loss < threshold_loss):
+    threshold_loss = TRAFFIC_LOSS_DURATION_CAP * RATE_PPS
+    measured_loss = failed_count
+    if (measured_loss < threshold_loss):
         logger.info(f"{dpu_shut} with {traffic} test OK. Sent: {send_count},"
-                    f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
+                    f" not received: {failed_count}, loss: {measured_loss}, threshold: {threshold_loss}")
     else:
         pytest.fail(f"{dpu_shut} with {traffic} test error. Sent: {send_count},"
-                    f" not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")
+                    f" not received: {failed_count} loss: {measured_loss}, threshold: {threshold_loss}")
