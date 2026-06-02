@@ -391,8 +391,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         for phy in members:
             # Added fix to select snappi_ports based on peer-device and peer-hostname.
             port_ids = [
-                int(sp['port_id'])
-                for sp in (snappi_ports)
+                i for i, sp in enumerate(snappi_ports)
                 if ((sp['peer_port'] == phy) and (sp['peer_device'] == duthost.hostname))]
 
             if len(port_ids) != 1:
