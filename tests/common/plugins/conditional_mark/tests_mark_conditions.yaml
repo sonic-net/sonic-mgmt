@@ -3012,9 +3012,9 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 ###############################################
 golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
   xfail:
-    reason: "Ports not operationally up after golden config override on t0-f2-d40u8"
+    reason: "Ports not operationally up after golden config override on t0-f2-d40u8 / t0-f2-d40u8-po2vlan"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name == 't0-f2-d40u8'"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name in ['t0-f2-d40u8', 't0-f2-d40u8-po2vlan']"
 
 #######################################
 #####           ha              #####
