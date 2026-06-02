@@ -49,8 +49,8 @@ TAM_COLLECTOR_IPV6 = {
 TAM_MOD_CONFIG_TEMPLATE = {
     "TAM": {
         "device": {
-            "device-id": "12345",
-            "enterprise-id": "54321",
+            "device_id": "12345",
+            "enterprise_id": "54321",
         }
     },
     "TAM_COLLECTOR": {
@@ -735,7 +735,7 @@ class IPFIXCollector:
         elif drop_stage == "mmu" and psamp_header.drop_reason_ep_or_mmu == 0:
             return (False, "Invalid MMU drop-reason-code")
 
-        # Verify that the switch_id matches the configured device-id
+        # Verify that the switch_id matches the configured device_id
         if self.device_id is not None and psamp_header.switch_id != self.device_id:
             return (False, f"switch_id mismatch: expected {self.device_id}, got {psamp_header.switch_id}")
 
@@ -960,7 +960,7 @@ def _setup_collector(ptfadapter, collector_ports, collector_config, flows_to_col
         collector_ports: List of PTF port indices where collector is reachable
         collector_config: Collector configuration dictionary
         flows_to_collect: List of flows to collect
-        device_id: Expected device-id value for switch_id verification
+        device_id: Expected device_id value for switch_id verification
 
     Returns:
         IPFIXCollector: Configured collector instance
@@ -1039,7 +1039,7 @@ def test_mod_ingress_drops(tam_mod_config, ptfadapter):
         matched_flows, unmatched_flows, flows_to_collect = _prepare_flows(traffic_ip_family, flow_aware)
 
         # Set up IPFIX collector
-        device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device-id"]
+        device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device_id"]
         collector = _setup_collector(ptfadapter, collector_ports, collector_config, flows_to_collect, device_id)
 
         # Create packet test instance
@@ -1130,7 +1130,7 @@ def test_mod_mmu_drops(tam_mod_config, ptfadapter, tbinfo, mg_facts, dut_qos_map
             expected_flows = [("10.1.1.100", dst_ip, IP_PROTOCOL_TCP, "1000", "80")] if traffic_ip_family == "ipv4" \
                 else [("2000:10:1:1::100", dst_ip, IP_PROTOCOL_TCP, "1000", "80")]
             # Set up IPFIX collector
-            device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device-id"]
+            device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device_id"]
             collector = _setup_collector(ptfadapter, collector_ports, collector_config, expected_flows, device_id)
             packet_test = PacketTest(ptfadapter, ptf_ingress_port, collector, router_mac,
                                      traffic_ip_family, drop_stage="mmu", flow_aware=flow_aware,
@@ -1230,7 +1230,7 @@ def test_mod_collector_config_change(tam_mod_config, ptfadapter, tbinfo):
             matched_flows, unmatched_flows, flows_to_collect = _prepare_flows(traffic_ip_family, flow_aware)
 
             # Set up IPFIX collector
-            device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device-id"]
+            device_id = TAM_MOD_CONFIG_TEMPLATE["TAM"]["device"]["device_id"]
             collector = _setup_collector(ptfadapter, test_collector_ports, full_collector_config, flows_to_collect,
                                          device_id)
 
