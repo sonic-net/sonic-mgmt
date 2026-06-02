@@ -1155,7 +1155,7 @@ class GenerateGoldenConfigDBModule(object):
         """
         Generate golden_config for t0-f2 to enable link_training on server facing ports.
         """
-        SUPPORTED_TOPO = ["t0-f2-d40u8"]
+        SUPPORTED_TOPO = ["t0-f2-d40u8", "t0-f2-d40u8-po2vlan"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         ori_config = json.loads(self.get_config_from_minigraph())
