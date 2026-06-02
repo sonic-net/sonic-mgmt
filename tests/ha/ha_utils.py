@@ -294,7 +294,7 @@ def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, 
         owner: HA owner string (e.g. "dpu" or "switch")
         expected_op_type: Expected pending operation type for activation (default: "switchover")
     """
-    disabled = disabled if not disabled else desired_ha_state == "dead"
+    disabled = disabled if disabled is not None else desired_ha_state == "dead"
     fields = {
                 "version": "1",
                 "disabled": disabled,
