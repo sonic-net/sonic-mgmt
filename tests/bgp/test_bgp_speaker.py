@@ -49,7 +49,6 @@ def generate_ips(num, prefix, exclude_ips):
     return generated_ips
 
 
-
 @pytest.fixture(scope="module", autouse=True)
 def skip_dualtor(tbinfo):
     """Skip running `test_bgp_speaker` over dualtor."""
