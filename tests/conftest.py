@@ -746,6 +746,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut
