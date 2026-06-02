@@ -35,6 +35,7 @@ function usage
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
   echo "    $0 [options] install-dpu-image <testbed-name> <inventory> <image-url> [<dpu-index>]"
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
+  echo "    $0 [options] update-breakout <testbed-name> <links-csv> <target-breakout> [--dry-run]"
   echo
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
@@ -101,6 +102,13 @@ function usage
   echo "To collect show techsupport result of a testbed: $0 collect-show-tech 'testbed-name' 'inventory' ~/.password"
   echo "    collect-show-tech supports specify output path for dumped files"
   echo "        -e output_path=<user-specified-path>"
+  echo "To update links.csv for a breakout/HWSKU change: $0 update-breakout 'testbed-name' 'links-csv' '2x400G'"
+  echo "    update-breakout supports additional options passed through to the script:"
+  echo "        --hwsku HWSKU         New HwSku name to set in devices.csv"
+  echo "        --devices-csv PATH    Path to devices.csv (auto-derived from links-csv if omitted)"
+  echo "        --lanes-per-cage N    Lanes per physical cage (default: 8)"
+  echo "        --mgmt-ports M        Comma-separated management port numbers (default: 512,513)"
+  echo "        --dry-run             Preview changes without writing"
   echo
   echo "You should define your topology in testbed YAML file"
   echo
@@ -822,7 +830,14 @@ function deploy_minigraph
     fi
   done
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
+  # Derive lab_name from inventory path if not explicitly provided via -e lab_name=...
+  lab_name_flag=""
+  if ! printf '%s\n' "${filtered_args[@]}" | grep -q 'lab_name='; then
+    lab_basename=$(basename "$inventory" | sed 's/-inventory$//')
+    lab_name_flag="-e lab_name=$lab_basename"
+  fi
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag $lab_name_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -952,6 +967,39 @@ function config_y_cable
   read_file $testbed_name
 
   ansible-playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
+
+  echo Done
+}
+
+function update_breakout
+{
+  testbed_name=$1
+  links_csv=$2
+  target_breakout=$3
+  shift
+  shift
+  shift
+
+  if [ -z "$target_breakout" ]; then
+    echo "Error: update-breakout requires <testbed-name> <links-csv> <target-breakout>"
+    usage
+  fi
+
+  echo "Updating links.csv breakout for testbed '$testbed_name'"
+
+  read_file $testbed_name
+
+  # Use first DUT hostname from testbed
+  hostname=$(echo "$duts" | cut -d',' -f1)
+  echo "  DUT hostname: $hostname"
+  echo "  Links CSV: $links_csv"
+  echo "  Target breakout: $target_breakout"
+
+  python3 scripts/update_links_for_breakout.py \
+    --links-csv "$links_csv" \
+    --hostname "$hostname" \
+    --target-breakout "$target_breakout" \
+    "$@"
 
   echo Done
 }
@@ -1352,6 +1400,8 @@ case "${subcmd}" in
   collect-show-tech) collect_show_tech $@
                ;;
   config-vs-chassis) config_vs_chassis $@
+               ;;
+  update-breakout) update_breakout $@
                ;;
   add-vnut-topo)    add_vnut_topo "$@"
                ;;
