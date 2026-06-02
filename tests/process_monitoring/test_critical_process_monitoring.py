@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
@@ -650,6 +651,15 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # Wait for SSH to come back up
         wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
         logger.info("SSH is up, waiting for critical processes...")
+
+        # SSH coming back up only means sshd is reachable; SONiC dockers and the
+        # config DB take significantly longer to come online after a cold boot.
+        # Without this gate, downstream calls (e.g. check_interface_status_of_up_ports
+        # -> sonic-cfggen) blow up with "Sonic database config file doesn't exist
+        # at /var/run/redis/sonic-db/database_config.json" because the database
+        # container has not started yet.
+        logger.info("Waiting for all critical processes to be healthy...")
+        wait_critical_processes(duthost)
 
         # Wait for all critical processes to be healthy
         ensure_all_critical_processes_running(duthost, containers_in_namespaces)
