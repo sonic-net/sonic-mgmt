@@ -336,6 +336,38 @@ def test_ecmp_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_tls):     # noqa: F
         vni_list=[updated_vni]
     )
 
+    logger.info("Modifying MAC+VNI mapping for all endpoints in MAC+VNI multi-endpoint scale test")
+
+    # --- Build deterministic MAC list ---
+    # 52:54:00:00:xx:yy (unique per endpoint)
+    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:bb" for i in range(num_endpoints)]
+    mac_list_str = ",".join(mac_list)
+    updated_vni = 6001
+
+    logger.info(f"Generated {len(endpoints)} endpoints + {len(mac_list)} MACs")
+    logger.info(f"MAC list: {mac_list_str}")
+
+    # --- Program into VNET_ROUTE_TUNNEL table ---
+    _update_vxlan_endpoints(
+        gnmi_tls,
+        VNET_NAME,
+        PREFIX,
+        endpoints,
+        updated_vni,
+        mac_address=mac_list_str
+    )
+
+    logger.info("Calling PTF for MAC+VNI multi-endpoint validation after MAC+VNI modification...")
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        endpoints,
+        ptf_params,
+        num_packets=num_packets,
+        mac_list=mac_list,
+        vni_list=[updated_vni]
+    )
+
     logger.info("MAC+VNI multi-endpoint scale test completed successfully")
 
 
@@ -380,7 +412,40 @@ def test_ecmp_same_endpoint_diff_mac_vni(ptfhost, one_vnet_setup_teardown, gnmi_
         "mac_vni_verify": "yes",
     })
 
-    logger.info("Calling PTF for MAC+VNI multi-endpoint validation...")
+    logger.info("Calling PTF for MAC+VNI same endpoint validation...")
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        endpoints,
+        ptf_params,
+        num_packets=num_packets,
+        mac_list=mac_list,
+        vni_list=vni_list
+    )
+
+    logger.info("Modifying MAC+VNI mapping for all endpoints in SAME ENDPOINTS DIFF MAC+VNI scale test")
+
+    # --- Build deterministic MAC list ---
+    # 52:54:00:00:xx:yy (unique per endpoint)
+    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:bb" for i in range(num_endpoints)]
+    mac_list_str = ",".join(mac_list)
+    vni_list = [6000 + i for i in range(num_endpoints)]
+    vni_list_str = ",".join(str(vni) for vni in vni_list)
+
+    logger.info(f"Generated {len(endpoints)} endpoints + {len(mac_list)} MACs")
+    logger.info(f"MAC list: {mac_list_str}")
+
+    # --- Program into VNET_ROUTE_TUNNEL table ---
+    _update_vxlan_endpoints(
+        gnmi_tls,
+        VNET_NAME,
+        PREFIX,
+        endpoints,
+        vni_list_str,
+        mac_address=mac_list_str
+    )
+
+    logger.info("Calling PTF for MAC+VNI same endpoint validation...")
 
     run_vxlan_ptf_test(
         ptfhost,

@@ -140,6 +140,7 @@ class VxlanEcmpTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, self.send_port)
         endpoint_mac_vni_hits = [0 for _ in range(len(self.endpoints))]
         mismatch_count = 0
+        missing_count = 0
         if self.modified_mac_index is not None:
             self.mac_list[self.modified_mac_index] = self.modified_mac_value
 
@@ -160,6 +161,7 @@ class VxlanEcmpTest(BaseTest):
             )
 
             send_packet(self, self.send_port, inner)
+            found_packet = False
 
             # Poll for VXLAN packets
             poll_start = datetime.now()
@@ -192,6 +194,7 @@ class VxlanEcmpTest(BaseTest):
 
                 if exp.pkt_match(pkt):
                     endpoint_mac_vni_hits[idx] += 1
+                    found_packet = True
                     break
                 else:
                     mismatch_count += 1
@@ -200,9 +203,13 @@ class VxlanEcmpTest(BaseTest):
                         f"\n\nExpected:\n{exp}\n\nReceived:\n{pkt}\n\n"
                     )
 
+            if not found_packet:
+                missing_count += 1
+                logger.error(f"No matching VXLAN packet found for packet with TCP dport {dport}")
+
         logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_mac_vni_hits}")
-        if mismatch_count > 0:
-            raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation")
+        if mismatch_count > 0 or missing_count > 0:
+            raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation, {missing_count} packet(s) were missing.")
         used = [self.endpoints_mac_vni_tuple_list[idx] for idx, c in enumerate(endpoint_mac_vni_hits) if c > 0]
         if len(used) == 0:
             raise AssertionError("NO endpoints used VXLAN not working")
@@ -212,10 +219,7 @@ class VxlanEcmpTest(BaseTest):
 
         logger.info("MAC+VNI multi-endpoint ECMP validation PASSED.")
 
-    def runTest(self):
-        if self.mac_vni_verify:
-            self.verify_mac_vni_encap()
-            return
+    def verify_ecmp_encap(self):
         counts = {}
         src_mac = self.dataplane.get_mac(0, self.send_port)
 
@@ -292,6 +296,14 @@ class VxlanEcmpTest(BaseTest):
             f"VXLAN ECMP test passed: all {len(self.endpoints)} endpoints hit, "
             f"{total_received}/{self.num_packets} packets received, no loss."
         )
+
+    def runTest(self):
+        if self.mac_vni_verify:
+            self.verify_mac_vni_encap()
+        else:
+            self.verify_ecmp_encap()
+
+        self.tearDown()
 
     def tearDown(self):
         self.dataplane.flush()
