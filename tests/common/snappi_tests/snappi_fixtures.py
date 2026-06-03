@@ -1512,6 +1512,9 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     Returns:
         True if we successfully configure the interfaces or False
     """
+    if not setup:
+        # Return True when setup=False. The test explicitly will cleanup macsec config.
+        return True
     global macsec_enabled_port, macsec_profile_name, reconfigure_port
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7
