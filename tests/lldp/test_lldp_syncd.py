@@ -11,7 +11,6 @@ from tests.common.utilities import (
     group_interfaces_by_asic
 )
 from tests.common.helpers.assertions import pytest_assert
-import time
 
 logger = logging.getLogger(__name__)
 
