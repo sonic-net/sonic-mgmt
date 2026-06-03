@@ -665,13 +665,22 @@ def test_memory_checker_recover(memory_checker_dut_and_container, test_setup_and
     loganalyzer.expect_regex = container.get_restart_expected_logre()
     marker = loganalyzer.init()
 
-    # Bumped from 30s -> 200s to match the same wait helper used by
-    # consumes_memory_and_checks_container_restart() elsewhere in this file.
-    # The 30s budget was too tight on slow ARM/Marvell-Prestera platforms
-    # (Nokia-7215 ~48% pass rate vs 100% elsewhere). 200s gives monit's 5s
-    # cycle plenty of headroom under load while still failing fast on a
-    # real regression.
-    timeout_status_change = 200
+    # monit has a 5s cycle interval per test parameters, so 30s (~6 cycles)
+    # is normally plenty for the status to change. The 4GB Marvell-Prestera
+    # Nokia-7215 / Nokia-M0-7215, however, run under higher memory/CPU
+    # pressure on newer branches (notably 202511) and monit cannot hold its
+    # 5s cadence during the memory-stress window, intermittently missing the
+    # 30s budget (~45% nightly flake; confirmed expected platform behavior
+    # with the Nokia-7215 platform owner). Give only those two SKUs extra
+    # headroom. The 8GB Nokia-7215-A1 variants are not affected and are
+    # intentionally excluded, matching the exact-SKU gating already used for
+    # these platforms in platform_tests/test_reboot.py and test_reload_config.py.
+    # wait_monit_mem_* early-exit on success, so the larger ceiling never adds
+    # runtime on a healthy run.
+    if duthost.facts["hwsku"] in {"Nokia-7215", "Nokia-M0-7215"}:
+        timeout_status_change = 200
+    else:
+        timeout_status_change = 30
 
     container.start_consume_memory()
     container.wait_monit_mem_last_failed(timeout_status_change)
