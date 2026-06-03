@@ -40,7 +40,7 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
 
 
 def is_vtestbed(duthost):
-    return duthost.facts['asic_type'].lower() == "vs"
+    return duthost.facts['asic_type'].lower() in ["vs", "vpp"]
 
 
 class LagTest:
