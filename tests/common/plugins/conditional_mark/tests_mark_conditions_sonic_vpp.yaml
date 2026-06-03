@@ -173,25 +173,6 @@ decap/test_subnet_decap.py:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           DNS               #####
-#######################################
-dns/static_dns/test_static_dns.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-dns/test_dns_resolv_conf.py::test_dns_resolv_conf:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Drop              #####
 #######################################
 drop_packets/test_configurable_drop_counters.py:
