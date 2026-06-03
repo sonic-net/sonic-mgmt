@@ -190,6 +190,10 @@ router bgp {{ conv_config['bgp']['asn'] }}
             {% endif %}
         {% endif %}
   local-as {{ vrf_bgp['asn'] }}
+{% if vrf_bgp['confed_asn'] is defined and vrf_bgp['confed_asn'] %}
+  bgp confederation identifier {{ vrf_bgp['confed_asn'] }}
+  bgp confederation peers {{ vrf_bgp['confed_peers'] | replace(',', ' ') }}
+{% endif %}
         {% for asn, remote_ips in vrf_bgp['peers'].items() %}
             {% for remote_ip in remote_ips %}
   neighbor {{ remote_ip }} remote-as {{ asn }}
