@@ -5976,8 +5976,14 @@ def dump_l3_diag(dut_handle, target_ip):
     st.log("--- ARP table ---")
     st.show(dut_handle, "show arp", skip_tmpl=True)
 
-    st.log("--- IP route to {} ---".format(target_ip))
-    st.show(dut_handle, "show ip route {}".format(target_ip), skip_tmpl=True)
+    if ':' in target_ip:
+        st.log("--- IPv6 route to {} ---".format(target_ip))
+        st.show(dut_handle, "show ipv6 route {}".format(target_ip),
+                skip_tmpl=True, skip_error_check=True)
+    else:
+        st.log("--- IP route to {} ---".format(target_ip))
+        st.show(dut_handle, "show ip route {}".format(target_ip),
+                skip_tmpl=True)
 
     st.log("--- Interface status ---")
     st.show(dut_handle, "show interfaces status", skip_tmpl=True)

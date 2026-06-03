@@ -364,6 +364,9 @@ from vxlan.vxlan_helper import (                    # noqa: E402
     _I_BGP_AS1,
     _I_BGP_AS2,
     _setup_vxlan_l3vni,
+    _setup_vxlan_l2vni,
+    _J_VNI,
+    _J_L2_VLAN,
     V4_EGRESS_IP,
     V6_EGRESS_IP,
 )
@@ -698,7 +701,20 @@ _LEAF0_COUNTERPOLL_TUNNEL     = True
 # reversible, scoped to this file.
 _LEAF0_LAG_INGRESS       = os.environ.get('VXLAN_LEAF0_LAG_INGRESS', '1') == '1'
 _LEAF0_LAG_NAME_L3VNI    = 'PortChannel0001'   # leaf0.cfg downlink
-# _LEAF0_LAG_NAME_L2VNI    = 'PortChannel0002'  # phase 2, deferred
+_LEAF0_LAG_NAME_L2VNI    = 'PortChannel0002'   # leaf0.cfg L2VNI downlink
+_LEAF0_LAG_INGRESS_L2VNI = (
+    os.environ.get('VXLAN_LEAF0_LAG_INGRESS_L2VNI', '1') == '1')
+
+# ── DUT2 egress LAG for L2VNI (mirror DUT1's LAG-wrap on decap side) ──
+#
+# Wraps DUT2's egress_ixia port (Ethernet1_49) in a single-member
+# LACP+fallback PortChannel, migrating its Vlan502 untagged membership
+# to the LAG. This mirrors the DUT1 ingress LAG-wrap on the decap
+# side so that both ingress and egress of the L2VNI path are
+# PortChannel-based (symmetric leaf0 shape).
+_LEAF0_LAG_EGRESS_L2VNI = (
+    os.environ.get('VXLAN_LEAF0_LAG_EGRESS_L2VNI', '1') == '1')
+_LEAF0_LAG_NAME_L2VNI_EGRESS = 'PortChannel0002'  # same name on DUT2 (different box)
 
 
 # ── DUT2 egress SVI + LAG (mirror DUT1's leaf0 shape on decap side) ──
@@ -1345,10 +1361,12 @@ def _wrap_l3vni_ingress_in_lag(dut_h, physical_port, lag_name, vlan_id):
     cleanup_steps.append(('delete_portchannel({})'.format(lag_name),
         lambda: delete_portchannel(dut_h, [lag_name], skip_error=True)))
     if not pc_ok:
-        st.warn("leaf0 LAG-wrap: create_portchannel({}, fallback=True) "
-                "returned False -- aborting wrap (teardown will undo "
-                "step 1)".format(lag_name))
-        return _teardown
+        st.error("leaf0 LAG-wrap: create_portchannel({}, fallback=True) "
+                 "returned False -- aborting wrap and executing teardown"
+                 .format(lag_name))
+        _teardown()
+        raise RuntimeError("LAG-wrap setup failed: create_portchannel "
+                           "returned False for {}".format(lag_name))
     st.wait(2)
 
     # 2b. Verify the LAG came up with fallback enabled (CONFIG_DB
@@ -1360,14 +1378,16 @@ def _wrap_l3vni_ingress_in_lag(dut_h, physical_port, lag_name, vlan_id):
         .format(lag_name),
         skip_tmpl=True) or ''
     if 'true' not in fb_check.lower():
-        st.warn("leaf0 LAG-wrap: CONFIG_DB|PORTCHANNEL|{}.fallback "
-                "is NOT 'true' (got: {!r}). The LAG is in default "
-                "LACP mode without fallback; with no Ixia-side LACP "
-                "partner, member port will stay in LACP_DEFAULTED "
-                "state and traffic will be silently dropped. "
-                "Aborting wrap (teardown will undo steps 1+2)."
-                .format(lag_name, fb_check.strip()))
-        return _teardown
+        st.error("leaf0 LAG-wrap: CONFIG_DB|PORTCHANNEL|{}.fallback "
+                 "is NOT 'true' (got: {!r}). The LAG is in default "
+                 "LACP mode without fallback; with no Ixia-side LACP "
+                 "partner, member port will stay in LACP_DEFAULTED "
+                 "state and traffic will be silently dropped. "
+                 "Executing teardown."
+                 .format(lag_name, fb_check.strip()))
+        _teardown()
+        raise RuntimeError("LAG-wrap setup failed: fallback not enabled "
+                           "on {}".format(lag_name))
     st.log("  leaf0 LAG-wrap: confirmed CONFIG_DB|PORTCHANNEL|"
            "{}.fallback = true (LAG will admit lone member after "
            "LACP rx timeout)".format(lag_name))
@@ -1376,10 +1396,13 @@ def _wrap_l3vni_ingress_in_lag(dut_h, physical_port, lag_name, vlan_id):
     #    fallback fires (~3s after carrier-up with no partner),
     #    teamd admits Ethernet1_49 to the active bundle.
     if not add_portchannel_member(dut_h, lag_name, [physical_port]):
-        st.warn("leaf0 LAG-wrap: add_portchannel_member({}, [{}]) "
-                "returned False -- aborting wrap (teardown will "
-                "undo steps 1+2)".format(lag_name, physical_port))
-        return _teardown
+        st.error("leaf0 LAG-wrap: add_portchannel_member({}, [{}]) "
+                 "returned False -- aborting wrap and executing teardown"
+                 .format(lag_name, physical_port))
+        _teardown()
+        raise RuntimeError("LAG-wrap setup failed: add_portchannel_member "
+                           "returned False for {} member {}"
+                           .format(lag_name, physical_port))
     cleanup_steps.append(('delete_portchannel_member({}, [{}])'.format(
             lag_name, physical_port),
         lambda: delete_portchannel_member(
@@ -2971,10 +2994,13 @@ def _wrap_l3vni_egress_in_lag(dut2_h, physical_port, lag_name, vlan_id):
     cleanup_steps.append(('delete_portchannel({})'.format(lag_name),
         lambda: delete_portchannel(dut2_h, [lag_name], skip_error=True)))
     if not pc_ok:
-        st.warn("leaf0 DUT2 egress LAG-wrap: create_portchannel({}, "
-                "fallback=True) returned False -- aborting wrap "
-                "(teardown will undo step 1)".format(lag_name))
-        return _teardown
+        st.error("leaf0 DUT2 egress LAG-wrap: create_portchannel({}, "
+                 "fallback=True) returned False -- aborting wrap and "
+                 "executing teardown".format(lag_name))
+        _teardown()
+        raise RuntimeError("DUT2 egress LAG-wrap setup failed: "
+                           "create_portchannel returned False for {}"
+                           .format(lag_name))
     st.wait(2)
 
     # 2b. Verify CONFIG_DB.PORTCHANNEL|<lag>.fallback == 'true'.
@@ -2983,13 +3009,15 @@ def _wrap_l3vni_egress_in_lag(dut2_h, physical_port, lag_name, vlan_id):
         .format(lag_name),
         skip_tmpl=True) or ''
     if 'true' not in fb_check.lower():
-        st.warn("leaf0 DUT2 egress LAG-wrap: CONFIG_DB|PORTCHANNEL|"
-                "{}.fallback is NOT 'true' (got: {!r}). With no Ixia-"
-                "side LACP partner the lone member will stay in "
-                "LACP_DEFAULTED and traffic will be silently dropped. "
-                "Aborting wrap (teardown will undo steps 1+2)."
-                .format(lag_name, fb_check.strip()))
-        return _teardown
+        st.error("leaf0 DUT2 egress LAG-wrap: CONFIG_DB|PORTCHANNEL|"
+                 "{}.fallback is NOT 'true' (got: {!r}). With no Ixia-"
+                 "side LACP partner the lone member will stay in "
+                 "LACP_DEFAULTED and traffic will be silently dropped. "
+                 "Executing teardown."
+                 .format(lag_name, fb_check.strip()))
+        _teardown()
+        raise RuntimeError("DUT2 egress LAG-wrap setup failed: fallback "
+                           "not enabled on {}".format(lag_name))
     st.log("  leaf0 DUT2 egress LAG-wrap: confirmed CONFIG_DB|"
            "PORTCHANNEL|{}.fallback = true".format(lag_name))
 
@@ -2997,10 +3025,13 @@ def _wrap_l3vni_egress_in_lag(dut2_h, physical_port, lag_name, vlan_id):
     #    fallback fires (~3s after carrier-up with no partner),
     #    teamd admits physical_port to the active bundle.
     if not add_portchannel_member(dut2_h, lag_name, [physical_port]):
-        st.warn("leaf0 DUT2 egress LAG-wrap: add_portchannel_member"
-                "({}, [{}]) returned False -- aborting wrap (teardown "
-                "will undo steps 1+2)".format(lag_name, physical_port))
-        return _teardown
+        st.error("leaf0 DUT2 egress LAG-wrap: add_portchannel_member"
+                 "({}, [{}]) returned False -- aborting wrap and "
+                 "executing teardown".format(lag_name, physical_port))
+        _teardown()
+        raise RuntimeError("DUT2 egress LAG-wrap setup failed: "
+                           "add_portchannel_member returned False for {} "
+                           "member {}".format(lag_name, physical_port))
     cleanup_steps.append(('delete_portchannel_member({}, [{}])'.format(
             lag_name, physical_port),
         lambda: delete_portchannel_member(
@@ -3328,14 +3359,40 @@ def _setup_leaf0_style_overlay():
     # LACP-with-fallback rather than static (two earlier
     # attempts at static-mode failed on this FX3 build -- see
     # the helper's docstring "trail of pain" section).
+    #
+    # Wrap the helper call in try/except so a
+    # create_portchannel/add_portchannel_member failure does NOT
+    # escape this function with teardown_svi unregistered. The LAG
+    # helper calls its own _teardown() to undo its partial LAG steps,
+    # then raises RuntimeError. We catch that, invoke teardown_svi to
+    # undo the SVI setup from Step 1, then re-raise so the fixture
+    # sees the failure. Without this wrapper, a LAG setup failure
+    # leaves Vlan100/VRF changes from _smoke_setup_l3vni_tagged_svi()
+    # dirty with no cleanup path (the base VXLAN teardown does not
+    # remove that SVI).
     teardown_lag = None
     if _LEAF0_LAG_INGRESS:
-        teardown_lag = _wrap_l3vni_ingress_in_lag(
-            dut_h         = dut_h,
-            physical_port = port_info['ingress'],
-            lag_name      = _LEAF0_LAG_NAME_L3VNI,
-            vlan_id       = _overlay._L2_VLAN_ID,
-        )
+        try:
+            teardown_lag = _wrap_l3vni_ingress_in_lag(
+                dut_h         = dut_h,
+                physical_port = port_info['ingress'],
+                lag_name      = _LEAF0_LAG_NAME_L3VNI,
+                vlan_id       = _overlay._L2_VLAN_ID,
+            )
+        except BaseException as exc_lag:
+            st.warn("  leaf0-style: _wrap_l3vni_ingress_in_lag raised "
+                    "{}: {}. LAG helper already executed its own "
+                    "_teardown() to undo partial LAG steps; now "
+                    "invoking teardown_svi to undo Step 1 SVI setup, "
+                    "then re-raising so the fixture sees the failure."
+                    .format(type(exc_lag).__name__, exc_lag))
+            try:
+                teardown_svi()
+            except Exception as exc_svi:
+                st.warn("  leaf0-style: teardown_svi raised during "
+                        "post-LAG-failure cleanup: {} (continuing)"
+                        .format(exc_svi))
+            raise
     else:
         st.log("  leaf0-style: VXLAN_LEAF0_LAG_INGRESS=0 -- "
                "opted out of the default LAG ingress; L3VNI "
@@ -3576,12 +3633,63 @@ def _setup_leaf0_style_overlay():
                     skip_error_check=True)
                 st.wait(3)
         # 1.7b LAG-wrap on top of the SVI.
-        teardown_egress_lag = _wrap_l3vni_egress_in_lag(
-            dut2_h        = dut2_h,
-            physical_port = dut2_egress_phys,
-            lag_name      = _LEAF0_LAG_NAME_EGRESS,
-            vlan_id       = _overlay._L2_VLAN_ID,
-        )
+        #
+        # Wrap the helper call in try/except so a
+        # create_portchannel/add_portchannel_member failure does NOT
+        # escape this function with all earlier teardown callbacks
+        # unregistered. The LAG helper calls its own _teardown() to
+        # undo its partial LAG steps, then raises RuntimeError. We
+        # catch that and invoke ALL earlier teardown callbacks in
+        # reverse order (DUT2 egress SVI, Ixia ingress LAG, DUT1 LAG,
+        # DUT1 SVI) before re-raising, ensuring no testbed state is
+        # left dirty.
+        try:
+            teardown_egress_lag = _wrap_l3vni_egress_in_lag(
+                dut2_h        = dut2_h,
+                physical_port = dut2_egress_phys,
+                lag_name      = _LEAF0_LAG_NAME_EGRESS,
+                vlan_id       = _overlay._L2_VLAN_ID,
+            )
+        except BaseException as exc_lag:
+            st.warn("  leaf0-style: _wrap_l3vni_egress_in_lag raised "
+                    "{}: {}. LAG helper already executed its own "
+                    "_teardown() to undo partial LAG steps; now "
+                    "invoking all earlier teardown callbacks (DUT2 SVI, "
+                    "Ixia LAG, DUT1 LAG, DUT1 SVI) in reverse order "
+                    "before re-raising."
+                    .format(type(exc_lag).__name__, exc_lag))
+            # Reverse order: DUT2 egress SVI -> Ixia LAG -> DUT1 LAG -> DUT1 SVI
+            if teardown_egress_svi is not None:
+                try:
+                    teardown_egress_svi()
+                except Exception as exc:
+                    st.warn("  teardown_egress_svi raised: {} (continuing)"
+                            .format(exc))
+            if teardown_ixia_lag is not None:
+                try:
+                    teardown_ixia_lag()
+                except Exception as exc:
+                    st.warn("  teardown_ixia_lag raised: {} (continuing)"
+                            .format(exc))
+                # Restore tg_ph handles
+                if saved_ingress_ph is not None:
+                    tg_ph['ingress'] = saved_ingress_ph
+                    _overlay.tg_ph['ingress'] = saved_ingress_ph
+                if saved_ingress_a is not None:
+                    tg_ph['ingress_a'] = saved_ingress_a
+                    _overlay.tg_ph['ingress_a'] = saved_ingress_a
+            if teardown_lag is not None:
+                try:
+                    teardown_lag()
+                except Exception as exc:
+                    st.warn("  teardown_lag raised: {} (continuing)"
+                            .format(exc))
+            try:
+                teardown_svi()
+            except Exception as exc:
+                st.warn("  teardown_svi raised: {} (continuing)"
+                        .format(exc))
+            raise
         # DCHAL-port-handle decision: KEEP `dut2_port_info['egress_ixia']`
         # pointing at the PHYSICAL member port (e.g. Ethernet1_49),
         # NOT the LAG name (e.g. PortChannel0001). The smoke's per-
@@ -3986,5 +4094,593 @@ class TestSmokeL3VNIPortChannelLeaf0:
                 + "\n  ".join(hard_failures))
         st.report_pass('msg',
             "{}: {} pkts L3VNI-leaf0 UC e2e PASS (soft_warns={})"
+            .format(test_label, _overlay._SMOKE_PKTS_PER_BURST,
+                    len(soft_warns)))
+
+
+# ══════════════════════════════════════════════════════════════════
+# L2VNI LAG-wrap helper (single-member LACP w/ fallback, untagged)
+# ══════════════════════════════════════════════════════════════════
+
+def _wrap_l2vni_ingress_in_lag(dut_h, physical_port, lag_name, vlan_id):
+    """Wrap an existing L2VNI untagged-access ingress port in a
+    single-member LACP PortChannel with LACP fallback enabled.
+
+    Mirrors _wrap_l3vni_ingress_in_lag for the L2VNI path. The key
+    difference is that the physical_port is an UNTAGGED (access)
+    VLAN member (config vlan member add <vlan> <port> --untagged),
+    not a tagged-trunk member backing an SVI. The LAG wrap migrates
+    that untagged membership from the physical port to the LAG,
+    preserving the L2 forwarding path for BUM/unicast L2VNI frames.
+
+    Pre-conditions (caller has run _setup_vxlan_l2vni() first):
+      * Vlan{vlan_id} exists (L2VNI access VLAN).
+      * physical_port is an UNTAGGED member of Vlan{vlan_id}.
+      * PORT_QOS_MAP|<physical_port>.dscp_to_tc_map = AZURE is bound.
+
+    Post-conditions after this helper returns:
+      * lag_name is created with --fallback=true.
+      * physical_port is the LAG's only member.
+      * Vlan{vlan_id} UNTAGGED membership migrated from
+        physical_port to lag_name.
+      * PORT_QOS_MAP|<lag_name>.dscp_to_tc_map = AZURE is HSET.
+      * 10s convergence wait completed for LACP fallback.
+
+    Returns a teardown callable that reverses every step executed.
+    """
+    from apis.switching.portchannel import (
+        create_portchannel, add_portchannel_member,
+        delete_portchannel_member, delete_portchannel,
+    )
+
+    st.log("  leaf0 L2VNI LAG-wrap: migrating L2VNI ingress {} -> {} "
+           "(LACP w/ fallback, single-member, Vlan{} untagged-"
+           "membership follows)".format(physical_port, lag_name,
+                                        vlan_id))
+
+    cleanup_steps = []
+
+    def _teardown():
+        st.log("  leaf0 L2VNI LAG-wrap teardown: unwrapping "
+               "(steps: {})".format(len(cleanup_steps)))
+        for step_label, step_fn in reversed(cleanup_steps):
+            try:
+                step_fn()
+            except Exception as exc:
+                st.warn("leaf0 L2VNI LAG-wrap teardown: step '{}' "
+                        "raised: {} (continuing)"
+                        .format(step_label, exc))
+        st.log("  leaf0 L2VNI LAG-wrap teardown: done")
+
+    # 0. Pre-step: remove any stale INTERFACE|<physical_port> entry
+    #    from CONFIG_DB. _setup_vxlan_l2vni() may leave this behind
+    #    from the L3->L2 port conversion, and its presence blocks
+    #    the subsequent vlan member add on some SONiC builds.
+    st.config(dut_h,
+        'sonic-db-cli CONFIG_DB DEL "INTERFACE|{}"'.format(physical_port),
+        skip_error_check=True)
+    st.wait(1)
+
+    # 1. Detach physical port from Vlan{vid} (untagged).
+    st.config(dut_h,
+        'config vlan member del {} {}'.format(vlan_id, physical_port),
+        skip_error_check=True)
+    st.wait(1)
+    cleanup_steps.append((
+        'vlan member add {} {} --untagged'.format(vlan_id, physical_port),
+        lambda: st.config(dut_h,
+            'config vlan member add {} {} --untagged'.format(
+                vlan_id, physical_port),
+            skip_error_check=True)))
+
+    # 2. Create the LAG with LACP fallback.
+    pc_ok = create_portchannel(dut_h, [lag_name], fallback=True)
+    cleanup_steps.append((
+        'delete_portchannel({})'.format(lag_name),
+        lambda: delete_portchannel(dut_h, [lag_name], skip_error=True)))
+    if not pc_ok:
+        st.error("leaf0 L2VNI LAG-wrap: create_portchannel({}, "
+                 "fallback=True) returned False -- aborting wrap and "
+                 "executing teardown".format(lag_name))
+        _teardown()
+        raise RuntimeError("L2VNI LAG-wrap setup failed: "
+                           "create_portchannel returned False for {}"
+                           .format(lag_name))
+    st.wait(2)
+
+    # 2b. Verify fallback is enabled in CONFIG_DB.
+    fb_check = st.show(dut_h,
+        'sonic-db-cli CONFIG_DB HGET "PORTCHANNEL|{}" "fallback"'
+        .format(lag_name), skip_tmpl=True) or ''
+    if 'true' not in fb_check.lower():
+        st.error("leaf0 L2VNI LAG-wrap: CONFIG_DB|PORTCHANNEL|{}."
+                 "fallback is NOT 'true' (got: {!r}). Without fallback "
+                 "the lone member stays in LACP_DEFAULTED and traffic "
+                 "is silently dropped. Executing teardown."
+                 .format(lag_name, fb_check.strip()))
+        _teardown()
+        raise RuntimeError("L2VNI LAG-wrap setup failed: fallback not "
+                           "enabled on {}".format(lag_name))
+    st.log("  leaf0 L2VNI LAG-wrap: confirmed fallback=true on {}"
+           .format(lag_name))
+
+    # 3. Bind physical port as the only LAG member.
+    if not add_portchannel_member(dut_h, lag_name, [physical_port]):
+        st.error("leaf0 L2VNI LAG-wrap: add_portchannel_member({}, "
+                 "[{}]) returned False -- aborting wrap and executing "
+                 "teardown".format(lag_name, physical_port))
+        _teardown()
+        raise RuntimeError("L2VNI LAG-wrap setup failed: "
+                           "add_portchannel_member returned False for {} "
+                           "member {}".format(lag_name, physical_port))
+    cleanup_steps.append((
+        'delete_portchannel_member({}, [{}])'.format(
+            lag_name, physical_port),
+        lambda: delete_portchannel_member(
+            dut_h, lag_name, [physical_port])))
+    st.wait(1)
+
+    # 4. Re-attach Vlan{vid} UNTAGGED membership to the LAG.
+    st.config(dut_h,
+        'config vlan member add {} {} --untagged'.format(
+            vlan_id, lag_name),
+        skip_error_check=True)
+    cleanup_steps.append((
+        'vlan member del {} {}'.format(vlan_id, lag_name),
+        lambda: st.config(dut_h,
+            'config vlan member del {} {}'.format(vlan_id, lag_name),
+            skip_error_check=True)))
+
+    # 5. Defensively HSET the LAG-level dscp_to_tc_map binding.
+    st.config(dut_h,
+        'sonic-db-cli CONFIG_DB HSET "PORT_QOS_MAP|{}" '
+        '"dscp_to_tc_map" "AZURE"'.format(lag_name),
+        skip_error_check=True)
+    cleanup_steps.append((
+        'HDEL PORT_QOS_MAP|{}'.format(lag_name),
+        lambda: st.config(dut_h,
+            'sonic-db-cli CONFIG_DB HDEL "PORT_QOS_MAP|{}" '
+            '"dscp_to_tc_map"'.format(lag_name),
+            skip_error_check=True)))
+
+    # 6. Wait for LACP fallback convergence (~3s Short Timeout + margin).
+    st.wait(10)
+
+    # 7. Post-check: confirm kernel netdev is UP+LOWER_UP.
+    link_check = st.show(dut_h,
+        'ip link show {} 2>&1 | head -2'.format(lag_name),
+        skip_tmpl=True) or ''
+    if 'LOWER_UP' in link_check and 'state UP' in link_check:
+        st.log("  leaf0 L2VNI LAG-wrap: {} UP+LOWER_UP after fallback "
+               "wait -- bundle active, ready to forward"
+               .format(lag_name))
+    else:
+        st.warn("leaf0 L2VNI LAG-wrap: {} not fully up after 10s "
+                "LACP-fallback wait. ip link: {!r}. Downstream "
+                "traffic will likely show 0 RX."
+                .format(lag_name, link_check.strip()))
+
+    st.log("  leaf0 L2VNI LAG-wrap: done -- {} now backs Vlan{} "
+           "untagged-access ingress (member: {}, LACP fallback active)"
+           .format(lag_name, vlan_id, physical_port))
+
+    return _teardown
+
+
+# ══════════════════════════════════════════════════════════════════
+# L2VNI leaf0-style setup helper
+# ══════════════════════════════════════════════════════════════════
+
+def _setup_leaf0_style_l2vni():
+    """Layer leaf0-flavor knobs on top of the base L2VNI fabric.
+
+    Pre-conditions: caller has already invoked _setup_vxlan_l2vni()
+    so the L2VNI VTEP, EVPN session, VLAN binding and DSCP-to-TC
+    map are all in place. We augment that state without replacing it.
+
+    Steps:
+      1. Wrap the L2VNI ingress (port_info['ingress_b']) in a
+         LACP+fallback PortChannel0002 -- mirrors the L3VNI
+         LAG-wrap but uses --untagged VLAN membership (L2 access
+         port) rather than tagged-SVI membership.
+      2. counterpoll tunnel enable on both DUTs.
+      3. BGP policy knobs on both DUTs (same as L3VNI leaf0).
+
+    Returns a teardown callable that reverses every step.
+    """
+    dut_h  = dut
+    dut2_h = dut2
+    if not dut_h:
+        st.log("  leaf0 L2VNI-style: no DUT1 -- skipping")
+        return lambda: None
+
+    ingress_b = port_info.get('ingress_b')
+    teardown_lag = None
+    if not ingress_b:
+        st.warn("leaf0 L2VNI-style: port_info['ingress_b'] not "
+                "available -- L2VNI LAG-wrap requires a dedicated "
+                "L2VNI ingress port (Ethernet1_50 on breakout "
+                "testbed). Skipping LAG-wrap.")
+    else:
+        if _LEAF0_LAG_INGRESS_L2VNI:
+            teardown_lag = _wrap_l2vni_ingress_in_lag(
+                dut_h         = dut_h,
+                physical_port = ingress_b,
+                lag_name      = _LEAF0_LAG_NAME_L2VNI,
+                vlan_id       = _J_L2_VLAN,
+            )
+        else:
+            st.log("  leaf0 L2VNI-style: VXLAN_LEAF0_LAG_INGRESS_L2VNI=0 "
+                   "-- L2VNI ingress stays on physical port {} "
+                   "(set VXLAN_LEAF0_LAG_INGRESS_L2VNI=1 to wrap into "
+                   "LACP+fallback {})"
+                   .format(ingress_b, _LEAF0_LAG_NAME_L2VNI))
+
+    # Step 1b: Wrap DUT2 egress (egress_ixia) in a PortChannel.
+    #   Mirrors the DUT1 ingress LAG-wrap on the decap side so that
+    #   both sides of the L2VNI path are PortChannel-based (symmetric
+    #   leaf0 shape). Uses the same _wrap_l2vni_ingress_in_lag helper
+    #   since the operation is identical (untagged Vlan502 member
+    #   migration to a single-member LACP+fallback LAG).
+    #
+    #   Wrap the helper call in try/except so a create_portchannel/
+    #   add_portchannel_member failure does NOT escape this function
+    #   with teardown_lag from Step 1 unregistered. If DUT2 egress wrap
+    #   raises, invoke teardown_lag to undo the DUT1 ingress LAG wrap
+    #   before re-raising.
+    teardown_egress_lag = None
+    if _LEAF0_LAG_EGRESS_L2VNI and dut2_h and dut2_port_info.get('egress_ixia'):
+        dut2_egress_phys = dut2_port_info['egress_ixia']
+        st.log("  leaf0 L2VNI-style: wrapping DUT2 egress {} -> {} "
+               "(LACP+fallback, Vlan{} untagged, mirrors DUT1 ingress)"
+               .format(dut2_egress_phys, _LEAF0_LAG_NAME_L2VNI_EGRESS,
+                       _J_L2_VLAN))
+        try:
+            teardown_egress_lag = _wrap_l2vni_ingress_in_lag(
+                dut_h         = dut2_h,
+                physical_port = dut2_egress_phys,
+                lag_name      = _LEAF0_LAG_NAME_L2VNI_EGRESS,
+                vlan_id       = _J_L2_VLAN,
+            )
+        except BaseException as exc_egress:
+            st.warn("  leaf0 L2VNI-style: _wrap_l2vni_ingress_in_lag "
+                    "(DUT2 egress) raised {}: {}. LAG helper already "
+                    "executed its own _teardown() to undo partial LAG "
+                    "steps; now invoking teardown_lag to undo Step 1 "
+                    "DUT1 ingress LAG wrap before re-raising."
+                    .format(type(exc_egress).__name__, exc_egress))
+            if teardown_lag is not None:
+                try:
+                    teardown_lag()
+                except Exception as exc:
+                    st.warn("  teardown_lag raised: {} (continuing)"
+                            .format(exc))
+            raise
+        # Keep dut2_port_info['egress_ixia'] on the PHYSICAL member port
+        # (do NOT rebind to LAG name).  dchal_qi.py and `show queue
+        # counters` on FX3 only resolve physical ports from
+        # platform.json; LAG names like PortChannel0002 would produce
+        # "Port doesn't exist!" and false q[N]=0 readings.  Same
+        # pattern as L3VNI _setup_egress_svi_dut2() which keeps
+        # egress_ixia at Ethernet1_49.
+        st.log("  leaf0 L2VNI-style: DUT2 egress LAG wrap complete -- "
+               "dut2_port_info['egress_ixia'] KEPT at {} (physical "
+               "member). Queue counters will read the member port."
+               .format(dut2_egress_phys))
+    elif not _LEAF0_LAG_EGRESS_L2VNI:
+        st.log("  leaf0 L2VNI-style: VXLAN_LEAF0_LAG_EGRESS_L2VNI=0 "
+               "-- DUT2 egress stays on physical port (set "
+               "VXLAN_LEAF0_LAG_EGRESS_L2VNI=1 to wrap)")
+
+    # Step 2: counterpoll tunnel enable on both DUTs.
+    if _LEAF0_COUNTERPOLL_TUNNEL:
+        st.config(dut_h, 'counterpoll tunnel enable',
+                  skip_error_check=True)
+        if dut2_h:
+            st.config(dut2_h, 'counterpoll tunnel enable',
+                      skip_error_check=True)
+
+    # Step 3: BGP policy knobs on both DUTs.
+    def _push_bgp_knobs(dut_handle, local_as, label):
+        lines = ['router bgp {}'.format(local_as)]
+        if _LEAF0_BGP_DISABLE_CONN_CHECK:
+            lines.append('  bgp disable-ebgp-connected-route-check')
+        if _LEAF0_BGP_MPATH_RELAX:
+            lines.append('  bgp bestpath as-path multipath-relax')
+        lines.append('exit')
+        if (not _LEAF0_BGP_DISABLE_CONN_CHECK
+                and not _LEAF0_BGP_MPATH_RELAX):
+            return
+        cfg = '\n'.join(lines) + '\n'
+        st.log("  leaf0 L2VNI-style: pushing BGP knobs on {} "
+               "(local_as={})".format(label, local_as))
+        st.config(dut_handle, cfg, type='vtysh',
+                  skip_error_check=True)
+
+    _push_bgp_knobs(dut_h, _I_BGP_AS1, 'DUT1')
+    if dut2_h:
+        _push_bgp_knobs(dut2_h, _I_BGP_AS2, 'DUT2')
+    st.wait(2)
+
+    def _teardown():
+        # Reverse step 3: revert BGP knobs.
+        def _revert_bgp_knobs(dut_handle, local_as, label):
+            lines = ['router bgp {}'.format(local_as)]
+            if _LEAF0_BGP_DISABLE_CONN_CHECK:
+                lines.append('  no bgp disable-ebgp-connected-route-check')
+            if _LEAF0_BGP_MPATH_RELAX:
+                lines.append('  no bgp bestpath as-path multipath-relax')
+            lines.append('exit')
+            if (not _LEAF0_BGP_DISABLE_CONN_CHECK
+                    and not _LEAF0_BGP_MPATH_RELAX):
+                return
+            cfg = '\n'.join(lines) + '\n'
+            st.log("  leaf0 L2VNI-style teardown: reverting BGP knobs "
+                   "on {}".format(label))
+            st.config(dut_handle, cfg, type='vtysh',
+                      skip_error_check=True)
+
+        _revert_bgp_knobs(dut_h, _I_BGP_AS1, 'DUT1')
+        if dut2_h:
+            _revert_bgp_knobs(dut2_h, _I_BGP_AS2, 'DUT2')
+
+        # Reverse step 2: counterpoll tunnel disable.
+        if _LEAF0_COUNTERPOLL_TUNNEL:
+            st.config(dut_h, 'counterpoll tunnel disable',
+                      skip_error_check=True)
+            if dut2_h:
+                st.config(dut2_h, 'counterpoll tunnel disable',
+                          skip_error_check=True)
+
+        # Reverse step 1b: DUT2 egress LAG-wrap teardown.
+        if teardown_egress_lag is not None:
+            try:
+                teardown_egress_lag()
+            except Exception as exc:
+                st.warn("leaf0 L2VNI-style teardown: DUT2 egress "
+                        "LAG-wrap helper raised: {}".format(exc))
+
+        # Reverse step 1: LAG-wrap teardown.
+        if teardown_lag is not None:
+            try:
+                teardown_lag()
+            except Exception as exc:
+                st.warn("leaf0 L2VNI-style teardown: LAG-wrap "
+                        "helper raised: {}".format(exc))
+
+    return _teardown
+
+
+# ══════════════════════════════════════════════════════════════════
+# L2VNI leaf0-style test classes
+# ══════════════════════════════════════════════════════════════════
+
+class TestSmokeL2VNIPortChannelLeaf0Bum:
+    """16 smoke instances over an L2VNI BUM-flood path configured
+    leaf0-style (LAG-ingress + leaf0 BGP knobs).
+
+    Mirrors TestSmokeL2VNIBum from test_dscp_to_tc_overlay.py but
+    layers the same leaf0-flavor knobs as TestSmokeL3VNIPortChannelLeaf0:
+      * L2VNI ingress (Ethernet1_50 / ingress_b) wrapped in
+        PortChannel0002 (LACP+fallback, single-member).
+      * counterpoll tunnel enable on both DUTs.
+      * BGP policy knobs (disable-ebgp-connected-route-check,
+        bestpath multipath-relax) on both DUTs.
+
+    The L2VNI ingress is placed in VLAN-access (untagged) mode by
+    _setup_vxlan_l2vni(); the LAG-wrap migrates that untagged
+    membership from Ethernet1_50 to PortChannel0002.
+
+    Wire shape (BUM path):
+      * DUT1 receives untagged frames on PortChannel0002, L2VNI-
+        encapsulates them and forwards to DUT2 over the VTEP tunnel.
+      * DUT2 floods the inner frame on Vlan{_J_L2_VLAN} -- BUM path
+        (dst_mac=ff:ff:ff:ff:ff:ff, primary_queue_col='mc').
+      * Ixia RX port (DUT2 egress) captures the decapped frame.
+    """
+
+    @pytest.fixture(scope="class", autouse=True)
+    def _setup_l2vni_leaf0(self):
+        if topo_mode == 'ixia':
+            pytest.skip(
+                "Smoke L2VNI-leaf0-BUM requires 2-DUT topology "
+                "(peer_link/breakout); current mode is 'ixia'")
+        if not port_info.get('ingress_b'):
+            pytest.skip(
+                "Smoke L2VNI-leaf0-BUM requires a dedicated L2VNI "
+                "ingress port (ingress_b / Ethernet1_50); not present "
+                "in this testbed")
+
+        # Reset IxNetwork topology state from any prior class.
+        if tg is not None:
+            try:
+                tg.clean_all()
+            except Exception as exc:
+                st.warn("_setup_l2vni_leaf0: pre-class clean_all raised "
+                        "(non-fatal): {}".format(exc))
+
+        teardown_vxlan = _setup_vxlan_l2vni()
+        teardown_leaf0 = None
+        try:
+            teardown_leaf0 = _setup_leaf0_style_l2vni()
+            _overlay._smoke_preflight('l2vni')
+            yield
+        finally:
+            if teardown_leaf0 is not None:
+                try:
+                    teardown_leaf0()
+                except Exception as exc:
+                    st.warn("_setup_leaf0_style_l2vni teardown "
+                            "raised: {}".format(exc))
+            try:
+                teardown_vxlan()
+            except Exception as exc:
+                st.warn("_setup_vxlan_l2vni teardown raised: {}"
+                        .format(exc))
+
+    @pytest.mark.parametrize("af", ["ipv4", "ipv6"])
+    @pytest.mark.parametrize("tc_dscp",
+                             _overlay._smoke_pairs(),
+                             ids=_overlay._smoke_pair_ids())
+    def test_dscp_to_tc_smoke_l2vni_leaf0_bum(self, af, tc_dscp):
+        """SMOKE-L2VNI-LEAF0-BUM -- 5 BUM packets at one DSCP through
+        a leaf0-style L2VNI LAG-ingress (PortChannel0002) path.
+
+        Per-instance assertions (inherited from _smoke_run_one):
+          * L3 family preserved (ipv4 or ipv6)
+          * DSCP preserved through encap+decap
+          * TTL_rx == TTL_tx (L2VNI bridges -- no TTL decrement)
+          * has_vxlan_header == False on RX (decap stripped VXLAN)
+          * UDP dport == 5000 + DSCP (test-stream identity)
+          * DCHAL queue [TC] sees MC pkts >= burst (BUM floods as MC)
+        """
+        tc, dscp = tc_dscp
+        test_label = ("SMOKE-L2VNI-LEAF0-BUM[{}][tc{}-dscp{}]"
+                      .format(af, tc, dscp))
+        print_section(
+            "{} - {} BUM pkts via VxLAN L2VNI leaf0-style "
+            "(vni={})".format(
+                test_label, _overlay._SMOKE_PKTS_PER_BURST,
+                _J_VNI),
+            art_key='dscp_to_tc')
+
+        hard_failures, soft_warns = _overlay._smoke_run_one(
+            test_label, af, dscp,
+            expected_tc=tc, mode='l2vni',
+            l2vni_force_bum=True)
+
+        if hard_failures:
+            st.report_fail('msg',
+                "{} HARD failures ({}):\n  ".format(
+                    test_label, len(hard_failures))
+                + "\n  ".join(hard_failures))
+        st.report_pass('msg',
+            "{}: {} pkts L2VNI-leaf0 BUM e2e PASS (soft_warns={})"
+            .format(test_label, _overlay._SMOKE_PKTS_PER_BURST,
+                    len(soft_warns)))
+
+
+class TestSmokeL2VNIPortChannelLeaf0Ucast:
+    """16 smoke instances over an L2VNI unicast path configured
+    leaf0-style (LAG-ingress + leaf0 BGP knobs).
+
+    Mirrors TestSmokeL2VNIUcast from test_dscp_to_tc_overlay.py with
+    the same leaf0-flavor additive knobs as the BUM variant above.
+    Uses EVPN-learned remote MAC (Type-2) for unicast forwarding.
+    Gates on EVPN-MAC convergence via l2vni_gate_unicast=True so
+    unconverged runs are reported as unsupported rather than failing.
+    """
+
+    @pytest.fixture(scope="class", autouse=True)
+    def _setup_l2vni_leaf0_ucast(self):
+        if topo_mode == 'ixia':
+            pytest.skip(
+                "Smoke L2VNI-leaf0-Ucast requires 2-DUT topology "
+                "(peer_link/breakout); current mode is 'ixia'")
+        if not port_info.get('ingress_b'):
+            pytest.skip(
+                "Smoke L2VNI-leaf0-Ucast requires a dedicated L2VNI "
+                "ingress port (ingress_b / Ethernet1_50); not present "
+                "in this testbed")
+
+        # Reset IxNetwork topology state from any prior class.
+        if tg is not None:
+            try:
+                tg.clean_all()
+            except Exception as exc:
+                st.warn("_setup_l2vni_leaf0_ucast: pre-class clean_all "
+                        "raised (non-fatal): {}".format(exc))
+
+        teardown_vxlan = _setup_vxlan_l2vni()
+        teardown_leaf0 = None
+        try:
+            teardown_leaf0 = _setup_leaf0_style_l2vni()
+            _overlay._smoke_preflight('l2vni')
+            yield
+        finally:
+            if teardown_leaf0 is not None:
+                try:
+                    teardown_leaf0()
+                except Exception as exc:
+                    st.warn("_setup_leaf0_style_l2vni teardown "
+                            "raised: {}".format(exc))
+            try:
+                teardown_vxlan()
+            except Exception as exc:
+                st.warn("_setup_vxlan_l2vni teardown raised: {}"
+                        .format(exc))
+
+    @pytest.mark.parametrize("af", ["ipv4", "ipv6"])
+    @pytest.mark.parametrize("tc_dscp",
+                             _overlay._smoke_pairs(),
+                             ids=_overlay._smoke_pair_ids())
+    def test_dscp_to_tc_smoke_l2vni_leaf0_ucast(self, af, tc_dscp):
+        """SMOKE-L2VNI-LEAF0-UCAST -- 5 unicast packets via a
+        leaf0-style L2VNI LAG-ingress (PortChannel0002) path.
+        EVPN-MAC gated: unconverged runs are reported as unsupported.
+        """
+        tc, dscp = tc_dscp
+        test_label = ("SMOKE-L2VNI-LEAF0-UCAST[{}][tc{}-dscp{}]"
+                      .format(af, tc, dscp))
+        print_section(
+            "{} - {} UC pkts via VxLAN L2VNI leaf0-style "
+            "(vni={})".format(
+                test_label, _overlay._SMOKE_PKTS_PER_BURST,
+                _J_VNI),
+            art_key='dscp_to_tc')
+
+        hard_failures, soft_warns = _overlay._smoke_run_one(
+            test_label, af, dscp,
+            expected_tc=tc, mode='l2vni',
+            l2vni_gate_unicast=True)
+
+        # ── Enforce DUT2 egress queue validation ──────────────────
+        # Do NOT let the test pass on majority-verdict alone if DUT2
+        # egress queue counters are missing or zero.  The whole point
+        # of the DUT2 egress PortChannel wrap is to validate that
+        # decapped traffic hits the correct queue on the egress LAG
+        # member port.  Mirror L3VNI which always has dut2_cli as a
+        # PASS witness.
+        dut2_egress_port = (_overlay.dut2_port_info or {}).get(
+            'egress_ixia')
+        if dut2_egress_port and _LEAF0_LAG_EGRESS_L2VNI:
+            # Safely access _smoke_cli_q_snaps (may not exist in overlay module)
+            cli_q_snaps = getattr(_overlay, '_smoke_cli_q_snaps', {})
+            cli_stash = cli_q_snaps.get(test_label) or {}
+            after_snap = (cli_stash.get('after') or {}).get(
+                (_overlay.dut2, dut2_egress_port))
+            before_snap = (cli_stash.get('before') or {}).get(
+                (_overlay.dut2, dut2_egress_port))
+            # Compute delta for the expected TC queue.
+            dut2_tc_pkts = 0
+            if after_snap and before_snap:
+                aq = (after_snap.get(tc) or {})
+                bq = (before_snap.get(tc) or {})
+                dut2_tc_pkts = max(0,
+                    int(aq.get('pkts', 0)) - int(bq.get('pkts', 0)))
+            elif after_snap:
+                dut2_tc_pkts = int(
+                    (after_snap.get(tc) or {}).get('pkts', 0))
+
+            st.log("  {} DUT2 egress Q{} validation: {} pkts on {}"
+                   .format(test_label, tc, dut2_tc_pkts,
+                           dut2_egress_port))
+
+            if dut2_tc_pkts == 0:
+                hard_failures.append(
+                    "{}: DUT2 egress queue counters on {} show 0 "
+                    "pkts on Q{} -- traffic did NOT egress the "
+                    "PortChannel member port as expected (queue "
+                    "counter read may have failed or decap path is "
+                    "broken)".format(test_label, dut2_egress_port, tc))
+        # ──────────────────────────────────────────────────────────
+
+        if hard_failures:
+            st.report_fail('msg',
+                "{} HARD failures ({}):\n  ".format(
+                    test_label, len(hard_failures))
+                + "\n  ".join(hard_failures))
+        st.report_pass('msg',
+            "{}: {} pkts L2VNI-leaf0 UC e2e PASS (soft_warns={})"
             .format(test_label, _overlay._SMOKE_PKTS_PER_BURST,
                     len(soft_warns)))
