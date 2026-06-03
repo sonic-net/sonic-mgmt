@@ -5,6 +5,7 @@ import logging
 import pytest
 import re
 from datetime import datetime
+import time
 from tests.common.platform.device_utils import (  # noqa: F401,F403
     platform_api_conn, start_platform_api_service, get_configured_dpu_names
 )
@@ -27,7 +28,7 @@ SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
 DPU_MAX_ONLINE_TIMEOUT = 360
-DPU_MAX_PROCESS_UP_TIMEOUT = 400
+DPU_READY_TIMEOUT = 760
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -705,17 +706,20 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name,
 
     logging.info(f"Checking {dpu_name} is UP post test")
     dpu_online_timeout = DPU_MAX_ONLINE_TIMEOUT + extra_dpu_online_timeout
+    check_start_time = time.time()
     pytest_assert(
         wait_until(dpu_online_timeout, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
+    dpu_online_time = time.time() - check_start_time
+    dpu_proccess_up_timeout = DPU_READY_TIMEOUT - dpu_online_time
 
     dpu_id = int(re.search(r'\d+', dpu_name).group())
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
-            DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            dpu_proccess_up_timeout, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
         f"Critical process check for {dpu_name} has been failed"
     )
