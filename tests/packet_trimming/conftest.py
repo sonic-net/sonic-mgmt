@@ -15,7 +15,8 @@ from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
     configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
     create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
-    get_test_ports, create_trim_queue_test_buffer_profile)
+    get_test_ports, create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
+    is_queue_level_trim_sent_drop_supported)
 
 
 logger = logging.getLogger(__name__)
@@ -151,6 +152,19 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     return counter_param
 
 
+@pytest.fixture(scope="module")
+def queue_level_trim_supported(duthost):
+    """
+    Whether the platform supports queue-level TrimSent / TrimDrop counters.
+
+    Computed once per module (lazy init) so the per-port consistency checks do not repeat the
+    same platform lookup on every call.
+    """
+    supported = is_queue_level_trim_sent_drop_supported(duthost)
+    logger.info(f"Queue-level TrimSent/TrimDrop counters supported on this platform: {supported}")
+    return supported
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_trimming(duthost, test_params, trim_counter_params):
     """
@@ -235,6 +249,9 @@ def setup_trimming(duthost, test_params, trim_counter_params):
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
         for buffer_profile in trim_counter_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+
+    with allure.step("Delete trim queue test buffer profile"):
+        delete_trim_queue_test_buffer_profile(duthost)
 
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)

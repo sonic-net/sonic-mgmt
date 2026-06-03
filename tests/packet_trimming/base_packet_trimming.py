@@ -344,7 +344,8 @@ class BasePacketTrimming:
                                   f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
-    def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params):
+    def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params,
+                               queue_level_trim_supported):
         """
         Test Case: Verify PacketTrimming Counters
         """
@@ -384,7 +385,8 @@ class BasePacketTrimming:
                     port_trim_tx_value = get_port_trim_counters_json(duthost, port)['TRIM_TX_PKTS']
                     ports_trim_sent_counters.append(port_trim_tx_value)
                     # Verify queue-level TrimSent matches port-level TrimSent
-                    verify_queue_and_port_trim_sent_counter_consistency(duthost, port, port_trim_tx_value)
+                    verify_queue_and_port_trim_sent_counter_consistency(duthost, port, port_trim_tx_value,
+                                                                        supported=queue_level_trim_supported)
 
             pytest_assert(sum(ports_trim_sent_counters) == switch_trim_sent_value and switch_trim_sent_value != 0,
                           "Trim sent counter on switch level is not equal to the sum of trim sent counter on port "
@@ -444,7 +446,8 @@ class BasePacketTrimming:
                         pytest_assert(port_trim_drop_value > 0,
                                       f"Trim drop counter on port {port} is not greater than 0")
                         # Verify queue-level TrimDrop matches port-level TrimDrop
-                        verify_queue_and_port_trim_drop_counter_consistency(duthost, port, port_trim_drop_value)
+                        verify_queue_and_port_trim_drop_counter_consistency(duthost, port, port_trim_drop_value,
+                                                                            supported=queue_level_trim_supported)
 
             finally:
                 # Enable the trimmed queue with original scheduler
