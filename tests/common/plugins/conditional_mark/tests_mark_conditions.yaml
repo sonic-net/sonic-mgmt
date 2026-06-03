@@ -287,8 +287,10 @@ bfd/test_bfd.py::test_bfd_basic:
       - "asic_type in ['vs']"
   xfail:
     reason: "Test might failed due to https://github.com/sonic-net/sonic-mgmt/issues/19519"
+    conditions_logical_operator: or
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/19519
+      - "platform in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
@@ -761,6 +763,7 @@ console/test_console_availability.py:
     reason: "This test is applicable to virtual setup only."
     conditions:
       - "asic_type in ['vpp'] and platform.startswith('arm64-c8220tg_48a_o')"
+      - "platform in ['arm64-nokia_ixs7215_c1xa-r0']"
 
 #######################################
 #####    container_hardening      #####
@@ -3010,9 +3013,9 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 ###############################################
 golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
   xfail:
-    reason: "Ports not operationally up after golden config override on t0-f2-d40u8"
+    reason: "Ports not operationally up after golden config override on t0-f2-d40u8 / t0-f2-d40u8-po2vlan"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name == 't0-f2-d40u8'"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name in ['t0-f2-d40u8', 't0-f2-d40u8-po2vlan']"
 
 #######################################
 #####           ha              #####
@@ -5358,11 +5361,12 @@ syslog/test_syslog.py:
 
 syslog/test_syslog_source_ip.py:
   skip:
-    reason: "Vs setup doesn't work when creating mgmt vrf"
+    reason: "Vs setup doesn't work when creating mgmt vrf. BMC does not have routable ports to support this test."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16997"
       - "asic_type in ['vs']"
+      - "'bmc' in topo_type"
 
 syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
   skip:
