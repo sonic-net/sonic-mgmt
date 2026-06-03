@@ -721,6 +721,12 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(28, 36):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
                 idx += 8
+        elif hwsku == "Nokia-IXR7220-H6-O256":
+            for i in range(1, 129):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % ((i - 1) * 8)
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i - 1) * 8 + 4)
+            port_alias_to_name_map["etp129"] = "Ethernet1024"
+            port_alias_to_name_map["etp130"] = "Ethernet1025"
         elif hwsku == "Nokia-IXR7220-D4-36D":
             for i in range(1, 9):
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % ((i - 1) * 2)
