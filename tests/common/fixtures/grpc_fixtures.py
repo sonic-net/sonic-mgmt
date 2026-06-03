@@ -204,7 +204,7 @@ def gnmi_tls(request, duthost, ptfhost):
         # Build coupled client with the exact config we just set up
         host = duthost.mgmt_ip
         port = grpc_config.DEFAULT_TLS_PORT
-        target = f"{host}:{port}"
+        target = f"[{host}]:{port}"
 
         ptf_cert_paths = grpc_config.get_ptf_cert_paths()
         cert_paths = CertPaths(
@@ -485,7 +485,7 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("Verifying gNOI TLS connectivity")
 
     cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
-    target = f"{duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT}"
+    target = f"[{duthost.mgmt_ip}]:{grpc_config.DEFAULT_TLS_PORT}"
 
     # -connect-timeout bounds the TCP/TLS handshake portion; -max-time bounds
     # the whole call. Both keep a single retry attempt from hanging if packets
