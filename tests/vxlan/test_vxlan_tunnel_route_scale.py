@@ -181,6 +181,23 @@ def generate_routes_to_test_file(ptfhost, num_samples, num_routes, vnet, routes,
     return file_dest
 
 
+def get_vxlan_router_mac(duthost):
+    """Get VXLAN router MAC from SWITCH_TABLE or fall back to router_mac"""
+    res = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")
+    vxlan_router_mac = res["stdout"].strip()
+    if not vxlan_router_mac:
+        vxlan_router_mac = duthost.facts["router_mac"]
+    return vxlan_router_mac
+
+
+def configure_vxlan_switch_with_mac(duthost, vxlan_port):
+    """Configure VXLAN switch and return the MAC address used"""
+    vxlan_router_mac = get_vxlan_router_mac(duthost)
+    logger.info(f"Using VXLAN router MAC: {vxlan_router_mac}")
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port, dutmac=vxlan_router_mac)
+    return vxlan_router_mac
+
+
 def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
                        tbinfo, num_vnets, routes_per_vnet, vnet_base, vxlan_port, samples_per_vnet):
     ports = get_available_vlan_id_and_ports(config_facts, num_vnets)
@@ -202,13 +219,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     ptf_vtep = PTF_VTEP
     vxlan_tun = TUNNEL_NAME
     apply_chunk(duthost, {"VXLAN_TUNNEL": {vxlan_tun: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
-    res = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")
-    vxlan_router_mac = res["stdout"].strip()
-
-    if not vxlan_router_mac:
-        vxlan_router_mac = duthost.facts["router_mac"]
-
-    logger.info(f"Using VXLAN router MAC: {vxlan_router_mac}")
 
     vnet_ptf_map = {}
 
@@ -301,7 +311,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port, dutmac=vxlan_router_mac)
+    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port)
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 120s)")
     ready_state = wait_until(
@@ -345,9 +355,9 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
     try:
         cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-        num_vnets = scaled_vnet_params.get("num_vnet") or 5
-        routes_per_vnet = scaled_vnet_params.get("num_routes") or 1000
-        samples_per_vnet = request.config.getoption("num_samples") or -1
+        num_vnets = scaled_vnet_params.get("num_vnet")
+        routes_per_vnet = scaled_vnet_params.get("num_routes")
+        samples_per_vnet = request.config.getoption("num_samples")
         vnet_base = 10000
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
@@ -432,6 +442,13 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
         pytest.fail("State DB VNET routes failed to repopulate after config reload")
 
     logger.info("All VNET routes restored in STATE_DB after reload")
+    
+    # Reconfigure VXLAN switch with correct MAC after reload
+    logger.info("Reconfiguring VXLAN switch after config reload")
+    vxlan_port = setup_params["vxlan_port"]
+    vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port)
+    setup_params["mac_switch"] = vxlan_router_mac
+    
     logger.info("Running PTF traffic after config reload")
 
     ptf_runner(
@@ -512,7 +529,22 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
             vnis=all_vnis_for_vnet
         )
 
-    time.sleep(20)
+    # Two-stage verification: STATE_DB + Hardware programming delay
+    # Stage 1: Wait for STATE_DB (software layer)
+    ready = wait_until(
+        180, 15, 0,
+        all_vnet_routes_in_state_db,
+        duthost,
+        setup["num_vnets"],
+        routes_per_vnet
+    )
+    if not ready:
+        pytest.fail("Routes failed to update in STATE_DB after MAC/VNI change")
+
+    # Stage 2: Hardware programming delay (scale-aware)
+    total_routes = setup["num_vnets"] * routes_per_vnet
+    hw_delay = max(30, min(180, (total_routes // 500) * 10))
+    time.sleep(hw_delay)
 
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 
@@ -573,7 +605,19 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
             vnis=all_vnis_for_vnet
         )
 
-    time.sleep(20)
+    ready = wait_until(
+        180, 15, 0,
+        all_vnet_routes_in_state_db,
+        duthost,
+        setup["num_vnets"],
+        routes_per_vnet
+    )
+    if not ready:
+        pytest.fail("Routes failed to update in STATE_DB after second MAC/VNI change")
+
+    total_routes = setup["num_vnets"] * routes_per_vnet
+    hw_delay = max(30, min(180, (total_routes // 500) * 10))
+    time.sleep(hw_delay)
 
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 

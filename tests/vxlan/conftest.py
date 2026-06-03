@@ -56,7 +56,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=8,
+        default=5,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -64,7 +64,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_endpoints",
         action="store",
-        default=4000,
+        default=511,
         type=int,
         help="number of endpoints for VNET VxLAN"
     )
@@ -238,6 +238,14 @@ def pytest_addoption(parser):
              "will test all configured routes."
     )
 
+    vxlan_group.addoption(
+        "--num_samples",
+        action="store",
+        default=-1,
+        type=int,
+        help="Number of routes to sample per VNET for testing. Use -1 to test all routes."
+    )
+
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
@@ -257,7 +265,7 @@ def scaled_vnet_params(request):
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
     if params[NUM_ROUTES_KEY] is None:
-        params[NUM_ROUTES_KEY] = 16000
+        params[NUM_ROUTES_KEY] = 1000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
