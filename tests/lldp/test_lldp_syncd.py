@@ -394,7 +394,14 @@ def test_lldp_entry_table_after_syncd_orchagent(
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
-    time.sleep(60)
+    # Wait for BGP sessions to reach Established state instead of a fixed sleep,
+    # to avoid a downstream memory-alarm false positive caused by bgpd warming up
+    # in the next test case.
+    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    pytest_assert(
+        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        "BGP sessions did not reach Established state after swss restart",
+    )
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, [interface])
