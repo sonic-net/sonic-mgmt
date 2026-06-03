@@ -8,17 +8,19 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-# Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
-PTF_PORT_MAPPING_MODE = "use_orig_interface"
 
+def skip_if_switchport_mode_unsupported(duthost):
+    """Skip the test on images that predate sonic-net/sonic-utilities#3788.
 
-def get_interface_status(dut, interface):
+    That change introduced the 'show interfaces switchport status' command and
+    made the VLAN column of 'show interfaces status' reflect the configured
+    switchport mode (access/trunk/routed). Without it these tests cannot pass,
+    so skip cleanly instead of reporting a failure.
     """
-    Get interface status from 'show interfaces status' output
-    """
-    command = f"show interfaces status | grep {interface}"
-    output = dut.shell(command)
-    return output['stdout']
+    result = duthost.shell("show interfaces switchport status", module_ignore_errors=True)
+    if result['rc'] != 0:
+        pytest.skip("'show interfaces switchport status' is not supported on this image "
+                    "(requires sonic-net/sonic-utilities#3788)")
 
 
 def get_switchport_mode(dut, interface):
@@ -26,10 +28,9 @@ def get_switchport_mode(dut, interface):
     Get switchport mode from 'show interfaces switchport status' output
     Returns the mode or None if interface not found
     """
-    command = f"show interfaces switchport status | grep -w {interface}"
-    output = dut.shell(command)
-    if output['rc'] == 0 and output['stdout'].strip():
-        return output['stdout'].split()[-1]  # Get the last column (Mode)
+    for row in dut.show_and_parse("show interfaces switchport status"):
+        if row.get('interface') == interface:
+            return row.get('mode')
     return None
 
 
@@ -54,16 +55,21 @@ def setup_portchannel(dut, portchannel_name, member_ports):
 
 def setup_vlan_and_members(dut, mode, vlan_id, members):
     """
-    Create VLAN and add members
+    Create VLAN and add members.
+
+    Membership type follows the switchport mode: access ports are added
+    untagged (-u) while trunk ports are added tagged (default). This makes the
+    'mode' argument actually drive the VLAN membership type.
     Returns: True if successful, False otherwise
     """
     try:
         # Create VLAN
         dut.shell(f"config vlan add {vlan_id}")
 
-        # Add members
+        # Add members tagged (trunk) or untagged (access) based on mode
+        untagged = "-u " if mode == "access" else ""
         for member in members:
-            dut.shell(f"config vlan member add {vlan_id} {member}")
+            dut.shell(f"config vlan member add {untagged}{vlan_id} {member}")
 
         return True
     except Exception as e:
@@ -72,15 +78,23 @@ def setup_vlan_and_members(dut, mode, vlan_id, members):
 
 
 def cleanup_portchannel(dut, portchannel_name, member_ports):
-    """Cleanup PortChannel configuration"""
-    try:
-        # Remove member ports
-        for port in member_ports:
-            dut.shell(f"config portchannel member del {portchannel_name} {port}")
+    """Cleanup PortChannel configuration.
 
+    Member removals are isolated so that a single failure does not abort the
+    cleanup and leak an orphan PortChannel for subsequent runs.
+    """
+    # Remove member ports, swallowing per-member errors so we always attempt
+    # to delete the PortChannel itself afterwards.
+    for port in member_ports:
+        try:
+            dut.shell(f"config portchannel member del {portchannel_name} {port}")
+        except Exception as e:
+            logger.error(f"Failed to remove {port} from {portchannel_name}: {str(e)}")
+
+    try:
         dut.shell(f"config portchannel del {portchannel_name}")
     except Exception as e:
-        logger.error(f"Failed to cleanup PortChannel {portchannel_name}: {str(e)}")
+        logger.error(f"Failed to delete PortChannel {portchannel_name}: {str(e)}")
 
 
 def cleanup_vlan(dut, vlan_id, members):
@@ -93,10 +107,30 @@ def cleanup_vlan(dut, vlan_id, members):
         logger.error(f"Failed to cleanup VLAN {vlan_id}: {str(e)}")
 
 
+def set_switchport_mode(duthost, intf, mode):
+    """Set the switchport mode on intf idempotently.
+
+    'config switchport mode <mode> <intf>' returns a non-zero rc when the
+    interface is already in that mode (e.g. a routed port left at the default
+    'routed' mode), so skip the command when no change is needed.
+    """
+    if get_switchport_mode(duthost, intf) == mode:
+        logger.info(f"{intf} is already in {mode} mode; skipping switchport config")
+        return
+    duthost.shell(f"config switchport mode {mode} {intf}")
+
+
 def restore_orig_configs(duthost, original_mode, intf):
-    """Restore previous mode of interface"""
+    """Restore previous mode of interface.
+
+    Skips restoration when the original mode is unknown (None), since
+    'config switchport mode None <intf>' is an invalid command.
+    """
+    if original_mode is None:
+        logger.info(f"No original switchport mode captured for {intf}; skipping restore")
+        return
     logger.info(f"Restoring original interface:{intf} mode:{original_mode}")
-    duthost.shell("config switchport mode {} {}".format(original_mode, intf))
+    set_switchport_mode(duthost, intf, original_mode)
 
 
 def get_available_ports(duthost, tbinfo, num_of_ports=1):
@@ -113,19 +147,11 @@ def get_available_ports(duthost, tbinfo, num_of_ports=1):
 
     poDict = mg_facts['minigraph_portchannels']
 
-    found_intf = None
     for intf in intfList:
-        for vlan, vlanData in vlanDict.items():
-            if intf not in vlanData['members']:
-                found_intf = intf
-            else:
-                found_intf = None
-        if found_intf:
-            for po, poData in poDict.items():
-                if found_intf in poData['members']:
-                    found_intf = None
-        if found_intf:
-            available_ports.append(found_intf)
+        in_vlan = any(intf in vlanData['members'] for vlanData in vlanDict.values())
+        in_portchannel = any(intf in poData['members'] for poData in poDict.values())
+        if not in_vlan and not in_portchannel:
+            available_ports.append(intf)
 
     if num_of_ports <= 1:
         return available_ports[:num_of_ports]
@@ -160,12 +186,36 @@ def get_free_lag_intf(duthost):
     return None
 
 
+def configure_and_verify_switchport_mode(duthost, intf, mode, vlan):
+    """Configure the switchport mode (and optional VLAN membership) on intf and
+    verify it is reflected by both 'show interfaces switchport status' and the
+    VLAN column of 'show interfaces status'.
+
+    Shared by the Ethernet and PortChannel tests to avoid duplicating the
+    configure/verify body.
+    """
+    set_switchport_mode(duthost, intf, mode)
+
+    if vlan:
+        pytest_assert(setup_vlan_and_members(duthost, mode, vlan, [intf]),
+                      f"Failed to setup VLAN {vlan}")
+
+    intf_mode = get_switchport_mode(duthost, intf)
+    pytest_assert(intf_mode == mode,
+                  f"Interface {intf} shows mode {intf_mode} instead of {mode}")
+
+    out = duthost.show_and_parse("show interfaces status {}".format(intf))
+    pytest_assert(out and out[0].get('vlan') == mode,
+                  f"Interface {intf} shows mode {out[0].get('vlan') if out else None} instead of {mode}")
+
+
 @pytest.mark.parametrize("mode, vlan", [("access", None), ("trunk", "10"), ("routed", None)])
 def test_ethernet_switchport_mode(duthosts, rand_one_dut_hostname, tbinfo, mode, vlan):
     """
     Test switchport mode configuration for Ethernet Interfaces with VLAN membership
     """
     duthost = duthosts[rand_one_dut_hostname]
+    skip_if_switchport_mode_unsupported(duthost)
 
     # Fetch ports which are not part of vlan or portchannel
     intfList = get_available_ports(duthost, tbinfo)
@@ -177,30 +227,12 @@ def test_ethernet_switchport_mode(duthosts, rand_one_dut_hostname, tbinfo, mode,
     logger.info(f"Testing {intf} with mode {mode}")
 
     try:
-        # Configure switchport mode if vlan
-        if mode != original_mode:
-            duthost.shell(f"config switchport mode {mode} {intf}")
-
-        # Setup VLAN and add members if needed
-        if vlan:
-            pytest_assert(setup_vlan_and_members(duthost, mode, vlan, [intf]),
-                          f"Failed to setup VLAN {vlan}")
-
-        # Verify Interface switchport mode
-        intf_mode = get_switchport_mode(duthost, intf)
-        pytest_assert(intf_mode == mode,
-                      f"Interface {intf} shows mode {intf_mode} instead of {mode}")
-
-        # Verify from Interface status
-        out = duthost.show_and_parse("show interfaces status {}".format(intf))
-        pytest_assert(out[0]['vlan'] == mode,
-                      f"Interface {intf} shows mode {out[0]['vlan']} instead of {mode}")
+        configure_and_verify_switchport_mode(duthost, intf, mode, vlan)
     finally:
         # Cleanup
         if vlan:
             cleanup_vlan(duthost, vlan, [intf])
-        if mode != original_mode:
-            restore_orig_configs(duthost, original_mode, intf)
+        restore_orig_configs(duthost, original_mode, intf)
 
 
 @pytest.mark.parametrize("mode, vlan", [("access", None), ("trunk", "10"), ("routed", None)])
@@ -209,6 +241,7 @@ def test_portchannel_switchport_mode(duthosts, rand_one_dut_hostname, tbinfo, mo
     Test switchport mode configuration for PortChannels with VLAN membership
     """
     duthost = duthosts[rand_one_dut_hostname]
+    skip_if_switchport_mode_unsupported(duthost)
 
     # Fetch free portchannel index
     portchannel = get_free_lag_intf(duthost)
@@ -227,24 +260,7 @@ def test_portchannel_switchport_mode(duthosts, rand_one_dut_hostname, tbinfo, mo
         pytest_assert(setup_portchannel(duthost, portchannel, members),
                       f"Failed to setup {portchannel}")
 
-        # Configure switchport mode
-        duthost.shell(f"config switchport mode {mode} {portchannel}")
-
-        # Setup VLAN and add members if needed
-        if vlan:
-            pytest_assert(setup_vlan_and_members(duthost, mode, vlan, [portchannel]),
-                          f"Failed to setup VLAN {vlan}")
-
-        # Verify PortChannel mode
-        po_mode = get_switchport_mode(duthost, portchannel)
-        pytest_assert(po_mode == mode,
-                      f"PortChannel {portchannel} shows mode {po_mode} instead of {mode}")
-
-        # Verify from Interface status
-        out = duthost.show_and_parse("show interfaces status {}".format(portchannel))
-        pytest_assert(out[0]['vlan'] == mode,
-                      f"Interface {portchannel} shows mode {out[0]['vlan']} instead of {mode}")
-
+        configure_and_verify_switchport_mode(duthost, portchannel, mode, vlan)
     finally:
         # Cleanup
         if vlan:
