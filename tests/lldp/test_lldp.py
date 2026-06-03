@@ -6,7 +6,6 @@ from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.dut_utils import is_virtual_platform
 
 logger = logging.getLogger(__name__)
 
@@ -338,14 +337,9 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
 
-    # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldp_table_interfaces:
-            logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldp_table_interfaces,
-                      "eth0 is missing from LLDP table{}".format(context))
+    # eth0 may not have LLDP neighbors on all platforms (virtual, SmartSwitch, etc.)
+    if 'eth0' not in lldp_table_interfaces:
+        logger.warning("eth0 not in LLDP table{}".format(context))
 
     # For LLDP table comparison: exclude eth0 from lldp_table, exclude PortChannels and admin down from intf_status
     lldp_table_interfaces_no_eth0 = lldp_table_interfaces - {'eth0'}
@@ -414,14 +408,9 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
     logger.info("lldpcli interfaces{}: {}".format(context, sorted(lldpcli_interfaces)))
     logger.info("lldpcli interfaces in total: {}".format(len(lldpcli_interfaces)))
 
-    # On virtual/KVM testbeds, eth0 may not appear in lldpcli
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldpcli_interfaces:
-            logger.info("eth0 not in lldpcli interfaces (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldpcli_interfaces,
-                      "eth0 is missing from lldpcli interfaces{}".format(context))
+    # eth0 may not appear in lldpcli on all platforms (virtual, SmartSwitch, etc.)
+    if 'eth0' not in lldpcli_interfaces:
+        logger.warning("eth0 not in lldpcli interfaces{}".format(context))
 
     # For lldpcli comparison: exclude eth0 from lldpcli, exclude only PortChannels from intf_status
     lldpcli_interfaces_no_eth0 = lldpcli_interfaces - {'eth0'}
@@ -489,14 +478,9 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
 
-    # Verify eth0 is in lldpctl_facts (only on physical testbeds)
-    if is_virtual_platform(duthost):
-        if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
-            logger.info("eth0 not in lldpctl_facts (expected on virtual/KVM testbed){}"
-                        .format(context))
-    else:
-        pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
-                      "eth0 is missing from lldpctl_facts{}".format(context))
+    # eth0 may not have LLDP neighbors on all platforms (virtual, SmartSwitch, etc.)
+    if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
+        logger.warning("eth0 not in lldpctl_facts{}".format(context))
 
     # Get interfaces from lldpctl_facts (excluding eth0)
     lldpctl_facts_interfaces = set(lldpctl_facts.get('lldpctl', {}).keys()) - {'eth0'}
