@@ -12,6 +12,7 @@ import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
+DEFAULT_MAX_FP_NUM = 4
 
 
 class ListIndentDumper(yaml.Dumper):
@@ -75,10 +76,22 @@ class SonicTopoConverger:
 
             for label in device_properties:
                 if label in labels:
-                    if label not in cur_prime_devs or create_new_prime:
-                        cur_prime_devs[label] = device
+                    # Key the prime selection on (label, ASN) so peers sharing
+                    # a role but using distinct ASNs (e.g. the two ToRs on the
+                    # dpu topology, ASN 65200 vs 65201) each become their own
+                    # prime VM. Without the ASN in the key both would collapse
+                    # into a single ``router bgp <first-asn>`` process and the
+                    # second peer would never establish BGP (DUT expects the
+                    # other ASN). Topologies where every peer under a role
+                    # shares one ASN (t0/t1/t2/vpp/multi-asic-t1) collapse to
+                    # the same primes as before, so behavior is unchanged
+                    # there.
+                    asn = config[device].get("bgp", {}).get("asn")
+                    prime_key = (label, asn)
+                    if prime_key not in cur_prime_devs or create_new_prime:
+                        cur_prime_devs[prime_key] = device
                         self.prime_devices.append(device)
-                    prime = cur_prime_devs[label]
+                    prime = cur_prime_devs[prime_key]
                     if prime not in self.prime_device_mapping:
                         self.prime_device_mapping[prime] = []
                     self.prime_device_mapping[prime].append(device)
@@ -259,6 +272,29 @@ class SonicTopoConverger:
         key = "configuration"
         new_topo[key] = old_topo[key].copy()
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
+
+        # After convergence, each prime cEOSLab peer needs one front-panel
+        # interface per merged sub-peer (each connects to one DUT FP port via
+        # one ``br-<vmname>-N`` OVS bridge). The default ``max_fp_num`` of 4
+        # works for stock topologies, but converged primes routinely hold many
+        # more (e.g. 16 on a t1-lag spine prime, 32 on a t2 T3 prime). Without
+        # bumping max_fp_num, ``create_bridges`` / ``ceos_network`` create only
+        # 4 br-VM-N bridges + 4 veth pairs into the cEOS container, and the
+        # subsequent ``vm_topology bind`` fails with "Too many vlans".
+        #
+        # Surface the required count as ``max_fp_num_provided`` at the topo
+        # root so ``roles/vm_set/tasks/start.yml`` (which already honors this
+        # override via set_fact) bumps max_fp_num for the whole vm_set. Cap at
+        # CEOSLAB_INTF_LIMIT to stay within cEOSLab's per-container interface
+        # ceiling, and never go below the default so single-vlan converged
+        # topologies (e.g. dpu) keep the existing minimum.
+        max_prime_vlans = max(
+            (len(vm.get("vlans", [])) for vm in new_topo["topology"]["VMs"].values()),
+            default=0,
+        )
+        required_fp_num = max(DEFAULT_MAX_FP_NUM, min(max_prime_vlans, CEOSLAB_INTF_LIMIT))
+        if required_fp_num > DEFAULT_MAX_FP_NUM:
+            self.converged_topo["max_fp_num_provided"] = required_fp_num
 
     def run(self) -> None:
         self.parse_properties()

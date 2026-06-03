@@ -492,12 +492,38 @@ class EosHost(AnsibleHostBase):
     def get_route(self, prefix, vrf=None):
         cmd = 'show ip bgp' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show ipv6 bgp'
         cmd = '{} {}'.format(cmd, prefix)
-        if vrf:
-            cmd = '{} vrf {}'.format(cmd, vrf)
-        return self.eos_command(commands=[{
+        # In converged (multi-VRF) mode, routes for this logical neighbor
+        # live under the per-neighbor VRF on the prime EOS peer (``self.bgp_vrf``).
+        # When the caller passes no explicit ``vrf=``, auto-scope to
+        # ``self.bgp_vrf`` and surface the returned ``vrfs/<bgp_vrf>`` entry
+        # under ``vrfs/default`` so existing readers that hardcode 'default'
+        # (e.g. tests/bgp/test_bgp_bbr.py, tests/filterleaf/filterleaf_helpers.py,
+        # tests/vlan/test_vlan_ports_down.py) keep working. We alias rather
+        # than rename so the original VRF key is still present for any caller
+        # that iterates ``vrfs.keys()``. Callers that pass an explicit
+        # ``vrf=`` (e.g. tests/bgp/bgp_helpers.py) get the response unmodified.
+        # On stock topologies ``self.bgp_vrf`` is None and behavior is
+        # byte-identical.
+        effective_vrf = vrf
+        alias_as_default = False
+        if effective_vrf is None and self.bgp_vrf:
+            effective_vrf = self.bgp_vrf
+            alias_as_default = True
+        if effective_vrf:
+            cmd = '{} vrf {}'.format(cmd, effective_vrf)
+        out = self.eos_command(commands=[{
             'command': cmd,
             'output': 'json'
         }])['stdout'][0]
+        if alias_as_default and isinstance(out, dict) and isinstance(out.get('vrfs'), dict):
+            vrfs = out['vrfs']
+            if effective_vrf in vrfs:
+                # Overwrite any existing 'default' entry: in converged mode the
+                # actual default VRF on the prime carries the backplane
+                # config, not this logical neighbor's routes, so legacy callers
+                # expect the per-neighbor view here.
+                vrfs['default'] = vrfs[effective_vrf]
+        return out
 
     def run_command_json(self, cmd):
         return self.eos_command(commands=[{
