@@ -174,19 +174,28 @@ class TestNeighborMac:
         ])
 
     def __isPtfInterfaceReady(self, ptfhost):
-        result = ptfhost.shell(
-            "ip -o link show dev {intf}; ip -o addr show dev {intf}".format(intf=self.PTF_HOST_IF),
+        linkResult = ptfhost.shell(
+            "ip -o link show dev {}".format(self.PTF_HOST_IF),
             module_ignore_errors=True
         )
-        output = result.get("stdout", "")
+        addrResult = ptfhost.shell(
+            "ip -o addr show dev {}".format(self.PTF_HOST_IF),
+            module_ignore_errors=True
+        )
+        linkOutput = linkResult.get("stdout", "")
+        addrOutput = addrResult.get("stdout", "")
         isReady = (
-            result.get("rc") == 0 and
-            "UP" in output and
-            "LOWER_UP" in output and
-            "{}/24".format(self.PTF_HOST_IP) in output
+            linkResult.get("rc") == 0 and
+            addrResult.get("rc") == 0 and
+            "state UP" in linkOutput and
+            "LOWER_UP" in linkOutput and
+            "{}/24".format(self.PTF_HOST_IP) in addrOutput
         )
         if not isReady:
-            logger.info("PTF interface is not ready yet rc=%s output:\n%s", result.get("rc"), output)
+            logger.info(
+                "PTF interface is not ready yet link_rc=%s addr_rc=%s link_output:\n%s\naddr_output:\n%s",
+                linkResult.get("rc"), addrResult.get("rc"), linkOutput, addrOutput
+            )
         return isReady
 
     def __pingDutFromPtf(self, ptfhost):
@@ -204,7 +213,8 @@ class TestNeighborMac:
             the neighbor MAC 2 times.
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                duthosts (AnsibleHost): Device Under Test (DUT) hosts
+                rand_one_dut_hostname (str): selected DUT hostname
                 ptfhost (PTFHost): PTF instance used
                 macIndex (Fixture<int>): Index in the TEST_MAC list
 
