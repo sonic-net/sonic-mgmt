@@ -998,29 +998,6 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config_db, indent=4)
 
-    def update_zmq_config(self, config):
-        # for multi asic platform this config is per asic.
-
-        ori_config_db = json.loads(config)
-        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_route_zmq_enabled" in out:
-            if self.num_asics > 1:
-                ori_config_db = self._update_config_db_in_ns(
-                    ori_config_db, "DEVICE_METADATA/localhost",
-                    {"orch_northbond_route_zmq_enabled": "true"}
-                )
-            else:
-                if "DEVICE_METADATA" not in ori_config_db:
-                    ori_config_db["DEVICE_METADATA"] = {}
-                if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-                    ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-                if self.topo_name == "t1-smartswitch-ha":
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
-                else:
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-
-        return json.dumps(ori_config_db, indent=4)
-
     def _parse_zebra_nexthop_from_minigraph(self):
         """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
         try:
@@ -1056,7 +1033,7 @@ class GenerateGoldenConfigDBModule(object):
         """
         # Check if the installed YANG schema supports zebra_nexthop before injecting.
         # Older images may lack this leaf, causing load_minigraph --override_config to
-        # fail YANG validation. This mirrors the pattern used in update_zmq_config().
+        # fail YANG validation.
         rc, yang_content, _ = self.module.run_command(
             "sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
         if rc != 0 or "zebra_nexthop" not in yang_content:
@@ -1241,9 +1218,6 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
-
-        # update ZMQ config
-        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
