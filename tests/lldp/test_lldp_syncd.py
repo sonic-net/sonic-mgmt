@@ -368,7 +368,12 @@ def test_lldp_entry_table_content(
 
 
 # Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
+# This test deliberately restarts swss/syncd, which cascades to a bgp container
+# restart. The memory_utilization fixture's before/after snapshots become
+# meaningless across such a restart (bgpd RSS drops to ~0 then warms back up),
+# so disable memory monitoring for this test.
 @pytest.mark.disable_loganalyzer
+@pytest.mark.disable_memory_utilization
 def test_lldp_entry_table_after_syncd_orchagent(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
