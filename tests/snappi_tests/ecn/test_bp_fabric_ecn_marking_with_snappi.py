@@ -11,7 +11,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     tgen_port_info, snappi_port_selection  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd   # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, enable_debug_shell  # noqa: F401
+from tests.snappi_tests.files.helper import enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.bpfabric_helper import run_fabric_ecn_marking_test, run_backplane_ecn_marking_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.cisco_data import is_cisco_device

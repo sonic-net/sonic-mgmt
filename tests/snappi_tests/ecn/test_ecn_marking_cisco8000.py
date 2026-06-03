@@ -11,7 +11,6 @@ from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list  # noqa: F401
 from tests.common.cisco_data import is_cisco_device
-from tests.snappi_tests.files.helper import multidut_port_info   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
