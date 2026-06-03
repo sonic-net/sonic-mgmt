@@ -36,11 +36,17 @@ OLD_BMC_VERSION_IDX = 1
 EROT_BUSY_MSG = "ERoT is busy"
 EROT_STABLE_TIMEOUT = 600
 WAIT_TIME_INTERVAL_BETWEEN_ATTEMPTS = 30
+BMC_DISABLE_BACKGROUND_COPY_TIMEOUT = 30
+BMC_DISABLE_BACKGROUND_COPY_INTERVAL = 5
 BMC_COMPONENT_NAME = 'BMC'
 BMC_UPDATE_COMMAND = "sudo config platform firmware {} chassis component BMC fw -y"
 BMC_INSTALL_COMMAND = "sudo config platform firmware {} chassis component BMC fw -y {}"
-BMC_GET_STATUS_COMMAND = "curl -k -u {}:{} -X GET https://{}/redfish/v1/Chassis/MGX_ERoT_BMC_0"
-BMC_COMPLETE_STATUS = "Completed"
+BMC_GET_STATUS_COMMAND = "curl -k -u {}:{} --request GET --location https://{}/redfish/v1/Chassis/MGX_ERoT_BMC_0"
+BMC_DISABLE_BACKGROUND_COPY_COMMAND = (
+    "curl -k -u {}:{} -H \"Content-Type: application/json\" -X PATCH "
+    "https://{}/redfish/v1/Chassis/MGX_ERoT_BMC_0 "
+    "-d '{{\"Oem\": {{\"Nvidia\": {{\"AutomaticBackgroundCopyEnabled\": false}}}}}}'"
+)
 
 # BMC session test commands
 BMC_OPEN_SESSION_COMMAND = "sudo config bmc open-session"
@@ -82,9 +88,9 @@ def _get_bmc_version(duthost, timeout=120):
         time.sleep(5)
 
 
-def _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+def _get_bmc_background_copy_enabled(duthost, bmc_ip, bmc_root_user, bmc_root_password):
     """
-    Check if BMC is busy by querying BackgroundCopyStatus from Redfish API
+    Query the ERoT-BMC Chassis endpoint and return Oem.Nvidia.AutomaticBackgroundCopyEnabled.
 
     Args:
         duthost: DUT host object
@@ -92,19 +98,90 @@ def _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
         bmc_root_user: BMC root username
         bmc_root_password: BMC root password
     Returns:
-        bool: True if BMC is busy (BackgroundCopyStatus != "Completed"), False otherwise
+        bool: value of AutomaticBackgroundCopyEnabled (defaults to True if missing/unparsable)
     """
     res = duthost.command(BMC_GET_STATUS_COMMAND.format(bmc_root_user, bmc_root_password, bmc_ip))["stdout"]
     pytest_assert(res is not None, "Failed to query BMC status")
 
     try:
         response_json = json.loads(res)
-        background_copy_status = response_json.get("Oem", {}).get("Nvidia", {}).get("BackgroundCopyStatus", "")
-        logger.info(f"BMC BackgroundCopyStatus: {background_copy_status}")
-        return background_copy_status != BMC_COMPLETE_STATUS
+        background_copy_enabled = response_json.get("Oem", {}).get("Nvidia", {}).get(
+            "AutomaticBackgroundCopyEnabled", True)
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         logger.warning(f"Failed to parse BMC status response: {e}, response: {res}")
         return True
+
+    logger.info(f"BMC AutomaticBackgroundCopyEnabled: {background_copy_enabled}")
+    return background_copy_enabled
+
+
+def _disable_bmc_background_copy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+    """
+    Disable automatic background copy on the ERoT-BMC via Redfish PATCH.
+
+    Sends:
+        PATCH /redfish/v1/Chassis/MGX_ERoT_BMC_0
+        -d '{"Oem": {"Nvidia": {"AutomaticBackgroundCopyEnabled": false}}}'
+
+    Args:
+        duthost: DUT host object
+        bmc_ip: BMC IP address
+        bmc_root_user: BMC root username
+        bmc_root_password: BMC root password
+    Returns:
+        str: raw response body from the PATCH request
+    """
+    logger.info("Disabling BMC AutomaticBackgroundCopyEnabled via Redfish PATCH")
+    res = duthost.command(
+        BMC_DISABLE_BACKGROUND_COPY_COMMAND.format(bmc_root_user, bmc_root_password, bmc_ip))["stdout"]
+    logger.info(f"BMC disable background copy response: {res}")
+    return res
+
+
+def _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+    """
+    Check if BMC/ERoT is busy.
+
+    Logic:
+        1. Query the Chassis Redfish endpoint for Oem.Nvidia.AutomaticBackgroundCopyEnabled.
+           - If False -> automatic background copy is disabled -> BMC is NOT busy.
+           - If True  -> PATCH the Chassis endpoint to disable AutomaticBackgroundCopyEnabled,
+                         then poll (re-query) for up to BMC_DISABLE_BACKGROUND_COPY_TIMEOUT
+                         seconds until it becomes False. If it becomes False, BMC is NOT busy;
+                         otherwise (timeout) it is still busy.
+
+    Args:
+        duthost: DUT host object
+        bmc_ip: BMC IP address
+        bmc_root_user: BMC root username
+        bmc_root_password: BMC root password
+    Returns:
+        bool: True if BMC is busy, False otherwise
+    """
+    background_copy_enabled = _get_bmc_background_copy_enabled(
+        duthost, bmc_ip, bmc_root_user, bmc_root_password)
+
+    if not background_copy_enabled:
+        # AutomaticBackgroundCopyEnabled is False -> BMC is not busy
+        return False
+
+    # AutomaticBackgroundCopyEnabled is True -> disable it via PATCH
+    _disable_bmc_background_copy(duthost, bmc_ip, bmc_root_user, bmc_root_password)
+
+    # Poll until AutomaticBackgroundCopyEnabled becomes False (up to timeout).
+    start_time = time.time()
+    while True:
+        background_copy_enabled = _get_bmc_background_copy_enabled(
+            duthost, bmc_ip, bmc_root_user, bmc_root_password)
+        if not background_copy_enabled:
+            # Confirmed disabled -> BMC is not busy
+            return False
+        if time.time() - start_time > BMC_DISABLE_BACKGROUND_COPY_TIMEOUT:
+            logger.warning(
+                f"AutomaticBackgroundCopyEnabled still True after "
+                f"{BMC_DISABLE_BACKGROUND_COPY_TIMEOUT}s -> BMC is still busy")
+            return True
+        time.sleep(BMC_DISABLE_BACKGROUND_COPY_INTERVAL)
 
 
 def _update_bmc_firmware(duthost, fw_image, bmc_ip, method='api',
