@@ -677,8 +677,12 @@ def run_traffic(duthost,
         dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
         dp.Single(False)
         sci_id = ixnet.Topology.find()[1].DeviceGroup.find()[0].Ethernet.find()[0].StaticMacsec.find()[0].DutSciMac
-        dut_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
-        sci_id.Single(duthost.get_dut_iface_mac(dut_port))
+        sci_mac = ''
+        for port in snappi_extra_params.multi_dut_params.multi_dut_ports:
+            if port['port_id'] == 1:
+                sci_mac = port['duthost'].get_dut_iface_mac(port['peer_port'])
+        pytest_assert(sci_mac, "dut_sci_mac not found for the macsec configuration on tgen")
+        sci_id.Single(sci_mac)
         for ti in ixnet.Traffic.TrafficItem.find():
             ti.EnableMacsecEgressOnlyAutoConfig = False
             ti.Tracking.find()[0].TrackBy = []
@@ -821,13 +825,6 @@ def run_traffic(duthost,
                             flow_names.append(fs['Traffic Item'] + "-" + fs['PGID'])
                             tx_frames.append(fs['Tx Frames'])
                             rx_frames.append(fs['Rx Frames'])
-                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
-                logger.info("In-flight TX frames: {}".format(tx_frames))
-                logger.info("In-flight RX frames: {}".format(rx_frames))
-                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
-                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
                 rows = list(zip(flow_names, tx_frames, rx_frames))
                 logger.info(
                     "In-flight traffic statistics for flows:\n%s",
@@ -1384,6 +1381,14 @@ def verify_pause_frame_count_dut(rx_dut,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
 
+def _int_if_str(v):
+    """
+    Converts string to integer if value is string.
+    No change if value is integer.
+    """
+    return int(v) if isinstance(v, str) else v
+
+
 def verify_tx_frame_count_dut(duthost,
                               api,
                               snappi_extra_params,
@@ -1428,6 +1433,9 @@ def verify_tx_frame_count_dut(duthost,
 
         # Collect metrics from DUT once all flows have stopped
         tx_dut_frames, tx_dut_drop_frames = get_tx_frame_count(duthost, peer_port)
+
+        tgen_tx_frames = _int_if_str(tgen_tx_frames)
+        tx_dut_frames = _int_if_str(tx_dut_frames)
 
         # Verify metrics between TGEN and DUT
         pytest_assert(abs(tgen_tx_frames - tx_dut_frames)/tgen_tx_frames <= tx_frame_count_deviation,
@@ -1477,10 +1485,13 @@ def verify_rx_frame_count_dut(duthost,
                     break
 
         # Collect metrics from DUT once all flows have stopped
-        rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+        rx_dut_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+
+        tgen_rx_frames = _int_if_str(tgen_rx_frames)
+        rx_dut_frames = _int_if_str(rx_dut_frames)
 
         # Verify metrics between TGEN and DUT
-        pytest_assert(abs(tgen_rx_frames - rx_frames)/tgen_rx_frames <= rx_frame_count_deviation,
+        pytest_assert(abs(tgen_rx_frames - rx_dut_frames)/tgen_rx_frames <= rx_frame_count_deviation,
                       "Additional frames are received outside of deviation. Possible PFC frames are counted.")
         pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 
