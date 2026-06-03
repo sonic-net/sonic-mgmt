@@ -67,6 +67,20 @@ CURL_BASIC_AUTH_PATCH = "curl -k -i -u {}:{} -H \"Content-Type: application/json
 CURL_BASIC_AUTH_DELETE = "curl -k -u {}:{} -X DELETE https://{}{}"
 
 
+def _get_bmc_version(duthost, timeout=120):
+    """Get BMC firmware version from 'show platform firmware status' output."""
+    start_time = time.time()
+    while True:
+        if time.time() - start_time > timeout:
+            logger.warning(f"Timeout after {timeout}s while getting BMC version")
+            return None
+        res = duthost.show_and_parse('sudo show platform firmware status')
+        for entry in res:
+            if entry['component'] == 'BMC' and entry['version'] != 'N/A':
+                return entry['version']
+        time.sleep(5)
+
+
 def _get_bmc_background_copy_enabled(duthost, bmc_ip, bmc_root_user, bmc_root_password):
     """
     Query the ERoT-BMC Chassis endpoint and return Oem.Nvidia.AutomaticBackgroundCopyEnabled.
@@ -92,6 +106,75 @@ def _get_bmc_background_copy_enabled(duthost, bmc_ip, bmc_root_user, bmc_root_pa
 
     logger.info(f"BMC AutomaticBackgroundCopyEnabled: {background_copy_enabled}")
     return background_copy_enabled
+
+
+def _disable_bmc_background_copy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+    """
+    Disable automatic background copy on the ERoT-BMC via Redfish PATCH.
+
+    Sends:
+        PATCH /redfish/v1/Chassis/MGX_ERoT_BMC_0
+        -d '{"Oem": {"Nvidia": {"AutomaticBackgroundCopyEnabled": false}}}'
+
+    Args:
+        duthost: DUT host object
+        bmc_ip: BMC IP address
+        bmc_root_user: BMC root username
+        bmc_root_password: BMC root password
+    Returns:
+        str: raw response body from the PATCH request
+    """
+    logger.info("Disabling BMC AutomaticBackgroundCopyEnabled via Redfish PATCH")
+    res = duthost.command(
+        BMC_DISABLE_BACKGROUND_COPY_COMMAND.format(bmc_root_user, bmc_root_password, bmc_ip))["stdout"]
+    logger.info(f"BMC disable background copy response: {res}")
+    return res
+
+
+def _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+    """
+    Check if BMC/ERoT is busy.
+
+    Logic:
+        1. Query the Chassis Redfish endpoint for Oem.Nvidia.AutomaticBackgroundCopyEnabled.
+           - If False -> automatic background copy is disabled -> BMC is NOT busy.
+           - If True  -> PATCH the Chassis endpoint to disable AutomaticBackgroundCopyEnabled,
+                         then poll (re-query) for up to BMC_DISABLE_BACKGROUND_COPY_TIMEOUT
+                         seconds until it becomes False. If it becomes False, BMC is NOT busy;
+                         otherwise (timeout) it is still busy.
+
+    Args:
+        duthost: DUT host object
+        bmc_ip: BMC IP address
+        bmc_root_user: BMC root username
+        bmc_root_password: BMC root password
+    Returns:
+        bool: True if BMC is busy, False otherwise
+    """
+    background_copy_enabled = _get_bmc_background_copy_enabled(
+        duthost, bmc_ip, bmc_root_user, bmc_root_password)
+
+    if not background_copy_enabled:
+        # AutomaticBackgroundCopyEnabled is False -> BMC is not busy
+        return False
+
+    # AutomaticBackgroundCopyEnabled is True -> disable it via PATCH
+    _disable_bmc_background_copy(duthost, bmc_ip, bmc_root_user, bmc_root_password)
+
+    # Poll until AutomaticBackgroundCopyEnabled becomes False (up to timeout).
+    start_time = time.time()
+    while True:
+        background_copy_enabled = _get_bmc_background_copy_enabled(
+            duthost, bmc_ip, bmc_root_user, bmc_root_password)
+        if not background_copy_enabled:
+            # Confirmed disabled -> BMC is not busy
+            return False
+        if time.time() - start_time > BMC_DISABLE_BACKGROUND_COPY_TIMEOUT:
+            logger.warning(
+                f"AutomaticBackgroundCopyEnabled still True after "
+                f"{BMC_DISABLE_BACKGROUND_COPY_TIMEOUT}s -> BMC is still busy")
+            return True
+        time.sleep(BMC_DISABLE_BACKGROUND_COPY_INTERVAL)
 
 
 def _disable_bmc_background_copy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
