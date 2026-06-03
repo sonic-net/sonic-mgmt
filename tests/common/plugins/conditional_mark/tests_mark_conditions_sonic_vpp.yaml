@@ -448,17 +448,6 @@ ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
       - "asic_type in ['vpp']"
 
 #######################################
-#####         Log Fidelity        #####
-#######################################
-log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
