@@ -330,7 +330,12 @@ class TestQosProbe(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
         if lossyProfile not in qosConfig:
-            pytest.skip(f"{lossyProfile} is not defined in QoS config")
+            # Mellanox: lossy_queue_1 is defined at dutQosConfig["param"] level (sibling of
+            # "profile" key in qos_params.mellanox.yaml), not under the per-speed sub-dict.
+            # Legacy testQosSaiLossyQueue has the same fallback (test_qos_sai.py L1213-1216).
+            qosConfig = dutQosConfig["param"]
+            if lossyProfile not in qosConfig:
+                pytest.skip(f"{lossyProfile} is not defined in QoS config")
 
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         if platform_asic == "broadcom-dnx":
@@ -507,7 +512,7 @@ class TestQosProbe(QosSaiBase):
             src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
                               if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
                               else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosParams=qosConfig["hdrm_pool_size"])
 
         # begin - collect all available test ports for probing
         duthost = get_src_dst_asic_and_duts['src_dut']
