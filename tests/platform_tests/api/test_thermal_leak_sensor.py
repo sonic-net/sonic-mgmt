@@ -69,7 +69,7 @@ class TestLeakSensorApi(PlatformApiTestBase):
     def test_leak_sensor_status_attributes(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                            platform_api_conn):  # noqa: F811
         """Verify is_leak(), is_leak_sensor_ok(), get_leak_severity()."""
-        valid_severities = ['MINOR', 'CRITICAL']
+        valid_severities = ['MINOR', 'CRITICAL', None]
 
         for sensor_index in range(self.num_leak_sensors):
             # is_leak()
@@ -82,12 +82,10 @@ class TestLeakSensorApi(PlatformApiTestBase):
             self.expect(isinstance(sensor_ok, bool),
                         f"Sensor {sensor_index} is_leak_sensor_ok() should return bool")
 
-            # get_leak_severity()
+            # get_leak_severity() — None is allowed (e.g. when not currently leaking)
             severity = leak_sensor.get_leak_severity(platform_api_conn, sensor_index)
-            self.expect(isinstance(severity, str),
-                        f"Sensor {sensor_index} get_leak_severity() should return string")
             self.expect(severity in valid_severities,
-                        f"Sensor {sensor_index} get_leak_severity()={severity} not in {valid_severities}")
+                        f"Sensor {sensor_index} get_leak_severity()={severity!r} not in {valid_severities}")
 
     def test_leak_sensor_profile(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
         """Verify per-sensor profile (get_type, get_leak_max_minor_duration_sec) and get_all_profiles()."""

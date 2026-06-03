@@ -67,8 +67,7 @@ class TestBmcWatchdog:
         """
         Verify BMC watchdog: arm/disarm via `watchdogutil` round-trips correctly
         AND `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed
-        `watchdog-keepalive.sh` daemon (sonic-buildimage commit bc13e6afa,
-        platform/aspeed/aspeed-platform-services/scripts/watchdog-keepalive.sh).
+        `watchdog-keepalive.sh` daemon.
 
         The keepalive script:
           - Creates /host/bmc/ if missing, writes lifecycle and keepalive lines

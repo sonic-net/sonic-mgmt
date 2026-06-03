@@ -10,6 +10,7 @@ power-cycle verification patterns repeated across:
 """
 
 import logging
+from contextlib import contextmanager
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -34,66 +35,33 @@ BMC_INITIATED_REBOOT_CAUSES = (
 
 
 # --- Redis helpers ---------------------------------------------------------
-
-def redis_hget(duthost, db, key, field):
-    """Return HGET value (stripped str) or '' if absent."""
-    r = duthost.shell(
-        f"sonic-db-cli {db} HGET '{key}' {field}",
-        module_ignore_errors=True
-    )
-    return (r.get('stdout', '') or '').strip()
-
-
-def redis_hgetall(duthost, db, key):
-    """Return HGETALL as dict; empty dict on miss."""
-    r = duthost.shell(
-        f"sonic-db-cli {db} HGETALL '{key}'",
-        module_ignore_errors=True
-    )
-    out = (r.get('stdout', '') or '').strip()
-    if not out:
-        return {}
-    # sonic-db-cli HGETALL returns Python-dict repr; fall back to line pairs
-    # for back-compat with raw redis-cli style output.
-    if out.startswith('{') and out.endswith('}'):
-        try:
-            import ast
-            parsed = ast.literal_eval(out)
-            if isinstance(parsed, dict):
-                return {str(k): str(v) for k, v in parsed.items()}
-        except (ValueError, SyntaxError):
-            # Not a Python literal — fall through to the line-pair parser below
-            # for raw redis-cli style output.
-            pass
-    lines = out.split('\n')
-    return {lines[i]: lines[i + 1] for i in range(0, len(lines), 2) if i + 1 < len(lines)}
+from tests.common.helpers.sonic_db import (  # noqa: F401,E402
+    redis_hget,
+    redis_hgetall,
+    redis_hset,
+    redis_del,
+    redis_keys,
+)
 
 
-def redis_hset(duthost, db, key, **fields):
-    """HSET one or more field=value pairs."""
-    if not fields:
-        return
-    parts = ' '.join(f"{k} {v}" for k, v in fields.items())
-    duthost.shell(
-        f"sonic-db-cli {db} HSET '{key}' {parts}",
-        module_ignore_errors=True
-    )
+# --- pmon daemon helpers ---------------------------------------------------
 
+@contextmanager
+def pause_pmon_daemon(duthost, daemon_name):
+    """Stop a pmon daemon for the duration of the `with` block; restart on exit.
 
-def redis_del(duthost, db, *keys):
-    """DEL one or more keys."""
-    for k in keys:
-        duthost.shell(f"sonic-db-cli {db} DEL '{k}'", module_ignore_errors=True)
-
-
-def redis_keys(duthost, db, pattern):
-    """KEYS pattern → list of key names."""
-    r = duthost.shell(
-        f"sonic-db-cli {db} KEYS '{pattern}'",
-        module_ignore_errors=True
-    )
-    out = (r.get('stdout', '') or '').strip()
-    return out.split('\n') if out else []
+    Useful when a test injects a value into STATE_DB that the daemon would
+    otherwise overwrite (e.g. injecting `SYSTEM_LEAK_STATUS.device_leak_status`
+    while thermalctld is running would have thermalctld immediately reset the
+    field on its next refresh).
+    """
+    logger.info("Pausing pmon daemon '%s' for duration of injection", daemon_name)
+    duthost.stop_pmon_daemon_service(daemon_name)
+    try:
+        yield
+    finally:
+        logger.info("Restarting pmon daemon '%s'", daemon_name)
+        duthost.start_pmon_daemon(daemon_name)
 
 
 # --- Log helpers -----------------------------------------------------------

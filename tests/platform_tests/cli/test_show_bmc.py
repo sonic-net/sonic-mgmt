@@ -1,7 +1,7 @@
 """
 CLI command tests for BMC and module control
 
-Tests cover CLI commands from design doc section 2.3:
+Tests cover CLI commands:
 - config chassis modules startup/shutdown/power-on-delay/shutdown-timeout (LC, AC)
 - config liquid-cool leak-control / leak-action (LC)
 - show chassis module status (LC, AC)
@@ -32,7 +32,7 @@ pytestmark = [
 
 class TestBmcCliCommands:
     """
-    Test BMC CLI commands as defined in design doc section 2.3.
+    Test BMC CLI commands.
     """
 
     @pytest.fixture(scope='function', autouse=True)
@@ -43,7 +43,7 @@ class TestBmcCliCommands:
 
     def test_show_chassis_module_status(self):
         """
-        Verify 'show chassis module status' (design doc section 2.3.2, LC+AC).
+        Verify 'show chassis module status' (LC+AC).
 
         Validates:
         - Command succeeds and returns non-empty output
@@ -71,7 +71,7 @@ class TestBmcCliCommands:
 
     def test_show_platform_temperature(self):
         """
-        Verify 'show platform temperature' (design doc section 2.3.2, LC+AC).
+        Verify 'show platform temperature' (LC+AC).
 
         Validates:
         - Command succeeds and returns non-empty output
@@ -126,7 +126,7 @@ class TestBmcCliCommands:
 
         Help-text smoke (non-disruptive):
         - config chassis modules --help documents startup/shutdown/power-on-delay/shutdown-timeout
-        - startup/shutdown subcommands are individually invokable
+        - startup/shutdown commands are individually invokable
 
         Functional smoke (disruptive — actually reboots the paired Switch-Host):
         - shutdown SWITCH-HOST → wait offline
@@ -226,9 +226,12 @@ class TestBmcCliCommands:
         try:
             # --- leak-action functional round-trip ---
             for target in ['system', 'rack_mgr']:
+                # Field naming per design doc (LEAK_CONTROL_POLICY in CONFIG_DB):
+                #   system  → system_{severity}_leak_action
+                #   rack_mgr → rack_mgr_{severity}_alert_action
+                action_suffix = 'leak_action' if target == 'system' else 'alert_action'
                 for severity in ['minor', 'critical']:
-                    # Find current action for this (target, severity) in snapshot
-                    field_substr = f"{target}_{severity}_leak_action"
+                    field_substr = f"{target}_{severity}_{action_suffix}"
                     current_action = next(
                         (v for k, v in original.items()
                          if field_substr.lower() in k.lower()),
@@ -251,8 +254,9 @@ class TestBmcCliCommands:
                     logger.info(f"Verified via show: {field_substr}={new_action}")
 
             # --- leak-control functional toggle ---
+            # Policy field per design doc: {target}_leak_policy (enabled|disabled).
             for target in ['system', 'rack_mgr']:
-                field_substr = f"{target}_leak_control"
+                field_substr = f"{target}_leak_policy"
                 current_state = next(
                     (v for k, v in original.items() if field_substr.lower() in k.lower()),
                     None
@@ -260,8 +264,8 @@ class TestBmcCliCommands:
                 if current_state is None:
                     logger.info(f"Skipping leak-control {target}: not in policy snapshot")
                     continue
-                new_state = 'disable' if current_state.lower() in ('enable', 'enabled', 'true') \
-                    else 'enable'
+                new_state = 'disabled' if current_state.lower() in ('enable', 'enabled', 'true') \
+                    else 'enabled'
                 cmd = f"config liquid-cool leak-control {target} {new_state}"
                 result = self.duthost.shell(cmd, module_ignore_errors=True)
                 pytest_assert(result['rc'] == 0,
@@ -292,17 +296,18 @@ class TestBmcCliCommands:
 
     def test_show_platform_leak_commands(self):
         """
-        Verify show platform leak sub-commands exist and produce valid output (LC platforms)
+        Verify show platform leak commands produce valid output (LC platforms).
 
         Validates:
-        - show platform leak control-policy: shows LEAK_CONTROL_POLICY fields
         - show platform leak rack-manager alerts: shows alert table
         - show platform leak profiles: shows sensor type and max-minor-duration columns
         - show platform leak status: shows per-sensor name/leak/severity columns
+
+        Note: `show platform leak control-policy` is exercised end-to-end by
+        test_liquid_cool_config_commands (config-write + verify loop), so it's
+        not re-checked here.
         """
         leak_commands = [
-            ("show platform leak control-policy",
-             ['system_leak_policy', 'rack_mgr_leak_policy']),
             ("show platform leak rack-manager alerts",
              ['Severity', 'Timestamp']),
             ("show platform leak profiles",

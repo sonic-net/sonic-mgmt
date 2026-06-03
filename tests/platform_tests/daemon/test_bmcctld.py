@@ -11,9 +11,12 @@ Tests cover:
 
 import logging
 import pytest
+import re
 import time
+from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     CONFIG_DB,
@@ -22,6 +25,7 @@ from tests.common.platform.bmc_utils import (
     bmc_event_log_tail_from,
     bmc_event_or_syslog_contains,
     get_host_uptime,
+    pause_pmon_daemon,
     redis_del,
     redis_hget,
     redis_hgetall,
@@ -83,10 +87,11 @@ class TestBmcctldDaemon:
         - After a BMC reboot (non-power-loss), pmon journal contains
           "Skipping SWITCH_HOST_POWER_ON_DELAY"
         """
-        from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
         # Reboot the BMC so we exercise a fresh bmcctld initialization
-        reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD)
+        reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
+               wait_for_ssh=True, safe_reboot=True)
+        wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
 
         # Verify service running via existing infra (not pgrep)
         daemon_status, daemon_pid = self.duthost.get_pmon_daemon_status("bmcctld")
@@ -172,7 +177,7 @@ class TestBmcctldDaemon:
                       "thermalctld must be running for bmcctld leak event handling")
 
         result = self.duthost.shell(
-            "config chassis modules --help 2>/dev/null | grep -i admin",
+            "config chassis modules --help 2>/dev/null | grep -Ei 'startup|shutdown'",
             module_ignore_errors=True
         )
         pytest_assert(result['rc'] == 0 and result['stdout'].strip(),
@@ -211,33 +216,35 @@ class TestBmcctldDaemon:
         else:
             # Snapshot event.log size before the trigger to detect any new MINOR entries
             pre_lines = bmc_event_log_line_count(self.duthost)
-            try:
-                redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                           device_leak_status='MINOR')
-                logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → MINOR")
-                found = wait_until(30, 3, 0, log_contains, 'leak')
-                trigger_results['SYSTEM_LEAK_STATUS'] = found
-                logger.info(f"Trigger 2: {'logged' if found else 'no log within 30s'}")
+            # Pause thermalctld so it doesn't overwrite the injected device_leak_status
+            with pause_pmon_daemon(self.duthost, 'thermalctld'):
+                try:
+                    redis_hset(self.duthost, STATE_DB,
+                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               device_leak_status='MINOR')
+                    logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → MINOR")
+                    found = wait_until(30, 3, 0, log_contains, 'leak')
+                    trigger_results['SYSTEM_LEAK_STATUS'] = found
+                    logger.info(f"Trigger 2: {'logged' if found else 'no log within 30s'}")
 
-                # Negative routing assertion: any new line(s) appended to event.log
-                # since the trigger must NOT mention a MINOR leak — MINOR severity
-                # is supposed to be syslog-only.
-                new_tail = bmc_event_log_tail_from(self.duthost, pre_lines)
-                minor_leak_lines = [
-                    ln for ln in new_tail.splitlines()
-                    if 'leak' in ln.lower() and 'minor' in ln.lower()
-                ]
-                pytest_assert(
-                    not minor_leak_lines,
-                    f"MINOR leak event must NOT be written to {BMC_EVENT_LOG} "
-                    f"(syslog-only). Found {len(minor_leak_lines)} line(s): "
-                    f"{minor_leak_lines[:3]}"
-                )
-            finally:
-                redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                           device_leak_status=orig_leak)
+                    # Negative routing assertion: any new line(s) appended to event.log
+                    # since the trigger must NOT mention a MINOR leak — MINOR severity
+                    # is supposed to be syslog-only.
+                    new_tail = bmc_event_log_tail_from(self.duthost, pre_lines)
+                    minor_leak_lines = [
+                        ln for ln in new_tail.splitlines()
+                        if 'leak' in ln.lower() and 'minor' in ln.lower()
+                    ]
+                    pytest_assert(
+                        not minor_leak_lines,
+                        f"MINOR leak event must NOT be written to {BMC_EVENT_LOG} "
+                        f"(syslog-only). Found {len(minor_leak_lines)} line(s): "
+                        f"{minor_leak_lines[:3]}"
+                    )
+                finally:
+                    redis_hset(self.duthost, STATE_DB,
+                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               device_leak_status=orig_leak)
 
         # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
         # Handler: _handle_system_leak with severity=CRITICAL dispatches the configured
@@ -248,23 +255,25 @@ class TestBmcctldDaemon:
         # Ensure policy is power_off (the default).
         redis_hset(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|system',
                    system_critical_leak_action='power_off')
-        try:
-            redis_hset(self.duthost, STATE_DB,
-                       f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                       device_leak_status='CRITICAL')
-            logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
-            wait_host_on(host)
-            verify_bmc_initiated_reboot(host, pre_boot)
-            trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
-        finally:
-            redis_hset(self.duthost, STATE_DB,
-                       f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                       device_leak_status=orig_leak)
-            # Best-effort recovery if Switch-Host did not auto-power-on.
-            self.duthost.shell(
-                "config chassis modules startup SWITCH-HOST",
-                module_ignore_errors=True
-            )
+        # Pause thermalctld so it doesn't overwrite the injected device_leak_status
+        with pause_pmon_daemon(self.duthost, 'thermalctld'):
+            try:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           device_leak_status='CRITICAL')
+                logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
+                wait_host_on(host)
+                verify_bmc_initiated_reboot(host, pre_boot)
+                trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
+            finally:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           device_leak_status=orig_leak)
+                # Best-effort recovery if Switch-Host did not auto-power-on.
+                self.duthost.shell(
+                    "config chassis modules startup SWITCH-HOST",
+                    module_ignore_errors=True
+                )
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler: _handle_rack_mgr_alert → logs "RACK_MGR_MINOR_EVENT"; default action
@@ -379,22 +388,24 @@ class TestBmcctldDaemon:
         orig_leak = redis_hget(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}:system',
                                'device_leak_status') or 'OK'
-        try:
-            redis_hset(self.duthost, STATE_DB,
-                       f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                       device_leak_status='CRITICAL')
-            hset_cmd(blocked_key, 'POWER_ON')
-            wait_until(30, 3, 0, lambda: hget_status(blocked_key) == 'FAILED')
-            pytest_assert(hget_status(blocked_key) == 'FAILED',
-                          f"POWER_ON during CRITICAL leak should fail, got "
-                          f"status={hget_status(blocked_key)!r}")
-        finally:
-            del_cmd(blocked_key)
-            redis_hset(self.duthost, STATE_DB,
-                       f'{SYSTEM_LEAK_STATUS_TABLE}:system',
-                       device_leak_status=orig_leak)
-            self.duthost.shell("config chassis modules startup SWITCH-HOST",
-                               module_ignore_errors=True)
+        # Pause thermalctld so it doesn't overwrite the injected device_leak_status
+        with pause_pmon_daemon(self.duthost, 'thermalctld'):
+            try:
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           device_leak_status='CRITICAL')
+                hset_cmd(blocked_key, 'POWER_ON')
+                wait_until(30, 3, 0, lambda: hget_status(blocked_key) == 'FAILED')
+                pytest_assert(hget_status(blocked_key) == 'FAILED',
+                              f"POWER_ON during CRITICAL leak should fail, got "
+                              f"status={hget_status(blocked_key)!r}")
+            finally:
+                del_cmd(blocked_key)
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           device_leak_status=orig_leak)
+                self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                                   module_ignore_errors=True)
 
         # --- Scenario 5: Unknown command rejected without dispatching power action ---
         # Handler: _handle_rack_mgr_command logs "Unknown Rack Manager command: ..."
@@ -428,9 +439,6 @@ class TestBmcctldDaemon:
              and the subsequent power_on dispatch must be >= configured delay.
              Skipped if no PDU controller is wired for this BMC.
         """
-        import re
-        from datetime import datetime
-        from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
         test_delay = 30
         tolerance_upper = 30
@@ -548,7 +556,6 @@ class TestBmcctldDaemon:
         - BMC: uptime advances, reboot-cause history grows by one entry
         - Switch-Host: uptime unchanged, reboot-cause history length unchanged
         """
-        from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 
         host = self.duthost.get_bmc_host()
 

@@ -3,6 +3,7 @@
 import logging
 import pytest
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import chassis, module as module_api
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
@@ -57,8 +58,8 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
         # get_description()
         description = module_api.get_description(platform_api_conn, self.sw_idx)
-        self.expect(description is None or isinstance(description, str),
-                    "SWITCH-HOST get_description() should return str or None")
+        self.expect(isinstance(description, str) and len(description) > 0,
+                    f"SWITCH-HOST get_description() should return non-empty string, got {description!r}")
 
         # get_serial()
         serial = module_api.get_serial(platform_api_conn, self.sw_idx)
@@ -67,29 +68,31 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
         # get_type()
         mod_type = module_api.get_type(platform_api_conn, self.sw_idx)
-        self.expect(mod_type is None or isinstance(mod_type, str),
-                    "SWITCH-HOST get_type() should return str or None")
-        logger.info(f"SWITCH-HOST: name={name}, type={mod_type}, serial={serial}")
+        self.expect(isinstance(mod_type, str) and len(mod_type) > 0,
+                    f"SWITCH-HOST get_type() should return non-empty string, got {mod_type!r}")
+        logger.info(f"SWITCH-HOST: name={name}, description={description}, type={mod_type}, serial={serial}")
 
     def test_switch_host_status_control(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
         """Disruptive: verify get_oper_status() and drive a real set_admin_state down→up cycle.
 
-        get_oper_status() returns one of the MODULE_STATUS_* constants:
-        'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'.
+        get_oper_status() returns 'Online' or 'Offline' (compared case-insensitively;
+        bmcctld only produces these two in practice).
         set_admin_state(up) takes a boolean and returns bool.
         """
-        from tests.common.utilities import wait_until
 
-        valid_oper = {'Empty', 'Offline', 'PoweredDown', 'Present', 'Fault', 'Online'}
-        down_set = {'Offline', 'PoweredDown'}
-        up_set = {'Present', 'Online'}
+        valid_oper = {'online', 'offline'}
 
-        oper_status = module_api.get_oper_status(platform_api_conn, self.sw_idx)
+        def _oper():
+            s = module_api.get_oper_status(platform_api_conn, self.sw_idx)
+            return s.lower() if isinstance(s, str) else s
+
+        oper_status = _oper()
         self.expect(isinstance(oper_status, str),
                     f"get_oper_status() should return string, got {type(oper_status)}")
         self.expect(oper_status in valid_oper,
-                    f"get_oper_status() should be one of {sorted(valid_oper)}, got {oper_status!r}")
+                    f"get_oper_status() should be one of {sorted(valid_oper)} (case-insensitive), "
+                    f"got {oper_status!r}")
         logger.info(f"SWITCH-HOST initial oper_status: {oper_status}")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -99,8 +102,7 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         try:
             ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, False)
             self.expect(ret is True, f"set_admin_state(False) should return True, got {ret!r}")
-            wait_until(180, 10, 0,
-                       lambda: module_api.get_oper_status(platform_api_conn, self.sw_idx) in down_set)
+            wait_until(180, 10, 0, lambda: _oper() == 'offline')
 
             ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, True)
             self.expect(ret is True, f"set_admin_state(True) should return True, got {ret!r}")
@@ -116,9 +118,10 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
             self.expect(any(c in cause for c in valid_causes),
                         f"reboot-cause {cause!r} not in expected BMC-initiated set {valid_causes}")
 
-            final_oper = module_api.get_oper_status(platform_api_conn, self.sw_idx)
-            self.expect(final_oper in up_set,
-                        f"After admin-up, get_oper_status() should be in {sorted(up_set)}, got {final_oper!r}")
+            final_oper = _oper()
+            self.expect(final_oper == 'online',
+                        f"After admin-up, get_oper_status() should be 'online' (case-insensitive), "
+                        f"got {final_oper!r}")
         finally:
             module_api.set_admin_state(platform_api_conn, self.sw_idx, True)
 
@@ -186,7 +189,6 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
 
         Disruptive: triggers a real power cycle on the paired Switch-Host.
         """
-        from tests.common.utilities import wait_until
 
         sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
         if sw_idx is None or sw_idx < 0:
