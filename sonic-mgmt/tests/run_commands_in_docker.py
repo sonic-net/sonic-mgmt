@@ -1,9 +1,21 @@
 #!/usr/bin/python
 
 import argparse
+import os
+import sys
 import paramiko
 import time
-from hw_setup_utils import getSonicMgmtContainterName
+
+# hw_setup_utils lives under infra/ and loads config/hw_cfg.json at import time.
+_infra_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "infra"))
+if _infra_dir not in sys.path:
+    sys.path.insert(0, _infra_dir)
+_prev_cwd = os.getcwd()
+os.chdir(_infra_dir)
+try:
+    from hw_setup_utils import getSonicMgmtContainterName
+finally:
+    os.chdir(_prev_cwd)
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute commands inside a docker container in a remote server')
@@ -16,9 +28,9 @@ def _create_parser():
     parser.add_argument('--ssh-port', type=str, help='optional: ssh port, if applicable',
                       required=False, default='22')
     parser.add_argument('--stream', type=str, help='stream of the image',
-                      required=True,default="")
+                      required=True)
     parser.add_argument('--testbed', type=str, help='testbed',
-                      required=True,default="")
+                      required=True)
     parser.add_argument('--command', type=str, help='command to run inside container',
                       required=True)
     return parser

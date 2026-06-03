@@ -58,9 +58,9 @@ def _create_parser():
     parser.add_argument('--ssh-port', type=str, help='optional: ssh port, if applicable',
                       required=False, default='22')
     parser.add_argument('--stream', type=str, help='stream of the image',
-                      required=True,default="")
+                      required=True)
     parser.add_argument('--testbed', type=str, help='testbed',
-                      required=True,default="")
+                      required=True)
     
     parser.add_argument('--install-allure', action='store_true', help='install allure inside container')
     
