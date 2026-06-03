@@ -1,0 +1,28 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# DO NOT add more test case files in this suites file; instead add in 'tortuga_parallel'
+# This file is deprecated!!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# Modules
+
+
++file:switching/test_l2_ping.py
++file:switching/test_l3_ping.py
++file:switching/test_vlan_advanced.py
++file:switching/test_portchannel_advanced.py
+# DO NOT add more test case files in this; instead add in 'tortuga_parallel'
+# Follow the instructions and insert the test suite in the appropriate location
+
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400
++args:--max-time module 2400
++args:--max-time function 2400
++args:--logs-level=debug
++args:--random-order=0
