@@ -60,12 +60,12 @@ class TestQosProbe(QosSaiBase):
         """Determine ingress drop counter mode based on platform capability.
 
         3-level fallback: pg_drop > port_buffer_drop > port_drop
-        Currently only cisco-8000 is verified to support pg_drop and port_buffer_drop.
-        Broadcom/Mellanox default to port_drop until verified.
+        cisco-8000 and mellanox use pg_drop (per-PG SAI counter, noise-immune).
+        Broadcom defaults to port_drop until verified.
         Tracked by: https://github.com/sonic-net/sonic-mgmt/issues/24738
         """
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        if platform_asic == "cisco-8000":
+        if platform_asic in ("cisco-8000", "mellanox"):
             return "pg_drop"
         return "port_drop"
 
