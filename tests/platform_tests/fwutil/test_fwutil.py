@@ -5,7 +5,8 @@ import json
 from fwutil_common import call_fwutil, show_firmware, upload_platform, find_pattern
 
 pytestmark = [
-    pytest.mark.topology("any")
+    pytest.mark.topology("any"),
+    pytest.mark.disable_memory_utilization
 ]
 
 DEVICES_PATH = "/usr/share/sonic/device"
