@@ -587,10 +587,12 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ] is False and len(v["exited_critical_process"]) > 0
         ]
 
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        # after config reload, the feature autorestart config is reset,
-        # so, before next test, enable again
-        enable_autorestart(duthost)
+        try:
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        finally:
+            # After config reload, the feature autorestart config is reset.
+            # Re-enable it even if reload raises, so the next parameter is not affected.
+            enable_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
