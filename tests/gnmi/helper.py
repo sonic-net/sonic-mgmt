@@ -18,6 +18,41 @@ GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
 
+# Substrings that indicate py_gnmicli.py failed even though the shell rc may
+# still be 0. py_gnmicli catches several exceptions internally (notably TLS
+# handshake failures from PTF/DUT clock skew) and prints them to stdout before
+# exiting cleanly; without sentinel detection the helpers below would treat
+# those calls as successful and the caller's later assertion would fire with a
+# misleading message (e.g. "CONFIG_DB write didn't take effect" when the Set
+# actually never reached the server).
+_PY_GNMICLI_FAILURE_SENTINELS = (
+    "GRPC error",
+    "rpc error",
+    "Client receives an exception",
+    "indicating gNMI server is shut down",
+    "Tls handshake failed",
+    "CERTIFICATE_VERIFY_FAILED",
+    "certificate is not yet valid",
+)
+
+
+def _py_gnmicli_failure_reason(rc, stdout, stderr):
+    """Return a short reason string if py_gnmicli output indicates a failed
+    RPC, or None if the call looks clean.
+
+    A non-zero rc is always a failure. Otherwise we scan stdout+stderr for
+    the failure sentinels above. Keep this list permissive — masking a real
+    failure as success is far more harmful than the occasional false-positive,
+    because the masked failure surfaces as a confusing assertion later.
+    """
+    if rc != 0:
+        return "rc=%s" % rc
+    combined = "%s\n%s" % (stdout or "", stderr or "")
+    for sentinel in _PY_GNMICLI_FAILURE_SENTINELS:
+        if sentinel in combined:
+            return "output contains %r" % sentinel
+    return None
+
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
@@ -268,12 +303,14 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     stdout = output.get("stdout") or ""
     stderr = output.get("stderr") or ""
     rc = output.get("rc", 1)
-    combined = f"{stdout}\n{stderr}"
 
-    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
+    reason = _py_gnmicli_failure_reason(rc, stdout, stderr)
+    if reason:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
+        raise Exception(
+            "py_gnmicli failed (%s)\nSTDOUT:\n%s\nSTDERR:\n%s" % (reason, stdout, stderr)
+        )
 
 
 def gnmi_get(duthost, ptfhost, path_list):
@@ -312,6 +349,18 @@ def gnmi_get(duthost, ptfhost, path_list):
         dump_system_status(duthost)
         result = msg.split(error, 1)
         raise Exception("GRPC error:" + result[1])
+    # Detect connection-level / TLS handshake failures that py_gnmicli prints
+    # to stdout while still exiting 0 (most commonly cert-not-yet-valid clock
+    # skew). Without this, a failed handshake reads as an empty response and
+    # the caller's later parsing trips with a misleading error.
+    reason = _py_gnmicli_failure_reason(
+        output.get('rc', 1), output.get('stdout', ''), output.get('stderr', ''))
+    if reason:
+        dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        raise Exception(
+            "py_gnmicli failed (%s)\nSTDOUT:\n%s\nSTDERR:\n%s"
+            % (reason, output.get('stdout', ''), output.get('stderr', '')))
     mark = 'The GetResponse is below\n' + '-'*25 + '\n'
     if mark in msg:
         result = msg.split(mark, 1)
