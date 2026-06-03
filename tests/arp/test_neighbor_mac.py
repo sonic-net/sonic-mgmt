@@ -26,6 +26,8 @@ class TestNeighborMac:
     TEST_MAC = ["00:c0:ca:c0:1a:05", "00:c0:ca:c0:1a:06"]
     PING_CAPTURE_FILTER = "arp or icmp"
     DELAYED_MANUAL_PING_WAIT = 30
+    PTF_INTERFACE_READY_TIMEOUT = 10
+    PING_RETRY_TIMEOUT = 30
 
     @pytest.fixture(scope="module", autouse=True)
     def interfaceConfig(self, duthosts, rand_one_dut_hostname):
@@ -109,6 +111,10 @@ class TestNeighborMac:
         ptfhost.shell("ifconfig {} down".format(self.PTF_HOST_IF))
         ptfhost.shell("ifconfig {} hw ether {}".format(self.PTF_HOST_IF, neighborMac))
         ptfhost.shell("ifconfig {} up".format(self.PTF_HOST_IF))
+        pytest_assert(
+            wait_until(self.PTF_INTERFACE_READY_TIMEOUT, 1, 0, self.__isPtfInterfaceReady, ptfhost),
+            "{} is not ready with IP {}/24 after MAC update".format(self.PTF_HOST_IF, self.PTF_HOST_IP)
+        )
 
     def __startInterface(self, duthost):
         """
@@ -179,6 +185,28 @@ class TestNeighborMac:
             result.get("stderr", "")
         )
         return result
+
+    def __isPtfInterfaceReady(self, ptfhost):
+        result = ptfhost.shell(
+            "ip -o link show dev {intf}; ip -o addr show dev {intf}".format(intf=self.PTF_HOST_IF),
+            module_ignore_errors=True
+        )
+        output = result.get("stdout", "")
+        isReady = (
+            result.get("rc") == 0 and
+            "UP" in output and
+            "LOWER_UP" in output and
+            "{}/24".format(self.PTF_HOST_IP) in output
+        )
+        if not isReady:
+            logger.info("PTF interface is not ready yet rc=%s output:\n%s", result.get("rc"), output)
+        return isReady
+
+    def __pingDutFromPtf(self, ptfhost):
+        return ptfhost.shell(
+            "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
+            module_ignore_errors=True
+        )
 
     def __startPtfCapture(self, ptfhost, macIndex):
         captureFile = "/tmp/test_neighbor_mac_{}.tcpdump".format(macIndex)
@@ -314,11 +342,19 @@ class TestNeighborMac:
         duthost = duthosts[rand_one_dut_hostname]
         self.__configureNeighborIp(ptfhost, macIndex)
         captureFile, pidFile = self.__startPtfCapture(ptfhost, macIndex)
+        pingResult = {}
+
+        def pingDut():
+            pingResult.clear()
+            pingResult.update(self.__pingDutFromPtf(ptfhost))
+            return pingResult.get("rc") == 0
+
+        is_vpp = duthost.facts.get("asic_type") == "vpp"
         try:
-            pingResult = ptfhost.shell(
-                "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
-                module_ignore_errors=True
-            )
+            if is_vpp:
+                pingSucceeded = wait_until(self.PING_RETRY_TIMEOUT, 1, 0, pingDut)
+            else:
+                pingSucceeded = pingDut()
         finally:
             self.__stopPtfCapture(ptfhost, captureFile, pidFile)
 
@@ -328,14 +364,15 @@ class TestNeighborMac:
             pingResult.get("stdout", ""),
             pingResult.get("stderr", "")
         )
-        if pingResult.get("rc") != 0:
+        if not pingSucceeded:
             self.__dumpNeighborState(duthost, ptfhost, "PTF ping to DUT failed")
             self.__runDelayedManualPingCheck(duthost, ptfhost, macIndex)
         pytest_assert(
-            pingResult.get("rc") == 0,
-            "Failed to ping DUT interface {} from PTF IP {}, stdout: {}, stderr: {}".format(
+            pingSucceeded,
+            "Failed to ping DUT interface {} from PTF IP {}{}, stdout: {}, stderr: {}".format(
                 self.DUT_INTF_IP,
                 self.PTF_HOST_IP,
+                " within {} seconds".format(self.PING_RETRY_TIMEOUT) if is_vpp else "",
                 pingResult.get("stdout", ""),
                 pingResult.get("stderr", "")
             )
