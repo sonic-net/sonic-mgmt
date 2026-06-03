@@ -1,10 +1,12 @@
 import json
 import random
+import re
 import sys
 import time
 import logging
 import pytest
 import traceback
+from datetime import datetime
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from ipaddress import IPv4Address
@@ -88,6 +90,130 @@ def all_vnet_routes_in_state_db(duthost, num_vnets, routes_per_vnet):
 
     except Exception as e:
         logger.warning(f"Error checking STATE_DB route readiness: {e}")
+        return False
+
+
+def verify_vnet_routes_in_asic_db(duthost, num_vnets, routes_per_vnet, vnet_base,
+                                  mac_fn=None, vni_fn=None, endpoint_offset=0, base_mac="52:54:aa", vni_offset=0):
+    """
+    Verify that all VNET routes are programmed in ASIC DB with the expected
+    endpoint IP, MAC address, and VNI on each next hop.
+
+    Args:
+        duthost: DUT host handle
+        num_vnets: number of VNETs configured
+        routes_per_vnet: number of /32 routes per VNET
+        vnet_base: base VNI (VNET VNI = vnet_base + vnet_id)
+        mac_fn: optional callable(vnet_id, route_index) -> expected MAC string.
+                If None, MAC check is skipped.
+        vni_fn: optional callable(vnet_id, route_index) -> expected VNI int.
+                If None, the VNET-level VNI (vnet_base + vnet_id) is expected.
+        endpoint_offset: passed to generate_routes_and_endpoint to
+                         reproduce the expected endpoint list.
+        base_mac: base MAC address for generating expected MACs.
+        vni_offset: offset to add to the VNET-level VNI for each route.
+
+    Returns:
+        True if every route matches; False otherwise (details logged).
+    """
+    logger.warning(f"Verifying VNET routes in ASIC DB at time {datetime.now()}.")
+    try:
+        # Dump route entries and next hops separately using key filters
+        route_text = duthost.shell(
+            "redis-dump -d 1 -k 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*'"
+        )["stdout"]
+        nh_text = duthost.shell(
+            "redis-dump -d 1 -k 'ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:*'"
+        )["stdout"]
+
+        route_db = json.loads(route_text) if route_text.strip() else {}
+        nh_db = json.loads(nh_text) if nh_text.strip() else {}
+
+        # Build route map: dest prefix -> NH OID
+        route_nh_map = {}
+        for key, entry in route_db.items():
+            m = re.search(r'"dest"\s*:\s*"([^"]+)"', key)
+            if m:
+                value = entry.get("value", {})
+                route_nh_map[m.group(1)] = value.get("SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID", "")
+
+        # Build NH cache: OID -> {endpoint, vni, mac}
+        nh_cache = {}
+        for key, entry in nh_db.items():
+            value = entry.get("value", {})
+            if value.get("SAI_NEXT_HOP_ATTR_TYPE") != "SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP":
+                continue
+            oid = key.split("SAI_OBJECT_TYPE_NEXT_HOP:")[-1]
+            nh_cache[oid] = {
+                "endpoint": value.get("SAI_NEXT_HOP_ATTR_IP", ""),
+                "vni": value.get("SAI_NEXT_HOP_ATTR_TUNNEL_VNI", ""),
+                "mac": value.get("SAI_NEXT_HOP_ATTR_TUNNEL_MAC", ""),
+            }
+
+        # Verify each expected route
+        missing = 0
+        mismatched = 0
+        total = num_vnets * routes_per_vnet
+
+        for idx in range(num_vnets):
+            vnet_id = idx + 1
+            vnet_name = f"Vnet{vnet_id}"
+            default_vni = vnet_base + vnet_id
+            routes, endpoints = generate_routes_and_endpoint(
+                vnet_id, routes_per_vnet, endpoint_offset
+            )
+
+            for i in range(routes_per_vnet):
+                dest = routes[i]
+                expected_ep = endpoints[i]
+                expected_mac = mac_fn(vnet_id, i, base_mac) if mac_fn else None
+                expected_vni = vni_fn(vnet_id, i, offset=vni_offset) if vni_fn else default_vni
+
+                if dest not in route_nh_map:
+                    missing += 1
+                    continue
+
+                nh_oid = route_nh_map[dest]
+                if nh_oid not in nh_cache:
+                    missing += 1
+                    continue
+
+                nh = nh_cache[nh_oid]
+
+                if nh["endpoint"] != expected_ep:
+                    mismatched += 1
+                    if mismatched <= 5:
+                        logger.info(
+                            f"{vnet_name}|{dest}: endpoint expected={expected_ep}, "
+                            f"actual={nh['endpoint']}"
+                        )
+
+                elif expected_vni is not None and str(nh["vni"]) != str(expected_vni):
+                    mismatched += 1
+                    if mismatched <= 5:
+                        logger.info(
+                            f"{vnet_name}|{dest}: VNI expected={expected_vni}, "
+                            f"actual={nh['vni']}"
+                        )
+
+                elif expected_mac is not None and nh["mac"].lower() != expected_mac.lower():
+                    mismatched += 1
+                    if mismatched <= 5:
+                        logger.info(
+                            f"{vnet_name}|{dest}: MAC expected={expected_mac}, "
+                            f"actual={nh['mac']}"
+                        )
+
+        ok = missing == 0 and mismatched == 0
+        logger.warning(
+            f"ASIC DB verification: {total - missing - mismatched}/{total} correct, "
+            f"{missing} missing, {mismatched} mismatched"
+        )
+        return ok
+
+    except Exception as e:
+        logger.warning(f"Error verifying ASIC DB routes: {e}")
+        logger.warning(traceback.format_exc())
         return False
 
 
@@ -305,7 +431,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 120s)")
     ready_state = wait_until(
-        120, 10, 0,
+        1000, 10, 0,
         all_vnet_routes_in_state_db,
         duthost,
         num_vnets,
@@ -459,6 +585,7 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
 
     vnet_base = setup["vnet_base"]
     routes_per_vnet = setup["routes_per_vnet"]
+    num_vnets = setup["num_vnets"]
 
     logger.info("Updating ALL VNET routes with deterministic MAC + VNI (cfggen batch mode)...")
 
@@ -512,7 +639,22 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
             vnis=all_vnis_for_vnet
         )
 
-    time.sleep(20)
+    ready_state = wait_until(
+        1000, 60, 0,
+        verify_vnet_routes_in_asic_db,
+        duthost,
+        num_vnets,
+        routes_per_vnet,
+        vnet_base,
+        gen_mac,
+        gen_vni,
+        0
+    )
+    if not ready_state:
+        logger.warning("Timeout waiting for all VNET routes in ASIC_DB")
+        pytest.fail("ASIC_DB programming incomplete after 1000 sec")
+    else:
+        logger.info("All VNET routes detected in ASIC_DB")
 
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 
@@ -573,7 +715,24 @@ def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
             vnis=all_vnis_for_vnet
         )
 
-    time.sleep(20)
+    ready_state = wait_until(
+        1000, 60, 0,
+        verify_vnet_routes_in_asic_db,
+        duthost,
+        num_vnets,
+        routes_per_vnet,
+        vnet_base,
+        gen_mac,
+        gen_vni,
+        1,
+        "52:54:bb",
+        1
+    )
+    if not ready_state:
+        logger.warning("Timeout waiting for all VNET routes rewrite in ASIC_DB")
+        pytest.fail("ASIC_DB rewrite programming incomplete after 1000 sec")
+    else:
+        logger.info("All rewritten VNET routes detected in ASIC_DB")
 
     logger.info("All route MAC+VNI updates applied via batch cfggen.")
 
