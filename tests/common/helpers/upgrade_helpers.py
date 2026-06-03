@@ -7,11 +7,14 @@ from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import reboot, get_reboot_cause, reboot_ctrl_dict
+from tests.common import reboot
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.platform.reboot_utils import reboot_and_check
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Optional, Dict
+from typing import Optional, Sequence, Tuple, Union, Dict
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -21,6 +24,10 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
+SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
+
+GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
 
 
 @dataclass(frozen=True)
@@ -31,8 +38,12 @@ class GnoiUpgradeConfig:
     protocol: str = "HTTP"
     allow_fail: bool = False
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_target_type: Optional[str] = None   # e.g. "dpu"
+    ss_target_index: Optional[int] = None  # e.g. 3
+    metadata: Optional[GrpcMetadata] = None
     ss_reboot_ready_timeout: int = 1200
     ss_reboot_message: str = "Rebooting DPU for maintenance"
+    skip_reboot: bool = False  # If True, only stage the image, do NOT reboot (reboot happens later via NPU)
 
 
 def pytest_runtest_setup(item):
@@ -396,3 +407,112 @@ def perform_gnoi_upgrade(
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+
+def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
+    timeout = timeout or cfg.ss_reboot_ready_timeout
+    return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
+
+
+def _upgrade_one_dpu_via_gnoi(
+    duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
+    localhost=None, duthosts=None,
+) -> Dict:
+    """
+    Upgrade a single DPU via gNOI.
+
+    Steps:
+      1. Verify the DPU is reachable (gNOI System.Time)
+      2. Transfer the image to the DPU (File.TransferToRemote)
+      3. Stage the image as the next boot image (System.SetPackage)
+      4. Reboot the DPU (System.Reboot)  -- skipped if cfg.skip_reboot=True
+      5. Wait for DPU to come back up (gNOI System.Time)  -- skipped if cfg.skip_reboot=True
+
+    When cfg.skip_reboot=True, only steps 1-3 are performed.
+    This is used when you want to stage the image on the DPU but trigger the
+    actual reboot later (e.g. via an NPU reboot that also reboots all DPUs).
+    """
+    if cfg.metadata is None:
+        raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
+
+    md = cfg.metadata
+
+    # Step 1: Verify DPU is reachable before we start
+    ptf_gnoi.system_time(metadata=md)
+
+    # Step 2: Download the image onto the DPU
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
+        protocol=cfg.protocol,
+        metadata=md,
+    )
+
+    # Step 3: Mark the downloaded image as the next boot image
+    setpkg_resp = ptf_gnoi.system_set_package(
+        local_path=cfg.dut_image_path,
+        version=cfg.to_version,
+        activate=True,
+        metadata=md,
+    )
+
+    if cfg.skip_reboot:
+        logger.info("skip_reboot=True: image staged on DPU, skipping reboot")
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": None}
+
+    from tests.common.ptf_gnoi import PtfGnoi
+    dpu_grpc = ptf_gnoi.grpc_client.with_ss_target("dpu", cfg.ss_target_index)
+    dpu_ptf_gnoi = PtfGnoi(dpu_grpc)
+
+    reboot_and_check(
+        localhost,
+        duthost,
+        {},
+        {},
+        reboot_type=cfg.upgrade_type,
+        duthosts=duthosts,
+        invocation_type="gnoi_based",
+        ptf_gnoi=dpu_ptf_gnoi,
+    )
+
+    if cfg.allow_fail:
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+
+def perform_gnoi_upgrade_smartswitch_dpu(
+    duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
+    localhost=None, duthosts=None,
+) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(
+        duthost, tbinfo, ptf_gnoi, cfg,
+        localhost=localhost, duthosts=duthosts,
+    )
+
+
+def perform_gnoi_upgrade_smartswitch_dpus_parallel(
+    duthost, tbinfo,
+    ptf_gnoi,
+    cfgs: Sequence[GnoiUpgradeConfig],
+    max_workers: Optional[int] = None,
+    localhost=None, duthosts=None,
+) -> Dict[int, Dict]:
+    if not cfgs:
+        raise ValueError("cfgs is empty")
+
+    workers = max_workers or len(cfgs)
+    results: Dict[int, Dict] = {}
+
+    with SafeThreadPoolExecutor(max_workers=workers) as executor:
+        futs = {}
+        for i, cfg in enumerate(cfgs):
+            futs[i] = executor.submit(
+                _upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg,
+                localhost, duthosts,
+            )
+
+        for i, fut in futs.items():
+            results[i] = fut.get()
+
+    return results
