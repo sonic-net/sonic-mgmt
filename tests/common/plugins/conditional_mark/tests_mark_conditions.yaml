@@ -763,6 +763,7 @@ console/test_console_availability.py:
     reason: "This test is applicable to virtual setup only."
     conditions:
       - "asic_type in ['vpp'] and platform.startswith('arm64-c8220tg_48a_o')"
+      - "platform in ['arm64-nokia_ixs7215_c1xa-r0']"
 
 #######################################
 #####    container_hardening      #####
