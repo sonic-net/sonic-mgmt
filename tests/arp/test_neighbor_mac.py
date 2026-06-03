@@ -25,6 +25,7 @@ class TestNeighborMac:
     DUT_INTF_NETMASK = "24"
     TEST_MAC = ["00:c0:ca:c0:1a:05", "00:c0:ca:c0:1a:06"]
     PING_CAPTURE_FILTER = "arp or icmp"
+    DELAYED_MANUAL_PING_WAIT = 30
 
     @pytest.fixture(scope="module", autouse=True)
     def interfaceConfig(self, duthosts, rand_one_dut_hostname):
@@ -207,6 +208,38 @@ class TestNeighborMac:
         ptfhost.shell("rm -f {} {}".format(captureFile, pidFile), module_ignore_errors=True)
         return capture
 
+    def __runDelayedManualPingCheck(self, duthost, ptfhost, macIndex):
+        logger.error(
+            "Running delayed manual ping check after initial failure: wait %s seconds",
+            self.DELAYED_MANUAL_PING_WAIT
+        )
+        time.sleep(self.DELAYED_MANUAL_PING_WAIT)
+
+        self.__runDebugCommand(
+            ptfhost,
+            "ip neigh flush {} dev {} || true".format(self.DUT_INTF_IP, self.PTF_HOST_IF),
+            "PTF flush neighbor entry before delayed manual ping"
+        )
+
+        captureFile, pidFile = self.__startPtfCapture(ptfhost, "{}_delayed".format(macIndex))
+        try:
+            pingResult = ptfhost.shell(
+                "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
+                module_ignore_errors=True
+            )
+        finally:
+            self.__stopPtfCapture(ptfhost, captureFile, pidFile)
+
+        logger.error(
+            "Delayed manual ping result after %s seconds rc=%s\nstdout:\n%s\nstderr:\n%s",
+            self.DELAYED_MANUAL_PING_WAIT,
+            pingResult.get("rc"),
+            pingResult.get("stdout", ""),
+            pingResult.get("stderr", "")
+        )
+        self.__dumpNeighborState(duthost, ptfhost, "Delayed manual ping diagnostic result")
+        return pingResult
+
     def __dumpNeighborState(self, duthost, ptfhost, reason):
         logger.error("Dumping neighbor MAC debug state: %s", reason)
         self.__runDebugCommand(
@@ -224,6 +257,12 @@ class TestNeighborMac:
             "ip neigh show {} dev {}".format(self.DUT_INTF_IP, self.PTF_HOST_IF),
             "PTF neighbor entry for DUT"
         )
+        self.__runDebugCommand(
+            duthost,
+            "ip addr show {}".format(self.DUT_ETH_IF),
+            "DUT test interface IP state"
+        )
+        self.__runDebugCommand(duthost, "show ip interfaces", "DUT IP interfaces")
         self.__runDebugCommand(duthost, "show arp", "DUT ARP table")
         self.__runDebugCommand(
             duthost,
@@ -239,6 +278,11 @@ class TestNeighborMac:
             duthost,
             "docker exec syncd vppctl show interface",
             "VPP interface state"
+        )
+        self.__runDebugCommand(
+            duthost,
+            "docker exec syncd vppctl show interface address",
+            "VPP interface address state"
         )
         self.__runDebugCommand(
             duthost,
@@ -286,6 +330,7 @@ class TestNeighborMac:
         )
         if pingResult.get("rc") != 0:
             self.__dumpNeighborState(duthost, ptfhost, "PTF ping to DUT failed")
+            self.__runDelayedManualPingCheck(duthost, ptfhost, macIndex)
         pytest_assert(
             pingResult.get("rc") == 0,
             "Failed to ping DUT interface {} from PTF IP {}, stdout: {}, stderr: {}".format(
