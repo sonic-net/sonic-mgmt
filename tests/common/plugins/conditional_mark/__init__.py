@@ -646,9 +646,11 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
 
 
 def pytest_collection(session):
-    """Hook for loading conditions and basic facts.
+    """Hook for loading conditions.
 
-    The pytest session.config.cache is used for caching loaded conditions and basic facts for later use.
+    The pytest session.config.cache is used for caching loaded conditions for later use.
+    DUT facts are loaded lazily in pytest_collection_modifyitems to avoid expensive SSH
+    overhead when all tests are already going to be skipped (e.g. topology mismatch).
 
     Args:
         session (obj): Pytest session object.
@@ -665,12 +667,14 @@ def pytest_collection(session):
     if conditions:
         session.config.cache.set('TESTS_MARK_CONDITIONS', conditions)
 
-        # Only load basic facts if conditions are defined.
-        get_basic_facts(session)
 
-
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(session, config, items):
     """Hook for adding marks to test cases based on conditions defined in a centralized file.
+
+    Uses trylast=True so topology and other collection-modify hooks (e.g. custom_markers)
+    run first.  This allows skipping the expensive DUT fact loading (TestbedInfo + ansible
+    SSH, ~90 s on some testbeds) when every collected item has already been marked as skip.
 
     Args:
         session (obj): Pytest session object.
@@ -681,6 +685,20 @@ def pytest_collection_modifyitems(session, config, items):
     if not conditions:
         logger.debug('No mark condition is defined')
         return
+
+    # Skip the expensive DUT fact loading when there is nothing to process.
+    # This saves ~90 s (TestbedInfo YAML parsing + ansible SSH) on testbeds where
+    # every test is already marked as skip by an earlier hook such as the topology
+    # check in custom_markers (e.g. running a t0/t1 test against an lt2 testbed).
+    if not items:
+        logger.debug('No collected items; skipping DUT fact loading')
+        return
+    if all(item.get_closest_marker('skip') for item in items):
+        logger.debug('All collected items are already marked as skip; skipping DUT fact loading')
+        return
+
+    # Lazily load DUT facts now that we know they are actually needed.
+    get_basic_facts(session)
 
     dut_name = get_dut_name(session)
     cached_facts_name = f'BASIC_FACTS_{dut_name}'
