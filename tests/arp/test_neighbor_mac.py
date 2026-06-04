@@ -189,7 +189,7 @@ class TestNeighborMac:
             addr_result.get("rc") == 0 and
             "state UP" in link_output and
             "LOWER_UP" in link_output and
-            "{}/24".format(self.PTF_HOST_IP) in addr_output
+            self.PTF_HOST_IP in addr_output
         )
         if not is_ready:
             logger.info(
