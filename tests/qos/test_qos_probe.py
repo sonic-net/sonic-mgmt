@@ -142,8 +142,13 @@ class TestQosProbe(QosSaiBase):
         returns a dict with probe_packet_length, probe_cells_per_packet,
         and thresholds converted to packet units.
 
+        qosConfig_profile may be a non-dict (e.g. hdrm_pool_size can be an
+        integer on some platforms); guard to avoid AttributeError/TypeError.
+
         Usage: testParams.update(self.get_probe_params(...))
         """
+        if not isinstance(qosConfig_profile, dict):
+            qosConfig_profile = {}
         resolver_cls = TestQosProbe._PROBE_RESOLVER_REGISTRY.get(
             platform_asic, TestQosProbe.ProbeParamsResolver)
         resolver = resolver_cls(qosConfig_profile, dutQosConfig)
