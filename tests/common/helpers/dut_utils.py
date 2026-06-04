@@ -501,14 +501,14 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
-def get_unsupported_fanout_ports(duthost, localhost):
+def get_dut_ports_with_checksum_modifying_fanouts(duthost, localhost):
     """
     Identifies and returns the set of DUT interface ports connected to fanout devices
     that modify packet checksums. Some platforms, when used as a fanout, recalculate
     and correct the checksum of transit packets, causing the DUT to receive packets
     with a valid checksum instead of the intended invalid one.
     """
-    unsupported_fanout_skus = {"DellEMC-Z9332f-O32", "NH-5010-F-O64", "Arista-7280R4K-32QF-32DF-64O"}
+    checksum_modifying_fanout_skus = {"DellEMC-Z9332f-O32", "NH-5010-F-O64", "Arista-7280R4K-32QF-32DF-64O"}
     unsupported_dut_ports = set()
 
     if duthost.facts.get("asic_type") == "vs":
@@ -549,7 +549,7 @@ def get_unsupported_fanout_ports(duthost, localhost):
                     continue
             fanout_sku_cache[fanout_host] = fanout_sku
 
-        if fanout_sku in unsupported_fanout_skus:
+        if fanout_sku in checksum_modifying_fanout_skus:
             unsupported_dut_ports.add(dut_port)
 
     return unsupported_dut_ports
