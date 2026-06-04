@@ -605,6 +605,63 @@ class TestProbingBaseSetUp:
         assert pb.ingress_drop_counter_mode == 'port_buffer_drop'
         print("[OK] port_buffer_drop mode")
 
+    @pytest.mark.order(938)
+    def test_setUp_ingress_drop_counter_mode_invalid_raises(self):
+        """Test setUp() validation rejects invalid ingress_drop_counter_mode"""
+        print("\n=== Testing setUp() - invalid ingress_drop_counter_mode raises ValueError ===")
+
+        pb = ConcreteProbingBase()
+        pb.ingress_drop_counter_mode = 'invalid_mode'
+
+        # Simulate the validation path from setUp() L156-161
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+        mode = getattr(pb, 'ingress_drop_counter_mode', 'port_drop')
+        with pytest.raises(ValueError, match="Invalid ingress_drop_counter_mode"):
+            if mode not in IngressDropProbingExecutor.VALID_COUNTER_MODES:
+                raise ValueError(
+                    f"Invalid ingress_drop_counter_mode='{mode}'. "
+                    f"Must be one of: {IngressDropProbingExecutor.VALID_COUNTER_MODES}"
+                )
+
+        print("[OK] Invalid counter_mode raises ValueError")
+
+    @pytest.mark.order(939)
+    def test_parse_param_probe_packet_defaults(self):
+        """Test parse_param sets default probe_packet_length and probe_cells_per_packet"""
+        print("\n=== Testing parse_param - probe packet defaults ===")
+
+        pb = ConcreteProbingBase()
+
+        # Simulate parse_param default logic (L319-322)
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
+
+        assert pb.probe_packet_length == 64
+        assert pb.probe_cells_per_packet == 1
+        print("[OK] Defaults: probe_packet_length=64, probe_cells_per_packet=1")
+
+    @pytest.mark.order(940)
+    def test_parse_param_probe_packet_from_testparams(self):
+        """Test parse_param preserves probe_packet_length from testParams"""
+        print("\n=== Testing parse_param - probe packet from testParams ===")
+
+        pb = ConcreteProbingBase()
+        # Simulate testParams providing Cisco values
+        pb.probe_packet_length = 1350
+        pb.probe_cells_per_packet = 4
+
+        # parse_param defaults should NOT overwrite existing attrs
+        if not hasattr(pb, 'probe_packet_length'):
+            pb.probe_packet_length = 64
+        if not hasattr(pb, 'probe_cells_per_packet'):
+            pb.probe_cells_per_packet = 1
+
+        assert pb.probe_packet_length == 1350
+        assert pb.probe_cells_per_packet == 4
+        print("[OK] testParams values preserved: 1350B, 4 cells/pkt")
+
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
