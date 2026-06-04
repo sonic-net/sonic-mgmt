@@ -8,6 +8,7 @@ inside the container.
 
 import json
 import logging
+import os
 import subprocess
 
 from tests.common.devices.base import NeighborDevice
@@ -164,3 +165,52 @@ class CsonicHost(NeighborDevice):
             vtysh_cmd += " -c '{}'".format(c)
 
         return self._docker_exec(vtysh_cmd)
+
+    def fetch(self, src=None, dest=None, **kwargs):
+        """
+        Copy a file out of the cSONiC container to the local controller, mimicking
+        the Ansible ``fetch`` module closely enough for techsupport collection.
+
+        For a local VM host this uses ``docker cp``; for a remote VM host the file
+        is first copied to the host's /tmp via ``docker cp`` over SSH and then
+        pulled back with ``scp``.
+        """
+        if not src or not dest:
+            return {'failed': True, 'msg': 'fetch requires src and dest'}
+
+        dest_dir = os.path.join(dest, self.container_name)
+        os.makedirs(dest_dir, exist_ok=True)
+        local_dest = os.path.join(dest_dir, os.path.basename(src))
+
+        try:
+            if self.is_local:
+                cp_cmd = ['docker', 'cp',
+                          '{}:{}'.format(self.container_name, src), local_dest]
+                result = subprocess.run(cp_cmd, capture_output=True, text=True,
+                                        timeout=kwargs.get('timeout', 120))
+            else:
+                remote_tmp = '/tmp/{}_{}'.format(self.container_name, os.path.basename(src))
+                ssh_base = ['ssh', '-o', 'StrictHostKeyChecking=no',
+                            '-o', 'UserKnownHostsFile=/dev/null']
+                target = self.vm_host_ip
+                if self.vm_host_user:
+                    target = '{}@{}'.format(self.vm_host_user, self.vm_host_ip)
+                subprocess.run(ssh_base + [target,
+                               'docker cp {}:{} {}'.format(self.container_name, src, remote_tmp)],
+                               capture_output=True, text=True, timeout=kwargs.get('timeout', 120))
+                scp_base = ['scp', '-o', 'StrictHostKeyChecking=no',
+                            '-o', 'UserKnownHostsFile=/dev/null',
+                            '{}:{}'.format(target, remote_tmp), local_dest]
+                result = subprocess.run(scp_base, capture_output=True, text=True,
+                                        timeout=kwargs.get('timeout', 120))
+
+            rc = result.returncode
+            return {
+                'failed': rc != 0,
+                'rc': rc,
+                'dest': local_dest,
+                'stderr': result.stderr.strip(),
+            }
+        except subprocess.TimeoutExpired:
+            logger.error("CsonicHost [%s] fetch timed out: %s", self.container_name, src)
+            return {'failed': True, 'msg': 'fetch timed out', 'dest': local_dest}
