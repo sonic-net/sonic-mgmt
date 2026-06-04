@@ -6,6 +6,7 @@ import logging
 import paramiko
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
+
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
@@ -17,6 +18,8 @@ import socket
 import termios
 import tty
 import select
+
+logger = logging.getLogger(__name__)
 
 # All supported console types
 # Console login via telnet (mad console)
@@ -86,8 +89,8 @@ class BaseConsoleConn(CiscoBaseConnection):
                 paramiko.Transport._key_info["ssh-rsa"] = RSAKey
             if "ssh-rsa" not in RSAKey.HASHES:
                 RSAKey.HASHES["ssh-rsa"] = SHA1
-        except Exception:
-            pass  # Best effort — skip if paramiko internals changed
+        except Exception as e:
+            logger.debug("Could not re-enable legacy SSH algorithms for console: %s", e)
 
         for i in range(0, len(all_passwords)):
             kwargs['password'] = all_passwords[i]
