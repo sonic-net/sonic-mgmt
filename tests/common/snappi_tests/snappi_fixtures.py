@@ -60,22 +60,41 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope='module')
 def snappi_api(snappi_api_serv_ip,
-               snappi_api_serv_port):
+               snappi_api_serv_port,
+               duthosts,
+               rand_one_dut_hostname):
     """
     Fixture for session handle,
     for creating snappi objects and making API calls.
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
+        duthosts (pytest fixture): The duthosts fixture.
+        rand_one_dut_hostname (pytest fixture): hostname of a random DUT.
     """
     location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
     # TODO: Currently extension is defaulted to ixnetwork.
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-    # api._username = "<please mention the username if other than default username>"
-    # api._password = "<please mention the password if other than default password>"
+
+    # Read IxNetwork credentials from the DUT's ansible inventory variable
+    # `snappi_api_server.user` / `.password` (same source as the rest_port
+    # read by snappi_api_serv_port). When a key is absent the value stays
+    # None and the snappi library default applies, preserving behavior for
+    # testbeds that don't define these keys.
+    duthost = duthosts[rand_one_dut_hostname]
+    snappi_api_server = (duthost.host.options['variable_manager']
+                         ._hostvars[duthost.hostname]
+                         .get('snappi_api_server', {}))
+    snappi_api_serv_user = snappi_api_server.get('user')
+    snappi_api_serv_password = snappi_api_server.get('password')
+
+    if snappi_api_serv_user:
+        api._username = snappi_api_serv_user
+    if snappi_api_serv_password:
+        api._password = snappi_api_serv_password
+
     yield api
 
     if getattr(api, 'assistant', None) is not None:
