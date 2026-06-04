@@ -10,6 +10,7 @@ import pytest
 from collections import defaultdict
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.vs_data import is_vs_device
 from .utils import MacToInt, IntToMac, fdb_cleanup, get_crm_resources, send_arp_request, get_fdb_dynamic_mac_count
 
 TOTAL_FDB_ENTRIES = 12000
@@ -382,6 +383,7 @@ def test_fdb_mac_move_guard_disable_port(duthosts, fanouthosts, rand_one_dut_hos
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
     duthost = duthosts[rand_one_dut_hostname]
+    _skip_if_kvm(duthost)
     _skip_if_mmg_action_unsupported(duthost, "DISABLE_PORT")
     conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -607,6 +609,18 @@ def _skip_if_mmg_action_unsupported(duthost, action):
             "MAC_MOVE_GUARD action '{}' is not supported".format(action))
 
 
+def _skip_if_kvm(duthost):
+    """Skip the calling test on a KVM (vs) DUT.
+
+    MAC_MOVE_GUARD relies on real-ASIC FDB-move semantics and (for the
+    DLOMWA action) the PRE_INGRESS SET_DO_NOT_LEARN SAI capability;
+    neither is exercised faithfully by the virtual switch SAI.
+    """
+    if is_vs_device(duthost):
+        pytest.skip("MAC_MOVE_GUARD tests are not run on KVM "
+                    "(asic_type='vs').")
+
+
 def _count_syslog_matches_in_range(duthost, start_line, end_line, regex):
     """Count /var/log/syslog lines in the inclusive 1-indexed range
     [start_line, end_line] that match ``regex`` (a precompiled
@@ -681,12 +695,12 @@ def test_fdb_mac_move_guard_disable_mac_learning(duthosts, fanouthosts,
     fdb_cleanup(duthosts, rand_one_dut_hostname, fanouthosts)
 
     duthost = duthosts[rand_one_dut_hostname]
+    _skip_if_kvm(duthost)
+    _skip_if_mmg_action_unsupported(duthost, "DISABLE_LEARN_ON_MAC_WITH_ACL")
     conf_facts = duthost.config_facts(host=duthost.hostname,
                                       source="persistent")['ansible_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts['router_mac']
-
-    _skip_if_mmg_action_unsupported(duthost, "DISABLE_LEARN_ON_MAC_WITH_ACL")
 
     ptf_a, ptf_b, _selected_vlan_id, iface_a, iface_b, dut_a, dut_b = \
         _select_two_vlan_member_ptf_ports(conf_facts, ptfhost, mg_facts)
