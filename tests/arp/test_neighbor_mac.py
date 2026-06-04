@@ -110,7 +110,7 @@ class TestNeighborMac:
         ptfhost.shell("ifconfig {} hw ether {}".format(self.PTF_HOST_IF, neighborMac))
         ptfhost.shell("ifconfig {} up".format(self.PTF_HOST_IF))
         pytest_assert(
-            wait_until(self.PTF_INTERFACE_READY_TIMEOUT, 1, 0, self.__isPtfInterfaceReady, ptfhost),
+            wait_until(self.PTF_INTERFACE_READY_TIMEOUT, 1, 0, self.__is_ptf_interface_ready, ptfhost),
             "{} is not ready with IP {}/24 after MAC update".format(self.PTF_HOST_IF, self.PTF_HOST_IP)
         )
 
@@ -173,32 +173,32 @@ class TestNeighborMac:
             interfaceIp
         ])
 
-    def __isPtfInterfaceReady(self, ptfhost):
-        linkResult = ptfhost.shell(
+    def __is_ptf_interface_ready(self, ptfhost):
+        link_result = ptfhost.shell(
             "ip -o link show dev {}".format(self.PTF_HOST_IF),
             module_ignore_errors=True
         )
-        addrResult = ptfhost.shell(
+        addr_result = ptfhost.shell(
             "ip -o addr show dev {}".format(self.PTF_HOST_IF),
             module_ignore_errors=True
         )
-        linkOutput = linkResult.get("stdout", "")
-        addrOutput = addrResult.get("stdout", "")
-        isReady = (
-            linkResult.get("rc") == 0 and
-            addrResult.get("rc") == 0 and
-            "state UP" in linkOutput and
-            "LOWER_UP" in linkOutput and
-            "{}/24".format(self.PTF_HOST_IP) in addrOutput
+        link_output = link_result.get("stdout", "")
+        addr_output = addr_result.get("stdout", "")
+        is_ready = (
+            link_result.get("rc") == 0 and
+            addr_result.get("rc") == 0 and
+            "state UP" in link_output and
+            "LOWER_UP" in link_output and
+            "{}/24".format(self.PTF_HOST_IP) in addr_output
         )
-        if not isReady:
+        if not is_ready:
             logger.info(
                 "PTF interface is not ready yet link_rc=%s addr_rc=%s link_output:\n%s\naddr_output:\n%s",
-                linkResult.get("rc"), addrResult.get("rc"), linkOutput, addrOutput
+                link_result.get("rc"), addr_result.get("rc"), link_output, addr_output
             )
-        return isReady
+        return is_ready
 
-    def __pingDutFromPtf(self, ptfhost):
+    def __ping_dut_from_ptf(self, ptfhost):
         return ptfhost.shell(
             "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
             module_ignore_errors=True
@@ -223,31 +223,31 @@ class TestNeighborMac:
         """
         duthost = duthosts[rand_one_dut_hostname]
         self.__configureNeighborIp(ptfhost, macIndex)
-        pingResult = {}
-        pingAttempts = 0
+        ping_result = {}
+        ping_attempts = 0
 
-        def pingDut():
-            nonlocal pingAttempts
-            pingAttempts += 1
-            pingResult.clear()
-            pingResult.update(self.__pingDutFromPtf(ptfhost))
-            logger.info("PTF ping attempt %s rc=%s", pingAttempts, pingResult.get("rc"))
-            return pingResult.get("rc") == 0
+        def ping_dut():
+            nonlocal ping_attempts
+            ping_attempts += 1
+            ping_result.clear()
+            ping_result.update(self.__ping_dut_from_ptf(ptfhost))
+            logger.info("PTF ping attempt %s rc=%s", ping_attempts, ping_result.get("rc"))
+            return ping_result.get("rc") == 0
 
         is_vpp = duthost.facts.get("asic_type") == "vpp"
         if is_vpp:
-            pingSucceeded = wait_until(self.PING_RETRY_TIMEOUT, 1, 0, pingDut)
+            ping_succeeded = wait_until(self.PING_RETRY_TIMEOUT, 1, 0, ping_dut)
         else:
-            pingSucceeded = pingDut()
+            ping_succeeded = ping_dut()
 
         pytest_assert(
-            pingSucceeded,
+            ping_succeeded,
             "Failed to ping DUT interface {} from PTF IP {}{}, stdout: {}, stderr: {}".format(
                 self.DUT_INTF_IP,
                 self.PTF_HOST_IP,
                 " within {} seconds".format(self.PING_RETRY_TIMEOUT) if is_vpp else "",
-                pingResult.get("stdout", ""),
-                pingResult.get("stderr", "")
+                ping_result.get("stdout", ""),
+                ping_result.get("stderr", "")
             )
         )
 
