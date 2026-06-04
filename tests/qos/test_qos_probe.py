@@ -62,6 +62,7 @@ class TestQosProbe(QosSaiBase):
     # from QoS config. PTF receives resolved params via testParams; no platform checks in PTF.
     # To add a new platform: create a subclass of ProbeParamsResolver and register
     # in _PROBE_RESOLVER_REGISTRY.
+    _DEFAULT_CELL_SIZE = 384  # Conservative fallback when cell_size is not in QoS config
 
     class ProbeParamsResolver:
         """Default resolver: 64B packets, 1 cell per packet.
@@ -114,7 +115,7 @@ class TestQosProbe(QosSaiBase):
                 # Profile omits cell_size → threshold is already in packet units
                 cell_size = (dutQosConfig.get("param", {}).get("cell_size")
                              or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
-                             or 384)
+                             or TestQosProbe._DEFAULT_CELL_SIZE)
                 self.threshold_divisor = 1
 
             self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
