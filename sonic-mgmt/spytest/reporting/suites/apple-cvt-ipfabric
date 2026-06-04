@@ -1,0 +1,14 @@
+# Modules
++file:cisco/apple_cvt/test_packet_capture.py
++file:cisco/apple_cvt/test_bfd.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 28000
++args:--tc-max-timeout 28000
++args:--logs-level=debug
++args:--random-order=0

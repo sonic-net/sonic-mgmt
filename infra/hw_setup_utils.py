@@ -18,7 +18,12 @@ import argparse
 JsonObject = Dict[str, Any]
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
-FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga', 'reporting/suites/tortuga_parallel']
+FORWARDING_TESTCASES = [
+    'reporting/suites/tortuga-mh',
+    'reporting/suites/tortuga',
+    'reporting/suites/tortuga_parallel',
+    'reporting/suites/apple-cvt-ipfabric',
+]
 
 def load_json(filepath):
     """
@@ -913,7 +918,14 @@ def prep_special_run_commands(testbed, test_suites_arg, test_suites, image_id, b
         if "$test_name" in cmd:
             if test_suites in FORWARDING_TESTCASES:
                 test_params = f"--test-suite=/data/sonic-mgmt/spytest/{test_suites}"
-                cmd = cmd.strip().replace("/data/sonic-mgmt/spytest/tests/$test_name", test_params)
+                # Some testbed templates spell out the full tests/ prefix
+                # (e.g. ".../tests/$test_name"), others only have "$test_name".
+                # Substitute appropriately so spytest always receives
+                # --test-suite=<absolute path> for known suite files.
+                if "/data/sonic-mgmt/spytest/tests/$test_name" in cmd:
+                    cmd = cmd.strip().replace("/data/sonic-mgmt/spytest/tests/$test_name", test_params)
+                else:
+                    cmd = cmd.strip().replace("$test_name", test_params)
             else:
                 cmd = cmd.strip().replace("$test_name", test_suites)
         cmd_list.append(cmd)

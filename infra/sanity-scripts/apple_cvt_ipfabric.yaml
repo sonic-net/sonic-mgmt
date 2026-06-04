@@ -1,0 +1,5 @@
+baseline:
+  apple-solution-ipfabric:
+    mth64:
+      hw:
+        - cisco/apple_cvt/test_packet_capture.py

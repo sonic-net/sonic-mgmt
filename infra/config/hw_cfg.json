@@ -631,49 +631,35 @@
                 "sudo show boot"
             ]
         },
-        "b2b-ipfabric-apple": {
-            "ucs_host_name":"tu2",
-            "ucs_host": "10.29.158.30",
+        "apple-ipfabric-m64": {
+            "ucs_host_name":"sonic-ucs-m6-49",
+            "ucs_host": "172.25.168.23",
             "ucs_username": "sonic",
             "ucs_password": "roZes@123",
-            "telnet_host": ["10.29.158.9", "10.29.158.9"],
-            "telnet_port": ["2003", "2004"],
-            "telnet_details": ["10.29.158.4 2003", "10.29.158.4 2004"],
-            "dut_ssh": ["10.29.158.176", "10.29.158.175"],
-            "topology": "b2b",
+            "dut_ssh": ["10.29.158.176", "10.29.158.175", "10.29.158.181"],
+            "topology": "apple-solution-ipfabric",
             "installer_mode": "sonic",
-            "ucs_ssh_prompt": "sonic@tu2",
+            "ucs_ssh_prompt": "sonic@sonic-ucs-m6-49",
             "hw_type":"mathilda-64",
-            "docker_prompt":"root@tu2",
+            "docker_prompt":"root@sonic-ucs-m6-49",
             "run_type_check": "ip_fabric_topo2.yaml",
-            "git_update_flag": "true",
-            "sonic_test_dir": "/home/sonic/test_logs/tortuga",
-            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
-            "sonic_mgmt_container_202405": "cicd_apple_ipfabric_ixia_10",
-            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v9_20",
-            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v9_20",
-            "skip_tests": "",
-            "allure_flag": "false",
-            "skip_folder":"",
-            "external_ucs": "none",
-            "lldp_count": 62,
-            "collect_spytest_flag":"true",
+            "collect_spytest_flag": "true",
+            "sonic_test_dir": "/home/sonic/test_logs/apple_ipfabric",
+            "sonic_mgmt_container_202405c": "cicd_apple_ipfabric_ixia_10",
             "testbed_yaml": "/data/spytest_tb_files/ip_fabric_topo2.yaml",
-            "tests_list": ["/data/sonic-mgmt/spytest/tests/cisco/ip_fabric/test_packet_capture.py"],
-            "special_run_commands": [
-                "cd /data/sonic-mgmt/spytest/",
-                "mkdir /run_logs/apple_ipfabric/$image_folder",
-                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $test_name --logs-path /run_logs/tortuga_optics/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
-                "ls -l"
+            "tests_list": [
+                "/data/sonic-mgmt/spytest/tests/cisco/apple_cvt/test_packet_capture.py"
             ],
-            "extra_onie_check": [
-                "show lldp table"
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest/"  ,
+                "mkdir -p /run_logs/apple_ipfabric/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $test_name --logs-path /run_logs/apple_ipfabric/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
+                "ls -l"
             ],
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo ip vrf exec mgmt sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ]
         },
         "b2b-tu-2-carib": {
@@ -2621,8 +2607,11 @@
         "b2b-tu-2-siren3":  [
             "cisco.202405c.2.tortuga.siren.no-agents"
         ],
-        "b2b-ipfabric-apple": [
-            "cisco.202405cz.2.1.ztp.release"
+        "apple-ipfabric-m64": [
+            "cisco.202405c.ztp",
+            "c-master.ztp",
+            "cisco.202405c.2.2.5.ztp.apple",
+            "cisco.202405cz.2.2.ztp.release"
         ],
         "b2b-tu-2-siren-optics":  [
             "cisco.202305.1.tortuga.siren.no-agents",
@@ -2730,7 +2719,7 @@
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono", "t1-m6-37-tornado"],
         "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "dualtor-m6-42-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
-        "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat", "arctos-spytest-plat", "superbolt-titan-spytest-plat", "mtfuji-cmono-spytest-plat"]
+        "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat", "arctos-spytest-plat", "superbolt-titan-spytest-plat", "mtfuji-cmono-spytest-plat", "apple-ipfabric-m64"]
     },
     "testbed_image_ucs_map" : {
         "t1-m6-22-m64":"ucs_m6_22",
@@ -2749,7 +2738,7 @@
         "b2b-tu-2-siren3":"tu2-carib-siren",
         "b2b-tu-2-siren-optics": "tu2-carib-siren",
         "b2b-tu-2-carib-optics": "tu2-carib-siren",
-        "b2b-ipfabric-apple": "tu2-carib-siren",
+        "apple-ipfabric-m64": "ucs_m6_49",
         "b2b-m3-2-m64": "ucs_m3_2",
         "b2b-m3-2-croc": "ucs_m3_2",
         "b2b-m3-2-cmono": "ucs_m3_2_sonic",
@@ -3096,6 +3085,15 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@5.5.5.2:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m6_49": {
+            "host": "sonic-ucs-m6-49",
+            "ip": "172.25.168.23",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@sonic-ucs-m6-49:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }
