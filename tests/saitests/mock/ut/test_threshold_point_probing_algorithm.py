@@ -462,5 +462,130 @@ class TestThresholdPointProbingFixedRangeConvergence(unittest.TestCase):
             "After verification failure, next iteration must drain buffer to recover"
 
 
+    # ── always_full_cycle tests ────────────────────────────────────
+
+    @pytest.mark.order(8580)
+    def test_always_full_cycle_default_false(self):
+        """Verify always_full_cycle defaults to False (backward compat)."""
+        self.setUp()
+        algo = ThresholdPointProbingAlgorithm(self.mock_executor, self.mock_observer)
+        assert algo.always_full_cycle is False
+
+    @pytest.mark.order(8590)
+    def test_always_full_cycle_sends_absolute_value_every_iteration(self):
+        """With always_full_cycle=True, every check receives absolute value and drain_buffer=True."""
+        self.setUp()
+        # Threshold at 13: values 11, 12 unreached, 13 triggered
+        self.mock_executor.check.side_effect = [
+            (True, False),  # 11: unreached
+            (True, False),  # 12: unreached
+            (True, True),   # 13: triggered
+        ]
+
+        algo = ThresholdPointProbingAlgorithm(
+            self.mock_executor, self.mock_observer, always_full_cycle=True
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=10, upper_bound=20, pg=3
+        )
+
+        assert lower == 13
+        assert upper == 13
+        calls = self.mock_executor.check.call_args_list
+        assert len(calls) == 3
+
+        # All three calls must have absolute value and drain_buffer=True
+        assert calls[0][1]['value'] == 11
+        assert calls[0][1]['drain_buffer'] is True
+        assert calls[1][1]['value'] == 12
+        assert calls[1][1]['drain_buffer'] is True
+        assert calls[2][1]['value'] == 13
+        assert calls[2][1]['drain_buffer'] is True
+
+    @pytest.mark.order(8600)
+    def test_always_full_cycle_no_incremental_after_success(self):
+        """Confirm always_full_cycle never switches to incremental mode after success."""
+        self.setUp()
+        # All unreached except last (value 15 triggers)
+        self.mock_executor.check.side_effect = [
+            (True, False),  # 11
+            (True, False),  # 12
+            (True, False),  # 13
+            (True, False),  # 14
+            (True, True),   # 15
+        ]
+
+        algo = ThresholdPointProbingAlgorithm(
+            self.mock_executor, self.mock_observer, always_full_cycle=True
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=10, upper_bound=20
+        )
+
+        assert lower == 15
+        calls = self.mock_executor.check.call_args_list
+        # Without always_full_cycle, calls[1..4] would have value=1 (step).
+        # With always_full_cycle, all must have absolute values.
+        for i, expected_val in enumerate([11, 12, 13, 14, 15]):
+            assert calls[i][1]['value'] == expected_val, \
+                f"Iteration {i+1}: expected absolute value {expected_val}, got {calls[i][1]['value']}"
+            assert calls[i][1]['drain_buffer'] is True, \
+                f"Iteration {i+1}: drain_buffer must be True in full-cycle mode"
+
+    @pytest.mark.order(8610)
+    def test_always_full_cycle_with_failure_recovery(self):
+        """After check failure in full-cycle mode, next iteration still uses absolute value."""
+        self.setUp()
+        self.mock_executor.check.side_effect = [
+            (True, False),   # 11: unreached
+            (False, False),  # 12: check FAILURE
+            (True, False),   # 13: unreached (recovery)
+            (True, True),    # 14: triggered
+        ]
+
+        algo = ThresholdPointProbingAlgorithm(
+            self.mock_executor, self.mock_observer, always_full_cycle=True
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=10, upper_bound=20
+        )
+
+        assert lower == 14
+        calls = self.mock_executor.check.call_args_list
+        # Failure at iteration 2 doesn't change behavior — still absolute values
+        assert calls[0][1]['value'] == 11
+        assert calls[1][1]['value'] == 12
+        assert calls[2][1]['value'] == 13  # recovery: still absolute
+        assert calls[3][1]['value'] == 14
+        for c in calls:
+            assert c[1]['drain_buffer'] is True
+
+    @pytest.mark.order(8620)
+    def test_incremental_mode_still_works_when_full_cycle_disabled(self):
+        """Regression: default mode still uses incremental optimization."""
+        self.setUp()
+        self.mock_executor.check.side_effect = [
+            (True, False),  # 11: unreached, drain_buffer=True
+            (True, False),  # 12: unreached, drain_buffer=False (incremental)
+            (True, True),   # 13: triggered
+        ]
+
+        algo = ThresholdPointProbingAlgorithm(
+            self.mock_executor, self.mock_observer, always_full_cycle=False
+        )
+        algo.run(src_port=24, dst_port=28, lower_bound=10, upper_bound=20)
+
+        calls = self.mock_executor.check.call_args_list
+        # First iteration: absolute value, drain
+        assert calls[0][1]['value'] == 11
+        assert calls[0][1]['drain_buffer'] is True
+        # Second iteration: incremental step, no drain
+        assert calls[1][1]['value'] == 1  # step_size
+        assert calls[1][1]['drain_buffer'] is False
+        # Third iteration: still incremental
+        assert calls[2][1]['value'] == 1
+        assert calls[2][1]['drain_buffer'] is False
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
