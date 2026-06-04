@@ -266,14 +266,17 @@ class HeadroomPoolProbing(ProbingBase):
         Returns:
             ThresholdResult: Pool size result (point format: lower == upper)
         """
-        # Get pool size
-        pool_size = self.get_pool_size()
+        # Convert pool size from cells to packets
+        pool_size_cells = self.get_pool_size()
+        pool_size = pool_size_cells // self.probe_cells_per_packet
 
         # Log probing start
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting Headroom Pool Size probing")
         ProbingObserver.console("  Traffic pattern: N src -> 1 dst")
-        ProbingObserver.console(f"  pool_size={pool_size}")
+        ProbingObserver.console(
+            f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, "
+            f"pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")

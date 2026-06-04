@@ -769,6 +769,41 @@ class TestIngressDropProbingProbeMethod(unittest.TestCase):
             mock_result_class.from_bounds.assert_called_once_with(None, None)
             assert result == mock_result
 
+    @pytest.mark.order(3250)
+    @patch('ingress_drop_probing.ThresholdResult')
+    @patch('ingress_drop_probing.ProbingObserver')
+    def test_probe_pool_size_conversion_multi_cell(self, mock_observer_class, mock_result_class):
+        """Test probe converts pool_size from cells to packets when cells_per_packet > 1."""
+        instance = TestIngressDropProbingInstance()
+        instance.probe_cells_per_packet = 4  # Cisco: 1350B / 384B = 4 cells/pkt
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.get_port_ids.return_value = [28]
+        instance.stream_mgr = mock_stream_mgr
+
+        # Pool size in cells
+        instance.get_pool_size = MagicMock(return_value=10000)
+
+        mock_algorithms = {
+            "upper_bound": MagicMock(),
+            "lower_bound": MagicMock(),
+            "threshold_range": MagicMock()
+        }
+        instance._create_algorithms = MagicMock(return_value=mock_algorithms)
+        instance._run_algorithms = MagicMock(return_value=(600, 650))
+
+        mock_result = MagicMock()
+        mock_result_class.from_bounds.return_value = mock_result
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        IngressDropProbing.probe(instance)
+
+        # pool_size passed to _run_algorithms should be 10000 // 4 = 2500
+        instance._run_algorithms.assert_called_once_with(
+            mock_algorithms, 24, 28, 2500, pg=3
+        )
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
