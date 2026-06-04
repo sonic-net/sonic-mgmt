@@ -63,6 +63,11 @@ def check_interface_status_of_up_ports(duthost):
     if duthost.is_bmc():
         return True
 
+    # Skip interface checks for BMC - BMC manages BMC network interface, not data plane ports
+    # BMC devices don't have front-panel ports - always return True
+    if duthost.is_bmc():
+        return True
+
     if duthost.is_multi_asic:
         up_ports = []
         for asic in duthost.frontend_asics:
@@ -100,6 +105,11 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     @param interfaces: List of interfaces that need to be checked.
     """
+    # BMC devices have no front-panel ports, skip interface checks
+    if dut.is_bmc():
+        logging.info("BMC device detected, skipping interface status check (no front-panel ports)")
+        return True
+
     asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
