@@ -169,9 +169,6 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         fec_symbol_err = intf.get('fec_symbol_err', '').replace(',', '').lower()
         # Check if fec_corr, fec_uncorr, and fec_symbol_err are valid integers
         try:
-            # Broadcom TH does not support FEC_SYMBOL_ERR at 50G - skip the check for the intf
-            if duthost.facts.get("hwsku", "unknown") == "Arista-7060CX-32S-D48C8" and fec_symbol_err == "n/a":
-                continue
             fec_corr_int = int(fec_corr)
             fec_uncorr_int = int(fec_uncorr)
             fec_symbol_err_int = int(fec_symbol_err)
