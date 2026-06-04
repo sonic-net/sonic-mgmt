@@ -431,19 +431,9 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
 def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("Modifying ACL rule with new MAC: %s", new_src_mac)
 
-    rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|rule_1"
-    duthost.shell(f'sonic-db-cli CONFIG_DB del "{rule_key}"', module_ignore_errors=True)
-
-    def _check_state_db_rule_absent(duthost):
-        result = duthost.shell(
-            f'redis-cli -n 6 KEYS "ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"'
-        )["stdout"]
-        return "rule_1" not in result
-
-    pytest_assert(wait_until(30, 5, 2, _check_state_db_rule_absent, duthost),
-                  "Old ACL rule still in STATE_DB after delete")
-
     setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac)
+
+    rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|rule_1"
 
     def _check_rule_updated(duthost, expected_mac):
         cfg = duthost.shell(
