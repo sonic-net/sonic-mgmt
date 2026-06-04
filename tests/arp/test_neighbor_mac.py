@@ -111,7 +111,7 @@ class TestNeighborMac:
         ptfhost.shell("ifconfig {} up".format(self.PTF_HOST_IF))
         pytest_assert(
             wait_until(self.PTF_INTERFACE_READY_TIMEOUT, 1, 0, self.__is_ptf_interface_ready, ptfhost),
-            "{} is not ready with IP {}/24 after MAC update".format(self.PTF_HOST_IF, self.PTF_HOST_IP)
+            "{} is not ready with IP {} after MAC update".format(self.PTF_HOST_IF, self.PTF_HOST_IP)
         )
 
     def __startInterface(self, duthost):
