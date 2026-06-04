@@ -66,8 +66,9 @@ class TestPfcXoffProbingInstance(PfcXoffProbing):
         self.is_dualtor = False
         self.def_vlan_mac = None
         self.packet_size = 64
+        self.probe_packet_length = 64
+        self.probe_cells_per_packet = 1
 
-        # Mock get_rx_port method
         def mock_get_rx_port(src_port, dst_port):
             return dst_port
         self.get_rx_port = mock_get_rx_port
