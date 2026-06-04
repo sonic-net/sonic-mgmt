@@ -466,11 +466,13 @@ class TestQosProbe(QosSaiBase):
             using PfcXon probing algorithm.
 
             Topology: 1 src -> 2 dst (both flows enter the SAME ingress PG).
-            Algorithm dispatch (per design v3):
-                - enable_xon_range_probe=False (default): Step algorithm (3-step path)
-                  for Brcm TD/TH and Mlx SPC1/SPC2 (effective offset 12-23)
-                - enable_xon_range_probe=True: Binary algorithm (4-step path)
-                  for Brcm GB, Mlx SPC3 (PAC), Cisco J2C/JR2/Q3D (offset 200-12985)
+            Algorithm (design v3, standard framework):
+                - Step 1-4: PfcXoff chain -> measured xoff_point
+                - Step 5: XOn drain — (Range optional) -> Point mandatory
+                  - enable_xon_range_probe=False (default): Point only
+                    (sufficient for small offsets like Brcm TH2/TD3 ~12 pkt)
+                  - enable_xon_range_probe=True: Range then Point
+                    (needed for large offsets like Cisco J2C ~13000 pkt)
 
             Args:
                 xonProfile (pytest parameter): XOn profile (xon_1..xon_4)
