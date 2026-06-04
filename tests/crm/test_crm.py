@@ -1526,13 +1526,14 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Wait for FDB clear to complete using wait_until polling
     logger.info("Waiting for FDB clear to complete...")
     fdb_clear_result = {'used': None, 'avail': None}
+    check_fdb_available = not is_cel_e1031_device(duthost)
 
     def _fdb_final_clear():
         used, avail = get_crm_stats(get_fdb_stats, duthost)
         fdb_clear_result['used'] = used
         fdb_clear_result['avail'] = avail
-        if used == 0:
-            logger.debug("FDB cleared successfully")
+        if used == 0 and (not check_fdb_available or avail >= crm_stats_fdb_entry_available):
+            logger.debug("FDB cleared successfully and CRM counters recovered")
             return True
         return False
 
@@ -1547,6 +1548,6 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     # Verify "crm_stats_fdb_entry_available" counter was incremented
     # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
     # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
-    if not is_cel_e1031_device(duthost):
+    if check_fdb_available:
         pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0,
                       "Counter 'crm_stats_fdb_entry_available' was not incremented")
