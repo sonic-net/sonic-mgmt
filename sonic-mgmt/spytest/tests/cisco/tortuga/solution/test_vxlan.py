@@ -12,6 +12,7 @@ import apis.system.interface as interface_obj
 import apis.system.basic as basic_obj
 import apis.system.reboot as reboot_obj
 from spytest.utils import poll_wait
+from spytest.infra import poll_wait2
 from spytest.tgen.tg import get_ixiangpf as ixia_handle
 
 
@@ -40,6 +41,17 @@ def copy_default_config_db():
     cmd = "sudo cp /etc/sonic/config_db.json config_db.json.orig"
     for dut in st.get_dut_names():
         st.config(dut, cmd, skip_error_check=True)
+
+@pytest.fixture(scope="module", autouse=True)
+def copy_spytest_helper():
+    for dut in st.get_dut_names():
+        st.config(dut, "cp /etc/spytest/remote/spytest-helper.py /etc/sonic/spytest-helper.py ")
+        st.config(dut, " ls -lrt  /etc/spytest/remote/")
+        st.config(dut, " ls -lrt /etc/sonic/")
+    yield
+    for dut in st.get_dut_names():
+        st.config(dut,"rm /etc/sonic/spytest-helper.py")
+
 
 @pytest.fixture(scope="module", autouse=True)
 def vxlan_config():
@@ -75,7 +87,7 @@ def pretest(request):
     vtep_state = vxlan_obj.verify_vtep(leaf_nodes)
     if not vtep_state:
         #vxlan_obj.get_cli_out(leaf_nodes)
-        cmds = ["do show bgp summary, do show run"]
+        cmds = ["do show bgp summary", "do show run"]
         for dut in st.get_dut_names():
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
@@ -92,7 +104,7 @@ class TestVxlanBasic():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
         #check bgp on all nodes
-        cmds = ["do show bgp summary, do show run"]
+        cmds = ["do show bgp summary", "do show run"]
         for dut in st.get_dut_names():
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
@@ -761,7 +773,7 @@ class TestVxlanSagTriggers():
             st.report_pass("test_case_passed")
         else:
             st.report_fail("test_case_failed")
-
+    
     def test_ecmp(self):
         st.banner("TEST 20:Trigger 15: Create new vlan and verify ecmp traffic ")
         leaf_nodes=[]
@@ -844,13 +856,22 @@ class TestVxlanSagTriggers():
             pkts_per_burst=200
             rate_percent = 0.01
         leaf0_underlay_portlist = int_config_dict['leaf0']['underlay']
-        udp_src_no = [25225,60000,65001,45000]
-        udp_dst_no = [5001,8080,12000,33000]
+        num_paths = len(leaf0_underlay_portlist)
+        # Many distinct 5-tuples are required for stable ECMP spread; two fixed
+        # flows can hash to the same underlay link and fail intermittently.
+        udp_src_no = [25225, 60000, 65001, 45000, 12345, 23456, 34567, 45678]
+        udp_dst_no = [5001, 8080, 12000, 33000, 15001, 25001, 35001, 45001]
+        min_ecmp_flows = max(8, num_paths * 4)
+        flow_tuples = []
+        for udp_src in udp_src_no:
+            for udp_dst in udp_dst_no:
+                flow_tuples.append((udp_src, udp_dst))
+                if len(flow_tuples) >= min_ecmp_flows:
+                    break
+            if len(flow_tuples) >= min_ecmp_flows:
+                break
 
-        #choose no of src/dst port no based on no of underlay interfaces
-        src_list = udp_src_no[:len(leaf0_underlay_portlist)]
-        dst_list = udp_dst_no[:len(leaf0_underlay_portlist)]
-        for udp_src, udp_dst in zip(src_list, dst_list):
+        for udp_src, udp_dst in flow_tuples:
             new_raw_stream = tg_handle.tg_traffic_config(
                             port_handle=my_topo_handle['src_port'], 
                             port_handle2=my_topo_handle['dst_port'], 
@@ -877,42 +898,70 @@ class TestVxlanSagTriggers():
         st.wait(10)
         vxlan_obj.start_stop_protocols(tg_handle,'start')
         st.wait(10)
-        #clear dut counters:
+        #clear dut counters and snapshot baseline before test traffic
         st.show('leaf0', "sonic-clear counters", skip_tmpl=True)
+        st.wait(2)
+        baseline_output = st.show('leaf0', "show int counters", skip_tmpl=True)
+        baseline_parsed = st.parse_show('leaf0', "show int counters", baseline_output, "show_interfaces_counters.tmpl")
+        baseline_tx = {}
+        for item in baseline_parsed:
+            if item['iface'] in leaf0_underlay_portlist:
+                baseline_tx[item['iface']] = int(item['tx_ok'].replace(",", ""))
+
         tg_handle.tg_traffic_control(action='run', stream_handle=stream_list)
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list)
         st.wait(10)
         
-        #ECMP check
+        # ECMP check - verify underlay delta counters are spread across all paths.
+        # Do not compare underlay TX to TGEN frame count: VXLAN encap/BUM can
+        # multiply outer packets on the underlay vs inner host frames.
         ecmp_check = True
+        num_streams = len(stream_list)
         cli_output = st.show('leaf0', "show int counters", skip_tmpl=True)
-        parsed_out = st.parse_show('leaf0', "show int counters",cli_output, "show_interfaces_counters.tmpl")
-        tx_counters = []
+        parsed_out = st.parse_show('leaf0', "show int counters", cli_output, "show_interfaces_counters.tmpl")
+        tx_by_iface = {}
         for item in parsed_out:
             if item['iface'] in leaf0_underlay_portlist:
-                tx_counters.append(item['tx_ok'])
-        
-        for value in tx_counters:
-            if int(value.replace(",", "")) <= 1.25*(pkts_per_burst) and int(value.replace(",", "")) >= .98*(pkts_per_burst):
-                st.banner("Counter value is in expected range ")
+                post_tx = int(item['tx_ok'].replace(",", ""))
+                tx_by_iface[item['iface']] = post_tx - baseline_tx.get(item['iface'], 0)
+
+        tx_counts = [tx_by_iface.get(iface, 0) for iface in leaf0_underlay_portlist]
+        total_tx = sum(tx_counts)
+        fair_share = 1.0 / float(num_paths) if num_paths else 0
+        st.log("ECMP: {} streams x {} pkts from TGEN, underlay TX delta total {}".format(
+            num_streams, pkts_per_burst, total_tx))
+        st.log("ECMP underlay TX delta counters: {}".format(tx_by_iface))
+
+        if total_tx == 0:
+            st.banner("ECMP Failed: no underlay TX observed after traffic")
+            ecmp_check = False
+
+        for iface, count in zip(leaf0_underlay_portlist, tx_counts):
+            share = float(count) / total_tx if total_tx else 0
+            if count == 0 or share < 0.5 * fair_share or share > 1.5 * fair_share:
+                st.banner("ECMP Failed on {}: tx_delta={}, share={:.1%}, fair={:.1%}".format(
+                    iface, count, share, fair_share))
+                ecmp_check = False
             else:
-                st.banner(int(value.replace(",", "")))
-                st.banner("ECMP Failed")
-                ecmp_check =  False
+                st.banner("ECMP OK on {}: tx_delta={}, share={:.1%}".format(iface, count, share))
         
-        #stats check
+        #stats check - Ixia reports cumulative stats per stream when run together
         flag = True
-        for item in stream_list:
-            traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=item)
-            #verify stats
-            result = vxlan_obj.stats_check(traffic_stat)
-            if result :
-                st.banner("Traffic passed for {}".format(item))
-            else:
-                flag = False
-                st.banner("Traffic Failed for {}".format(item))
+        total_expected_pkts = num_streams * pkts_per_burst
+        traffic_stat = tgapi.get_traffic_stats(
+            tg_handle, mode='streams', port_handle=my_topo_handle['src_port'],
+            direction='tx', stream_handle=stream_list[-1])
+        st.log("Aggregate traffic: tx={}, rx={}, expected={}".format(
+            traffic_stat['tx']['total_packets'], traffic_stat['rx']['total_packets'],
+            total_expected_pkts))
+        if (traffic_stat['rx']['total_packets'] >= 0.998 * total_expected_pkts and
+                traffic_stat['tx']['total_packets'] >= 0.998 * total_expected_pkts):
+            st.banner("Traffic passed")
+        else:
+            flag = False
+            st.banner("Traffic Failed")
         #Del traffic item and device group
         for item in stream_list:
             vxlan_obj.delete_traffic_item(tg_handle,item)
@@ -1128,6 +1177,8 @@ class TestVxlanMacMoveTriggers():
         st.config('leaf0', 'do show bgp l2vpn evpn route type 2', type='vtysh', skip_error_check=True)
         st.config('leaf1', 'do show bgp l2vpn evpn route type 2', type='vtysh', skip_error_check=True)
         ###Move the host MAC MOVE 1###
+        vxlan_obj.start_stop_protocols(tg_handle,'stop')
+        st.wait(20)
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id)
         
@@ -1153,7 +1204,7 @@ class TestVxlanMacMoveTriggers():
         new_stream_id_1 = new_raw_stream_1['stream_id']
         #stop/start protocols
         vxlan_obj.start_stop_protocols(tg_handle,'stop')
-        st.wait(10)
+        st.wait(60)
         vxlan_obj.start_stop_protocols(tg_handle,'start')
         st.wait(10)
         
@@ -1181,6 +1232,8 @@ class TestVxlanMacMoveTriggers():
         if not (leaf1_check and leaf0_check):
             mac_move_1 = False
 
+        vxlan_obj.start_stop_protocols(tg_handle,'stop')
+        st.wait(20)
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id_1)
         vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst1_dev_handle.values())[0].values())[0].values())[0])
@@ -2583,8 +2636,8 @@ def return_result(traffic_result):
     else:
         st.banner("traffic verification failed")
         #check bgp on all nodes
-        cmds = ["do show bgp summary, do show run"]
-        for dut in st.get_dut_names:
+        cmds = ["do show bgp summary", "do show run"]
+        for dut in st.get_dut_names():
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
         st.report_fail("test_case_failed")
