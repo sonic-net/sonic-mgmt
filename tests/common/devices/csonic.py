@@ -104,6 +104,14 @@ class CsonicHost(NeighborDevice):
         """Run a shell command (compatible with Ansible shell module interface)."""
         return self._docker_exec(cmd, **kwargs)
 
+    def run_command(self, cmd, **kwargs):
+        """Run a single command inside the container and return its result."""
+        return self._docker_exec(cmd, **kwargs)
+
+    def run_command_list(self, cmds, **kwargs):
+        """Run a list of commands inside the container, returning a result per command."""
+        return [self._docker_exec(cmd, **kwargs) for cmd in cmds]
+
     def shutdown(self, ifname):
         """Shut down an interface."""
         logger.info("CsonicHost [%s] shutting down %s", self.container_name, ifname)
