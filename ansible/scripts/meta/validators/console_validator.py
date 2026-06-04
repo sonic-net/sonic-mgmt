@@ -282,7 +282,7 @@ class ConsoleValidator(GlobalValidator):
             )
 
         # Validate optional fields exist but don't require specific values
-        optional_fields = ['proxy', 'type', 'menu_type', 'baud_rate', 'direct_ssh_port']
+        optional_fields = ['proxy', 'type', 'menu_type', 'baud_rate']
         for field in optional_fields:
             if field in console_port_info:
                 value = console_port_info[field]
