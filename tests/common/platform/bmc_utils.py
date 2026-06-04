@@ -61,79 +61,38 @@ def get_switch_host_or_skip_test(duthost):
 
 # --- Log helpers -----------------------------------------------------------
 
-def pmon_journal_contains(duthost, pattern, since='1 minute ago', tail=5):
-    """True iff `pattern` appears in host /var/log/syslog (case-insensitive)."""
+def make_bmc_loganalyzer(duthost, marker_prefix, include_event_log=True):
+    """
+    Return a LogAnalyzer configured for BMC tests.
+
+    With include_event_log=True, /host/bmc/event.log is added to additional_files
+    so init() writes a sentinel marker line into it and analyze() extracts the
+    same windowed slice from both syslog (rotation-safe, incl. .gz) and event.log.
+
+    Tests using this MUST be decorated with @pytest.mark.disable_loganalyzer to
+    avoid interference with the session-scoped LogAnalyzer fixture.
+    """
+    from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+    additional = {BMC_EVENT_LOG: ''} if include_event_log else {}
+    return LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix,
+                       additional_files=additional)
+
+
+def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
+    """
+    Historical / pre-existing-state scan that walks all rotated syslog files
+    (including .gz). For trigger-and-verify checks, use make_bmc_loganalyzer +
+    LogAnalyzer.analyze() instead so the scan is bounded by markers.
+
+    Returns the matching lines (tail-N) as a string; empty if no match.
+    """
     r = duthost.shell(
-        f"grep -ihI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
-        module_ignore_errors=True
+        f"zgrep -hI -E '{pattern}' {files} 2>/dev/null | tail -{tail}",
+        module_ignore_errors=True,
     )
-    return r.get('rc') == 0 and bool((r.get('stdout', '') or '').strip())
-
-
-def bmc_event_log_exists(duthost):
-    """True iff /host/bmc/event.log exists on the BMC."""
-    r = duthost.shell(
-        f"test -f {BMC_EVENT_LOG} && echo yes || echo no",
-        module_ignore_errors=True
-    )
-    return (r.get('stdout', '') or '').strip() == 'yes'
-
-
-def bmc_event_log_contains(duthost, pattern, tail=30):
-    """True iff `/host/bmc/event.log` (tail -N lines) contains pattern (case-insensitive)."""
-    r = duthost.shell(
-        f"tail -{tail} {BMC_EVENT_LOG} 2>/dev/null | grep -i '{pattern}'",
-        module_ignore_errors=True
-    )
-    return r.get('rc') == 0 and bool((r.get('stdout', '') or '').strip())
-
-
-def bmc_event_log_line_count(duthost):
-    """Return current line count of /host/bmc/event.log, or 0 if absent / unreadable."""
-    r = duthost.shell(
-        f"test -f {BMC_EVENT_LOG} && wc -l < {BMC_EVENT_LOG} || echo 0",
-        module_ignore_errors=True
-    )
-    try:
-        return int((r.get('stdout', '') or '0').strip())
-    except ValueError:
-        return 0
-
-
-def bmc_event_log_tail_from(duthost, start_line):
-    """Return lines from /host/bmc/event.log starting at start_line+1 (0 → whole file)."""
-    r = duthost.shell(
-        f"tail -n +{start_line + 1} {BMC_EVENT_LOG} 2>/dev/null",
-        module_ignore_errors=True
-    )
-    return r.get('stdout', '') or ''
-
-
-def bmc_event_or_syslog_contains(duthost, pattern, since='1 minute ago', tail=5):
-    """True iff `pattern` appears in host syslog or /host/bmc/event.log."""
-    r = duthost.shell(
-        f"grep -hI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
-        module_ignore_errors=True
-    )
-    if r.get('rc') == 0 and (r.get('stdout', '') or '').strip():
-        return True
-    return (pmon_journal_contains(duthost, pattern, since=since, tail=tail)
-            or bmc_event_log_contains(duthost, pattern))
-
-
-def host_syslog_contains(duthost, pattern, tail=5):
-    """True iff `pattern` appears in /var/log/syslog (and rotated /var/log/syslog.1)."""
-    r = duthost.shell(
-        f"grep -hI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
-        module_ignore_errors=True
-    )
-    return r.get('rc') == 0 and bool((r.get('stdout', '') or '').strip())
-
-
-def bmc_event_log_only_contains(duthost, pattern, tail=30):
-    """True iff `pattern` is in /host/bmc/event.log AND NOT in /var/log/syslog."""
-    return (bmc_event_log_contains(duthost, pattern, tail=tail)
-            and not host_syslog_contains(duthost, pattern))
+    if r.get('rc') == 0:
+        return (r.get('stdout', '') or '').strip()
+    return ''
 
 
 # --- Leak-sensor injection helpers ----------------------------------------

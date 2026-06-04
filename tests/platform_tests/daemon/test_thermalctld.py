@@ -16,10 +16,11 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
     STATE_DB,
-    bmc_event_or_syslog_contains,
+    BMC_EVENT_LOG,
+    bmc_log_zgrep,
     get_system_leak_status,
     inject_leak_sensor,
-    pmon_journal_contains,
+    make_bmc_loganalyzer,
     redis_del,
     redis_hget,
     redis_hgetall,
@@ -154,16 +155,14 @@ class TestThermalctldDaemon:
         """
         LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_sensor_leaking"
 
-        def log_contains(pattern):
-            return pmon_journal_contains(self.duthost, pattern, since='2 minutes ago')
-
         def sensor_has_value(key, field, value):
             return redis_hget(self.duthost, STATE_DB, key, field) == value
 
         trigger_results = {}
 
-        # --- Trigger: leaking sensor (leaking=Yes, leak_sensor_status=Good) ---
-        # Expected syslog: log_error('Liquid cooling leakage sensor test_sensor_leaking reported leaking')
+        # Bracket the trigger with LogAnalyzer (rotation-safe; also scans event.log).
+        la = make_bmc_loganalyzer(self.duthost, "thermalctld_event_trigger_leak")
+        marker = la.init()
         try:
             inject_leak_sensor(self.duthost, 'test_sensor_leaking',
                                leaking='Yes', leak_sensor_status='Good', severity='MINOR')
@@ -172,24 +171,28 @@ class TestThermalctldDaemon:
 
             in_db = wait_until(15, 2, 0, sensor_has_value, LEAKING_SENSOR_KEY, 'leaking', 'Yes')
             trigger_results['leaking_sensor_in_db'] = in_db
-            found = wait_until(30, 3, 0, log_contains, 'reported leaking')
-            trigger_results['leaking_sensor_syslog'] = found
-            if found:
-                logger.info("Trigger: syslog confirmed 'reported leaking'")
-            else:
-                logger.info("Trigger: no syslog match - thermalctld logs on hardware poll, not DB write")
+            # Give thermalctld a hardware-poll cycle to react.
+            time.sleep(20)
         finally:
             redis_del(self.duthost, STATE_DB, LEAKING_SENSOR_KEY)
 
-        # Check syslog for existing leaking events (tight pattern avoids ansible self-log match).
-        result = self.duthost.shell(
-            "grep -hE 'Liquid cooling leak(age|ing) sensor .* "
-            "(reported leaking|recovered from leaking)' "
-            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -10",
-            module_ignore_errors=True
+        la.match_regex = [r".*Liquid cooling leak(age|ing) sensor .* reported leaking.*"]
+        result = la.analyze(marker, fail=False)
+        match_count = result.get("total", {}).get("match", 0)
+        trigger_results['leaking_sensor_syslog'] = match_count > 0
+        if match_count:
+            logger.info(f"Trigger: log confirmed 'reported leaking' ({match_count} match[es])")
+        else:
+            logger.info("Trigger: no log match - thermalctld logs on hardware poll, not DB write")
+
+        # Historical informational scan (rotation-safe via zgrep).
+        existing = bmc_log_zgrep(
+            self.duthost,
+            r"Liquid cooling leak(age|ing) sensor .* (reported leaking|recovered from leaking)",
+            tail=10,
         )
-        if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"Existing thermalctld leaking-sensor events:\n{result['stdout']}")
+        if existing:
+            logger.info(f"Existing thermalctld leaking-sensor events:\n{existing}")
 
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
@@ -245,15 +248,14 @@ class TestThermalctldDaemon:
         finally:
             redis_del(self.duthost, STATE_DB, FAULTY_KEY)
 
-        # Check syslog for existing faulty-sensor events (tight pattern avoids ansible self-log match).
-        result = self.duthost.shell(
-            "grep -hE 'Liquid cooling leak(age|ing) sensor .* "
-            "(reported faulty|recovered from fault)' "
-            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -10",
-            module_ignore_errors=True
+        # Historical informational scan (rotation-safe via zgrep).
+        existing = bmc_log_zgrep(
+            self.duthost,
+            r"Liquid cooling leak(age|ing) sensor .* (reported faulty|recovered from fault)",
+            tail=10,
         )
-        if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"Real faulty sensor events in syslog:\n{result['stdout']}")
+        if existing:
+            logger.info(f"Real faulty sensor events in syslog:\n{existing}")
         else:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
@@ -309,24 +311,24 @@ class TestThermalctldDaemon:
 
         logger.info("Switch-Host detected — verifying BMC TEMPERATURE_INFO mirror")
 
-        # Check startup log for BMC mirror initialization
-        result = self.duthost.shell(
-            "grep -hi 'Mirroring TEMPERATURE_INFO\\|Failed to open remote BMC' "
-            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5",
-            module_ignore_errors=True
+        # Historical startup-log scan (rotation-safe via zgrep).
+        mirror_log = bmc_log_zgrep(
+            self.duthost,
+            r"Mirroring TEMPERATURE_INFO|Failed to open remote BMC",
+            tail=5,
         )
-        if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"BMC mirror log entries:\n{result['stdout'].strip()}")
-            if 'Mirroring TEMPERATURE_INFO' in result['stdout']:
+        if mirror_log:
+            logger.info(f"BMC mirror log entries:\n{mirror_log}")
+            if 'Mirroring TEMPERATURE_INFO' in mirror_log:
                 logger.info("BMC TEMPERATURE_INFO mirror initialization confirmed")
-            elif 'Failed to open remote BMC' in result['stdout']:
+            elif 'Failed to open remote BMC' in mirror_log:
                 logger.info(
                     "BMC mirror initialization failed (BMC unreachable or misconfigured) — "
                     "thermalctld degrades gracefully"
                 )
         else:
             logger.info(
-                "No BMC mirror log in last 60 min — thermalctld may have started earlier"
+                "No BMC mirror log found in /var/log/syslog* — thermalctld may have started earlier"
             )
 
         # Verify local TEMPERATURE_INFO is populated (source of mirror data)
@@ -368,26 +370,27 @@ class TestThermalctldDaemon:
 
         logger.info("BMC platform detected — verifying Switch-Host thermal monitoring")
 
-        # Check startup log for initialization message
-        result = self.duthost.shell(
-            "grep -hi 'Monitoring chassis thermals\\|Failed to init chassis thermal' "
-            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5",
-            module_ignore_errors=True
+        # Historical startup-log scan (rotation-safe via zgrep).
+        init_log = bmc_log_zgrep(
+            self.duthost,
+            r"Monitoring chassis thermals|Failed to init chassis thermal",
+            tail=5,
         )
-        if result['rc'] == 0 and result['stdout'].strip():
-            logger.info(f"Thermal monitoring init log:\n{result['stdout'].strip()}")
+        if init_log:
+            logger.info(f"Thermal monitoring init log:\n{init_log}")
 
-        # Check /host/bmc/event.log for any existing CRITICAL chassis thermal events
-        result = self.duthost.shell(
-            "test -f /host/bmc/event.log && grep -i 'CRITICAL chassis thermal' /host/bmc/event.log"
-            " | tail -5 || echo 'no events'",
-            module_ignore_errors=True
+        # Historical CRITICAL chassis thermal events in event.log (informational).
+        existing = bmc_log_zgrep(
+            self.duthost, r"CRITICAL chassis thermal", tail=5, files=BMC_EVENT_LOG,
         )
-        if result['rc'] == 0 and 'no events' not in result['stdout']:
-            logger.info(f"Existing CRITICAL chassis thermal events:\n{result['stdout'].strip()}")
+        if existing:
+            logger.info(f"Existing CRITICAL chassis thermal events:\n{existing}")
 
         # Inject a test TEMPERATURE_INFO entry with temp above critical threshold
         TEST_SENSOR = "TEMPERATURE_INFO:test_critical_thermal_monitor"
+        # Bracket the inject with LogAnalyzer (syslog + event.log windowed scan).
+        la = make_bmc_loganalyzer(self.duthost, "thermalctld_switch_host_thermal_breach")
+        marker = la.init()
         try:
             redis_hset(self.duthost, STATE_DB, TEST_SENSOR,
                        temperature='120.0',
@@ -398,23 +401,20 @@ class TestThermalctldDaemon:
                        timestamp='2099-01-01T00:00:00')
             logger.info(f"Injected test TEMPERATURE_INFO entry: {TEST_SENSOR} (120C > 80C critical)")
 
-            # Wait for thermalctld to poll and log the breach (up to 2 update cycles)
-            def breach_logged():
-                return bmc_event_or_syslog_contains(
-                    self.duthost, 'CRITICAL chassis thermal.*test_critical',
-                    since='2 minutes ago'
-                )
-
-            found = wait_until(90, 5, 0, breach_logged)
-            if found:
-                logger.info("CRITICAL chassis thermal log confirmed for injected sensor")
-            else:
-                logger.info(
-                    "No CRITICAL chassis thermal log found within 90s — "
-                    "thermalctld may use a longer polling interval on this platform"
-                )
+            # Wait for thermalctld to poll and log the breach (up to 2 update cycles).
+            time.sleep(90)
         finally:
             redis_del(self.duthost, STATE_DB, TEST_SENSOR)
+
+        la.match_regex = [r".*CRITICAL chassis thermal.*test_critical.*"]
+        breach_result = la.analyze(marker, fail=False)
+        if breach_result.get("total", {}).get("match", 0) > 0:
+            logger.info("CRITICAL chassis thermal log confirmed for injected sensor")
+        else:
+            logger.info(
+                "No CRITICAL chassis thermal log found within 90s — "
+                "thermalctld may use a longer polling interval on this platform"
+            )
 
 
 # ---------------------------------------------------------------------------
