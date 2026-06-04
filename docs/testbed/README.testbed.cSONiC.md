@@ -25,6 +25,26 @@ cSONiC neighbors run the same SONiC software stack as the DUT, configured via CO
 
 The cSONiC testbed uses the `docker-sonic-vs` image as neighbor devices.
 
+> **IMPORTANT — the stock/upstream `docker-sonic-vs` image is NOT sufficient.**
+> A cSONiC neighbor must establish BGP and advertise LLDP exactly like a real
+> SONiC device. This requires a `docker-sonic-vs` image that composes the
+> control-plane features the neighbor depends on — at minimum **`bgpcfgd`**
+> (from `docker-fpm-frr`, so BGP_NEIGHBOR entries in CONFIG_DB are translated
+> into FRR config) and **`lldpd`/`lldpmgrd`** (from `docker-lldp`). The default
+> upstream `docker-sonic-vs` (a swss+syncd test image) ships **without**
+> `bgpcfgd` and `lldpd`, and its `start.sh` does not load `/var/sonic/config_db.json`
+> or auto-start services under supervisord — so neighbors come up with no BGP
+> sessions and no LLDP. Symptoms of using the wrong image:
+> `sonic-db-cli CONFIG_DB PING` returns *"Connection refused / Cannot assign
+> requested address"*, `start.sh` shows `FATAL Exited too quickly`, and
+> `vtysh -c "show running-config"` has no `router bgp` stanza.
+>
+> Build the neighbor image from a `docker-sonic-vs` that includes the cSONiC
+> feature composition (`_INCLUDE_DOCKER` for `docker-fpm-frr`, `docker-lldp`,
+> `docker-teamd`, etc.) plus the `start.sh`/`supervisord` `dependent_startup`
+> changes. See the `sonic-csonic-testbed` skill ("`_INCLUDE_DOCKER` — Feature
+> Composition" and "Known Issues") for the full conversion checklist.
+
 **Option 1: Download from Azure Pipelines**
 1. Go to [SONiC Azure Pipelines](https://sonic-build.azurewebsites.net/ui/sonic/pipelines)
 2. Find a recent successful build of `Azure.sonic-buildimage.official.vs`
@@ -139,7 +159,14 @@ cSONiC neighbors support LACP PortChannels via CONFIG_DB:
 
 cSONiC neighbors are configured using CONFIG_DB + bgpcfgd, matching the production SONiC configuration path:
 
-1. **Template**: `ansible/roles/sonic/templates/configdb-t0-leaf.j2` generates `config_db.json`
+1. **Template**: `csonic_config.yml` selects the CONFIG_DB template with a
+   first-found fallback chain so any topology/role is supported:
+   `configdb-{topo}-{swrole}.j2` → `configdb-{swrole}.j2` →
+   `configdb-csonic.j2`. The generic `configdb-csonic.j2` is role-aware (it
+   maps `props.swrole` → DEVICE_METADATA `type`: `leaf`→`LeafRouter`,
+   `spine`→`SpineRouter`, `tor`→`ToRRouter`), so T1/T2/dualtor neighbor roles
+   render without a bespoke per-role file. Add a `configdb-{topo}-{swrole}.j2`
+   only when a role needs config that diverges from the generic template.
 2. **Contents**: PORT, DEVICE_METADATA, LOOPBACK_INTERFACE, PORTCHANNEL, PORTCHANNEL_MEMBER, PORTCHANNEL_INTERFACE, INTERFACE, BGP_NEIGHBOR
 3. **Deploy flow**:
    - `csonic_config.yml` renders the template and writes to `/var/sonic/config_db.json` (bind-mounted volume)
