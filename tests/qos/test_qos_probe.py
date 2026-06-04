@@ -8,6 +8,8 @@ This module contains probe-based tests for buffer threshold detection, including
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
 
+CI: probe-tests stage in .azure-pipelines/probe-tests/ triggers UT/IT for changes here.
+
 Parameters:
     --enable_qos_ptf_pdb (bool): Enable pdb debugger in PTF tests. Default is False.
 """
@@ -54,6 +56,120 @@ class TestQosProbe(QosSaiBase):
                 if result is not None:
                     return result
         return None
+
+    # --- Platform Probe Parameter Resolver ---
+    # Each platform subclass resolves probe parameters (packet_length, thresholds, etc.)
+    # from QoS config. PTF receives resolved params via testParams; no platform checks in PTF.
+    # To add a new platform: create a subclass of ProbeParamsResolver and register
+    # in _PROBE_RESOLVER_REGISTRY.
+    _DEFAULT_CELL_SIZE = 384  # Conservative fallback when cell_size is not in QoS config
+
+    class ProbeParamsResolver:
+        """Default resolver: 64B packets, 1 cell per packet.
+
+        Subclasses override __init__ to resolve platform-specific values
+        from qosConfig_profile and dutQosConfig.
+        """
+        packet_length = 64          # class-level default
+        cells_per_packet = 1        # class-level default
+
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            pass  # defaults provided by class attributes above
+
+        def resolve_threshold(self, value):
+            """Convert a qos.yml threshold to probe-comparable units.
+
+            Returns the value in the same units as probe traffic counting,
+            so probe result can be directly compared with expected threshold.
+
+            Default: qos.yml stores thresholds in cell units → divide by cells_per_packet.
+            Subclasses override when qos.yml uses different units.
+            """
+            return value // self.cells_per_packet
+
+    class CiscoProbeParamsResolver(ProbeParamsResolver):
+        """Cisco-8000: resolve probe params from QoS config.
+
+        Cisco qos.yml threshold unit convention varies by profile:
+
+        Profiles WITHOUT cell_size (threshold in packet units, divisor=1):
+          - xoff_1/xoff_2: pkts_num_trig_pfc, pkts_num_trig_ingr_drp
+
+        Profiles WITH cell_size (threshold in cell units, divisor=cells_per_packet):
+          - lossy_queue_1: pkts_num_trig_egr_drp
+
+        This matches legacy sai_qos_tests.py behavior where cell_size presence
+        in test_params controls whether // cell_occupancy is applied.
+
+        Note on threshold_divisor vs cells_per_packet asymmetry:
+          When cell_size is absent, threshold_divisor=1 (thresholds already in
+          packet units) but cells_per_packet may be >1 (e.g. 4 for 1350B/384B).
+          cells_per_packet is still needed for pool_size byte-to-packet
+          conversion; threshold_divisor controls only resolve_threshold().
+        """
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            super().__init__()
+            qosConfig_profile = qosConfig_profile or {}
+            dutQosConfig = dutQosConfig or {}
+            self.packet_length = qosConfig_profile.get("packet_size", 64)  # Intentional override
+
+            cell_size = qosConfig_profile.get("cell_size")
+            if cell_size is not None:
+                # Profile provides cell_size → threshold is in cell units
+                self.threshold_divisor = (self.packet_length + cell_size - 1) // cell_size
+            else:
+                # Profile omits cell_size → threshold is already in packet units
+                cell_size = (dutQosConfig.get("param", {}).get("cell_size")
+                             or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
+                             or TestQosProbe._DEFAULT_CELL_SIZE)
+                self.threshold_divisor = 1
+
+            self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size  # Intentional override
+
+        def resolve_threshold(self, value):
+            """Convert threshold to probe-comparable units using threshold_divisor."""
+            return value // self.threshold_divisor
+
+    # Registry: platform_asic -> ProbeParamsResolver subclass.
+    # Keys must match duthost.facts["platform_asic"] values exactly
+    # (e.g. "cisco-8000" from Cisco 8000 series devices).
+    # Unregistered platforms fall back to the default ProbeParamsResolver.
+    _PROBE_RESOLVER_REGISTRY = {
+        "cisco-8000": CiscoProbeParamsResolver,
+    }
+
+    # Threshold keys in qos.yml that need resolve_threshold conversion
+    _THRESHOLD_KEYS = (
+        "pkts_num_trig_pfc", "pkts_num_trig_ingr_drp",
+        "pkts_num_trig_egr_drp", "pkts_num_trig_pfc_shp",
+    )
+
+    @staticmethod
+    def get_probe_params(platform_asic, qosConfig_profile, dutQosConfig):
+        """Return probe-related testParams dict for PTF.
+
+        Resolves platform-specific ProbeParamsResolver via registry, then
+        returns a dict with probe_packet_length, probe_cells_per_packet,
+        and thresholds converted to packet units.
+
+        qosConfig_profile may be a non-dict (e.g. hdrm_pool_size can be an
+        integer on some platforms); guard to avoid AttributeError/TypeError.
+
+        Usage: testParams.update(self.get_probe_params(...))
+        """
+        if not isinstance(qosConfig_profile, dict):
+            qosConfig_profile = {}
+        resolver_cls = TestQosProbe._PROBE_RESOLVER_REGISTRY.get(
+            platform_asic, TestQosProbe.ProbeParamsResolver)
+        resolver = resolver_cls(qosConfig_profile, dutQosConfig)
+        params = {
+            "probe_packet_length": resolver.packet_length,
+            "probe_cells_per_packet": resolver.cells_per_packet,
+        }
+        for key in TestQosProbe._THRESHOLD_KEYS:
+            if key in qosConfig_profile:
+                params[key] = resolver.resolve_threshold(qosConfig_profile[key])
+        return params
 
     @staticmethod
     def get_ingress_drop_counter_mode(dutTestParams):
@@ -181,6 +297,10 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
+
         self.runPtfTest(
             ptfhost, testCase="pfc_xoff_probing.PfcXoffProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
@@ -292,6 +412,10 @@ class TestQosProbe(QosSaiBase):
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
+
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
@@ -428,6 +552,10 @@ class TestQosProbe(QosSaiBase):
 
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[lossyProfile], dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="egress_drop_probing.EgressDropProbing", testParams=testParams,
@@ -689,6 +817,21 @@ class TestQosProbe(QosSaiBase):
             testParams['src_port_vlan'] = src_port_vlans
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
+
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions.
+        # hdrm_pool_size may lack packet_size/cell_size needed by platform
+        # resolvers (e.g. Cisco-8000 defaults to 64B without packet_size).
+        # Headroom pool is filled by lossless traffic on the same PGs as xoff,
+        # so fall back to xoff_1 profile values when hdrm_pool_size lacks them.
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        hdrm_probe_profile = dict(qosConfig.get("hdrm_pool_size", {}))
+        if "packet_size" not in hdrm_probe_profile:
+            xoff_fallback = qosConfig.get("xoff_1", {})
+            for key in ("packet_size", "cell_size"):
+                if key in xoff_fallback and key not in hdrm_probe_profile:
+                    hdrm_probe_profile[key] = xoff_fallback[key]
+        testParams.update(self.get_probe_params(
+            platform_asic, hdrm_probe_profile, dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",
