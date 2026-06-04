@@ -120,7 +120,7 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
 # the following functions are introduced.
 def get_pfcwd_config(duthost):
     if not duthost.is_multi_asic:
-        return (get_running_config(duthost, filter=".PFC_WD"))
+        return get_running_config(duthost, filter=".PFC_WD") or {}
     else:
         all_configs = []
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
