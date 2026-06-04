@@ -20,7 +20,7 @@ CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
-    if neighbor_type == "sonic":
+    if neighbor_type in ("sonic", "csonic"):
         if is_v6_topo:
             cmd = "show ipv6 bgp neighbors {}".format(localip)
         else:
@@ -59,7 +59,7 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
     run_bgp_facts(duthost, enum_asic_index)
 
     # Verify from peer device side to check
-    if neighbor_type not in ["sonic", "eos"]:
+    if neighbor_type not in ["sonic", "csonic", "eos"]:
         logger.warning("Unsupport neighbor type for neighbor bgp check: {}".format(neighbor_type))
     local_ip_map = {}
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']

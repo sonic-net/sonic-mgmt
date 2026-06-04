@@ -75,7 +75,7 @@ def verify_retry_count(hosts, expected_retry_count):
 
 @pytest.fixture(scope="class")
 def higher_retry_count_on_peers(request, duthost, nbrhosts):
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Only supported with SONiC neighbor")
 
     featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].command(
@@ -102,7 +102,7 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
 
 @pytest.fixture(scope="class")
 def higher_retry_count_on_dut(request, duthost, nbrhosts):
-    if request.config.getoption("neighbor_type") != "sonic":
+    if request.config.getoption("neighbor_type") not in ("sonic", "csonic"):
         pytest.skip("Only supported with SONiC neighbor")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
