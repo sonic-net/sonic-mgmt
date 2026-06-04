@@ -2,8 +2,8 @@
   become: yes
   docker_container:
     name: net_{{ vm_set_name }}_{{ vm_item }}
-    image: debian:jessie
-    pull: yes
+    image: "{{ csonic_netbase_image }}"
+    pull: "{{ csonic_netbase_image_pull }}"
     state: started
     restart: no
     tty: yes

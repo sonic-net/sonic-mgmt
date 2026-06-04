@@ -1,2 +1,10 @@
 csonic_image: docker-sonic-vs
 csonic_image_pull: false
+
+# Net base container holds the network namespace that the cSONiC container
+# joins (network_mode: container:net_...). It only needs to stay alive and
+# carry net_admin; any maintained, small base image works.
+# debian:jessie was EOL in 2019 and is no longer pullable, so default to a
+# supported slim image. pull=false means pull only when absent locally.
+csonic_netbase_image: debian:bookworm-slim
+csonic_netbase_image_pull: false

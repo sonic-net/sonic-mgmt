@@ -1112,6 +1112,19 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+        elif neighbor_type == "csonic":
+            # cSONiC neighbors are docker-sonic-vs containers accessed via
+            # "docker exec" (CsonicHost), not over SSH. Handle them before the
+            # generic "sonic in neighbor_type" branch below, which routes the
+            # SSH-based SONiC family (sonic, vsonic) to SonicHost.
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
@@ -1133,15 +1146,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "csonic":
-            vm_set_name = tbinfo.get('group-name', '')
-            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )

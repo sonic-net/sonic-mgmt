@@ -167,7 +167,7 @@ def makeMain(data, outfile):
         }
     }
     with open(outfile, "w") as toWrite:
-        toWrite.write("supported_vm_types: [ 'veos', 'ceos', 'vsonic' ]\n"),
+        toWrite.write("supported_vm_types: [ 'veos', 'ceos', 'vsonic', 'csonic' ]\n"),
         yaml.dump(dictData, stream=toWrite, default_flow_style=False)
         toWrite.write("# proxy\n")
         yaml.dump(proxy, stream=toWrite, default_flow_style=False)
