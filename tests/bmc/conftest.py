@@ -1,5 +1,7 @@
 import pytest
 
+from tests.common.platform.bmc_utils import get_switch_host_or_skip_test
+
 
 @pytest.fixture(scope="module")
 def bmc_duthost(duthosts, rand_one_dut_hostname):
@@ -11,5 +13,9 @@ def bmc_duthost(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope="module")
 def bmc_host_side(bmc_duthost):
-    """Get the host (CPU) side SonicHost associated with this BMC."""
-    return bmc_duthost.get_bmc_host()
+    """Get the host (CPU) side SonicHost associated with this BMC.
+
+    Skips the test cleanly if the paired Switch-Host is not reachable from
+    the test runner (e.g. not in inventory, no SSH path).
+    """
+    return get_switch_host_or_skip_test(bmc_duthost)

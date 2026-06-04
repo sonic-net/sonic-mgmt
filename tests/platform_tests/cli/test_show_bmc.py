@@ -17,6 +17,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
     get_host_uptime,
+    get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,
@@ -99,8 +100,8 @@ class TestBmcCliCommands:
         logger.info(f"show platform temperature: threshold columns present={has_threshold}")
         logger.info(f"show platform temperature output:\n{output}")
 
-        # Cross-check: BMC must surface paired Switch-Host sensors in its CLI output
-        host = self.duthost.get_bmc_host()
+        # Cross-check: BMC must surface paired Switch-Host sensors. Skip if Switch-Host unreachable.
+        host = get_switch_host_or_skip_test(self.duthost)
 
         def _sensor_names(rows):
             names = set()
@@ -154,7 +155,7 @@ class TestBmcCliCommands:
             if result['rc'] == 0:
                 logger.info(f"config chassis modules {subcmd} --help: available")
 
-        host = self.duthost.get_bmc_host()
+        host = get_switch_host_or_skip_test(self.duthost)
         pre_boot = get_host_uptime(host)
 
         try:
@@ -189,18 +190,22 @@ class TestBmcCliCommands:
         SAFE_ACTIONS = ['syslog_only', 'graceful_shutdown', 'power_off']
 
         def snapshot_policy():
-            """Parse `show platform leak control-policy` into {key: value} dict."""
-            rows = self.duthost.show_and_parse('show platform leak control-policy')
+            """Parse `show platform leak control-policy` into {key: value} dict.
+
+            Output is colon-separated `key : value` lines (not a table), e.g.:
+                system_leak_policy              : enabled
+                system_critical_leak_action     : power_off
+            """
+            r = self.duthost.shell('show platform leak control-policy',
+                                   module_ignore_errors=True)
             policy = {}
-            for row in rows or []:
-                # Heuristic: rows look like {'parameter': '...', 'value': '...'}
-                # or table form {'system_leak_policy': '...', ...}
-                if 'parameter' in row and 'value' in row:
-                    policy[row['parameter'].strip()] = row['value'].strip()
-                else:
-                    for k, v in row.items():
-                        if k and v:
-                            policy[k.strip()] = v.strip()
+            for line in (r.get('stdout') or '').splitlines():
+                if ':' not in line:
+                    continue
+                k, _, v = line.partition(':')
+                k, v = k.strip(), v.strip()
+                if k and v:
+                    policy[k] = v
             return policy
 
         def policy_has(field_substr, expected_value):
@@ -226,9 +231,7 @@ class TestBmcCliCommands:
         try:
             # --- leak-action functional round-trip ---
             for target in ['system', 'rack_mgr']:
-                # Field naming per design doc (LEAK_CONTROL_POLICY in CONFIG_DB):
-                #   system  → system_{severity}_leak_action
-                #   rack_mgr → rack_mgr_{severity}_alert_action
+                # LEAK_CONTROL_POLICY field naming: system_{sev}_leak_action, rack_mgr_{sev}_alert_action.
                 action_suffix = 'leak_action' if target == 'system' else 'alert_action'
                 for severity in ['minor', 'critical']:
                     field_substr = f"{target}_{severity}_{action_suffix}"
@@ -253,8 +256,7 @@ class TestBmcCliCommands:
                                   f"reflect {field_substr}={new_action}")
                     logger.info(f"Verified via show: {field_substr}={new_action}")
 
-            # --- leak-control functional toggle ---
-            # Policy field per design doc: {target}_leak_policy (enabled|disabled).
+            # --- leak-control functional toggle (policy field: {target}_leak_policy=enabled|disabled) ---
             for target in ['system', 'rack_mgr']:
                 field_substr = f"{target}_leak_policy"
                 current_state = next(
@@ -357,7 +359,7 @@ def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostn
                       "BMC `Serial Number` ({!r}) from `show version` does not match inventory `serial:` "
                       "for {} ({!r})".format(bmc_serial, duthost.hostname, bmc_inv_serial))
 
-    switch_host = duthost.get_bmc_host()
+    switch_host = get_switch_host_or_skip_test(duthost)
     sw_inv_serial = get_host_visible_vars(inv_files, switch_host.hostname).get('serial')
     if sw_inv_serial:
         pytest_assert(sw_inv_serial == sw_serial,

@@ -5,6 +5,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.platform_api import chassis, module as module_api
+from tests.common.platform.bmc_utils import get_switch_host_or_skip_test
 from tests.common.platform.device_utils import (  # noqa: F401
     platform_api_conn,
     start_platform_api_service
@@ -96,7 +97,7 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
         logger.info(f"SWITCH-HOST initial oper_status: {oper_status}")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        host = duthost.get_bmc_host()
+        host = get_switch_host_or_skip_test(duthost)
         pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
 
         try:
@@ -195,7 +196,7 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
             pytest.skip("SWITCH-HOST module not found; skipping do_power_cycle test")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        host = duthost.get_bmc_host()
+        host = get_switch_host_or_skip_test(duthost)
 
         pre_boot = host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
         logger.info(f"Pre-cycle paired switch boot timestamp: {pre_boot!r}")

@@ -1,24 +1,15 @@
-"""
-Shared helpers for BMC platform tests.
-
-Centralises the sonic-db-cli / journalctl / /host/bmc/event.log / Switch-Host
-power-cycle verification patterns repeated across:
-
-  - tests/platform_tests/daemon/test_bmcctld.py
-  - tests/platform_tests/daemon/test_thermalctld.py
-  - tests/platform_tests/cli/test_show_bmc.py
-"""
+"""Shared helpers for BMC platform tests (STATE_DB, syslog, event.log, Switch-Host)."""
 
 import logging
 from contextlib import contextmanager
+
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-# SONiC logical DB names (sonic-db-cli accepts these directly).
-# Kept as the bmc_utils public constants so callers stay DB-index-agnostic.
 APPL_DB = 'APPL_DB'
 CONFIG_DB = 'CONFIG_DB'
 STATE_DB = 'STATE_DB'
@@ -48,13 +39,7 @@ from tests.common.helpers.sonic_db import (  # noqa: F401,E402
 
 @contextmanager
 def pause_pmon_daemon(duthost, daemon_name):
-    """Stop a pmon daemon for the duration of the `with` block; restart on exit.
-
-    Useful when a test injects a value into STATE_DB that the daemon would
-    otherwise overwrite (e.g. injecting `SYSTEM_LEAK_STATUS.device_leak_status`
-    while thermalctld is running would have thermalctld immediately reset the
-    field on its next refresh).
-    """
+    """Stop a pmon daemon for the `with` block; restart on exit."""
     logger.info("Pausing pmon daemon '%s' for duration of injection", daemon_name)
     duthost.stop_pmon_daemon_service(daemon_name)
     try:
@@ -64,13 +49,22 @@ def pause_pmon_daemon(duthost, daemon_name):
         duthost.start_pmon_daemon(daemon_name)
 
 
+def get_switch_host_or_skip_test(duthost):
+    """Return the paired Switch-Host SonicHost, or pytest.skip if unreachable."""
+    try:
+        host = duthost.get_bmc_host()
+        host.command("echo ping", module_ignore_errors=True)
+    except Exception as e:
+        pytest.skip(f"paired Switch-Host not reachable from BMC {duthost.hostname}: {e}")
+    return host
+
+
 # --- Log helpers -----------------------------------------------------------
 
 def pmon_journal_contains(duthost, pattern, since='1 minute ago', tail=5):
-    """True iff `journalctl -u pmon --since <since>` contains pattern (case-insensitive)."""
+    """True iff `pattern` appears in host /var/log/syslog (case-insensitive)."""
     r = duthost.shell(
-        f"journalctl -u pmon --since '{since}' 2>/dev/null"
-        f" | grep -i '{pattern}' | tail -{tail}",
+        f"grep -ihI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
         module_ignore_errors=True
     )
     return r.get('rc') == 0 and bool((r.get('stdout', '') or '').strip())
@@ -116,26 +110,39 @@ def bmc_event_log_tail_from(duthost, start_line):
 
 
 def bmc_event_or_syslog_contains(duthost, pattern, since='1 minute ago', tail=5):
-    """True iff `pattern` appears in pmon journal OR /host/bmc/event.log."""
+    """True iff `pattern` appears in host syslog or /host/bmc/event.log."""
+    r = duthost.shell(
+        f"grep -hI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
+        module_ignore_errors=True
+    )
+    if r.get('rc') == 0 and (r.get('stdout', '') or '').strip():
+        return True
     return (pmon_journal_contains(duthost, pattern, since=since, tail=tail)
             or bmc_event_log_contains(duthost, pattern))
 
 
+def host_syslog_contains(duthost, pattern, tail=5):
+    """True iff `pattern` appears in /var/log/syslog (and rotated /var/log/syslog.1)."""
+    r = duthost.shell(
+        f"grep -hI '{pattern}' /var/log/syslog /var/log/syslog.1 2>/dev/null | tail -{tail}",
+        module_ignore_errors=True
+    )
+    return r.get('rc') == 0 and bool((r.get('stdout', '') or '').strip())
+
+
+def bmc_event_log_only_contains(duthost, pattern, tail=30):
+    """True iff `pattern` is in /host/bmc/event.log AND NOT in /var/log/syslog."""
+    return (bmc_event_log_contains(duthost, pattern, tail=tail)
+            and not host_syslog_contains(duthost, pattern))
+
+
 # --- Leak-sensor injection helpers ----------------------------------------
 
-def inject_leak_sensor(duthost, key, severity, leaking='Yes', leak_sensor_status='Good',
+def inject_leak_sensor(duthost, sensor_name, severity, leaking='Yes', leak_sensor_status='Good',
                        sensor_type=None, location=None):
-    """HSET a LIQUID_COOLING_INFO row using the daemon's wire schema.
-
-    `key` should already include the table prefix, e.g.
-    'LIQUID_COOLING_INFO:test_sensor_xyz'.
-
-    Schema fields (per thermalctld): name, type, location, severity,
-    leaking, leak_sensor_status. `sensor_type` (written to the `type`
-    field) and `location` are optional and only written when provided.
-    """
+    """HSET LIQUID_COOLING_INFO|<sensor_name> with thermalctld's wire schema."""
     fields = {
-        'name': key.split(':')[-1],
+        'name': sensor_name,
         'leaking': leaking,
         'leak_sensor_status': leak_sensor_status,
         'severity': severity,
@@ -144,17 +151,17 @@ def inject_leak_sensor(duthost, key, severity, leaking='Yes', leak_sensor_status
         fields['type'] = sensor_type
     if location is not None:
         fields['location'] = location
-    redis_hset(duthost, STATE_DB, key, **fields)
+    redis_hset(duthost, STATE_DB, f'LIQUID_COOLING_INFO|{sensor_name}', **fields)
 
 
 def get_system_leak_status(duthost):
-    """Return SYSTEM_LEAK_STATUS:system device_leak_status (stripped, '' if absent)."""
-    return redis_hget(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS:system', 'device_leak_status')
+    """Return SYSTEM_LEAK_STATUS|system device_leak_status (stripped, '' if absent)."""
+    return redis_hget(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', 'device_leak_status')
 
 
 def set_system_leak_status(duthost, status):
-    """HSET SYSTEM_LEAK_STATUS:system device_leak_status."""
-    redis_hset(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS:system', device_leak_status=status)
+    """HSET SYSTEM_LEAK_STATUS|system device_leak_status."""
+    redis_hset(duthost, STATE_DB, 'SYSTEM_LEAK_STATUS|system', device_leak_status=status)
 
 
 # --- Switch-Host power-cycle verification ---------------------------------
@@ -179,11 +186,7 @@ def wait_host_on(host, timeout=420, interval=10, delay=30):
 
 def verify_bmc_initiated_reboot(host, pre_uptime,
                                 valid_causes=BMC_INITIATED_REBOOT_CAUSES):
-    """Assert the Switch-Host actually rebooted with a BMC-initiated cause.
-
-    - `uptime -s` must advance from `pre_uptime`
-    - `show reboot-cause` must report a cause in `valid_causes`
-    """
+    """Assert paired Switch-Host rebooted (uptime advanced) with a BMC-initiated cause."""
     post_uptime = get_host_uptime(host)
     pytest_assert(post_uptime and post_uptime != pre_uptime,
                   f"Switch-Host uptime did not advance: pre={pre_uptime!r} post={post_uptime!r}")

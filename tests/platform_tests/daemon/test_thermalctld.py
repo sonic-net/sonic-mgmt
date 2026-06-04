@@ -25,7 +25,6 @@ from tests.common.platform.bmc_utils import (
     redis_hgetall,
     redis_hset,
     redis_keys,
-    set_system_leak_status,
 )
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.utilities import wait_until
@@ -81,7 +80,7 @@ class TestThermalctldDaemon:
             logger.info(f"System leak status: {status}")
 
         # Check per-sensor fields and types
-        sensors = redis_keys(self.duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}:*')[:3]
+        sensors = redis_keys(self.duthost, STATE_DB, f'{LIQUID_COOLING_INFO_TABLE}|*')[:3]
 
         sensor_types = set()
         for sensor in sensors:
@@ -111,7 +110,7 @@ class TestThermalctldDaemon:
             logger.info(f"Sensor types supported: {sensor_types}")
 
         # Check escalation timeout configuration
-        profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}:*')
+        profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}|*')
         if profiles:
             timeout_str = redis_hget(self.duthost, STATE_DB, profiles[0],
                                      'max_minor_duration_sec')
@@ -153,7 +152,7 @@ class TestThermalctldDaemon:
 
         The injected key is deleted in a finally block.
         """
-        LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}:test_sensor_leaking"
+        LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_sensor_leaking"
 
         def log_contains(pattern):
             return pmon_journal_contains(self.duthost, pattern, since='2 minutes ago')
@@ -182,9 +181,11 @@ class TestThermalctldDaemon:
         finally:
             redis_del(self.duthost, STATE_DB, LEAKING_SENSOR_KEY)
 
+        # Check syslog for existing leaking events (tight pattern avoids ansible self-log match).
         result = self.duthost.shell(
-            "journalctl -u pmon --since '10 minutes ago' 2>/dev/null"
-            " | grep -i 'reported leaking\\|recovered from leaking' | tail -10",
+            "grep -hE 'Liquid cooling leak(age|ing) sensor .* "
+            "(reported leaking|recovered from leaking)' "
+            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -10",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():
@@ -219,7 +220,7 @@ class TestThermalctldDaemon:
           - Verifies SYSTEM_LEAK_STATUS:system timestamp is present (thermalctld still
             updates the system table even when sensors are faulty)
         """
-        FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}:test_faulty_sensor_check"
+        FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_faulty_sensor_check"
 
         def sensor_field_equals(key, field, value):
             return redis_hget(self.duthost, STATE_DB, key, field) == value
@@ -244,149 +245,40 @@ class TestThermalctldDaemon:
         finally:
             redis_del(self.duthost, STATE_DB, FAULTY_KEY)
 
-        # Check syslog for any existing real faulty-sensor events from thermalctld
+        # Check syslog for existing faulty-sensor events (tight pattern avoids ansible self-log match).
         result = self.duthost.shell(
-            "journalctl -u pmon --since '30 minutes ago' 2>/dev/null"
-            " | grep -i 'reported faulty\\|recovered from fault' | tail -10",
+            "grep -hE 'Liquid cooling leak(age|ing) sensor .* "
+            "(reported faulty|recovered from fault)' "
+            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -10",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():
             logger.info(f"Real faulty sensor events in syslog:\n{result['stdout']}")
-            # Verify log format: message must contain sensor name
-            for line in result['stdout'].strip().split('\n'):
-                if 'reported faulty' in line.lower():
-                    pytest_assert('leakage sensor' in line.lower() or 'liquid' in line.lower(),
-                                  f"Unexpected faulty sensor log format: {line}")
         else:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
         # Verify SYSTEM_LEAK_STATUS:system is still updated (thermalctld updates it even with faulty sensors)
         ts = redis_hget(self.duthost, STATE_DB,
-                        f'{SYSTEM_LEAK_STATUS_TABLE}:system', 'timestamp')
+                        f'{SYSTEM_LEAK_STATUS_TABLE}|system', 'timestamp')
         if ts:
             logger.info(f"SYSTEM_LEAK_STATUS timestamp present: {ts}")
         else:
             logger.info("SYSTEM_LEAK_STATUS not populated - liquid cooling not active on this platform")
 
     def test_thermalctld_leak_severity_aggregation(self):
+        """Verify is_leak() → LIQUID_COOLING_INFO → SYSTEM_LEAK_STATUS aggregation
+
+        Deferred: requires a vendor LiquidLeakageMocker (or equivalent generic
+        leak-injection mechanism) to flip is_leak() on real sensor objects.
+        STATE_DB-only injection cannot drive thermalctld's in-memory aggregator.
         """
-        Verify thermalctld's individual-sensor → SYSTEM_LEAK_STATUS aggregation rules
-        (pmon-bmc-design.md §2.1.5 truth table). Each scenario injects test sensor
-        rows into LIQUID_COOLING_INFO, waits for the daemon's next poll cycle, and
-        asserts SYSTEM_LEAK_STATUS:system device_leak_status converges to the
-        expected output.
-
-        Rule 1: 1 CRITICAL sensor              → CRITICAL
-        Rule 2: 2+ sensors (any severity)      → CRITICAL
-        Rule 3: 1 MINOR sensor > max_minor_duration_sec  → CRITICAL (escalation)
-        Rule 4: 1 MINOR sensor (< threshold)   → MINOR
-
-        Limitations: thermalctld may re-write LIQUID_COOLING_INFO on each poll
-        based on real hardware. If our injected rows do not survive long enough
-        for the aggregator to act on them, the relevant scenario logs info and
-        the assertion is skipped (rather than asserting a false negative).
-
-        All injected rows and the original device_leak_status are restored in
-        `finally` blocks.
-        """
-        TEST_SENSORS = [
-            f"{LIQUID_COOLING_INFO_TABLE}:test_agg_sensor_a",
-            f"{LIQUID_COOLING_INFO_TABLE}:test_agg_sensor_b",
-        ]
-
-        def inject(key, severity, leaking='Yes'):
-            inject_leak_sensor(self.duthost, key.split(':')[-1],
-                               leaking=leaking, leak_sensor_status='Good', severity=severity)
-
-        def cleanup_sensors():
-            redis_del(self.duthost, STATE_DB, *TEST_SENSORS)
-
-        def sensor_survives(key):
-            """True iff thermalctld has not evicted our test row."""
-            r = self.duthost.shell(
-                f"sonic-db-cli {STATE_DB} EXISTS '{key}'",
-                module_ignore_errors=True
-            )
-            return (r.get('stdout', '') or '').strip() == '1'
-
-        orig_status = get_system_leak_status(self.duthost) or 'None'
-        if orig_status == 'CRITICAL':
-            pytest.skip("System already in CRITICAL state — cannot run aggregation scenarios safely")
-
-        scenarios = [
-            ("Rule 1 (1 CRITICAL sensor)", [(TEST_SENSORS[0], 'CRITICAL')], 'CRITICAL'),
-            ("Rule 2 (2 MINOR sensors)",
-             [(TEST_SENSORS[0], 'MINOR'), (TEST_SENSORS[1], 'MINOR')], 'CRITICAL'),
-            ("Rule 4 (1 MINOR sensor)", [(TEST_SENSORS[0], 'MINOR')], 'MINOR'),
-        ]
-
-        try:
-            for label, rows, expected in scenarios:
-                cleanup_sensors()
-                for key, sev in rows:
-                    inject(key, sev)
-                logger.info(f"{label}: injected {[(k, s) for k, s in rows]}, expect SYSTEM={expected}")
-
-                converged = wait_until(
-                    40, 5, 0,
-                    lambda exp=expected: (get_system_leak_status(self.duthost) or '').upper() == exp
-                )
-                survived = all(sensor_survives(k) for k, _ in rows)
-                if not survived:
-                    logger.info(f"{label}: injected rows were re-written by daemon poll - "
-                                f"aggregation not driven by test; skipping assert")
-                    continue
-                pytest_assert(
-                    converged,
-                    f"{label}: SYSTEM_LEAK_STATUS did not converge to {expected} "
-                    f"within 40s; got {get_system_leak_status(self.duthost)!r}"
-                )
-                logger.info(f"{label}: SYSTEM_LEAK_STATUS={get_system_leak_status(self.duthost)} ✓")
-                cleanup_sensors()
-                # Let the system settle back before next scenario
-                wait_until(30, 3, 0,
-                           lambda: (get_system_leak_status(self.duthost) or '').upper() != 'CRITICAL')
-
-            # Rule 3 (escalation): temporarily shorten max_minor_duration_sec
-            profiles = redis_keys(self.duthost, STATE_DB, f'{LEAK_PROFILE_TABLE}:*')
-            if not profiles:
-                logger.info("Rule 3 (escalation): no LEAK_PROFILE keys — non-LC platform; skipping")
-            else:
-                pkey = profiles[0]
-                orig_thresh = redis_hget(self.duthost, STATE_DB, pkey, 'max_minor_duration_sec')
-                try:
-                    redis_hset(self.duthost, STATE_DB, pkey, max_minor_duration_sec='5')
-                    cleanup_sensors()
-                    inject(TEST_SENSORS[0], 'MINOR')
-                    logger.info("Rule 3: injected 1 MINOR sensor with max_minor_duration_sec=5s")
-                    converged = wait_until(
-                        40, 5, 0,
-                        lambda: (get_system_leak_status(self.duthost) or '').upper() == 'CRITICAL'
-                    )
-                    if sensor_survives(TEST_SENSORS[0]):
-                        pytest_assert(
-                            converged,
-                            "Rule 3: SYSTEM_LEAK_STATUS did not escalate MINOR→CRITICAL "
-                            f"within 40s; got {get_system_leak_status(self.duthost)!r}"
-                        )
-                        logger.info("Rule 3: MINOR sensor escalated to CRITICAL ✓")
-                    else:
-                        logger.info("Rule 3: injected row evicted by daemon poll - skipping assert")
-                finally:
-                    if orig_thresh:
-                        redis_hset(self.duthost, STATE_DB, pkey,
-                                   max_minor_duration_sec=orig_thresh)
-        finally:
-            cleanup_sensors()
-            # Restore original system status best-effort
-            if orig_status and orig_status != 'CRITICAL':
-                set_system_leak_status(self.duthost, orig_status)
+        pytest.skip("Not supported until generic leak injection is available")
 
     def test_thermalctld_bmc_temperature_mirror(self):
         """
         Verify thermalctld on Switch-Host mirrors TEMPERATURE_INFO to the BMC's STATE_DB.
 
-        bmc_enhance change: TemperatureUpdater._init_bmc_temperature_table() opens a
+        TemperatureUpdater._init_bmc_temperature_table() opens a
         remote swsscommon.Table backed by the BMC's STATE_DB (db_connect_remote).
         Every _refresh_temperature_status call tees its TEMPERATURE_INFO write to
         this table via _bmc_table_set().
@@ -419,8 +311,8 @@ class TestThermalctldDaemon:
 
         # Check startup log for BMC mirror initialization
         result = self.duthost.shell(
-            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
-            " | grep -i 'Mirroring TEMPERATURE_INFO\\|Failed to open remote BMC' | tail -5",
+            "grep -hi 'Mirroring TEMPERATURE_INFO\\|Failed to open remote BMC' "
+            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():
@@ -446,12 +338,6 @@ class TestThermalctldDaemon:
     def test_thermalctld_switch_host_thermal_monitoring(self):
         """
         Verify thermalctld on BMC monitors Switch-Host TEMPERATURE_INFO for CRITICAL breaches.
-
-        bmc_enhance change: ThermalMonitor._init_switch_host_thermal_monitor() opens
-        BMC's local TEMPERATURE_INFO table and checks it each cycle via
-        _check_switch_host_thermals(). A CRITICAL threshold breach (temp >= critical_high
-        or temp <= critical_low) is logged to both syslog and /host/bmc/event.log via
-        EventLogger. Recovery is tracked silently (no log).
 
         Test Steps:
         1. Determine if running on BMC (switch_bmc=1 in /etc/sonic/platform_env.conf)
@@ -484,8 +370,8 @@ class TestThermalctldDaemon:
 
         # Check startup log for initialization message
         result = self.duthost.shell(
-            "journalctl -u pmon --since '60 minutes ago' 2>/dev/null"
-            " | grep -i 'Monitoring chassis thermals\\|Failed to init chassis thermal' | tail -5",
+            "grep -hi 'Monitoring chassis thermals\\|Failed to init chassis thermal' "
+            "/var/log/syslog /var/log/syslog.1 2>/dev/null | tail -5",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():

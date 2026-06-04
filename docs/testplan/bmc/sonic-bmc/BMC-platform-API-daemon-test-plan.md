@@ -588,10 +588,16 @@ Inject a leaking sensor state into LIQUID_COOLING_INFO and verify STATE_DB prese
 
 **File**: `tests/platform_tests/daemon/test_thermalctld.py`
 
-**Test Objective**:
-Verify thermalctld's individual-sensor → `SYSTEM_LEAK_STATUS` aggregation rules from `pmon-bmc-design.md` §2.1.5 by actively injecting sensor combinations into `LIQUID_COOLING_INFO` and asserting that `SYSTEM_LEAK_STATUS:system device_leak_status` converges to the expected aggregated value.
+**Status**: **Deferred / Not currently supported**
 
-**Aggregation truth table** (the design contract under test):
+**Reason**: Verifying `SYSTEM_LEAK_STATUS|system` aggregation requires flipping `is_leak()` on real sensor objects (a vendor-specific or generic leak-injection mechanism). Direct STATE_DB injection into `LIQUID_COOLING_INFO` cannot drive thermalctld's in-memory aggregator (`self.leaking_sensors`, populated only from hardware polls in `_refresh_leak_status`).
+
+The test file contains a `pytest.skip("Not supported until generic leak injection is available")` placeholder so the test ID stays reserved.
+
+**Test Objective (planned)**:
+Exercise the §2.1.5 aggregation truth table end-to-end: hardware `is_leak()` → in-memory `self.leaking_sensors` → `LIQUID_COOLING_INFO|<sensor>` (per-sensor row) → `SYSTEM_LEAK_STATUS|system device_leak_status` (aggregated).
+
+**Aggregation truth table**:
 
 | # | Individual Leak Sensors                              | System Leak (expected output) |
 |---|------------------------------------------------------|-------------------------------|
@@ -600,20 +606,22 @@ Verify thermalctld's individual-sensor → `SYSTEM_LEAK_STATUS` aggregation rule
 | 3 | 1 MINOR sensor staying for > `max_minor_duration_sec`| `CRITICAL` (escalation)       |
 | 4 | 1 MINOR sensor (< escalation threshold)              | `MINOR`                       |
 
-**Test Steps**:
-1. Pre-flight: skip if `device_leak_status` is already `CRITICAL`
-2. For each row in the truth table: inject the sensor row(s) into `LIQUID_COOLING_INFO` (key prefix `test_agg_sensor_*`), wait up to ~40 s (2 poll cycles) for `device_leak_status` to converge, assert it matches the expected value, then clean up and let the system settle
-3. **Rule 3 (escalation) only**: temporarily set `LEAK_PROFILE:<first> max_minor_duration_sec = 5`, inject 1 MINOR sensor, wait up to 40 s for escalation to CRITICAL
-4. `finally`: restore all injected rows, profile threshold, and original `device_leak_status`
-5. If the daemon evicted an injected row before convergence (real-hardware overwrite), log info and skip that scenario's assertion
+**Planned Test Steps (for reference, not executed)**:
+1. Pre-flight: skip if leak injection is not supported on this platform. Skip if current `device_leak_status` is already `CRITICAL`.
+2. **Rule 1** — inject a leak on 1 sensor with severity `CRITICAL`; wait ≤2 poll cycles; assert `LIQUID_COOLING_INFO|<s0>.leaking=Yes, leak_sensor_status=Good, severity=CRITICAL` and `SYSTEM_LEAK_STATUS|system.device_leak_status=CRITICAL`. Clear the leak; wait for `device_leak_status` to recover.
+3. **Rule 2** — inject a leak on 2 sensors (any severity); wait ≤2 poll cycles; assert both per-sensor rows have `leaking=Yes` and `SYSTEM_LEAK_STATUS=CRITICAL` (multi-sensor bumps to CRITICAL regardless of individual severity). Recover.
+4. **Rule 3** — temporarily set `LEAK_PROFILE|<type>.max_minor_duration_sec=5`; inject a leak on 1 sensor with severity `MINOR`; wait ≤2 poll cycles → assert `SYSTEM_LEAK_STATUS=MINOR`; wait >5s → assert escalates to `SYSTEM_LEAK_STATUS=CRITICAL` and per-sensor `severity=CRITICAL`. Recover; restore profile.
+5. **Rule 4** — with the default `max_minor_duration_sec`, inject a leak on 1 sensor with severity `MINOR`; wait ≤2 poll cycles; assert `SYSTEM_LEAK_STATUS=MINOR` and per-sensor `severity=MINOR`. Recover.
+6. `finally`: clear any injected leaks, restore any modified `LEAK_PROFILE` rows, and verify `device_leak_status` returns to its original value.
 
 **Expected Result**:
-- Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS = CRITICAL`
-- Rule 2: 2 MINOR sensors → `SYSTEM_LEAK_STATUS = CRITICAL`
-- Rule 3: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS = CRITICAL` (escalation)
-- Rule 4: 1 MINOR sensor (default threshold) → `SYSTEM_LEAK_STATUS = MINOR`
-- All test sensor rows are deleted and the original `device_leak_status` is restored
-- Scenarios where the daemon evicted the injected rows on its next poll log info and skip the assertion (rather than asserting a false negative)
+- Rule 1: 1 CRITICAL sensor → `SYSTEM_LEAK_STATUS=CRITICAL`
+- Rule 2: 2 sensors (any severity) → `SYSTEM_LEAK_STATUS=CRITICAL`
+- Rule 3: 1 MINOR sensor + shortened threshold → `SYSTEM_LEAK_STATUS` transitions `MINOR` → `CRITICAL` after `max_minor_duration_sec`
+- Rule 4: 1 MINOR sensor (default threshold) → `SYSTEM_LEAK_STATUS=MINOR`
+- Every per-sensor `LIQUID_COOLING_INFO` row reflects the mocked `leaking` and `severity` consistently
+- After clearing the injected leaks, `device_leak_status` clears within ≤2 poll cycles; all profile fields and original system state restored
+- syslog contains the expected thermalctld `Liquid cooling leakage sensor <name> reported leaking` / `recovered from leaking` lines for each mocked sensor
 
 ---
 

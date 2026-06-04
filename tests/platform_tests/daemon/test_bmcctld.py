@@ -25,6 +25,7 @@ from tests.common.platform.bmc_utils import (
     bmc_event_log_tail_from,
     bmc_event_or_syslog_contains,
     get_host_uptime,
+    get_switch_host_or_skip_test,
     pause_pmon_daemon,
     redis_del,
     redis_hget,
@@ -98,9 +99,10 @@ class TestBmcctldDaemon:
         pytest_assert(daemon_status == "RUNNING", "bmcctld daemon should be running")
         pytest_assert(daemon_pid != -1, "bmcctld daemon should have a valid pid")
 
-        # Verify startup path logged — liquid-cooled or air-cooled branch
+        # Verify startup path logged (liquid-cooled or air-cooled) in /var/log/syslog or /host/bmc/event.log.
         result = self.duthost.shell(
-            "journalctl -u pmon --no-pager -n 500 | grep -E 'STARTUP:.*liquid|STARTUP:.*power_on'",
+            "grep -hE 'STARTUP:.*liquid|STARTUP:.*power_on' "
+            "/var/log/syslog /var/log/syslog.1 /host/bmc/event.log 2>/dev/null | tail -5",
             module_ignore_errors=True
         )
         if result['rc'] == 0 and result['stdout'].strip():
@@ -110,17 +112,19 @@ class TestBmcctldDaemon:
 
         # Non-power-loss BMC reboot must SKIP the boot delay
         result = self.duthost.shell(
-            "journalctl -u pmon --no-pager -n 1000 | grep 'Skipping SWITCH_HOST_POWER_ON_DELAY'",
+            "grep -h 'Skipping SWITCH_HOST_POWER_ON_DELAY' "
+            "/var/log/syslog /var/log/syslog.1 /host/bmc/event.log 2>/dev/null",
             module_ignore_errors=True
         )
         pytest_assert(
             result['rc'] == 0 and result['stdout'].strip(),
-            "Expected 'Skipping SWITCH_HOST_POWER_ON_DELAY' in pmon journal after non-power-loss BMC reboot"
+            "Expected 'Skipping SWITCH_HOST_POWER_ON_DELAY' in BMC syslog/event.log "
+            "after non-power-loss BMC reboot"
         )
 
         # Verify CHASSIS_MODULE_INFO
         info_dict = redis_hgetall(self.duthost, STATE_DB,
-                                  f'{CHASSIS_MODULE_INFO_TABLE}:SWITCH-HOST')
+                                  f'{CHASSIS_MODULE_INFO_TABLE}|SWITCH-HOST')
 
         if info_dict:
             pytest_assert('name' in info_dict or 'slot' in info_dict,
@@ -131,7 +135,7 @@ class TestBmcctldDaemon:
 
         # Verify HOST_STATE
         state_dict = redis_hgetall(self.duthost, STATE_DB,
-                                   f'{HOST_STATE_TABLE}:{HOST_STATE_KEY}')
+                                   f'{HOST_STATE_TABLE}|{HOST_STATE_KEY}')
 
         if state_dict:
             pytest_assert('device_status' in state_dict,
@@ -205,11 +209,9 @@ class TestBmcctldDaemon:
                        admin_status=orig_admin)
 
         # --- Trigger 2: STATE_DB SYSTEM_LEAK_STATUS device_leak_status ---
-        # Handler: _handle_system_leak → logs "System leak..." and dispatches syslog_only for MINOR.
-        # Routing rule: MINOR events must go to syslog ONLY — they must NOT land in
-        # /host/bmc/event.log (that file is reserved for CRITICAL-severity events).
+        # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is CRITICAL-only).
         orig_leak = redis_hget(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                'device_leak_status') or 'OK'
         if orig_leak == 'CRITICAL':
             logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: already CRITICAL - skipping")
@@ -220,16 +222,14 @@ class TestBmcctldDaemon:
             with pause_pmon_daemon(self.duthost, 'thermalctld'):
                 try:
                     redis_hset(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status='MINOR')
                     logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → MINOR")
                     found = wait_until(30, 3, 0, log_contains, 'leak')
                     trigger_results['SYSTEM_LEAK_STATUS'] = found
                     logger.info(f"Trigger 2: {'logged' if found else 'no log within 30s'}")
 
-                    # Negative routing assertion: any new line(s) appended to event.log
-                    # since the trigger must NOT mention a MINOR leak — MINOR severity
-                    # is supposed to be syslog-only.
+                    # MINOR is syslog-only: must NOT appear in event.log.
                     new_tail = bmc_event_log_tail_from(self.duthost, pre_lines)
                     minor_leak_lines = [
                         ln for ln in new_tail.splitlines()
@@ -243,14 +243,12 @@ class TestBmcctldDaemon:
                     )
                 finally:
                     redis_hset(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status=orig_leak)
 
         # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
-        # Handler: _handle_system_leak with severity=CRITICAL dispatches the configured
-        # LEAK_CONTROL_POLICY.system_critical_leak_action (default: power_off) on the
-        # paired Switch-Host. Verify the Switch-Host actually powered off and rebooted.
-        host = self.duthost.get_bmc_host()
+        # CRITICAL dispatches system_critical_leak_action (default: power_off); verify paired Switch-Host rebooted.
+        host = get_switch_host_or_skip_test(self.duthost)
         pre_boot = get_host_uptime(host)
         # Ensure policy is power_off (the default).
         redis_hset(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|system',
@@ -259,7 +257,7 @@ class TestBmcctldDaemon:
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
                 redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status='CRITICAL')
                 logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
                 wait_host_on(host)
@@ -267,7 +265,7 @@ class TestBmcctldDaemon:
                 trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
             finally:
                 redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
                 # Best-effort recovery if Switch-Host did not auto-power-on.
                 self.duthost.shell(
@@ -276,18 +274,17 @@ class TestBmcctldDaemon:
                 )
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
-        # Handler: _handle_rack_mgr_alert → logs "RACK_MGR_MINOR_EVENT"; default action
-        # is syslog_only so no power action is dispatched.
+        # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
         alert_key = 'test_trigger_alert'
         try:
             redis_hset(self.duthost, STATE_DB,
-                       f'{RACK_MANAGER_ALERT_TABLE}:{alert_key}', severity='MINOR')
+                       f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}', severity='MINOR')
             logger.info("Trigger 3 [STATE_DB RACK_MANAGER_ALERT]: severity=MINOR")
             found = wait_until(30, 3, 0, log_contains, 'rack.*alert\\|rack_mgr\\|RACK_MGR')
             trigger_results['RACK_MANAGER_ALERT'] = found
             logger.info("Trigger 3: logged" if found else "no log within 30s")
         finally:
-            redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}:{alert_key}')
+            redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}')
 
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
@@ -317,21 +314,21 @@ class TestBmcctldDaemon:
         Switch-Host is BMC-initiated. Also verifies POWER_ON is rejected when a
         CRITICAL leak is present.
         """
-        host = self.duthost.get_bmc_host()
+        host = get_switch_host_or_skip_test(self.duthost)
 
         def hset_cmd(key, command):
             redis_hset(self.duthost, STATE_DB,
-                       f'{RACK_MANAGER_COMMAND_TABLE}:{key}',
+                       f'{RACK_MANAGER_COMMAND_TABLE}|{key}',
                        command=command, status='PENDING')
             logger.info(f"RACK_MANAGER_COMMAND[{key}]: command={command}")
 
         def hget_status(key):
             return redis_hget(self.duthost, STATE_DB,
-                              f'{RACK_MANAGER_COMMAND_TABLE}:{key}', 'status')
+                              f'{RACK_MANAGER_COMMAND_TABLE}|{key}', 'status')
 
         def del_cmd(*keys):
             redis_del(self.duthost, STATE_DB,
-                      *[f'{RACK_MANAGER_COMMAND_TABLE}:{k}' for k in keys])
+                      *[f'{RACK_MANAGER_COMMAND_TABLE}|{k}' for k in keys])
 
         # --- Scenario 1: POWER_OFF then POWER_ON ---
         off_key, on_key = 'test_power_off', 'test_power_on'
@@ -386,13 +383,13 @@ class TestBmcctldDaemon:
         # --- Scenario 4: POWER_ON blocked by CRITICAL leak ---
         blocked_key = 'test_blocked_power_on'
         orig_leak = redis_hget(self.duthost, STATE_DB,
-                               f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                               f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                'device_leak_status') or 'OK'
         # Pause thermalctld so it doesn't overwrite the injected device_leak_status
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
                 redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status='CRITICAL')
                 hset_cmd(blocked_key, 'POWER_ON')
                 wait_until(30, 3, 0, lambda: hget_status(blocked_key) == 'FAILED')
@@ -402,14 +399,13 @@ class TestBmcctldDaemon:
             finally:
                 del_cmd(blocked_key)
                 redis_hset(self.duthost, STATE_DB,
-                           f'{SYSTEM_LEAK_STATUS_TABLE}:system',
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
                 self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                    module_ignore_errors=True)
 
         # --- Scenario 5: Unknown command rejected without dispatching power action ---
-        # Handler: _handle_rack_mgr_command logs "Unknown Rack Manager command: ..."
-        # and sets status=FAILED; paired Switch-Host must remain up.
+        # Handler logs "Unknown Rack Manager command: ..." and sets status=FAILED; paired Switch-Host must stay up.
         unknown_key = 'test_unknown_cmd'
         pre_boot = get_host_uptime(host)
         try:
@@ -459,35 +455,33 @@ class TestBmcctldDaemon:
             pytest_assert(readback == str(test_delay),
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
-            # -------------------------------------------------------------------
-            # Scenario A: cold reboot the BMC -> reboot cause is NOT power loss
-            #             -> bmcctld must skip the delay
-            # -------------------------------------------------------------------
+            # Scenario A: cold reboot BMC → reboot cause NOT power loss → bmcctld must skip delay.
             reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
                    wait_for_ssh=True, safe_reboot=True)
             wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
 
-            bmc_uptime = self.duthost.shell("uptime -s").get('stdout', '').strip()
             journal_a = self.duthost.shell(
-                f"journalctl -u pmon --since '{bmc_uptime}' --no-pager"
-                " | grep -iE 'SWITCH_HOST_POWER_ON_DELAY' || true"
+                "grep -hE 'SWITCH_HOST_POWER_ON_DELAY' "
+                "/var/log/syslog /var/log/syslog.1 /host/bmc/event.log 2>/dev/null || true"
             ).get('stdout', '')
             logger.info(f"Scenario A (BMC cold reboot) journal:\n{journal_a}")
 
             pytest_assert('Skipping SWITCH_HOST_POWER_ON_DELAY' in journal_a,
                           "After non-power-loss BMC reboot, expected 'Skipping "
                           "SWITCH_HOST_POWER_ON_DELAY' log not found")
+            # Strip 'Skipping ...' lines so 'Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY' can't false-match.
+            non_skip_lines = '\n'.join(
+                ln for ln in journal_a.splitlines()
+                if 'Skipping SWITCH_HOST_POWER_ON_DELAY' not in ln
+            )
             delay_applied = re.search(
-                r'SWITCH_HOST_POWER_ON_DELAY[^\w]*\d+', journal_a.replace('Skipping ', '')
+                r'Waiting\s+\d+s.*SWITCH_HOST_POWER_ON_DELAY', non_skip_lines
             )
             pytest_assert(not delay_applied,
                           f"After non-power-loss BMC reboot, delay-applied log found "
                           f"unexpectedly: {delay_applied.group(0) if delay_applied else ''}")
 
-            # -------------------------------------------------------------------
-            # Scenario B: external PDU power cycle to BMC -> reboot cause IS
-            #             power loss -> bmcctld must apply the configured delay
-            # -------------------------------------------------------------------
+            # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
             try:
                 pdu_ctrl = get_pdu_controller(self.duthost)
             except Exception as e:
@@ -509,25 +503,27 @@ class TestBmcctldDaemon:
 
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
 
-            bmc_uptime_b = self.duthost.shell("uptime -s").get('stdout', '').strip()
             journal_b = self.duthost.shell(
-                f"journalctl -u pmon --since '{bmc_uptime_b}' --no-pager"
-                " | grep -iE 'SWITCH_HOST_POWER_ON_DELAY|power_on|POWER_ON' || true"
+                "grep -hE 'SWITCH_HOST_POWER_ON_DELAY|issuing power_on' "
+                "/var/log/syslog /var/log/syslog.1 /host/bmc/event.log 2>/dev/null || true"
             ).get('stdout', '')
             logger.info(f"Scenario B (BMC power-loss) journal:\n{journal_b}")
 
+            # Match "Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY" (N before token).
             delay_match = re.search(
-                r'(\S+\s+\S+\s+\S+).*?SWITCH_HOST_POWER_ON_DELAY[^\d]*(\d+)', journal_b
+                r'(\S+\s+\S+\s+\S+).*?Waiting\s+(\d+)s.*?SWITCH_HOST_POWER_ON_DELAY',
+                journal_b
             )
             pytest_assert(delay_match,
                           "After PDU-induced BMC power-loss reboot, expected "
-                          "'SWITCH_HOST_POWER_ON_DELAY <N>' log not found")
+                          "'Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY' log not found")
             logged_delay = int(delay_match.group(2))
             pytest_assert(logged_delay == test_delay,
                           f"Logged power_on_delay {logged_delay} != configured {test_delay}")
 
+            # Match "STARTUP: Switch-Host OFFLINE — issuing power_on" (lowercase 'issuing').
             poweron_match = re.search(
-                r'(\S+\s+\S+\s+\S+).*?(?:Issuing power_on|POWER_ON dispatched|action=power_on)',
+                r'(\S+\s+\S+\s+\S+).*?issuing power_on',
                 journal_b
             )
             if poweron_match:
@@ -557,7 +553,7 @@ class TestBmcctldDaemon:
         - Switch-Host: uptime unchanged, reboot-cause history length unchanged
         """
 
-        host = self.duthost.get_bmc_host()
+        host = get_switch_host_or_skip_test(self.duthost)
 
         sw_uptime_pre = get_host_uptime(host)
         sw_history_pre = host.show_and_parse('show reboot-cause history') or []
