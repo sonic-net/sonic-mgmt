@@ -124,7 +124,10 @@ class TestQosProbe(QosSaiBase):
             """Convert threshold to probe-comparable units using threshold_divisor."""
             return value // self.threshold_divisor
 
-    # Registry: platform_asic -> ProbeParamsResolver subclass
+    # Registry: platform_asic -> ProbeParamsResolver subclass.
+    # Keys must match duthost.facts["platform_asic"] values exactly
+    # (e.g. "cisco-8000" from Cisco 8000 series devices).
+    # Unregistered platforms fall back to the default ProbeParamsResolver.
     _PROBE_RESOLVER_REGISTRY = {
         "cisco-8000": CiscoProbeParamsResolver,
     }
