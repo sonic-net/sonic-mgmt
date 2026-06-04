@@ -100,6 +100,12 @@ class TestQosProbe(QosSaiBase):
 
         This matches legacy sai_qos_tests.py behavior where cell_size presence
         in test_params controls whether // cell_occupancy is applied.
+
+        Note on threshold_divisor vs cells_per_packet asymmetry:
+          When cell_size is absent, threshold_divisor=1 (thresholds already in
+          packet units) but cells_per_packet may be >1 (e.g. 4 for 1350B/384B).
+          cells_per_packet is still needed for pool_size byte-to-packet
+          conversion; threshold_divisor controls only resolve_threshold().
         """
         def __init__(self, qosConfig_profile=None, dutQosConfig=None):
             super().__init__()
