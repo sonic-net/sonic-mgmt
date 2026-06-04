@@ -803,10 +803,20 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
-        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions.
+        # hdrm_pool_size may lack packet_size/cell_size needed by platform
+        # resolvers (e.g. Cisco-8000 defaults to 64B without packet_size).
+        # Headroom pool is filled by lossless traffic on the same PGs as xoff,
+        # so fall back to xoff_1 profile values when hdrm_pool_size lacks them.
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        hdrm_probe_profile = dict(qosConfig.get("hdrm_pool_size", {}))
+        if "packet_size" not in hdrm_probe_profile:
+            xoff_fallback = qosConfig.get("xoff_1", {})
+            for key in ("packet_size", "cell_size"):
+                if key in xoff_fallback and key not in hdrm_probe_profile:
+                    hdrm_probe_profile[key] = xoff_fallback[key]
         testParams.update(self.get_probe_params(
-            platform_asic, qosConfig.get("hdrm_pool_size", {}), dutQosConfig))
+            platform_asic, hdrm_probe_profile, dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",
