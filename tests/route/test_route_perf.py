@@ -107,8 +107,9 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        if "x86_64-arista_7060x6" in platform:
-            # For all TH5 family devices, l3_alpm_template is set in config.bcm
+        if "x86_64-arista_7060x6" in platform or "x86_64-nokia_ixr7220_h6" in platform:
+            # For TH5 (Arista 7060x6) and TH6 (Nokia IXR7220 H6) family devices,
+            # l3_alpm_template is set in config.bcm instead of l3_alpm_enable
             # * 1 - Combined (By default)
             # * 2 - Parallel
             pytest_assert(
