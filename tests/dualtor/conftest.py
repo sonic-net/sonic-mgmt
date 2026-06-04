@@ -113,6 +113,10 @@ def run_arp_responder_ipv6(rand_selected_dut, ptfhost, tbinfo, apply_mock_dual_t
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    # Drop the rendered config so the next test that uses arp_responder cannot
+    # accidentally pick up our IP/MAC mapping (and so /tmp doesn't collect stale
+    # state that misleads diagnostics).
+    ptfhost.file(path='/tmp/from_t1.json', state='absent')
 
 
 @pytest.fixture(scope="module")
@@ -121,6 +125,7 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+    ptfhost.file(path='/tmp/from_t1.json', state='absent')
 
 
 @pytest.fixture(scope="module")
