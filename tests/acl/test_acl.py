@@ -1290,7 +1290,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
@@ -1323,7 +1323,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
