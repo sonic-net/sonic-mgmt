@@ -105,7 +105,7 @@ class TestQosProbe(QosSaiBase):
             super().__init__()
             qosConfig_profile = qosConfig_profile or {}
             dutQosConfig = dutQosConfig or {}
-            self.packet_length = qosConfig_profile.get("packet_size", 64)
+            self.packet_length = qosConfig_profile.get("packet_size", 64)  # Intentional override
 
             cell_size = qosConfig_profile.get("cell_size")
             if cell_size is not None:
@@ -118,7 +118,7 @@ class TestQosProbe(QosSaiBase):
                              or TestQosProbe._DEFAULT_CELL_SIZE)
                 self.threshold_divisor = 1
 
-            self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
+            self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size  # Intentional override
 
         def resolve_threshold(self, value):
             """Convert threshold to probe-comparable units using threshold_divisor."""
