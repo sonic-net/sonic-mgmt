@@ -461,7 +461,6 @@ class TestThresholdPointProbingFixedRangeConvergence(unittest.TestCase):
         assert calls[2][1]['drain_buffer'] is True, \
             "After verification failure, next iteration must drain buffer to recover"
 
-
     # ── always_full_cycle tests ────────────────────────────────────
 
     @pytest.mark.order(8580)

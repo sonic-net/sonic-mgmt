@@ -394,6 +394,7 @@ class TestPfcXonProbingXoffChain:
         mock_upper.assert_not_called()
         mock_lower.assert_not_called()
         # Range not called (enable_xon_range_probe=False)
+        mock_range.assert_not_called()
         # Point IS called (Step 5d mandatory) — but only once (no chain Point)
         assert mock_point.call_count == 1
         # pfcxoff_point unchanged from yaml hint
