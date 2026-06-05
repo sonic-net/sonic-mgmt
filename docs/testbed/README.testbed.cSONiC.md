@@ -64,6 +64,43 @@ docker images | grep docker-sonic-vs
 
 The image should appear as `docker-sonic-vs:latest`.
 
+### Host kernel `team` module (required for PortChannel/LACP topologies)
+
+cSONiC neighbors are **containers that share the host kernel**. SONiC uses
+`teamd`/libteam for LACP PortChannels, which requires the kernel **`team`**
+module to be present and loadable on the *host*. Unlike vSONiC (a KVM VM with
+its own kernel) or cEOS (Arista's own LAG implementation), a cSONiC neighbor
+cannot create a PortChannel unless the host kernel provides `team`.
+
+Verify and load it on every VM host before deploying a PortChannel topology
+(T0/T1/T2 all use LACP PortChannels on the neighbor side):
+
+```bash
+lsmod | grep team           # already loaded?
+sudo modprobe team          # load it
+```
+
+If `modprobe team` fails:
+- **`Module team not found`** — the running kernel doesn't ship the module.
+  Install the matching extra-modules package (e.g.
+  `linux-modules-extra-$(uname -r)`), or use a kernel/distro that includes it.
+  Some cloud kernels (notably `*-azure`) omit `team` entirely; an out-of-tree
+  build of `drivers/net/team` against the installed kernel headers is possible
+  but see the next point.
+- **`Key was rejected by service`** — **Secure Boot** is enabled and the module
+  is unsigned. Either sign the module with an enrolled MOK
+  (`mokutil --import`, then reboot to enroll) or disable Secure Boot. Both
+  require a host reboot.
+
+> **Symptom of a missing `team` module:** `add-topo`/`deploy-mg` succeed, FRR
+> comes up and `bgpcfgd` generates `router bgp`, but BGP stays `Active`/`Idle`
+> and the DUT's `show interfaces portchannel` shows members `Dw`/`D`
+> (deselected). The neighbor's `teammgrd` logs
+> `Failed to create team device ... Operation not supported`, the
+> `PortChannel1` netdev never appears, and the member port (`Ethernet1`) has no
+> carrier. The BGP/LLDP control plane itself is fine — only LAG bundling is
+> blocked.
+
 ## Testbed Configuration
 
 ### vtestbed.yaml
