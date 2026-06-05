@@ -695,7 +695,7 @@ def _get_storm_test_ports(storm_hndle):
 
 def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
                                                  baseline_counters=None, threshold_percentage=100,
-                                                 stormed_ports_list=None):
+                                                 stormed_ports_list=None, test_ports_info=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
@@ -754,6 +754,34 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
     if total_ports == 0:
         logger.warning("No ports found to verify")
         return False
+
+    # When multiple test ports share the same test_neighbor_addr (e.g. VLAN sub-ports
+    # on non-dualtor t0 topologies, where setup_pfc_test currently assigns a single
+    # VLAN neighbor IP to every VLAN port), at most one of those ports can actually
+    # receive PTF background traffic -- the DUT does one ND/ARP lookup and routes
+    # all traffic out a single port. Counting every duplicate against the
+    # storm-state threshold therefore inflates the denominator and causes false
+    # failures. Subtract the duplicate count so the percentage is computed against
+    # ports that are realistically reachable by background traffic.
+    if test_ports_info:
+        seen_ips = set()
+        duplicate_count = 0
+        for port, _queue_idx in ports_to_check:
+            info = test_ports_info.get(port, {}) or {}
+            ip = info.get('test_neighbor_addr')
+            if not ip:
+                continue
+            if ip in seen_ips:
+                duplicate_count += 1
+            else:
+                seen_ips.add(ip)
+        if duplicate_count > 0:
+            adjusted = total_ports - duplicate_count
+            logger.info(
+                "Adjusting total_ports from %d to %d (excluded %d ports that share "
+                "test_neighbor_addr with another port)",
+                total_ports, adjusted, duplicate_count)
+            total_ports = adjusted
 
     success_percentage = (ports_in_expected_state / total_ports) * 100
     logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
