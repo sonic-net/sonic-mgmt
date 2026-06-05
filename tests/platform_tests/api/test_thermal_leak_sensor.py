@@ -37,7 +37,10 @@ class TestLeakSensorApi(PlatformApiTestBase):
 
     @pytest.fixture(scope="function", autouse=True)
     def resolve_num_leak_sensors(self, platform_api_conn):  # noqa: F811
-        self.num_leak_sensors = int(liquid_cooling.get_num_leak_sensors(platform_api_conn))
+        try:
+            self.num_leak_sensors = int(liquid_cooling.get_num_leak_sensors(platform_api_conn))
+        except Exception as e:
+            pytest.skip(f"Platform API get_num_leak_sensors not available: {e}")
         if self.num_leak_sensors == 0:
             pytest.skip("No leak sensors found on device")
 

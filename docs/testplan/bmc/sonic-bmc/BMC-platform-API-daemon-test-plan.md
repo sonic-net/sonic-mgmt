@@ -137,12 +137,12 @@ Two new helpers under `tests/common/helpers/platform_api/` mirror the upstream c
 
 ### 5. Liquid Cooling Feature Gate
 
-Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. Per-test setup also reads `duthost.facts['chassis']['leak_sensors']` (the `platform.json` list) and skips if empty.
+Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fixture `skip_if_not_liquid_cooled` probes `Chassis().is_liquid_cooled()` once over SSH and skips the module when `False`. Per-test setup calls `liquid_cooling.get_num_leak_sensors()` over the platform API and skips when the count is 0.
 
 ### 6. Test Style Conventions
 
 - One API call per assertion; no duplicate consecutive reads to "confirm consistency."
-- Identity attributes compared against `platform.json` values, not hardcoded strings.
+- Identity attributes validated for type/shape (e.g. non-empty string) rather than compared against `platform.json` values.
 - Chassis-level feature gates are module-scoped; per-test state is function-scoped.
 - Use `@pytest.mark.topology('bmc')` unless a test is exclusive to one BMC topology.
 

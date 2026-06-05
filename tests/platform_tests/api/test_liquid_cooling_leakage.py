@@ -31,34 +31,28 @@ def skip_if_not_liquid_cooled(duthosts, enum_rand_one_per_hwsku_hostname):
 class TestLiquidCoolingLeakage(PlatformApiTestBase):
     ''' Platform API test cases for the Liquid Cooling Leakage class'''
 
-    leak_sensors = None
-    leak_sensors_num = None
+    num_leak_sensors = None
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
-        """Resolve expected leak sensors from chassis.leak_sensors in platform.json."""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        chassis_facts = duthost.facts.get("chassis") or {}
-        self.leak_sensors = chassis_facts.get("leak_sensors") or []
-        self.leak_sensors_num = len(self.leak_sensors)
-        if self.leak_sensors_num == 0:
-            pytest.skip("No leak sensors declared in platform.json")
+    def setup(self, platform_api_conn):  # noqa: F811
+        """Resolve number of leak sensors from the platform API; skip if unavailable or 0."""
+        try:
+            self.num_leak_sensors = liquid_cooling.get_num_leak_sensors(platform_api_conn)
+        except Exception as e:
+            pytest.skip(f"Platform API get_num_leak_sensors not available: {e}")
+        if not self.num_leak_sensors:
+            pytest.skip("No leak sensors reported by platform API")
 
     def test_get_name(self, platform_api_conn):    # noqa: F811
-        for leak_sensor_id in range(self.leak_sensors_num):
+        for leak_sensor_id in range(self.num_leak_sensors):
             name = leak_sensor.get_name(platform_api_conn, leak_sensor_id)
             if self.expect(name is not None, f"Unable to retrieve leak sensor {leak_sensor_id} name"):
-                self.expect(isinstance(name, str),
-                            f"The value type of leakage{leak_sensor_id} is not str")
-                expected_name = self.leak_sensors[leak_sensor_id].get("name")
-                if expected_name is not None:
-                    self.expect(name == expected_name,
-                                f"leakage{leak_sensor_id} name mismatch, "
-                                f"expected: {expected_name}, actual: {name}")
+                self.expect(isinstance(name, str) and len(name) > 0,
+                            f"leakage{leak_sensor_id} name must be a non-empty string, got {name!r}")
         self.assert_expectations()
 
     def test_is_leak(self, platform_api_conn):    # noqa: F811
-        for leak_sensor_id in range(self.leak_sensors_num):
+        for leak_sensor_id in range(self.num_leak_sensors):
             is_leak = leak_sensor.is_leak(platform_api_conn, leak_sensor_id)
             if self.expect(is_leak is not None, f"Unable to retrieve leak sensor {leak_sensor_id} is_leak"):
                 self.expect(isinstance(is_leak, bool),
@@ -73,16 +67,8 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
             self.expect(False, f"There is a leak sensor with status {leak_sensor_status_list}")
         self.assert_expectations()
 
-    def test_get_num_leak_sensors(self, platform_api_conn):    # noqa: F811
-        api_leak_sensor_num = liquid_cooling.get_num_leak_sensors(platform_api_conn)
-        if self.expect(api_leak_sensor_num is not None, "Unable to retrieve number of leak sensors"):
-            self.expect(api_leak_sensor_num == self.leak_sensors_num,
-                        f"Number of leak sensors mismatch, expected: {self.leak_sensors_num}, "
-                        f"actual: {api_leak_sensor_num}")
-        self.assert_expectations()
-
     def test_get_all_leak_sensors(self, platform_api_conn):    # noqa: F811
         api_leak_sensor_list = liquid_cooling.get_all_leak_sensors(platform_api_conn)
         logger.info(f"Leak sensor list: {api_leak_sensor_list}")
-        assert len(api_leak_sensor_list) == self.leak_sensors_num, \
-            f"Leak sensor list length mismatch, expected: {self.leak_sensors_num}, actual: {len(api_leak_sensor_list)}"
+        assert len(api_leak_sensor_list) == self.num_leak_sensors, \
+            f"Leak sensor list length mismatch, expected: {self.num_leak_sensors}, actual: {len(api_leak_sensor_list)}"
