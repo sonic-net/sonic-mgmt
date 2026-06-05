@@ -238,14 +238,6 @@ def pytest_addoption(parser):
              "will test all configured routes."
     )
 
-    vxlan_group.addoption(
-        "--num_samples",
-        action="store",
-        default=-1,
-        type=int,
-        help="Number of routes to sample per VNET for testing. Use -1 to test all routes."
-    )
-
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):

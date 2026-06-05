@@ -442,13 +442,13 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
         pytest.fail("State DB VNET routes failed to repopulate after config reload")
 
     logger.info("All VNET routes restored in STATE_DB after reload")
-    
+
     # Reconfigure VXLAN switch with correct MAC after reload
     logger.info("Reconfiguring VXLAN switch after config reload")
     vxlan_port = setup_params["vxlan_port"]
     vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port)
     setup_params["mac_switch"] = vxlan_router_mac
-    
+
     logger.info("Running PTF traffic after config reload")
 
     ptf_runner(
