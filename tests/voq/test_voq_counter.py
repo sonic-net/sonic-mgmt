@@ -26,8 +26,16 @@ def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
 def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
-    are working as expected by disabling the fabric ports
-    For Q3D (single-ASIC), instead disable fabric messages via register setting.
+    are working as expected on broadcom-dnx devices by disabling fabric ports or messages.
+
+    For multi-ASIC devices, SFI (fabric interface) ports are disabled via bcmcmd to trigger
+    Credit-WD-Del increments on Ethernet-IB (inband) interfaces.
+
+    For Q3D single-ASIC devices, fabric messages are disabled via a register setting
+    (setreg SCH_SCHEDULER_CONFIGURATION_REGISTER DISABLE_FABRIC_MSGS).
+
+    For non-Q3D single-ASIC broadcom-dnx devices, see tests/qos/test_voq_counter.py
+    which uses sai_thrift_port_tx_disable via PTF/SAI thrift infrastructure.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
