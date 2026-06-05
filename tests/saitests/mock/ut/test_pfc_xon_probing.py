@@ -651,3 +651,86 @@ class TestPfcXonProbingXoffChain:
 
         # measured_xoff=0 -> guard rejects -> yaml preserved
         assert pfc.pfcxoff_point == 8800
+
+
+class TestPfcXonDesignParamConformance:
+    """Verify probe() passes design-conformant parameters to algorithms.
+
+    Per design v3, Step 5:
+    - Range (5c): precision_target_ratio=PRECISION_TARGET_RATIO,
+          verification_attempts=xon_verification_attempts (DEFAULT=2),
+          enable_precise_detection=True,
+          precise_detection_range_limit=PRECISE_DETECTION_RANGE_LIMIT
+    - Point (5d): always_full_cycle=True, verification_attempts=1,
+          step_size=POINT_PROBING_STEP_SIZE
+    - Observers: range iteration_prefix=22, point iteration_prefix=23
+    """
+
+    def _make_pfc_with_range(self):
+        """Build fixture with enable_xon_range_probe=True."""
+        pfc = _PfcXonProbingFixture()
+        pfc.test_params = {
+            "pfcxoff_point": 100000,
+            "enable_xon_range_probe": True,
+            "enable_xoff_chain_probe": False,
+        }
+        pfc.parse_param()
+        pfc.create_executor = MagicMock(return_value=MagicMock())
+        return pfc
+
+    @pytest.mark.order(1370)
+    def test_range_algo_receives_design_params(self):
+        """Range constructor kwargs match design v3 section 5c."""
+        pfc = self._make_pfc_with_range()
+
+        with patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            mock_range.return_value.run.return_value = (12900, 13100, 1.2)
+            mock_point.return_value.run.return_value = (12985, 12986, 0.8)
+            pfc.probe()
+
+        range_kwargs = mock_range.call_args.kwargs
+        assert range_kwargs['precision_target_ratio'] == pfc.PRECISION_TARGET_RATIO
+        assert range_kwargs['verification_attempts'] == pfc.xon_verification_attempts
+        assert range_kwargs['enable_precise_detection'] is True
+        assert range_kwargs['precise_detection_range_limit'] == pfc.PRECISE_DETECTION_RANGE_LIMIT
+
+    @pytest.mark.order(1371)
+    def test_range_verification_attempts_default_is_two(self):
+        """Range uses xon_verification_attempts which defaults to 2."""
+        pfc = self._make_pfc_with_range()
+
+        with patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver'):
+            mock_range.return_value.run.return_value = (12900, 13100, 1.2)
+            mock_point.return_value.run.return_value = (12985, 12986, 0.8)
+            pfc.probe()
+
+        range_kwargs = mock_range.call_args.kwargs
+        assert range_kwargs['verification_attempts'] == 2
+
+    @pytest.mark.order(1372)
+    def test_observer_iteration_prefix_allocation(self):
+        """Range observer prefix=22, Point observer prefix=23."""
+        pfc = self._make_pfc_with_range()
+
+        with patch('pfc_xon_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+                patch('pfc_xon_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+                patch('pfc_xon_probing.ThresholdResult'), \
+                patch('pfc_xon_probing.ProbingObserver') as mock_obs_cls:
+            mock_range.return_value.run.return_value = (12900, 13100, 1.2)
+            mock_point.return_value.run.return_value = (12985, 12986, 0.8)
+            pfc.probe()
+
+        # Extract iteration_prefix per observer name from constructor calls
+        prefixes = {}
+        for call in mock_obs_cls.call_args_list:
+            kw = call.kwargs
+            if 'name' in kw and 'iteration_prefix' in kw:
+                prefixes[kw['name']] = kw['iteration_prefix']
+        assert prefixes.get("xon_range") == 22, f"Range prefix: {prefixes}"
+        assert prefixes.get("xon_point") == 23, f"Point prefix: {prefixes}"
