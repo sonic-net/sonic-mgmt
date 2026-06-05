@@ -84,13 +84,65 @@ If `modprobe team` fails:
 - **`Module team not found`** — the running kernel doesn't ship the module.
   Install the matching extra-modules package (e.g.
   `linux-modules-extra-$(uname -r)`), or use a kernel/distro that includes it.
-  Some cloud kernels (notably `*-azure`) omit `team` entirely; an out-of-tree
-  build of `drivers/net/team` against the installed kernel headers is possible
-  but see the next point.
+  Some cloud kernels (notably `*-azure`) omit `team` entirely. In that case
+  build it out-of-tree against the installed kernel headers (the team driver is
+  stable across point releases, so the mainline source for the matching
+  major.minor works):
+
+  > **Important:**
+  > - Set `B=...linux/v<MAJOR>.<MINOR>` to **your running kernel's
+  >   major.minor** (`uname -r`), e.g. a `6.11.x` kernel needs `v6.11`. A
+  >   mismatched source tree will fail to build or load.
+  > - This copies headers into the distro-managed `linux-headers-$(uname -r)`
+  >   tree and drops modules under `/lib/modules/$(uname -r)`. These do **not**
+  >   survive a kernel upgrade — after the host moves to a new kernel you must
+  >   repeat the build (and the signing step below) for the new `uname -r`.
+
+  ```bash
+  K=$(uname -r); mkdir -p /tmp/teambuild && cd /tmp/teambuild
+  B=https://raw.githubusercontent.com/torvalds/linux/v6.8   # MUST match your kernel's major.minor (uname -r)
+  for f in team team_mode_loadbalance team_mode_activebackup \
+           team_mode_roundrobin team_mode_broadcast team_mode_random; do
+    curl -sSL -o $f.c "$B/drivers/net/team/$f.c"
+  done
+  # The team uapi/internal headers are not in the -headers package; fetch them:
+  curl -sSL -o if_team.h      "$B/include/linux/if_team.h"
+  curl -sSL -o if_team_uapi.h "$B/include/uapi/linux/if_team.h"
+  sudo cp if_team.h      /usr/src/linux-headers-$K/include/linux/if_team.h
+  sudo cp if_team_uapi.h /usr/src/linux-headers-$K/include/uapi/linux/if_team.h
+  printf 'obj-m += team.o team_mode_loadbalance.o team_mode_activebackup.o team_mode_roundrobin.o team_mode_broadcast.o team_mode_random.o\n' > Makefile
+  make -C /lib/modules/$K/build M=$PWD modules
+  sudo cp *.ko /lib/modules/$K/kernel/drivers/net/team/   # mkdir -p first if needed
+  sudo depmod -a $K
+  ```
+
 - **`Key was rejected by service`** — **Secure Boot** is enabled and the module
-  is unsigned. Either sign the module with an enrolled MOK
-  (`mokutil --import`, then reboot to enroll) or disable Secure Boot. Both
-  require a host reboot.
+  is unsigned (you'll see this for any locally built/out-of-tree module; check
+  with `mokutil --sb-state` and `cat /sys/module/module/parameters/sig_enforce`).
+  You must sign the module with a key the firmware trusts, then **reboot once**
+  to enroll that key (there is no way to load an unsigned module under Secure
+  Boot without a reboot):
+
+  ```bash
+  K=$(uname -r); cd /tmp/teambuild
+  # 1. Generate a Machine Owner Key (MOK)
+  openssl req -new -x509 -newkey rsa:2048 -keyout MOK.priv -outform DER \
+    -out MOK.der -nodes -days 3650 -subj "/CN=csonic-team-module-signing/"
+  # 2. Sign every module
+  SF=/usr/src/linux-headers-$K/scripts/sign-file
+  for m in team team_mode_*; do sudo $SF sha256 MOK.priv MOK.der \
+    /lib/modules/$K/kernel/drivers/net/team/${m%.ko}.ko; done
+  # 3. Stage the key for enrollment (choose a one-time password)
+  sudo mokutil --import MOK.der          # prompts for a password
+  # 4. Reboot. At boot, shim's blue "MOK Manager" screen appears:
+  #    select "Enroll MOK" -> "Continue" -> enter the password above -> reboot.
+  # 5. After reboot:
+  sudo modprobe team && lsmod | grep team
+  ```
+
+  Alternatively, disable Secure Boot entirely (Gen2/Azure VM setting or firmware
+  menu) — also a reboot. Once `team` loads, re-run `deploy-mg` so the neighbor
+  `teammgrd` can create the PortChannels.
 
 > **Symptom of a missing `team` module:** `add-topo`/`deploy-mg` succeed, FRR
 > comes up and `bgpcfgd` generates `router bgp`, but BGP stays `Active`/`Idle`
