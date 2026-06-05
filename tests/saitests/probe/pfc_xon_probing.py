@@ -599,6 +599,8 @@ class PfcXonProbing(ProbingBase):
         # PfcXoff doesn't know pool_size). XOn doesn't need them.
 
         # 5a. Create observers (separate for Range and Point)
+        # iteration_prefix allocation: 1-21 reserved for PfcXoff chain phases
+        # (Upper=10, Lower=11, Range=12, Point=13); XOn uses 22+ to avoid collision.
         range_obs = ProbingObserver(
             name="xon_range",
             iteration_prefix=22,
@@ -679,6 +681,7 @@ class PfcXonProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
 
         # 5c. Range narrowing (OPTIONAL — only for large-offset SKUs)
+        range_elapsed = 0.0
         if self.enable_xon_range_probe:
             range_lower, range_upper, range_elapsed = ThresholdRangeProbingAlgorithm(
                 executor=range_exec,
@@ -713,6 +716,11 @@ class PfcXonProbing(ProbingBase):
         # drain quantity, not a running total — the incremental optimization in
         # the standard Point algorithm would send value=step=1 after first
         # success, which breaks XOn semantics.
+        #
+        # verification_attempts=1: with always_full_cycle=True, each check sends
+        # the full absolute drain amount (deterministic), so multi-attempt
+        # verification is redundant. Range uses xon_verification_attempts because
+        # its binary search iterations are not fully deterministic.
         point_lower, point_upper, point_elapsed = ThresholdPointProbingAlgorithm(
             executor=point_exec,
             observer=point_obs,
@@ -745,8 +753,10 @@ class PfcXonProbing(ProbingBase):
         ProbingObserver.report_probing_result(
             "PFC XOn Offset", result, unit="pkt"
         )
+        total_elapsed = range_elapsed + point_elapsed
         ProbingObserver.console(
-            f"[{self.PROBE_TARGET}] Algorithm '{algo_label}' completed"
+            f"[{self.PROBE_TARGET}] Algorithm '{algo_label}' completed "
+            f"in {total_elapsed:.1f}s"
         )
 
         return result
