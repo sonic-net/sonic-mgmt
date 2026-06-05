@@ -76,7 +76,7 @@ class MellanoxProbeParamsResolver(ProbeParamsResolver):
     def __init__(self, qosConfig_profile=None, dutQosConfig=None):
         super().__init__()
         qosConfig_profile = qosConfig_profile or {}
-        dutQosConfig = dutQosConfig or {}
+        del dutQosConfig  # reserved for future platform-specific logic
         self.packet_length = qosConfig_profile.get("packet_size", 64)
 
         cell_size = qosConfig_profile.get("cell_size")
