@@ -371,7 +371,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['pfc_xoff_threshold'] if pg_results else pool_size
                 )
                 pfc_upper, pfc_upper_time = pfc_algos['upper'].run(
-                    src_port_id, dst_port_id, pfc_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, pfc_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += pfc_upper_time
                 if pfc_upper is None:
@@ -479,7 +480,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['ingress_drop_threshold'] if pg_results else pool_size
                 )
                 drop_upper, drop_upper_time = drop_algos['upper'].run(
-                    src_port_id, dst_port_id, drop_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, drop_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += drop_upper_time
                 if drop_upper is None:
