@@ -3,9 +3,12 @@ Test utils used by the link flap tests.
 """
 import json
 import logging
+import math
+import os
 import random
 import re
 import time
+import yaml
 
 from collections import defaultdict
 
@@ -366,6 +369,233 @@ def log_redis_state(duthost, label):
                     label, proc, count, mem, omem)
 
 
+_MEMORY_SETTLE_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), 'memory_settle.yml')
+
+
+def _load_memory_settle_config():
+    """Load the platform/topology -> max_wait config from memory_settle.yml."""
+    with open(_MEMORY_SETTLE_CONFIG_PATH) as f:
+        return yaml.safe_load(f)
+
+
+def _memory_settle_max_wait(duthost, tbinfo):
+    """Pick the upper bound on how long to poll for post-link-flap memory checks.
+
+    High-port-density scale topologies need more time after a flap before
+    COUNTERS_DB / FLEX_COUNTER state has been reclaimed, and FRR daemons
+    (bgpd / zebra) also take longer to settle. The values are externalized
+    to memory_settle.yml so new platforms / topologies can be added easily.
+
+    Lookup is two-level:
+      1. ONIE platform regex (e.g. 'x86_64-nexthop_.*') from duthost.facts.
+      2. Topology-name regex (e.g. 't2_single_node_max.*') from tbinfo.
+
+    Both levels accept a 'default' key. Last matching entry wins (regex order
+    in the YAML file is significant: list more specific patterns after less
+    specific ones).
+    """
+    platform = duthost.facts.get('platform', '') if hasattr(duthost, 'facts') else ''
+    topo_name = tbinfo.get('topo', {}).get('name', '')
+
+    try:
+        config = _load_memory_settle_config()
+    except (IOError, yaml.YAMLError) as exc:
+        logger.warning("Failed to load %s: %s; falling back to 30s",
+                       _MEMORY_SETTLE_CONFIG_PATH, exc)
+        return 30
+
+    def _lookup(table, key):
+        """Walk a regex-keyed table; last match wins. 'default' is fallback only."""
+        chosen = table.get('default')
+        for pattern, value in table.items():
+            if pattern == 'default':
+                continue
+            if re.match(pattern, key):
+                chosen = value
+        return chosen
+
+    platform_entry = _lookup(config, platform)
+    if not isinstance(platform_entry, dict):
+        return 30
+    max_wait = _lookup(platform_entry, topo_name)
+    if not isinstance(max_wait, int):
+        return 30
+    return max_wait
+
+
+def get_frr_daemon_memory_usage(duthost, daemon):
+    frr_daemon_memory_per_asics = {}
+
+    for asic in duthost.asics:
+        frr_daemon_memory_output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+            f'vtysh -c "show memory {daemon}"', asic.namespace))["stdout"]
+        logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
+
+        # Parse the output for the three memory values
+        used_ordinary_blocks = 0
+        used_small_blocks = 0
+        holding_block_headers = 0
+        for line in frr_daemon_memory_output.splitlines():
+            if "Used ordinary blocks:" in line:
+                used_ordinary_blocks = _parse_memory_value(line)
+            elif "Used small blocks:" in line:
+                used_small_blocks = _parse_memory_value(line)
+            elif "Holding block headers:" in line:
+                holding_block_headers = _parse_memory_value(line)
+
+        total_memory = used_ordinary_blocks + used_small_blocks + holding_block_headers
+        logging.info("{} total memory for asic{}: {} MiB; ordinary {}, small {}, holding {}".format(
+            daemon, asic.asic_index, total_memory, used_ordinary_blocks, used_small_blocks, holding_block_headers))
+        frr_daemon_memory_per_asics[asic.asic_index] = total_memory
+
+    return frr_daemon_memory_per_asics
+
+
+def _parse_memory_value(line):
+    match = re.search(r':\s*([\d.]+)\s*(bytes|KiB|MiB)?', line)
+    if not match:
+        return 0
+    value = float(match.group(1))
+    unit = match.group(2)
+    if unit == 'bytes' or unit is None:
+        return value / (1024 * 1024)
+    elif unit == 'KiB':
+        return value / 1024
+    elif unit == 'MiB':
+        return value
+    else:
+        return value
+
+
+def validate_frr_daemon_memory_increase(tbinfo, start_mem, end_mem):
+    """Topology-aware FRR daemon memory increase check.
+
+    Base threshold: 10% on m0/mx, 5% elsewhere. Floored to ceil(100/start_mem)%
+    so a small daemon doesn't trip on single-MiB noise.
+
+    Returns:
+        (passed: bool, threshold_percent: int) -- threshold actually applied.
+    """
+    base_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+    min_threshold_percent = 1 / float(start_mem) * 100
+    threshold = max(base_threshold, int(math.ceil(min_threshold_percent)))
+    incr = float(end_mem) - float(start_mem)
+    if incr <= 0:
+        return True, threshold
+    percent_incr = (incr / float(start_mem)) * 100
+    return percent_incr < threshold, threshold
+
+
+def _check_frr_thresholds(tbinfo, frr_daemons, start_frr_memory, end_frr_memory):
+    """Evaluate all FRR memory thresholds. Returns (all_passed, summary_list).
+
+    summary_list is a list of
+      (daemon, asic_index, passed, threshold, start_mem, end_mem, percent_incr)
+    tuples for logging. Any field except daemon/asic_index can be None if no
+    end-reading was available.
+    """
+    summary = []
+    all_passed = True
+    for daemon in frr_daemons:
+        daemon_start = start_frr_memory.get(daemon, {})
+        daemon_end = end_frr_memory.get(daemon, {}) if end_frr_memory else {}
+        for asic_index, start_mem in daemon_start.items():
+            end_mem = daemon_end.get(asic_index)
+            if end_mem is None:
+                summary.append((daemon, asic_index, False, None, start_mem, None, None))
+                all_passed = False
+                continue
+            passed, threshold = validate_frr_daemon_memory_increase(tbinfo, start_mem, end_mem)
+            incr = float(end_mem) - float(start_mem)
+            percent_incr = (incr / float(start_mem)) * 100 if start_mem else 0
+            summary.append((daemon, asic_index, passed, threshold,
+                            float(start_mem), float(end_mem), percent_incr))
+            if not passed:
+                all_passed = False
+    return all_passed, summary
+
+
+def _redis_memory_threshold(tbinfo):
+    """Return the redis memory increase threshold (%) that
+    validate_redis_memory_increase will apply for this topology."""
+    return 20 if tbinfo["topo"]["type"] in ["m0", "mx"] else 15
+
+
+def wait_for_memory_to_settle(duthost, tbinfo, frr_daemons,
+                              start_frr_memory, start_redis_memory,
+                              max_wait=None,
+                              window_interval=5, window_samples=5):
+    """Poll FRR daemon memory and Redis memory until both satisfy thresholds.
+
+    Bundles the two memory checks into a single topology-aware wait loop. Each
+    iteration samples FRR (cheap, one vtysh per daemon per asic) and Redis
+    (`window_samples` redis-cli reads spaced `window_interval` seconds apart,
+    so ~25s per iteration with the defaults). Exits early when every FRR
+    daemon and the Redis check satisfy their topology thresholds.
+
+    The same topology mapping is used for both metrics
+    (see _memory_settle_max_wait).
+
+    Args:
+        duthost: DUT host object.
+        tbinfo: testbed info dict; drives topology thresholds and max_wait.
+        frr_daemons: list of FRR daemon names to sample (e.g. ['bgpd', 'zebra']).
+        start_frr_memory: {daemon: {asic_index: start_mem_mib}} from start of test.
+        start_redis_memory: baseline Redis memory in MiB at start of test.
+        max_wait: override the topology-derived cap (seconds).
+        window_interval, window_samples: passed to get_avg_redis_mem_usage.
+
+    Returns:
+        (end_frr_memory, end_redis_memory): the final readings observed. Pass
+        these to the validate_* predicates for hard assertions in the caller.
+    """
+    if max_wait is None:
+        max_wait = _memory_settle_max_wait(duthost, tbinfo)
+    logger.info(
+        "Memory settle poll: platform=%s topology=%s max_wait=%ds",
+        getattr(duthost, 'facts', {}).get('platform', '<unknown>'),
+        tbinfo.get('topo', {}).get('name', '<unknown>'), max_wait)
+    start_time = time.time()
+    end_frr_memory = None
+    end_redis_memory = None
+    while time.time() - start_time < max_wait:
+        end_frr_memory = {d: get_frr_daemon_memory_usage(duthost, d) for d in frr_daemons}
+        end_redis_memory = get_avg_redis_mem_usage(duthost, window_interval, window_samples)
+        elapsed = time.time() - start_time
+
+        frr_pass, frr_summary = _check_frr_thresholds(
+            tbinfo, frr_daemons, start_frr_memory, end_frr_memory)
+        redis_pass = validate_redis_memory_increase(
+            tbinfo, start_redis_memory, end_redis_memory)
+
+        for daemon, asic_index, passed, threshold, start_mem, end_mem, percent_incr in frr_summary:
+            if percent_incr is None:
+                logger.info("Memory poll: %s-asic%s missing end reading (start=%s MiB)",
+                            daemon, asic_index,
+                            f"{start_mem:.3f}" if start_mem is not None else "?")
+            else:
+                logger.info(
+                    "Memory poll: %s-asic%s start=%.3f MiB end=%.3f MiB "
+                    "incr=%+.1f%% threshold=%d%% pass=%s",
+                    daemon, asic_index, start_mem, end_mem, percent_incr, threshold, passed)
+        redis_incr = end_redis_memory - start_redis_memory
+        redis_percent = (redis_incr / start_redis_memory) * 100 if start_redis_memory else 0
+        logger.info(
+            "Memory poll: redis start=%.3f MiB end=%.3f MiB "
+            "incr=%+.1f%% threshold=%d%% pass=%s after %.0fs",
+            start_redis_memory, end_redis_memory, redis_percent,
+            _redis_memory_threshold(tbinfo), redis_pass, elapsed)
+
+        if frr_pass and redis_pass:
+            logger.info("All memory checks pass after %.0fs", elapsed)
+            return end_frr_memory, end_redis_memory
+
+    logger.warning(
+        "Memory checks still failing after %ds; using final readings", max_wait)
+    return end_frr_memory, end_redis_memory
+
+
 def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
     # Calculate diff in Redis memory
     incr_redis_memory = end_mem - start_mem
@@ -375,7 +605,7 @@ def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
     if incr_redis_memory > 0.0:
         percent_incr_redis_memory = (incr_redis_memory / start_mem) * 100
         logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-        incr_redis_memory_threshold = 20 if tbinfo["topo"]["type"] in ["m0", "mx"] else 15
+        incr_redis_memory_threshold = _redis_memory_threshold(tbinfo)
         if percent_incr_redis_memory >= incr_redis_memory_threshold:
             return False
     return True

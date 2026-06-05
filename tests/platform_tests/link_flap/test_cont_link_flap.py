@@ -8,17 +8,13 @@ Parameters:
 
 import logging
 import pytest
-import time
-import math
-import re
-
-from collections import defaultdict
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
-    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage, log_redis_state,\
-    validate_redis_memory_increase
+    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage,\
+    get_frr_daemon_memory_usage, log_redis_state,\
+    validate_frr_daemon_memory_increase, validate_redis_memory_increase, wait_for_memory_to_settle
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
@@ -44,49 +40,6 @@ class TestContLinkFlap(object):
         pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
         logging.info("Randomly selected candidates: %s", candidates)
         return candidates
-
-    def get_frr_daemon_memory_usage(self, duthost, daemon):
-        frr_daemon_memory_per_asics = {}
-
-        for asic in duthost.asics:
-            frr_daemon_memory_output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
-                f'vtysh -c "show memory {daemon}"', asic.namespace))["stdout"]
-            logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
-
-            # Parse the output for the three memory values
-            used_ordinary_blocks = 0
-            used_small_blocks = 0
-            holding_block_headers = 0
-            for line in frr_daemon_memory_output.splitlines():
-                if "Used ordinary blocks:" in line:
-                    used_ordinary_blocks = TestContLinkFlap._parse_memory_value(line)
-                elif "Used small blocks:" in line:
-                    used_small_blocks = TestContLinkFlap._parse_memory_value(line)
-                elif "Holding block headers:" in line:
-                    holding_block_headers = TestContLinkFlap._parse_memory_value(line)
-
-            total_memory = used_ordinary_blocks + used_small_blocks + holding_block_headers
-            logging.info("{} total memory for asic{}: {} MiB; ordinary {}, small {}, holding {}".format(
-                daemon, asic.asic_index, total_memory, used_ordinary_blocks, used_small_blocks, holding_block_headers))
-            frr_daemon_memory_per_asics[asic.asic_index] = total_memory
-
-        return frr_daemon_memory_per_asics
-
-    @staticmethod
-    def _parse_memory_value(line):
-        match = re.search(r':\s*([\d.]+)\s*(bytes|KiB|MiB)?', line)
-        if not match:
-            return 0
-        value = float(match.group(1))
-        unit = match.group(2)
-        if unit == 'bytes' or unit is None:
-            return value / (1024 * 1024)
-        elif unit == 'KiB':
-            return value / 1024
-        elif unit == 'MiB':
-            return value
-        else:
-            return value
 
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
@@ -136,7 +89,7 @@ class TestContLinkFlap(object):
         frr_demons_to_check = ['bgpd', 'zebra']
         start_time_frr_daemon_memory = {}
         for daemon in frr_demons_to_check:
-            start_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
+            start_time_frr_daemon_memory[daemon] = get_frr_daemon_memory_usage(duthost, daemon)
             logging.info(f"{daemon} memory usage at start: \n%s", start_time_frr_daemon_memory[daemon])
 
         # Make Sure Orch CPU < orch_cpu_threshold before starting test.
@@ -199,67 +152,43 @@ class TestContLinkFlap(object):
 
             pytest.fail(str(failmsg))
 
-        # Wait 30s for the memory usage to be stable
-        time.sleep(30)
-
-        # Record memory status at end
+        # Diagnostic snapshot before the bundled memory-settle poll. The poll
+        # below replaces the previous fixed 30s sleep + sequential FRR / Redis
+        # checks; it samples both metrics each iteration and exits early when
+        # all thresholds are satisfied. max_wait is topology-aware (see
+        # link_flap_utils._memory_settle_max_wait_for_topology).
         memory_output = duthost.shell("show system-memory")["stdout"]
         logging.info("Memory Status at end: %s", memory_output)
 
-        # Check the FRR daemons memory usage at end
-        end_time_frr_daemon_memory = {}
-        incr_frr_daemon_memory_threshold = defaultdict(lambda: {})
+        end_time_frr_daemon_memory, end_time_redis_memory = wait_for_memory_to_settle(
+            duthost, tbinfo, frr_demons_to_check,
+            start_time_frr_daemon_memory, start_time_redis_memory)
 
-        for daemon in frr_demons_to_check:
-            for asic_index, asic_frr_memory in start_time_frr_daemon_memory[daemon].items():
-                incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"]\
-                                                                       else 5
-
-                min_threshold_percent = 1 / float(asic_frr_memory) * 100
-
-                if min_threshold_percent > incr_frr_daemon_memory_threshold[daemon][asic_index]:
-                    incr_frr_daemon_memory_threshold[daemon][asic_index] = math.ceil(min_threshold_percent)
-
-                logging.info(f"The memory increment threshold for frr daemon {daemon}-asic{asic_index} "
-                             f"is {incr_frr_daemon_memory_threshold[daemon][asic_index]}%")
-
-        for daemon in frr_demons_to_check:
-            # Record FRR daemon memory status at end
-            end_time_frr_daemon_memory[daemon] = self.get_frr_daemon_memory_usage(duthost, daemon)
-            logging.info(f"{daemon} memory usage at end: \n%s", end_time_frr_daemon_memory[daemon])
-
-            # Calculate diff in FRR daemon memory
-            for asic_index, end_frr_memory in end_time_frr_daemon_memory[daemon].items():
-                incr_frr_daemon_memory = float(end_frr_memory) - float(start_time_frr_daemon_memory[daemon][asic_index])
-
-                daemon_name = daemon if not duthost.is_multi_asic else f"{daemon}-asic{asic_index}"
-                logging.info(f"{daemon_name} absolute difference: %d", incr_frr_daemon_memory)
-
-                # Check FRR daemon memory only if it is increased else default to pass
-                if incr_frr_daemon_memory > 0:
-                    percent_incr_frr_daemon_memory = \
-                        (incr_frr_daemon_memory / float(start_time_frr_daemon_memory[daemon][asic_index])) * 100
-                    logging.info(f"{daemon_name} memory percentage increase: %d", percent_incr_frr_daemon_memory)
-                    pytest_assert(percent_incr_frr_daemon_memory < incr_frr_daemon_memory_threshold[daemon][asic_index],
-                                  f"{daemon_name} memory increase more than expected: "
-                                  f"{incr_frr_daemon_memory_threshold[daemon][asic_index]}%")
-
-        # Record orchagent CPU utilization at end
+        # Diagnostic orchagent CPU log (the hard check happens at the end of the test).
         orch_cpu = duthost.shell(
             "COLUMNS=512 show processes cpu | grep orchagent | awk '{print $1, $9}'")["stdout_lines"]
         for line in orch_cpu:
             pid, util = line.split(" ")
             logging.info("Orchagent PID {0} CPU Util at end: {1}".format(pid, util))
 
-        # Record Redis Memory at end
-        end_time_redis_memory = get_avg_redis_mem_usage(duthost, 5, 5)
         logging.info("Redis Memory at start: %f M", start_time_redis_memory)
         logging.info("Redis Memory at end: %f M", end_time_redis_memory)
         log_redis_state(duthost, "end")
 
-        result = validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory)
-        pytest_assert(result, "Redis Memory Increases more than expected: start {}, end {}"
-                      .format(start_time_redis_memory, end_time_redis_memory))
+        # Final assertions on the readings the poll loop produced.
+        for daemon in frr_demons_to_check:
+            for asic_index, end_mem in end_time_frr_daemon_memory[daemon].items():
+                start_mem = start_time_frr_daemon_memory[daemon][asic_index]
+                passed, threshold = validate_frr_daemon_memory_increase(tbinfo, start_mem, end_mem)
+                daemon_name = daemon if not duthost.is_multi_asic else f"{daemon}-asic{asic_index}"
+                pytest_assert(
+                    passed,
+                    f"{daemon_name} memory increase more than expected: {threshold}%")
+
+        pytest_assert(
+            validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory),
+            "Redis Memory Increases more than expected: start {}, end {}".format(
+                start_time_redis_memory, end_time_redis_memory))
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)

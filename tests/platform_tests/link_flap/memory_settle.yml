@@ -1,0 +1,21 @@
+---
+# Per-platform / per-topology max_wait (seconds) for the bundled FRR + Redis
+# memory settle poll in wait_for_memory_to_settle. The lookup is two-level:
+#   1. Top-level keys are ONIE platform regexes (or 'default').
+#   2. Inside each, keys are topology-name regexes (or 'default').
+#
+# Both matches use re.match (anchored at start). More specific regexes must
+# be listed after less specific ones; the last matching entry wins.
+#
+# Anything not covered falls through to the top-level 'default' / 'default'
+# value.
+
+default:
+  default: 30
+
+x86_64-nexthop_.*:
+  default: 30
+  t2-single-node-min: 180
+  t2_single_node_min: 180
+  t2-single-node-max.*: 600
+  t2_single_node_max.*: 600
