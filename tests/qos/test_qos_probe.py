@@ -84,7 +84,10 @@ class TestQosProbe(QosSaiBase):
 
             Default: qos.yml stores thresholds in cell units → divide by cells_per_packet.
             Subclasses override when qos.yml uses different units.
+            Handles both int and list (e.g. pkts_num_trig_pfc_shp is a list).
             """
+            if isinstance(value, list):
+                return [v // self.cells_per_packet for v in value]
             return value // self.cells_per_packet
 
     class CiscoProbeParamsResolver(ProbeParamsResolver):
@@ -128,7 +131,40 @@ class TestQosProbe(QosSaiBase):
 
         def resolve_threshold(self, value):
             """Convert threshold to probe-comparable units using threshold_divisor."""
+            if isinstance(value, list):
+                return [v // self.threshold_divisor for v in value]
             return value // self.threshold_divisor
+
+    class MellanoxProbeParamsResolver(ProbeParamsResolver):
+        """Mellanox: resolve probe params from QoS config.
+
+        Mellanox qos_param_generator computes all thresholds in cell units.
+        The threshold unit convention follows the same pattern as Cisco:
+
+        Profiles WITHOUT packet_size (e.g. xoff_1/xoff_2):
+          - packet_length defaults to 64B, cell_occupancy = 1
+          - threshold (cells) == threshold (packets), no conversion needed
+
+        Profiles WITH packet_size (e.g. lossy_queue_1: packet_size=300):
+          - Legacy test sends 300B packets, cell_occupancy = ceil(300/cell_size)
+          - threshold (cells) must be divided by cells_per_packet to get packet count
+          - Probe sends packets at probe_packet_length (= packet_size from profile)
+            so that probe results are directly comparable with converted thresholds
+
+        This matches legacy sai_qos_tests.py (LossyQueueTest) behavior where
+        packet_size presence in test_params controls packet length and cell_occupancy.
+        """
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            super().__init__()
+            qosConfig_profile = qosConfig_profile or {}
+            del dutQosConfig  # reserved for future platform-specific logic
+            self.packet_length = qosConfig_profile.get("packet_size", 64)
+
+            cell_size = qosConfig_profile.get("cell_size")
+            if cell_size is not None:
+                self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
+            else:
+                self.cells_per_packet = 1
 
     # Registry: platform_asic -> ProbeParamsResolver subclass.
     # Keys must match duthost.facts["platform_asic"] values exactly
@@ -136,6 +172,7 @@ class TestQosProbe(QosSaiBase):
     # Unregistered platforms fall back to the default ProbeParamsResolver.
     _PROBE_RESOLVER_REGISTRY = {
         "cisco-8000": CiscoProbeParamsResolver,
+        "mellanox": MellanoxProbeParamsResolver,
     }
 
     # Threshold keys in qos.yml that need resolve_threshold conversion
