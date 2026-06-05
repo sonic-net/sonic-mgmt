@@ -2,10 +2,11 @@ import logging
 import pytest
 import re
 import ipaddress
+from copy import deepcopy
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import testbed_is_multi_vrf, wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -112,6 +113,11 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     portchannel_members = [member for portchannel in list(minigraph_portchannels.values())
                            for member in portchannel['members']]
     physical_interfaces = [item for item in up_ports if item not in portchannel_members]
+
+    multi_vrf_info = None
+    if testbed_is_multi_vrf(tbinfo):
+        multi_vrf_info = deepcopy(tbinfo['topo']['properties']['convergence_data'])
+
     setup_info = {
          'default_interfaces': default_interfaces,
          'minigraph_facts': minigraph_facts,
@@ -121,7 +127,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
          'port_alias_map': port_alias_map,
          'port_speed': port_speed,
          'up_ports': up_ports,
-         'upport_alias_list': upport_alias_list
+         'upport_alias_list': upport_alias_list,
+         'multi_vrf_info': multi_vrf_info,
     }
 
     yield setup_info
@@ -187,7 +194,11 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         setup: Fixture defined in this module
     Returns:
         sample_intf: a dictionary containing the alias, name and native
-        speed of the test interface
+        speed of the test interface. 'native_speed' is read from CONFIG_DB
+        to reflect the speed actually configured on the interface before the
+        test runs. This ensures restore and verify operations leave the testbed
+        exactly as found, even when the operator has configured a speed that
+        differs from the platform file (e.g. due to fanout hardware limits).
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     minigraph_interfaces = setup['minigraph_facts']['minigraph_interfaces']
@@ -213,8 +224,16 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     interface_info['default'] = interface
     interface_info['asic_index'] = asic_index
     interface_info['alias'] = setup['port_name_map'][interface]
-    interface_info['native_speed'] = setup['port_speed'][interface_info['alias']]
     interface_info['cli_ns_option'] = duthost.asic_instance(asic_index).cli_ns_option
+
+    # Read native_speed from CONFIG_DB rather than from the platform files.
+    # The platform file value may not match the actual configured speed when
+    # the testbed operator has set a different speed (e.g. a 400G port running
+    # at 100G because the fanout does not support 400G). Using the CONFIG_DB
+    # value ensures that speed restore and verification use the pre-test state.
+    db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'.format(
+        duthost.asic_instance(asic_index).sonic_db_cli, interface)
+    interface_info['native_speed'] = duthost.shell(db_cmd)['stdout'].strip()
 
     return interface_info
 
@@ -293,34 +312,63 @@ class TestShowLLDP():
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+        lldp_table_result = {}
+
+        def _lldp_table_ready():
+            lldp_table_result['output'] = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+            expected_intfs = lldp_interfaces['alias'] if mode == 'alias' else lldp_interfaces['interface']
+            return all(re.search(re.escape(intf), lldp_table_result['output']) for intf in expected_intfs)
+
+        pytest_assert(
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 10, 0, _lldp_table_ready),
+            "LLDP table did not converge with all expected interfaces within {} seconds".format(
+                ESTABLISH_LLDP_NEIGHBOR_TIMEOUT
+            )
+        )
+
+        lldp_table = lldp_table_result['output']
         logger.info('lldp_table:\n{}'.format(lldp_table))
+
+        vrf_map = {}
+        multi_vrf = False
+        if setup.get('multi_vrf_info'):
+            multi_vrf = True
+            for host, vrfs in setup['multi_vrf_info']['convergence_mapping'].items():
+                for vrf in vrfs:
+                    vrf_map[vrf] = host
 
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
+                peer = minigraph_neighbors[setup['port_alias_map'][alias]]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
                 assert re.search(
-                    r'{}.*\s+{}'.format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']),
+                    r'{}.*\s+{}'.format(alias, peer),
                     lldp_table
                 ) is not None, (
                      "Expected alias '{}' with neighbor '{}' not found in LLDP table.\n"
                      "- LLDP Table Output: \n{}"
                 ).format(
                     alias,
-                    minigraph_neighbors[setup['port_alias_map'][alias]]['name'],
+                    peer,
                     lldp_table
                 )
 
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
+                peer = minigraph_neighbors[intf]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
                 assert re.search(
-                        r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
+                        r'{}.*\s+{}'.format(intf, peer),
                         lldp_table
                 ) is not None, (
                     "Expected LLDP entry for interface '{}' with neighbor '{}' not found.\n"
                     "- LLDP Table Output:\n{}"
                 ).format(
                     intf,
-                    minigraph_neighbors[intf]['name'],
+                    peer,
                     lldp_table
                 )
 
@@ -705,7 +753,8 @@ class TestShowPriorityGroup():
 
 class TestShowQueue():
 
-    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 tbinfo):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
@@ -735,7 +784,17 @@ class TestShowQueue():
                         hostname = fields[1]
                         if hostname != duthost.hostname:
                             continue
+
                     # The interface name is always the last but one field in the BUFFER_QUEUE entry key
+                    # On multi-ASIC T2 (VOQ), BUFFER_QUEUE keys include the namespace field:
+                    #   BUFFER_QUEUE|<hostname>|<namespace>|Ethernet0|0-2
+                    # so fields[-3] is the namespace. Filter by it to match per-ASIC query scope.
+                    # On non-T2 multi-ASIC, SonicDbCli(asic) already queries per-ASIC CONFIG_DB,
+                    # keys are just BUFFER_QUEUE|Ethernet0|0-2, so fields[-3] is "BUFFER_QUEUE"
+                    # and must NOT be filtered.
+                    if (duthost.is_multi_asic and tbinfo["topo"]["type"] == "t2"
+                            and fields[-3] != asic.namespace):
+                        continue
                     interfaces.add(fields[-2])
                 except IndexError:
                     pass
@@ -1071,6 +1130,7 @@ class TestConfigInterface():
         interface = sample_intf['default']
         interface_ip = sample_intf['ip']
         native_speed = sample_intf['native_speed']
+
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
 
@@ -1080,6 +1140,8 @@ class TestConfigInterface():
             duthost.shell('config interface {} ip add {} {}'.format(cli_ns_option, interface, interface_ip))
 
         duthost.shell('config interface {} startup {}'.format(cli_ns_option, interface))
+        # Restore to the speed that was configured before this test class ran
+        # to avoid corrupting testbed configuration.
         if self.check_speed_change(duthost, asic_index, interface, native_speed):
             duthost.shell('config interface {} speed {} {}'.format(cli_ns_option, interface, native_speed))
 
@@ -1205,13 +1267,16 @@ class TestConfigInterface():
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
         native_speed = sample_intf['native_speed']
+
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         # Get supported speeds for interface
         supported_speeds = duthost.get_supported_speeds(interface)
-        # Remove native speed from supported speeds
-        if supported_speeds is not None:
+        # Remove native_speed from supported speeds to pick a different speed to test with.
+        # native_speed is read from CONFIG_DB so this remove() is safe even when the
+        # testbed is configured at a non-platform-default speed.
+        if supported_speeds is not None and native_speed in supported_speeds:
             supported_speeds.remove(native_speed)
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
@@ -1244,6 +1309,7 @@ class TestConfigInterface():
             "Expected speed: '{}', actual speed: '{}'."
         ).format(configure_speed, speed)
 
+        # Restore to the pre-test configured speed.
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
         if out['rc'] != 0:
@@ -1253,9 +1319,18 @@ class TestConfigInterface():
         logger.info('speed: {}'.format(speed))
 
         assert speed == native_speed, (
-            "Interface speed mismatch after restoring to native speed. "
-            "Expected native speed: '{}', actual speed: '{}'."
+            "Interface speed mismatch after restoring to pre-test speed. "
+            "Expected current speed: '{}', actual speed: '{}'."
         ).format(native_speed, speed)
+
+        # Verify the link comes back up after speed restore. Without this check a bad
+        # restore (e.g. fanout does not support the target speed) would silently leave
+        # the interface down and cause a confusing failure in the next test case.
+        pytest_assert(
+            wait_until(PORT_TOGGLE_TIMEOUT, 2, 0, duthost.links_status_up, [interface]),
+            "Interface '{}' did not come back up after restoring speed to '{}'.".format(
+                interface, native_speed)
+        )
 
     def test_config_interface_speed_40G_100G(self, setup_config_mode, sample_intf, duthosts, fanouthosts,
                                              enum_rand_one_per_hwsku_frontend_hostname):
@@ -1263,6 +1338,7 @@ class TestConfigInterface():
         test_intf = sample_intf[mode]
         interface = sample_intf['default']
         native_speed = sample_intf['native_speed']
+
         cli_ns_option = sample_intf['cli_ns_option']
         asic_index = sample_intf['asic_index']
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -1276,6 +1352,7 @@ class TestConfigInterface():
         if 'arista' in duthost.facts.get('platform', '').lower():
             pytest.skip("Skip Arista platform for now.")
 
+        # Skip if the interface does not support toggling between 40G and 100G.
         if native_speed not in speeds_to_test:
             pytest.skip("Native speed is not 100G or 40G, it is {}".format(native_speed))
 
@@ -1329,7 +1406,7 @@ class TestConfigInterface():
             )
             # With DUT speed verified and link up, the fanout speed can be safely assumed correct.
 
-        # Save native (i.e. pre-test) FEC config
+        # Save pre-test FEC config
         native_fec = duthost.get_port_fec(interface)
         logger.info(f"Native speed: {native_speed}, Native FEC: {native_fec}")
 
@@ -1376,13 +1453,12 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
         pytest.skip('No non-portchannel member interface present')
@@ -1414,14 +1490,13 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
@@ -1470,7 +1545,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1560,7 +1635,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
+@pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)

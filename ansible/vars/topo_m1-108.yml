@@ -462,7 +462,7 @@ configuration:
   ARISTA01C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -483,7 +483,7 @@ configuration:
   ARISTA02C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -504,7 +504,7 @@ configuration:
   ARISTA03C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -525,7 +525,7 @@ configuration:
   ARISTA04C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -546,7 +546,7 @@ configuration:
   ARISTA05C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -567,7 +567,7 @@ configuration:
   ARISTA06C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -588,7 +588,7 @@ configuration:
   ARISTA07C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:
@@ -609,7 +609,7 @@ configuration:
   ARISTA08C0:
     properties:
     - common
-    - m0
+    - c0
     bgp:
       asn: 64900
       peers:

@@ -29,8 +29,10 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts         # noqa: E402
-from devutil.devices.sonic import upgrade_image                                     # noqa: E402
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
+from devutil.devices.sonic import upgrade_image             # noqa: E402
+from devutil.devices.dpu_utils import enable_nat_for_dpuhosts  # noqa: E402
+from devutil.devices.ansible_hosts import RunAnsibleModuleFailed, HostsUnreachable    # noqa: E402
 
 
 logger = logging.getLogger(__name__)
@@ -43,6 +45,8 @@ RC_ENABLE_FIPS_FAILED = 4
 RC_SET_DOCKER_FOLDER_SIZE_FAILED = 5
 RC_SHUTDOWN_FAILED = 6
 RC_HOSTS_UNREACHABLE = 7
+RC_DPU_UPGRADE_PREV_FAILED = 8
+RC_DPU_UPGRADE_FAILED = 9
 
 
 def validate_args(args):
@@ -59,23 +63,98 @@ def validate_args(args):
         format="%(asctime)s %(filename)s#%(lineno)d %(levelname)s - %(message)s"
     )
 
-    args.skip_prev_image = False
-    if not args.prev_image_url:
-        args.prev_image_url = "{}.PREV.1".format(args.image_url)
-    logger.info("PREV_IMAGE_URL={}".format(args.prev_image_url))
+    if not args.image_url and not args.dpu_image_url:
+        logger.error("At least one of --url or --dpu-url must be provided")
+        sys.exit(RC_INIT_FAILED)
 
-    try:
-        res_prev_image = requests.head(args.prev_image_url, timeout=20)
-        if res_prev_image.status_code != 200:
-            logger.info("Not able to get prev_image at {}, skip upgrading to prev_image.".format(args.prev_image_url))
-            args.skip_prev_image = True
-    except Exception as e:
-        logger.info(
-            "Downloading prev image {} failed with {}, skip upgrading to prev image".format(
-                args.prev_image_url, repr(e)
+    args.skip_prev_image = False
+    if args.image_url:
+        if not args.prev_image_url:
+            args.prev_image_url = "{}.PREV.1".format(args.image_url)
+        logger.info("PREV_IMAGE_URL={}".format(args.prev_image_url))
+
+        try:
+            res_prev_image = requests.head(args.prev_image_url, timeout=20)
+            if res_prev_image.status_code != 200:
+                logger.info("Not able to get prev_image at {}, skip upgrading to prev_image.".format(
+                    args.prev_image_url))
+                args.skip_prev_image = True
+        except Exception as e:
+            logger.info(
+                "Downloading prev image {} failed with {}, skip upgrading to prev image".format(
+                    args.prev_image_url, repr(e)
+                )
             )
-        )
+            args.skip_prev_image = True
+    else:
+        logger.info("No NPU image URL provided, skipping NPU image upgrade")
         args.skip_prev_image = True
+
+    # DPU prev image validation
+    args.skip_dpu_prev_image = False
+    if args.dpu_image_url:
+        if not args.dpu_prev_image_url:
+            args.dpu_prev_image_url = "{}.PREV.1".format(args.dpu_image_url)
+        logger.info("DPU_PREV_IMAGE_URL={}".format(args.dpu_prev_image_url))
+        try:
+            res_dpu_prev = requests.head(args.dpu_prev_image_url, timeout=20)
+            if res_dpu_prev.status_code != 200:
+                logger.info(
+                    "Not able to get dpu prev_image at {}, skip upgrading DPU to prev_image.".format(
+                        args.dpu_prev_image_url))
+                args.skip_dpu_prev_image = True
+        except Exception as e:
+            logger.info(
+                "Downloading DPU prev image {} failed with {}, skip upgrading DPU to prev image".format(
+                    args.dpu_prev_image_url, repr(e)
+                )
+            )
+            args.skip_dpu_prev_image = True
+    else:
+        args.dpu_prev_image_url = None
+        args.skip_dpu_prev_image = True
+
+
+def upgrade_dpu_images(sonichosts, dpu_image_url):
+    """Upgrade DPU images on all NPU hosts using the upgrade_dpu_sonic_image Ansible module.
+
+    Args:
+        sonichosts: SonicHosts instance containing NPU hosts.
+        dpu_image_url: URL of the SONiC image to install on DPUs.
+
+    Returns:
+        bool: True if all DPU upgrades succeeded, False otherwise.
+    """
+    try:
+        for hostname in sonichosts.hostnames:
+            cfg_facts = sonichosts.config_facts(host=hostname, source='running')[hostname]
+            hwsku = cfg_facts.get('ansible_facts', {}) \
+                .get('DEVICE_METADATA', {}) \
+                .get('localhost', {}) \
+                .get('hwsku', 'unknown')
+            logger.info("Upgrading DPU images on host %s (hwsku=%s)", hostname, hwsku)
+
+            host_username = sonichosts.get_host_visible_var(hostname, 'sonic_login') or 'admin'
+            host_passwords = sonichosts.get_host_visible_var(hostname, 'sonic_default_passwords') or ['password']
+
+            sonichosts.upgrade_dpu_sonic_image(
+                hwsku=hwsku,
+                hostname=hostname,
+                host_username=host_username,
+                host_passwords=host_passwords,
+                new_image_url=dpu_image_url,
+                target_hosts=[hostname],
+                module_attrs={"become": True, "async": 7200, "poll": 60}
+            )
+            logger.info("DPU image upgrade complete on host %s", hostname)
+
+        return True
+    except RunAnsibleModuleFailed as e:
+        logger.error("DPU image upgrade failed: %s", repr(e))
+        return False
+    except HostsUnreachable as e:
+        logger.error("DPU image upgrade failed, host unreachable: %s", repr(e))
+        return False
 
 
 def main(args):
@@ -90,6 +169,23 @@ def main(args):
 
     if not localhost or not sonichosts:
         sys.exit(RC_INIT_FAILED)
+
+    # Separate NPU and DPU hostnames.
+    # DPU hosts require NAT forwarding through their NPU and should not be
+    # included in upgrade/reboot operations (only the switch image is upgraded).
+    all_hostnames = sonichosts.hostnames
+    npu_hostnames = [h for h in all_hostnames if "dpu" not in h.lower()]
+    dpu_hostnames = [h for h in all_hostnames if "dpu" in h.lower()]
+
+    if dpu_hostnames:
+        logger.info("SmartSwitch detected. NPU hosts: %s, DPU hosts: %s", npu_hostnames, dpu_hostnames)
+        # Use NPU-only sonichosts for upgrade operations
+        sonichosts = init_sonichosts(
+            args.inventory, npu_hostnames, options={"verbosity": args.verbosity}
+        )
+        if not sonichosts:
+            logger.error("Failed to initialize NPU-only sonichosts")
+            sys.exit(RC_INIT_FAILED)
 
     conn_graph_facts = localhost.conn_graph_facts(
         hosts=sonichosts.hostnames,
@@ -140,89 +236,136 @@ def main(args):
         logger.error("Some hosts are still unreachable, abort image upgrading: {}".format(hosts_reachability))
         sys.exit(RC_HOSTS_UNREACHABLE)
 
-    # Upgrade to prev image
-    if not args.skip_prev_image:
-        logger.info("upgrade to prev image at {}".format(args.prev_image_url))
+    # Upgrade NPU image (skip if only --dpu-url was provided)
+    if args.image_url:
+        # Upgrade to prev image
+        if not args.skip_prev_image:
+            logger.info("upgrade to prev image at {}".format(args.prev_image_url))
+            upgrade_success = upgrade_image(
+                sonichosts,
+                localhost,
+                args.prev_image_url,
+                upgrade_type=args.upgrade_type,
+                onie_pause_time=args.onie_pause_time
+            )
+
+            if not upgrade_success:
+                logger.error("Upgrade prev_image {} failed".format(args.prev_image_url))
+                sys.exit(RC_UPGRADE_PREV_FAILED)
+            else:
+                logger.info("Upgraded to prev_image {}.".format(args.prev_image_url))
+
+            # Re-enable NAT after reboot so DPU SSH proxy ports are reachable
+            if dpu_hostnames:
+                logger.info("Re-enabling NAT for DPU hosts after prev-image upgrade")
+                enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
+
+            for hostname, version in sonichosts.sonic_version.items():
+                logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
+        else:
+            logger.info("Skipping upgrade to prev image")
+
+        # Upgrade to target image
+        logger.info("upgrade to target image at {}".format(args.image_url))
         upgrade_success = upgrade_image(
             sonichosts,
             localhost,
-            args.prev_image_url,
+            args.image_url,
             upgrade_type=args.upgrade_type,
             onie_pause_time=args.onie_pause_time
         )
-
         if not upgrade_success:
-            logger.error("Upgrade prev_image {} failed".format(args.prev_image_url))
-            sys.exit(RC_UPGRADE_PREV_FAILED)
+            logger.error("Upgrade to target image {} failed".format(args.image_url))
+            sys.exit(RC_UPGRADE_FAILED)
         else:
-            logger.info("Upgraded to prev_image {}.".format(args.prev_image_url))
+            logger.info("Upgraded to target image {} done".format(args.image_url))
 
+        # Re-enable NAT after reboot so DPU SSH proxy ports are reachable
+        if dpu_hostnames:
+            logger.info("Re-enabling NAT for DPU hosts after target-image upgrade")
+            enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
+    else:
+        logger.info("No NPU image URL provided, skipping NPU image upgrade")
+
+    # Upgrade DPU images (if --dpu-url was provided and SmartSwitch detected)
+    if args.dpu_image_url and dpu_hostnames:
+        # Upgrade DPUs to prev image first
+        if not args.skip_dpu_prev_image:
+            logger.info("Upgrading DPU images to prev image at %s", args.dpu_prev_image_url)
+            dpu_upgrade_success = upgrade_dpu_images(sonichosts, args.dpu_prev_image_url)
+            if not dpu_upgrade_success:
+                logger.error("DPU upgrade to prev_image %s failed", args.dpu_prev_image_url)
+                sys.exit(RC_DPU_UPGRADE_PREV_FAILED)
+            else:
+                logger.info("DPU upgraded to prev_image %s", args.dpu_prev_image_url)
+
+            # Re-enable NAT after DPU reboot
+            logger.info("Re-enabling NAT for DPU hosts after DPU prev-image upgrade")
+            enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
+        else:
+            logger.info("Skipping DPU upgrade to prev image")
+
+        # Upgrade DPUs to target image
+        logger.info("Upgrading DPU images to target image at %s", args.dpu_image_url)
+        dpu_upgrade_success = upgrade_dpu_images(sonichosts, args.dpu_image_url)
+        if not dpu_upgrade_success:
+            logger.error("DPU upgrade to target image %s failed", args.dpu_image_url)
+            sys.exit(RC_DPU_UPGRADE_FAILED)
+        else:
+            logger.info("DPU upgraded to target image %s", args.dpu_image_url)
+
+        # Re-enable NAT after DPU reboot
+        logger.info("Re-enabling NAT for DPU hosts after DPU target-image upgrade")
+        enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
+
+    # NPU post-upgrade steps (FIPS, docker folder size, force reboot)
+    if args.image_url:
+        current_build_version = None
         for hostname, version in sonichosts.sonic_version.items():
             logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
-    else:
-        logger.info("Skipping upgrade to prev image")
+            if not current_build_version:
+                current_build_version = version.get("build_version")
 
-    # Upgrade to target image
-    logger.info("upgrade to target image at {}".format(args.image_url))
-    upgrade_success = upgrade_image(
-        sonichosts,
-        localhost,
-        args.image_url,
-        upgrade_type=args.upgrade_type,
-        onie_pause_time=args.onie_pause_time
-    )
-    if not upgrade_success:
-        logger.error("Upgrade to target image {} failed".format(args.image_url))
-        sys.exit(RC_UPGRADE_FAILED)
-    else:
-        logger.info("Upgrad to target image {} done".format(args.image_url))
+        # Enable FIPS
+        need_shutdown = False
+        if args.enable_fips:
+            logger.info("Need to enable FIPS")
+            try:
+                sonichosts.command("sonic-installer set-fips", module_attrs={"become": True})
+                need_shutdown = True
+            except Exception as e:
+                logger.error("Failed to enable FIPS mode: {}".repr(e))
+                sys.exit(RC_ENABLE_FIPS_FAILED)
+        else:
+            logger.info("Skip enabling FIPS")
 
-    current_build_version = None
-    for hostname, version in sonichosts.sonic_version.items():
-        logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
-        if not current_build_version:
-            current_build_version = version.get("build_version")
+        # Set docker folder size, required for platforms with small disk
+        if args.docker_folder_size:
+            logger.info("Need to set docker folder size to '{}'".format(args.docker_folder_size))
+            try:
+                sonichosts.lineinfile(
+                    line="docker_inram_size={}".format(args.docker_folder_size),
+                    path="/host/image-{}/kernel-cmdline-append".format(current_build_version),
+                    state="present",
+                    create=True,
+                    module_attrs={"become": True}
+                )
+                need_shutdown = True
+            except Exception as e:
+                logger.error("Failed to set docker folder size: {}".repr(e))
+                sys.exit(RC_SET_DOCKER_FOLDER_SIZE_FAILED)
+        else:
+            logger.info("Use default docker folder size")
 
-    # Enable FIPS
-    need_shutdown = False
-    if args.enable_fips:
-        logger.info("Need to enable FIPS")
-        try:
-            sonichosts.command("sonic-installer set-fips", module_attrs={"become": True})
-            need_shutdown = True
-        except Exception as e:
-            logger.error("Failed to enable FIPS mode: {}".repr(e))
-            sys.exit(RC_ENABLE_FIPS_FAILED)
-    else:
-        logger.info("Skip enabling FIPS")
-
-    # Set docker folder size, required for platforms with small disk
-    if args.docker_folder_size:
-        logger.info("Need to set docker folder size to '{}'".format(args.docker_folder_size))
-        try:
-            sonichosts.lineinfile(
-                line="docker_inram_size={}".format(args.docker_folder_size),
-                path="/host/image-{}/kernel-cmdline-append".format(current_build_version),
-                state="present",
-                create=True,
-                module_attrs={"become": True}
-            )
-            need_shutdown = True
-        except Exception as e:
-            logger.error("Failed to set docker folder size: {}".repr(e))
-            sys.exit(RC_SET_DOCKER_FOLDER_SIZE_FAILED)
-    else:
-        logger.info("Use default docker folder size")
-
-    # Force reboot the device to apply changes
-    if need_shutdown:
-        logger.info("Need to force reboot")
-        try:
-            sonichosts.command("shutdown -r now", module_attrs={"become": True, "async": 300, "poll": 0})
-            localhost.pause(seconds=180, prompt="Pause after force reboot")
-        except Exception as e:
-            logger.error("Failed to shutdown: {}".repr(e))
-            sys.exit(RC_SHUTDOWN_FAILED)
+        # Force reboot the device to apply changes
+        if need_shutdown:
+            logger.info("Need to force reboot")
+            try:
+                sonichosts.command("shutdown -r now", module_attrs={"become": True, "async": 300, "poll": 0})
+                localhost.pause(seconds=180, prompt="Pause after force reboot")
+            except Exception as e:
+                logger.error("Failed to shutdown: {}".repr(e))
+                sys.exit(RC_SHUTDOWN_FAILED)
 
     logger.info("===== UPGRADE IMAGE DONE =====")
 
@@ -251,8 +394,9 @@ if __name__ == "__main__":
         "-u", "--url",
         type=str,
         dest="image_url",
-        required=True,
-        help="SONiC image url."
+        required=False,
+        default=None,
+        help="SONiC image url. Required unless only --dpu-url is provided."
     )
 
     parser.add_argument(
@@ -261,6 +405,22 @@ if __name__ == "__main__":
         dest="prev_image_url",
         default=None,
         help="SONiC image url."
+    )
+
+    parser.add_argument(
+        "--dpu-url",
+        type=str,
+        dest="dpu_image_url",
+        default=None,
+        help="SONiC image url for DPU upgrade on SmartSwitch testbeds."
+    )
+
+    parser.add_argument(
+        "--dpu-prev-url",
+        type=str,
+        dest="dpu_prev_image_url",
+        default=None,
+        help="Previous SONiC image url for DPU. If not set, derived from --dpu-url."
     )
 
     parser.add_argument(

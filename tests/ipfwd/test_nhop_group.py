@@ -23,7 +23,7 @@ CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 PTF_QUEUE_LEN = 100000
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1')
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
@@ -974,5 +974,11 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     finally:
         asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        for i in range(0, len(gather_facts['src_port'])):
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                            gather_facts['src_port'][i])
+            logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         nhop.delete_routes()
         arplist.clean_up()

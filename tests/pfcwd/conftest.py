@@ -199,6 +199,78 @@ def set_pfc_timer_cisco_8000(duthost, asic_id, script, port):
     duthost.shell(f"show platform npu script {asic_arg} -s {script_name}")
 
 
+@pytest.fixture(scope='module', autouse=True)
+def save_and_restore_pfcwd_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Fixture that saves PFCWD configuration before each test and restores it after
+
+    Args:
+        duthosts: AnsibleHost instance for multi DUT
+        enum_rand_one_per_hwsku_frontend_hostname: hostname of DUT
+
+    Yields:
+        None
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Get current PFCWD configuration from config_db.json
+    cmd = "jq '.PFC_WD' /etc/sonic/config_db.json"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    original_config = result.get('stdout', '{}')
+    logger.info("Original PFCWD config before test: {}".format(original_config))
+
+    # Parse the configuration to extract settings
+    import json
+    try:
+        pfcwd_config = json.loads(original_config)
+    except Exception as e:
+        logger.warning("Failed to parse PFCWD config: {}".format(e))
+        pfcwd_config = {}
+
+    yield
+
+    # Restore original PFCWD configuration
+    logger.info("Restoring original PFCWD config after test")
+
+    # Stop current PFCWD
+    duthost.shell("pfcwd stop", module_ignore_errors=True)
+
+    if pfcwd_config:
+        # Restore POLL_INTERVAL if it exists
+        if 'GLOBAL' in pfcwd_config and 'POLL_INTERVAL' in pfcwd_config['GLOBAL']:
+            poll_interval = pfcwd_config['GLOBAL']['POLL_INTERVAL']
+            cmd = "pfcwd interval {}".format(poll_interval)
+            duthost.shell(cmd, module_ignore_errors=True)
+            logger.info("Restored POLL_INTERVAL to {}".format(poll_interval))
+
+        # Restore per-port PFCWD settings
+        # Group ports by their configuration (action, detection_time, restoration_time)
+        config_groups = {}
+        for port, settings in pfcwd_config.items():
+            if port == 'GLOBAL':
+                continue
+
+            action = settings.get('action', 'drop')
+            detection_time = settings.get('detection_time', '200')
+            restoration_time = settings.get('restoration_time', '200')
+
+            key = (action, detection_time, restoration_time)
+            if key not in config_groups:
+                config_groups[key] = []
+            config_groups[key].append(port)
+
+        # Start PFCWD for each configuration group
+        for (action, detection_time, restoration_time), ports in config_groups.items():
+            ports_str = ' '.join(ports)
+            cmd = "pfcwd start --action {} --restoration-time {} {} {}".format(
+                action, restoration_time, ports_str, detection_time
+            )
+            duthost.shell(cmd, module_ignore_errors=True)
+            logger.info("Restored PFCWD for ports {} with action={}, detection_time={}, restoration_time={}".format(
+                ports_str, action, detection_time, restoration_time
+            ))
+
+
 @pytest.fixture(autouse=True, scope="module")
 def cleanup(duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname):
     """

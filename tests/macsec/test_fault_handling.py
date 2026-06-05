@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -146,10 +146,6 @@ class TestFaultHandling():
             pytest.skip('SKIP this test as there are no uncontrolled links in this dut')
 
         port_name, nbr = list(unctrl_links.items())[0]
-
-        disable_macsec_port(duthost, port_name)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
 
         # Wait till macsec session has gone down.
         wait_until(20, 3, 0,
