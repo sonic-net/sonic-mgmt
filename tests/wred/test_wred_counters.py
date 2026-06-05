@@ -14,10 +14,26 @@ pytestmark = [pytest.mark.topology("t0", "t1")]
 
 logger = logging.getLogger(__name__)
 
-WRED_PROFILE_ASIC_DB_PATTERN = "ASIC_STATE:SAI_OBJECT_TYPE_WRED:oid:*"
+# ASIC DB key patterns
+WRED_PROFILE_PATTERN = "ASIC_STATE:SAI_OBJECT_TYPE_WRED:oid:*"
+SCHEDULER_PATTERN = "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid:*"
+SRV6_MY_SID_PATTERN_PREFIX = "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY:"
+ROUTE_PATTERN_PREFIX = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:"
+
 PACKET_COUNT = 100
 QUEUE = 3
 BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+
+# SRv6-related constants
+LOCATOR_NAME = "loc_wred"
+LOCATOR_PREFIX = "fcbb:bbbb:1::"
+LOCATOR_SID_PREFIX = "fcbb:bbbb:1::/48"
+NEXTHOP_PREFIX = "fcbb:bbbb:2::/48"
+SRV6_OUTER_DIP = "fcbb:bbbb:1:2::"
+SRV6_SHIFTED_DIP = "fcbb:bbbb:2::"
+
+sonic_db_cli = "sonic-db-cli"
+namespace = ""
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -30,6 +46,49 @@ def checkpoint(duthost):
         delete_checkpoint(duthost)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def set_namespace(duthost, enum_frontend_asic_index):
+    global namespace
+    if duthost.is_multi_asic:
+        namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
+    else:
+        namespace = ""
+
+
+def get_namespace_option():
+    global namespace
+    if namespace:
+        return f"-n {namespace}"
+    else:
+        return ""
+
+
+@pytest.fixture(scope="module", autouse=True)
+def set_sonic_db_cli(set_namespace):  # noqa F811
+    global sonic_db_cli
+    sonic_db_cli = f"sonic-db-cli {get_namespace_option()}"
+
+
+# autouse=True so that we get the counts before any WRED profile or scheduler is created.
+@pytest.fixture(scope="module", autouse=True)
+def old_asic_db_counts(duthost):
+    return {
+        WRED_PROFILE_PATTERN: count_keys(duthost, "ASIC_DB", WRED_PROFILE_PATTERN),
+        SCHEDULER_PATTERN: count_keys(duthost, "ASIC_DB", SCHEDULER_PATTERN)
+    }
+
+
+def count_keys(duthost, db, pattern):
+    result = duthost.shell(f"{sonic_db_cli} {db} KEYS '{pattern}'")["stdout"].strip()
+    if not result:
+        return 0
+    return len(result.splitlines())
+
+
+def pattern_exists(duthost, db, key):
+    return count_keys(duthost, db, key) > 0
+
+
 @pytest.fixture(scope="module")
 def enable_wred_counters(duthost):
     logger.info("Enabling WRED counters on the DUT.")
@@ -39,7 +98,7 @@ def enable_wred_counters(duthost):
 @pytest.fixture(scope="module")
 def create_blocking_scheduler(duthost):
     logger.info(f"Creating the blocking scheduler '{BLOCKING_SCHEDULER}' on the DUT.")
-    cmd = f"sonic-db-cli CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15' \
+    cmd = f"{sonic_db_cli} CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15' \
           'pir' '1' 'cir' '1'"
     if duthost.facts["asic_type"] == "broadcom":
         cmd += " 'meter_type' 'packets'"
@@ -47,6 +106,45 @@ def create_blocking_scheduler(duthost):
     # No need to wait here since we will wait in the "setup" fixture.
 
 
+@pytest.fixture(scope="module")
+def is_srv6_supported(duthost):
+    ret = False
+    result = duthost.shell("crm show resources srv6-my-sid-entry", module_ignore_errors=True)
+    # The output of the above command looks like this if SRv6 is supported:
+    # Resource Name        Used Count    Available Count
+    # -----------------  ------------  -----------------
+    # srv6_my_sid_entry             0                128
+    if result["rc"] == 0:
+        for line in result["stdout"].splitlines():
+            fields = line.split()
+            if len(fields) >= 3 and fields[0] == "srv6_my_sid_entry":
+                try:
+                    ret = int(fields[2]) > 0
+                except ValueError as e:
+                    logger.error(f"Failed to parse SRv6 resource count: {e}")
+                break
+    logger.info(f"SRv6 is {'supported' if ret else 'NOT supported'} on this DUT.")
+    return ret
+
+
+@pytest.fixture(scope="module")
+def configure_srv6(duthost, is_srv6_supported):
+    if is_srv6_supported:
+        logger.info("Configuring SRv6 on the DUT...")
+        duthost.command(
+            f"{sonic_db_cli} CONFIG_DB HSET 'SRV6_MY_LOCATORS|{LOCATOR_NAME}' \
+              'prefix' '{LOCATOR_PREFIX}' 'func_len' '0'"
+        )
+        duthost.command(
+            f"{sonic_db_cli} CONFIG_DB HSET 'SRV6_MY_SIDS|{LOCATOR_NAME}|{LOCATOR_SID_PREFIX}' \
+              'action' 'uN' 'decap_dscp_mode' 'pipe'"
+        )
+        # Static route to NEXTHOP_PREFIX will be added later since it depends on the selected egress interface.
+        # No need to wait here since we will wait in the "setup" fixture
+
+
+# This fixture is not in module scope because we don't want to teardown other fixtures in module scope when
+# we switch from "drop" to "ecn".
 @pytest.fixture(params=["drop", "ecn"])
 def create_wred_profile(duthost, request):
     profile_name = f"TEST_WRED_{request.param.upper()}"
@@ -55,7 +153,7 @@ def create_wred_profile(duthost, request):
     else:
         ecn = "ecn_green"
     logger.info(f"Creating the WRED profile '{profile_name}' with action '{request.param}' on the DUT.")
-    duthost.shell(f"sonic-db-cli CONFIG_DB HSET 'WRED_PROFILE|{profile_name}' 'wred_green_enable' 'true'\
+    duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'WRED_PROFILE|{profile_name}' 'wred_green_enable' 'true'\
                     'ecn' '{ecn}' 'green_drop_probability' '100' 'green_max_threshold' '1'\
                     'green_min_threshold' '1'")
     # No need to wait here since we will wait in the "setup" fixture after applying the profile to the queue.
@@ -124,7 +222,7 @@ def select_ingress_port(duthost, exclude_ports=[]):
 def find_qos_mapping_table_name(duthost, egress_ports, qos_mapping):
     qos_table_name = ""
     for port in egress_ports:
-        table = duthost.shell(f"sonic-db-cli CONFIG_DB HGET 'PORT_QOS_MAP|{port}' '{qos_mapping}'")["stdout"].strip()
+        table = duthost.shell(f"{sonic_db_cli} CONFIG_DB HGET 'PORT_QOS_MAP|{port}' '{qos_mapping}'")["stdout"].strip()
         pytest_assert(table, f"{qos_mapping} is not defined for port {port}.")
         if qos_table_name and qos_table_name != table:
             pytest.skip(f"{qos_mapping} is not the same for all egress ports {egress_ports}.")
@@ -135,7 +233,7 @@ def find_qos_mapping_table_name(duthost, egress_ports, qos_mapping):
 def find_reverse_qos_mapping(duthost, egress_ports, qos_mapping, value_to_find):
     qos_table = find_qos_mapping_table_name(duthost, egress_ports, qos_mapping)
     qos_map_str = \
-        duthost.shell(f"sonic-db-cli CONFIG_DB HGETALL '{qos_mapping.upper()}|{qos_table}'")["stdout"].strip()
+        duthost.shell(f"{sonic_db_cli} CONFIG_DB HGETALL '{qos_mapping.upper()}|{qos_table}'")["stdout"].strip()
     qos_map = ast.literal_eval(qos_map_str)
     for key, value in qos_map.items():
         if int(value) == value_to_find:
@@ -156,15 +254,50 @@ def find_dscp_for_queue(duthost, egress_ports, queue):
     return dscp
 
 
-@pytest.fixture(params=["ipv4", "ipv6"])
-def setup(duthost, tbinfo, request, enable_wred_counters, create_blocking_scheduler, create_wred_profile):  # noqa F811
+def check_asic_db_counts(duthost, old_counts, new_wred_profile):
+    new_wred_profile_count = count_keys(duthost, "ASIC_DB", WRED_PROFILE_PATTERN)
+    # We create two WRED profiles in total: TEST_WRED_ECN and TEST_WRED_DROP
+    pytest_assert(new_wred_profile_count >= old_counts[WRED_PROFILE_PATTERN] + 1 and
+                  new_wred_profile_count <= old_counts[WRED_PROFILE_PATTERN] + 2,
+                  f"WRED profile {new_wred_profile} was not added to ASIC DB.")
+    new_scheduler_count = count_keys(duthost, "ASIC_DB", SCHEDULER_PATTERN)
+    pytest_assert(new_scheduler_count == old_counts[SCHEDULER_PATTERN] + 1,
+                  f"Scheduler {BLOCKING_SCHEDULER} was not added to ASIC DB.")
+
+
+@pytest.fixture(params=[
+    ("no-SRv6", "ipv4"),
+    ("no-SRv6", "ipv6"),
+    ("SRv6", "ipv4"),
+    ("SRv6", "ipv6"),
+    ("SRv6-with-SRH", "ipv4"),
+    ("SRv6-with-SRH", "ipv6")
+], ids=[
+    "ipv4",
+    "ipv6",
+    "SRv6_inner_ipv4",
+    "SRv6_inner_ipv6",
+    "SRv6_with_SRH_inner_ipv4",
+    "SRv6_with_SRH_inner_ipv6"
+])
+def setup(duthost, tbinfo, request, enable_wred_counters, create_blocking_scheduler, create_wred_profile,  # noqa F811
+          configure_srv6, is_srv6_supported, old_asic_db_counts):  # noqa F811
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_indices = minigraph_facts["minigraph_ptf_indices"]
+    is_srv6_test = request.param[0].startswith("SRv6")
 
+    if not is_srv6_supported and is_srv6_test:
+        pytest.skip("SRv6 is not supported on this platform.")
     test_params = {}
-    test_params["ip_version"] = request.param
-    neigh_ip, egress_ports = select_egress_interface(duthost, minigraph_facts, ipv4=(request.param == "ipv4"))
-    test_params["dest_ip"] = neigh_ip
+    # test_params["inner_ip_version"] = Inner IP version for SRv6 packets or IP version for regular packets
+    test_params["inner_ip_version"] = request.param[1]
+    # test_params["ip_version"] = "ipv6" for SRv6 packets or IP version for regular packets
+    test_params["ip_version"] = "ipv6" if is_srv6_test else request.param[1]
+    test_params["srv6"] = is_srv6_test
+    test_params["with_srh"] = request.param[0].endswith("with-SRH")
+    neigh_ip, egress_ports = select_egress_interface(duthost, minigraph_facts,
+                                                     ipv4=(test_params["ip_version"] == "ipv4"))
+    test_params["neigh_ip"] = neigh_ip
     test_params["egress_ports"] = {port: ptf_indices[port] for port in egress_ports}
     ingress_port = select_ingress_port(duthost, exclude_ports=egress_ports)
     test_params["ingress_port_index"] = ptf_indices[ingress_port]
@@ -176,30 +309,82 @@ def setup(duthost, tbinfo, request, enable_wred_counters, create_blocking_schedu
     test_params["prev_scheduler"] = {}
     for port in egress_ports:
         logger.info(f"Setting the WRED profile of {port}|{QUEUE} to '{wred_profile_name}'.")
-        duthost.shell(f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'wred_profile' '{wred_profile_name}'")
+        duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'wred_profile' '{wred_profile_name}'")
         test_params["prev_scheduler"][port] = \
-            duthost.shell(f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{QUEUE}' 'scheduler'")["stdout"].strip()
+            duthost.shell(f"{sonic_db_cli} CONFIG_DB HGET 'QUEUE|{port}|{QUEUE}' 'scheduler'")["stdout"].strip()
         logger.info(f"The original scheduler of {port}|{QUEUE} is '{test_params['prev_scheduler'][port]}'.")
         logger.info(f"Setting the scheduler of {port}|{QUEUE} to '{BLOCKING_SCHEDULER}'.")
-        duthost.shell(f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{BLOCKING_SCHEDULER}'")
+        duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{BLOCKING_SCHEDULER}'")
+
+    # Add a static route to NEXTHOP_PREFIX via the selected egress interface if testing with SRv6 packets.
+    if is_srv6_test:
+        logger.info(f"Adding a static route to {NEXTHOP_PREFIX} via {neigh_ip}.")
+        duthost.shell(f"sudo config route add prefix {NEXTHOP_PREFIX} nexthop {neigh_ip}")
+
     logger.info("Waiting 10 seconds for the configuration to take effect.")
     time.sleep(10)  # Wait for the configuration to take effect
+
+    # Verifying that the WRED profile, static route, blocking scheduler, and SRv6 configuration are applied to ASIC DB.
+    check_asic_db_counts(duthost, old_asic_db_counts, wred_profile_name)
+    if is_srv6_test:
+        srv6_my_sid_pattern = f'{SRV6_MY_SID_PATTERN_PREFIX}*\\"sid\\":\\"{LOCATOR_PREFIX}\\"*'
+        pytest_assert(pattern_exists(duthost, "ASIC_DB", srv6_my_sid_pattern),
+                      f"SRv6 MY_SID entry for {LOCATOR_PREFIX} was not added to ASIC DB.")
+        route_pattern = f'{ROUTE_PATTERN_PREFIX}*\\"dest\\":\\"{NEXTHOP_PREFIX}\\"*'
+        pytest_assert(pattern_exists(duthost, "ASIC_DB", route_pattern),
+                      f"Route entry for {NEXTHOP_PREFIX} was not added to ASIC DB.")
+
+    logger.info(f"Test parameters: {test_params}")
     return test_params
 
 
-def get_test_packet(dest_mac, ip_version, dest_ip, ect_enabled, dscp):
+def get_srv6_test_packet(dest_mac, inner_ip_version, ecn, dscp, with_srh):
+    if inner_ip_version == "ipv4":
+        inner_eth = testutils.simple_udp_packet()
+        inner_ip = inner_eth["IP"]
+    else:
+        inner_eth = testutils.simple_udpv6_packet()
+        inner_ip = inner_eth["IPv6"]
+
+    if with_srh:
+        pkt = testutils.simple_ipv6_sr_packet(
+            eth_dst=dest_mac,
+            ipv6_dst=SRV6_OUTER_DIP,
+            ipv6_tc=testutils.ip_make_tos(0, ecn, dscp),
+            srh_seg_left=1,
+            srh_nh=4 if inner_ip_version == "ipv4" else 41,
+            inner_frame=inner_ip
+        )
+    else:
+        pkt = testutils.simple_ipv6ip_packet(
+            eth_dst=dest_mac,
+            ipv6_dst=SRV6_OUTER_DIP,
+            ipv6_ecn=ecn,
+            ipv6_dscp=dscp,
+            inner_frame=inner_ip
+        )
+    return pkt
+
+
+def get_test_packet(dest_mac, ip_version, neigh_ip, ect_enabled, dscp, srv6, with_srh):
+    """
+    For normal packets, ip_version is the IP version of the packet.
+    For SRv6 packets, ip_version is the IP version of the inner packet.
+    """
     ecn = 0b10 if ect_enabled else 0b00
+    if srv6:
+        return get_srv6_test_packet(dest_mac, ip_version, ecn, dscp, with_srh)
     if ip_version == "ipv4":
         pkt = testutils.simple_udp_packet(
             eth_dst=dest_mac,
-            ip_dst=dest_ip,
+            ip_dst=neigh_ip,
             ip_ecn=ecn,
             ip_dscp=dscp,
         )
     else:
         pkt = testutils.simple_udpv6_packet(
             eth_dst=dest_mac,
-            ipv6_dst=dest_ip,
+            ipv6_dst=neigh_ip,
             ipv6_ecn=ecn,
             ipv6_dscp=dscp,
         )
@@ -225,10 +410,11 @@ def get_congestion_packet(dest_mac, ip_version, dest_ip, ect_enabled, dscp):
     return pkt
 
 
-def get_expected_packet_mask_ipv4(pkt):
+def get_expected_packet_mask_ipv4(pkt, expected_dest_ip):
     exp_pkt = pkt.copy()
     exp_pkt["IP"].ttl -= 1
     exp_pkt["IP"].tos |= 0b11  # Set ECN bits to '11' (CE)
+    exp_pkt["IP"].dst = expected_dest_ip
     exp_pkt_mask = Mask(exp_pkt)
     exp_pkt_mask.set_do_not_care_packet(packet.Ether, "dst")
     exp_pkt_mask.set_do_not_care_packet(packet.Ether, "src")
@@ -240,10 +426,11 @@ def get_expected_packet_mask_ipv4(pkt):
     return exp_pkt_mask
 
 
-def get_expected_packet_mask_ipv6(pkt):
+def get_expected_packet_mask_ipv6(pkt, expected_dest_ip):
     exp_pkt = pkt.copy()
     exp_pkt["IPv6"].hlim -= 1
     exp_pkt["IPv6"].tc |= 0b11  # Set ECN bits to '11' (CE)
+    exp_pkt["IPv6"].dst = expected_dest_ip
     exp_pkt_mask = Mask(exp_pkt)
     exp_pkt_mask.set_do_not_care_packet(packet.Ether, "dst")
     exp_pkt_mask.set_do_not_care_packet(packet.Ether, "src")
@@ -252,24 +439,30 @@ def get_expected_packet_mask_ipv6(pkt):
     return exp_pkt_mask
 
 
-def get_expected_packet_mask(pkt, ip_version):
+def get_expected_packet_mask(pkt, ip_version, expected_dest_ip):
     if ip_version == "ipv4":
-        return get_expected_packet_mask_ipv4(pkt)
+        return get_expected_packet_mask_ipv4(pkt, expected_dest_ip)
     else:
-        return get_expected_packet_mask_ipv6(pkt)
+        return get_expected_packet_mask_ipv6(pkt, expected_dest_ip)
+
+
+def get_wred_counters(duthost, port, queue):
+    wred_counters_str = \
+        duthost.shell(f"show queue wredcounters {get_namespace_option()} --json {port}")["stdout"].strip()
+    wred_counters = ast.literal_eval(wred_counters_str)
+    return wred_counters[port][f"UC{queue}"]
 
 
 def check_wred_counters(duthost, egress_ports, expect_drop, expect_zero=False):
     action = "drop" if expect_drop else "ECN"
     count = 0
     if expect_drop:
-        counter_name = "SAI_QUEUE_STAT_WRED_DROPPED_PACKETS"
+        counter_key = "wreddroppacket"
     else:
-        counter_name = "SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS"
+        counter_key = "ecnmarkedpacket"
     for port in egress_ports:
-        queue_oid = duthost.get_queue_oid(port, QUEUE)
-        queue_count_str = duthost.shell(f"sonic-db-cli COUNTERS_DB HGET \
-                                          'COUNTERS:{queue_oid}' '{counter_name}'")["stdout"].strip()
+        wred_counters = get_wred_counters(duthost, port, QUEUE)
+        queue_count_str = wred_counters.get(counter_key, "N/A")
         logger.info(f"WRED {action} counter for {port}|{QUEUE} is {queue_count_str}.")
         pytest_assert(queue_count_str.isdigit(),
                       f"Could not get the WRED {action} counter for queue {port}|{QUEUE}.")
@@ -289,10 +482,10 @@ def clear_queue_wred_counters(duthost, egress_ports, expect_drop):
     check_wred_counters(duthost, egress_ports, expect_drop, expect_zero=True)
 
 
-def create_congestion(ptfadapter, router_mac, ip_version, dest_ip, dscp, ingress_port_index, egress_port_count):
+def create_congestion(ptfadapter, router_mac, ip_version, neigh_ip, dscp, ingress_port_index, egress_port_count):
     logger.info("Creating congestion on egress queues.")
     # Using TCP for congestion packets so that we can distinguish them from the test packets.
-    pkt = get_congestion_packet(router_mac, ip_version, dest_ip, ect_enabled=True, dscp=dscp)
+    pkt = get_congestion_packet(router_mac, ip_version, neigh_ip, ect_enabled=True, dscp=dscp)
     logger.info(f"Congestion packet: {pkt}")
     # The goal is to put at least 15KB of data into each egress queue. We send 20KB to each queue to account for
     # possible traffic imbalance among LAG members.
@@ -307,7 +500,7 @@ def restore_original_schedulers(duthost, prev_schedulers):
     for port, scheduler in prev_schedulers.items():
         if scheduler:
             logger.info(f"Restoring scheduler of {port}|{QUEUE} to '{scheduler}'.")
-            duthost.shell(f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{scheduler}'")
+            duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{QUEUE}' 'scheduler' '{scheduler}'")
     logger.info("Waiting 10 seconds for the configuration to take effect.")
     time.sleep(10)  # Wait for the configuration to take effect
 
@@ -317,19 +510,22 @@ def test_wred_counters(duthost, ptfadapter, setup, ect_enabled):
     test_params = setup
     expect_ecn = ect_enabled and test_params["policy"] == "ecn"
     router_mac = duthost.facts["router_mac"]
-    pkt = get_test_packet(router_mac, test_params["ip_version"], test_params["dest_ip"],
-                          ect_enabled, test_params["dscp"])
+    pkt = get_test_packet(router_mac, test_params["inner_ip_version"], test_params["neigh_ip"],
+                          ect_enabled, test_params["dscp"], test_params["srv6"], test_params["with_srh"])
     logger.info(f"Test packet: {pkt}")
-    exp_pkt_mask = get_expected_packet_mask(pkt, test_params["ip_version"])
+    expected_dest_ip = SRV6_SHIFTED_DIP if test_params["srv6"] else test_params["neigh_ip"]
+    exp_pkt_mask = get_expected_packet_mask(pkt, test_params["ip_version"], expected_dest_ip)
     clear_queue_wred_counters(duthost, list(test_params["egress_ports"].keys()), expect_drop=not expect_ecn)
 
-    create_congestion(ptfadapter, router_mac, test_params["ip_version"], test_params["dest_ip"],
+    create_congestion(ptfadapter, router_mac, test_params["ip_version"], test_params["neigh_ip"],
                       test_params["dscp"], test_params["ingress_port_index"], len(test_params["egress_ports"]))
 
     ptfadapter.dataplane.flush()
     logger.info(f"Sending {PACKET_COUNT} test packets to ingress port {test_params['ingress_port_index']}.")
     testutils.send(ptfadapter, test_params["ingress_port_index"], pkt, count=PACKET_COUNT)
 
+    # Restoring original schedulers so that egress queues are unblocked. This step is necessary since otherwise,
+    # all test packets could remain in the queues and we cannot capture and verify egress packets.
     restore_original_schedulers(duthost, test_params["prev_scheduler"])
     if expect_ecn:
         _, received_pkt = testutils.verify_packet_any_port(ptfadapter, exp_pkt_mask,
