@@ -8,16 +8,17 @@ https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.
 git clone https://github.com/sonic-net/sonic-mgmt
 ```
 
-download `https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.30/IxNetworkAPI9.30.2212.7Linux64.bin.tgz` in the current directory
+download `https://downloads.ixiacom.com/support/downloads_and_updates/public/IxNetwork/10.00/10.00.2312.4/IxNetworkAPI10.00.2312.4Linux64.bin.tgz` in the current directory
 ```
-tar zxvf ./IxNetworkAPI9.30.2212.7Linux64.bin.tgz
-cp ./IxNetworkAPI9.30.2212.7Linux64.bin ./sonic-mgmt/spytest/containers/keysight-ubuntu18/
+tar zxvf ./IxNetworkAP10.00.2312.4Linux64.bin.tgz
+cp ./IxNetworkAPI10.00.2312.4Linux64.bin ./sonic-mgmt/spytest/containers/keysight-ubuntu/
 ```
 
 # build container
 ```
-docker build --no-cache --tag spytest/keysight-u18:latest ./sonic-mgmt/spytest/containers/keysight-ubuntu18
-docker tag spytest/keysight-u18:latest spytest/keysight-u18:9.30.2212.7
+cd sonic-mgmt/spytest/containers/keysight-ubuntu/
+docker build --no-cache --tag spytest/keysight:latest ./sonic-mgmt/spytest/containers/keysight-ubuntu
+docker tag spytest/keysight:latest spytest/keysight:10.00.2312.4
 ```
 
 
@@ -28,7 +29,7 @@ https://github.com/sonic-net/sonic-mgmt/blob/master/spytest/Doc/intro.md
  - do the steps in "Testbed" section
  - copy and edit the file testbed_file.yaml ./testbeds/
 
-docker run --network host -v $PWD:/data --mount src=/etc/localtime,target=/etc/localtime,type=bind,readonly -it spytest/keysight-u18 bash
+docker run --network host -v $PWD:/data --mount src=/etc/localtime,target=/etc/localtime,type=bind,readonly -it spytest/keysight bash
 cd /data/sonic-mgmt/spytest
 ./bin/spytest --testbed-file ./testbeds/testbed_file.yaml --logs-path ./logs --log-level debug --test-suite community-legacy
 ```
