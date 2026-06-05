@@ -27,7 +27,7 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
-kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
+kernel_panic_cmd = "sudo nohup bash -c 'sleep 10 && echo c > /proc/sysrq-trigger' &"
 memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
