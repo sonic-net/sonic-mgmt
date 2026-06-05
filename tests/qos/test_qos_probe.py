@@ -498,8 +498,11 @@ class TestQosProbe(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
-        else:
+        elif xonProfile in dutQosConfig["param"][portSpeedCableLength]:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            # Mellanox: xon params live at param top-level, not under speed key
+            qosConfig = dutQosConfig["param"]
 
         if xonProfile not in qosConfig:
             pytest.skip(
