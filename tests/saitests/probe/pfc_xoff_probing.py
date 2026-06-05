@@ -395,7 +395,8 @@ class PfcXoffProbing(ProbingBase):
             tuple: (lower_bound, upper_bound) or (None, None) on failure
         """
         # Phase 1: Upper bound discovery (exponential growth)
-        upper_bound, _ = algorithms["upper_bound"].run(src_port, dst_port, pool_size, **traffic_keys)
+        upper_bound, _ = algorithms["upper_bound"].run(
+            src_port, dst_port, pool_size, pool_size=pool_size, **traffic_keys)
         if upper_bound is None:
             ProbingObserver.console("[ERROR] Upper bound detection failed")
             return (None, None)
