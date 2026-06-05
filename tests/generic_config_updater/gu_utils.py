@@ -2,7 +2,6 @@ import json
 import logging
 import pytest
 import os
-import time
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -20,6 +19,8 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 TMP_DIR = '/tmp'
+HOST_NAME = "localhost"
+ASIC_PREFIX = "asic"
 
 
 def generate_tmpfile(duthost):
@@ -34,6 +35,79 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
+def format_json_patch_for_multiasic(duthost, json_data,
+                                    is_asic_specific=False,
+                                    is_host_specific=False,
+                                    asic_namespaces=None):
+    """
+    Formats a JSON patch for multi-ASIC platforms based on the specified scope.
+
+    - Case 1: Apply changes only to /localhost namespace.
+      example: format_json_patch_for_multiasic(duthost, json_data, is_host_specific=True)
+
+    - Case 2: Apply changes only to all available ASIC namespaces (e.g., /asic0, /asic1).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True)
+
+    - Case 3: Apply changes to one specific ASIC namespace (e.g., /asic0).
+      example: format_json_patch_for_multiasic(duthost, json_data, is_asic_specific=True, asic_namespaces='asic0')
+
+    - Case 4: Apply changes to both /localhost and all ASIC namespaces.
+      example: format_json_patch_for_multiasic(duthost, json_data)
+
+    """
+    json_patch = []
+    asic_namespaces = asic_namespaces or []
+
+    if duthost.is_multi_asic:
+        num_asic = duthost.facts.get('num_asic')
+
+        for operation in json_data:
+            path = operation["path"]
+
+            # Case 1: Apply only to localhost
+            if is_host_specific:
+                if path.startswith(f"/{HOST_NAME}"):
+                    json_patch.append(operation)
+                else:
+                    template = operation.copy()
+                    template["path"] = f"/{HOST_NAME}{path}"
+                    json_patch.append(template)
+
+            # Case 2: Apply only to all ASIC namespaces
+            elif is_asic_specific and not asic_namespaces:
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 3: Apply to one specific ASIC namespace
+            elif asic_namespaces:
+                for asic_ns in asic_namespaces:
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+            # Case 4: Apply to both localhost and all ASIC namespaces
+            else:
+                # Add for localhost
+                template = operation.copy()
+                template["path"] = f"/{HOST_NAME}{path}"
+                json_patch.append(template)
+
+                # Add for all ASIC namespaces
+                for asic_index in range(num_asic):
+                    asic_ns = f"{ASIC_PREFIX}{asic_index}"
+                    template = operation.copy()
+                    template["path"] = f"/{asic_ns}{path}"
+                    json_patch.append(template)
+
+        json_data = json_patch
+    logger.debug("format_json_patch_for_multiasic: {}".format(json_data))
+
+    return json_data
+
+
 def apply_patch(duthost, json_data, dest_file):
     """Run apply-patch on target duthost
 
@@ -42,17 +116,31 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+    patch_content = json.dumps(json_data, indent=4)
+    duthost.copy(content=patch_content, dest=dest_file)
+    logger.debug("Patch Content: {}".format(patch_content))
 
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
-    start_time = time.time()
-    output = duthost.shell(cmds, module_ignore_errors=True)
-    elapsed_time = time.time() - start_time
-    if elapsed_time > GCUTIMEOUT:
-        logger.error("Command took too long: {} seconds".format(elapsed_time))
-        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
+
+    # Run the command asynchronously so we can poll for completion and
+    # time out without blocking the test runner indefinitely.
+    pool, async_result = duthost.shell(cmds, module_ignore_errors=True,
+                                       module_async=True)
+    try:
+        completed = wait_until(GCUTIMEOUT, 10, 0,
+                               lambda: async_result.ready())
+        if not completed:
+            logger.error("apply-patch did not complete within {} seconds, "
+                         "terminating".format(GCUTIMEOUT))
+            raise TimeoutError(
+                "Command execution timeout: {} seconds".format(GCUTIMEOUT))
+
+        output = async_result.get()
+    finally:
+        pool.terminate()
+        pool.join()
 
     return output
 
