@@ -268,7 +268,7 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         )
         logger.info("All LAG members of %s confirmed disabled in ASIC_DB", portchannel_name)
 
-        if duthost.facts['asic_type'] == "vs":
+        if duthost.facts['asic_type'].lower() in ["vs", "vpp"]:
             # VS SAI populates ASIC_DB but the Linux kernel teamdev doesn't
             # enforce LAG member disable in the dataplane, so packets still flow.
             # Skip traffic and BGP verification on VS.
