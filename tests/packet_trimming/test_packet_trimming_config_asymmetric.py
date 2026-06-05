@@ -7,7 +7,12 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1"),
+    # For the invalid test case, syslog errors are expected. For example:
+    # ERR sonic_yang: Data Loading Failed:Invalid value "100" in "dscp_value" element.
+    # ERR swss#orchagent: :- doCfgSwitchTrimmingTableTask: Failed to remove switch trimming:
+    #   operation is not supported: ASIC and CONFIG DB are diverged
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)
