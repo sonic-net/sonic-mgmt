@@ -1364,7 +1364,8 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+        if (('t2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo'])
+                or duthost.facts.get('switch_type') == 'voq'):
             src_port_set.add(src_port)
             src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
                                                setup[direction]['everflow_namespace'])
@@ -1453,9 +1454,8 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.IPv6].hlim -= 1
 
-                    if 't2' in setup['topo']:
-                        if duthost.facts['switch_type'] == "voq":
-                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    if duthost.facts['switch_type'] == "voq":
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
