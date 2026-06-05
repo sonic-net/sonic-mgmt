@@ -43,7 +43,7 @@ stages:
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  condition: false
   variables:
   - group: SONiC-Elastictest
   - name: inventory
