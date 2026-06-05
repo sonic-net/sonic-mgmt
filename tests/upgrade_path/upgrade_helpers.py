@@ -176,7 +176,8 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                         tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
                         sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
-                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None,
+                        consistency_checker_provider=None):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -194,6 +195,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
     else:
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,
                                              advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             consistency_checker_provider=consistency_checker_provider,
                                              allow_fail=allow_fail)
 
     for i in range(reboot_count):

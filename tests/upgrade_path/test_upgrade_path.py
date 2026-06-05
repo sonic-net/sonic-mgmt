@@ -6,6 +6,7 @@ from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_versio
     upgrade_test_helper
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 
@@ -96,7 +97,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                       nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
-                      upgrade_path_lists):                                              # noqa F811
+                      consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
@@ -108,7 +109,9 @@ def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
-                        preboot_setup=upgrade_path_preboot_setup, enable_cpa=enable_cpa,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
+                        enable_cpa=enable_cpa,
                         reboot_count=2)
 
 
@@ -116,7 +119,7 @@ def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname
 def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                       nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
-                      upgrade_path_lists):
+                      consistency_checker_provider, upgrade_path_lists):                # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
@@ -128,7 +131,9 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
-                        preboot_setup=upgrade_path_preboot_setup, enable_cpa=enable_cpa)
+                        preboot_setup=upgrade_path_preboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
+                        enable_cpa=enable_cpa)
 
 
 @pytest.mark.device_type('vs')
@@ -136,7 +141,8 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                                nbrhosts, fanouthosts, vmhost, tbinfo, restore_image,                # noqa F811
                                get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,     # noqa F811
                                upgrade_path_lists, backup_and_restore_config_db,                    # noqa F811
-                               advanceboot_neighbor_restore, sad_case_type):                        # noqa F811
+                               advanceboot_neighbor_restore, consistency_checker_provider,          # noqa F811
+                               sad_case_type):                                                      # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
@@ -151,5 +157,6 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
                         to_image, tbinfo, "warm", get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
+                        consistency_checker_provider=consistency_checker_provider,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)
