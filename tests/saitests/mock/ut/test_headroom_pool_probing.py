@@ -1250,4 +1250,65 @@ class TestBufferCleanupOnPgFailure:
         drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
                        if c[0][0] == [36]]
         assert len(drain_calls) > 0, \
-            "drain_buffer([36]) should be called for PG #1's dst_port on failure"
+            "drain_buffer([36]) should be called for Iter #1's dst_port on failure"
+
+
+@pytest.mark.order(4660)
+class TestHeadroomPoolProbingIterDisplay(unittest.TestCase):
+    """Verify probe() console output uses 'Iter #' prefix (not 'PG #')."""
+
+    @pytest.mark.order(4660)
+    @patch('headroom_pool_probing.ProbingObserver')
+    def test_console_output_uses_iter_prefix(self, mock_observer_class):
+        """Console messages must use 'Iter #N' instead of 'PG #N'."""
+        instance = TestHeadroomPoolProbingInstance()
+
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3),
+        }
+        instance.stream_mgr = mock_stream_mgr
+
+        instance.get_pool_size = MagicMock(return_value=10000)
+        mock_observer_class.console = MagicMock()
+        mock_observer_class.report_probing_result = MagicMock()
+
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+        instance._build_result = MagicMock(return_value={'success': True, 'total_headroom': 0})
+        instance._report_results = MagicMock(return_value=MagicMock())
+
+        upper_lower_count = [0]
+
+        def mock_upper_lower(*args, **kwargs):
+            upper_lower_count[0] += 1
+            return (2000, 1.0)
+
+        def mock_range_point(*args, **kwargs):
+            return (1000, 1005, 1.0)
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point:
+
+            mock_upper.return_value.run.side_effect = mock_upper_lower
+            mock_lower.return_value.run.side_effect = mock_upper_lower
+            mock_range.return_value.run.side_effect = mock_range_point
+            mock_point.return_value.run.side_effect = mock_range_point
+
+            HeadroomPoolProbing.probe(instance)
+
+        console_calls = [str(c) for c in mock_observer_class.console.call_args_list]
+        iter_calls = [c for c in console_calls if 'Iter #' in c]
+        pg_calls = [c for c in console_calls if 'PG #' in c]
+
+        assert len(iter_calls) >= 1, (
+            f"Expected 'Iter #' in console output, got: {console_calls}"
+        )
+        assert len(pg_calls) == 0, (
+            f"'PG #' should not appear in console output, found: {pg_calls}"
+        )
