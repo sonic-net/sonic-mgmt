@@ -46,10 +46,11 @@ class ConsoleModule(object):
         }
 
         if facts["enabled"]:
-            facts["lines"] = self.get_console_lines_status()
+            facts["lines"] = self.get_console_lines_status(configured_only=False)
+            facts["configured_lines"] = self.get_console_lines_status(configured_only=True)
             if self.include_remote_device_mapping:
                 facts["remote_device_mapping"] = self.build_remote_device_mapping(
-                    facts["lines"])
+                    facts["configured_lines"])
         return facts
 
     def get_console_feature_status(self):
@@ -63,7 +64,7 @@ class ConsoleModule(object):
                 "Failed to get console feature status, rt={}, out={}, err={}".format(rt, out, err))
         return True if "yes" in out else False
 
-    def get_console_lines_status(self):
+    def get_console_lines_status(self, configured_only=True):
         """
         Retrieve detailed console status
         """
@@ -71,8 +72,7 @@ class ConsoleModule(object):
         skip_lines = 2
         result = {}
 
-        # We only parse configured lines
-        cmd = "show line -b"
+        cmd = "show line -b" if configured_only else "show line"
         rt, out, err = self.module.run_command(cmd)
         if rt != 0:
             self.module.fail_json(
@@ -109,10 +109,13 @@ class ConsoleModule(object):
                 line_status = {}
                 line_status['state'] = self.STATUS_BUSY if self.STATUS_INDICATOR in fields[self.LINE_INDEX]\
                     else self.STATUS_IDLE
-                line_status['baud_rate'] = int(fields[self.BAUD_INDEX])
+                baud_rate = fields[self.BAUD_INDEX]
+                line_status['baud_rate'] = int(baud_rate) if baud_rate != '-' else None
                 line_status['flow_control'] = True if fields[self.FLCT_INDEX] == self.FLCT_ENABLED_TEXT else False
                 if len(fields) > self.RDEV_INDEX:
-                    line_status['remote_device'] = fields[self.RDEV_INDEX]
+                    remote_device = fields[self.RDEV_INDEX]
+                    if remote_device != '-':
+                        line_status['remote_device'] = remote_device
                 result[fields[self.LINE_INDEX].lstrip(
                     self.STATUS_INDICATOR)] = line_status
             return result
