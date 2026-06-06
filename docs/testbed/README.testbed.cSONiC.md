@@ -64,16 +64,56 @@ docker images | grep docker-sonic-vs
 
 The image should appear as `docker-sonic-vs:latest`.
 
-### Host kernel `team` module (required for PortChannel/LACP topologies)
+### PortChannels / LACP on the host kernel
 
-cSONiC neighbors are **containers that share the host kernel**. SONiC uses
-`teamd`/libteam for LACP PortChannels, which requires the kernel **`team`**
-module to be present and loadable on the *host*. Unlike vSONiC (a KVM VM with
-its own kernel) or cEOS (Arista's own LAG implementation), a cSONiC neighbor
-cannot create a PortChannel unless the host kernel provides `team`.
+cSONiC neighbors are **containers that share the host kernel**, so neighbor
+PortChannels are realized by the *host* kernel — not by a private neighbor
+kernel as with vSONiC (a KVM VM) or cEOS (Arista's own LAG implementation).
+SONiC normally uses `teamd`/libteam, which needs the kernel **`team`** module.
+The cSONiC image handles both cases automatically:
 
-Verify and load it on every VM host before deploying a PortChannel topology
-(T0/T1/T2 all use LACP PortChannels on the neighbor side):
+- **`team` module present on the host** → the neighbor uses stock `teamd`,
+  exactly like production SONiC. Nothing extra to do.
+- **`team` module absent** (e.g. some cloud kernels such as `*-azure` that ship
+  without it, or where Secure Boot blocks loading an out-of-tree `team`) → the
+  image **automatically falls back to the in-tree `bonding` driver in 802.3ad
+  (LACP) mode**. No host changes, no reboot, no module signing are required.
+
+#### Automatic bonding (802.3ad) fallback — recommended, zero host setup
+
+When `CSONIC_MODE` is active and the `team` driver cannot be loaded, the image's
+`start.sh` builds each CONFIG_DB PortChannel with the `bonding` driver instead
+of teamd:
+
+1. `teammgrd`/`teamsyncd` are stopped (they cannot work without `team`).
+2. For each `PORTCHANNEL|*` it creates a bond: `ip link add <pc> type bond mode
+   802.3ad miimon 100 lacp_rate fast`.
+3. Each `PORTCHANNEL_MEMBER|<pc>|<port>` is **deleted from CONFIG_DB** so
+   `orchagent`/`saivs` release the member port's carrier (otherwise the port is
+   held `DOWN` while the broken teamd LAG stays pending), then the port is
+   enslaved to the bond.
+4. `PORTCHANNEL` and `PORTCHANNEL_INTERFACE` are **kept** so `bgpcfgd` still sees
+   the local address and emits `router bgp`. The bond's IPs come from
+   `PORTCHANNEL_INTERFACE`.
+
+Linux bonding 802.3ad speaks standard LACP and bundles with the DUT's `teamd`
+LACP. This is the default, validated path on hosts without `team`; **the DUT is
+unchanged** and sees a normal `LACP(A)(Up)` PortChannel. No further action is
+needed — just run `add-topo` + `deploy-mg`.
+
+> **Verifying the fallback:** on a neighbor, `ip -d link show PortChannel1`
+> reports `bond mode 802.3ad`, `cat /proc/net/bonding/PortChannel1` shows MII
+> status `up` with a non-zero partner MAC, and the syslog/`start.sh` log notes
+> that the bonding fallback was used. On the DUT, `show interfaces portchannel`
+> shows `LACP(A)(Up)` with the member `(S)` (Selected), and BGP reaches
+> `Established`.
+
+#### Optional: load the kernel `team` module (use teamd instead of bonding)
+
+If you prefer the neighbor to run stock `teamd` (e.g. to exercise teamd-specific
+behavior), load the `team` module on every VM host before deploying. This is
+**not required** — the bonding fallback above covers PortChannel/LACP topologies
+(T0/T1/T2) without it.
 
 ```bash
 lsmod | grep team           # already loaded?
@@ -143,6 +183,13 @@ If `modprobe team` fails:
   Alternatively, disable Secure Boot entirely (Gen2/Azure VM setting or firmware
   menu) — also a reboot. Once `team` loads, re-run `deploy-mg` so the neighbor
   `teammgrd` can create the PortChannels.
+
+> **Note:** loading `team` is only needed if you specifically want `teamd` on the
+> neighbor. If the module is absent the image automatically uses the bonding
+> 802.3ad fallback (see above), so PortChannel topologies still work with no host
+> changes. The symptoms below describe an **older image without the fallback**;
+> the current image instead logs that it switched to bonding and the PortChannel
+> bundles normally.
 
 > **Symptom of a missing `team` module:** `add-topo`/`deploy-mg` succeed, FRR
 > comes up and `bgpcfgd` generates `router bgp`, but BGP stays `Active`/`Idle`
