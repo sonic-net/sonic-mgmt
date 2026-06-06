@@ -49,11 +49,11 @@ class TestPfcXonProbingExecutorInit:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
         assert ex.ptftest is self.ptf
         assert ex.observer is self.observer
         assert ex.pfcxoff_point == 1000
+        assert ex.holder_port == 29
         assert ex.verbose is False
         assert ex.name == ""
         assert ex.max_fill_attempts == 3
@@ -88,13 +88,22 @@ class TestPfcXonProbingExecutorInit:
             )
 
     @pytest.mark.order(8804)
+    def test_init_rejects_none_holder_port(self):
+        from pfc_xon_probing_executor import PfcXonProbingExecutor
+
+        with pytest.raises(ValueError, match="requires holder_port"):
+            PfcXonProbingExecutor(
+                ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
+            )
+
+    @pytest.mark.order(8805)
     def test_init_with_custom_tunables(self):
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf,
             observer=self.observer,
-            pfcxoff_point=500,
+            pfcxoff_point=500, holder_port=29,
             verbose=True,
             name="step3",
             max_fill_attempts=5,
@@ -111,14 +120,13 @@ class TestPfcXonProbingExecutorInit:
         assert ex.pause_observation_window == 0.25
         assert ex.pause_stop_tolerance == 10
 
-    @pytest.mark.order(8805)
+    @pytest.mark.order(8806)
     def test_init_default_pause_window_and_tolerance(self):
         """Defaults: pause_observation_window=0.1s, pause_stop_tolerance=5."""
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
         assert ex.pause_observation_window == 0.1
         assert ex.pause_stop_tolerance == 5
 
@@ -136,9 +144,8 @@ class TestPfcXonExecutorPrepare:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        ex.prepare(src_port=24, drain_port=28, holder_port=29)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        ex.prepare(src_port=24, dst_port=28)
 
         # Both ports should be drained then held
         self.ptf.buffer_ctrl.drain_buffer.assert_called_once_with([28, 29])
@@ -159,9 +166,8 @@ class TestPfcXonExecutorCheckRangeValidation:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=0)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=0)
         assert success is True
         assert xon_fired is False
         # No traffic should be sent
@@ -172,9 +178,8 @@ class TestPfcXonExecutorCheckRangeValidation:
         from pfc_xon_probing_executor import PfcXonProbingExecutor
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=1001)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=1001)
         assert success is True
         assert xon_fired is False
         self.ptf.buffer_ctrl.send_traffic.assert_not_called()
@@ -219,9 +224,8 @@ class TestPfcXonExecutorCheckFlow:
         ]
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3)
         assert success is True
         assert xon_fired is True
 
@@ -254,9 +258,8 @@ class TestPfcXonExecutorCheckFlow:
         ]
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=2, pg=3)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=2, pg=3)
         assert success is True
         assert xon_fired is False
 
@@ -292,9 +295,9 @@ class TestPfcXonExecutorCheckFlow:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000,
-            max_fill_attempts=3, fill_retry_margin=2,
+            holder_port=29, max_fill_attempts=3, fill_retry_margin=2,
         )
-        success, xon_fired = ex.check(24, 28, 29, value=10, pg=3)
+        success, xon_fired = ex.check(24, 28, value=10, pg=3)
         assert success is True
         assert xon_fired is True
 
@@ -322,9 +325,9 @@ class TestPfcXonExecutorCheckFlow:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000,
-            max_fill_attempts=max_attempts,
+            holder_port=29, max_fill_attempts=max_attempts,
         )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3)
         assert success is False
         assert xon_fired is False
 
@@ -339,9 +342,8 @@ class TestPfcXonExecutorCheckFlow:
         mock_read.side_effect = RuntimeError("PTF lost connection")
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3)
         assert success is False
         assert xon_fired is False
 
@@ -377,9 +379,8 @@ class TestPfcXonExecutorMultipleAttempts:
         ]
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3, attempts=2)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3, attempts=2)
         assert success is True
         assert xon_fired is True
 
@@ -411,9 +412,8 @@ class TestPfcXonExecutorMultipleAttempts:
         ]
 
         ex = PfcXonProbingExecutor(
-            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000
-        )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3, attempts=2)
+            ptftest=self.ptf, observer=self.observer, pfcxoff_point=1000, holder_port=29)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3, attempts=2)
         assert success is False
         assert xon_fired is False
 
@@ -447,9 +447,9 @@ class TestPfcXonExecutorDrainStopDetection:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer,
-            pfcxoff_point=1000, pause_stop_tolerance=5,
+            pfcxoff_point=1000, holder_port=29, pause_stop_tolerance=5,
         )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3)
         assert success is True
         assert xon_fired is True
 
@@ -474,9 +474,9 @@ class TestPfcXonExecutorDrainStopDetection:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer,
-            pfcxoff_point=1000, pause_stop_tolerance=5,
+            pfcxoff_point=1000, holder_port=29, pause_stop_tolerance=5,
         )
-        success, xon_fired = ex.check(24, 28, 29, value=5, pg=3)
+        success, xon_fired = ex.check(24, 28, value=5, pg=3)
         assert success is True
         assert xon_fired is False
 
@@ -503,9 +503,9 @@ class TestPfcXonExecutorDrainStopDetection:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer,
-            pfcxoff_point=1000, pause_stop_tolerance=5,
+            pfcxoff_point=1000, holder_port=29, pause_stop_tolerance=5,
         )
-        success, xon_fired = ex.check(24, 28, 29, value=1, pg=3)
+        success, xon_fired = ex.check(24, 28, value=1, pg=3)
         # With the OLD buggy logic, this would have returned xon_fired=True
         # because post_drain (4130) > baseline (4080). The new logic
         # correctly identifies that the PAUSE counter is still ramping
@@ -534,11 +534,11 @@ class TestPfcXonExecutorDrainStopDetection:
 
         ex = PfcXonProbingExecutor(
             ptftest=self.ptf, observer=self.observer,
-            pfcxoff_point=1000,
+            pfcxoff_point=1000, holder_port=29,
             drain_settle_delay=0.5,
             pause_observation_window=0.25,
         )
-        ex.check(24, 28, 29, value=5, pg=3)
+        ex.check(24, 28, value=5, pg=3)
 
         # Tighten beyond mere `in` membership: verify exact count + ordering.
         # This locks in the contract that _drain_phase calls each sleep

@@ -15,9 +15,11 @@ without physical hardware via:
         observer=obs,
         pfcxoff_point=8800,
         true_xon_offset=13,
+        holder_port=2,
     )
-    algo = XonDrainStepAlgorithm(executor=executor, ...)
-    algo.run(src, dst_drain, dst_holder, pg=3)
+    # Standard 2-port algorithm interface:
+    algo = ThresholdPointProbingAlgorithm(executor=executor, always_full_cycle=True, ...)
+    algo.run(src=0, dst=1, pg=3)
 
 Drift-zero design (per drain-bug post-mortem 2026-05-08):
   Inherits real PfcXonProbingExecutor and overrides ONLY the
@@ -225,13 +227,16 @@ class SimPfcXonProbingExecutor(PfcXonProbingExecutor):
     """
 
     def __init__(self, observer, name="", pfcxoff_point=None,
-                 true_xon_offset=None, ptftest=None,
+                 true_xon_offset=None, holder_port=None, ptftest=None,
                  pause_rate_per_read=10, cnt_pg_idx=5, **kwargs):
         if true_xon_offset is None:
             raise ValueError(
                 "SimPfcXonProbingExecutor requires true_xon_offset "
                 "(the answer the algorithm should converge to)."
             )
+        # Default holder_port for sim — callers may override
+        if holder_port is None:
+            holder_port = 99
 
         self.hw_model = HardwareModel(
             pfcxoff_point=pfcxoff_point,
@@ -246,6 +251,7 @@ class SimPfcXonProbingExecutor(PfcXonProbingExecutor):
             ptftest=ptftest,
             observer=observer,
             pfcxoff_point=pfcxoff_point,
+            holder_port=holder_port,
             name=name,
             **kwargs,
         )
