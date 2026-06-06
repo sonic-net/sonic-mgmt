@@ -627,13 +627,19 @@ class TestQosProbe(QosSaiBase):
             cell_size = self.find_cell_size(dutQosConfig["param"])
         testParams["cell_size"] = cell_size
 
-        # Allow expected_xon_offset for assertion (if test author knows expected value)
+        # Allow expected_xon_offset for assertion (if test author knows expected value).
+        # pkts_num_dismiss_pfc has platform-specific semantics:
+        #   Broadcom: actual XOn drain offset (~13 pkts, small vs pfcxoff_point ~20000)
+        #   Mellanox: ingress_lossless_size + 1 (~49980, nearly equal to pfcxoff_point ~50182)
+        # Only use it as expected offset when it represents a genuine drain count
+        # (i.e., small relative to pfcxoff_point).
         expected_xon = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", None)
         if expected_xon is not None:
-            # Effective offset = pkts_num_dismiss_pfc + pkts_num_hysteresis
-            # (same for both Step and Binary algorithms; matches legacy PFCXonTest formula)
             hyst = qosConfig[xonProfile].get("pkts_num_hysteresis", 0)
-            testParams["expected_xon_offset"] = int(expected_xon) + int(hyst)
+            candidate_offset = int(expected_xon) + int(hyst)
+            pfcxoff = testParams.get("pfcxoff_point", 1)
+            if candidate_offset < int(pfcxoff) // 2:
+                testParams["expected_xon_offset"] = candidate_offset
 
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
