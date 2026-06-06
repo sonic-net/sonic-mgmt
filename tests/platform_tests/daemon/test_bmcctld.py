@@ -16,20 +16,22 @@ import time
 from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import (
+    CONFIG_DB,
+    STATE_DB,
+    redis_del,
+    redis_hget,
+    redis_hgetall,
+    redis_hset,
+)
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
-    CONFIG_DB,
-    STATE_DB,
     bmc_log_zgrep,
     get_host_uptime,
     get_switch_host_or_skip_test,
     make_bmc_loganalyzer,
     pause_pmon_daemon,
-    redis_del,
-    redis_hget,
-    redis_hgetall,
-    redis_hset,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,

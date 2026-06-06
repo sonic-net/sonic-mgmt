@@ -1,4 +1,4 @@
-"""Shared helpers for BMC platform tests (STATE_DB, syslog, event.log, Switch-Host)."""
+"""Shared helpers for BMC platform tests (syslog, event.log, Switch-Host)."""
 
 import logging
 from contextlib import contextmanager
@@ -6,13 +6,10 @@ from contextlib import contextmanager
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hset
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
-APPL_DB = 'APPL_DB'
-CONFIG_DB = 'CONFIG_DB'
-STATE_DB = 'STATE_DB'
 
 # BMC event log on-disk path
 BMC_EVENT_LOG = '/host/bmc/event.log'
@@ -22,16 +19,6 @@ BMC_INITIATED_REBOOT_CAUSES = (
     'power down request from bmc',
     'graceful shutdown from bmc',
     'power loss',
-)
-
-
-# --- Redis helpers ---------------------------------------------------------
-from tests.common.helpers.sonic_db import (  # noqa: F401,E402
-    redis_hget,
-    redis_hgetall,
-    redis_hset,
-    redis_del,
-    redis_keys,
 )
 
 
@@ -97,14 +84,17 @@ def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
 
 # --- Leak-sensor injection helpers ----------------------------------------
 
-def inject_leak_sensor(duthost, sensor_name, severity, leaking='Yes', leak_sensor_status='Good',
+def inject_leak_sensor(duthost, sensor_name, leak_severity, leaking='Yes', leak_sensor_status='Good',
                        sensor_type=None, location=None):
     """HSET LIQUID_COOLING_INFO|<sensor_name> with thermalctld's wire schema."""
     fields = {
         'name': sensor_name,
         'leaking': leaking,
+        # leak_status is a back-compat alias of leaking consumed by system-health
+        # and legacy `leakageshow` CLI; thermalctld writes both.
+        'leak_status': leaking,
         'leak_sensor_status': leak_sensor_status,
-        'severity': severity,
+        'leak_severity': leak_severity,
     }
     if sensor_type is not None:
         fields['type'] = sensor_type

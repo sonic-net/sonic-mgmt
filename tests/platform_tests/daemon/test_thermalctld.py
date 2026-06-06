@@ -14,18 +14,20 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.bmc_utils import (
+from tests.common.helpers.sonic_db import (
     STATE_DB,
-    BMC_EVENT_LOG,
-    bmc_log_zgrep,
-    get_system_leak_status,
-    inject_leak_sensor,
-    make_bmc_loganalyzer,
     redis_del,
     redis_hget,
     redis_hgetall,
     redis_hset,
     redis_keys,
+)
+from tests.common.platform.bmc_utils import (
+    BMC_EVENT_LOG,
+    bmc_log_zgrep,
+    get_system_leak_status,
+    inject_leak_sensor,
+    make_bmc_loganalyzer,
 )
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.utilities import wait_until
@@ -98,10 +100,10 @@ class TestThermalctldDaemon:
                               f"leak_sensor_status '{sensor_status}' "
                               f"not in ['Good', 'Fault']")
 
-            severity = fields.get('severity', '').strip()
-            if severity:
-                pytest_assert(severity in ['MINOR', 'CRITICAL'],
-                              f"severity '{severity}' not in ['MINOR', 'CRITICAL']")
+            leak_severity = fields.get('leak_severity', '').strip()
+            if leak_severity:
+                pytest_assert(leak_severity in ['MINOR', 'CRITICAL'],
+                              f"leak_severity '{leak_severity}' not in ['MINOR', 'CRITICAL']")
 
             sensor_type = fields.get('type', '').strip()
             if sensor_type:
@@ -138,7 +140,7 @@ class TestThermalctldDaemon:
         LIQUID_COOLING_INFO schema (from LiquidCoolingUpdater._refresh_leak_status):
           leaking           = "Yes" | "No" | "N/A"
           leak_sensor_status = "Good" | "Fault"
-          name, type, location, severity
+          name, type, location, leak_severity
 
         Syslog message thermalctld emits on hardware state transition:
           is_leak()=True          → log_error('...sensor {} reported leaking')
@@ -165,7 +167,7 @@ class TestThermalctldDaemon:
         marker = la.init()
         try:
             inject_leak_sensor(self.duthost, 'test_sensor_leaking',
-                               leaking='Yes', leak_sensor_status='Good', severity='MINOR')
+                               leaking='Yes', leak_sensor_status='Good', leak_severity='MINOR')
             logger.info("Trigger [leaking sensor]: leaking=Yes leak_sensor_status=Good")
             logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_leaking reported leaking'")
 
@@ -188,7 +190,7 @@ class TestThermalctldDaemon:
         # Historical informational scan (rotation-safe via zgrep).
         existing = bmc_log_zgrep(
             self.duthost,
-            r"Liquid cooling leak(age|ing) sensor .* (reported leaking|recovered from leaking)",
+            r"Liquid cooling leak(age|ing) sensor .* (reported leaking|recovered from (CRITICAL leak|leaking))",
             tail=10,
         )
         if existing:
@@ -232,7 +234,7 @@ class TestThermalctldDaemon:
             # Inject a faulty sensor entry using the exact schema thermalctld writes
             inject_leak_sensor(self.duthost, 'test_faulty_sensor_check',
                                leaking='N/A', leak_sensor_status='Fault',
-                               severity='CRITICAL', sensor_type='liquid', location='rack')
+                               leak_severity='CRITICAL', sensor_type='liquid', location='rack')
             logger.info(f"Injected faulty sensor entry: {FAULTY_KEY}")
 
             # Verify leaking=N/A (sensor unreadable)

@@ -215,6 +215,12 @@ class SonicDbCli(object):
 # KEYS access without instantiating a SonicDbCli object.
 # ---------------------------------------------------------------------------
 
+# sonic-db-cli database name constants
+APPL_DB = 'APPL_DB'
+CONFIG_DB = 'CONFIG_DB'
+STATE_DB = 'STATE_DB'
+
+
 def redis_hget(duthost, db, key, field):
     """Return HGET value (stripped str) or '' if absent."""
     r = duthost.shell(
