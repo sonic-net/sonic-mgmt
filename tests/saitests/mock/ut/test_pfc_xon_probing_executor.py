@@ -6,7 +6,6 @@ Tests initialization, parameter validation, prepare logic, fill phase
 handling — all using mocked PTF dependencies.
 """
 
-import sys  # noqa: F401
 import pytest
 from unittest.mock import MagicMock, patch
 
