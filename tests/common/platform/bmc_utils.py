@@ -38,11 +38,15 @@ def pause_pmon_daemon(duthost, daemon_name):
 
 def get_switch_host_or_skip_test(duthost):
     """Return the paired Switch-Host SonicHost, or pytest.skip if unreachable."""
+    host = None
+    target = "<unknown>"
     try:
         host = duthost.get_bmc_host()
-        host.command("echo ping", module_ignore_errors=True)
+        target = f"{host.hostname} ({getattr(host, 'mgmt_ip', 'no-ip')})"
+        logger.info("Probing paired Switch-Host %s from BMC '%s'", target, duthost.hostname)
+        host.command("echo ping")
     except Exception as e:
-        pytest.skip(f"paired Switch-Host not reachable from BMC {duthost.hostname}: {e}")
+        pytest.skip(f"paired Switch-Host {target} not reachable from BMC {duthost.hostname}: {e}")
     return host
 
 
