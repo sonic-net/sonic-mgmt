@@ -9,6 +9,9 @@
         }
     },
     "FEATURE": {
+        "acms": {
+            "state": "disabled"
+        },
         "lldp": {
             "state": "disabled"
         },
