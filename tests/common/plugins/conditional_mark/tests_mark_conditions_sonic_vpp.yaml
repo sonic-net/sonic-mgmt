@@ -258,7 +258,7 @@ everflow:
 #   - libsaivs: opt the default + non-default VRFs (both AF_INET and
 #     AF_INET6) into the new VPP_IP_API_FLOW_HASH_PEEK_INNER bit
 #     (sonic-sairedis #1896, vslib/vpp/SwitchVppRif.cpp).
-#   - sonic-mgmt: test_nvgre_hash limited to inner 5-tuple keys for vpp
+#   - sonic-mgmt: test_nvgre_hash limited to inner keys['src-ip', 'dst-ip', 'src-port', 'dst-port'] for vpp
 #     (no MAC-aware hash, same as marvell-teralynx limitation).
 
 #######################################
