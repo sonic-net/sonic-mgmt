@@ -15,7 +15,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1', 't2'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -64,17 +64,6 @@ def _sentinel_key(table):
     return "{}|{}".format(table, SENTINEL_SUBKEY)
 
 
-def _set_state_db_entry(duthost, key, field, value):
-    """Set a field in a STATE_DB hash key."""
-    duthost.shell('sonic-db-cli STATE_DB HSET "{}" "{}" "{}"'.format(key, field, value))
-
-
-def _key_exists(duthost, key):
-    """Check whether a specific key exists in STATE_DB."""
-    result = duthost.shell('sonic-db-cli STATE_DB EXISTS "{}"'.format(key))
-    return result["stdout"].strip() == "1"
-
-
 def _is_service_hitting_start_limit(duthost, container_name):
     """Check if a service is hitting the systemd start-limit."""
     result = duthost.shell(
@@ -87,12 +76,42 @@ def _is_service_hitting_start_limit(duthost, container_name):
     return False
 
 
-def _restart_swss_and_wait(duthost):
-    """Cold-restart the swss service and wait for critical processes."""
-    duthost.shell("sudo systemctl reset-failed swss", module_ignore_errors=True)
-    duthost.shell("sudo systemctl restart swss")
+def test_state_db_cleanup_after_swss_restart(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                             enum_frontend_asic_index):
+    """
+    Verify all orchagent-owned STATE_DB tables are cleaned up during swss cold restart.
 
-    # Clear start-limit for any service that may have hit it
+    Steps:
+        1. Populate a sentinel entry in every STATE_DB table that swss.sh cleans.
+        2. Confirm all sentinel entries exist.
+        3. Cold-restart swss for the given ASIC.
+        4. Verify every sentinel entry is removed from STATE_DB.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    service_name = asichost.get_service_name("swss")
+    db_cli = "{} STATE_DB".format(asichost.sonic_db_cli)
+
+    # Populate sentinel keys for all tables
+    for table in STATE_DB_CLEANUP_TABLES:
+        key = _sentinel_key(table)
+        logger.info("Setting sentinel STATE_DB entry: {} (asic {})".format(key, enum_frontend_asic_index))
+        duthost.shell('{} HSET "{}" "test_field" "test_value"'.format(db_cli, key))
+
+    # Verify all sentinel keys were created
+    missing = []
+    for table in STATE_DB_CLEANUP_TABLES:
+        result = duthost.shell('{} EXISTS "{}"'.format(db_cli, _sentinel_key(table)))
+        if result["stdout"].strip() != "1":
+            missing.append(table)
+    pytest_assert(not missing,
+                  "Failed to create sentinel entries for tables: {}".format(missing))
+
+    # Cold-restart swss for this ASIC
+    logger.info("Cold-restarting {} on asic {}".format(service_name, enum_frontend_asic_index))
+    duthost.shell("sudo systemctl reset-failed {}".format(service_name), module_ignore_errors=True)
+    duthost.shell("sudo systemctl restart {}".format(service_name))
+
     for container in duthost.get_default_critical_services_list():
         if _is_service_hitting_start_limit(duthost, container):
             logger.info("{} hit start limit, resetting".format(container))
@@ -101,38 +120,12 @@ def _restart_swss_and_wait(duthost):
 
     wait_critical_processes(duthost)
 
-
-def test_state_db_cleanup_after_swss_restart(duthosts, rand_one_dut_hostname):
-    """
-    Verify all orchagent-owned STATE_DB tables are cleaned up during swss cold restart.
-
-    Steps:
-        1. Populate a sentinel entry in every STATE_DB table that swss.sh cleans.
-        2. Confirm all sentinel entries exist.
-        3. Cold-restart swss (single restart for all tables).
-        4. Verify every sentinel entry is removed from STATE_DB.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    # Populate sentinel keys for all tables
-    for table in STATE_DB_CLEANUP_TABLES:
-        key = _sentinel_key(table)
-        logger.info("Setting sentinel STATE_DB entry: {}".format(key))
-        _set_state_db_entry(duthost, key, "test_field", "test_value")
-
-    # Verify all sentinel keys were created
-    missing = [t for t in STATE_DB_CLEANUP_TABLES if not _key_exists(duthost, _sentinel_key(t))]
-    pytest_assert(
-        not missing,
-        "Failed to create sentinel entries for tables: {}".format(missing)
-    )
-
-    logger.info("Cold-restarting swss service")
-    _restart_swss_and_wait(duthost)
-
     # Verify all sentinel keys are cleaned up
-    stale = [t for t in STATE_DB_CLEANUP_TABLES if _key_exists(duthost, _sentinel_key(t))]
-    pytest_assert(
-        not stale,
-        "STATE_DB entries not cleaned up after swss cold restart: {}".format(stale)
-    )
+    stale = []
+    for table in STATE_DB_CLEANUP_TABLES:
+        result = duthost.shell('{} EXISTS "{}"'.format(db_cli, _sentinel_key(table)))
+        if result["stdout"].strip() == "1":
+            stale.append(table)
+    pytest_assert(not stale,
+                  "STATE_DB entries not cleaned up after swss cold restart (asic {}): {}".format(
+                      enum_frontend_asic_index, stale))
