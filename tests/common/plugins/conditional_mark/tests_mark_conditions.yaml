@@ -6081,6 +6081,12 @@ vxlan/test_vxlan_vnet_bgp_subintf.py:
       - "asic_type in ['cisco-8000']"
       - "release in ['202511']"
 
+vxlan/test_vxlan_vnet_bgp_subintf.py::test_vnet_with_bgp_intf_smacrewrite:
+  skip:
+    reason: "Source Mac Rewrite is not supported on marvell-teralynx"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
+
 #######################################
 #####           wan_lacp          #####
 #######################################
