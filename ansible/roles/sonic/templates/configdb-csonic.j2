@@ -1,6 +1,21 @@
 {% set host = configuration[hostname] %}
 {% set _role_type_map = {'leaf': 'LeafRouter', 'spine': 'SpineRouter', 'tor': 'ToRRouter', 'core': 'SpineRouter'} %}
 {% set device_type = _role_type_map.get(props.swrole | default('leaf'), 'LeafRouter') %}
+{# Count front-panel Ethernet interfaces so the backplane can be placed past   #}
+{# them (Ethernet{K+1}). For single-link neighbors K==1 -> Ethernet2 (same as  #}
+{# before); for multi-link LAG neighbors (T1-LAG/T2) the backplane moves up so  #}
+{# it never collides with the second front-panel port.                         #}
+{% set _fp_eths = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') %}{% if _fp_eths.append(name) %}{% endif %}{% endif %}
+{% endfor %}
+{% set _bp_num = (_fp_eths | length) + 1 %}
+{% set _bp_eth = 'Ethernet' ~ _bp_num %}
+{# Lane numbering matches the SONiC-VM hwsku lanemap: Ethernet<N> (1-based)      #}
+{# occupies 4 synthetic lanes starting at (N-1)*4 + 25 (the first usable VS     #}
+{# lane). These lanes are not real hardware serdes; they only need to be unique #}
+{# and consistent with the image's lanemap.ini.                                 #}
+{% set _bp_lane0 = (_bp_num - 1) * 4 + 25 %}
 {
     "PORT": {
 {% set port_comma = joiner(",") %}
@@ -18,10 +33,10 @@
 {% endfor %}
 {% if host['bp_interface'] is defined %}
 ,
-        "Ethernet2": {
+        "{{ _bp_eth }}": {
             "admin_status": "up",
-            "alias": "fortyGigE0/4",
-            "lanes": "29,30,31,32",
+            "alias": "fortyGigE0/{{ (_bp_num - 1) * 4 }}",
+            "lanes": "{{ _bp_lane0 }},{{ _bp_lane0 + 1 }},{{ _bp_lane0 + 2 }},{{ _bp_lane0 + 3 }}",
             "mtu": "9100",
             "speed": "40000"
         }
@@ -122,14 +137,14 @@
 {% endfor %}
 {% if host['bp_interface'] is defined %}
 {{ iface_comma() }}
-        "Ethernet2": {}
+        "{{ _bp_eth }}": {}
 {% if host['bp_interface']['ipv4'] is defined %}
 {{ iface_comma() }}
-        "Ethernet2|{{ host['bp_interface']['ipv4'] }}": {}
+        "{{ _bp_eth }}|{{ host['bp_interface']['ipv4'] }}": {}
 {% endif %}
 {% if host['bp_interface']['ipv6'] is defined %}
 {{ iface_comma() }}
-        "Ethernet2|{{ host['bp_interface']['ipv6'] }}": {}
+        "{{ _bp_eth }}|{{ host['bp_interface']['ipv6'] }}": {}
 {% endif %}
 {% endif %}
     },
