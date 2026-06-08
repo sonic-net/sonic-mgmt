@@ -783,6 +783,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     if duthost.facts['asic_type'] in ["marvell-teralynx"]:
         logging.info("Marvell-Teralynx: hash-key is src-ip, dst-ip")
         hash_keys = ['src-ip', 'dst-ip']
+    if duthost.facts['asic_type'] in ["vpp"]:
+        logging.info("VPP: hash-keys are src-ip, dst-ip, src-port, dst-port")
+        hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
