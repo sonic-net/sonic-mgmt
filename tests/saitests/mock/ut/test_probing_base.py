@@ -801,10 +801,13 @@ class TestProbingBaseGetRxPort:
         print(f"  Result: {result}")
 
         assert result == 99, "Should return value from module function"
-        # production get_rx_port emits 1 log_message ("dst_port_id:..., src_port_id:...")
-        # and routes the per-attempt before/after logs through ProbingObserver.trace
-        assert mock_log.call_count == 1, "Should log dst/src port summary once via log_message"
-        assert mock_trace.call_count >= 2, "Should trace before and after via ProbingObserver"
+        # Per pr12.fix (#24024), input args are dumped once via log_message;
+        # per-attempt diagnostics use ProbingObserver.trace inside the retry
+        # loop. On a clean first-attempt success we expect 1 log_message
+        # ("inputs") + 2 trace calls ("attempt 1/3" + "resolved on 1/3").
+        assert mock_log.call_count == 1, "Should log inputs once before retry loop"
+        assert mock_trace.call_count == 2, \
+            "Should trace attempt-start + resolved on success"
         assert mock_get_rx_port.called, "Should call module get_rx_port()"
 
         print("[OK] get_rx_port() wrapper works correctly")

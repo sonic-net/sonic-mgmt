@@ -3,12 +3,9 @@
 This module contains probe-based tests for buffer threshold detection, including:
 - testQosPfcXoffProbe: PFC XOFF threshold probing
 - testQosIngressDropProbe: Ingress drop threshold probing
-- testQosEgressDropProbe: Egress drop threshold probing (lossy queue)
 - testQosHeadroomPoolProbe: Headroom pool threshold probing
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
-
-CI: probe-tests stage in .azure-pipelines/probe-tests/ triggers UT/IT for changes here.
 
 Parameters:
     --enable_qos_ptf_pdb (bool): Enable pdb debugger in PTF tests. Default is False.
@@ -41,7 +38,6 @@ class TestQosProbe(QosSaiBase):
     These tests use advanced algorithms to automatically detect buffer thresholds:
     - Binary search for PFC XOFF threshold
     - Ingress drop threshold detection
-    - Egress drop threshold detection (lossy queue)
     - Headroom pool size probing
     """
 
@@ -456,6 +452,201 @@ class TestQosProbe(QosSaiBase):
 
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
+            pdb=enable_qos_ptf_pdb, test_subdir='probe'
+        )
+
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
+    def testQosPfcXonProbe(
+        self, xonProfile, duthost, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, change_lag_lacp_timer, tbinfo, request
+    ):
+        """
+            Test QoS PFC XOn offset (pkts_num_dismiss_pfc + pkts_num_hysteresis)
+            using PfcXon probing algorithm.
+
+            Topology: 1 src -> 2 dst (both flows enter the SAME ingress PG).
+            Algorithm (design v3, standard framework):
+                - Step 1-4: PfcXoff chain -> measured xoff_point
+                - Step 5: XOn drain — (Range optional) -> Point mandatory
+                  - enable_xon_range_probe=False (default): Point only
+                    (sufficient for small offsets like Brcm TH2/TD3 ~12 pkt)
+                  - enable_xon_range_probe=True: Range then Point
+                    (needed for large offsets like Cisco J2C ~13000 pkt)
+
+            Args:
+                xonProfile (pytest parameter): XOn profile (xon_1..xon_4)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config (dut interfaces, test
+                    port IDs, test port IPs, and test ports)
+                dutQosConfig (Fixture, dict): DUT host QoS configuration
+                ingressLosslessProfile (Fixture): Ingress lossless buffer profile
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        # NOTE: cisco 8800 limited to xon_1/xon_2 (mirrors legacy testQosSaiPfcXonLimit)
+        normal_profile = ["xon_1", "xon_2"]
+        if not dutConfig["dualTor"] and xonProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        elif xonProfile in dutQosConfig["param"][portSpeedCableLength]:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            # Mellanox: xon params live at param top-level, not under speed key
+            qosConfig = dutQosConfig["param"]
+
+        if xonProfile not in qosConfig:
+            pytest.skip(
+                "PfcXonProbe: '{}' missing from qosConfig (port_speed={})".format(
+                    xonProfile, portSpeedCableLength))
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        # PfcXon needs 2 distinct dst ports for 1 src -> 2 dst topology
+        # (legacy testQosSaiPfcXonLimit needed 3; we only need 2 for the new probe)
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        dst_port_2_id = dutConfig["testPorts"].get("dst_port_2_id", None)
+        if dst_port_2_id is None or dst_port_2_id == dst_port_id:
+            pytest.skip(
+                "PfcXonProbe: need at least 2 distinct destination ports (got "
+                "dst_port_id={}, dst_port_2_id={})".format(dst_port_id, dst_port_2_id))
+
+        probing_port_ids = [
+            dutConfig["testPorts"]["src_port_id"],
+            dst_port_id,
+            dst_port_2_id,
+        ]
+        logger.info(
+            "PfcXonProbe ports: src=%s dst_A=%s dst_B=%s xonProfile=%s",
+            probing_port_ids[0], probing_port_ids[1], probing_port_ids[2], xonProfile,
+        )
+
+        # pfcxoff_point: yaml hint of PFC Xoff trigger packet count.
+        # Per design v3 §2 Step 1+2 (implemented 2026-05-09), the PTF orchestrator
+        # `pfc_xon_probing.PfcXonProbing.probe()` runs a fresh 4-phase PfcXoff
+        # probe at run time and uses the MEASURED xoff_point for the XOn drain
+        # phase. The yaml value is only a fallback if the chain fails (or a
+        # sanity-check seed). UT/IT paths that want to skip the chain set
+        # test_params['enable_xoff_chain_probe']=False; physical runs leave
+        # this at its default True.
+        pfcxoff_point = qosConfig[xonProfile].get("pkts_num_trig_pfc", None)
+        if pfcxoff_point is None:
+            pytest.skip(
+                "PfcXonProbe: pkts_num_trig_pfc missing in yaml for {}".format(xonProfile))
+
+        # Algorithm dispatch flag (per design v3 §1 platform decision matrix).
+        # Per design v3 §1 footnote: derive at runtime from existing yaml fields,
+        # not a separate `enable_xon_range_probe` yaml entry. Rule:
+        #   true (4-step / Binary)  if  pkts_num_hysteresis > 0   (Brcm GB, Mlx PAC)
+        #                           OR  pkts_num_dismiss_pfc > 30 (Cisco J2C/JR2/Q3D)
+        #   false (3-step / Step)   otherwise (Brcm TD2/TD3/TH/TH2/TH3/TH5, Mlx SPC1/SPC2)
+        #
+        # This routes Cisco/GB/PAC to the Binary algorithm without yaml edits;
+        # platform yamls already encode the relevant facts (hysteresis on Mlx
+        # PAC + Brcm GB; dismiss_pfc 200..12985 on Cisco). The 30-cell cutoff
+        # for dismiss_pfc separates 3-step (≤30 effective offset) from 4-step
+        # (>30 effective offset) per the design's "binary search budget"
+        # rationale (3-step is bounded ≤30 iter; >30 needs binary).
+        hysteresis = qosConfig[xonProfile].get("pkts_num_hysteresis", 0) or 0
+        dismiss_pfc = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", 0) or 0
+        enable_xon_range_probe = (hysteresis > 0) or (dismiss_pfc > 30)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({"test_port_ips": dutConfig["testPortIps"]})
+        testParams.update({"probing_port_ids": probing_port_ids})
+        testParams.update({
+            "dscp": qosConfig[xonProfile]["dscp"],
+            "ecn": qosConfig[xonProfile]["ecn"],
+            "pg": qosConfig[xonProfile]["pg"],
+            "buffer_max_size": ingressLosslessProfile["size"],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "dst_port_2_id": dst_port_2_id,
+            "dst_port_2_ip": dutConfig["testPorts"].get("dst_port_2_ip", ""),
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pfcxoff_point": pfcxoff_point,
+            "enable_xon_range_probe": enable_xon_range_probe,
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "hwsku": dutTestParams['hwsku'],
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic']),
+            "dut_asic": dutConfig["dutAsic"],
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip("pkts_num_egr_mem_short_long is missing in yaml file ")
+
+        # Optional yaml params (mirrors testQosSaiPfcXonLimit)
+        if "pkts_num_dismiss_pfc" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_dismiss_pfc"] = qosConfig[xonProfile]["pkts_num_dismiss_pfc"]
+
+        if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
+
+        if "pkts_num_margin" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
+
+        if "packet_size" in list(qosConfig[xonProfile].keys()):
+            testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[xonProfile].keys()):
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
+
+        bufferConfig = dutQosConfig["bufferConfig"]
+        testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
+        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"].get(
+            "egress_lossy_pool", {"size": "0"})["size"]
+
+        # Get cell_size with fallback to sub-layers if not found at top level
+        cell_size = dutQosConfig["param"].get("cell_size", None)
+        if cell_size is None:
+            cell_size = self.find_cell_size(dutQosConfig["param"])
+        testParams["cell_size"] = cell_size
+
+        # Allow expected_xon_offset for assertion (if test author knows expected value).
+        # pkts_num_dismiss_pfc semantics are platform-dependent:
+        #   Broadcom (th/th2/th3/td2/td3/th5): actual XOn drain offset
+        #     (e.g., 13 pkts — hardcoded in YAML by test author)
+        #   Mellanox (spc1-spc5): ingress_lossless_size + 1
+        #     (dynamic from qos_param_generator — total buffer capacity, NOT offset)
+        # Only set expected_xon_offset when the value genuinely represents the
+        # XOn drain offset. Mellanox probes measure-only without assertion.
+        dut_asic = dutConfig["dutAsic"]
+        is_mellanox = dut_asic.startswith("spc") if dut_asic else False
+        expected_xon = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", None)
+        if expected_xon is not None and not is_mellanox:
+            hyst = qosConfig[xonProfile].get("pkts_num_hysteresis", 0)
+            testParams["expected_xon_offset"] = int(expected_xon) + int(hyst)
+
+        # Get pdb parameter from command line
+        enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        self.runPtfTest(
+            ptfhost, testCase="pfc_xon_probing.PfcXonProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
         )
 
