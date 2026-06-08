@@ -57,7 +57,7 @@
   <resource>
     <partition>/machine</partition>
   </resource>
-{% if use_uefi == true %}
+{% if use_uefi %}
   <os firmware='efi'>
     <firmware>
       <feature enabled='yes' name='secure-boot'/>
@@ -126,7 +126,7 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </memballoon>
     <watchdog model='i6300esb'/>
-{% if use_uefi == true %}
+{% if use_uefi %}
     <tpm model="tpm-crb">
       <backend type="emulator"/>
     </tpm>
