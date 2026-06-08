@@ -232,29 +232,15 @@ everflow:
 #######################################
 #####           FIB               #####
 #######################################
-fib/test_fib.py::test_ipinip_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-fib/test_fib.py::test_nvgre_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-fib/test_fib.py::test_vxlan_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+# test_ipinip_hash, test_nvgre_hash, test_vxlan_hash now PASS on sonic-vpp
+# (issue #25762). Required:
+#   - VPP: inner-aware ECMP and LAG flow hash for IPinIP and GRE/NVGRE
+#     (sonic-platform-vpp #234 / patch 0010-sonic-inner-aware-flow-hash).
+#   - libsaivs: opt the default + non-default VRFs (both AF_INET and
+#     AF_INET6) into the new VPP_IP_API_FLOW_HASH_PEEK_INNER bit
+#     (sonic-sairedis #1896, vslib/vpp/SwitchVppRif.cpp).
+#   - sonic-mgmt: test_nvgre_hash limited to inner keys['src-ip', 'dst-ip', 'src-port', 'dst-port'] for vpp
+#     (no MAC-aware hash, same as marvell-teralynx limitation).
 
 #######################################
 #####    Generic Config Updater   #####
