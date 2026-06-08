@@ -15,6 +15,19 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
+from tests.common.helpers.packet_trimming import (   # noqa: F401
+    ConfigTrimming,
+    convert_all_counter_values,
+    create_blocking_scheduler,
+    disable_egress_data_plane,
+    enable_egress_data_plane,
+    get_interface_peer_addresses,
+    get_queue_trim_counters_json,
+    get_scheduler_oid_by_attributes,
+    get_scheduler_usage_count,
+    validate_scheduler_apply_to_queue_in_asic_db,
+    validate_scheduler_configuration,
+)
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
@@ -22,13 +35,13 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
-                                             SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
+                                             SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
-                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, MIRROR_SESSION_NAME,
+                                             MIRROR_SESSION_NAME,
                                              MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
                                              MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
-                                             SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN,
+                                             PACKET_SIZE_MARGIN,
                                              TRIMMING_COUNTER_INTERVAL)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -283,132 +296,6 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
     return pkt, masked_exp_packet
 
 
-def get_scheduler_oid_by_attributes(duthost, **kwargs):
-    """
-    Find scheduler OID in ASIC_DB by matching its attributes.
-
-    Args:
-        duthost: DUT host object
-        **kwargs: Scheduler attributes to match
-            - type: Scheduler type (e.g., "DWRR", "STRICT")
-            - weight: Scheduling weight (e.g., 15)
-            - pir: Peak Information Rate (e.g., 1)
-            - cir: Committed Information Rate (e.g., 1)
-
-    Returns:
-        str: OID of the matched scheduler, or None if not found
-    """
-    # Mapping from CONFIG_DB parameters to ASIC_DB SAI attributes
-    param_to_sai_attr = {
-        'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
-        'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
-        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE',
-        'cir': 'SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE'
-    }
-
-    # Mapping for type values
-    type_value_mapping = {
-        'DWRR': 'SAI_SCHEDULING_TYPE_DWRR',
-        'STRICT': 'SAI_SCHEDULING_TYPE_STRICT'
-    }
-
-    # Build expected attributes dictionary
-    expected_attrs = {}
-    for param, value in kwargs.items():
-        if param not in param_to_sai_attr:
-            logger.warning(f"Unknown scheduler parameter: {param}")
-            continue
-
-        sai_attr = param_to_sai_attr[param]
-
-        # Convert type value to SAI format
-        if param == 'type':
-            if value in type_value_mapping:
-                expected_attrs[sai_attr] = type_value_mapping[value]
-            else:
-                logger.warning(f"Unknown scheduler type: {value}")
-                continue
-        else:
-            # For numeric values, convert to string for comparison
-            expected_attrs[sai_attr] = str(value)
-
-    logger.info(f"Looking for scheduler with attributes: {expected_attrs}")
-
-    # Get all scheduler OIDs from ASIC_DB
-    cmd_get_oids = 'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
-    result = duthost.shell(cmd_get_oids)
-
-    if not result["stdout"].strip():
-        logger.warning("No schedulers found in ASIC_DB")
-        return None
-
-    oid_keys = result["stdout"].strip().split('\n')
-    logger.info(f"Found {len(oid_keys)} schedulers in ASIC_DB")
-
-    # Check each scheduler to find a match
-    for oid_key in oid_keys:
-        # Get all attributes of this scheduler
-        cmd_get_attrs = f'redis-cli -n 1 hgetall "{oid_key}"'
-        result = duthost.shell(cmd_get_attrs)
-
-        if not result["stdout"].strip():
-            continue
-
-        # Parse the attributes
-        lines = result["stdout"].strip().split('\n')
-        scheduler_attrs = {}
-        for i in range(0, len(lines), 2):
-            if i + 1 < len(lines):
-                scheduler_attrs[lines[i]] = lines[i + 1]
-
-        # Check if all expected attributes match
-        is_match = True
-        for attr_name, expected_value in expected_attrs.items():
-            actual_value = scheduler_attrs.get(attr_name)
-            if actual_value != expected_value:
-                is_match = False
-                break
-
-        if is_match:
-            # Extract the OID value (e.g., "0x160000000059aa")
-            oid_value = oid_key.split(':')[-1]
-            logger.info(f"Found matching scheduler OID: {oid_value}")
-            logger.debug(f"Scheduler attributes: {scheduler_attrs}")
-            return oid_value
-
-    logger.warning(f"No scheduler found matching attributes: {expected_attrs}")
-    return None
-
-
-def create_blocking_scheduler(duthost):
-    """
-    Create a blocking scheduler for limiting egress traffic
-
-    Args:
-        duthost: DUT host object
-    """
-    logger.info(f"Creating blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
-
-    # Check if scheduler already exists
-    cmd_check = f"sonic-db-cli CONFIG_DB exists 'SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}'"
-    result = duthost.shell(cmd_check)
-
-    if result["stdout"].strip() == "1":
-        logger.info(f"Blocking scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME} already exists")
-    else:
-        # Create blocking scheduler
-        cmd_create = (
-            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "cir" {SCHEDULER_CIR}'
-        )
-        # meter_type is platform specific
-        if duthost.get_asic_name() == 'th5':
-            cmd_create += f' "meter_type" {SCHEDULER_METER_TYPE}'
-
-        duthost.shell(cmd_create)
-        logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
-
-
 def delete_blocking_scheduler(duthost):
     """
     Delete the blocking scheduler if it's not in use
@@ -443,174 +330,6 @@ def validate_packet_size(pkt_size, pkt_size_exp):
     """
     pytest_assert(pkt_size_exp - PACKET_SIZE_MARGIN <= pkt_size <= pkt_size_exp + PACKET_SIZE_MARGIN,
                   f"Packet size expected {pkt_size_exp} +/- {PACKET_SIZE_MARGIN}, was: {pkt_size} ")
-
-
-def validate_scheduler_configuration(duthost, dut_port, queue, expected_scheduler):
-    """
-    Validate that the scheduler configuration is applied correctly for a specific queue.
-
-    Args:
-        duthost: DUT host object
-        dut_port (str): DUT port name
-        queue (str): Queue index
-        expected_scheduler (str): Expected scheduler name
-
-    Returns:
-        bool: True if scheduler matches expected value, False otherwise
-    """
-    cmd_verify_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
-    verify_result = duthost.shell(cmd_verify_scheduler)
-    current_scheduler = verify_result["stdout"].strip()
-
-    if current_scheduler == expected_scheduler:
-        logger.debug(f"Scheduler validation successful for port {dut_port} queue {queue}: {current_scheduler}")
-        return True
-    else:
-        logger.debug(f"Scheduler validation failed for port {dut_port} queue {queue}. "
-                     f"Expected: {expected_scheduler}, Got: {current_scheduler}")
-        return False
-
-
-def get_scheduler_usage_count(duthost, scheduler_oid):
-    """
-    Get the count of scheduler groups using the specified scheduler in ASIC_DB.
-
-    Args:
-        duthost: DUT host object
-        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
-
-    Returns:
-        int: Number of scheduler groups using this scheduler
-    """
-    # Dump ASIC_DB to a temporary file for faster searching
-    tmp_file = "/tmp/asic_db_scheduler_check.json"
-    dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
-    duthost.shell(dump_cmd)
-
-    # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
-    cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
-    result = duthost.shell(cmd_grep_oid, module_ignore_errors=True)
-
-    # Clean up temporary file
-    duthost.shell(f"rm -f {tmp_file}")
-
-    # Return the count
-    count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
-    return count
-
-
-def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expected_count=1):
-    """
-    Validate that the scheduler is applied to queue in ASIC_DB.
-
-    Args:
-        duthost: DUT host object
-        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
-        expected_count (int): Expected number of scheduler groups using this scheduler. Default is 1.
-
-    Returns:
-        bool: True if validation passes (count equals expected_count), False otherwise
-    """
-    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB (expected_count={expected_count})")
-
-    # Get current usage count
-    count = get_scheduler_usage_count(duthost, scheduler_oid)
-
-    # Validate count matches expected
-    if count == expected_count:
-        logger.debug(f"ASIC_DB scheduler validation successful: "
-                     f"OID {scheduler_oid} found in {count} scheduler groups (matches expected)")
-        return True
-    else:
-        logger.debug(f"ASIC_DB scheduler validation failed: "
-                     f"OID {scheduler_oid} found in {count} scheduler groups (expected {expected_count})")
-        return False
-
-
-def disable_egress_data_plane(duthost, dut_port, queue):
-    """
-    Disable egress data plane for a specific queue on a specific port.
-
-    Args:
-        duthost: DUT host object
-        dut_port (str): DUT port name
-        queue (str/int): Queue index to disable
-
-    Returns:
-        str: Original scheduler name for later restoration
-    """
-    # Convert queue to string format
-    queue = str(queue)
-
-    logger.info(f"Disabling egress data plane for port: {dut_port}, queue: {queue}")
-
-    # Get original scheduler name
-    cmd_get_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
-    result = duthost.shell(cmd_get_scheduler)
-
-    original_scheduler = result["stdout"].strip()
-
-    # Get the blocking scheduler OID from ASIC_DB
-    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
-                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
-    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
-
-    # Get current scheduler usage count before applying scheduler to specific queue
-    current_count = get_scheduler_usage_count(duthost, scheduler_oid)
-    logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
-
-    # Apply blocking scheduler to the specified queue
-    cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
-    duthost.shell(cmd_block_q)
-
-    # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
-                             duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
-                  f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
-
-    # Wait for the blocking scheduler configuration to take effect in ASIC_DB
-    # Expected count should increase by 1 after applying scheduler to specific queue
-    expected_count = current_count + 1
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
-                             expected_count),
-                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
-                  f"queue {queue} (expected count: {expected_count})")
-
-    logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
-
-    return original_scheduler
-
-
-def enable_egress_data_plane(duthost, dut_port, queue, original_scheduler=None):
-    """
-    Restore egress data plane for a specific queue on a specific port.
-
-    Args:
-        duthost: DUT host object
-        dut_port (str): DUT port name
-        queue (str/int): Queue index to enable
-        original_scheduler (str): Original scheduler name to restore. If None, will use default.
-    """
-    # Convert queue to string format
-    queue = str(queue)
-
-    logger.info(f"Enabling egress data plane for port: {dut_port}, queue: {queue}")
-
-    # Determine scheduler to apply
-    if original_scheduler is None:
-        # Use default scheduler if original not provided
-        original_scheduler = DEFAULT_QUEUE_SCHEDULER_CONFIG.get(queue)
-
-    # Apply original or default scheduler
-    if original_scheduler:
-        cmd = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {original_scheduler}"
-        duthost.shell(cmd)
-        logger.info(f"Restored scheduler '{original_scheduler}' for port {dut_port} queue {queue}")
-    else:
-        # Remove scheduler if no original or default found
-        cmd = f"sonic-db-cli CONFIG_DB hdel 'QUEUE|{dut_port}|{queue}' scheduler"
-        duthost.shell(cmd)
-        logger.info(f"Removed scheduler for port {dut_port} queue {queue}")
 
 
 def configure_trimming_action(duthost, buffer_profile_name, action):
@@ -1307,74 +1026,6 @@ def compute_buffer_threshold_for_nvidia_device_disable_hba(duthost, interface, q
         pytest.fail(f"Failed to calculate buffer size for queue {queue_id} on {interface}: {str(e)}")
 
 
-class ConfigTrimming:
-    """
-    Context manager for blocking and restoring multiple egress ports.
-    This is used to trigger packet trimming by blocking the egress queues.
-    """
-
-    def __init__(self, duthost, ports, queue):
-        """
-        Initialize the context manager.
-
-        Args:
-            duthost: DUT host object
-            ports (list or str): List of port names or single port name
-                               (e.g., ["Ethernet0", "Ethernet4"] or "Ethernet0")
-            queue (int): Queue index
-        """
-        self.duthost = duthost
-        self.ports = [ports] if isinstance(ports, str) else ports
-        self.queue = queue
-        # Store the original scheduler configuration for each port
-        self.original_schedulers = {}
-
-    def __enter__(self):
-        """
-        Block all specified egress ports by applying blocking scheduler.
-        """
-        try:
-            for port in self.ports:
-                logger.info(f"Blocking egress port {port} queue {self.queue}")
-                original_scheduler = disable_egress_data_plane(self.duthost, port, self.queue)
-
-                if not original_scheduler:
-                    raise Exception(f"Failed to block egress port {port} queue {self.queue}")
-
-                # Save the original scheduler configuration
-                self.original_schedulers[port] = original_scheduler
-                logger.info(f"Successfully blocked port {port} (original scheduler: {original_scheduler})")
-
-            return self
-
-        except Exception as e:
-            logger.error(f"Failed to block egress ports: {e}")
-            # Try to cleanup if setup fails
-            self.__exit__(None, None, None)
-            raise
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Restore original scheduler configuration for all ports when exiting the context.
-        """
-        restore_errors = []
-
-        for port, original_scheduler in self.original_schedulers.items():
-            try:
-                if original_scheduler:
-                    logger.info(f"Restoring original scheduler for port {port} queue {self.queue}")
-                    enable_egress_data_plane(self.duthost, port, self.queue, original_scheduler)
-                    logger.info(f"Successfully restored scheduler for port {port}")
-
-            except Exception as e:
-                error_msg = f"Exception while restoring port {port}: {str(e)}"
-                logger.error(error_msg)
-                restore_errors.append(error_msg)
-
-        if restore_errors:
-            raise Exception(f"Failed to restore some ports: {'; '.join(restore_errors)}")
-
-
 def check_trimming_capability(duthost):
     """
     Check packet trimming capability in sai.profile.
@@ -2000,60 +1651,6 @@ def get_test_ports(upstream_links, downstream_links, peer_links, mg_facts):
         "egress_port_1": egress_port_1,
         "egress_port_2": egress_port_2
     }
-
-
-def get_interface_peer_addresses(mg_facts, interface_name):
-    """
-    Get IPv4 and IPv6 peer addresses of a specified interface from minigraph facts.
-
-    Args:
-        mg_facts (dict): Minigraph facts dictionary containing minigraph_interfaces
-        interface_name (str): Interface name (e.g., "Ethernet96")
-
-    Returns:
-        tuple: (ipv4_peer_addr, ipv6_peer_addr)
-              IPv4 and IPv6 peer addresses of the interface
-              May return (None, None) if no peer addresses are found for the interface
-
-    Note:
-        This function assumes mg_facts contains valid 'minigraph_interfaces' data.
-        It identifies IPv4 and IPv6 addresses by examining the IP version.
-    """
-    ipv4_peer_addr = None
-    ipv6_peer_addr = None
-
-    if "PortChannel" in interface_name:
-        # Search in PortChannel interfaces
-        interface_list_key = 'minigraph_portchannel_interfaces'
-        logger.info(f"Searching for PortChannel interface {interface_name} in {interface_list_key}")
-    else:
-        # Search in regular interfaces
-        interface_list_key = 'minigraph_interfaces'
-        logger.info(f"Searching for regular interface {interface_name} in {interface_list_key}")
-
-    # Check if the required interface list exists in mg_facts
-    if interface_list_key not in mg_facts:
-        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")
-        return ipv4_peer_addr, ipv6_peer_addr
-
-    for interface in mg_facts[interface_list_key]:
-        if interface.get('attachto') == interface_name:
-            # Check if this is an IPv4 or IPv6 address
-            if 'peer_addr' in interface:
-                # Create IP address object to determine version
-                ip = ipaddress.ip_address(interface['peer_addr'])
-
-                if ip.version == 4:
-                    ipv4_peer_addr = interface['peer_addr']
-                    logger.info(f"Found IPv4 peer address for {interface_name}: {ipv4_peer_addr}")
-                elif ip.version == 6:
-                    ipv6_peer_addr = interface['peer_addr']
-                    logger.info(f"Found IPv6 peer address for {interface_name}: {ipv6_peer_addr}")
-
-    if not ipv4_peer_addr and not ipv6_peer_addr:
-        logger.warning(f"No peer addresses found for interface {interface_name}")
-
-    return ipv4_peer_addr, ipv6_peer_addr
 
 
 def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_port, send_pkt_size, send_pkt_dscp,
@@ -2718,26 +2315,6 @@ def get_queue_id_by_dscp(dscp, ingress_port_name, dut_qos_maps_module):
     return queue_id
 
 
-def convert_all_counter_values(data):
-    """
-    Convert all counter values in a dictionary, handle 'N/A' and comma-separated numbers.
-
-    Args:
-        data (dict): Dictionary containing counter values
-
-    Returns:
-        dict: Dictionary with all string values converted to integers.
-              'N/A' values are converted to 0, comma-separated numbers are handled.
-    """
-    for field, value in data.items():
-        if isinstance(value, str):
-            if value == 'N/A':
-                data[field] = 0
-            else:
-                data[field] = int(value.replace(',', ''))
-    return data
-
-
 def get_switch_trim_counters_json(duthost):
     """
     Get switch level trim counter using JSON format.
@@ -2818,70 +2395,6 @@ def get_port_trim_counters_json(duthost, port):
     convert_all_counter_values(port_data)
 
     logger.info(f"Trim counters for port {port}: {port_data}")
-    return port_data
-
-
-def get_queue_trim_counters_json(duthost, port):
-    """
-    Get specified port queue level trim counter using JSON format.
-
-    Args:
-        duthost: DUT host object
-        port (str): port name, e.g. Ethernet96
-
-    Example:
-        admin@r-bison-04:~$ show queue counters Ethernet0 --all --json
-        {
-          "Ethernet0": {
-            "UC0": {
-              "dropbytes": "N/A",
-              "droppacket": "0",
-              "totalbytes": "0",
-              "totalpacket": "0",
-              "trimdroppacket": "N/A",
-              "trimpacket": "0",
-              "trimsentpacket": "N/A"
-            },
-            ...
-          }
-        }
-
-    Returns:
-        dict: Queue trim counters with all values converted to integers.
-              'N/A' values are converted to 0, comma-separated numbers are handled.
-              'time' field is excluded from the returned data.
-              Example: {
-                  "UC0": {
-                      "dropbytes": 0,
-                      "droppacket": 0,
-                      "totalbytes": 0,
-                      "totalpacket": 0,
-                      "trimdroppacket": 0,
-                      "trimpacket": 0,
-                      "trimsentpacket": 0
-                  },
-                  ...
-              }
-    """
-    result = duthost.shell(f"show queue counters {port} --all --json")
-    stdout = result['stdout'].strip()
-    pytest_assert(stdout, "Command returned empty output.")
-
-    json_data = json.loads(stdout)
-    port_data = json_data.get(port, {})
-    pytest_assert(port_data, f"No queue data found for port {port} in JSON output")
-
-    # Remove the time field from the returned data
-    if "time" in port_data:
-        del port_data["time"]
-
-    # Convert all counter values from string to int for all fields
-    for queue_id, queue_data in port_data.items():
-        if isinstance(queue_data, dict):
-            # Convert all counter values, handle 'N/A' and comma-separated numbers
-            convert_all_counter_values(queue_data)
-
-    logger.info(f"Queue trim counters for port {port} (JSON): {port_data}")
     return port_data
 
 

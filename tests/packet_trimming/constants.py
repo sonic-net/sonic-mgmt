@@ -1,4 +1,14 @@
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
+from tests.common.helpers.packet_trimming import (   # noqa: F401
+    BLOCK_DATA_PLANE_SCHEDULER_NAME,
+    SCHEDULER_TYPE,
+    SCHEDULER_WEIGHT,
+    SCHEDULER_PIR,
+    SCHEDULER_CIR,
+    SCHEDULER_METER_TYPE,
+    DEFAULT_QUEUE_SCHEDULER_CONFIG,
+    DEFAULT_DSCP,
+)
 
 # ACL configuration constants
 ACL_TABLE_TYPE_NAME = "TRIMMING_L3"
@@ -15,7 +25,6 @@ DEFAULT_SRC_IPV6 = "2001:db8::1"
 DEFAULT_DST_IPV6 = "2001:db8::2"
 DEFAULT_SRC_PORT = 4321
 DEFAULT_DST_PORT = 1234
-DEFAULT_DSCP = 1   # Map to queue1
 DEFAULT_PACKET_SIZE = 400
 DEFAULT_TTL = 64
 JUMBO_PACKET_SIZE = 5000
@@ -47,23 +56,7 @@ CONFIG_TOGGLE_COUNT = 10  # number of times to toggle configuration
 MODE_TOGGLE_COUNT = 5     # number of times to toggle Symmetric and Asymmetric mode
 NORMAL_PACKET_DSCP = 4    # DSCP value for normal packet
 
-BLOCK_DATA_PLANE_SCHEDULER_NAME = "SCHEDULER_BLOCK_DATA_PLANE"
-SCHEDULER_TYPE = "DWRR"
-SCHEDULER_WEIGHT = 15
-SCHEDULER_PIR = 1
-SCHEDULER_CIR = 1
-SCHEDULER_METER_TYPE = 'packets'
-
 DATA_PLANE_QUEUE_LIST = ["0", "1", "2", "3", "4", "5", "6"]
-DEFAULT_QUEUE_SCHEDULER_CONFIG = {
-    "0": "scheduler.0",
-    "1": "scheduler.0",
-    "2": "scheduler.0",
-    "3": "scheduler.1",
-    "4": "scheduler.1",
-    "5": "scheduler.0",
-    "6": "scheduler.0"
-}
 
 PACKET_TYPE = ['ipv4_tcp', 'ipv4_udp', 'ipv6_tcp', 'ipv6_udp']
 SERVICE_PORT = "Ethernet512"
