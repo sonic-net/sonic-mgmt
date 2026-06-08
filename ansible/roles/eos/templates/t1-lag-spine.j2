@@ -1,5 +1,5 @@
 {% set host = configuration[hostname] %}
-{% set converged = topo_is_multi_vrf|default(false) %}
+{% set converged = topo_is_multi_vrf|default(false)|bool %}
 {% if converged %}
     {% set conv_config = convergence_data["converged_peers"][hostname] %}
     {% set conv_mapping = convergence_data["convergence_mapping"][hostname] %}
@@ -232,8 +232,13 @@ router bgp {{ host['bgp']['asn'] }}
  exit
  router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
-    {% for asn, remote_ips in host['bgp']['peers'].items() %}
-        {% for remote_ip in remote_ips %}
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+ bgp confederation identifier {{ host['bgp']['confed_asn'] }}
+ bgp confederation peers {{ host['bgp']['confed_peers'] }}
+!
+{% endif %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+    {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
  neighbor {{ remote_ip }} next-hop-self

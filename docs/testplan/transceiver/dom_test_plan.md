@@ -27,26 +27,10 @@ Before executing the DOM tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
+- `dom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test
+- DOM monitoring is enabled in CONFIG_DB for all relevant ports under test (verified once at session start — see [Common Test Setup and Teardown](#common-test-setup-and-teardown))
 
-### Environment Validation
-
-Before starting tests, verify the following system conditions:
-
-1. **System Health Check**
-   - All critical services are running (xcvrd, pmon, swss, syncd) for at least 5 minutes
-   - No existing system errors in logs (specific error patterns can be added here)
-
-2. **Transceiver Baseline Verification**
-   - All expected transceivers are present and detected
-   - All links are in operational state
-   - No existing I2C communication errors
-   - LLDP neighbors are discovered (if LLDP is enabled)
-
-3. **Configuration Validation**
-   - `dom.json` configuration file is properly formatted and accessible
-   - All required attributes are defined for the transceivers under test
-   - Platform-specific settings are correctly configured
-   - DOM monitoring config is enabled for all relevant ports under test
+System health (running daemons, fresh logs) and transceiver baseline (presence, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates DOM consumes.
 
 ## Attributes
 
@@ -78,6 +62,15 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | shutdown_tx_power_threshold | float | -30.0 | O | transceivers | Maximum TX power in dBm expected when interface is shutdown |
 | shutdown_rx_power_threshold | float | -30.0 | O | transceivers | Maximum RX power in dBm expected on remote side when interface is shutdown |
 | data_max_age_min | integer | 5 | O | platform | Maximum age in minutes for DOM data to be considered fresh (last_update_time validation) |
+| voltage_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `voltage` in volts. Format: `{"min": <float>, "max": <float>}` — the difference `post-test value − baseline value` must satisfy `min <= difference <= max`. Omit to skip this post-test check. |
+| laser_temperature_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `laser_temperature` in Celsius. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this post-test check. |
+| txLANE_NUMbias_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}bias` in mA, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| txLANE_NUMpower_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `tx{lane}power` in dBm, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| rxLANE_NUMpower_deviation_range | dict | - | O | transceivers | Acceptable post-test deviation from baseline for `rx{lane}power` in dBm, validated per lane. Format: `{"min": <float>, "max": <float>}` — `min <= (post-test − baseline) <= max`. Omit to skip this per-lane post-test check. |
+| telemetry_profile_poll_interval_sec | integer | 10 | O | transceivers or platform_hwsku_overrides | Polling interval in seconds for the telemetry update profiling test |
+| telemetry_profile_duration_min | integer | 10 | O | transceivers or platform_hwsku_overrides | Duration in minutes to run the telemetry update profiling test |
+
+**Post-test deviation rule:** For tests that restore a port to steady-state operation, the test captures a baseline DOM reading before the disruptive operation and a post-test reading after recovery. For each configured `_deviation_range` attribute, compute `difference = post-test value − baseline value` and verify `min <= difference <= max`. The baseline is the first reading recorded at the start of the test (or the average of multiple pre-test readings if the test collects them). The check applies only to attributes that are present in the configuration. Lane-based entries such as TX bias and TX/RX power use the `LANE_NUM` expansion and are validated per lane. The test fails if any enabled field's deviation falls outside its configured range.
 
 ## Example `dom.json` File
 
@@ -100,7 +93,12 @@ The following example demonstrates a complete `dom.json` file focusing on `tempe
             "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
           },
           "MMA1T00-VS-400G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
+            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
+            "voltage_deviation_range": {"min": -0.10, "max": 0.10},
+            "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
+            "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
+            "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
+            "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
           }
         }
       },
@@ -152,19 +150,26 @@ For detailed CLI commands used in the test cases below, please refer to the [CLI
 
 ## Test Cases
 
-**Test Execution Prerequisites:**
-
-The following tests from the [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-cases-interim) will be run prior to executing the DOM tests:
-
-- Transceiver presence check
-- Ensure active firmware is gold firmware (for non-DAC CMIS transceivers)
-- Link up verification
-- LLDP verification (if enabled)
-- Ensure DOM monitoring is enabled for all relevant ports under test
-
 **Assumptions for the Below Tests:**
 
 - All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
+
+### Common Test Setup and Teardown
+
+Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) from the parent framework. DOM tests add the following category-specific checks:
+
+#### Session-Level Setup (once per test run)
+
+1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown.
+
+#### Per-Test Setup (before each test case)
+
+1. **Interface liveness**: Verify all ports under test are operationally up with no recent link flaps. Checked per test because Advanced tests are disruptive and may affect link state.
+2. **Data freshness**: Query `TRANSCEIVER_DOM_SENSOR` in STATE_DB and verify `last_update_time` is within `data_max_age_min` minutes of current time.
+
+#### Per-Test Teardown (after each test case)
+
+1. **Data freshness**: Re-verify `last_update_time` in `TRANSCEIVER_DOM_SENSOR` is within `data_max_age_min` minutes of current time for all ports under test.
 
 ### Basic DOM Functionality Tests
 
@@ -177,24 +182,27 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 
 ### Advanced DOM Testing
 
+> **Note:** Each test case's steps include the TC-specific baselines it needs (e.g., remote-side DOM values, link flap counts). Failure-path recovery (restoring shutdown interfaces, re-enabling DOM polling) is handled by the session-level [Cleanup](#cleanup-and-post-test-verification).
+
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | DOM data during interface state changes | 1. Record baseline DOM values with interface in operational state and verify `last_update_time` is within `data_max_age_min` minutes of current time.<br>2. Identify remote side port from `sonic_{inv_name}_links.csv` for end-to-end validation.<br>3. Record remote side baseline DOM values including RX power for all lanes and alarm/warning flag states.<br>4. Issue `config interface shutdown <port>` and wait for shutdown completion.<br>5. Validate local DOM data changes for shutdown state:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table:<br>      i. For each available media lane: `tx{lane}bias` should be below `shutdown_tx_bias_threshold`<br>      ii. For each available media lane: `tx{lane}power` should be below `shutdown_tx_power_threshold`<br>      iii. `temperature` and `voltage` should remain within normal ranges<br>   b. From `TRANSCEIVER_STATUS` table:<br>      i. For each available host lane: verify `tx{lane}los_hostlane` flag is set (indicating host lane loss of signal)<br>   c. From corresponding flag metadata tables for `tx{lane}los_hostlane`:<br>      i. For each available host lane: verify flag change count increments<br>      ii. For each available host lane: verify last set time is updated to reflect shutdown event timing<br>      iii. For each available host lane: verify last clear time remains unchanged from baseline<br>   d. From `PORT_TABLE` of APPL_DB: verify `last_update_time` is updated within `last_down_time` for all relevant tables<br>6. Validate remote side DOM reflects link down condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: for each available lane verify `rx{lane}power` is below `shutdown_rx_power_threshold`<br>   b. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are set<br>   c. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last set time is updated to reflect link down event timing<br>7. Issue `config interface startup <port>` and wait for startup completion.<br>8. Validate local DOM data returns to operational ranges:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify all sensor values return to operational ranges and `last_update_time` is fresh<br>   b. From `TRANSCEIVER_STATUS` table: for each available host lane verify `tx{lane}los_hostlane` flag is cleared<br>   c. From corresponding flag metadata tables:<br>      i. For each available host lane: verify flag change count increments for `tx{lane}los_hostlane`<br>      ii. For each available host lane: verify last clear time is updated to reflect startup event<br>9. Validate remote side DOM reflects link up condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify RX power returns to operational range on remote side for all lanes<br>   b. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are cleared<br>   c. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last clear time is updated to reflect link up event<br> | DOM values accurately reflect interface operational state on both local and remote sides with proper timing correlation. Shutdown state shows expected TX parameter changes locally (including `tx{lane}los_hostlane` flag set with proper change count and timing) while remote side shows corresponding RX power drop below `shutdown_rx_power_threshold` with appropriate flag management. Startup properly restores all DOM parameters to operational ranges on both sides with flag clearing (local `tx{lane}los_hostlane` cleared with updated change count and clear time). Data freshness is confirmed at each state transition within expected timing windows. End-to-end link health is validated through comprehensive DOM correlation including flag lifecycle management with complete change tracking. Complete bidirectional validation ensures robust link health monitoring. |
-| 2 | DOM polling and data freshness validation | 1. Verify DOM polling is currently enabled.<br>2. Record baseline interface operational state and link flap count.<br>3. Disable DOM polling: `config interface transceiver dom <port> disable`.<br>4. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table immediately after disabling to establish baseline.<br>5. Wait for 2x `max_update_time_sec`.<br>6. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table after the wait period.<br>7. Verify interface remains operationally up and link flap count unchanged.<br>8. Verify that `last_update_time` has not been updated during disabled period (matches baseline value from step 4).<br>9. Validate that DOM sensor values remain static (no new readings) during disabled period.<br>10. Enable DOM polling: `config interface transceiver dom <port> enable`.<br>11. Verify interface remains operationally up and link flap count unchanged during enable operation.<br>12. Wait for `max_update_time_sec` and verify `last_update_time` is updated and within `data_max_age_min` minutes of current time.<br>13. Validate that all DOM sensor values are refreshed and within expected operational ranges.<br>14. Perform consistency check by reading DOM data `consistency_check_poll_count` times to ensure stable polling operation.<br>15. Verify continuous data freshness by monitoring `last_update_time` updates over multiple polling cycles.<br>16. Confirm link flap count remains unchanged from baseline throughout the entire DOM polling control test sequence. | DOM polling control works correctly with precise enable/disable functionality without causing interface instability. Disabled polling completely prevents data updates while maintaining data integrity and link stability. Enabled polling resumes data collection within expected intervals with immediate data refresh and no link disruption. Data freshness is properly maintained through the `last_update_time` field with consistent update patterns. All sensor values return to expected ranges after re-enabling with stable polling behavior. Interface remains operationally stable throughout the test with link flap count remaining constant, confirming no flaps occurred during DOM polling state transitions. |
+| 1 | DOM data during interface state changes | 1. Record baseline DOM values with interface in operational state and verify `last_update_time` is within `data_max_age_min` minutes of current time.<br>2. Identify remote side port from `sonic_{inv_name}_links.csv` for end-to-end validation.<br>3. Record remote side baseline DOM values including RX power for all lanes and alarm/warning flag states.<br>4. Issue `config interface shutdown <port>` and wait for shutdown completion.<br>5. Validate local DOM data changes for shutdown state:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table:<br>      i. For each available media lane: `tx{lane}bias` should be below `shutdown_tx_bias_threshold`<br>      ii. For each available media lane: `tx{lane}power` should be below `shutdown_tx_power_threshold`<br>      iii. `temperature` and `voltage` should remain within normal ranges<br>   b. From `TRANSCEIVER_STATUS` table:<br>      i. For each available host lane: verify `tx{lane}los_hostlane` flag is set (indicating host lane loss of signal)<br>   c. From corresponding flag metadata tables for `tx{lane}los_hostlane`:<br>      i. For each available host lane: verify flag change count increments<br>      ii. For each available host lane: verify last set time is updated to reflect shutdown event timing<br>      iii. For each available host lane: verify last clear time remains unchanged from baseline<br>   d. From `PORT_TABLE` of APPL_DB: verify `last_update_time` is updated within `last_down_time` for all relevant tables<br>6. Validate remote side DOM reflects link down condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: for each available lane verify `rx{lane}power` is below `shutdown_rx_power_threshold`<br>   b. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are set<br>   c. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last set time is updated to reflect link down event timing<br>7. Issue `config interface startup <port>` and wait for startup completion.<br>8. Validate local DOM data returns to operational ranges:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify all sensor values return to operational ranges and `last_update_time` is fresh<br>   b. If any of `voltage_deviation_range`, `laser_temperature_deviation_range`, `txLANE_NUMbias_deviation_range`, or `txLANE_NUMpower_deviation_range` are defined, compute the deviation of each post-startup DOM value from the baseline recorded in step 1 and verify `min <= deviation <= max`<br>   c. From `TRANSCEIVER_STATUS` table: for each available host lane verify `tx{lane}los_hostlane` flag is cleared<br>   d. From corresponding flag metadata tables:<br>      i. For each available host lane: verify flag change count increments for `tx{lane}los_hostlane`<br>      ii. For each available host lane: verify last clear time is updated to reflect startup event<br>9. Validate remote side DOM reflects link up condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify RX power returns to operational range on remote side for all lanes<br>   b. If `rxLANE_NUMpower_deviation_range` is defined, compute the deviation of remote-side post-startup RX power from the baseline recorded in step 3 and verify `min <= deviation <= max`<br>   c. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are cleared<br>   d. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last clear time is updated to reflect link up event<br> | DOM values accurately reflect interface operational state on both local and remote sides with proper timing correlation. Shutdown state shows expected TX parameter changes locally (including `tx{lane}los_hostlane` flag set with proper change count and timing) while remote side shows corresponding RX power drop below `shutdown_rx_power_threshold` with appropriate flag management. Startup properly restores all DOM parameters to operational ranges on both sides with flag clearing (local `tx{lane}los_hostlane` cleared with updated change count and clear time). When any deviation range attribute is configured, the deviation of post-test values from their baselines stays within the configured min/max range for all enabled DOM fields. Data freshness is confirmed at each state transition within expected timing windows. End-to-end link health is validated through comprehensive DOM correlation including flag lifecycle management with complete change tracking. Complete bidirectional validation ensures robust link health monitoring. |
+| 2 | DOM polling and data freshness validation | 1. Verify DOM polling is currently enabled.<br>2. Record baseline interface operational state, link flap count, and DOM sensor values for all fields with a configured `_deviation_range` attribute.<br>3. Disable DOM polling: `config interface transceiver dom <port> disable`.<br>4. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table immediately after disabling to establish baseline.<br>5. Wait for 2x `max_update_time_sec`.<br>6. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table after the wait period.<br>7. Verify interface remains operationally up and link flap count unchanged.<br>8. Verify that `last_update_time` has not been updated during disabled period (matches baseline value from step 4).<br>9. Validate that DOM sensor values remain static (no new readings) during disabled period.<br>10. Enable DOM polling: `config interface transceiver dom <port> enable`.<br>11. Verify interface remains operationally up and link flap count unchanged during enable operation.<br>12. Wait for `max_update_time_sec` and verify `last_update_time` is updated and within `data_max_age_min` minutes of current time.<br>13. Validate that all DOM sensor values are refreshed and within expected operational ranges.<br>14. If any deviation range attributes are defined, compute the deviation of each refreshed DOM sensor value from the baseline recorded in step 2 and verify `min <= deviation <= max`.<br>15. Perform consistency check by reading DOM data `consistency_check_poll_count` times to ensure stable polling operation.<br>16. Verify continuous data freshness by monitoring `last_update_time` updates over multiple polling cycles.<br>17. Confirm link flap count remains unchanged from baseline throughout the entire DOM polling control test sequence. | DOM polling control works correctly with precise enable/disable functionality without causing interface instability. Disabled polling completely prevents data updates while maintaining data integrity and link stability. Enabled polling resumes data collection within expected intervals with immediate data refresh and no link disruption. Data freshness is properly maintained through the `last_update_time` field with consistent update patterns. All sensor values return to expected ranges after re-enabling with stable polling behavior. When any deviation range attribute is configured, the deviation of post-test values from their baselines remains within the configured min/max range for all enabled DOM fields. Interface remains operationally stable throughout the test with link flap count remaining constant, confirming no flaps occurred during DOM polling state transitions. |
+| 3 | Telemetry update interval profiling | 1. Verify DOM polling is enabled and port is operationally up.<br>2. Record initial `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table.<br>3. Poll `last_update_time` every `telemetry_profile_poll_interval_sec` seconds for `telemetry_profile_duration_min` minutes.<br>4. On each poll, record the current `last_update_time` value and calculate the delta from the previous distinct `last_update_time` (skip consecutive polls where the timestamp has not changed).<br>5. After the profiling period, compute statistics from the collected update interval deltas: minimum, maximum, mean and median.<br>6. Verify every observed `last_update_time` remained within `data_max_age_min`.<br>7. Log the full statistics profile and per-port summary for cross-release comparison. | All `last_update_time` values remain within `data_max_age_min` throughout the profiling window. The logged statistics (min, max, mean, median) provide a quantitative baseline for detecting polling regressions between image releases. No update gaps exceed `data_max_age_min`. |
 
 ## Cleanup and Post-Test Verification
 
-After test completion:
+The following steps are performed once after **all test cases** in this plan have completed. The [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) already cover ongoing health monitoring throughout the run.
 
-### Immediate Cleanup
+### State Restoration
 
-1. **DOM State Verification**: Ensure DOM monitoring continues to function normally after testing
-2. **System Health**: Check system logs for any DOM-related errors or warnings introduced during testing
-3. **Service Status**: Verify xcvrd and pmon services are operating normally with DOM polling active
+1. **Interface state**: Confirm all ports under test are operationally up. If any port remains in a shutdown state (e.g., due to test failure in Advanced TC 1), issue `config interface startup <port>`.
+2. **DOM polling**: Confirm DOM polling is re-enabled for all ports. If any port has DOM polling disabled (e.g., due to test failure in Advanced TC 2), issue `config interface transceiver dom <port> enable`.
+3. **Restoration verification**: Verify `last_update_time` in `TRANSCEIVER_DOM_SENSOR` is within `data_max_age_min` minutes of current time for all ports (confirms polling resumed), and LLDP neighbors are discovered (if LLDP is enabled) to confirm end-to-end connectivity.
 
 ### Post-Test Report Generation
 
-1. **Test Summary**: Generate comprehensive test results including pass/fail status for each DOM parameter
-2. **Sensor Analysis**: Document any sensor values that approached range limits or showed unusual behavior
-3. **Performance Metrics**: Report DOM access times and any performance variations observed
-4. **Range Validation**: Summary of all DOM parameters with their actual vs. expected ranges
+1. **Test Summary**: Generate comprehensive test results including pass/fail status for each test case and DOM parameter.
+2. **Sensor Analysis**: Document any sensor values that approached range limits or showed unusual behavior during the test run.
+3. **Range Validation**: Summary of all DOM parameters with their actual vs. expected operational and threshold ranges.
+4. **Telemetry Profile**: If Advanced TC 3 was executed, include the logged update interval statistics (min, max, mean, median) as a quantitative baseline for cross-release comparison.

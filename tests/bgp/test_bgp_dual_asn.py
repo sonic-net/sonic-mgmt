@@ -4,9 +4,9 @@ import logging
 import ipaddress
 import random
 import re
+import json
 
 from tests.common import constants
-from datetime import datetime, timedelta
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
@@ -284,6 +284,18 @@ class BgpDualAsn:
             ptfhost.exabgp(name="bgps%d" % i, state="absent")
         logger.info("exabgp stopped")
 
+        # Delete test-specific BGP_PEER_RANGE entries so rollback can
+        # restore BGPVac without listen-range overlap
+        test_peer_ranges = [BGPSLB, BGPSLB_2, BGPSLB_V6, BGPSLB_V6_2]
+        del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
+        ns_list = duthost.get_frontend_asic_namespace_list() or [None]
+        for ns in ns_list:
+            ns_flag = "-n {} ".format(ns) if ns else ""
+            duthost.shell(
+                "sonic-db-cli {}CONFIG_DB del {}".format(ns_flag, del_keys),
+                module_ignore_errors=True
+            )
+
         for port in self.ptf_ports:
             ptfhost.shell("ip addr flush dev {} scope global".format(port))
         duthost.command("sonic-clear arp")
@@ -457,21 +469,31 @@ def verify_bgp_session(duthost, bgp_neighbor):
     )
 
 
-def get_bgp_uptime(duthost, bgp_neighbor):
-    # it's a work around for show ip bgp neighbors <ipaddress>, it can not show
-    # neighbors which are not configured
+def get_bgp_connection_count(duthost, bgp_neighbor):
+    """Get the established/dropped connection counts for a dynamic BGP neighbor."""
     output = duthost.shell(
-        "show ip bgp neighbors | grep -A 10 {} | grep 'Established'".format(
-            bgp_neighbor
-        )
+        'vtysh -c "show bgp neighbors {} json"'.format(bgp_neighbor),
+        module_ignore_errors=True,
     )
-    if not output["stdout"]:
-        pytest_assert(True, "Bgp neighbor {} is not up".format(bgp_neighbor))
-    time_string = re.search(r"up for (\d{2}:\d{2}:\d{2})", output["stdout"]).group(1)
-    t = datetime.strptime(time_string, "%H:%M:%S").time()
-    return int(
-        timedelta(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds()
+    pytest_assert(
+        output["rc"] == 0 and output["stdout"],
+        "Could not find connection info for {} (rc={})".format(
+            bgp_neighbor, output["rc"]
+        ),
     )
+    bgp_info = json.loads(output["stdout"])
+    pytest_assert(
+        bgp_neighbor in bgp_info,
+        "Neighbor {} not found in vtysh JSON output".format(bgp_neighbor),
+    )
+    neighbor_info = bgp_info[bgp_neighbor]
+    established = neighbor_info.get("connectionsEstablished", 0)
+    dropped = neighbor_info.get("connectionsDropped", 0)
+    pytest_assert(
+        established > 0,
+        "connectionsEstablished is 0 for {} — session was never established".format(bgp_neighbor),
+    )
+    return established, dropped
 
 
 def check_bgp_routes_exist(duthost, prefix):
@@ -525,8 +547,7 @@ def test_bgp_dual_asn_v4(
             30, 5, 10, verify_bgp_session, duthost, dualAsn.peer_addrs[0]
         ):
             pytest.fail("bgp peer %s should up" % dualAsn.peer_addrs[0])
-        current_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
-        current_time = time.time()
+        initial_established, initial_dropped = get_bgp_connection_count(duthost, dualAsn.peer_addrs[0])
         # announce route from valid bgp peer
         announce_route(ptfhost, NEIGHBOR_PORT_LIST[0], PREFIX, dualAsn.peer_addrs[0])
         # bgp peer which is not in peer range group should not up
@@ -589,10 +610,19 @@ def test_bgp_dual_asn_v4(
         check_bgp_routes_exist(duthost, PREFIX_2)
 
         # check original bgp neighbor no flapping
-        latest_time = time.time()
-        latest_bgp_uptime = get_bgp_uptime(duthost, dualAsn.peer_addrs[0])
-        if latest_time - current_time > latest_bgp_uptime - current_bgp_uptime:
-            pytest.fail("bgp %s flapped during testing" % dualAsn.peer_addrs[0])
+        # Verify the original BGP peer did not flap by comparing FRR connection counters.
+        # Uses established/dropped counts instead of uptime to avoid false positives
+        # from wall-clock vs BGP-uptime measurement drift over SSH.
+        # Note: Any change in either counter (established or dropped) is treated as unexpected,
+        # including reconnections (e.g. graceful restart). This is intentional, during
+        # this test window, the original peer should maintain a single stable session without any flap.
+        final_established, final_dropped = get_bgp_connection_count(duthost, dualAsn.peer_addrs[0])
+        if final_established != initial_established or final_dropped != initial_dropped:
+            pytest.fail(
+                "bgp %s flapped during testing (established: %d->%d, dropped: %d->%d)"
+                % (dualAsn.peer_addrs[0], initial_established, final_established,
+                   initial_dropped, final_dropped)
+            )
 
         # remove first peer range group configuration, check it's neighbor's bgp state
         bgp_peer_range_delete_config(

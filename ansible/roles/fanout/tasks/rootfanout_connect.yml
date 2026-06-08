@@ -44,11 +44,12 @@
   with_dict: "{{ lab_devices }}"
   when: item.value['Type'] == 'FanoutRoot'
 
-- set_fact:
-    root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
-
-- name: Change root fanout port vlan
-  action: apswitch template=roles/fanout/templates/arista_7260_connect.j2
-  connection: switch
-  args:
-    login: "{{ switch_login['Arista'] }}"
+- block:
+    - set_fact:
+        root_conn: "{{ lab.ansible_facts['device_conn'][root_dev] }}"
+    - name: Change root fanout port vlan
+      action: apswitch template=roles/fanout/templates/arista_7260_connect.j2
+      connection: switch
+      args:
+        login: "{{ switch_login['Arista'] }}"
+  when: root_dev is defined

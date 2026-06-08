@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+
 # Timeouts for smartswitch DPU state transitions (in seconds)
 DPU_STATE_TIMEOUT = 360
 DPU_STATE_INTERVAL = 30
@@ -250,6 +251,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
+        # Restore zebra_nexthop using minigraph_facts (parsed on controller) instead of
+        # copying a DUT-side script, eliminating duplicated XML parsing.
+        mg_facts = sonic_host.minigraph_facts(host=sonic_host.hostname)['ansible_facts']
+        zebra_nexthop = mg_facts.get('minigraph_device_metadata', {}).get('zebra_nexthop')
+        if zebra_nexthop:
+            logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
+            sonic_host.shell(
+                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+            )
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
@@ -299,6 +309,14 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
+        # After config load_minigraph, update-containers fires ~5s after the DNS config
+        # change but slow-starting containers (e.g., restapi, 75-128s startup) may not
+        # be running yet. Re-run update-containers now that all critical services are up
+        # to ensure every container gets the correct DNS nameservers.
+        if config_source == 'minigraph':
+            logger.info('Re-running update-containers to sync DNS to all running containers')
+            sonic_host.shell('/etc/resolvconf/update-libc.d/update-containers',
+                             module_ignore_errors=True)
         # PFCWD feature does not enable on some topology, for example M0
         if config_source == 'minigraph' and pfcwd_feature_enabled(sonic_host):
             # Supervisor node doesn't have PFC_WD

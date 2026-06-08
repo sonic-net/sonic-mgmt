@@ -1,10 +1,3 @@
-- name: Check if cEOS docker image exists locally
-  docker_image_info:
-    name:
-      - "{{ ceos_image }}"
-  become: yes
-  register: ceos_local_image_stat
-
 - name: Check if cEOS docker image from registry is already cached locally
   docker_image_info:
     name:
@@ -13,15 +6,36 @@
   register: ceos_registry_cached_image_stat
   when: ceos_registry is defined
 
+- name: Discover cEOS docker image locally (plain or from any registry)
+  # Searches all local docker images for one matching ceos_image. This single grep covers:
+  # - Plain local image: ceosimage:4.32.5M-1
+  # - Image pre-pulled from any registry: soniccr1.azurecr.io/ceosimage:4.32.5M-1
+  # When ceos_registry is defined, this task is skipped — the explicit registry check above is used.
+  become: yes
+  shell: >-
+    docker images --format
+    '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}'
+    | grep -m1 '{{ ceos_image }}$'
+  register: ceos_image_discovery_result
+  ignore_errors: yes
+  changed_when: no
+  when: ceos_registry is not defined
+
 - name: Set fact for whether ceos_image is already available
   set_fact:
     # When registry is defined, only the registry-prefixed image is considered "found" - using
     # a local image in that case would bypass the registry requirement (e.g. Microsoft ACR/MCR).
-    # When registry is not defined, only the locally-named image is considered.
+    # When registry is not defined, the image is "found" if any local image (plain or from any
+    # registry) matches ceos_image. This covers images pre-pulled during infrastructure
+    # provisioning (e.g. VMSS setup) without exposing the registry URL in public code.
     # The | bool filter ensures this is stored as a Python boolean, not the string "True"/"False",
     # so that "when: not ceos_image_found" evaluates correctly.
-    ceos_image_found: "{{ ((ceos_registry is not defined and ceos_local_image_stat.images | length > 0) or
-                           (ceos_registry is defined and ceos_registry_cached_image_stat.images | length > 0)) | bool }}"
+    ceos_image_found: "{{ ((ceos_registry is not defined and
+                            ceos_image_discovery_result is not skipped and
+                            ceos_image_discovery_result.rc == 0 and
+                            ceos_image_discovery_result.stdout | trim != '') or
+                           (ceos_registry is defined and
+                            ceos_registry_cached_image_stat.images | length > 0)) | bool }}"
 
 - name: Prepare ceos_image if it does not exist
   block:

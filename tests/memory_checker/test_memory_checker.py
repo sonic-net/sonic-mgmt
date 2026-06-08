@@ -27,7 +27,7 @@ pytestmark = [
 CONTAINER_STOP_THRESHOLD_SECS = 200
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 CONTAINER_CHECK_INTERVAL_SECS = 1
-MONIT_RESTART_THRESHOLD_SECS = 320
+MONIT_RESTART_THRESHOLD_SECS = 400
 MONIT_CHECK_INTERVAL_SECS = 5
 WAITING_SYSLOG_MSG_SECS = 30
 MONIT_MEMORY_CHECK_TIMEOUT = 700
@@ -131,17 +131,29 @@ def restore_monit_config_files(duthost):
 
 
 def check_monit_running(duthost):
-    """Checks whether Monit is running or not.
+    """Checks whether Monit is running with all services in ready state.
 
     Args:
         duthost: The AnsibleHost object of DuT.
 
     Returns:
-        Returns True if Monit is running; Otherwist, returns False.
+        Returns True if all services are ready; Otherwise, returns False.
     """
     monit_services_status = duthost.get_monit_services_status()
     if not monit_services_status:
         return False
+
+    # Validate each service is in expected state
+    for service_name, service_info in monit_services_status.items():
+        service_type = service_info.get("service_type", "")
+        state = service_info.get("service_status", "")
+        if state in ["Not monitored", "OK"]:
+            continue
+        # Check expected states per service type
+        if ((service_type == "Filesystem" and state != "Accessible")
+                or (service_type == "Process" and state != "Running")
+                or (service_type == "Program" and state != "Status ok")):
+            return False
 
     return True
 

@@ -152,7 +152,7 @@ def ignore_expected_loganalyzer_exceptions(
 def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
-    if request.node.rep_call.failed:
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
         config_reload(duthost, ignore_loganalyzer=loganalyzer)

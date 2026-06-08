@@ -32,7 +32,7 @@ PORT_MAP_1_RANGE_END = 9000
 
 APPLIANCE_ID = "100"
 LOCAL_REGION_ID = "100"
-VM_VNI = 4321
+VM_VNI = 2001
 ENCAP_VNI = 100
 NSG_OUTBOUND_VNI = 100
 VNET1 = "Vnet1"
@@ -229,6 +229,12 @@ TUNNEL4_CONFIG = {
         "endpoints": TUNNEL4_ENDPOINT_IPS,
         "vni": NSG_OUTBOUND_VNI,
         "encap_type": EncapType.ENCAP_TYPE_VXLAN,
+    }
+}
+PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PL_REDIRECT_BACKEND_IP}/32": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0
     }
 }
 

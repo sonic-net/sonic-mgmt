@@ -116,11 +116,6 @@ class BfdBase:
         logger.info("Source dut: %s", src_dut)
         logger.info("Destination dut: %s", dst_dut)
 
-        request.config.src_asic = src_asic
-        request.config.dst_asic = dst_asic
-        request.config.src_dut = src_dut
-        request.config.dst_dut = dst_dut
-
         src_asic_routes = get_dut_asic_static_routes(version, src_dut)
         dst_asic_routes = get_dut_asic_static_routes(version, dst_dut)
 
@@ -146,14 +141,12 @@ class BfdBase:
             src_asic_routes, src_dut_nexthops.values()
         )
         logger.info("Source prefix: %s", src_prefix)
-        request.config.src_prefix = src_prefix
         assert src_prefix is not None and src_prefix != "", "Source prefix not found"
 
         dst_prefix = selecting_route_to_delete(
             dst_asic_routes, dst_dut_nexthops.values()
         )
         logger.info("Destination prefix: %s", dst_prefix)
-        request.config.dst_prefix = dst_prefix
         assert (
             dst_prefix is not None and dst_prefix != ""
         ), "Destination prefix not found"
@@ -169,3 +162,8 @@ class BfdBase:
             "dst_prefix": dst_prefix,
             "version": version,
         }
+
+    @pytest.fixture(autouse=True)
+    def set_bfd_cleanup_context(self, bfd_cleanup_db,
+                                select_src_dst_dut_with_asic):
+        bfd_cleanup_db.set_bfd_endpoints(select_src_dst_dut_with_asic)

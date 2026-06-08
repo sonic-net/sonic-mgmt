@@ -26,6 +26,13 @@ CUSTOM_ACL_TABLE_TYPE_DST_FILE = "/tmp/custom_acl_table.json"
 ACL_RULE_SRC_FILE = "acl/custom_acl_table/acl_rules.json"
 ACL_RULE_DST_FILE = "/tmp/acl_rules.json"
 
+# IPv6-specific custom ACL table constants
+CUSTOM_ACL_TABLE_TYPE_IPV6_SRC_FILE = "acl/custom_acl_table/custom_acl_table_ipv6.json"
+CUSTOM_ACL_TABLE_TYPE_IPV6_DST_FILE = "/tmp/custom_acl_table_ipv6.json"
+
+ACL_RULE_IPV6_SRC_FILE = "acl/custom_acl_table/acl_rules_ipv6.json"
+ACL_RULE_IPV6_DST_FILE = "/tmp/acl_rules_ipv6.json"
+
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
@@ -107,24 +114,29 @@ def remove_dataacl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
         rand_unselected_dut.shell(cmd)
 
 
-@pytest.fixture(scope='module')
-def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
-    # Define a custom table type CUSTOM_TYPE by loading a json configuration
-    rand_selected_dut.copy(src=CUSTOM_ACL_TABLE_TYPE_SRC_FILE, dest=CUSTOM_ACL_TABLE_TYPE_DST_FILE)
-    rand_selected_dut.shell("sonic-cfggen -j {} -w".format(CUSTOM_ACL_TABLE_TYPE_DST_FILE))
+def setup_and_cleanup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo,
+                                       table_type_src_file, table_type_dst_file,
+                                       table_name, table_type_name, is_ipv6=False):
+    """Helper function to setup and cleanup custom ACL table"""
+    # Define custom table type by loading json configuration
+    rand_selected_dut.copy(src=table_type_src_file, dest=table_type_dst_file)
+    rand_selected_dut.shell("sonic-cfggen -j {} -w".format(table_type_dst_file))
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.copy(src=CUSTOM_ACL_TABLE_TYPE_SRC_FILE, dest=CUSTOM_ACL_TABLE_TYPE_DST_FILE)
-        rand_unselected_dut.shell("sonic-cfggen -j {} -w".format(CUSTOM_ACL_TABLE_TYPE_DST_FILE))
-    # Create an ACL table and bind to Vlan1000 interface
-    cmd_create_table = "config acl add table CUSTOM_TABLE CUSTOM_TYPE -s ingress -p Vlan1000"
-    cmd_remove_table = "config acl remove table CUSTOM_TABLE"
-    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="custom_acl")
+        rand_unselected_dut.copy(src=table_type_src_file, dest=table_type_dst_file)
+        rand_unselected_dut.shell("sonic-cfggen -j {} -w".format(table_type_dst_file))
+
+    # Create ACL table and bind to Vlan1000 interface
+    cmd_create_table = "config acl add table {} {} -s ingress -p Vlan1000".format(table_name, table_type_name)
+    cmd_remove_table = "config acl remove table {}".format(table_name)
+
+    marker_prefix = "custom_acl_ipv6" if is_ipv6 else "custom_acl"
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix=marker_prefix)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix="custom_acl")
+        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix=marker_prefix)
     loganalyzer.load_common_config()
 
     try:
-        logger.info("Creating ACL table CUSTOM_TABLE with type CUSTOM_TYPE")
+        logger.info("Creating ACL table {} with type {}".format(table_name, table_type_name))
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_TABLE_CREATE_RE]
         # Ignore any other errors to reduce noise
         loganalyzer.ignore_regex = [r".*"]
@@ -141,32 +153,56 @@ def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
         raise err
 
     yield
+
     logger.info("Removing ACL table and custom type")
     # Remove ACL table
     rand_selected_dut.shell(cmd_remove_table)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
         rand_unselected_dut.shell(cmd_remove_table)
     # Remove custom type
-    rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|CUSTOM_TYPE\'")
+    rand_selected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|CUSTOM_TYPE\'")
+        rand_unselected_dut.shell("sonic-db-cli CONFIG_DB del \'ACL_TABLE_TYPE|{}\'".format(table_type_name))
 
 
 @pytest.fixture(scope='module')
-def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table):
-    # Copy and load acl rules
-    rand_selected_dut.copy(src=ACL_RULE_SRC_FILE, dest=ACL_RULE_DST_FILE)
-    if "dualtor-aa" in tbinfo["topo"]["name"]:
-        rand_unselected_dut.copy(src=ACL_RULE_SRC_FILE, dest=ACL_RULE_DST_FILE)
-    cmd_add_rules = "sonic-cfggen -j {} -w".format(ACL_RULE_DST_FILE)
-    cmd_rm_rules = "acl-loader delete CUSTOM_TABLE"
+def setup_custom_acl_table(rand_selected_dut, rand_unselected_dut, tbinfo):
+    """Setup CUSTOM_TABLE with CUSTOM_TYPE for IPv4/IPv6 mix testing"""
+    yield from setup_and_cleanup_custom_acl_table(
+        rand_selected_dut, rand_unselected_dut, tbinfo,
+        CUSTOM_ACL_TABLE_TYPE_SRC_FILE, CUSTOM_ACL_TABLE_TYPE_DST_FILE,
+        "CUSTOM_TABLE", "CUSTOM_TYPE", is_ipv6=False
+    )
 
-    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="custom_acl")
+
+@pytest.fixture(scope='module')
+def setup_custom_acl_table_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo):
+    """Setup CUSTOM_IPV6_TABLE with CUSTOM_TYPE_IPV6 for IPv6-specific field testing"""
+    yield from setup_and_cleanup_custom_acl_table(
+        rand_selected_dut, rand_unselected_dut, tbinfo,
+        CUSTOM_ACL_TABLE_TYPE_IPV6_SRC_FILE, CUSTOM_ACL_TABLE_TYPE_IPV6_DST_FILE,
+        "CUSTOM_IPV6_TABLE", "CUSTOM_TYPE_IPV6", is_ipv6=True
+    )
+
+
+def setup_and_cleanup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo,
+                                rule_file, dest_file, table_name, is_ipv6=False):
+    """Helper function to setup and cleanup ACL rules for a given table"""
+    # Copy and load acl rules
+    rand_selected_dut.copy(src=rule_file, dest=dest_file)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
-        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix="custom_acl")
+        rand_unselected_dut.copy(src=rule_file, dest=dest_file)
+    cmd_add_rules = "sonic-cfggen -j {} -w".format(dest_file)
+    cmd_rm_rules = "acl-loader delete {}".format(table_name)
+
+    marker_prefix = "custom_acl_ipv6" if is_ipv6 else "custom_acl"
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix=marker_prefix)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        loganalyzer = LogAnalyzer(ansible_host=rand_unselected_dut, marker_prefix=marker_prefix)
     loganalyzer.match_regex = [LOG_EXPECT_ACL_RULE_FAILED_RE]
+
     try:
-        logger.info("Creating ACL rules in CUSTOM_TABLE")
+        logger.info("Creating ACL rules in {}".format(table_name))
         with loganalyzer:
             rand_selected_dut.shell(cmd_add_rules)
             if "dualtor-aa" in tbinfo["topo"]["name"]:
@@ -178,12 +214,32 @@ def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom
         if "dualtor-aa" in tbinfo["topo"]["name"]:
             rand_unselected_dut.shell(cmd_rm_rules)
         raise err
+
     yield
+
     # Remove testing rules
-    logger.info("Removing testing ACL rules")
+    logger.info("Removing testing ACL rules from {}".format(table_name))
     rand_selected_dut.shell(cmd_rm_rules)
     if "dualtor-aa" in tbinfo["topo"]["name"]:
         rand_unselected_dut.shell(cmd_rm_rules)
+
+
+@pytest.fixture(scope='module')
+def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table):
+    """Load ACL rules for CUSTOM_TABLE"""
+    yield from setup_and_cleanup_acl_rules(
+        rand_selected_dut, rand_unselected_dut, tbinfo,
+        ACL_RULE_SRC_FILE, ACL_RULE_DST_FILE, "CUSTOM_TABLE", is_ipv6=False
+    )
+
+
+@pytest.fixture(scope='module')
+def setup_acl_rules_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom_acl_table_ipv6):
+    """Load ACL rules for CUSTOM_IPV6_TABLE"""
+    yield from setup_and_cleanup_acl_rules(
+        rand_selected_dut, rand_unselected_dut, tbinfo,
+        ACL_RULE_IPV6_SRC_FILE, ACL_RULE_IPV6_DST_FILE, "CUSTOM_IPV6_TABLE", is_ipv6=True
+    )
 
 
 def build_testing_pkts(router_mac, tbinfo):
@@ -266,6 +322,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
     6. Verify the counter of expected rule increases as expected
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts_unselected_dut = None
     asic_type = rand_selected_dut.facts['asic_type']
     if "dualtor" in tbinfo["topo"]["name"]:
         mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
@@ -284,7 +341,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
         for _, v in mg_facts['minigraph_portchannels'].items():
             for member in v['members']:
                 dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                if "dualtor-aa" in tbinfo["topo"]["name"] and mg_facts_unselected_dut is not None:
                     dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
     else:
         topo = tbinfo["topo"]["type"]
@@ -292,6 +349,7 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
         for upstream_neigh_type in upstream_neigh_types:
             dst_port_indices.extend(get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo))
 
+    # Test regular ACL rules (IPv4 and IPv6 mix)
     test_pkts = build_testing_pkts(router_mac, tbinfo)
     for rule, pkt in list(test_pkts.items()):
         logger.info("Testing ACL rule {}".format(rule))
@@ -312,3 +370,134 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
             acl_counter += acl_counter_unselected_dut
         # Verify acl counter
         pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
+
+
+def test_custom_acl_ipv6(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
+                         setup_acl_rules_ipv6, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                         setup_counterpoll_interval, remove_dataacl_table):   # noqa: F811
+    """
+    Test custom ACL table with CUSTOM_TYPE_IPV6 (IPv6-specific fields)
+
+    Test steps:
+    1. Define custom ACL table type CUSTOM_TYPE_IPV6 with IPv6 fields by loading json configuration
+    2. Create ingress ACL table CUSTOM_IPV6_TABLE with the custom type
+    3. Toggle all ports to active if the test is running on dual-tor
+    4. Send IPv6 test packets from vlan port
+    5. Verify the packets are forwarded to uplinks (or dropped for drop rules)
+    6. Verify the counter of expected rule increases as expected
+    """
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    mg_facts_unselected_dut = None
+    asic_type = rand_selected_dut.facts['asic_type']
+    if "dualtor" in tbinfo["topo"]["name"]:
+        mg_facts_unselected_dut = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+        vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
+        # Use VLAN MAC as router MAC on dual-tor testbed
+        router_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
+    else:
+        router_mac = rand_selected_dut.facts['router_mac']
+
+    # Selected the first vlan port as source port
+    src_port = list(mg_facts['minigraph_vlans'].values())[0]['members'][0]
+    src_port_indice = mg_facts['minigraph_ptf_indices'][src_port]
+    # Put all portchannel members into dst_ports
+    dst_port_indices = []
+    if len(mg_facts['minigraph_portchannels']):
+        for _, v in mg_facts['minigraph_portchannels'].items():
+            for member in v['members']:
+                dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+                if "dualtor-aa" in tbinfo["topo"]["name"] and mg_facts_unselected_dut is not None:
+                    dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
+    else:
+        topo = tbinfo["topo"]["type"]
+        upstream_neigh_types = get_all_upstream_neigh_type(topo)
+        for upstream_neigh_type in upstream_neigh_types:
+            dst_port_indices.extend(get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo))
+
+    # Test IPv6-specific ACL rules
+    test_pkts_ipv6 = build_testing_pkts_ipv6(router_mac)
+    for rule, pkt in list(test_pkts_ipv6.items()):
+        logger.info("Testing IPv6 ACL rule {}".format(rule))
+        exp_pkt = build_exp_pkt(pkt)
+        # Send and verify packet
+        clear_acl_counter(rand_selected_dut)
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            clear_acl_counter(rand_unselected_dut)
+        if asic_type == 'vs':
+            logger.info("Skip ACL verification on VS platform")
+            continue
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, pkt=pkt, port_id=src_port_indice)
+
+        # For DROP rules, verify packet is not forwarded; for FORWARD rules, verify packet is forwarded
+        if rule == 'DEFAULT_DROP_RULE':
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
+        else:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_indices, timeout=5)
+
+        acl_counter = read_acl_counter(rand_selected_dut, rule)
+        if "dualtor-aa" in tbinfo["topo"]["name"]:
+            acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
+            acl_counter += acl_counter_unselected_dut
+        # Verify acl counter
+        logger.info("ACL counter for rule {} is {}".format(rule, acl_counter))
+        pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
+
+
+def build_testing_pkts_ipv6(router_mac):
+    """
+    Generate IPv6 packets for testing custom ACL table with SRC_IPV6, DST_IPV6, IP_TYPE, NEXT_HEADER
+    """
+    test_packets = {}
+
+    # Test RULE_SRC_IPV6: Match source IPv6 address
+    test_packets['RULE_SRC_IPV6'] = testutils.simple_tcpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:1::1',
+        ipv6_dst='2001:db8:100::1'
+    )
+
+    # Test RULE_DST_IPV6: Match destination IPv6 address
+    test_packets['RULE_DST_IPV6'] = testutils.simple_tcpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:100::2',
+        ipv6_dst='2001:db8:2::1'
+    )
+
+    # Test RULE_SRC_DST_IPV6: Match both source and destination IPv6 addresses
+    test_packets['RULE_SRC_DST_IPV6'] = testutils.simple_tcpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:3::1',
+        ipv6_dst='2001:db8:4::1'
+    )
+
+    # Test RULE_NEXT_HEADER_TCP: Match destination IPv6 and next header (TCP = 6)
+    test_packets['RULE_NEXT_HEADER_TCP'] = testutils.simple_tcpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:100::3',
+        ipv6_dst='2001:db8:5::1'
+    )
+
+    # Test RULE_NEXT_HEADER_UDP: Match destination IPv6 and next header (UDP = 17)
+    test_packets['RULE_NEXT_HEADER_UDP'] = testutils.simple_udpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:100::4',
+        ipv6_dst='2001:db8:6::1'
+    )
+
+    # Test RULE_NEXT_HEADER_ICMPV6: Match destination IPv6 and next header (ICMPv6 = 58)
+    test_packets['RULE_NEXT_HEADER_ICMPV6'] = testutils.simple_icmpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:100::5',
+        ipv6_dst='2001:db8:7::1'
+    )
+
+    # Test DEFAULT_DROP_RULE: Match packets that don't match any higher priority rules
+    # Using addresses that don't match any specific rules above
+    test_packets['DEFAULT_DROP_RULE'] = testutils.simple_tcpv6_packet(
+        eth_dst=router_mac,
+        ipv6_src='2001:db8:200::1',
+        ipv6_dst='2001:db8:201::1'
+    )
+
+    return test_packets

@@ -7,6 +7,7 @@ import time
 import pytest
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.layers.l2 import CookedLinux
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.errors import RunAnsibleModuleFail
@@ -135,11 +136,20 @@ def is_neighbor_session_established(duthost, neighbor):
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
-    """Get bgp notification packets from pcap file."""
+    """Get incoming bgp notification packets from pcap file.
+
+    When tcpdump captures on the 'any' interface with LINUX_SLL link type,
+    each packet has a CookedLinux header with a pkttype field indicating
+    direction. Filter out outgoing packets (pkttype == 4, 'sent-by-us')
+    so only incoming notifications are validated.
+    """
     ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+        lfilter=lambda p: (ip_ver in p and
+                           bgp.BGPHeader in p and
+                           p[bgp.BGPHeader].type == 3 and
+                           not (CookedLinux in p and p[CookedLinux].pkttype == 4)),
     )
     return packets
 

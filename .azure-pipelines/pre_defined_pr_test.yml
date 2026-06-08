@@ -28,7 +28,7 @@ parameters:
   type: string
   default: " "
 
-# Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-multi-asic_checker","t1_checker","t2_checker"
+# Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-lag-vpp_checker","t1-multi-asic_checker","t1_checker","t2_checker"
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
   type: object
@@ -37,6 +37,10 @@ parameters:
 - name: KVM_BUILD_ID
   type: string
   default: ""
+
+- name: INCLUDE_JOBS
+  type: string
+  default: "all"
 
 stages:
 - stage: Test
@@ -59,3 +63,4 @@ stages:
         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+        INCLUDE_JOBS: ${{ parameters.INCLUDE_JOBS }}
