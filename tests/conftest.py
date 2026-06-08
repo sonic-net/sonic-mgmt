@@ -123,7 +123,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils',
-                  'tests.common.plugins.parallel_fixture')
+                  'tests.common.plugins.parallel_fixture',
+                  'tests.common.plugins.erspan_mirror')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -409,6 +410,18 @@ def pytest_addoption(parser):
     # BGP RIB tests: use port-channel info from config_db (minigraph) for tgen_ports
     parser.addoption("--bgp_pc_config", action="store_true", default=False,
                      help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
+
+    ##########################################
+    #   Dualtor MUX_CABLE combo options      #
+    ##########################################
+    parser.addoption("--prober_type", action="store", default=None, type=str,
+                     choices=["hardware", "software"],
+                     help="MUX_CABLE prober_type value (hardware|software). "
+                          "Only applies to dualtor/dualtor_io suites.")
+    parser.addoption("--neighbor_mode", action="store", default=None, type=str,
+                     choices=["host-route", "prefix-route"],
+                     help="MUX_CABLE neighbor_mode value (host-route|prefix-route). "
+                          "Only applies to dualtor/dualtor_io suites.")
 
 
 def pytest_configure(config):
@@ -831,6 +844,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut
@@ -2894,7 +2909,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 
