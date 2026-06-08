@@ -21,4 +21,5 @@
     max_fp_num: "{{ max_fp_num }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
     vm_offset:  "{{ topology.VMs[vm_inv_to_topo[vm_item]].vm_offset }}"
+    num_fp_links: "{{ topology.VMs[vm_inv_to_topo[vm_item]].vlans | length }}"
     sonic_naming: false
