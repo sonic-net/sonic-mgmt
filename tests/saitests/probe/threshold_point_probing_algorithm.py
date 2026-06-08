@@ -64,7 +64,8 @@ class ThresholdPointProbingAlgorithm:
 
     def __init__(self, executor: ProbingExecutorProtocol, observer: ProbingObserver,
                  verification_attempts: int = 1,
-                 step_size: int = 1):
+                 step_size: int = 1,
+                 always_full_cycle: bool = False):
         """
         Initialize threshold point probing algorithm
 
@@ -74,11 +75,17 @@ class ThresholdPointProbingAlgorithm:
             verification_attempts: How many times to repeat each check and require consistency
             step_size: Step increment size (default 1 for exact results; values > 1
                        trade precision for speed — returned point has ±step_size tolerance)
+            always_full_cycle: When True, every iteration sends absolute value
+                       with drain_buffer=True, disabling the incremental send
+                       optimization. Required for executors (e.g., PfcXon) where
+                       each check is a full fill-then-drain cycle and value means
+                       "absolute drain amount", not "incremental packets to add".
         """
         self.executor = executor
         self.observer = observer
         self.verification_attempts = verification_attempts
         self.step_size = step_size
+        self.always_full_cycle = always_full_cycle
 
     def run(self, src_port: int, dst_port: int, lower_bound: int,
             upper_bound: int, **traffic_keys) -> Tuple[Optional[int], Optional[int], float]:
@@ -109,9 +116,17 @@ class ThresholdPointProbingAlgorithm:
             drain_buffer = True  # First iteration always drains; reset to True on failure
 
             for iteration, current_packets in enumerate(range(lower_bound + 1, upper_bound + 1, step), start=1):
-                # Full send after drain, incremental otherwise
-                send_value = current_packets if drain_buffer else step
-                attempts = self.verification_attempts if drain_buffer else 1
+                if self.always_full_cycle:
+                    # Full-cycle mode: always send absolute value with full drain.
+                    # Required for executors (e.g., PfcXon) where each check is
+                    # a complete fill-then-drain cycle.
+                    send_value = current_packets
+                    attempts = self.verification_attempts
+                    drain_buffer = True
+                else:
+                    # Incremental mode (default): full send after drain, step otherwise
+                    send_value = current_packets if drain_buffer else step
+                    attempts = self.verification_attempts if drain_buffer else 1
 
                 self.observer.on_iteration_start(
                     iteration, current_packets, current_packets, upper_bound,
@@ -136,7 +151,8 @@ class ThresholdPointProbingAlgorithm:
                     drain_buffer = True
                     continue
 
-                drain_buffer = False  # Successful — switch to incremental mode
+                if not self.always_full_cycle:
+                    drain_buffer = False  # Successful — switch to incremental mode
 
                 if detected:
                     precise_threshold = current_packets
