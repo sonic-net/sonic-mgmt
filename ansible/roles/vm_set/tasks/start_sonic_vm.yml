@@ -6,6 +6,10 @@
     disable_updategraph: False
   when: disable_updategraph is not defined
 
+- set_fact:
+    use_uefi: False
+  when: use_uefi is not defined
+
 - name: Check if images folder exists
   stat: path={{ sonic_vm_storage_location }}/images
   register: images_folder_stat
@@ -29,7 +33,6 @@
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
     efi_vars: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}_vars.fd"
-    use_uefi: true
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
