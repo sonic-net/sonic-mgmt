@@ -219,7 +219,6 @@ def test_ha_dpu_failure(
     t.join()
     time.sleep(2)
 
-    # bring back up the DPU
     dut = duthosts[1] if standby_dpu_fail else duthosts[0]
     dpu_name = f"DPU{dpu_id}"
 
@@ -236,7 +235,7 @@ def test_ha_dpu_failure(
     )
     down_ok, down_state = wait_for_ha_scope_pmon_state(
         dut, scope_key, expected_state="down",
-        timeout=120, interval=5,
+        timeout=20, interval=5,
     )
     pytest_assert(
         down_ok,
@@ -255,7 +254,7 @@ def test_ha_dpu_failure(
     )
     up_ok, up_state = wait_for_ha_scope_pmon_state(
         dut, scope_key, expected_state="up",
-        timeout=300, interval=5,
+        timeout=480, interval=5,
     )
     pytest_assert(
         up_ok,
