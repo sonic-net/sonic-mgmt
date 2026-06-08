@@ -77,8 +77,10 @@
 
 - name: Bring up backplane interface if defined
   become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth2 up
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth{{ bp_eth_idx }} up
   delegate_to: "{{ VM_host[0] }}"
+  vars:
+    bp_eth_idx: "{{ (configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list | length) + 1 }}"
   when: configuration[hostname]['bp_interface'] is defined
   register: bp_ifup_result
   failed_when: false
