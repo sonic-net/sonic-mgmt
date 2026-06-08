@@ -6,14 +6,16 @@ from conftest import (
     activate_scope_per_dut,
     deactivate_dash_ha_from_json_util,
     ha_scope_per_dut,
-    remove_setup_dash_ha_from_json_util
+    remove_setup_dash_ha_from_json_util,
+    wait_for_dpu_neighbor_resolution,
 )
 from ha_utils import verify_ha_state, wait_for_pending_operation_id, ha_scope_config, ha_set_config, apply_ha_messages
 from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t1-smartswitch-ha")
+    pytest.mark.topology("t1-smartswitch-ha"),
+    pytest.mark.skip_check_dut_health,
 ]
 
 logger = logging.getLogger(__name__)
@@ -39,14 +41,11 @@ def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_o
     scope_fields = dict(scope_fields)
     scope_fields['owner'] = ha_owner
 
-    # Workaround for the neigh resolve issue
-    '''
-    ip_part = 200 + role_index
-    ip_last = dpuhost.dpu_index + 1
-    logger.info(f"Sending ping to DPU{dpuhost.dpu_index} for {duthost.hostname}")
-    ping_result = duthost.shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
-    logger.info(f"{duthost.hostname} ping_result [{ping_result}]")
-    '''
+    wait_for_dpu_neighbor_resolution(
+        duthost=duthost,
+        role_index=role_index,
+        dpu_index=dpuhost.dpu_index,
+    )
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
