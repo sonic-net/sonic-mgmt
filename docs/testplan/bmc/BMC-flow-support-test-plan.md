@@ -224,3 +224,45 @@ The test will be supported on t0 and t1 topology.
 1. Run command 'show techsupport' to generate a switch dump
 2. Wait until the dump generated
 3. Extract the dump file and validate the BMC dump files existence
+
+### Test Case # 14 - Test CLIs commands for open and close BMC session
+1. Open a BMC session by command 'config bmc open-session'
+2. Validate the session ID and token are returned successfully
+3. Use curl command with the token to get session information by Redfish API
+   'curl -k -H "X-Auth-Token: <Token>" -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+4. Validate the curl command returns valid response with session information
+5. Use curl command with the token to create an event subscription by Redfish API
+   'curl -k -i -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Subscriptions -d '{"Destination": "https://example.com/events", "Protocol": "Redfish"}'
+6. Validate the subscription is created successfully and extract the subscription ID from the Location header in response
+7. Use curl command to query and verify the subscription exists
+   'curl -k -H "X-Auth-Token: <Token>" -X GET https://<BMC_IP>/redfish/v1/EventService/Subscriptions/<subscription-id>'
+8. Close the BMC session by command 'config bmc close-session --session-id <session-id>'
+9. Try to use the same token with GET request as in step 3 and validate the returned response
+10. Try to use the same token with POST request as in step 5 and validate the returned response
+11. Open a new BMC session and validate new session ID and token are generated
+12. Use the new token to query subscriptions and verify only the subscription from step 5 exists
+    'curl -k -H "X-Auth-Token: <NewToken>" -X GET https://<BMC_IP>/redfish/v1/EventService/Subscriptions'
+13. Use the new token to delete the subscription created in step 5
+    'curl -k -H "X-Auth-Token: <NewToken>" -X DELETE https://<BMC_IP>/redfish/v1/EventService/Subscriptions/<subscription-id>'
+14. Validate the subscription is deleted successfully
+15. Close the new session and validate it closes successfully
+
+### Test Case # 15 - Test CLIs commands for open and close BMC session on a Non-BMC switch
+1. Run command 'config bmc open-session' on a Non-BMC switch
+2. Validate appropriate error message is returned indicating BMC is not available
+3. Run command 'config bmc close-session --session-id <invalid-session-id>' on a Non-BMC switch
+4. Validate appropriate error message is returned indicating BMC is not available
+
+### Test Case # 16 - Test CLI command for reset BMC root password
+1. Run command 'config bmc reset-root-password' to ensure the BMC root password is at default state and validate the command returns success message
+2. Use curl command with default credentials to change the root password to a new password and validate the password change is successful
+   'curl -k -i -u root:0penBmc -H "Content-Type: application/json" -X PATCH https://<BMC_IP>/redfish/v1/AccountService/Accounts/root -d '{"Password" : "0penBmcTempPass!"}'
+3. Use curl command with new credentials to verify the new password works and validate the response is successful
+   'curl -k -i -u root:0penBmcTempPass! -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+4. Use curl command with old default credentials and validate access is denied with authentication failure (HTTP 401)
+   'curl -k -i -u root:0penBmc -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+5. Run command 'config bmc reset-root-password' and validate the command returns success message
+6. Use curl command with default credentials and validate the password has been reset successfully
+   'curl -k -i -u root:0penBmc -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+7. Use curl command with the previous new password and validate access is denied with authentication failure (HTTP 401)
+   'curl -k -i -u root:0penBmcTempPass! -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
