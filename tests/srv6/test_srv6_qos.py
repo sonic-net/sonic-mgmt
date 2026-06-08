@@ -19,14 +19,8 @@ from ptf.mask import Mask
 from tabulate import tabulate
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import (
-    get_dscp_to_queue_value,
-    wait_until,
-)
-from tests.srv6.srv6_utils import (
-    get_neighbor_mac,
-    verify_asic_db_sid_entry_exist,
-)
+from tests.common.utilities import get_dscp_to_queue_value, wait_until
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +40,56 @@ SRV6_SHIFTED_DIP = "fcbb:bbbb:2::"
 # Inner IPv6 packet endpoints (only used as packet payload; not routed)
 INNER_SRC_IPV6 = "2000::1"
 INNER_DST_IPV6 = "3000::2"
-COUNTER_STABILIZATION_TIME = 10  # seconds to wait for queue counters to update
+COUNTER_STABILIZATION_TIME = 15  # seconds to wait for queue counters to update
+
+SRV6_MY_SID_PATTERN_PREFIX = "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY:"
+ROUTE_PATTERN_PREFIX = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:"
+
+
+sonic_db_cli = "sonic-db-cli"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_if_srv6_not_supported(duthost):
+    ret = False
+    result = duthost.shell("crm show resources srv6-my-sid-entry", module_ignore_errors=True)
+    # The output of the above command looks like this if SRv6 is supported:
+    # Resource Name        Used Count    Available Count
+    # -----------------  ------------  -----------------
+    # srv6_my_sid_entry             0                128
+    if result["rc"] == 0:
+        for line in result["stdout"].splitlines():
+            fields = line.split()
+            if len(fields) >= 3 and fields[0] == "srv6_my_sid_entry":
+                try:
+                    ret = int(fields[2]) > 0
+                except ValueError as e:
+                    logger.error(f"Failed to parse SRv6 resource count: {e}")
+                break
+    logger.info(f"SRv6 is {'supported' if ret else 'NOT supported'} on this DUT.")
+    if not ret:
+        pytest.skip("SRv6 is not supported on this DUT")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def set_sonic_db_cli(duthost, enum_frontend_asic_index):
+    if duthost.is_multi_asic:
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
+    else:
+        cli_options = ""
+    global sonic_db_cli
+    sonic_db_cli = f"sonic-db-cli {cli_options}"
+
+
+def count_keys(duthost, db, pattern):
+    result = duthost.shell(f"{sonic_db_cli} {db} KEYS '{pattern}'")["stdout"].strip()
+    if not result:
+        return 0
+    return len(result.splitlines())
+
+
+def pattern_exists(duthost, db, key):
+    return count_keys(duthost, db, key) > 0
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -57,6 +100,11 @@ def checkpoint(duthost):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def enable_srv6_stats(duthost, skip_if_srv6_not_supported):  # noqa: F811
+    duthost.shell("counterpoll srv6 enable")
 
 
 def _get_bgp_ipv6_neighbors(duthost):
@@ -91,6 +139,10 @@ def _portchannel_for_intf(dut_mg_facts, intf):
     return intf
 
 
+def _get_portchannel_members(dut_mg_facts, portchannel):
+    return dut_mg_facts.get("minigraph_portchannels", {}).get(portchannel, {}).get("members", [])
+
+
 def _select_egress_port(dut, dut_mg_facts, ports_map):
     """
     Pick an egress DUT port whose LLDP neighbor has an IPv6 BGP address
@@ -98,10 +150,9 @@ def _select_egress_port(dut, dut_mg_facts, ports_map):
     neighbor's address as the SRv6 nexthop.
 
     Returns:
-        tuple: (egress_intf, egress_neighbor, egress_neighbor_ip, egress_dut_port)
+        tuple: (egress_dut_ports, egress_neighbor, egress_neighbor_ip)
 
-        `egress_dut_port` is the portchannel name when the egress interface
-        is a portchannel member, otherwise the physical interface name.
+        `egress_dut_ports` is one or more physical interfaces.
     """
     bgp_ipv6_neighbors = _get_bgp_ipv6_neighbors(dut)
     if not bgp_ipv6_neighbors:
@@ -117,37 +168,67 @@ def _select_egress_port(dut, dut_mg_facts, ports_map):
             continue
         if neighbor not in bgp_ipv6_neighbors:
             continue
-        egress_dut_port = _portchannel_for_intf(dut_mg_facts, intf)
-        return intf, neighbor, bgp_ipv6_neighbors[neighbor], egress_dut_port
+        portchannel = _portchannel_for_intf(dut_mg_facts, intf)
+        if portchannel == intf:  # intf is not a member of any portchannel
+            egress_dut_ports = [intf]
+        else:
+            egress_dut_ports = _get_portchannel_members(dut_mg_facts, portchannel)
+            pytest_assert(len(egress_dut_ports) > 0, f"{portchannel} has no members in minigraph facts.")
+        return egress_dut_ports, neighbor, bgp_ipv6_neighbors[neighbor]
 
-    pytest.skip(f"No LLDP neighbor with IPv6 BGP address found on {dut}")
+    pytest.skip(f"No LLDP neighbor with IPv6 BGP address found on {dut}.")
 
 
-def _select_ingress_port(dut, dut_mg_facts, ports_map, egress_dut_port):
+def _select_ingress_port(dut, ports_map, egress_dut_ports):
     """
     Pick an ingress DUT port: any operationally-up port that maps to PTF and
-    belongs to a different L3 interface than the egress.
+    is not in the list of egress DUT ports.
 
     Returns:
         tuple: (ingress_intf, ingress_ptf_port)
     """
     intf_status = dut.show_interface(command="status")["ansible_facts"]["int_status"]
     for intf, info in intf_status.items():
-        if intf not in ports_map:
-            continue
-        if (info.get("oper_state") or "").lower() != "up":
-            continue
-        if _portchannel_for_intf(dut_mg_facts, intf) == egress_dut_port:
-            continue
-        return intf, ports_map[intf]
+        if intf.startswith("Ethernet") and intf in ports_map and \
+           info.get("oper_state", "").lower() == "up" and intf not in egress_dut_ports:
+            return intf, ports_map[intf]
 
     pytest.skip(
-        f"No operationally-up DUT port (different from egress {egress_dut_port}) found on {dut}"
+        f"No operationally-up DUT port (excluding {egress_dut_ports}) found on {dut}."
     )
 
 
+# Look up the QoS map names that are bound to the egress port via
+# PORT_QOS_MAP, then fetch the corresponding maps from CONFIG_DB. Field
+# values may be of the form "AZURE" or "[DSCP_TO_TC_MAP|AZURE]"; we
+# normalize both.
+def _qos_map_for_port(duthost, port, field):
+    port_key = port
+    port_exists = duthost.command(
+        f"{sonic_db_cli} CONFIG_DB EXISTS 'PORT_QOS_MAP|{port}'")["stdout"].strip()
+    if port_exists != "1":
+        port_key = "global"
+    raw = duthost.command(
+        f"{sonic_db_cli} CONFIG_DB HGET 'PORT_QOS_MAP|{port_key}' '{field}'")["stdout"].strip()
+    if not raw:
+        return None
+    return raw.split("|")[-1].strip("[]")
+
+
+def _qos_map_name(duthost, ports, field):
+    values = {_qos_map_for_port(duthost, port, field) for port in ports}
+    pytest_assert(len(values) > 0, f"Could not get PORT_QOS_MAP for ports {ports}.")
+    pytest_assert(len(values) == 1, f"The value of {field} is not unique among PORT_QOS_MAP tables for ports {ports}.")
+    return next(iter(values))
+
+
+def _hgetall(duthost, table, key):
+    raw = duthost.command(f"{sonic_db_cli} CONFIG_DB HGETALL '{table}|{key}'")["stdout"].strip()
+    return ast.literal_eval(raw)
+
+
 @pytest.fixture(scope="module")
-def srv6_qos_module_setup(rand_selected_dut, enum_frontend_asic_index, tbinfo):
+def srv6_qos_module_setup(duthost, tbinfo):
     """
     Module-scoped setup: select ingress/egress DUT ports and resolve QoS maps.
 
@@ -157,77 +238,36 @@ def srv6_qos_module_setup(rand_selected_dut, enum_frontend_asic_index, tbinfo):
 
     Returns a dict with:
         - dut_mac, ingress_dut_port, ptf_src_port
-        - egress_dut_port, egress_ptf_ports
+        - egress_dut_ports
         - neighbor_ip
-        - sonic_db_cli  (CLI prefix targeting the right ASIC namespace)
         - dscp_to_tc_map, tc_to_queue_map (resolved from PORT_QOS_MAP)
         - dscp_values (sorted DSCP keys present in dscp_to_tc_map)
     """
-    duthost = rand_selected_dut
-    asic_index = enum_frontend_asic_index
 
-    if duthost.is_multi_asic:
-        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
-        dut_handle = duthost.asic_instance(asic_index)
-        dut_mac = dut_handle.get_router_mac()
-    else:
-        cli_options = ""
-        dut_handle = duthost
-        dut_mac = duthost.facts["router_mac"]
-
-    sonic_db_cli = "sonic-db-cli" + cli_options
-
-    dut_mg_facts = dut_handle.get_extended_minigraph_facts(tbinfo)
+    dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ports_map = dut_mg_facts["minigraph_ptf_indices"]
     if len(ports_map) == 0:
-        pytest.skip(f"No PTF ports found for {dut_handle}")
+        pytest.skip(f"No PTF ports found for {duthost}")
 
-    egress_intf, egress_neighbor, neighbor_ip, egress_dut_port = \
-        _select_egress_port(dut_handle, dut_mg_facts, ports_map)
+    egress_dut_ports, egress_neighbor, neighbor_ip = \
+        _select_egress_port(duthost, dut_mg_facts, ports_map)
 
-    pc_members = (
-        dut_mg_facts.get("minigraph_portchannels", {})
-        .get(egress_dut_port, {})
-        .get("members")
-    )
-    if pc_members:
-        egress_ptf_ports = [ports_map[m] for m in pc_members if m in ports_map]
-    else:
-        egress_ptf_ports = [ports_map[egress_intf]]
+    egress_ptf_ports = [ports_map[port] for port in egress_dut_ports]
 
     ingress_dut_port, ptf_src_port = \
-        _select_ingress_port(dut_handle, dut_mg_facts, ports_map, egress_dut_port)
+        _select_ingress_port(duthost, ports_map, egress_dut_ports)
 
+    l3_egress_dut_port = _portchannel_for_intf(dut_mg_facts, egress_dut_ports[0])
     logger.info(
         f"SRv6 QoS test: ingress DUT port {ingress_dut_port} (PTF port {ptf_src_port}); "
-        f"egress {egress_intf} (L3 {egress_dut_port}, neighbor {egress_neighbor} @ {neighbor_ip})"
+        f"egress {egress_dut_ports} (L3 {l3_egress_dut_port}, neighbor {egress_neighbor} @ {neighbor_ip})"
     )
 
-    # Look up the QoS map names that are bound to the egress port via
-    # PORT_QOS_MAP, then fetch the corresponding maps from CONFIG_DB.  Field
-    # values may be of the form "AZURE" or "[DSCP_TO_TC_MAP|AZURE]"; we
-    # normalise both.
-    def _qos_map_name(field):
-        raw = duthost.command(
-            f"{sonic_db_cli} CONFIG_DB HGET 'PORT_QOS_MAP|{egress_dut_port}' '{field}'")["stdout"].strip()
-        if not raw:
-            return None
-        return raw.split("|")[-1].strip("[]")
+    dscp_to_tc_name = _qos_map_name(duthost, egress_dut_ports, "dscp_to_tc_map")
+    tc_to_queue_name = _qos_map_name(duthost, egress_dut_ports, "tc_to_queue_map")
 
-    dscp_to_tc_name = _qos_map_name("dscp_to_tc_map")
-    tc_to_queue_name = _qos_map_name("tc_to_queue_map")
-    pytest_assert(
-        dscp_to_tc_name and tc_to_queue_name,
-        f"PORT_QOS_MAP for egress port {egress_dut_port} does not reference dscp_to_tc_map "
-        "and/or tc_to_queue_map",
-    )
-
-    def _hgetall(table, key):
-        raw = duthost.command(f"{sonic_db_cli} CONFIG_DB HGETALL '{table}|{key}'")["stdout"].strip()
-        return ast.literal_eval(raw)
-
-    dscp_to_tc_map = _hgetall("DSCP_TO_TC_MAP", dscp_to_tc_name)
-    tc_to_queue_map = _hgetall("TC_TO_QUEUE_MAP", tc_to_queue_name)
+    dscp_to_tc_map = _hgetall(duthost, "DSCP_TO_TC_MAP", dscp_to_tc_name)
+    tc_to_queue_map = _hgetall(duthost, "TC_TO_QUEUE_MAP", tc_to_queue_name)
     pytest_assert(
         dscp_to_tc_map and tc_to_queue_map,
         f"DSCP_TO_TC_MAP|{dscp_to_tc_name} or TC_TO_QUEUE_MAP|{tc_to_queue_name} is empty in CONFIG_DB",
@@ -237,13 +277,12 @@ def srv6_qos_module_setup(rand_selected_dut, enum_frontend_asic_index, tbinfo):
     logger.info(f"Resolved DSCP values for test: {dscp_values}")
 
     return {
-        "dut_mac": dut_mac,
+        "dut_mac": duthost.facts["router_mac"],
         "ingress_dut_port": ingress_dut_port,
         "ptf_src_port": ptf_src_port,
-        "egress_dut_port": egress_dut_port,
+        "egress_dut_ports": egress_dut_ports,
         "egress_ptf_ports": egress_ptf_ports,
         "neighbor_ip": neighbor_ip,
-        "sonic_db_cli": sonic_db_cli,
         "dscp_to_tc_map": dscp_to_tc_map,
         "tc_to_queue_map": tc_to_queue_map,
         "dscp_values": dscp_values,
@@ -251,7 +290,7 @@ def srv6_qos_module_setup(rand_selected_dut, enum_frontend_asic_index, tbinfo):
 
 
 @pytest.fixture(scope="function", params=["pipe", None], ids=["decap_dscp_pipe", "decap_dscp_unset"])
-def srv6_qos_setup(request, rand_selected_dut, srv6_qos_module_setup):
+def srv6_qos_setup(request, duthost, srv6_qos_module_setup):
     """
     Function-scoped setup: configure the SRv6 uN locator, SID and static route
     on the DUT.  Reuses the module-scoped port/QoS lookup from
@@ -263,36 +302,29 @@ def srv6_qos_setup(request, rand_selected_dut, srv6_qos_module_setup):
         is expected to be ``pipe`` and behavior should be identical).
     """
     decap_dscp_mode = request.param
-    duthost = rand_selected_dut
 
-    sonic_db_cli = srv6_qos_module_setup["sonic_db_cli"]
-    egress_dut_port = srv6_qos_module_setup["egress_dut_port"]
     neighbor_ip = srv6_qos_module_setup["neighbor_ip"]
 
     # Configure SRv6 locator + uN SID + static route towards next uSID slot
     duthost.command(
-        sonic_db_cli + f" CONFIG_DB HSET SRV6_MY_LOCATORS\\|{LOCATOR_NAME} prefix {LOCATOR_PREFIX} func_len 0"
+        f"{sonic_db_cli} CONFIG_DB HSET SRV6_MY_LOCATORS\\|{LOCATOR_NAME} prefix {LOCATOR_PREFIX} func_len 0"
     )
     sid_fields = "action uN"
     if decap_dscp_mode is not None:
         sid_fields += f" decap_dscp_mode {decap_dscp_mode}"
     duthost.command(
-        sonic_db_cli + f" CONFIG_DB HSET SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX} {sid_fields}"
+        f"{sonic_db_cli} CONFIG_DB HSET SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX} {sid_fields}"
     )
-    duthost.command(
-        sonic_db_cli + f" CONFIG_DB HSET STATIC_ROUTE\\|default\\|{NEXTHOP_PREFIX} nexthop "
-        f"{neighbor_ip} ifname {egress_dut_port}"
-    )
+    duthost.command(f"sudo config route add prefix {NEXTHOP_PREFIX} nexthop {neighbor_ip}")
     duthost.command("config save -y")
 
-    pytest_assert(
-        wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli),
-        "SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB",
-    )
-    pytest_assert(
-        wait_until(60, 5, 0, get_neighbor_mac, duthost, neighbor_ip),
-        f"Failed to resolve neighbor MAC for {neighbor_ip}",
-    )
+    # Check if ASIC DB is updated correctly
+    srv6_my_sid_pattern = f'{SRV6_MY_SID_PATTERN_PREFIX}*\\"sid\\":\\"{LOCATOR_PREFIX}\\"*'
+    pytest_assert(wait_until(15, 5, 0, pattern_exists, duthost, "ASIC_DB", srv6_my_sid_pattern),
+                  f"SRv6 MY_SID entry for {LOCATOR_PREFIX} was not added to ASIC DB.")
+    route_pattern = f'{ROUTE_PATTERN_PREFIX}*\\"dest\\":\\"{NEXTHOP_PREFIX}\\"*'
+    pytest_assert(wait_until(15, 5, 0, pattern_exists, duthost, "ASIC_DB", route_pattern),
+                  f"Route entry for {NEXTHOP_PREFIX} was not added to ASIC DB.")
 
     return srv6_qos_module_setup
 
@@ -375,9 +407,41 @@ def _get_queue_count(duthost, port, queue):
     return int(pkt_str.replace(',', ''))
 
 
+def _get_total_queue_count(duthost, ports, queue):
+    """
+    Return the summed queue counter across `ports` for the given queue.
+
+    `queuestat -jp` only accepts physical interfaces, so when the egress port
+    is a portchannel we read each member port and sum their counters (a given
+    flow only hashes onto one member, but summing makes the check independent
+    of which member was selected).
+    """
+    return sum(_get_queue_count(duthost, port, queue) for port in ports)
+
+
+def _get_srv6_sid_packet_count(duthost, sid_prefix):
+    """
+    Return the SRv6 MySID packet counter for `sid_prefix`.
+
+    `srv6stat -s <prefix>` output looks like:
+        MySID               Packets    Bytes
+        ----------------  ---------  -------
+        fcbb:bbbb:1::/48         10     1520
+    """
+    raw_out = duthost.shell(f"srv6stat -s {sid_prefix}")['stdout'].strip()
+    for line in raw_out.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0] == sid_prefix:
+            try:
+                return int(fields[1].replace(',', ''))
+            except ValueError:
+                return 0
+    return 0
+
+
 @pytest.mark.parametrize("with_srh", [True, False], ids=["with_srh", "without_srh"])
 def test_srv6_dscp_to_queue_mapping(
-    ptfadapter, rand_selected_dut, srv6_qos_setup, with_srh
+    ptfadapter, duthost, srv6_qos_setup, with_srh
 ):
     """
     Validate DSCP-to-queue mapping for IPv6-in-IPv6 SRv6 packets.
@@ -387,8 +451,7 @@ def test_srv6_dscp_to_queue_mapping(
     the corresponding egress queue counter on the DUT increments by the
     expected amount.
     """
-    duthost = rand_selected_dut
-    egress_dut_port = srv6_qos_setup["egress_dut_port"]
+    egress_dut_ports = srv6_qos_setup["egress_dut_ports"]
     egress_ptf_ports = srv6_qos_setup["egress_ptf_ports"]
     dut_mac = srv6_qos_setup["dut_mac"]
     dscp_to_tc_map = srv6_qos_setup["dscp_to_tc_map"]
@@ -418,19 +481,37 @@ def test_srv6_dscp_to_queue_mapping(
         exp_pkt = _build_expected_packet(pkt)
 
         duthost.command("queuestat -c")
-        cleared = wait_until(
+        queue_cleared = wait_until(
             COUNTER_STABILIZATION_TIME, 1, 0,
-            lambda: _get_queue_count(duthost, egress_dut_port, expected_queue) == 0,
+            lambda: _get_total_queue_count(duthost, egress_dut_ports, expected_queue) == 0
         )
-        if not cleared:
-            logger.error(
+        if not queue_cleared:
+            # Treating this as a warning because of background traffic.
+            logger.warning(
                 f"DSCP {dscp}: queue {expected_queue} counter did not clear after queuestat -c"
             )
             output_table.append(
-                [dscp, expected_queue, 0, "FAILURE - QUEUE COUNTER NOT CLEARED"]
+                [dscp, expected_queue, 0, "WARNING - QUEUE COUNTER NOT CLEARED"]
+            )
+
+        duthost.command("srv6stat -c")
+        srv6_cleared = wait_until(
+            COUNTER_STABILIZATION_TIME, 1, 0,
+            lambda: _get_srv6_sid_packet_count(duthost, LOCATOR_SID_PREFIX) == 0
+        )
+        if not srv6_cleared:
+            logger.error(
+                f"DSCP {dscp}: SRv6 SID {LOCATOR_SID_PREFIX} packet counter did not clear after srv6stat -c"
+            )
+            output_table.append(
+                [dscp, expected_queue, 0, "FAILURE - SRV6 SID COUNTER NOT CLEARED"]
             )
             failed = True
             continue
+
+        # In case the queue counter was not cleared, record the initial value so that
+        # we can check that it is incremented by the expected amount after sending packets.
+        initial_queue_count = _get_total_queue_count(duthost, egress_dut_ports, expected_queue)
 
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, ptf_src_port, pkt, count=DEFAULT_PKT_COUNT)
@@ -457,18 +538,36 @@ def test_srv6_dscp_to_queue_mapping(
             failed = True
             continue
 
-        counter_populated = wait_until(
+        queue_counter_updated = wait_until(
             COUNTER_STABILIZATION_TIME, 1, 0,
-            lambda: _get_queue_count(duthost, egress_dut_port, expected_queue) >= DEFAULT_PKT_COUNT,
+            lambda: _get_total_queue_count(duthost, egress_dut_ports, expected_queue)
+            >= DEFAULT_PKT_COUNT + initial_queue_count
         )
-        queue_count = _get_queue_count(duthost, egress_dut_port, expected_queue)
-        if not counter_populated:
+        queue_count = _get_total_queue_count(duthost, egress_dut_ports, expected_queue)
+        if not queue_counter_updated:
             logger.error(
                 f"FAILURE: DSCP {dscp} - queue {expected_queue} count {queue_count} "
-                f"< expected {DEFAULT_PKT_COUNT} (timed out waiting for counter)"
+                f"< expected {DEFAULT_PKT_COUNT + initial_queue_count} (timed out waiting for counter)"
             )
             output_table.append(
                 [dscp, expected_queue, queue_count, "FAILURE - QUEUE COUNTER TIMEOUT"]
+            )
+            failed = True
+            continue
+
+        # Verify the SRv6 MySID packet counter incremented by DEFAULT_PKT_COUNT.
+        srv6_counter_updated = wait_until(
+            COUNTER_STABILIZATION_TIME, 1, 0,
+            lambda: _get_srv6_sid_packet_count(duthost, LOCATOR_SID_PREFIX) >= DEFAULT_PKT_COUNT
+        )
+        srv6_count = _get_srv6_sid_packet_count(duthost, LOCATOR_SID_PREFIX)
+        if not srv6_counter_updated:
+            logger.error(
+                f"FAILURE: DSCP {dscp} - SRv6 SID {LOCATOR_SID_PREFIX} packet count {srv6_count} "
+                f"< expected {DEFAULT_PKT_COUNT} (timed out waiting for counter)"
+            )
+            output_table.append(
+                [dscp, expected_queue, queue_count, "FAILURE - SRV6 SID COUNTER TIMEOUT"]
             )
             failed = True
             continue
