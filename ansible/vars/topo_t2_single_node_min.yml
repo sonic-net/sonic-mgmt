@@ -1,23 +1,23 @@
 topology:
   VMs:
-    VM01T3:
+    ARISTA01T3:
       vlans:
         - 6
       vm_offset: 0
-    VM02T3:
+    ARISTA02T3:
       vlans:
         - 12
       vm_offset: 1
-    VM03T3:
+    ARISTA03T3:
       vlans:
         - 13
       vm_offset: 2
-    VM05LT2:
+    ARISTA05LT2:
       vlans:
         - 24
         - 25
       vm_offset: 3
-    VM07LT2:
+    ARISTA07LT2:
       vlans:
         - 34
       vm_offset: 4
@@ -36,9 +36,7 @@ configuration_properties:
     tor_subnet_number: 8
     max_tor_subnet_number: 32
     tor_subnet_size: 128
-    dut_asn: 66000
-    dut_confed_asn: 65100
-    dut_confed_peers: 65300
+    dut_asn: 65100
     dut_type: UpperSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: fc0a::ff
@@ -48,12 +46,11 @@ configuration_properties:
     swrole: leaf
 
 configuration:
-  VM01T3:
+  ARISTA01T3:
     properties:
       - common
       - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -72,12 +69,11 @@ configuration:
       ipv4: 10.10.246.1/24
       ipv6: fc0a::2/64
 
-  VM02T3:
+  ARISTA02T3:
     properties:
       - common
       - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -94,12 +90,11 @@ configuration:
       ipv4: 10.10.246.2/24
       ipv6: fc0a::4/64
 
-  VM03T3:
+  ARISTA03T3:
     properties:
       - common
       - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -118,16 +113,14 @@ configuration:
       ipv4: 10.10.246.3/24
       ipv6: fc0a::6/64
 
-  VM05LT2:
+  ARISTA05LT2:
     properties:
       - common
       - leaf
     bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
+      asn: 65012
       peers:
-        66000:
+        65100:
           - 10.0.0.100
           - fc00::d
     interfaces:
@@ -145,16 +138,14 @@ configuration:
       ipv4: 10.10.246.103/24
       ipv6: fc0a::66/64
 
-  VM07LT2:
+  ARISTA07LT2:
     properties:
       - common
       - leaf
     bgp:
-      asn: 65300
-      confed_asn: 65100
-      confed_peers: 66000
+      asn: 65013
       peers:
-        66000:
+        65100:
           - 10.0.0.102
           - fc00::11
     interfaces:
