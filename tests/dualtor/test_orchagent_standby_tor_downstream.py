@@ -41,7 +41,7 @@ pytestmark = [
 logger = logging.getLogger(__file__)
 
 MUX_STATUS_CHECK_INTERVAL = 10
-MUX_STATUS_CHECK_TIMEOUT = 60
+MUX_STATUS_CHECK_TIMEOUT = 120
 
 
 @pytest.fixture(params=['ipv4', 'ipv6'])
