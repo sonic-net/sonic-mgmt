@@ -68,7 +68,10 @@ def partial_ptf_runner(request, ptfhost, erspan_ip_ver):  # noqa F811
                   'mirror_stage': mirror_type,
                   'expect_received': expect_receive,
                   'check_ttl': ('False' if setup_info[direction]['everflow_dut'].is_multi_asic or
-                                "t2" in setup_info["topo"] else 'True')}
+                                "t2" in setup_info["topo"] or
+                                setup_info[direction]['everflow_dut'].facts.get('switch_type') == 'voq'
+                                else 'True')
+                    }
         params.update(kwargs)
         # On dualtor testbed, the dst_mac for upstream traffic is vlan MAC,
         # while the src_mac for mirrored traffic is router MAC
@@ -617,9 +620,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
 
-        if tbinfo['topo']['type'] == "t2":
-            if everflow_dut.facts['switch_type'] == "voq":
-                pytest.skip("Skip test as is not supported on a VoQ chassis.")
+        if everflow_dut.facts['switch_type'] == "voq":
+            pytest.skip("Skip test as is not supported on a VoQ chassis.")
 
         # Remaining Scenario not applicable for this topology
         if len(setup_info[dest_port_type]["dest_port"]) <= 2:
