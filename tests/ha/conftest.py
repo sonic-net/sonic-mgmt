@@ -761,8 +761,8 @@ def deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, se
     standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
 
     logger.info("HA: de-activate Primary and Standby")
-    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner, disabled=True)
-    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
+    set_dash_ha_scope(localhost, duthosts[0], ptfhost, primary_vdpu_key, "dead", ha_owner)
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner)
 
 
 @pytest.fixture(scope="function")
