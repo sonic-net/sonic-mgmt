@@ -20,6 +20,26 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
+# Per-ASIC egress buffer cell size (bytes). WRED kmin/kmax are quantized to
+# this granularity by the ASIC, so test thresholds must be multiples of it.
+_BRCM_CELL_SIZE = {'td2': 208, 'td3': 256, 'td4': 256,
+                   'th': 208, 'th2': 208, 'th3': 208, 'th4': 208, 'th5': 254}
+_MLNX_CELL_SIZE = 144  # conservative default across spc1..spc5 (96/144/192)
+_CISCO_CELL_SIZE = 384
+
+
+def _get_cell_size(duthost):
+    asic_type = duthost.facts['asic_type']
+    if asic_type == 'cisco-8000':
+        return _CISCO_CELL_SIZE
+    if asic_type == 'mellanox':
+        return _MLNX_CELL_SIZE
+    asic = duthost.get_asic_name()
+    if asic in _BRCM_CELL_SIZE:
+        return _BRCM_CELL_SIZE[asic]
+    # Fallback: 256 is a safe upper bound for unknown Broadcom-class ASICs.
+    return 256
+
 
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_dequeue_ecn(request,
@@ -86,11 +106,34 @@ def test_dequeue_ecn(request,
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
     data_flow_pkt_size = 1024
-    data_flow_pkt_count = 101
     num_iterations = 1
-    logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
+
+    # Derive packet count from the platform's buffer cell size so the
+    # dequeue window is long enough for the queue to deterministically
+    # start above kmax and drain below kmin despite PFC-release /
+    # first-packet timing jitter. The [kmin, kmax] band spans 60% of
+    # burst_bytes; require it to be at least MIN_BAND_CELLS cells wide.
+    cell_size = _get_cell_size(duthosts[0])
+    cell_per_pkt = (data_flow_pkt_size + cell_size - 1) // cell_size
+    MIN_BAND_CELLS = 300
+    SAFETY_MARGIN = 1.5
+    min_pkt_count = int(SAFETY_MARGIN * MIN_BAND_CELLS / (0.60 * cell_per_pkt)) + 1
+    data_flow_pkt_count = min_pkt_count
+
+    # Scale WRED thresholds to the data burst, aligned to the buffer cell
+    # size, so the egress queue depth straddles [kmin, kmax] across the
+    # dequeue window: starts above kmax (first packet 100% marked) and
+    # drops below kmin before the last packet (last packet not marked).
+    burst_bytes = data_flow_pkt_count * cell_per_pkt * cell_size
+    kmax = (int(burst_bytes * 0.80) // cell_size) * cell_size
+    kmin = (int(burst_bytes * 0.20) // cell_size) * cell_size
+    pytest_assert(kmax - kmin >= MIN_BAND_CELLS * cell_size,
+                  "Burst too small for cell_size={}: kmin={}, kmax={}".format(
+                      cell_size, kmin, kmax))
+    snappi_extra_params.ecn_params = {'kmin': kmin, 'kmax': kmax, 'pmax': 100}
+    logger.info("Running ECN dequeue test with params: {} (cell_size={}, pkt_count={})".format(
+        snappi_extra_params.ecn_params, cell_size, data_flow_pkt_count))
 
     snappi_extra_params.traffic_flow_config.data_flow_config = {
             "flow_pkt_size": data_flow_pkt_size,
