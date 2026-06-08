@@ -247,7 +247,7 @@ def _fanout_ssh_run(cmd):
     Returns (stdout, stderr, exit_code).
     """
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.WarningPolicy())
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # noqa: S507 — lab fanout with hardcoded IP
     try:
         client.connect(FANOUT_IP, port=22, username=FANOUT_USER,
                        password=FANOUT_PASSWORD, timeout=10)
