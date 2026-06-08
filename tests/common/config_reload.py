@@ -296,7 +296,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     # On smartswitch, wait for DPUs to reach expected state after config reload.
     # This prevents consecutive config reloads from triggering DPU admin state
     # changes before the previous transitions have completed.
-    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+    is_smartswitch = False
+    if is_dut:
+        try:
+            is_smartswitch = sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")
+        except (AttributeError, KeyError, TypeError):
+            pass
+    if is_dut and is_smartswitch:
         _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:

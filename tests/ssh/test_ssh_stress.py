@@ -5,11 +5,14 @@ import time
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
+from tests.common.utilities import get_image_type
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology("any"),
     pytest.mark.device_type("vs"),
+    pytest.mark.device_type("vpp"),
 ]
 
 START_BGP_NBRS = "sudo config bgp startup all"
@@ -36,6 +39,20 @@ max_mem = 0
 def setup_teardown(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Ensure the DUT password matches DEFAULT_SSH_CONNECT_PARAMS
+    creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+    duthost.shell("echo '{}:{}' | sudo chpasswd".format(creds["username"], creds["password"]))
+
+    # Disable TACACS in PAM if present (it can reject the expected password)
+    pam_file = "/etc/pam.d/common-auth-sonic"
+    backup_file = pam_file + ".bak"
+    has_tacacs = duthost.shell(
+        "grep -q '^auth.*pam_tacplus' {} && echo yes || echo no".format(pam_file)
+    )["stdout"].strip() == "yes"
+    if has_tacacs:
+        duthost.shell("sudo cp {} {}".format(pam_file, backup_file))
+        duthost.shell("sudo sed -i 's/^auth.*pam_tacplus/#&/' {}".format(pam_file))
+
     # Copies over ACL configs for the ACL commands
     duthost.host.options["variable_manager"].extra_vars.update({"dualtor": False})
     duthost.copy(src="acl/templates/acltb_test_rules.j2",
@@ -45,8 +62,13 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
 
     duthost.file(path="/tmp/acl.json", state="absent")
 
-    duthost.shell_cmds(cmds=[START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL,
-                       REMOVE_ROUTE, REMOVE_PORTCHANNEL], module_ignore_errors=True)
+    for cmd in [START_BGP_NBRS, STARTUP_INTERFACE, REMOVE_ACL, REMOVE_ROUTE, REMOVE_PORTCHANNEL]:
+        duthost.shell(cmd, module_ignore_errors=True)
+
+    # Restore original password first, then TACACS (order matters for reconnect)
+    duthost.shell("echo '{}:password' | sudo chpasswd".format(creds["username"]))
+    if has_tacacs:
+        duthost.shell("sudo cp {} {}".format(backup_file, pam_file))
 
 
 def get_system_stats(duthost):
@@ -63,11 +85,11 @@ def get_system_stats(duthost):
     return used_memory/total_memory, used_cpu/total_cpu
 
 
-def start_SSH_connection(dut_mgmt_ip):
+def start_SSH_connection(dut_mgmt_ip, username, password):
     """Starts SSH connection to provided IP"""
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(dut_mgmt_ip, username="admin", password="password",
+    ssh.connect(dut_mgmt_ip, username=username, password=password,
                 allow_agent=False, look_for_keys=False)
 
     return ssh
@@ -87,11 +109,11 @@ def monitor_system(duthost):
         time.sleep(1)
 
 
-def work(dut_mgmt_ip, commands, baselines):
+def work(dut_mgmt_ip, commands, baselines, username, password):
     """Runs commands over ssh on the DUT"""
     command_ind = 0
 
-    ssh = start_SSH_connection(dut_mgmt_ip)
+    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
 
     while not done:
         if not commands:
@@ -159,6 +181,11 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     duthost = duthosts[rand_one_dut_hostname]
     dut_mgmt_ip = duthost.mgmt_ip
 
+    # Get SSH credentials from image type
+    creds = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+    username = creds["username"]
+    password = creds["password"]
+
     # Gets initial memory and CPU stats
     init_mem, init_cpu = get_system_stats(duthost)
 
@@ -175,7 +202,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     ]
 
     logging.info("Collecting baseline times for commands")
-    ssh = start_SSH_connection(dut_mgmt_ip)
+    ssh = start_SSH_connection(dut_mgmt_ip, username, password)
     baseline_times = [tuple((get_baseline_time(ssh, com)
                             for com in pair)) for pair in command_pairs]
 
@@ -189,7 +216,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     # Initiates threads
     for ind in range(len(command_pairs)):
         new_thread = threading.Thread(target=work, args=(
-            dut_mgmt_ip, command_pairs[ind], baseline_times[ind],))
+            dut_mgmt_ip, command_pairs[ind], baseline_times[ind], username, password,))
         new_thread.start()
         threads.append(new_thread)
 
@@ -223,7 +250,7 @@ def test_ssh_stress(duthosts, rand_one_dut_hostname, setup_teardown):
     ssh_connections = []
 
     for ind in range(20):
-        ssh = start_SSH_connection(dut_mgmt_ip)
+        ssh = start_SSH_connection(dut_mgmt_ip, username, password)
         ssh_connections.append(ssh)
         try:
             stdin, stdout, stderr = ssh.exec_command("show mac", timeout=10)
