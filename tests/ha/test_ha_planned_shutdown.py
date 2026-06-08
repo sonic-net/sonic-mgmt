@@ -164,10 +164,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        if ha_owner == "dpu":
-            set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
-        else:
-            set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=False)
+        set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=False)
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()
@@ -213,6 +210,8 @@ def test_ha_planned_shutdown(
     )
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)
+
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
 
     # Re-activate standby
     pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, standby_vdpu_key, "activate_role",
