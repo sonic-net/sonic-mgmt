@@ -132,6 +132,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
             started = True
         except socket.error:
             tries += 1
+            time.sleep(1)
 
     return started
 
