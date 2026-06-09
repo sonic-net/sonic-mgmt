@@ -1533,7 +1533,11 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7*(len(snappi_ports) - 1)
     static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
-    for index, port in enumerate(snappi_ports):
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
+    for index, port in enumerate(ports):
         if port['duthost'] == duthost:
             peer_port = port['peer_port']
             asic_inst = duthost.get_port_asic_instance(peer_port)
@@ -1568,10 +1572,6 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
             port['ipGateway'], port['prefix'] = subnet[0].split("/")
             port['subnet'] = subnet[0]
-    ports = []
-    for port in snappi_ports:
-        if port['peer_device'] == duthost.hostname:
-            ports.append(port)
     if ptype:
         macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
         with open(macsec_var_file, "r") as f:
@@ -1628,7 +1628,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                             format(port['asic_value'], port['peer_port'], tgenIp, mac))
             # Tx Port
             ip1 = ethernet.ipv4_addresses.add()
-            ip1.name = "ip2_{}".format(port_id)
+            ip1.name = "ip_{}".format(port_id)
             ip1.address = tgenIp
             ip1.prefix = int(prefix_length)
             ip1.gateway = dutIp
@@ -1737,7 +1737,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 ethernet.connection.port_name = config.ports[port_id].name
                 ethernet.mac = __gen_mac(nd)
                 ip_stack = ethernet.ipv4_addresses.add()
-                ip_stack.name = 'Ipv4 Port {}_{}'.format(port_id, nd)
+                left, right = divmod(nd, 7)
+                ip_stack.name = f"Ipv4 Port {left}_{right}"
                 ip_stack.address = ip_values[nd]
                 ip_stack.prefix = int(prefix_length)
                 ip_stack.gateway = dutIp
