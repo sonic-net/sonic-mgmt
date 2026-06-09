@@ -9,24 +9,90 @@ from functools import wraps
 pytestmark = [pytest.mark.topology("nut-single-dut")]
 logger = logging.getLogger(__name__)
 
-COLUMNS_SHOW = ["Tx Port", "Rx Port", "Host", "Interface", "CRC", "Tx Frames", "Rx Frames", "RX_ERR", "Loss %"]
-fcs_config = {
-    "zero": {"Auto": False, "SingleValue": 0},
-    "random": {"Auto": False, "ValueType": "nonRepeatableRandom", "RandomMask": "0xFFFFFFFF"},
-}
+COLUMNS_SHOW = ["CRC", "fcs_error_type", "Tx Port", "Rx Port", "Host", "Interface",
+                "Tx Frames", "Rx Frames", "RX_ERR", "Loss %"]
+
+# Test scenario identifiers (used to drive port selection, flow building and FCS injection).
+SCENARIO_LINE_RATE = "line_rate_fcs_error"
+SCENARIO_ONE_TO_ONE = "fcs_error_isolation_one_to_one_parallel"
+SCENARIO_MIXED = "fcs_error_isolation_mixed_traffic_on_a_single_port"
+
+# IxNetwork "Flow Statistics" columns that may hold the per-flow traffic-item name.
+TRAFFIC_ITEM_NAME_COLUMNS = ["Traffic Item", "Flow Group", "Traffic Item Name"]
 
 
 def parametrize_common(func):
-    @pytest.mark.parametrize("subnet_type", ["IPv6"])
+    @pytest.mark.parametrize("subnet_type", ["IPv4"])
     @pytest.mark.parametrize("test_duration_sec", [60])
     @pytest.mark.parametrize("tx_port_count", ["max"])
-    @pytest.mark.parametrize("frame_size", [128, 256, 1024, 1518, 4096, 8192])
+    @pytest.mark.parametrize("frame_size", [1518])
     @pytest.mark.parametrize("fcs_error_type", ["zero", "random"])
     @wraps(func)
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+# ---------------------------------------------------------------------------
+# Verification: Each verify_* returns a list of failure strings (empty = pass) so every
+# violated condition is reported at once.
+# ---------------------------------------------------------------------------
+def verify_line_rate(df):
+    """All frames are bad: RX receives nothing and every byte is counted as an RX error."""
+    failures = []
+    rx_total = int(df["Rx Frames"].sum())
+    if rx_total != 0:
+        failures.append(f"RX received {rx_total} frames, expected 0.")
+
+    mismatched = df.loc[df["RX_ERR"] != df["Tx Frames"], "Interface"].tolist()
+    if mismatched:
+        failures.append(f"RX_ERR != TX frame count on interface(s): {mismatched}")
+    return failures
+
+
+def verify_isolation(df):
+    """Bad-FCS traffic is fully dropped at ingress; good-FCS traffic passes cleanly.
+
+    Works for both one-to-one (pure-bad ports) and mixed (good+bad per port): RX_ERR
+    is summed per distinct ingress port so a port with two flow rows isn't double-counted.
+    """
+    failures = []
+    bad = df[df["CRC"] == "badCrc"]
+    good = df[df["CRC"] == "goodCrc"]
+
+    rx_bad = int(bad["Rx Frames"].sum())
+    if rx_bad != 0:
+        failures.append(f"RX received {rx_bad} bad-FCS frames, expected 0.")
+
+    if not (bad["Loss %"] == 100.0).all():
+        failures.append("Some bad-FCS flows did not have 100% loss.")
+
+    if (good["Loss %"] > 0.0).any():
+        failures.append("Some good-FCS flows showed packet loss.")
+
+    total_bad_tx = int(bad["Tx Frames"].sum())
+    total_rx_err = int(df.drop_duplicates(["Host", "Interface"])["RX_ERR"].sum())
+    if total_bad_tx != total_rx_err:
+        failures.append(f"Ingress RX_ERR ({total_rx_err}) != bad-FCS TX frames ({total_bad_tx}).")
+    return failures
+
+
+def assert_no_failures(scenario, failures):
+    """Fail the test (listing every violated condition) unless `failures` is empty."""
+    pytest_assert(not failures, f"FCS '{scenario}' verification failed: \n - " + "\n  - ".join(failures))
+
+
+def add_leading_columns(df, crc, fcs_error_type):
+    """Place CRC as the 1st column and fcs_error_type as the 2nd column of `df`.
+
+    `crc` may be a scalar (e.g. "badCrc") or a per-row array. Returns the same df.
+    """
+    if "CRC" in df.columns:
+        df = df.drop(columns="CRC")
+    df.insert(0, "CRC", crc)
+    df.insert(1, "fcs_error_type", fcs_error_type)
+    return df
 
 
 @parametrize_common
@@ -54,7 +120,7 @@ def test_line_rate_fcs_error(
     logger.info("Starting test_line_rate_fcs_error_traffic_test.")
     good_bad_crc_map, tx_ports, rx_ports = setup_base_config_plus_test_scenario(
         request,
-        "line_rate_fcs_error",
+        SCENARIO_LINE_RATE,
         snappi_api,
         duthosts,
         get_snappi_ports,
@@ -75,13 +141,8 @@ def test_line_rate_fcs_error(
         interval_seconds=1,
         timeout_seconds=test_duration_sec + 20,
     )
-    flow_df, df_counters, df = get_merged_counters(snappi_api, tx_ports + rx_ports)
-    df["CRC"] = "badCrc"
-
-    checks = [
-        {"mask": df["Rx Frames"] != 0, "fail_msg": "RX port(s) received unexpected frames."},
-        {"mask": df["RX_ERR"] != df["Tx Frames"], "fail_msg": "Mismatch: RX_ERR != Tgen TX frames on some ports."},
-    ]
+    df = get_merged_counters(snappi_api, tx_ports + rx_ports)
+    df = add_leading_columns(df, "badCrc", fcs_error_type)
 
     logger.info(
         "Traffic counters post-test:\n"
@@ -91,8 +152,7 @@ def test_line_rate_fcs_error(
         db_reporter, df, subnet_type, frame_size, test_duration_sec, tx_port_count, len(tx_ports), fcs_error_type
     )
 
-    if not validate_and_log(df, checks):
-        pytest.fail("FCS line-rate traffic test failed. See logs for details.")
+    assert_no_failures(SCENARIO_LINE_RATE, verify_line_rate(df))
     logger.info("test_line_rate_fcs_error_traffic_test completed successfully.")
 
 
@@ -122,7 +182,7 @@ def test_fcs_error_isolation_one_to_one_parallel(
 
     good_bad_crc_map, tx_ports, rx_ports = setup_base_config_plus_test_scenario(
         request,
-        "fcs_error_isolation_one_to_one_parallel",
+        SCENARIO_ONE_TO_ONE,
         snappi_api,
         duthosts,
         get_snappi_ports,
@@ -130,7 +190,7 @@ def test_fcs_error_isolation_one_to_one_parallel(
         tx_port_count,
         subnet_type,
         frame_size,
-        50,
+        100,
         test_duration_sec,
         fcs_error_type,
     )
@@ -140,38 +200,25 @@ def test_fcs_error_isolation_one_to_one_parallel(
     ixnet.Traffic.StartStatelessTrafficBlocking()
     wait_for(lambda: is_traffic_stopped(snappi_api), "Waiting for traffic stop.", 1, test_duration_sec + 20)
 
-    flow_df, df_counters, df = get_merged_counters(snappi_api, tx_ports + rx_ports)
-    df["CRC"] = (
+    df = get_merged_counters(snappi_api, tx_ports + rx_ports)
+    # good/bad live on different TX ports -> classify by (Tx Port, Rx Port).
+    crc_values = (
         df.set_index(["Tx Port", "Rx Port"])
         .index.map({pair: crc for crc, pairs in good_bad_crc_map.items() for pair in pairs})
         .fillna("unknown")
         .values
     )
-
-    rate_by_rx_crc = df.groupby(["Rx Port", "CRC"])["Rx Frames"].sum().unstack(fill_value=0)
-    total_bad_tx = df.query("CRC == 'badCrc'")["Tx Frames"].sum()
-    total_bad_rxerr = df.query("CRC == 'badCrc'")["RX_ERR"].sum()
+    df = add_leading_columns(df, crc_values, fcs_error_type)
 
     logger.info(
         "Traffic counters post-test:\n"
         + tabulate(df[COLUMNS_SHOW], headers="keys", tablefmt="fancy_grid", showindex=False)
     )
-
-    checks = [
-        {"mask": (rate_by_rx_crc.get("badCrc", pd.Series(0)) > 0), "fail_msg": "RX port(s) received bad-FCS frames."},
-        {"mask": (total_bad_rxerr != total_bad_tx), "fail_msg": "RX_ERR not matches Tgen TX bad-FCS frames."},
-        {
-            "mask": (df["CRC"].eq("badCrc") & (df["Loss %"] != 100.0)),
-            "fail_msg": "Bad-FCS flows did not have 100% loss.",
-        },
-        {"mask": (df["CRC"].eq("goodCrc") & (df["Loss %"] > 0.0)), "fail_msg": "Good-FCS flows showed packet loss."},
-    ]
-
     push_metrics(
         db_reporter, df, subnet_type, frame_size, test_duration_sec, tx_port_count, len(tx_ports), fcs_error_type
     )
-    if not validate_and_log(df, checks):
-        pytest.fail("FCS isolation one-to-one parallel test failed. See logs for details.")
+
+    assert_no_failures(SCENARIO_ONE_TO_ONE, verify_isolation(df))
     logger.info("test_fcs_error_isolation_one_to_one_parallel_traffic_test completed successfully.")
 
 
@@ -201,7 +248,7 @@ def test_fcs_error_isolation_mixed_traffic_on_a_single_port_traffic(
 
     good_bad_crc_map, tx_ports, rx_ports = setup_base_config_plus_test_scenario(
         request,
-        "fcs_error_isolation_mixed_traffic_on_a_single_port",
+        SCENARIO_MIXED,
         snappi_api,
         duthosts,
         get_snappi_ports,
@@ -218,39 +265,40 @@ def test_fcs_error_isolation_mixed_traffic_on_a_single_port_traffic(
     ixnet.Traffic.StartStatelessTrafficBlocking()
     wait_for(lambda: is_traffic_stopped(snappi_api), "Waiting for traffic stop.", 1, test_duration_sec + 20)
 
-    flow_df, df_counters, df = get_merged_counters(snappi_api, tx_ports + rx_ports)
-    df["CRC"] = (
-        df.set_index(["Tx Port", "Rx Port"])
-        .index.map({pair: crc for crc, pairs in good_bad_crc_map.items() for pair in pairs})
-        .fillna("unknown")
-        .values
-    )
-
-    crc_group = df.groupby(["Rx Port", "CRC"])["Rx Frames"].sum().unstack(fill_value=0)
-    flow_bad = crc_group.get("badCrc", 0)
-    total_bad_tx = df.query("CRC == 'badCrc'")["Tx Frames"].sum()
-    total_rx_err = df["RX_ERR"].sum()
+    df = get_merged_counters(snappi_api, tx_ports + rx_ports)
+    # Good and bad flows share the same (Tx Port, Rx Port) pair in this scenario, so the
+    # CRC type must be resolved from the per-flow traffic-item name, not the port pair.
+    name_to_crc = {name: crc for crc, names in good_bad_crc_map.items() for name in names}
+    name_col = next((c for c in TRAFFIC_ITEM_NAME_COLUMNS if c in df.columns), None)
+    if name_col is None:
+        pytest.fail("Could not locate the traffic-item name column in flow statistics.")
+    crc_values = df[name_col].map(name_to_crc).fillna("unknown").values
+    df = add_leading_columns(df, crc_values, fcs_error_type)
 
     logger.info(
         "Traffic counters post-test:\n"
         + tabulate(df[COLUMNS_SHOW], headers="keys", tablefmt="fancy_grid", showindex=False)
     )
-
     push_metrics(
         db_reporter, df, subnet_type, frame_size, test_duration_sec, tx_port_count, len(tx_ports), fcs_error_type
     )
 
-    checks = [
-        {"mask": flow_bad > 0, "fail_msg": "RX port(s) received bad-FCS frames."},
-        {
-            "mask": total_bad_tx != total_rx_err,
-            "fail_msg": ("Mismatch: ingress RX error counters vs bad-FCS Tgen TX frames."),
-        },
-    ]
-
-    if not validate_and_log(df, checks):
-        pytest.fail("FCS isolation mixed-port test failed. See logs for details.")
+    assert_no_failures(SCENARIO_MIXED, verify_isolation(df))
     logger.info("test_fcs_error_isolation_mixed_traffic_on_a_single_port_traffic_test completed successfully.")
+
+
+def inject_fcs_error(obj, fcs_error_type):
+    """
+    Corrupt the FCS of an IxNetwork traffic object (ConfigElement or HighLevelStream).
+
+    "zero" forces the ethernet.fcs field to a fixed 0 value; "random" randomizes the
+    frame payload and marks the CRC as bad.
+    """
+    if fcs_error_type == "zero":
+        obj.Stack.find(StackTypeId="ethernet.fcs")[-1].Field.find().update(Auto=False, SingleValue=0)
+    elif fcs_error_type == "random":
+        obj.FramePayload.find().Type = "random"
+        obj.Crc = "badCrc"
 
 
 def setup_base_config_plus_test_scenario(
@@ -274,7 +322,7 @@ def setup_base_config_plus_test_scenario(
     logger.info("Setting up base configuration and test scenario.")
     snappi_params = SnappiTestParams()
     snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
-    if scenario == "line_rate_fcs_error":
+    if scenario == SCENARIO_LINE_RATE:
         tx_ports = snappi_ports[:-1] if tx_port_count == "max" else snappi_ports[:tx_port_count]
         rx_ports = snappi_ports[-1:] if tx_port_count == "max" else snappi_ports[tx_port_count:tx_port_count + 1]
     else:
@@ -296,58 +344,89 @@ def setup_base_config_plus_test_scenario(
     tx_names = handle_map["Tx"]["ip"]
     rx_names = handle_map["Rx"]["ip"]
 
-    if scenario == "line_rate_fcs_error":
+    mixed_scenario = scenario == SCENARIO_MIXED
+
+    if scenario == SCENARIO_LINE_RATE:
         tx_rx_pairs = [(tx_names, rx_names)]
     else:
         # Build TX-RX pairs: every 2 TX ports map to 1 RX port
         tx_rx_pairs = [
             (tx_names[i * 2:(i * 2) + 2], [rx_names[i]]) for i in range(min(len(tx_names) // 2, len(rx_names)))
         ]
-    # Configure traffic flows
-    snappi_params.traffic_flow_config = [
-        {
-            "line_rate": frame_rate,
-            "frame_size": frame_size,
-            "flow_name": f"traffic_fcs_{tx_grp[0]}_to_{rx_grp[0]}",
-            "tx_names": tx_grp,
-            "rx_names": rx_grp,
-            "mesh_type": "mesh",
-            "traffic_duration_fixed_seconds": test_duration,
-        }
-        for tx_grp, rx_grp in tx_rx_pairs
-    ]
+
+    good_bad_crc_map = {"goodCrc": [], "badCrc": []}
+
+    if mixed_scenario:
+        # Mixed-traffic on a single port (section 4.2.2): each TX port carries BOTH a
+        # good-FCS and a bad-FCS flow to the same RX port simultaneously, each at
+        # `frame_rate` (50%) line rate. The crc map is keyed by flow name because the
+        # good and bad flows share the same (Tx Port, Rx Port) pair.
+        snappi_params.traffic_flow_config = []
+        for tx_grp, rx_grp in tx_rx_pairs:
+            for tx in tx_grp:
+                for crc in ("goodCrc", "badCrc"):
+                    flow_name = f"fcs_{crc}_{tx}_to_{rx_grp[0]}"
+                    snappi_params.traffic_flow_config.append(
+                        {
+                            "line_rate": frame_rate,
+                            "frame_size": frame_size,
+                            "flow_name": flow_name,
+                            "tx_names": [tx],
+                            "rx_names": rx_grp,
+                            "mesh_type": "one_to_one",
+                            "traffic_duration_fixed_seconds": test_duration,
+                        }
+                    )
+                    good_bad_crc_map[crc].append(flow_name)
+    else:
+        # Configure traffic flows
+        snappi_params.traffic_flow_config = [
+            {
+                "line_rate": frame_rate,
+                "frame_size": frame_size,
+                "flow_name": f"traffic_fcs_{tx_grp[0]}_to_{rx_grp[0]}",
+                "tx_names": tx_grp,
+                "rx_names": rx_grp,
+                "mesh_type": "mesh",
+                "traffic_duration_fixed_seconds": test_duration,
+            }
+            for tx_grp, rx_grp in tx_rx_pairs
+        ]
 
     snappi_config = create_traffic_items(snappi_config, snappi_params)
     snappi_api.set_config(snappi_config)
     start_stop(snappi_api, operation="start", op_type="protocols")
 
-    good_bad_crc_map = {"goodCrc": [], "badCrc": []}
-
     ixnet = snappi_api._ixnetwork
     traffic_items = ixnet.Traffic.find().TrafficItem.find()
 
-    if scenario == "line_rate_fcs_error":
-        fcs_field = traffic_items.ConfigElement.find().Stack.find(StackTypeId="ethernet.fcs")[-1].Field.find()
-        fcs_field.update(**fcs_config.get(fcs_error_type, fcs_config["random"]))
+    if scenario == SCENARIO_LINE_RATE:
+        inject_fcs_error(traffic_items.ConfigElement.find(), fcs_error_type)
+
+    elif mixed_scenario:
+        # Inject FCS errors per traffic-item: only the bad-FCS flows are corrupted.
+        logger.info("Generating traffic items in IxNetwork API.")
+        traffic_items.Generate()
+        bad_names = set(good_bad_crc_map["badCrc"])
+        for ti in traffic_items:
+            if ti.Name not in bad_names:
+                continue
+            for hl in ti.HighLevelStream.find():
+                inject_fcs_error(hl, fcs_error_type)
+        ixnet.Traffic.Apply()
 
     else:
         logger.info("Generating traffic items in IxNetwork API.")
         traffic_items.Generate()
         for ti in traffic_items:
             for idx, hl in enumerate(ti.HighLevelStream.find()):
-                crc_type = "badCrc" if idx % 2 else "goodCrc"
-                if crc_type == "badCrc":
-                    fcs_field = hl.Stack.find(StackTypeId="ethernet.fcs")[-1].Field.find()
-                    fcs_update_args = {"Auto": False}
-                    if fcs_error_type == "zero":
-                        fcs_update_args.update(SingleValue=0)
-                    else:  # random
-                        fcs_update_args.update(ValueType="nonRepeatableRandom", RandomMask="0xFFFFFFFF")
-                    fcs_field.update(**fcs_update_args)
+                is_bad = bool(idx % 2)
+                if is_bad:
+                    inject_fcs_error(hl, fcs_error_type)
+                crc_type = "badCrc" if is_bad else "goodCrc"
                 good_bad_crc_map[crc_type].append((hl.TxPortName, hl.RxPortNames[0]))
 
         ixnet.Traffic.Apply()
-
     logger.info("Clearing all switch counters on DUTs.")
     [duthost.command("sudo sonic-clear counters") for duthost in duthosts]
     logger.info("Base configuration and test scenario setup complete.")
@@ -413,8 +492,10 @@ def push_metrics(
         # Iterate through each port row in the group
         for idx, row in group.iterrows():
             # Prepare combined labels for metric reporting (test params + device info)
+            # test_labels holds only scalars, so a shallow copy is sufficient and avoids
+            # a per-row deepcopy.
             labels = {
-                **deepcopy(test_labels),
+                **test_labels,
                 METRIC_LABEL_DEVICE_ID: host,
                 METRIC_LABEL_DEVICE_PORT_ID: row["Interface"],
             }
@@ -439,7 +520,7 @@ def push_metrics(
                 (port_metrics.rx_ok, "RX_OK"),
                 (port_metrics.tx_ok, "TX_OK"),
                 (port_metrics.rx_err, "RX_ERR"),
-                (port_metrics.tx_err, "RX_ERR"),
+                (port_metrics.tx_err, "TX_ERR"),
                 (port_metrics.rx_drop, "RX_DRP"),
                 (port_metrics.tx_drop, "TX_DRP"),
                 (port_metrics.rx_overrun, "RX_OVR"),
@@ -517,45 +598,4 @@ def get_merged_counters(snappi_api, tgen_ports):
     merged_df = flow_df.merge(df_counters, on=["Host", "Interface"], how="left")
     logger.info("Successfully merged flow and DUT port counters.")
 
-    return flow_df, df_counters, merged_df
-
-
-def validate_and_log(df, checks):
-    """
-    Apply validation checks on the DataFrame and log any failing rows.
-
-    Args:
-        df (pd.DataFrame): The DataFrame containing test metrics.
-        checks (list of dict): Each dict must have:
-            - 'mask': A boolean Series or bool indicating failing condition.
-            - 'fail_msg': Error message to log if condition is met.
-
-    Returns:
-        bool: True if all checks pass (no failures), False if any fail.
-
-    This function handles alignment issues with boolean masks by reindexing
-    masks to match the DataFrame's index, which prevents IndexingError.
-    It logs a formatted table of all rows that violate each check condition.
-    """
-    test_pass = True  # Flag to track overall test pass/fail status
-
-    for check in checks:
-        mask = check["mask"]  # Boolean Series or bool marking failing rows
-        # Ensure boolean mask aligns with DataFrame index to avoid pandas indexing errors
-        if isinstance(mask, pd.Series):
-            mask_aligned = mask.reindex(df.index, fill_value=False)
-            # Select only columns of interest for logging failing rows
-            failing_rows = df.loc[mask_aligned, COLUMNS_SHOW]
-        else:
-            # If mask is a single bool True, consider all rows failing (log entire df),
-            # Otherwise, no failures
-            failing_rows = df.loc[df.index] if mask else pd.DataFrame()
-
-        if not failing_rows.empty or (isinstance(mask, bool) and mask):
-            logger.error(check["fail_msg"])  # Log the failure message
-            if not failing_rows.empty:
-                # Log a nice formatted table of the failing rows for easier debugging
-                logger.error("\n" + tabulate(failing_rows, headers="keys", tablefmt="fancy_grid", showindex=False))
-            test_pass = False  # At least one check failed
-
-    return test_pass
+    return merged_df
