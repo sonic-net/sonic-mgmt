@@ -711,13 +711,13 @@ def check_qos_db_fv_reference_with_table(duthost):
     return False
 
 
-def str2bool(str):
+def str2bool(value):
     """
     This is used as a type when add option for pytest
-    :param str: The input string value
+    :param value: The input string value
     :return: False if value is 0 or false, else True
     """
-    return str.lower() not in ["0", "false", "no"]
+    return value.lower() not in ["0", "false", "no"]
 
 
 def setup_ferret(duthost, ptfhost, tbinfo):
