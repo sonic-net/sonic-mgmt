@@ -28,6 +28,7 @@
   - [Test Case 19: Verify Drop Monitor with Multiple Collectors](#test-case-19-verify-drop-monitor-with-multiple-collectors)
   - [Test Case 20: Verify CLI Show Commands for Drop Monitor](#test-case-20-verify-cli-show-commands-for-drop-monitor)
 - [Related DUT CLI Commands](#related-dut-cli-commands)
+- [Test Results Summary](#test-results-summary)
 
 ---
 
@@ -815,6 +816,11 @@ class TestSflowDropNotification:
         assert len(drops) > 0, "No drop notifications received"
         assert drops[0]['reason'] == 258, "Drop reason should be ACL (258)"
 ```
+
+**Test Results Summary**
+
+* Pass: 17
+* Fail: 3 (TC#5, TC#7, TC#9)
 
 ---
 
