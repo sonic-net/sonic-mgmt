@@ -287,8 +287,10 @@ bfd/test_bfd.py::test_bfd_basic:
       - "asic_type in ['vs']"
   xfail:
     reason: "Test might failed due to https://github.com/sonic-net/sonic-mgmt/issues/19519"
+    conditions_logical_operator: or
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/19519
+      - "platform in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0']"
 
 bfd/test_bfd.py::test_bfd_echo_mode:
   skip:
@@ -761,6 +763,7 @@ console/test_console_availability.py:
     reason: "This test is applicable to virtual setup only."
     conditions:
       - "asic_type in ['vpp'] and platform.startswith('arm64-c8220tg_48a_o')"
+      - "platform in ['arm64-nokia_ixs7215_c1xa-r0']"
 
 #######################################
 #####    container_hardening      #####
@@ -2306,6 +2309,18 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
     conditions:
       - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
 
+fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_mac_learning:
+  skip:
+    reason: "Currently not supported on virtual switch."
+    conditions:
+      - "asic_type in ['vs']"
+
+fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_port:
+  skip:
+    reason: "Currently not supported on virtual switch."
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####            fib              #####
 #######################################
@@ -2745,18 +2760,6 @@ generic_config_updater/test_ntp.py::test_ntp_server_change_source_intf:
     conditions:
       - "'bmc' in topo_type"
 
-generic_config_updater/test_packet_trimming_config_asymmetric.py:
-    skip:
-        reason: "Packet trim is not supported in 202505 image"
-        conditions:
-        - "release in ['202505']"
-
-generic_config_updater/test_packet_trimming_config_symmetric:
-  skip:
-    reason: "Packet trim is not supported in 202505 image"
-    conditions:
-      - "release in ['202505']"
-
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -3010,9 +3013,9 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 ###############################################
 golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
   xfail:
-    reason: "Ports not operationally up after golden config override on t0-f2-d40u8"
+    reason: "Ports not operationally up after golden config override on t0-f2-d40u8 / t0-f2-d40u8-po2vlan"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name == 't0-f2-d40u8'"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name in ['t0-f2-d40u8', 't0-f2-d40u8-po2vlan']"
 
 #######################################
 #####           ha              #####
@@ -3857,9 +3860,10 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
 ########################################
 packet_trimming:
   skip:
-    reason: "Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
+    reason: "Packet trimming is not supported on 202505. Packet trimming cases require PR https://github.com/sonic-net/sonic-buildimage/pull/22869, but KVM does not support it, so skip trimming case on KVM. Packet-trimming tests are only supported on certain Mellanox SN5640 and Arista 7060X6 SKUs."
     conditions_logical_operator: or
     conditions:
+      - "release in ['202505']"
       - "asic_type in ['vs']"
       - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
   xfail:
@@ -4292,11 +4296,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
 
 qos/test_qos_dscp_mapping.py:
   skip:
-    reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly."
+    reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly. / Test does not apply to topos with no T2 uplinks (t1-isolated-d32, t1-isolated-d128)"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
       - "asic_type in ['vs']"
+      - "topo_name in ['t1-isolated-d32', 't1-isolated-d128']"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[pipe:
   skip:
@@ -5212,13 +5217,14 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox SPC4+ and brcm platform with 202412 or 202511+ image. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Only target Mellanox SPC4+ and SRv6-capable Broadcom platforms with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "asic_type == 'broadcom' and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -5232,13 +5238,14 @@ srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
 
 srv6/test_srv6_static_config.py:
   skip:
-    reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
       - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp']"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
 
 srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
@@ -5248,13 +5255,14 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
-    reason: "Only target mellanox SPC4+/brcm platform with 202412 or 202511+ image. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target mellanox SPC4+/brcm platform with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
 
 srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
   xfail:
@@ -5547,8 +5555,10 @@ telemetry/test_telemetry_poll.py::test_poll_mode_present_table_delayed_key:
 
 telemetry/test_telemetry_srv6.py:
   skip:
-    reason: 'SRv6 telemetry tests require routing, not available on BMC'
+    reason: "SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). SRv6 telemetry tests require routing, not available on BMC"
+    conditions_logical_operator: or
     conditions:
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
       - "'bmc' in topo_type"
 
 telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:

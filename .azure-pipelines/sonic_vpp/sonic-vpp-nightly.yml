@@ -36,7 +36,7 @@ stages:
         displayName: "kvmtest-t1-lag-vpp by Elastictest"
         timeoutInMinutes: 480
         continueOnError: false
-        pool: sonic-ubuntu-1c
+        pool: sonic-ubuntu-1c-2
         steps:
           - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
             parameters:
