@@ -193,6 +193,7 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
         cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     neighbors = dict()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
@@ -221,8 +222,13 @@ def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand
 
     neigh_cli_options = ''
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1]
+    peer_in_bgp_confed = tbinfo['topo']['properties']['configuration'][neigh]['bgp'].get('peer_in_bgp_confed', False)
+    if peer_in_bgp_confed:
+        asn = int(confed_asn)
+    else:
+        asn = int(dut_asn)
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][asn][1]
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
 
