@@ -4,6 +4,7 @@ import ipaddress
 import json
 import logging
 
+from pytest_ansible.results import ModuleResult
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
@@ -69,7 +70,7 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node():
             service_list.append("lldp")
-            if self.get_facts()['asic_type'] != 'vs':
+            if self.facts['asic_type'] != 'vs':
                 active_asics = []
                 sonic_db_cli_out = \
                     self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
@@ -81,39 +82,46 @@ class MultiAsicSonicHost(object):
                 active_asics = []
         service_list += self._DEFAULT_SERVICES
 
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
         # NOTE: Add mux to critical services for dualtor
         if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
-            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
+            self.facts.get('router_subtype', '') == 'DualToR' and
+            self.facts.get('features', {}).get('mux', {}).get('state', '') == 'enabled'
         ):
             service_list.append("mux")
 
-        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+        _features = self.facts.get('features', {})
+
+        if _features.get('dhcp_relay', {}).get('state', '') == 'enabled':
             service_list.append("dhcp_relay")
 
-        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+        if _features.get('dhcp_server', {}).get('state', '') == 'enabled':
             service_list.append("dhcp_server")
 
-        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+        is_dpu = self.facts.get('switch_type', '') == 'dpu'
         if is_dpu and 'snmp' in service_list:
+            service_list.remove('snmp')
+
+        # BMC topology: snmp is not deployed on BMC image (SNMP runs on the host NOS,
+        # not on the management-plane BMC board), so exclude it from critical services.
+        is_bmc = 'bmc' in (self.topo_type or '')
+        if is_bmc and 'snmp' in service_list:
             service_list.remove('snmp')
 
         # Update the asic service based on feature table state and asic flag
         filtered_asic_services = []
         for service in self.sonichost.DEFAULT_ASIC_SERVICES:
-            if service not in config_facts['FEATURE']:
+            if service == 'teamd' and is_dpu:
+                logger.info("Removing teamd from default services for switch_type DPU")
                 continue
-            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+            if service not in _features:
                 continue
-            if config_facts['FEATURE'][service]['state'] == "disabled":
+            if _features.get(service, {}).get('has_per_asic_scope', '') == "False":
+                continue
+            if _features.get(service, {}).get('state', '') == "disabled":
                 continue
             filtered_asic_services.append(service)
         self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services
-        if not self.get_facts().get("modular_chassis") and not is_dpu:
+        if not self.facts.get("modular_chassis") and not is_dpu:
             service_list.append("lldp")
 
         for asic in active_asics:
@@ -164,6 +172,21 @@ class MultiAsicSonicHost(object):
                 return [getattr(asic, multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
+
+    def show_interface(self, *module_args, **complex_args):
+        """Wrapper that short-circuits on supervisor nodes.
+
+        On supervisor, 'show interface status' triggers 'rexec -c ... all' which
+        prompts for LC passwords and hangs. Return empty ModuleResult instead.
+        """
+        if self.sonichost.is_supervisor_node():
+            logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
+            return ModuleResult(ansible_facts={
+                "int_status": {},
+                "int_counter": {},
+                "ansible_interface_link_down_ports": [],
+            }, changed=False)
+        return self._run_on_asics("show_interface", *module_args, **complex_args)
 
     def get_dut_iface_mac(self, iface_name):
         """
@@ -342,6 +365,23 @@ class MultiAsicSonicHost(object):
 
         output = self.command(cmd)
         return json.loads(output['stdout'])
+
+    def get_bmc_host(self):
+        """Get the SonicHost instance of the associated host (CPU) for this BMC.
+
+        The host-side device is resolved from the 'bmc_host' field defined in
+        the testbed YAML file.
+
+        Returns:
+            SonicHost: A SonicHost instance representing the host (CPU) side.
+
+        Raises:
+            AssertionError: If the current device is not a BMC or bmc_host is not defined.
+        """
+        pytest_assert(self.sonichost.is_bmc(), "get_bmc_host() can only be called on a BMC device")
+        bmc_host_hostname = self.duthosts.tbinfo.get('bmc_host')
+        pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
+        return SonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname)
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.

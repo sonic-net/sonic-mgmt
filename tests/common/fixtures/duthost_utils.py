@@ -254,52 +254,60 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     return rtn_val
 
 
+def duthost_shutdown_ebgp(duthost):
+    orch_cpu_threshold = 10
+
+    orch_cpu_timeout = 60
+    # Get the original number of eBGP v4 and v6 routes on the DUT.
+    sumv4, sumv6 = duthost.get_ip_route_summary()
+    v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+    v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    # Shutdown all eBGP neighbors
+    duthost.command("sudo config bgp shutdown all")
+
+    # Verify that the total eBGP routes are 0.
+    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+    return v4_routes_count, v6_routes_count
+
+
+def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
+    orch_cpu_threshold = 10
+    orch_cpu_timeout = 60
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    duthost.command("sudo config bgp startup all")
+
+    pt_assert(wait_until(120, 10, 10, check_ebgp_routes, v4_routes_count, v6_routes_count, duthost),
+              "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
+              "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
-    orch_cpu_threshold = 10
-    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
-    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
-    duthost = duthosts[rand_one_dut_hostname]
-    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
-        # Get the original number of eBGP v4 and v6 routes on the DUT.
-        sumv4, sumv6 = duthost.get_ip_route_summary()
-        v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
-        v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
-        v4_routes_count = v4ebgps[duthost.hostname]
-        v6_routes_count = v6ebgps[duthost.hostname]
-        if v4_routes_count > 10000 or v6_routes_count > 10000:
-            orch_cpu_timeout = 120
-        # Shutdown all eBGP neighbors
-        duthost.command("sudo config bgp shutdown all")
-        # Verify that the total eBGP routes are 0.
-        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
 
     yield
 
     for duthost in duthosts.frontend_nodes:
-        # Startup all the eBGP neighbors
-        duthost.command("sudo config bgp startup all")
-
-    for duthost in duthosts.frontend_nodes:
-        # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
-        orig_v4_ebgp = v4ebgps[duthost.hostname]
-        orig_v6_ebgp = v6ebgps[duthost.hostname]
-        pt_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
-                  "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
-                  "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
 
 
 @pytest.fixture(scope="module")
@@ -834,10 +842,10 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                     finally:
                         ssh_client.close()
 
-        pt_assert(len(ipv6_address[duthost.hostname]) > 0,
-                  f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        pt_assert(has_available_ipv6_addr,
-                  f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+        if not ipv6_address[duthost.hostname]:
+            pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
+        if not has_available_ipv6_addr:
+            pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
@@ -935,6 +943,187 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                               cmd_desc="netstat")
         assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
                               expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+
+    return duthosts
+
+
+@pytest.fixture(scope="module")
+def duthosts_ipv4_mgmt_only(duthosts):
+    """Convert the DUTs mgmt-ip to IPv4 only
+
+    Since the change commands is distributed by IPv6 mgmt-ip,
+    the fixture will detect the IPv4 availability first,
+    only remove the IPv6 mgmt-ip when the IPv4 mgmt-ip is available,
+    and will re-establish the connection to the DUTs with IPv4 mgmt-ip.
+    """
+    config_db_file = "/etc/sonic/config_db.json"
+
+    # Sample MGMT_INTERFACE:
+    #     "MGMT_INTERFACE": {
+    #         "eth0|192.168.0.2/24": {
+    #             "forced_mgmt_routes": [
+    #                 "192.168.1.1/24"
+    #             ],
+    #             "gwaddr": "192.168.0.1"
+    #         },
+    #         "eth0|fc00:1234:5678:abcd::2/64": {
+    #             "gwaddr": "fc00:1234:5678:abcd::1",
+    #             "forced_mgmt_routes": [
+    #                 "fc00:1234:5678:abc1::1/64"
+    #             ]
+    #         }
+    #     }
+    #
+    # Sample SNMP_AGENT_ADDRESS_CONFIG:
+    #   "SNMP_AGENT_ADDRESS_CONFIG": {
+    #    "10.1.0.32|161|": {},
+    #    "10.250.0.101|161|": {},
+    #    "FC00:1::32|161|": {},
+    #    "fec0::ffff:afa:1|161|": {}
+    #    },                                         },
+
+    # duthost_name: config_db_modified
+    config_db_modified: Dict[str, bool] = {duthost.hostname: False
+                                           for duthost in duthosts.nodes}
+    # duthost_name: [ip_addr]
+    ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    # Check IPv4 mgmt-ip is set and available, otherwise the DUT will lose control after v6 mgmt-ip is removed
+    for duthost in duthosts.nodes:
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        has_available_ipv4_addr = False
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv4 = valid_ipv4(ip_addr_without_mask)
+                if is_ipv4:
+                    logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr}]")
+                    ipv4_address[duthost.hostname].append(ip_addr_without_mask)
+                    try:
+                        # Add a temporary debug log to see if the DUT is reachable via IPv4 mgmt-ip. Will remove later
+                        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+                        logger.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
+                        ssh_client.connect(ip_addr_without_mask,
+                                           username="WRONG_USER", password="WRONG_PWD", timeout=15)
+                    except AuthenticationException:
+                        logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr_without_mask}] mgmt-ip is available")
+                        has_available_ipv4_addr = True
+                    except BaseException as e:
+                        logger.info(f"Host[{duthost.hostname}] IPv4[{ip_addr_without_mask}] mgmt-ip is unavailable, "
+                                    f"exception[{type(e)}], msg[{str(e)}]")
+                    finally:
+                        ssh_client.close()
+
+        pt_assert(len(ipv4_address[duthost.hostname]) > 0,
+                  f"{duthost.hostname} doesn't have IPv4 Management IP address")
+        pt_assert(has_available_ipv4_addr,
+                  f"{duthost.hostname} doesn't have available IPv4 Management IP address")
+
+    # Remove IPv6 mgmt-ip
+    for duthost in duthosts.nodes:
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv6 = valid_ipv6(ip_addr_without_mask)
+                if is_ipv6:
+                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    logger.info(f"Removing host[{duthost.hostname}] IPv6[{ip_addr}]")
+                    duthost.shell(f"""jq 'del(."MGMT_INTERFACE"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+
+    # Save both IPv4 and IPv6 SNMP address for verification purpose.
+    snmp_ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    snmp_ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                          for duthost in duthosts.nodes}
+    for duthost in duthosts.nodes:
+        snmp_address = json.loads(duthost.shell(f"jq '.SNMP_AGENT_ADDRESS_CONFIG' {config_db_file}",
+                                                module_ignore_errors=True)["stdout"])
+        # In case device doesn't have SNMP_AGENT_CONFIG: this could happen if
+        # DUT is running old image.
+        if not snmp_address:
+            logger.info(f"No SNMP_AGENT_ADDRESS_CONFIG found in host[{duthost.hostname}] {config_db_file}, continue.")
+            continue
+        for key in list(snmp_address):
+            ip_addr = key.split("|")[0]
+            if ip_addr:
+                if valid_ipv6(ip_addr):
+                    snmp_ipv6_address[duthost.hostname].append(ip_addr)
+                    logger.info(f"Removing host[{duthost.hostname}] SNMP IPv6 address {ip_addr}")
+                    duthost.shell(f"""jq 'del(."SNMP_AGENT_ADDRESS_CONFIG"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+                elif valid_ipv4(ip_addr):
+                    snmp_ipv4_address[duthost.hostname].append(ip_addr.lower())
+
+    # Do config_reload after processing BOTH SNMP and MGMT config
+    def config_reload_if_modified(dut):
+        if config_db_modified[dut.hostname]:
+            logger.info(f"config changed. Doing config reload for {dut.hostname}")
+            try:
+                config_reload(dut, safe_reload=True, wait_for_bgp=True)
+            except AnsibleConnectionFailure as e:
+                # IPV6 mgmt interface been deleted by config reload
+                # In latest SONiC, config reload command will exit after mgmt interface restart
+                # Then 'duthost' will lost IPV6 connection and throw exception
+                logger.warning(f'Exception after config reload: {e}')
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(config_reload_if_modified, duthost)
+
+    duthosts.reset()
+
+    def wait_for_processes_and_bgp(dut):
+        if config_db_modified[dut.hostname]:
+            # Wait until all critical processes are up,
+            # especially snmpd as it needs to be up for SNMP status verification
+            wait_critical_processes(dut)
+            if not dut.is_supervisor_node():
+                wait_bgp_sessions(dut)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(wait_for_processes_and_bgp, duthost)
+
+    # Verify mgmt-interface status
+    mgmt_intf_name = "eth0"
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
+        mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+        assert_addr_in_output(addr_set=ipv6_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
+
+    # Verify SNMP address status
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
+                                            module_ignore_errors=True)["stdout"]
+        assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
+        assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
+                              expect_exists=False, cmd_output=snmp_netstat_output,
                               cmd_desc="netstat")
 
     return duthosts

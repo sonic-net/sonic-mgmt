@@ -550,9 +550,16 @@ def teardown_barrier_function(parallel_manager):
 def pytest_runtest_setup(item):
     """
     HOOK: Runs once BEFORE every fixture setup.
-    Reorder the setup/teardown barriers to ensure barriers should run
-    after ALL fixtures of the same-scope.
+    Reset the parallel manager from the previous test (deferred from
+    pytest_runtest_teardown so that pytest_runtest_logreport fires first),
+    then reorder the setup/teardown barriers to ensure barriers run after
+    ALL fixtures of the same scope.
     """
+    parallel_manager = _PARALLEL_MANAGER
+    if parallel_manager and parallel_manager.terminated:
+        parallel_manager.reset()
+        parallel_manager.current_scope = TaskScope.SESSION
+
     logging.debug("[Parallel Fixture] Setup barrier fixtures")
 
     barriers = {
@@ -678,9 +685,6 @@ def pytest_runtest_teardown(item, nextitem):
                     parallel_manager.wait_for_setup_tasks(scope)
             finally:
                 parallel_manager.terminate()
-            logging.debug("[Parallel Fixture] Test was skipped or failed early, "
-                          "terminating parallel manager")
-            parallel_manager.terminate()
 
         parallel_manager.reset()
         parallel_manager.current_scope = TaskScope.FUNCTION

@@ -9,6 +9,7 @@ import binascii
 import pytest
 import yaml
 import six
+import re
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -19,13 +20,14 @@ from scapy.packet import Raw
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_wait_time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, duthost_startup_ebgp
 import json
 
 logger = logging.getLogger(__name__)
@@ -367,6 +369,41 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_interface_counters(duthost):
+    """
+    Clear the interface counters for the host
+    """
+    duthost.command("portstat -c")
+
+
+def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check for tx drops
+    """
+    portstat = json.loads(duthost.get_port_counters(in_json=True))
+    pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
+    tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
+    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
+
+
+def get_mirror_port(duthost, session_name):
+    mirror_port = None
+    port_re = r"Ethernet\d+"
+    cmd = "show mirror_session"
+    output = duthost.command(cmd)['stdout_lines']
+    if not output:
+        pytest_assert(False, "Failed to get mirror session information for session {}".format(session_name))
+    mirror_line = next((line for line in output if session_name in line), "")
+    mirror_port = re.search(port_re, mirror_line)
+    if not mirror_port:
+        pytest_assert(False, "Failed to get mirror port for session {}".format(session_name))
+    return mirror_port.group()
+
+
 def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
@@ -405,6 +442,36 @@ def get_queue_counters(dut, asic_ns, port, queue):
     return -1
 
 
+def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check
+    """
+    cmd = f"show queue counters {mirror_port}"
+    output = duthost.command(cmd)['stdout']
+
+    if (not output) or mirror_port not in output:
+        pytest_assert(False, f"Mirror port {mirror_port} not in queue counters output")
+
+    output = output.splitlines()
+    queues_with_drops = []
+    for line in output:
+        if "Ethernet" not in line or "cached" in line:
+            continue
+        queue = line.split()[1]
+        drop_str = line.split()[4].replace(',', '')
+        if drop_str == 'N/A':
+            continue
+        drop = int(drop_str)
+        if drop > 30:
+            queues_with_drops.append((queue, drop))
+    msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
+    pytest_assert(not queues_with_drops, msg)
+
+
 @pytest.fixture(scope="module")
 def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
@@ -420,12 +487,9 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     duthost = None
     topo = tbinfo['topo']['name']
-    if 't2' in topo:
-        if len(duthosts) == 1:
-            downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
-        else:
-            pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
-            downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+    if 't2' in topo and len(duthosts) > 1:
+        pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
+        downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
     else:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
@@ -434,27 +498,27 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     # Disable BGP so that we don't keep on bouncing back mirror packets
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
 
+    ebgp_shutdown_duthosts = []
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp shutdown all")
+            ebgp_shutdown_duthosts.append(dut_host)
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
-        duthost.command("sudo config bgp shutdown all")
+        ebgp_shutdown_duthosts.append(duthost)
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
 
-    time.sleep(60)
+    v4ebgps = {}
+    v6ebgps = {}
+    for dut_host in ebgp_shutdown_duthosts:
+        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
+        v4ebgps[dut_host.hostname] = v4_routes_count
+        v6ebgps[dut_host.hostname] = v6_routes_count
 
     yield setup_information
 
-    # Enable BGP again
-    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
-        for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp startup all")
-            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
-    else:
-        duthost.command("sudo config bgp startup all")
-        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-    time.sleep(60)
+    for dut_host in ebgp_shutdown_duthosts:
+        duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
+        dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -486,6 +550,108 @@ def validate_mirror_session_up(duthost, session_name):
     if 'active' in mirror_status:
         return True
     return False
+
+
+def validate_acl_rule_rids(duthost):
+    """
+    Validate that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rule RIDs in each frontend ASIC's ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if all ACL rule RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rule RIDs in each ASIC
+    for asic in asic_instances:
+        asicdb = AsicDbCli(asic)
+        acl_entry_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY")
+        entry_vids = []
+        for key, value in acl_entry_table.items():
+            if 'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS' in value['value'] or \
+               'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRESS' in value['value']:
+                # Extract OID from key format "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x8000000000abe"
+                oid = key.split(":")[-1] if "oid:" in key else None
+                if oid is not None:
+                    entry_vids.append(oid)
+
+        # Validate VIDs for this ASIC
+        if entry_vids:
+            vidtorid_table = asicdb.dump("VIDTORID")["VIDTORID"]["value"]
+            for vid in entry_vids:
+                vid = "oid:" + vid
+                if vid not in vidtorid_table or vidtorid_table[vid] is None:
+                    logging.error("ACL entry VID {} not found or has None RID in ASIC {}".format(
+                        vid, asic.asic_index if duthost.is_multi_asic else "single"))
+                    return False
+    return True
+
+
+def validate_acl_rules_in_asic_db(duthost):
+    """
+    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rules in each ASIC
+    for asic in asic_instances:
+        # Get namespace-specific command prefix
+        if duthost.is_multi_asic:
+            namespace = asic.get_asic_namespace()
+            config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
+            asic_cmd = "sonic-db-cli -n {} ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*".format(namespace)
+        else:
+            config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
+            asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+
+        config_rules = asic.shell(config_cmd)['stdout_lines']
+        asic_rules = asic.shell(asic_cmd)['stdout_lines']
+
+        if len(config_rules) != len(asic_rules):
+            logging.warning("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
+                asic.asic_index if duthost.is_multi_asic else "single",
+                len(config_rules), len(asic_rules)))
+            return False
+
+    # Validate ACL rule RIDs across all ASICs
+    return validate_acl_rule_rids(duthost)
+
+
+def wait_for_acl_rules_in_asic_db(duthost):
+    """
+    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
+
+    Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
+    defaulting to 120 seconds if not configured.
+
+    Args:
+        duthost: DUT host object
+    """
+    acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
+    pytest_assert(
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
+        "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
+    )
+    logging.info("Successfully validated ACL rules")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -605,11 +771,11 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
     # Number of packets to send
     packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
     for iteration, count in list(packet_count.items()):
-        pkts_sent = 0
+        total_pkts_sent = {}
         clear_queue_counters(duthost, asic_ns)
         for i in range(1, count + 1):
             logging.info("Sending packet {} to DUT for {}".format(i, iteration))
-            pkts_sent += self.send_and_check_mirror_packets(
+            num_pkts_sent = self.send_and_check_mirror_packets(
                 setup,
                 mirror_session,
                 ptfadapter,
@@ -622,12 +788,19 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
                 valid_across_namespace=valid_across_namespace,
                 erspan_ip_ver=erspan_ip_ver
             )
+            total_pkts_sent = {k: total_pkts_sent.get(k, 0) + num_pkts_sent.get(k, 0)
+                               for k in total_pkts_sent.keys() | num_pkts_sent.keys()}
 
+        if duthost.is_multi_asic:
+            expected_pkts = total_pkts_sent[(duthost, asic_ns)]
+        else:
+            # Handle asic as both None or '' on single-asic
+            expected_pkts = total_pkts_sent.get((duthost, None), 0) + total_pkts_sent.get((duthost, ''), 0)
         # Assert the specific asic recircle port's queue
         # Make sure mirrored packets are sent via specific queue configured
         for q in range(1, 8):
             if str(q) == queue:
-                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, pkts_sent), \
+                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, expected_pkts), \
                     "Recircle port {} queue{} counter value is not same as packets sent".format(recircle_port, q)
             else:
                 assert (get_queue_counters(duthost, asic_ns, recircle_port, q) == 0)
@@ -1189,19 +1362,25 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+        if (('t2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo'])
+                or duthost.facts.get('switch_type') == 'voq'):
             src_port_set.add(src_port)
-            src_port_metadata_map[src_port] = (None, 1)
+            src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
+                                               setup[direction]['everflow_namespace'])
             if valid_across_namespace is True:
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":
                         if self.mirror_type() != "egress":  # no egress route on the other node/namespace
                             src_port_set.add(dest_ports[0])
-                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1,
+                                                                    setup[direction]['remote_dut'],
+                                                                    setup[direction]['remote_namespace'])
                     else:
                         src_port_set.add(dest_ports[0])
-                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0,
+                                                                setup[direction]['remote_dut'],
+                                                                setup[direction]['remote_namespace'])
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -1209,15 +1388,15 @@ class BaseEverflowTest(object):
 
             if valid_across_namespace is True or src_port_namespace == dest_ports_namespace:
                 src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 0)
+                src_port_metadata_map[src_port] = (None, 0, setup[direction]['everflow_dut'], src_port_namespace)
 
             # To verify same namespace mirroring we will add destination port also to the Source Port Set
             if src_port_namespace != dest_ports_namespace:
                 src_port_set.add(dest_ports[0])
-                src_port_metadata_map[dest_ports[0]] = (None, 2)
+                src_port_metadata_map[dest_ports[0]] = (None, 2, setup[direction]['remote_dut'], dest_ports_namespace)
 
         # Loop through Source Port Set and send traffic on each source port of the set
-        num_pkts_sent = 0
+        num_pkts_sent = {}
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
                                                                                  setup,
@@ -1232,7 +1411,8 @@ class BaseEverflowTest(object):
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
             ptfadapter.dataplane.flush()
-            num_pkts_sent += 1
+            src_port_dut_namespace = (src_port_metadata_map[src_port][2], src_port_metadata_map[src_port][3])
+            num_pkts_sent[src_port_dut_namespace] = num_pkts_sent.get(src_port_dut_namespace, 0) + 1
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
             if expect_recv:
@@ -1272,9 +1452,8 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.IPv6].hlim -= 1
 
-                    if 't2' in setup['topo']:
-                        if duthost.facts['switch_type'] == "voq":
-                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    if duthost.facts['switch_type'] == "voq":
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
