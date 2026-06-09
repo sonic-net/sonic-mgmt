@@ -228,8 +228,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
             # Wait for ACL rules to be programmed
-            pytest_assert(wait_until(120, 2, 0, everflow_utils.validate_acl_rules_in_asic_db, duthost),
-                          "ACL rules are not programmed")
+            everflow_utils.wait_for_acl_rules_in_asic_db(duthost)
 
         everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
