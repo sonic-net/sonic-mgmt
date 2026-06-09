@@ -3,7 +3,6 @@
 This module contains probe-based tests for buffer threshold detection, including:
 - testQosPfcXoffProbe: PFC XOFF threshold probing
 - testQosIngressDropProbe: Ingress drop threshold probing
-- testQosEgressDropProbe: Egress drop threshold probing (lossy queue)
 - testQosHeadroomPoolProbe: Headroom pool threshold probing
 
 These tests use advanced probing algorithms to automatically detect buffer thresholds.
@@ -39,7 +38,6 @@ class TestQosProbe(QosSaiBase):
     These tests use advanced algorithms to automatically detect buffer thresholds:
     - Binary search for PFC XOFF threshold
     - Ingress drop threshold detection
-    - Egress drop threshold detection (lossy queue)
     - Headroom pool size probing
     """
 
@@ -55,17 +53,168 @@ class TestQosProbe(QosSaiBase):
                     return result
         return None
 
+    # --- Platform Probe Parameter Resolver ---
+    # Each platform subclass resolves probe parameters (packet_length, thresholds, etc.)
+    # from QoS config. PTF receives resolved params via testParams; no platform checks in PTF.
+    # To add a new platform: create a subclass of ProbeParamsResolver and register
+    # in _PROBE_RESOLVER_REGISTRY.
+    _DEFAULT_CELL_SIZE = 384  # Conservative fallback when cell_size is not in QoS config
+
+    class ProbeParamsResolver:
+        """Default resolver: 64B packets, 1 cell per packet.
+
+        Subclasses override __init__ to resolve platform-specific values
+        from qosConfig_profile and dutQosConfig.
+        """
+        packet_length = 64          # class-level default
+        cells_per_packet = 1        # class-level default
+
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            pass  # defaults provided by class attributes above
+
+        def resolve_threshold(self, value):
+            """Convert a qos.yml threshold to probe-comparable units.
+
+            Returns the value in the same units as probe traffic counting,
+            so probe result can be directly compared with expected threshold.
+
+            Default: qos.yml stores thresholds in cell units → divide by cells_per_packet.
+            Subclasses override when qos.yml uses different units.
+            Handles both int and list (e.g. pkts_num_trig_pfc_shp is a list).
+            """
+            if isinstance(value, list):
+                return [v // self.cells_per_packet for v in value]
+            return value // self.cells_per_packet
+
+    class CiscoProbeParamsResolver(ProbeParamsResolver):
+        """Cisco-8000: resolve probe params from QoS config.
+
+        Cisco qos.yml threshold unit convention varies by profile:
+
+        Profiles WITHOUT cell_size (threshold in packet units, divisor=1):
+          - xoff_1/xoff_2: pkts_num_trig_pfc, pkts_num_trig_ingr_drp
+
+        Profiles WITH cell_size (threshold in cell units, divisor=cells_per_packet):
+          - lossy_queue_1: pkts_num_trig_egr_drp
+
+        This matches legacy sai_qos_tests.py behavior where cell_size presence
+        in test_params controls whether // cell_occupancy is applied.
+
+        Note on threshold_divisor vs cells_per_packet asymmetry:
+          When cell_size is absent, threshold_divisor=1 (thresholds already in
+          packet units) but cells_per_packet may be >1 (e.g. 4 for 1350B/384B).
+          cells_per_packet is still needed for pool_size byte-to-packet
+          conversion; threshold_divisor controls only resolve_threshold().
+        """
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            super().__init__()
+            qosConfig_profile = qosConfig_profile or {}
+            dutQosConfig = dutQosConfig or {}
+            self.packet_length = qosConfig_profile.get("packet_size", 64)  # Intentional override
+
+            cell_size = qosConfig_profile.get("cell_size")
+            if cell_size is not None:
+                # Profile provides cell_size → threshold is in cell units
+                self.threshold_divisor = (self.packet_length + cell_size - 1) // cell_size
+            else:
+                # Profile omits cell_size → threshold is already in packet units
+                cell_size = (dutQosConfig.get("param", {}).get("cell_size")
+                             or TestQosProbe.find_cell_size(dutQosConfig.get("param", {}))
+                             or TestQosProbe._DEFAULT_CELL_SIZE)
+                self.threshold_divisor = 1
+
+            self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size  # Intentional override
+
+        def resolve_threshold(self, value):
+            """Convert threshold to probe-comparable units using threshold_divisor."""
+            if isinstance(value, list):
+                return [v // self.threshold_divisor for v in value]
+            return value // self.threshold_divisor
+
+    class MellanoxProbeParamsResolver(ProbeParamsResolver):
+        """Mellanox: resolve probe params from QoS config.
+
+        Mellanox qos_param_generator computes all thresholds in cell units.
+        The threshold unit convention follows the same pattern as Cisco:
+
+        Profiles WITHOUT packet_size (e.g. xoff_1/xoff_2):
+          - packet_length defaults to 64B, cell_occupancy = 1
+          - threshold (cells) == threshold (packets), no conversion needed
+
+        Profiles WITH packet_size (e.g. lossy_queue_1: packet_size=300):
+          - Legacy test sends 300B packets, cell_occupancy = ceil(300/cell_size)
+          - threshold (cells) must be divided by cells_per_packet to get packet count
+          - Probe sends packets at probe_packet_length (= packet_size from profile)
+            so that probe results are directly comparable with converted thresholds
+
+        This matches legacy sai_qos_tests.py (LossyQueueTest) behavior where
+        packet_size presence in test_params controls packet length and cell_occupancy.
+        """
+        def __init__(self, qosConfig_profile=None, dutQosConfig=None):
+            super().__init__()
+            qosConfig_profile = qosConfig_profile or {}
+            del dutQosConfig  # reserved for future platform-specific logic
+            self.packet_length = qosConfig_profile.get("packet_size", 64)
+
+            cell_size = qosConfig_profile.get("cell_size")
+            if cell_size is not None:
+                self.cells_per_packet = (self.packet_length + cell_size - 1) // cell_size
+            else:
+                self.cells_per_packet = 1
+
+    # Registry: platform_asic -> ProbeParamsResolver subclass.
+    # Keys must match duthost.facts["platform_asic"] values exactly
+    # (e.g. "cisco-8000" from Cisco 8000 series devices).
+    # Unregistered platforms fall back to the default ProbeParamsResolver.
+    _PROBE_RESOLVER_REGISTRY = {
+        "cisco-8000": CiscoProbeParamsResolver,
+        "mellanox": MellanoxProbeParamsResolver,
+    }
+
+    # Threshold keys in qos.yml that need resolve_threshold conversion
+    _THRESHOLD_KEYS = (
+        "pkts_num_trig_pfc", "pkts_num_trig_ingr_drp",
+        "pkts_num_trig_egr_drp", "pkts_num_trig_pfc_shp",
+    )
+
+    @staticmethod
+    def get_probe_params(platform_asic, qosConfig_profile, dutQosConfig):
+        """Return probe-related testParams dict for PTF.
+
+        Resolves platform-specific ProbeParamsResolver via registry, then
+        returns a dict with probe_packet_length, probe_cells_per_packet,
+        and thresholds converted to packet units.
+
+        qosConfig_profile may be a non-dict (e.g. hdrm_pool_size can be an
+        integer on some platforms); guard to avoid AttributeError/TypeError.
+
+        Usage: testParams.update(self.get_probe_params(...))
+        """
+        if not isinstance(qosConfig_profile, dict):
+            qosConfig_profile = {}
+        resolver_cls = TestQosProbe._PROBE_RESOLVER_REGISTRY.get(
+            platform_asic, TestQosProbe.ProbeParamsResolver)
+        resolver = resolver_cls(qosConfig_profile, dutQosConfig)
+        params = {
+            "probe_packet_length": resolver.packet_length,
+            "probe_cells_per_packet": resolver.cells_per_packet,
+        }
+        for key in TestQosProbe._THRESHOLD_KEYS:
+            if key in qosConfig_profile:
+                params[key] = resolver.resolve_threshold(qosConfig_profile[key])
+        return params
+
     @staticmethod
     def get_ingress_drop_counter_mode(dutTestParams):
         """Determine ingress drop counter mode based on platform capability.
 
         3-level fallback: pg_drop > port_buffer_drop > port_drop
-        Currently only cisco-8000 is verified to support pg_drop and port_buffer_drop.
-        Broadcom/Mellanox default to port_drop until verified.
+        cisco-8000 and mellanox use pg_drop (per-PG SAI counter, noise-immune).
+        Broadcom defaults to port_drop until verified.
         Tracked by: https://github.com/sonic-net/sonic-mgmt/issues/24738
         """
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
-        if platform_asic == "cisco-8000":
+        if platform_asic in ("cisco-8000", "mellanox"):
             return "pg_drop"
         return "port_drop"
 
@@ -181,6 +330,10 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
+
         self.runPtfTest(
             ptfhost, testCase="pfc_xoff_probing.PfcXoffProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
@@ -293,8 +446,207 @@ class TestQosProbe(QosSaiBase):
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
 
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[xoffProfile], dutQosConfig))
+
         self.runPtfTest(
             ptfhost, testCase="ingress_drop_probing.IngressDropProbing", testParams=testParams,
+            pdb=enable_qos_ptf_pdb, test_subdir='probe'
+        )
+
+    @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
+    def testQosPfcXonProbe(
+        self, xonProfile, duthost, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        ingressLosslessProfile, change_lag_lacp_timer, tbinfo, request
+    ):
+        """
+            Test QoS PFC XOn offset (pkts_num_dismiss_pfc + pkts_num_hysteresis)
+            using PfcXon probing algorithm.
+
+            Topology: 1 src -> 2 dst (both flows enter the SAME ingress PG).
+            Algorithm (design v3, standard framework):
+                - Step 1-4: PfcXoff chain -> measured xoff_point
+                - Step 5: XOn drain — (Range optional) -> Point mandatory
+                  - enable_xon_range_probe=False (default): Point only
+                    (sufficient for small offsets like Brcm TH2/TD3 ~12 pkt)
+                  - enable_xon_range_probe=True: Range then Point
+                    (needed for large offsets like Cisco J2C ~13000 pkt)
+
+            Args:
+                xonProfile (pytest parameter): XOn profile (xon_1..xon_4)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config (dut interfaces, test
+                    port IDs, test port IPs, and test ports)
+                dutQosConfig (Fixture, dict): DUT host QoS configuration
+                ingressLosslessProfile (Fixture): Ingress lossless buffer profile
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        # NOTE: cisco 8800 limited to xon_1/xon_2 (mirrors legacy testQosSaiPfcXonLimit)
+        normal_profile = ["xon_1", "xon_2"]
+        if not dutConfig["dualTor"] and xonProfile not in normal_profile:
+            pytest.skip(
+                "Additional DSCPs are not supported on non-dual ToR ports")
+
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        elif xonProfile in dutQosConfig["param"][portSpeedCableLength]:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]
+        else:
+            # Mellanox: xon params live at param top-level, not under speed key
+            qosConfig = dutQosConfig["param"]
+
+        if xonProfile not in qosConfig:
+            pytest.skip(
+                "PfcXonProbe: '{}' missing from qosConfig (port_speed={})".format(
+                    xonProfile, portSpeedCableLength))
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        # PfcXon needs 2 distinct dst ports for 1 src -> 2 dst topology
+        # (legacy testQosSaiPfcXonLimit needed 3; we only need 2 for the new probe)
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        dst_port_2_id = dutConfig["testPorts"].get("dst_port_2_id", None)
+        if dst_port_2_id is None or dst_port_2_id == dst_port_id:
+            pytest.skip(
+                "PfcXonProbe: need at least 2 distinct destination ports (got "
+                "dst_port_id={}, dst_port_2_id={})".format(dst_port_id, dst_port_2_id))
+
+        probing_port_ids = [
+            dutConfig["testPorts"]["src_port_id"],
+            dst_port_id,
+            dst_port_2_id,
+        ]
+        logger.info(
+            "PfcXonProbe ports: src=%s dst_A=%s dst_B=%s xonProfile=%s",
+            probing_port_ids[0], probing_port_ids[1], probing_port_ids[2], xonProfile,
+        )
+
+        # pfcxoff_point: yaml hint of PFC Xoff trigger packet count.
+        # Per design v3 §2 Step 1+2 (implemented 2026-05-09), the PTF orchestrator
+        # `pfc_xon_probing.PfcXonProbing.probe()` runs a fresh 4-phase PfcXoff
+        # probe at run time and uses the MEASURED xoff_point for the XOn drain
+        # phase. The yaml value is only a fallback if the chain fails (or a
+        # sanity-check seed). UT/IT paths that want to skip the chain set
+        # test_params['enable_xoff_chain_probe']=False; physical runs leave
+        # this at its default True.
+        pfcxoff_point = qosConfig[xonProfile].get("pkts_num_trig_pfc", None)
+        if pfcxoff_point is None:
+            pytest.skip(
+                "PfcXonProbe: pkts_num_trig_pfc missing in yaml for {}".format(xonProfile))
+
+        # Algorithm dispatch flag (per design v3 §1 platform decision matrix).
+        # Per design v3 §1 footnote: derive at runtime from existing yaml fields,
+        # not a separate `enable_xon_range_probe` yaml entry. Rule:
+        #   true (4-step / Binary)  if  pkts_num_hysteresis > 0   (Brcm GB, Mlx PAC)
+        #                           OR  pkts_num_dismiss_pfc > 30 (Cisco J2C/JR2/Q3D)
+        #   false (3-step / Step)   otherwise (Brcm TD2/TD3/TH/TH2/TH3/TH5, Mlx SPC1/SPC2)
+        #
+        # This routes Cisco/GB/PAC to the Binary algorithm without yaml edits;
+        # platform yamls already encode the relevant facts (hysteresis on Mlx
+        # PAC + Brcm GB; dismiss_pfc 200..12985 on Cisco). The 30-cell cutoff
+        # for dismiss_pfc separates 3-step (≤30 effective offset) from 4-step
+        # (>30 effective offset) per the design's "binary search budget"
+        # rationale (3-step is bounded ≤30 iter; >30 needs binary).
+        hysteresis = qosConfig[xonProfile].get("pkts_num_hysteresis", 0) or 0
+        dismiss_pfc = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", 0) or 0
+        enable_xon_range_probe = (hysteresis > 0) or (dismiss_pfc > 30)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({"test_port_ips": dutConfig["testPortIps"]})
+        testParams.update({"probing_port_ids": probing_port_ids})
+        testParams.update({
+            "dscp": qosConfig[xonProfile]["dscp"],
+            "ecn": qosConfig[xonProfile]["ecn"],
+            "pg": qosConfig[xonProfile]["pg"],
+            "buffer_max_size": ingressLosslessProfile["size"],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "dst_port_2_id": dst_port_2_id,
+            "dst_port_2_ip": dutConfig["testPorts"].get("dst_port_2_ip", ""),
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pfcxoff_point": pfcxoff_point,
+            "enable_xon_range_probe": enable_xon_range_probe,
+            "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
+            "hwsku": dutTestParams['hwsku'],
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic']),
+            "dut_asic": dutConfig["dutAsic"],
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+        if "pkts_num_egr_mem" in list(qosConfig.keys()):
+            testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if dutTestParams["basicParams"].get("platform_asic", None) == "cisco-8000" \
+                and not get_src_dst_asic_and_duts["src_long_link"] and get_src_dst_asic_and_duts["dst_long_link"]:
+            if "pkts_num_egr_mem_short_long" in list(qosConfig.keys()):
+                testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem_short_long"]
+            else:
+                pytest.skip("pkts_num_egr_mem_short_long is missing in yaml file ")
+
+        # Optional yaml params (mirrors testQosSaiPfcXonLimit)
+        if "pkts_num_dismiss_pfc" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_dismiss_pfc"] = qosConfig[xonProfile]["pkts_num_dismiss_pfc"]
+
+        if "pkts_num_hysteresis" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_hysteresis"] = qosConfig[xonProfile]["pkts_num_hysteresis"]
+
+        if "pkts_num_margin" in list(qosConfig[xonProfile].keys()):
+            testParams["pkts_num_margin"] = qosConfig[xonProfile]["pkts_num_margin"]
+
+        if "packet_size" in list(qosConfig[xonProfile].keys()):
+            testParams["packet_size"] = qosConfig[xonProfile]["packet_size"]
+
+        if 'cell_size' in list(qosConfig[xonProfile].keys()):
+            testParams["cell_size"] = qosConfig[xonProfile]["cell_size"]
+
+        bufferConfig = dutQosConfig["bufferConfig"]
+        testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
+        testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"].get(
+            "egress_lossy_pool", {"size": "0"})["size"]
+
+        # Get cell_size with fallback to sub-layers if not found at top level
+        cell_size = dutQosConfig["param"].get("cell_size", None)
+        if cell_size is None:
+            cell_size = self.find_cell_size(dutQosConfig["param"])
+        testParams["cell_size"] = cell_size
+
+        # Allow expected_xon_offset for assertion (if test author knows expected value).
+        # pkts_num_dismiss_pfc semantics are platform-dependent:
+        #   Broadcom (th/th2/th3/td2/td3/th5): actual XOn drain offset
+        #     (e.g., 13 pkts — hardcoded in YAML by test author)
+        #   Mellanox (spc1-spc5): ingress_lossless_size + 1
+        #     (dynamic from qos_param_generator — total buffer capacity, NOT offset)
+        # Only set expected_xon_offset when the value genuinely represents the
+        # XOn drain offset. Mellanox probes measure-only without assertion.
+        dut_asic = dutConfig["dutAsic"]
+        is_mellanox = dut_asic.startswith("spc") if dut_asic else False
+        expected_xon = qosConfig[xonProfile].get("pkts_num_dismiss_pfc", None)
+        if expected_xon is not None and not is_mellanox:
+            hyst = qosConfig[xonProfile].get("pkts_num_hysteresis", 0)
+            testParams["expected_xon_offset"] = int(expected_xon) + int(hyst)
+
+        # Get pdb parameter from command line
+        enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
+
+        self.runPtfTest(
+            ptfhost, testCase="pfc_xon_probing.PfcXonProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
         )
 
@@ -330,7 +682,12 @@ class TestQosProbe(QosSaiBase):
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
         if lossyProfile not in qosConfig:
-            pytest.skip(f"{lossyProfile} is not defined in QoS config")
+            # Mellanox: lossy_queue_1 is defined at dutQosConfig["param"] level (sibling of
+            # "profile" key in qos_params.mellanox.yaml), not under the per-speed sub-dict.
+            # Legacy testQosSaiLossyQueue has the same fallback (test_qos_sai.py L1213-1216).
+            qosConfig = dutQosConfig["param"]
+            if lossyProfile not in qosConfig:
+                pytest.skip(f"{lossyProfile} is not defined in QoS config")
 
         platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
         if platform_asic == "broadcom-dnx":
@@ -424,6 +781,10 @@ class TestQosProbe(QosSaiBase):
         # Get pdb parameter from command line
         enable_qos_ptf_pdb = request.config.getoption("--enable_qos_ptf_pdb", default=False)
 
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        testParams.update(self.get_probe_params(platform_asic, qosConfig[lossyProfile], dutQosConfig))
+
         self.runPtfTest(
             ptfhost, testCase="egress_drop_probing.EgressDropProbing", testParams=testParams,
             pdb=enable_qos_ptf_pdb, test_subdir='probe'
@@ -507,7 +868,7 @@ class TestQosProbe(QosSaiBase):
             src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
                               if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
                               else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
-        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosParams=qosConfig["hdrm_pool_size"])
 
         # begin - collect all available test ports for probing
         duthost = get_src_dst_asic_and_duts['src_dut']
@@ -684,6 +1045,21 @@ class TestQosProbe(QosSaiBase):
             testParams['src_port_vlan'] = src_port_vlans
 
         testParams["ingress_drop_counter_mode"] = self.get_ingress_drop_counter_mode(dutTestParams)
+
+        # Platform probe params: packet_length, cells_per_packet, threshold conversions.
+        # hdrm_pool_size may lack packet_size/cell_size needed by platform
+        # resolvers (e.g. Cisco-8000 defaults to 64B without packet_size).
+        # Headroom pool is filled by lossless traffic on the same PGs as xoff,
+        # so fall back to xoff_1 profile values when hdrm_pool_size lacks them.
+        platform_asic = dutTestParams["basicParams"].get("platform_asic", None)
+        hdrm_probe_profile = dict(qosConfig.get("hdrm_pool_size", {}))
+        if "packet_size" not in hdrm_probe_profile:
+            xoff_fallback = qosConfig.get("xoff_1", {})
+            for key in ("packet_size", "cell_size"):
+                if key in xoff_fallback and key not in hdrm_probe_profile:
+                    hdrm_probe_profile[key] = xoff_fallback[key]
+        testParams.update(self.get_probe_params(
+            platform_asic, hdrm_probe_profile, dutQosConfig))
 
         self.runPtfTest(
             ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",

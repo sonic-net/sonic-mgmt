@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -346,7 +347,7 @@ class GenerateGoldenConfigDBModule(object):
         return False
 
     def is_bmc_device(self):
-        return device_info.get_bmc_data() is not None
+        return device_info.get_localhost_info('type') == 'NetworkBmc'
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
@@ -635,6 +636,16 @@ class GenerateGoldenConfigDBModule(object):
 
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
+
+        # Filter PORT entries: YANG validation requires the 'lanes' leaf for
+        # every PORT_LIST entry.  sonic-cfggen may emit PORT entries (e.g. from
+        # init_cfg.json or internal ports) that lack 'lanes', which causes
+        # 'config load_minigraph --override_config' to abort.  Exclude them so
+        # the golden config remains YANG-valid; those ports will keep their
+        # minigraph-generated values.
+        ori_config_db["PORT"] = {
+            k: v for k, v in ori_config_db["PORT"].items() if "lanes" in v
+        }
 
         if hwsku not in smartswitch_hwsku_config:
             return "{}"
@@ -998,29 +1009,6 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config_db, indent=4)
 
-    def update_zmq_config(self, config):
-        # for multi asic platform this config is per asic.
-
-        ori_config_db = json.loads(config)
-        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_route_zmq_enabled" in out:
-            if self.num_asics > 1:
-                ori_config_db = self._update_config_db_in_ns(
-                    ori_config_db, "DEVICE_METADATA/localhost",
-                    {"orch_northbond_route_zmq_enabled": "true"}
-                )
-            else:
-                if "DEVICE_METADATA" not in ori_config_db:
-                    ori_config_db["DEVICE_METADATA"] = {}
-                if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-                    ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-                if self.topo_name == "t1-smartswitch-ha":
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "false"
-                else:
-                    ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-
-        return json.dumps(ori_config_db, indent=4)
-
     def _parse_zebra_nexthop_from_minigraph(self):
         """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
         try:
@@ -1056,7 +1044,7 @@ class GenerateGoldenConfigDBModule(object):
         """
         # Check if the installed YANG schema supports zebra_nexthop before injecting.
         # Older images may lack this leaf, causing load_minigraph --override_config to
-        # fail YANG validation. This mirrors the pattern used in update_zmq_config().
+        # fail YANG validation.
         rc, yang_content, _ = self.module.run_command(
             "sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
         if rc != 0 or "zebra_nexthop" not in yang_content:
@@ -1106,7 +1094,8 @@ class GenerateGoldenConfigDBModule(object):
         Enables FEC for high-speed ports. PORT table rebuild from platform.json
         is handled separately by override_port_table_from_platform().
         """
-        SUPPORTED_TOPO = ["ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "ft2-o128"]
+        SUPPORTED_TOPO = ["ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
+                          "ft2-o128", "lt2-o256-u32d224"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
@@ -1241,9 +1230,6 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
-
-        # update ZMQ config
-        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
