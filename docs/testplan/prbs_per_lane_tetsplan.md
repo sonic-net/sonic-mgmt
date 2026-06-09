@@ -18,7 +18,7 @@
 | 0.3  | 2/06/26 | Madhukiran AS | updated test names                      |
 ## Overview
 
-This document describes the test plan for PRBS (Pseudo‑Random Bit Sequence) interface functionality in SONiC. The PRBS feature provides CLI support to enable, disable, monitor, and clear PRBS tests on network interfaces, with configuration and runtime state reflected in SONiC databases. The goal of this test plan is to validate correct PRBS CLI behavior, database interactions, end-to-end RX lock with a connected fanout peer, SerDes/L1 sign-off behavior, and full-box stress, as implemented in sonic-swss and the Marvell SAI.
+This document describes the test plan for PRBS (Pseudo‑Random Bit Sequence) interface functionality in SONiC. The PRBS feature provides CLI support to enable, disable, monitor, and clear PRBS tests on network interfaces, with configuration and runtime state reflected in SONiC databases. The goal of this test plan is to validate correct PRBS CLI behavior, database interactions, end-to-end RX lock with a connected fanout peer, SerDes/L1 sign-off behavior, and full-box stress, as implemented in sonic-swss and the SAI.
 
 
 ### Scope
@@ -82,9 +82,9 @@ doesn't exercise the SerDes, so running once per media is pure overhead.
 
 | ID | pytest test function | Description | Expected result |
 |----|----------------------|-------------|-----------------|
-| 1  | `test_cli_prbs_enable_rx` | Enable PRBS in `rx` mode on a valid Ethernet port. | STATE_DB `PORT_PRBS_TEST.mode == 'rx'`; oper_status transitions to TESTING (or down). |
-| 2  | `test_cli_prbs_enable_tx` | Enable PRBS in `tx` mode. | STATE_DB `PORT_PRBS_TEST.mode == 'tx'`; oper_status transitions to TESTING / down. |
-| 3  | `test_cli_prbs_enable_both` | Enable PRBS in `both` mode. | STATE_DB `PORT_PRBS_TEST.mode == 'both'`; oper_status transitions to TESTING / down. |
+| 1  | `test_cli_prbs_enable_rx` | Enable PRBS in `rx` mode on a valid Ethernet port. | STATE_DB `PORT_PRBS_TEST.mode == 'rx'`; oper_status transitions to TESTING. |
+| 2  | `test_cli_prbs_enable_tx` | Enable PRBS in `tx` mode. | STATE_DB `PORT_PRBS_TEST.mode == 'tx'`; oper_status transitions to TESTING. |
+| 3  | `test_cli_prbs_enable_both` | Enable PRBS in `both` mode. | STATE_DB `PORT_PRBS_TEST.mode == 'both'`; oper_status transitions to TESTING. |
 | 4  | `test_cli_prbs_disable` | Disable PRBS on a port that has PRBS active. | Session cleanly stopped; STATE_DB `PORT_PRBS_TEST.status == 'stopped'`; oper_status returns to `up`. |
 | 5  | `test_show_prbs_status_all` | Run `show interfaces prbs status` (box-level). | One row per port that has PRBS state; Status / RX Status columns populated. |
 | 6  | `test_show_prbs_status_per_interface` | Run `show interfaces prbs status -i <port>`. | Per-lane table rendered for the port. |
