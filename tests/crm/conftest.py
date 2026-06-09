@@ -30,15 +30,6 @@ def pytest_runtest_teardown(item, nextitem):
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
     if item.rep_setup.passed and not item.rep_call.skipped:
-        # Restore CRM threshods
-        if crm_threshold_name:
-            crm_thresholds = item.funcargs["crm_thresholds"]
-            cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
-                                     low=crm_thresholds[crm_threshold_name]["low"])
-            logger.info("Restore CRM thresholds. Execute: {}".format(cmd))
-            # Restore default CRM thresholds
-            item.funcargs["duthost"].command(cmd)
-
         test_name = item.function.__name__
         duthosts = item.funcargs['duthosts']
         hostname = item.funcargs['enum_rand_one_per_hwsku_frontend_hostname']
@@ -51,6 +42,15 @@ def pytest_runtest_teardown(item, nextitem):
             logger.warning('fallback to use duthost {} instead from {} {}'.format(dut.hostname, duthosts, hostname))
             hostname = dut.hostname
 
+        # Restore CRM thresholds on the correct DUT
+        if crm_threshold_name:
+            crm_thresholds = item.funcargs["crm_thresholds"]
+            cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
+                                     low=crm_thresholds[crm_threshold_name]["low"])
+            logger.info("Restore CRM thresholds on {}. Execute: {}".format(hostname, cmd))
+            # Restore default CRM thresholds
+            dut.command(cmd)
+            
         logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
