@@ -306,7 +306,7 @@ class HeadroomPoolProbing(ProbingBase):
             dscp = flow_config.dscp
 
             ProbingObserver.console(f"\n{'='*60}")
-            ProbingObserver.console(f"PG #{i+1}/{num_flows}: src={src_port_id}, dst={dst_port_id}, pg={pg}")
+            ProbingObserver.console(f"Iter #{i+1}/{num_flows}: src={src_port_id}, dst={dst_port_id}, pg={pg}")
             ProbingObserver.console(f"{'='*60}")
 
             # Set ptftest context for this flow
@@ -371,7 +371,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['pfc_xoff_threshold'] if pg_results else pool_size
                 )
                 pfc_upper, pfc_upper_time = pfc_algos['upper'].run(
-                    src_port_id, dst_port_id, pfc_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, pfc_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += pfc_upper_time
                 if pfc_upper is None:
@@ -479,7 +480,8 @@ class HeadroomPoolProbing(ProbingBase):
                     pg_results[-1]['ingress_drop_threshold'] if pg_results else pool_size
                 )
                 drop_upper, drop_upper_time = drop_algos['upper'].run(
-                    src_port_id, dst_port_id, drop_upper_init, **traffic_keys
+                    src_port_id, dst_port_id, drop_upper_init,
+                    pool_size=pool_size, **traffic_keys
                 )
                 total_time += drop_upper_time
                 if drop_upper is None:
@@ -560,7 +562,7 @@ class HeadroomPoolProbing(ProbingBase):
                     'headroom': pg_headroom
                 })
 
-                ProbingObserver.console(f"\n[Result] PG #{i+1} Headroom = {pg_headroom} cells")
+                ProbingObserver.console(f"\n[Result] Iter #{i+1} Headroom = {pg_headroom} cells")
                 ProbingObserver.console(f"         Total accumulated = {total_headroom} cells")
 
                 pg_success = True
@@ -568,7 +570,7 @@ class HeadroomPoolProbing(ProbingBase):
 
             # Unified cleanup on PG failure
             if not pg_success:
-                ProbingObserver.console(f"  Skipping PG #{i+1} due to {fail_reason}")
+                ProbingObserver.console(f"  Skipping Iter #{i+1} due to {fail_reason}")
                 self.buffer_ctrl.drain_buffer([dst_port_id])
                 continue
 

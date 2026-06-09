@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
 def is_full_lossy_hwsku(hwsku):
@@ -346,7 +347,7 @@ class GenerateGoldenConfigDBModule(object):
         return False
 
     def is_bmc_device(self):
-        return device_info.get_bmc_data() is not None
+        return device_info.get_localhost_info('type') == 'NetworkBmc'
 
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
@@ -635,6 +636,16 @@ class GenerateGoldenConfigDBModule(object):
 
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
+
+        # Filter PORT entries: YANG validation requires the 'lanes' leaf for
+        # every PORT_LIST entry.  sonic-cfggen may emit PORT entries (e.g. from
+        # init_cfg.json or internal ports) that lack 'lanes', which causes
+        # 'config load_minigraph --override_config' to abort.  Exclude them so
+        # the golden config remains YANG-valid; those ports will keep their
+        # minigraph-generated values.
+        ori_config_db["PORT"] = {
+            k: v for k, v in ori_config_db["PORT"].items() if "lanes" in v
+        }
 
         if hwsku not in smartswitch_hwsku_config:
             return "{}"

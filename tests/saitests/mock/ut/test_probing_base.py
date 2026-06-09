@@ -694,12 +694,12 @@ class TestProbingBaseRunTest:
             with patch('probing_base.send_packet'):
                 pb.runTest()
 
-        print("  Step 1: get_probe_config() called ✓")
-        print("  Step 2: sai_thrift_port_tx_enable() called ✓")
-        print("  Step 3: setup_traffic() called ✓")
-        print("  Step 4: BufferOccupancyController initialized ✓")
-        print("  Step 5: probe() executed ✓")
-        print("  Step 6: assert_probing_result() called ✓")
+        print("  Step 1: get_probe_config() called [ok]")
+        print("  Step 2: sai_thrift_port_tx_enable() called [ok]")
+        print("  Step 3: setup_traffic() called [ok]")
+        print("  Step 4: BufferOccupancyController initialized [ok]")
+        print("  Step 5: probe() executed [ok]")
+        print("  Step 6: assert_probing_result() called [ok]")
 
         # Verify BufferOccupancyController was created
         assert mock_boc.called, "BufferOccupancyController should be initialized"
@@ -801,10 +801,13 @@ class TestProbingBaseGetRxPort:
         print(f"  Result: {result}")
 
         assert result == 99, "Should return value from module function"
-        # production get_rx_port emits 1 log_message ("dst_port_id:..., src_port_id:...")
-        # and routes the per-attempt before/after logs through ProbingObserver.trace
-        assert mock_log.call_count == 1, "Should log dst/src port summary once via log_message"
-        assert mock_trace.call_count >= 2, "Should trace before and after via ProbingObserver"
+        # Per pr12.fix (#24024), input args are dumped once via log_message;
+        # per-attempt diagnostics use ProbingObserver.trace inside the retry
+        # loop. On a clean first-attempt success we expect 1 log_message
+        # ("inputs") + 2 trace calls ("attempt 1/3" + "resolved on 1/3").
+        assert mock_log.call_count == 1, "Should log inputs once before retry loop"
+        assert mock_trace.call_count == 2, \
+            "Should trace attempt-start + resolved on success"
         assert mock_get_rx_port.called, "Should call module get_rx_port()"
 
         print("[OK] get_rx_port() wrapper works correctly")
