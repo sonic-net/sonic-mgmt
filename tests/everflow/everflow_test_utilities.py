@@ -1042,6 +1042,13 @@ class BaseEverflowTest(object):
                     if 't2' in setup['topo']:
                         if duthost.facts['switch_type'] == "voq":
                             mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                        else:
+                            # On non-VOQ T2, payload SMAC depends on forwarding path.
+                            # ttl_dec==1 corresponds to cross-namespace path; ttl_dec==0 to same-namespace path.
+                            if src_port_metadata_map[src_port][1] == 1:
+                                mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                            else:
+                                mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
