@@ -38,7 +38,8 @@ def ConsoleHost(console_type,
                 supervisor_ip=None,
                 linecard_number=None,
                 slot_num=None,
-                hwsku=None):
+                hwsku=None,
+                bmc_first_console_switch=False):
     if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
     params = {
@@ -50,7 +51,8 @@ def ConsoleHost(console_type,
         "console_username": console_username,
         "console_password": console_password,
         "console_device": console_device,
-        "timeout": timeout_s
+        "timeout": timeout_s,
+        "bmc_first_console_switch": bmc_first_console_switch
     }
 
     # Add linecard-specific parameters if provided

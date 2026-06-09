@@ -3,6 +3,7 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+import time
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
 try:
@@ -38,6 +39,7 @@ class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
+        self.bmc_first_console_switch = bool(kwargs.pop('bmc_first_console_switch', False))
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
         key_to_rm = ['console_username', 'console_password',
@@ -71,6 +73,17 @@ class BaseConsoleConn(CiscoBaseConnection):
         """
         self.write_channel(command + self.RETURN)
         self.read_until_pattern(pattern=pattern)
+
+    def switch_bmc_to_cpu_console(self):
+        """
+        Some platforms mux BMC UART before CPU; send Ctrl+U, digit 2, then Enter so SONiC login appears.
+        """
+        self.logger.info("Console mux: Ctrl+U, 2, Enter for CPU console")
+        newline = getattr(self, "TELNET_RETURN", self.RETURN)
+        self.write_channel("\x15")
+        time.sleep(0.5)
+        self.write_channel("2" + newline)
+        time.sleep(1.5)
 
     def disable_paging(self, command="", delay_factor=1):
         # not supported
