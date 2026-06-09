@@ -11,6 +11,7 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
 
 import pytest
 import ptf.testutils as testutils
@@ -108,8 +109,74 @@ def get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=None):
         return available_ports
 
 
+def _format_counter_db_name_map_keys(name_map_keys):
+    """Return sorted, de-duplicated object names as <port>|<queue_id> strings."""
+    objects = [key.replace(":", "|") for key in natsorted(name_map_keys)]
+    return list(dict.fromkeys(objects))
+
+
+def _get_counter_db_name_map_keys(duthost, name_map):
+    """Return list of keys from COUNTERS_DB name map hash table."""
+    cmd = f'redis-cli -n 2 --raw hgetall "{name_map}"'
+    result = duthost.shell(cmd, module_ignore_errors=True)
+
+    if result.get("rc", 1) != 0:
+        logger.warning("Failed to read %s from COUNTERS_DB: %s", name_map, result.get("stderr"))
+        return []
+
+    lines = [line for line in (result.get("stdout", "") or "").splitlines() if line]
+    if not lines:
+        logger.info("No entries found in COUNTERS_DB %s", name_map)
+        return []
+
+    # redis-cli --raw hgetall returns alternating lines: key, value, key, value...
+    keys = lines[0::2]
+    return keys
+
+
+def get_configured_queue_objects(duthost):
+    """Return all queue objects from COUNTERS_DB as <port>|<queue_id> strings."""
+    name_map_keys = _get_counter_db_name_map_keys(duthost, "COUNTERS_QUEUE_NAME_MAP")
+
+    if not name_map_keys:
+        logger.info("No queue entries found in COUNTERS_QUEUE_NAME_MAP")
+        return []
+
+    queue_objects = _format_counter_db_name_map_keys(name_map_keys)
+    logger.info(f"Found {len(queue_objects)} queue objects: {queue_objects}")
+    return queue_objects
+
+
+def get_configured_buffer_queue_objects(duthost):
+    """Return all buffer queue objects as <port>|<queue_id> strings."""
+    name_map_keys = _get_counter_db_name_map_keys(duthost, "COUNTERS_PG_NAME_MAP")
+
+    if not name_map_keys:
+        logger.info("No buffer queue entries found in COUNTERS_PG_NAME_MAP")
+        return []
+
+    buffer_queue_objects = _format_counter_db_name_map_keys(name_map_keys)
+    logger.info(f"Found {len(buffer_queue_objects)} buffer queue objects: {buffer_queue_objects}")
+    return buffer_queue_objects
+
+
+def get_configured_buffer_pools(duthost, source="persistent"):
+    """Return all buffer pool names from CONFIG_DB."""
+    cfg_facts = duthost.config_facts(
+        host=duthost.hostname, source=source)['ansible_facts']
+    buffer_pools = natsorted(cfg_facts.get('BUFFER_POOL', {}).keys())
+    buffer_pools = list(dict.fromkeys(buffer_pools))
+
+    if not buffer_pools:
+        logger.info("No BUFFER_POOL entries found in config facts")
+    else:
+        logger.info(f"Found {len(buffer_pools)} buffer pools: {buffer_pools}")
+
+    return buffer_pools
+
+
 def setup_hft_profile(duthost, profile_name, poll_interval=10000,
-                      stream_state="enabled", otel_endpoint=None,
+                      stream_state="disabled", otel_endpoint=None,
                       otel_certs=None):
     """
     Set up a high frequency telemetry profile.
@@ -117,35 +184,71 @@ def setup_hft_profile(duthost, profile_name, poll_interval=10000,
     Args:
         duthost: DUT host object
         profile_name: Name of the profile
-        poll_interval: Polling interval in microseconds (default: 30000)
-        stream_state: enabled/disabled (default: enabled)
+        poll_interval: Polling interval in microseconds (default: 10000)
+        stream_state: enabled/disabled (default: disabled)
         otel_endpoint: OpenTelemetry endpoint (optional)
         otel_certs: Path to certificates (optional)
     """
-    profile_config = {
-        "poll_interval": str(poll_interval),
-        "stream_state": stream_state
-    }
+    stream_state = (stream_state or "").strip().lower()
+    if stream_state not in {"enabled", "disabled"}:
+        pytest_assert(
+            False,
+            f"Invalid stream_state '{stream_state}'. Expected 'enabled' or 'disabled'."
+        )
 
-    if otel_endpoint:
-        profile_config["otel_endpoint"] = otel_endpoint
-    if otel_certs:
-        profile_config["otel_certs"] = otel_certs
-
-    # Build the HSET command
-    config_parts = []
-    for key, value in profile_config.items():
-        config_parts.extend([f'"{key}"', f'"{value}"'])
+    if otel_endpoint or otel_certs:
+        logger.warning(
+            "otel_endpoint/otel_certs are not supported by 'config hft add profile' yet. "
+            "Ignoring these parameters."
+        )
 
     profile_cmd = (
-        f'redis-cli -n 4 HSET "HIGH_FREQUENCY_TELEMETRY_PROFILE|'
-        f'{profile_name}" {" ".join(config_parts)}'
+        f"sudo config hft add profile {profile_name} "
+        f"--poll_interval {poll_interval} "
+        f"--stream_state {stream_state}"
     )
 
     result = duthost.shell(profile_cmd, module_ignore_errors=False)
-    logger.info(f"Created high frequency telemetry profile '{profile_name}': "
-                f"{profile_config}")
+    logger.info(
+        "Created high frequency telemetry profile '%s' with poll_interval=%s, stream_state=%s",
+        profile_name,
+        poll_interval,
+        stream_state,
+    )
     return result
+
+
+def _stringify_sequence(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Iterable):
+        return ",".join(str(item) for item in value)
+    return str(value)
+
+
+def _normalize_hft_group_type(group_name):
+    if not group_name:
+        pytest_assert(False, "group_name must not be empty")
+
+    key = re.sub(r"[\s\-]+", "_", str(group_name).strip()).upper()
+    mapping = {
+        "PORT": "PORT",
+        "QUEUE": "QUEUE",
+        "BUFFER": "BUFFER_POOL",
+        "BUFFER_POOL": "BUFFER_POOL",
+        "INGRESS_PRIORITY_GROUP": "INGRESS_PRIORITY_GROUP",
+        "PG": "INGRESS_PRIORITY_GROUP",
+        "IPG": "INGRESS_PRIORITY_GROUP",
+    }
+    group_type = mapping.get(key, key)
+    allowed = {"PORT", "BUFFER_POOL", "INGRESS_PRIORITY_GROUP", "QUEUE"}
+    if group_type not in allowed:
+        pytest_assert(
+            False,
+            f"Unsupported HFT group type '{group_name}'. "
+            f"Expected one of: {sorted(allowed)}"
+        )
+    return group_type
 
 
 def setup_hft_group(duthost, profile_name, group_name,
@@ -160,22 +263,54 @@ def setup_hft_group(duthost, profile_name, group_name,
         object_names: List of object names or comma-separated string
         object_counters: List of counter names or comma-separated string
     """
-    if isinstance(object_names, list):
-        object_names = ",".join(object_names)
-    if isinstance(object_counters, list):
-        object_counters = ",".join(object_counters)
+    object_names = _stringify_sequence(object_names)
+    object_counters = _stringify_sequence(object_counters)
+
+    group_type = _normalize_hft_group_type(group_name)
 
     group_cmd = (
-        f'redis-cli -n 4 HSET "HIGH_FREQUENCY_TELEMETRY_GROUP|'
-        f'{profile_name}|{group_name}" '
-        f'"object_names" "{object_names}" '
-        f'"object_counters" "{object_counters}"'
+        f"sudo config hft add group {profile_name} "
+        f"--group_type {group_type} "
+        f"--object_names \"{object_names}\" "
+        f"--object_counters \"{object_counters}\""
     )
 
     result = duthost.shell(group_cmd, module_ignore_errors=False)
-    logger.info(f"Created high frequency telemetry group '{group_name}' "
-                f"for profile '{profile_name}': "
-                f"objects={object_names}, counters={object_counters}")
+    logger.info(
+        "Created high frequency telemetry group '%s' (type=%s) for profile '%s': "
+        "objects=%s, counters=%s",
+        group_name,
+        group_type,
+        profile_name,
+        object_names,
+        object_counters,
+    )
+    return result
+
+
+def setup_hft_stream_state(duthost, profile_name, stream_state):
+    """
+    Enable or disable an HFT stream for a profile.
+
+    Args:
+        duthost: DUT host object
+        profile_name: Name of the profile
+        stream_state: enabled/disabled/enable/disable
+    """
+    state = (stream_state or "").strip().lower()
+    if state in {"enabled", "enable"}:
+        action = "enable"
+    elif state in {"disabled", "disable"}:
+        action = "disable"
+    else:
+        pytest_assert(
+            False,
+            f"Invalid stream_state '{stream_state}'. Expected 'enabled' or 'disabled'."
+        )
+
+    cmd = f"sudo config hft {action} {profile_name}"
+    result = duthost.shell(cmd, module_ignore_errors=False)
+    logger.info("Set HFT stream state to '%s' for profile '%s'", action, profile_name)
     return result
 
 
@@ -191,40 +326,52 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     """
     cleanup_commands = []
 
-    # Clean up profile
-    cleanup_commands.append(
-        f'redis-cli -n 4 DEL "HIGH_FREQUENCY_TELEMETRY_PROFILE|{profile_name}"'
-    )
-
-    # Clean up groups
+    # Clean up groups first
     if group_names:
         if isinstance(group_names, str):
             group_names = [group_names]
         for group_name in group_names:
+            group_type = _normalize_hft_group_type(group_name)
             cleanup_commands.append(
-                f'redis-cli -n 4 DEL "HIGH_FREQUENCY_TELEMETRY_GROUP|'
-                f'{profile_name}|{group_name}"'
+                f"sudo config hft del group {profile_name} {group_type}"
             )
     else:
-        # Clean up all groups for this profile (use pattern matching)
+        # Query all groups for this profile (use redis-cli for discovery only)
         pattern_cmd = (
             f'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|'
             f'{profile_name}|*"'
         )
         result = duthost.shell(pattern_cmd, module_ignore_errors=True)
-        if result['rc'] == 0 and result['stdout_lines']:
+        if result.get('rc') == 0 and result.get('stdout_lines'):
             for key in result['stdout_lines']:
-                if key.strip():
-                    cleanup_commands.append(
-                        f'redis-cli -n 4 DEL "{key.strip()}"'
-                    )
+                key = (key or "").strip()
+                if not key:
+                    continue
+                parts = key.split("|", 2)
+                if len(parts) != 3:
+                    logger.warning("Unexpected HFT group key format: %s", key)
+                    continue
+                _, key_profile, key_group = parts
+                if key_profile != profile_name:
+                    continue
+                group_type = _normalize_hft_group_type(key_group)
+                cleanup_commands.append(
+                    f"sudo config hft del group {profile_name} {group_type}"
+                )
+
+    # Clean up profile last
+    cleanup_commands.append(
+        f"sudo config hft del profile {profile_name}"
+    )
 
     # Execute cleanup commands
     for cmd in cleanup_commands:
         duthost.shell(cmd, module_ignore_errors=True)
 
-    logger.info(f"Cleaned up high frequency telemetry configuration "
-                f"for profile '{profile_name}'")
+    logger.info(
+        "Cleaned up high frequency telemetry configuration for profile '%s'",
+        profile_name,
+    )
 
 
 def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=60):
@@ -406,11 +553,10 @@ def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
             phase_start_position = monitor.get_current_file_size()
 
             # Change stream state
-            setup_hft_profile(
+            setup_hft_stream_state(
                 duthost=duthost,
                 profile_name=profile_name,
-                poll_interval=10000,
-                stream_state=state
+                stream_state=state,
             )
 
             # Wait for the state change to take effect
@@ -687,13 +833,19 @@ def validate_config_state_transitions(
             }
             continue
 
-        # Validate the output based on expected configuration state
+        # Validate the output based on expected configuration state.
+        # This helper is used for config state transition validation, not
+        # precise rate validation. For create/re-create phases, only verify
+        # that the stream becomes active again. Strict Msg/s checks are
+        # intentionally skipped because countersyncd reports a cumulative
+        # average rate and config application latency can skew the early
+        # samples within the same collection window.
         expect_disabled = (action == "delete")
         validation = validate_counter_output(
             output=output,
             expected_objects=validation_objects,
             min_counter_value=0,
-            expected_poll_interval=10000,
+            expected_poll_interval=None,
             expect_disabled=expect_disabled
         )
 
@@ -1292,17 +1444,429 @@ def analyze_counter_trend(output):
     first_val = sample_values[0]
     last_val = sample_values[-1]
 
-    # Calculate the difference and percentage change
-    diff = last_val - first_val
-    pct_change = (diff / first_val * 100) if first_val > 0 else 0
+    # Analyze per-sample direction without percentage thresholds
+    diffs = [b - a for a, b in zip(sample_values, sample_values[1:])]
+    pos_changes = sum(1 for d in diffs if d > 0)
+    neg_changes = sum(1 for d in diffs if d < 0)
+    non_zero_changes = pos_changes + neg_changes
 
-    logger.info(f"Counter trend analysis: first={first_val}, last={last_val}, "
-                f"diff={diff}, pct_change={pct_change: .2f}%")
+    logger.info(
+        "Counter trend analysis: first=%s, last=%s, diffs=%s, +changes=%s, -changes=%s",
+        first_val,
+        last_val,
+        diffs,
+        pos_changes,
+        neg_changes,
+    )
 
-    # Determine trend based on percentage change
-    if pct_change > 5:  # More than 5% increase
+    # Stable means the sequence changes at most once across all samples
+    if non_zero_changes <= 1:
+        return 'stable'
+
+    # Determine overall trend by dominant direction
+    if pos_changes > neg_changes:
         return 'increasing'
-    elif pct_change < -5:  # More than 5% decrease
+    if neg_changes > pos_changes:
         return 'decreasing'
     else:  # Within 5% change
         return 'stable'
+
+
+def start_countersyncd_otel(duthost, stats_interval=60):
+    """
+    Start countersyncd with otel export enabled in background (swss container).
+    """
+    cmd = (
+        "nohup docker exec swss countersyncd --enable-otel -e "
+        f"--max-stats-per-report 0 --stats-interval {stats_interval} "
+        "> /tmp/countersyncd_otel.log 2>&1 &"
+    )
+    duthost.shell(cmd, module_ignore_errors=False)
+    logger.info("Started countersyncd with otel export")
+
+
+def stop_countersyncd_otel(duthost):
+    """
+    Stop the countersyncd otel process inside swss container.
+    """
+    duthost.shell(
+        "docker exec swss pkill -f 'countersyncd.*--enable-otel' || true",
+        module_ignore_errors=True,
+    )
+    logger.info("Stopped countersyncd otel process")
+
+
+def render_otel_collector_config(template_path, **kwargs):
+    """
+    Render an OpenTelemetry collector config from a Jinja2 template file.
+
+    Args:
+        template_path: local path to the .j2 template file
+        **kwargs: variables to pass to the template (e.g., ptf_ip)
+
+    Returns:
+        str: rendered YAML text
+    """
+    from jinja2 import Template
+
+    with open(template_path, "r") as f:
+        template = Template(f.read())
+    return template.render(**kwargs)
+
+
+def install_otel_collector_config(duthost, rendered_config,
+                                  dest_path="/etc/sonic/otel_config.yml"):
+    """
+    Write a rendered otel collector config onto the DUT.
+
+    Args:
+        duthost: DUT host object
+        rendered_config: fully rendered YAML config string
+        dest_path: destination path on DUT
+    """
+    duthost.copy(content=rendered_config, dest=dest_path)
+    logger.info(f"Installed otel collector config to {dest_path}")
+
+
+def enable_otel_collector(duthost, timeout=60):
+    """
+    Enable the OpenTelemetry collector feature on the DUT and wait
+    until the otel container is running.
+
+    If the feature entry is missing from CONFIG_DB (e.g. after a
+    config_reload) but the docker image exists, re-add the entry.
+    Skips the test if the platform does not support otel at all.
+    """
+    logger.info("Enabling OpenTelemetry collector...")
+
+    # Check if the otel docker image exists (platform support check).
+    # Retry a few times because docker daemon may still be restarting
+    # after a config_reload triggered by test fixtures.
+    has_image = False
+    for attempt in range(6):
+        img_check = duthost.shell(
+            "docker images docker-sonic-otel --format yes",
+            module_ignore_errors=True,
+        )
+        if img_check["rc"] == 0 and "yes" in img_check.get("stdout", ""):
+            has_image = True
+            break
+        logger.info("docker image check attempt %d failed, retrying in 10s...",
+                    attempt + 1)
+        time.sleep(10)
+    if not has_image:
+        pytest.skip("otel is not supported on this platform "
+                    "(docker-sonic-otel image not found)")
+
+    # Ensure the feature entry exists in CONFIG_DB
+    check = duthost.shell(
+        "sonic-db-cli CONFIG_DB exists 'FEATURE|otel'",
+        module_ignore_errors=True,
+    )
+    if check.get("stdout", "").strip() == "0":
+        logger.info("otel feature entry missing from CONFIG_DB, re-adding...")
+        duthost.shell(
+            "sonic-db-cli CONFIG_DB hmset 'FEATURE|otel' "
+            "state enabled auto_restart enabled "
+            "has_global_scope True has_per_asic_scope False",
+            module_ignore_errors=False,
+        )
+    else:
+        duthost.shell(
+            "sudo config feature state otel enabled",
+            module_ignore_errors=False,
+        )
+
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = duthost.shell(
+            'docker ps -q --filter "name=otel"',
+            module_ignore_errors=True,
+        )
+        if result["rc"] == 0 and result["stdout"].strip():
+            logger.info("otel container is running")
+            return True
+        time.sleep(2)
+    pytest_assert(False, "otel container did not become ready in time")
+
+
+def start_influxdb(ptfhost, port=8181, timeout=30):
+    """
+    Start InfluxDB 3 Core on the PTF host and wait for it to be healthy.
+    Cleans any leftover data from previous runs to ensure a fresh state.
+    """
+    logger.info("Starting InfluxDB 3 on PTF host...")
+
+    # Stop any existing influxdb3 and clean stale data
+    ptfhost.shell("pkill -f influxdb3 || true", module_ignore_errors=True)
+    time.sleep(2)
+    ptfhost.shell("rm -rf ~/.influxdb3", module_ignore_errors=True)
+
+    ptfhost.shell(
+        f"nohup influxdb3 serve --object-store memory --node-id test "
+        f"--http-bind={port} --without-auth "
+        "> /var/log/influxdb3.log 2>&1 &",
+        module_ignore_errors=False,
+    )
+
+    # Wait for health endpoint to return "OK"
+    end_time = time.time() + timeout
+    while time.time() < end_time:
+        result = ptfhost.shell(
+            f"curl -sf http://localhost:{port}/health",
+            module_ignore_errors=True,
+        )
+        if result["rc"] == 0 and "OK" in result.get("stdout", ""):
+            logger.info("InfluxDB 3 is healthy")
+            return True
+        time.sleep(2)
+    pytest_assert(False, f"InfluxDB 3 did not become healthy within {timeout}s")
+
+
+def setup_influxdb(ptfhost, port=8181, bucket="home"):
+    """
+    Ensure the InfluxDB 3 database exists.
+
+    InfluxDB 3 Core is schema-on-write and auto-creates databases on first
+    write, so explicit creation is optional. We attempt to pre-create the
+    database via the CLI for clarity; failure is non-fatal.
+    """
+    result = ptfhost.shell(
+        f"influxdb3 create database {bucket} --port {port}",
+        module_ignore_errors=True,
+    )
+    if result["rc"] == 0:
+        logger.info(f"InfluxDB 3 database '{bucket}' created")
+    else:
+        logger.info(
+            f"InfluxDB 3 database '{bucket}' may already exist or will "
+            "auto-create on first write (rc=%d)", result["rc"],
+        )
+
+
+def query_influxdb(ptfhost, influxql_query, port=8181, db="home"):
+    """
+    Execute an InfluxQL query against InfluxDB 3 via the v1 /query endpoint.
+
+    Returns:
+        dict: shell result with 'rc', 'stdout', 'stderr'.
+              stdout contains JSON in the v1 response format.
+    """
+    cmd = (
+        f"curl -sS -G 'http://localhost:{port}/query' "
+        f"--data-urlencode 'db={db}' "
+        f"--data-urlencode 'q={influxql_query}'"
+    )
+    return ptfhost.shell(cmd, module_ignore_errors=True)
+
+
+def wait_for_influxdb_data(ptfhost, bucket="home", port=8181,
+                           timeout=60, poll_interval=5):
+    """
+    Poll InfluxDB 3 until at least one data point appears in the database.
+
+    Returns:
+        dict or None: the query result if data is found, None on timeout
+    """
+    import json as _json
+
+    influxql = "SELECT * FROM /.*/ LIMIT 5"
+
+    end_time = time.time() + timeout
+    last_result = None
+    while time.time() < end_time:
+        last_result = query_influxdb(
+            ptfhost, influxql, port=port, db=bucket,
+        )
+        stdout = last_result.get("stdout", "").strip()
+        if last_result["rc"] == 0 and stdout:
+            try:
+                body = _json.loads(stdout)
+                results = body.get("results", [])
+                for r in results:
+                    series = r.get("series", [])
+                    if series:
+                        total_values = sum(
+                            len(s.get("values", [])) for s in series
+                        )
+                        logger.info(
+                            f"InfluxDB returned {total_values} data row(s)"
+                        )
+                        return last_result
+            except _json.JSONDecodeError:
+                pass
+        time.sleep(poll_interval)
+
+    logger.warning(
+        "Timed out waiting for InfluxDB data. "
+        f"Last response: {last_result}"
+    )
+    return None
+
+
+def stop_influxdb(ptfhost):
+    """
+    Stop InfluxDB 3 on the PTF host and clean up data.
+    """
+    ptfhost.shell("pkill -f influxdb3 || true", module_ignore_errors=True)
+    time.sleep(2)
+    ptfhost.shell("rm -rf ~/.influxdb3", module_ignore_errors=True)
+    logger.info("InfluxDB 3 stopped and data cleaned on PTF host")
+
+
+def parse_influxdb_json(json_text):
+    """
+    Parse InfluxDB v1 API JSON response into groups of data rows.
+
+    The v1 /query endpoint returns JSON like:
+      {"results":[{"statement_id":0,"series":[
+        {"name":"measurement","columns":["time","field1"],
+         "values":[[...],[...]]}
+      ]}]}
+
+    Returns:
+        dict: mapping of series_name -> list of dicts (column->value).
+    """
+    import json as _json
+
+    body = _json.loads(json_text)
+    groups = {}
+    for result in body.get("results", []):
+        for series in result.get("series", []):
+            name = series.get("name", "unknown")
+            columns = series.get("columns", [])
+            rows = []
+            for values in series.get("values", []):
+                rows.append(dict(zip(columns, values)))
+            groups.setdefault(name, []).extend(rows)
+    return groups
+
+
+def validate_influxdb_intervals(ptfhost, bucket="home", port=8181,
+                                expected_interval_ms=10,
+                                tolerance_low=0.5, tolerance_high=1.5,
+                                avg_tolerance=0.2, min_points=10):
+    """
+    Validate that HFT data points in InfluxDB arrive at the expected interval.
+
+    Queries all data from the last 5 minutes using InfluxQL, groups by series,
+    and for each group checks that:
+      1. Consecutive timestamp deltas fall within
+         [expected_ms * tolerance_low, expected_ms * tolerance_high]
+      2. The average delta is within avg_tolerance of expected_ms
+
+    Args:
+        ptfhost: PTF host object
+        bucket: InfluxDB database name
+        port: InfluxDB HTTP port
+        expected_interval_ms: expected interval between points in ms
+        tolerance_low: lower multiplier (0.5 = 50% of expected)
+        tolerance_high: upper multiplier (1.5 = 150% of expected)
+        avg_tolerance: allowed deviation ratio for average (0.2 = 20%)
+        min_points: minimum data points per group to validate
+
+    Returns:
+        dict with keys:
+          - 'groups': dict of series_key -> stats dict
+          - 'violations': list of violation descriptions
+          - 'passed': bool
+    """
+    from datetime import datetime
+
+    influxql = (
+        "SELECT * FROM /.*/ "
+        "WHERE time >= now() - 5m "
+        "ORDER BY time ASC"
+    )
+    result = query_influxdb(ptfhost, influxql, port=port, db=bucket)
+    if result["rc"] != 0 or not result.get("stdout", "").strip():
+        return {"groups": {}, "violations": ["No data returned from query"],
+                "passed": False}
+
+    groups = parse_influxdb_json(result["stdout"])
+    all_stats = {}
+    violations = []
+
+    min_ms = expected_interval_ms * tolerance_low
+    max_ms = expected_interval_ms * tolerance_high
+
+    for series_key, rows in groups.items():
+        timestamps = []
+        for row in rows:
+            time_str = row.get("time", "")
+            if not time_str:
+                continue
+            try:
+                # InfluxDB 3 returns RFC3339 timestamps, e.g.
+                # 2026-04-10T06:32:03.117415123Z
+                clean = time_str.replace("Z", "+00:00")
+                # Truncate to microseconds if nanoseconds present
+                if "." in clean:
+                    dot_idx = clean.index(".")
+                    plus_idx = clean.index("+", dot_idx)
+                    frac = clean[dot_idx + 1:plus_idx]
+                    frac = frac[:6]  # truncate to microseconds
+                    clean = clean[:dot_idx + 1] + frac + clean[plus_idx:]
+                ts = datetime.fromisoformat(clean)
+                timestamps.append(ts)
+            except (ValueError, IndexError):
+                continue
+
+        if len(timestamps) < min_points:
+            logger.info("Series %s has only %d points, skipping validation",
+                        series_key, len(timestamps))
+            continue
+
+        timestamps.sort()
+        deltas_ms = []
+        for i in range(1, len(timestamps)):
+            delta = (timestamps[i] - timestamps[i - 1]).total_seconds() * 1000
+            deltas_ms.append(delta)
+
+        out_of_range = [
+            (i, d) for i, d in enumerate(deltas_ms)
+            if d < min_ms or d > max_ms
+        ]
+        avg_delta = sum(deltas_ms) / len(deltas_ms) if deltas_ms else 0
+        min_delta = min(deltas_ms) if deltas_ms else 0
+        max_delta = max(deltas_ms) if deltas_ms else 0
+
+        stats = {
+            "num_points": len(timestamps),
+            "num_intervals": len(deltas_ms),
+            "avg_ms": round(avg_delta, 3),
+            "min_ms": round(min_delta, 3),
+            "max_ms": round(max_delta, 3),
+            "out_of_range_count": len(out_of_range),
+        }
+        all_stats[series_key] = stats
+
+        logger.info(
+            "Series %s: %d points, avg=%.3fms, min=%.3fms, max=%.3fms, "
+            "out_of_range=%d",
+            series_key, len(timestamps), avg_delta, min_delta, max_delta,
+            len(out_of_range),
+        )
+
+        # Check individual intervals
+        if out_of_range:
+            pct = len(out_of_range) / len(deltas_ms) * 100
+            violations.append(
+                f"{series_key}: {len(out_of_range)}/{len(deltas_ms)} "
+                f"intervals ({pct:.1f}%) outside [{min_ms}, {max_ms}]ms"
+            )
+
+        # Check average interval
+        if abs(avg_delta - expected_interval_ms) > \
+                expected_interval_ms * avg_tolerance:
+            violations.append(
+                f"{series_key}: avg interval {avg_delta:.3f}ms deviates "
+                f"more than {avg_tolerance * 100}% from expected "
+                f"{expected_interval_ms}ms"
+            )
+
+    return {
+        "groups": all_stats,
+        "violations": violations,
+        "passed": len(violations) == 0,
+    }

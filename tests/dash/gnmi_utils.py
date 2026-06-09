@@ -349,14 +349,14 @@ def apply_messages(
 
         if set_db:
             if proto_utils.ENABLE_PROTO:
-                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
+                path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
             else:
-                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
+                path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
             with open(env.work_dir + filename, "wb") as file:
                 file.write(message.SerializeToString())
             update_list.append(path)
         else:
-            path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}"
+            path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}"
             delete_list.append(path)
 
     write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
@@ -410,9 +410,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/%s/%s:$/root/%s" % (host, k, filename)
+                    path = "/DPU_APPL_DB/%s/%s:$/root/%s" % (host, k, filename)
                 else:
-                    path = "/APPL_DB/%s/%s:@/root/%s" % (host, k, filename)
+                    path = "/DPU_APPL_DB/%s/%s:@/root/%s" % (host, k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -420,7 +420,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/%s/%s" % (host, k)
+                path = "/DPU_APPL_DB/%s/%s" % (host, k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])

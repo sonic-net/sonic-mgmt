@@ -27,6 +27,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
@@ -38,6 +41,11 @@
 
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
+
+  - name: Set default value for topo_is_multi_vrf
+    set_fact:
+      topo_is_multi_vrf: false
+    when: topo_is_multi_vrf is not defined
 
   tasks:
   - include_tasks: roles/vm_set/tasks/announce_routes.yml
