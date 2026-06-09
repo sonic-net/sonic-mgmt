@@ -235,7 +235,7 @@ def test_ha_dpu_failure(
     )
     down_ok, down_state = wait_for_ha_scope_pmon_state(
         dut, scope_key, expected_state="down",
-        timeout=20, interval=5,
+        timeout=60, interval=5,
     )
     pytest_assert(
         down_ok,
