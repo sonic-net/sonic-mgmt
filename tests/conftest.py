@@ -123,7 +123,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils',
-                  'tests.common.plugins.parallel_fixture')
+                  'tests.common.plugins.parallel_fixture',
+                  'tests.common.plugins.erspan_mirror')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -2908,7 +2909,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 

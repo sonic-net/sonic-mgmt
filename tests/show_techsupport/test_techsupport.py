@@ -384,12 +384,8 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
     is_bmc_present = False
-    try:
-        if bmc.get_presence(platform_api_conn):
-            is_bmc_present = True
-    except Exception as e:
-        logger.warning("Failed to get BMC presence: {}".format(e))
-        is_bmc_present = False
+    if bmc.is_bmc_exists(duthost):
+        is_bmc_present = True
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
