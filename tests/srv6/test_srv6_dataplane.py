@@ -192,7 +192,7 @@ class SRv6Base():
     def use_param(self, prepare_param):
         self.params = prepare_param
 
-    def _validate_srv6_function(self, duthost, ptfadapter, dscp_mode):
+    def _validate_srv6_function(self, duthost, ptfadapter, dscp_mode, weak_server):
         srv6_pkt_list = []
         logger.info('Clear the SRv6 counters')
         clear_srv6_counters(duthost)
@@ -209,6 +209,10 @@ class SRv6Base():
         pytest_assert(wait_until(120, 5, 0, validate_srv6_route, duthost, ROUTE_BASE),
                       "SRv6 route in ASIC DB is not as expected")
 
+        delay_interval = 0
+        if weak_server:
+            delay_interval = 0.4
+            self.params['packet_num'] = 10
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, self.params['ptf_downlink_port']).decode('utf-8')
         for srv6_packet in self.params['srv6_packets']:
             if duthost.facts["asic_type"] == "broadcom" and \
@@ -286,6 +290,7 @@ class SRv6Base():
             )
 
             srv6_pkt_list.append(srv6_pkt)
+            time.sleep(delay_interval)
 
         return srv6_pkt_list
 
@@ -295,10 +300,10 @@ class TestSRv6DataPlaneBase(SRv6Base):
     def test_srv6_full_func(self, config_setup, srv6_crm_total_sids,
                             setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
-                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index):
+                            ptfadapter, rand_selected_dut, localhost, request, enum_frontend_asic_index, weak_server):
 
         with allure.step('Validate SRv6 packet process'):
-            srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+            srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
 
         with allure.step('Validate SRv6 counters'):
             pytest_assert(wait_until(60, 5, 0, validate_srv6_counters, rand_selected_dut, srv6_pkt_list,
@@ -338,7 +343,7 @@ class TestSRv6DataPlaneBase(SRv6Base):
                                              rand_selected_dut), "BGP route is not synced")
 
                 with allure.step('Validate SRv6 packet process'):
-                    self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
+                    self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup, weak_server)
 
                 with allure.step('Validate SRv6 counters'):
                     pytest_assert(wait_until(60, 5, 0, validate_srv6_counters, rand_selected_dut, srv6_pkt_list,
