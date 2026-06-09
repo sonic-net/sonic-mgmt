@@ -31,7 +31,7 @@ class HistogramMetric(Metric):
             buckets: Optional bucket boundaries for histogram distribution
             common_labels: Common labels to apply to all measurements of this metric
         """
-        super().__init__(METRIC_TYPE_HISTOGRAM, name, description, unit, reporter, common_labels)
+        super().__init__(METRIC_TYPE_HISTOGRAM, name, description, unit, reporter, None, common_labels)
         self.buckets = buckets
 
     def record(self, value: float, additional_labels: Optional[Dict[str, str]] = None):

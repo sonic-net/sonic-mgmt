@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -119,4 +119,4 @@ class TestControlPlane():
             setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
                                        cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
             # Clean up new macsec profile
-            delete_macsec_profile(duthost, port_name, new_profile_name)
+            delete_macsec_profile(duthost, new_profile_name)

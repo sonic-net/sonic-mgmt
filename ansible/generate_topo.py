@@ -59,11 +59,11 @@ roles_cfg = {
         "peer": {"role": "pt0", "asn": 65100, "asn_v6": 64620, "asn_increment": 1},
     },
     "t1": {
-        "asn": 65100,
+        "asn": 4200100000,
         "asn_v6": 4200100000,
-        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000, "asn_increment": 1},
-        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000, "asn_increment": 0},
-        "peer": None,
+        "downlink": {"role": "t0", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 1},
+        "uplink": {"role": "t2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
+        "peer": {"role": "pt1", "asn": 65100, "asn_v6": 65100, "asn_increment": 1},
     },
     "lt2": {
         "asn": 4200100000,
@@ -72,6 +72,13 @@ roles_cfg = {
         "uplink": {"role": "ut2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
         "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
         "peer": None
+    },
+    "t2": {
+        "asn": 4200200000,
+        "asn_v6": 4200200000,
+        "downlink": {"role": "t1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
+        "uplink": None,
+        "peer": {"role": "pt1", "asn": 65000, "asn_v6": 65000, "asn_increment": 1},
     },
 }
 
@@ -98,6 +105,11 @@ hw_port_cfg = {
                          'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
+    'o128t2':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [],
+                         'peer_ports': [64, 65],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
                          'uplink_ports': [8, 10, 12, 14, 16, 18, 20, 22, 40, 42, 44, 46, 48, 50, 52, 54],
                          'peer_ports': [64, 65],
@@ -120,6 +132,11 @@ hw_port_cfg = {
                          'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
+    'c448o16':          {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(12, 13, 16, 17, 44, 45, 48, 49),
+                         'peer_ports': [],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
     'c448o16-lag':      {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
                          'peer_ports': [],
@@ -135,6 +152,12 @@ hw_port_cfg = {
                              'peer_ports': [],
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
+    'o256-u32d224lt2':  {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(*list(range(45, 61))),
+                         'peer_ports': [],
+                         'skip_ports': PortList(126, 127),
+                         'continuous_vms': True,
+                         "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
@@ -153,12 +176,11 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32v128f2':        {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(*list(range(0, 32))),
-                         'lag_list': LinkList(LagLink(0, 1), LagLink(2, 3), LagLink(4, 5), LagLink(6, 7),
+                         'lag_list': LinkList(LagLink(8, 9), LagLink(10, 11), LagLink(12, 13), LagLink(14, 15),
                                               LagLink(16, 17), LagLink(18, 19), LagLink(20, 21), LagLink(22, 23)),
-                         'skip_ports': PortList(*list(range(8, 16)), *list(range(24, 32)),
-                                                34, 35, 36, 37, 38, 57, 58, 59, 62, 63),
-                         'skip_links': ([33, 34, 35, 37, 38, 39, 145, 146, 147, 149, 150, 151] +
-                                        [link for port in range(39, 57)
+                         'skip_ports': PortList(*list(range(0, 8)), *list(range(24, 32))),
+                         'skip_links': (
+                                        [link for port in range(32, 64)
                                          for link in [32 + (port - 32) * 4 + 2, 32 + (port - 32) * 4 + 3]]),
                          'peer_ports': [],
                          'continuous_vms': True,
@@ -177,12 +199,61 @@ hw_port_cfg = {
                           'continuous_vms': True,
                           "panel_port_step": 1,
                           "link_based": True},
+    'd508u1s2':         {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         "skip_ports": [],
+                         "panel_port_step": 1},
+    'd32u1s2':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         # Reduced from d508u1s2: keep only the 1st and 25th downlink port of every
+                         # 32-port block (i.e. p % 32 in {0, 24}), giving 32 T0 downlinks total.
+                         "skip_ports": [p for p in range(508) if p % 32 not in (0, 24)],
+                         "panel_port_step": 1},
+    # t1-isolated with 32 downlinks only (no uplinks, no peers).
+    # Panel ports 0..127 (16 blocks of 8). Keep p % 8 in {0, 6} → 32 host interfaces
+    # (i.e. 1st and 7th port of every 8-port block).
+    # NOTE: skip_ports range (128) is tied to the intended `-c 128` invocation; if you
+    # invoke generate_topo.py with a different `-c`, edit this range to match.
+    'd32':              {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [],
+                         "peer_ports": [],
+                         "skip_ports": [p for p in range(128) if p % 8 not in (0, 6)],
+                         "panel_port_step": 1},
+    # t0-isolated 32 DL / 32 UL / 2 peer "mix" layout.
+    # 16 interleaved super-blocks of 20 panel ports (4 sets of 5). Within each super-block
+    # keep sets 1 and 4 (offsets 0..4 and 15..19) and skip sets 2 and 3 (offsets 5..14).
+    # Within every kept set of 5: 1st port (offset 0/15) = downlink (host interface on t0),
+    # 5th port (offset 4/19) = uplink (T1 VM). 16 * 2 = 32 DL, 16 * 2 = 32 UL.
+    # 2 peer (pt0) VMs at panel ports 320, 321 (appended after the 320-port main range).
+    # NOTE: the range(320) literals are tied to the intended `-c 322` invocation
+    # (320 main panel ports + 2 peer ports); update them if `-c` changes.
+    'd32u32s2-mix':     {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [p for p in range(320) if p % 20 in (4, 19)],
+                         "peer_ports": [320, 321],
+                         "skip_ports": [p for p in range(320) if p % 20 not in (0, 4, 15, 19)],
+                         "panel_port_step": 1},
+    # t1-isolated with 28 downlinks + 4 uplinks (no peers) on a 32-port device.
+    # Panel ports 0..27 = T0 downlinks; panel ports 28..31 = T2 uplinks.
+    'd28u4':            {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [28, 29, 30, 31],
+                         "peer_ports": [],
+                         "skip_ports": [],
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
     'lt2': {
         'p32o64': "lt2-p32o64",
         'o128': "lt2-o128",
+        'o256-u32d224': "lt2-o256-u32d224",
+    },
+    't0': {
+        'f2': "t0-f2-d40u8",
+        # The auto-named output for the d32u32s2-mix variant would collide with any
+        # non-mix d32u32s2 layout. Pin a distinct -mix suffix so testbeds can target it.
+        'isolated-mix': "t0-isolated-d32u32s2-mix",
     }
 }
 
@@ -236,7 +307,7 @@ class VM:
         self.link_id = link_id
         self.vm_offset = vm_id
         self.ip_offset = vm_id if ip_offset is None else ip_offset
-        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"
+        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"  # noqa: E231
         self.tornum = tornum
 
         # VLAN configuration
@@ -342,7 +413,6 @@ def generate_topo_link_based(role: str,
                              ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_link(link_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["lag_list"], LinkList):
             return False, None
 
@@ -471,7 +541,6 @@ def generate_topo(role: str,
                   ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_port(port_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["uplink_ports"], PortList):
             return False, None
 
@@ -663,12 +732,14 @@ def write_topo_file(role: str,
 
     with open(file_path, "w") as f:
         f.write(file_content)
+        if not file_content.endswith("\n"):
+            f.write("\n")
 
     print(f"Generated topology file: {file_path}")
 
 
 @click.command()
-@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 'lt2']), help="Role of the device")
+@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 't2', 'lt2']), help="Role of the device")
 @click.option("--keyword", "-k", required=False, type=str, default="", help="Keyword for the topology file")
 @click.option("--template", "-t", required=True, type=str, help="Path to the Jinja template file")
 @click.option("--port-count", "-c", required=True, type=int, help="Number of physical ports used on the device")
@@ -704,6 +775,11 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd508u1s2'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd32u1s2'  # 509 matches d508u1s2 IPs
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128 -l 'd32'  # 32 DL only
+    - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 320 -l 'd32u32s2-mix'  # mix layout
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 32 -l 'd28u4'  # 28 DL + 4 UL
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'

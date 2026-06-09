@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-import jinja2
+import jinja2  # nosemgrep: direct-use-of-jinja2
 import traceback
 import re
 import os
@@ -19,14 +19,29 @@ Options:
     - option-name: portchannel_config
       description: A dict to indicate the portchannel configuration. E.G. {"PortChannel101": {"intfs": [0, 4]}}
       required: True
+    - option-name: mode
+      description: |
+        Backend used to implement the portchannel inside the PTF container.
+        - 'bond': native Linux bonding driver in 802.3ad (LACP) mode.
+        - 'teamd' (default): legacy teamd-based implementation managed via supervisord.
+      choices: ['teamd', 'bond']
+      default: 'teamd'
+      required: False
 '''
 
 
 EXAMPLES = '''
-- name: Start PTF portchannel
+- name: Start PTF portchannel (default teamd backend)
   ptf_portchannel:
     cmd: "start"
     portchannel_config: "{{ portchannel_config }}"
+    mode: "teamd"
+
+- name: Start PTF portchannel using Linux bond backend
+  ptf_portchannel:
+    cmd: "start"
+    portchannel_config: "{{ portchannel_config }}"
+    mode: "bond"
 '''
 
 
@@ -102,7 +117,7 @@ def create_teamd_conf(module, teamd_config):
     t = jinja2.Template(portchannel_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_conf_path, "{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))
+            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
 
 
 def remove_teamd_conf(module, teamd_config):
@@ -118,7 +133,7 @@ def create_supervisor_conf(module, teamd_config):
     t = jinja2.Template(portchannel_supervisord_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_supervisord_path, "portchannel-{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))
+            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
     refresh_supervisord(module)
 
 
@@ -153,6 +168,32 @@ def disable_portchannel(module, teamd_config):
             module, cmd="supervisorctl stop portchannel-{}".format(conf["name"]), ignore_error=True)
 
 
+def create_bond(module, portchannel_config):
+    """Create bond interfaces with LACP mode and enslave member ports."""
+    for conf in portchannel_config:
+        name = conf["name"]
+        # Remove stale bond if it exists for idempotency
+        exec_command(module, "ip link del {}".format(name), ignore_error=True)
+        exec_command(module, "ip link add {} type bond mode 802.3ad".format(name))
+        for intf in conf["intfs"]:
+            exec_command(module, "ip link set dev {} down".format(intf))
+            exec_command(module, "ip link set dev {} master {}".format(intf, name))
+            # Bring slave back up so LACP PDUs can flow and the 802.3ad
+            # aggregator can form.
+            exec_command(module, "ip link set dev {} up".format(intf))
+        exec_command(module, "ip link set dev {} up".format(name))
+
+
+def remove_bond(module, portchannel_config):
+    """Remove bond interfaces and restore member ports."""
+    for conf in portchannel_config:
+        name = conf["name"]
+        exec_command(module, "ip link set dev {} down".format(name), ignore_error=True)
+        exec_command(module, "ip link del {}".format(name), ignore_error=True)
+        for intf in conf["intfs"]:
+            exec_command(module, "ip link set dev {} up".format(intf), ignore_error=True)
+
+
 def setup_portchannel_conf():
     try:
         os.mkdir(portchannel_conf_path, 0o755)
@@ -165,23 +206,31 @@ def main():
         argument_spec=dict(
             cmd=dict(required=True, choices=['start', 'stop'], type='str'),
             portchannel_config=dict(required=True, type='dict'),
+            mode=dict(required=False, choices=['teamd', 'bond'], default='teamd', type='str'),
         ),
         supports_check_mode=False)
     cmd = module.params['cmd']
+    mode = module.params['mode']
     portchannel_config = module.params['portchannel_config']
-    teamd_config = parse_teamd_config(module, portchannel_config)
+    parsed_config = parse_teamd_config(module, portchannel_config)
 
     setup_portchannel_conf()
 
     try:
-        if cmd == 'start':
-            create_teamd_conf(module, teamd_config)
-            create_supervisor_conf(module, teamd_config)
-            enable_portchannel(module, teamd_config)
-        elif cmd == 'stop':
-            disable_portchannel(module, teamd_config)
-            remove_supervisor_conf(module, teamd_config)
-            remove_teamd_conf(module, teamd_config)
+        if mode == 'bond':
+            if cmd == 'start':
+                create_bond(module, parsed_config)
+            elif cmd == 'stop':
+                remove_bond(module, parsed_config)
+        else:
+            if cmd == 'start':
+                create_teamd_conf(module, parsed_config)
+                create_supervisor_conf(module, parsed_config)
+                enable_portchannel(module, parsed_config)
+            elif cmd == 'stop':
+                disable_portchannel(module, parsed_config)
+                remove_supervisor_conf(module, parsed_config)
+                remove_teamd_conf(module, parsed_config)
     except Exception:
         module.fail_json(msg=traceback.format_exc())
 

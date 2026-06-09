@@ -1,8 +1,12 @@
-# Transceiver Onboarding Test Plan
+# Transceiver Onboarding Test Infrastructure and Framework
 
 ## Scope
 
-This test plan outlines a comprehensive framework for ensuring feature parity for new transceivers being onboarded to SONiC. The goal is to automate all tests listed in this document, covering the following areas:
+This document defines the attribute-driven test infrastructure and framework for transceiver onboarding validation in SONiC. It specifies configuration file formats, hierarchical attribute resolution, normalization rules, and shared test utilities that underpin all transceiver test categories.
+
+> **Note:** Scenario-based test cases (shut/noshut sequences, reboot flows, failure injection, etc.) will be documented in a dedicated **Scenario Test Plan** in the future. The [Test Cases (Interim)](#test-cases-interim) section in this document contains test cases that will migrate to that plan.
+
+The overall test coverage spans the following areas:
 
 - **Link Behavior**: Test link behavior using shut/no shut commands and under process crash and device reboot scenarios.
 - **Transceiver Information Fields**: Verify transceiver specific fields (Vendor name, part number, serial number) via CLI commands, ensuring values match expectations.
@@ -85,7 +89,966 @@ A total of 2 ports of a device with the onboarding transceiver should be connect
                                +-----------------+
     ```
 
-## Test Cases
+> **Note:** Certain test categories require specific topologies. Each child test plan specifies its required topology in its own pre-requisites section if applicable.
+
+## Test Prerequisites and Configuration Files
+
+The following configuration files must be present to enable comprehensive transceiver testing.
+
+> 📁 **Example Files**: Examples of all configuration files described below are available in the [`examples/inventory/`](examples/inventory/) directory. Use these as templates when creating your own configuration files.
+
+### Cross-Category Prerequisite Tests and Health Checks
+
+The following common prerequisite tests and per-test health checks are shared across all test categories. Each child test plan references this section and only documents category-specific additions.
+
+#### Common Session-Level Prerequisites
+
+Each gate is a session-scoped pytest fixture defined in [`tests/transceiver/conftest.py`](../../../tests/transceiver/conftest.py) that wraps a check primitive in [`tests/transceiver/common/prerequisites.py`](../../../tests/transceiver/common/prerequisites.py). The check runs **once per session**; on failure the fixture calls `pytest.skip(...)` so every dependent test is skipped with a clear reason. Categories opt in by requesting the fixture from their own `conftest.py` (the gate is not autouse).
+
+**Available gates**
+
+| Fixture | Check | Description |
+|---------|-------|-------------|
+| `presence_verified` | `check_presence_show_cli` | All transceivers in `port_attributes_dict` are detected as Present |
+| `gold_fw_verified` | `check_gold_firmware` | Active firmware matches the expected gold firmware for CMIS active-optical transceivers |
+| `links_verified` | `check_links_up` | Every transceiver port in `port_attributes_dict` is both admin-up and oper-up |
+
+**Opt-in by category**
+
+| Category (attribute file) | `presence_verified` | `gold_fw_verified` | `links_verified` |
+|---------------------------|:-------------------:|:------------------:|:----------------:|
+| EEPROM (`eeprom.json`)                  | - own reportable test         | - N/A (CLI verification TC will ensure this) | ✅ |
+| System (`system.json`)                  | ✅                            | ✅                                              | ✅ |
+| Physical OIR (`physical_oir.json`)      | ✅                            | ✅                                              | ✅ |
+| Remote Reseat (`remote_reseat.json`)    | ✅                            | ✅                                              | ✅ |
+| CDB FW Upgrade (`cdb_fw_upgrade.json`)  | ✅                            | - own reportable test                           | ✅ |
+| DOM (`dom.json`)                        | ✅                            | ✅                                              | ✅ |
+| VDM (`vdm.json`)                        | ✅                            | ✅                                              | ✅ |
+| PM (`pm.json`)                          | ✅                            | ✅                                              | ✅ |
+| Port Config (`port_config.json`)        | - CONFIG_DB only              | - CONFIG_DB only                                | - CONFIG_DB only |
+
+A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB FW Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB FW Upgrade test failure, not a session-wide skip).
+
+#### Common Per-Test Health Checks
+
+An autouse fixture in the top-level `conftest.py` runs before and after **every** transceiver test:
+
+- **Before**: verify `xcvrd` is `RUNNING` and record its PID along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
+- **After**: verify `xcvrd` is still `RUNNING` with an unchanged PID and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
+
+The action for each phase is configurable so a user can keep a run going through health-check failures (e.g. when triaging a specific failure scenario):
+
+| Phase     | Default action              | Action      | Effect                                                                              |
+| --------- | --------------------------- | ----------- | ----------------------------------------------------------------------------------- |
+| Pre-test  | `pytest.skip()`             | `skip`      | Skip the current test (default for pre-test).                                       |
+|           |                             | `warn`      | Log a warning and let the test run.                                                 |
+| Post-test | `pytest.exit(returncode=1)` | `exit`      | Abort the session on the first post-test failure (default for post-test).           |
+|           |                             | `warn`      | Log a warning and let the run continue.                                             |
+
+**How to choose the action** (highest precedence first):
+
+1. Per-test marker: `@pytest.mark.xcvr_pre_test_failure_action(<action>)` / `@pytest.mark.xcvr_post_test_failure_action(<action>)`
+2. CLI option: `--xcvr_pre_test_failure_action <action>` / `--xcvr_post_test_failure_action <action>`
+3. Built-in default from the table above.
+
+Every failure is appended to the shared `health_check_events` list and printed in a `Health Check Summary` section at the end of the run, regardless of the action taken.
+
+The transceiver `conftest.py` also tags every collected item (and its parent `Module`) with `pytest.mark.skip_check_dut_health` to suppress the repo-wide module-scoped `core_dump_and_config_check` fixture, which would otherwise duplicate the per-test work above.
+
+For implementation details (module layout, `run_pre_check` / `run_post_check` helpers, category fixture examples, and how categories add their own pre/post checks while reusing the shared event log), see the source: [`tests/transceiver/conftest.py`](../../../tests/transceiver/conftest.py), [`tests/transceiver/common/prerequisites.py`](../../../tests/transceiver/common/prerequisites.py), and [`tests/transceiver/common/health_checks.py`](../../../tests/transceiver/common/health_checks.py).
+
+##### Adding category-specific pre/post checks
+
+A category (DOM, System, etc) can layer its own pre-test and post-test checks on top of the cross-category ones without modifying the parent fixture. The parent's `_per_test_health_check` stays autouse for every transceiver test; the category's autouse fixture runs **in addition**, never instead - pytest invokes every in-scope autouse fixture for each test, so a category fixture cannot suppress the parent. Both fixtures append to the same `health_check_events` list, so all results appear together in the terminal `Health Check Summary`.
+
+**The check tuple contract.** `run_pre_check` and `run_post_check` accept a list of `(name, passed, details)` tuples:
+
+| Field     | Type   | Meaning                                                                  |
+| --------- | ------ | ------------------------------------------------------------------------ |
+| `name`    | `str`  | Stable identifier for the check (used in logs and the terminal summary). |
+| `passed`  | `bool` | `True` if the check succeeded.                       |
+| `details` | `str`  | Human-readable explanation                |
+
+Each helper applies the resolved action (`skip` / `warn` for pre, `exit` / `warn` for post) once across the batch, so a category should pass *all* its checks for a phase in a single call rather than invoking the helper per check.
+
+**Skeleton for a category conftest** (place under `tests/transceiver/<category>/conftest.py`):
+
+```python
+import pytest
+from tests.transceiver.conftest import health_check_events
+from tests.transceiver.common.health_checks import run_pre_check, run_post_check
+
+# Opt into the cross-category session gates this category consumes.
+@pytest.fixture(autouse=True, scope="session")
+def _category_session_prerequisites(presence_verified, gold_fw_verified, links_verified):
+    return
+
+# Per-test pre/post checks, layered on top of the parent's xcvrd/core checks.
+@pytest.fixture(autouse=True)
+def _category_per_test_checks(request, duthost, port_attributes_dict):
+    pre_checks = [
+        ("category_pre_check_name", <bool>, "<details on failure>"),
+    ]
+    run_pre_check(request, pre_checks, health_check_events)
+    yield
+    post_checks = [
+        ("category_post_check_name", <bool>, "<details on failure>"),
+    ]
+    run_post_check(request, post_checks, health_check_events)
+```
+
+**Health check vs. teardown.** Health checks are read-only assertions about DUT state; they must not perform recovery. Restoring state that a test deliberately mutated (e.g. re-enabling DOM polling after a polling-control test, or starting up an interface left shutdown by a failed test) belongs in a **separate** session-scoped autouse `yield` fixture in the category conftest, not inside `run_post_check`.
+
+### DUT Info Files
+
+> 📊 **Visual Guide**: See the [File Organization Diagram](diagrams/file_organization.md) for a visual overview of the file structure and relationships.
+
+Transceiver metadata is organized into per-DUT files located in the `ansible/files/transceiver/inventory/dut_info/` directory. Each file is named after its corresponding DUT hostname (e.g., `sonic-device-01.json`) and contains port-specific transceiver configurations for that device.
+
+Additionally, a shared `normalization_mappings.json` file in the `ansible/files/transceiver/inventory/` directory provides vendor name and part number normalization rules used across all DUTs.
+
+Each per-DUT file supports multiple port specification formats for flexibility and efficiency:
+
+Example of `dut_info/sonic-device-01.json`:
+
+```json
+{
+  "Ethernet0:7": {
+    "vendor_name": "ACME Corp.",
+    "vendor_pn": "QSFP-2X100G-AOC-15M",
+    "vendor_sn": "serial_number_001",
+    "vendor_date": "vendor_date_code",
+    "vendor_oui": "vendor_oui",
+    "vendor_rev": "revision_number",
+    "hardware_rev": "hardware_revision_number"
+  },
+  "Ethernet0": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x1-0x1"},
+  "Ethernet1": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x2-0x2"},
+  "Ethernet2": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x4-0x4"},
+  "Ethernet3": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x8-0x8"},
+  "Ethernet4": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x10-0x10"},
+  "Ethernet5": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x20-0x20"},
+  "Ethernet6": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x40-0x40"},
+  "Ethernet16,Ethernet20,Ethernet24": {
+    "vendor_name": "Example & Co",
+    "vendor_pn": "SFP-1000BASE-LX",
+    "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"
+  },
+  "Ethernet28:33,Ethernet36,Ethernet40:45": {
+    "vendor_name": "Vendor/Inc",
+    "vendor_pn": "QSFP-100G-AOC-10M",
+    "transceiver_configuration": "AOC-100-QSFP-100G_STRAIGHT-0x0F-0x0F"
+  }
+}
+```
+
+#### Normalization Mappings File
+
+**File location:** `ansible/files/transceiver/inventory/normalization_mappings.json`
+
+**Purpose:** Provides a centralized, shared mapping for normalizing vendor names and part numbers across all DUTs.
+
+**Structure:**
+
+- `vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+
+Example of `normalization_mappings.json`:
+
+```json
+{
+  "vendor_names": {
+    "ACME Corp.": "ACME_CORP",
+    "Example & Co": "EXAMPLE_CO",
+    "Vendor/Inc": "VENDOR_INC",
+    "Tech-Solutions Ltd.": "TECH_SOLUTIONS_LTD"
+  },
+  "part_numbers": {
+    "QSFP-100G-AOC-15M": "QSFP-100G-AOC-GENERIC_2_ENDM",
+    "QSFP-100G-AOC-10M": "QSFP-100G-AOC-GENERIC_2_ENDM",
+    "QSFP-100G-AOC-3M": "QSFP-100G-AOC-GENERIC_1_ENDM",
+    "QSFP-100G-AOC-25M": "QSFP-100G-AOC-GENERIC_2_ENDM",
+    "QSFP-2X100G-AOC-15M": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+    "QSFP-2X100G-AOC-10M": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+    "SFP-1000BASE-LX": "SFP-1000BASE-LX",
+    "DAC-400G-5M": "DAC-400G-GENERIC_1_ENDM"
+  }
+}
+```
+
+#### Per-DUT File Structure
+
+**File location:** `ansible/files/transceiver/inventory/dut_info/<dut_hostname>.json`
+
+**Naming convention:** Each file must be named exactly as the DUT's hostname (e.g., `sonic-device-01.json`, `lab-switch-05.json`).
+
+**Discovery:** The framework automatically discovers and loads the appropriate DUT file based on the current testbed's DUT hostname.
+
+#### Per-Port Fields
+
+**Mandatory Fields:**
+
+- `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
+- `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
+- `transceiver_configuration`: The transceiver configuration name following the format defined in the **Transceiver Configuration Format** section below. The DEPLOYMENT component of this field is used to reference deployment configurations in the per-category attribute files.
+
+**Optional Fields:**
+
+- `vendor_sn`: The vendor serial number.
+- `vendor_date`: The vendor date code.
+- `vendor_oui`: The vendor OUI.
+- `vendor_rev`: The vendor revision number.
+- `hardware_rev`: The hardware revision number.
+
+#### Field Handling Rules
+
+- **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings.json` file to get the corresponding normalized values.
+- **Default normalization**: If no mapping is found in `normalization_mappings.json`, the normalized value defaults to the original value.
+- **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.json` `part_numbers` section following the cable length normalization rules.
+- **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
+- **Overlapping port specifications**: Multiple port specifications can target the same port. Later specifications override attributes from earlier ones, enabling efficient configuration patterns like defining shared attributes in ranges and port-specific attributes individually.
+- **Deferred mandatory field validation**: Mandatory fields are validated after all applicable port specifications have been merged for each port, allowing flexible configuration where some fields come from ranges and others from individual port entries.
+- **Transceiver configuration format**: The `transceiver_configuration` field uses a mandatory 6-component naming format to fully describe a transceiver's deployment characteristics:
+
+    **Format (Mandatory)**: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
+
+    **Note**: The hyphen (`-`) character acts as a delimiter between each component, enabling straightforward parsing by splitting the configuration string on this delimiter.
+
+    **Component Definitions:**
+
+**Physical Port Based Components** (determined by the physical transceiver module):
+
+- **TYPE**: Cable/optics  type - AOC, AEC, LPO, LRO, TRO, CPO, DAC, DR, FR, LR, ZR, Backplane
+- **SPEED**: Total aggregate speed in Gbps (e.g., 1, 10, 25, 100, 200, 400, 800, 1600)
+- **FORM_FACTOR**: Physical form factor - CPO, OSFP, QSFPDD, QSFP, SFP
+- **DEPLOYMENT**: Traffic deployment pattern describing how the speed is distributed (this list is expected to grow in future). This component serves as a means to combine similar attributes for a particular deployment pattern together in test attribute JSON files, grouping required attributes irrespective of the transceiver or platform vendor:
+  - `2x100G_200G_SIDE` - 200G side of a 2x100G breakout cable
+  - `2x100G_100G_SIDE` - 100G side of a 2x100G breakout cable
+  - `4x100G_400G_SIDE` - 400G side of a 4x100G breakout cable
+  - `4x100G_100G_SIDE` - 100G side of a 4x100G breakout cable
+  - `2x200G_400G_SIDE` - 400G side of a 2x200G breakout cable
+  - `2x200G_200G_SIDE` - 200G side of a 2x200G breakout cable
+  - `4x200G_800G_SIDE` - 800G side of a 4x200G breakout cable
+  - `4x200G_200G_SIDE` - 200G side of a 4x200G breakout cable
+  - `8x100G_800G_SIDE` - 800G side of an 8x100G breakout cable
+  - `8x100G_100G_SIDE` - 100G side of an 8x100G breakout cable
+  - `400G_STRAIGHT` - 400G total as single port (no breakout)
+  - `800G_STRAIGHT` - 800G total as single port (no breakout)
+  - `1G_STRAIGHT` - 1G total as single port
+
+**Logical Port Based Components** (specific to individual logical interfaces):
+
+- **MEDIA_LANE_MASK**: Hexadecimal bitmask indicating which media/optical lanes are used (e.g., 0x01, 0x0F, 0xFF)
+- **HOST_LANE_MASK**: Hexadecimal bitmask indicating which host/electrical lanes are used (e.g., 0x01, 0x0F, 0xFF)
+
+**Configuration Examples:**
+
+- `AOC-200-QSFPDD-2x100G_200G_SIDE-0xF-0xF` — Active Optical Cable, 200G speed, QSFP-DD, 200G side of 2x100G deployment, 4 media / 4 host lanes
+- `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` — Direct Attach Cable, 400G straight, OSFP, 4 media / 4 host lanes
+- `LR-1-SFP-1G_STRAIGHT-0x01-0x01` — LR optic, 1G straight, SFP, 1 media / 1 host lane
+
+#### Port Specification Formats
+
+The framework supports multiple flexible port specification formats to reduce configuration overhead:
+
+1. **Individual Port**: `"Ethernet0"` - Single port specification
+2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (exclusive of 13, following Python slice convention)
+3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
+4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports without spaces
+5. **Mixed**: `"Ethernet28:33,Ethernet36,Ethernet40:45"` - Combination of ranges and individual ports
+
+**Requirements:**
+
+- Port numbering must follow SONiC logical port naming convention (e.g., Ethernet0, Ethernet4, Ethernet8...)
+- Range format follows Python slice convention (start:stop where stop is exclusive)
+- Step size must be > 0 for range with step format
+
+#### Framework Implementation Requirements
+
+The test framework must implement the following core components to process per-DUT files and create a comprehensive `port_attributes_dict` dictionary. All parsed data is stored in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` as the foundation for test operations.
+More details on the `port_attributes_dict` structure and usage are provided in the Test Category Attribute Files section.
+
+**File Discovery and Loading:**
+
+1. **Load Normalization Mappings**: Parse `normalization_mappings.json` once at framework initialization.
+2. **Discover DUT File**: Determine current DUT hostname from testbed configuration.
+3. **Load DUT Data**: Open and parse `dut_info/<dut_hostname>.json`.
+4. **Error Handling**: Provide clear error messages if:
+   - `normalization_mappings.json` is missing or invalid
+   - DUT file for current hostname is not found
+   - JSON parsing fails
+
+##### 1. Port Expansion Processing
+
+**Purpose**: Handle various port specification formats and expand them into individual port names.
+
+**Processing Algorithm**:
+
+1. **Parse Port Specifications**: Identify range, list, and individual port formats
+2. **Expand to Individual Ports**: Convert all specifications to individual port names
+3. **Merge Overlapping Attributes**: Collect all attributes for each port, with later port specifications overriding earlier ones
+4. **Deferred Validation**: Validate mandatory fields after all applicable port specifications have been merged
+5. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
+
+##### 2. Transceiver Configuration String Parsing
+
+**Purpose**: Extract all components from the `transceiver_configuration` string during base attributes initialization phase.
+
+**Requirements**:
+
+- Parse the mandatory 6-component format: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
+- Store all parsed components in `BASE_ATTRIBUTES` for easy access by all test categories
+- Handle error cases (invalid format, missing components)
+
+**Implementation Example**:
+
+```python
+    def parse_transceiver_configuration(config_string):
+        """
+        Parse transceiver configuration string into individual components.
+        Format: {TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}
+        Example: "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
+        Returns: dictionary with all parsed components
+        """
+        if not config_string:
+            return {}
+
+        parts = config_string.split('-')
+        if len(parts) != 6:
+            raise ValueError("Invalid transceiver configuration format: {}".format(config_string))
+
+        type_name, speed, form_factor, deployment, media_mask, host_mask = parts
+
+        # Parse lane counts from hexadecimal masks
+        media_lane_count = bin(int(media_mask, 16)).count('1')
+        host_lane_count = bin(int(host_mask, 16)).count('1')
+
+        return {
+            'cable_type': type_name,
+            'speed_gbps': int(speed),
+            'form_factor': form_factor,
+            'deployment': deployment,
+            'media_lane_mask': media_mask,
+            'host_lane_mask': host_mask,
+            'media_lane_count': media_lane_count,
+            'host_lane_count': host_lane_count
+        }
+```
+
+##### 3. Dictionary Management
+
+**Purpose**: Create and maintain the comprehensive port attributes dictionary that serves as the source of truth for test cases.
+
+**Requirements**:
+
+- Load `normalization_mappings.json` for vendor/PN normalization lookup
+- Parse per-DUT file (`dut_info/<dut_hostname>.json`) and store data in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` for the current DUT
+- Support overlapping port specifications by merging attributes per port (later specs override earlier ones)
+- Validate mandatory fields only after all applicable port specifications have been processed and merged
+- Include all mandatory and optional fields, along with normalized values and parsed configuration components
+- Implement proper error handling and validation
+
+Example of a dictionary created by parsing the above file:
+
+```python
+    {
+        "Ethernet0": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",  # looked up from normalization_mappings.json
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",  # looked up from normalization_mappings.json
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 200,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_001",
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet4": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 100,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_100G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet5": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 100,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_100G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet6": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 200,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet16": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "Example & Co",
+                "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings.json
+                "vendor_pn": "SFP-1000BASE-LX",
+                "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings.json (same value)
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "LR",                     # extracted from TYPE
+                "speed_gbps": 1,                        # extracted from SPEED
+                "form_factor": "SFP",                   # extracted from FORM_FACTOR
+                "deployment": "1G_STRAIGHT",            # extracted from DEPLOYMENT
+                "media_lane_mask": "0x01",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0x01",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 1,                  # derived from media_lane_mask
+                "host_lane_count": 1                    # derived from host_lane_mask
+            }
+        },
+        "Ethernet20": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "Example & Co",
+                "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings.json
+                "vendor_pn": "SFP-1000BASE-LX",
+                "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings.json
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "LR",                     # extracted from TYPE
+                "speed_gbps": 1,                        # extracted from SPEED
+                "form_factor": "SFP",                   # extracted from FORM_FACTOR
+                "deployment": "1G_STRAIGHT",            # extracted from DEPLOYMENT
+                "media_lane_mask": "0x01",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0x01",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 1,                  # derived from media_lane_mask
+                "host_lane_count": 1                    # derived from host_lane_mask
+            }
+        }
+        # Additional ports expanded from ranges and lists...
+    }
+```
+
+### Test Category Attribute Files
+
+> 🔄 **Process Flow**: See the [Data Flow Architecture Diagram](diagrams/data_flow.md) for a comprehensive view of how these files are processed and merged.
+
+Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver. Missing category directories are silently skipped (see the File Organization rules below), enabling selective test execution.
+
+#### File Organization
+
+Each test category owns a directory under `ansible/files/transceiver/inventory/attributes/`. Within a category directory, attributes are sharded by ownership level so vendor onboarding and per-part-number tuning happen in isolated files. Each non-category shard is **scope-rooted**: its JSON body contains only the attributes for its scope (vendor / platform / HWSKU / PN); the scope itself is encoded in the directory path. The loader merges all shards in a category into one in-memory tree before priority resolution.
+
+```
+attributes/
+├── eeprom/
+│   ├── eeprom.json                                    # category-level shard (mandatory, defaults, dut, deployment_configurations)
+│   ├── platforms/
+│   │   └── x86_64-acme_as7726_32x-r0/                 # one directory per platform
+│   │       ├── eeprom.json                            # platform body (optional)
+│   │       └── hwskus/
+│   │           ├── ACME-AS7726-32X.json               # HWSKU body (optional)
+│   │           └── ACME-AS7726-32X-D48C8.json
+│   └── transceivers/
+│       └── vendors/
+│           ├── ACME_CORP/
+│           │   ├── eeprom.json                            # vendor `defaults` body
+│           │   └── part_numbers/
+│           │       ├── QSFP-2X100G-AOC-GENERIC_2_ENDM/
+│           │       │   └── eeprom.json                    # per-PN body (attrs + optional firmware_overrides / platform_hwsku_overrides)
+│           │       └── QSFPDD-400G-DR4/
+│           │           └── eeprom.json
+│           └── NORTHSTAR_OPTICS/
+│               ├── eeprom.json
+│               └── part_numbers/
+│                   └── QSFP-200G-LR4/
+│                       └── eeprom.json
+├── system/
+│   └── ...                                            # same shape as eeprom/
+├── physical_oir/
+├── remote_reseat/
+├── cdb_fw_upgrade/
+├── dom/
+├── vdm/
+├── pm/
+└── port_config/
+```
+
+**Shard contracts (loader-enforced):**
+
+| Shard          | Path                                                                                | Body shape (JSON object) and merged-tree slot                                                                                                                       |
+|----------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Category-level | `<category>/<category>.json`                                                        | Allowed top-level keys: `mandatory`, `defaults`, `dut`, `transceivers` (only `transceivers.deployment_configurations`)                                              |
+| Platform-level | `<category>/platforms/<PLATFORM>/<category>.json`                                    | Platform attribute body → grafted at `platforms.<PLATFORM>`                                                                                                         |
+| HWSKU-level    | `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`                                 | HWSKU attribute body → grafted at `hwskus.<PLATFORM>.<HWSKU>` (scoped by parent `<PLATFORM>` so the same `<HWSKU>` filename can appear under multiple platform directories without collision)                                    |
+| Vendor-level   | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/<category>.json`          | Vendor `defaults` body → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`                                                                        |
+| Per-PN         | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/part_numbers/<NORMALIZED_VENDOR_PN>/<category>.json` | PN body (attribute leaves + optional `firmware_overrides` / `platform_hwsku_overrides`) → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_VENDOR_PN>` |
+
+- Vendor and PN directory names under `<category>/transceivers/vendors/<V>/part_numbers/<PN>/` **must** appear as values of the corresponding `vendor_names` / `part_numbers` map in `normalization_mappings.json`. This requirement applies only when the vendor/PN owns a shard directory; vendors and PNs that only appear in `dut_info/<host>.json` without any category-shard overrides do **not** need an entry (raw name is used as-is per the [Field Handling Rules](#field-handling-rules)). Platform and HWSKU directory names are taken from the inventory and are not normalized.
+- Only the category-level file is required; every other shard appears only when its scope contributes attributes. A category with no directory under `attributes/` is skipped entirely.
+- Because each non-category shard owns a disjoint subtree of the merged tree (`platforms.<P>`, `hwskus.<P>.<H>`, `transceivers.vendors.<V>.defaults`, `transceivers.vendors.<V>.part_numbers.<PN>`), two shards can never write the same key path — the directory IS the schema. See [Loader Validation](#loader-validation) for the remaining checks.
+
+**Design notes:**
+
+- **DUT-scope is intentionally not sharded.** DUT-specific overrides live as a `dut.<DUT_NAME>` map in the category-level shard. They are typically rare, transient lab workarounds (RMA, debug image, flaky cable) without a long-term per-DUT owner, so a directory-per-entry is not justified. Revisit if a category's `dut` block grows past a small handful of entries.
+- **`transceivers.deployment_configurations` lives in the category-level shard.** Although nested under the `transceivers` key, it is a single framework-owned, category-wide map with the same ownership profile as `mandatory`/`defaults`/`dut`. The `<category>/transceivers/vendors/` subtree is reserved exclusively for vendor- and PN-owned content.
+
+**Categories currently in scope:**
+
+- `eeprom/` (EEPROM tests)
+- `system/` (System tests)
+- `physical_oir/` (Physical OIR)
+- `remote_reseat/` (Remote reseat)
+- `cdb_fw_upgrade/` (CDB FW upgrade tests - see also [Transceiver Firmware Info File](#transceiver-firmware-info-file))
+- `dom/` (DOM)
+- `vdm/` (VDM)
+- `pm/` (PM)
+- `port_config/` (Port configuration tests)
+
+#### Loader Validation
+
+The loader enforces the shard contract at framework initialization and fails fast (before any test runs) on any violation. Because each non-category shard is scope-rooted and owns a disjoint subtree of the merged tree, whole classes of errors (path/payload mismatch, duplicate leaves, wrapper typos) are impossible by construction. The remaining checks all surface as immediate startup errors naming the offending file:
+
+1. **Category top-key whitelist.** The category-level shard (`<category>/<category>.json`) may only define `mandatory`, `defaults`, `dut`, and `transceivers.deployment_configurations`. Other top-level keys — e.g. `platforms`, or anything under `transceivers` other than `deployment_configurations` — belong in a scoped shard and are rejected here.
+2. **Body-shape sanity.** Every shard body must be a JSON object. For a per-PN shard, the reserved sub-slots `firmware_overrides` and `platform_hwsku_overrides`, when present, must be dict-of-dict (each variant key maps to an object of attribute overrides).
+3. **Normalization check.** Any vendor or PN that owns a shard directory under `<category>/transceivers/vendors/<V>/part_numbers/<PN>/` must appear as a value in `normalization_mappings.json` (`vendor_names` and `part_numbers` respectively); the directory name is the normalized form, so the loader needs the mapping to resolve EEPROM-reported raw names to that directory. Vendors and PNs that only appear in `dut_info/<host>.json` without category-shard content are exempt (raw name is used as-is).
+4. **Mandatory-field resolution.** After merge and priority resolution, the loader walks every port in `port_attributes_dict` and confirms each `mandatory` field resolves at some level of the hierarchy. Any unresolved mandatory field is reported with the port and field name.
+
+Because every check is fail-fast at init, a misplaced or malformed shard surfaces as a clear startup error instead of a confusing mid-run test failure.
+
+#### JSON Schema Structure
+
+The category-level shard carries `mandatory`, `defaults`, `dut`, and `transceivers.deployment_configurations`. The platform-, HWSKU-, vendor-, and per-PN shards each carry **only their scope's body** — no wrapping object, because the scope is encoded in the directory path and the loader grafts the body into the right slot.
+
+**Category-level file** — `<category>/<category>.json`:
+
+```json
+{
+  "mandatory": ["field_1", "field_2"],
+  "defaults": { "field_3": "value" },
+  "dut":      { "DUT_NAME":      { "field_3": "dut_value" } },
+  "transceivers": {
+    "deployment_configurations": {
+      "DEPLOYMENT_NAME": { "field_2": "deployment_value" }
+    }
+  }
+}
+```
+
+**Scope-rooted shards** — each file is just the body for its scope:
+
+```json
+// platforms/<PLATFORM>/<category>.json  → grafted at platforms.<PLATFORM>
+{ "field_3": "platform_value" }
+
+// platforms/<PLATFORM>/hwskus/<HWSKU>.json  → grafted at hwskus.<PLATFORM>.<HWSKU>
+{ "field_3": "hwsku_value" }
+
+// transceivers/vendors/<V>/<category>.json  → grafted at transceivers.vendors.<V>.defaults
+{ "field_3": "vendor_value" }
+```
+
+**Per-PN file** — `<category>/transceivers/vendors/<V>/part_numbers/<PN>/<category>.json` (showing the optional `firmware_overrides` and `platform_hwsku_overrides` slots), grafted at `transceivers.vendors.<V>.part_numbers.<PN>`:
+
+```json
+{
+  "field_1": "pn_value",
+  "firmware_overrides": {
+    "1.2.3": { "field_1": "fw_version_specific_value" }
+  },
+  "platform_hwsku_overrides": {
+    "PLATFORM_NAME+HWSKU_NAME": { "field_1": "highest_priority_value" }
+  }
+}
+```
+
+#### Schema Components
+
+**Main Sections:**
+
+- `mandatory`: List of mandatory fields that must be present in the attributes at some level of the hierarchy (cannot be in `defaults`). Lives only in the category-level shard. Restricted to attributes that originate from category shards; fields sourced from `dut_info/<dut_hostname>.json` (e.g. `vendor_name`, `normalized_vendor_name`, `vendor_pn`, `transceiver_configuration`) belong to `BASE_ATTRIBUTES` and must not be listed here.
+- `defaults`: Default values for the transceiver or test attributes. Lives only in the category-level shard at the top level; vendor and PN scopes have their own `defaults` slots (see below).
+- `platforms`: Platform-specific overrides (optional). Platform-level shard only.
+- `hwskus`: HWSKU-specific overrides (optional). HWSKU-level shard only, scoped by the parent platform directory.
+- `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory-based hostname of the DUT. Category-level shard only (not sharded into a `dut/` folder by design — see file-organization notes).
+- `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure.
+  - `deployment_configurations`: Deployment-based attribute definitions, keyed by the `deployment` component parsed from `transceiver_configuration` (e.g., `2x100G_200G_SIDE`, `400G_STRAIGHT`). Defines common attributes once per deployment type instead of repeating them across vendors. Category-level shard only (optional).
+  - `vendors.<NORMALIZED_VENDOR_NAME>`: Vendor-specific configurations split across the vendor-level and per-PN shards.
+    - `defaults`: Vendor-level default values — vendor-level shard only (optional).
+    - `part_numbers.<NORMALIZED_VENDOR_PN>`: Part number-specific configurations — per-PN shard only (one directory per PN, containing one `<category>.json` file).
+      - `firmware_overrides.<FW_VERSION>`: Per-firmware-version overrides for this PN (optional, reserved; see Priority hierarchy below).
+      - `platform_hwsku_overrides.<PLATFORM>+<HWSKU>`: Overrides for specific platform+HWSKU combinations (optional).
+
+> Shard paths and slot ownership for each scope are defined once in the [Shard contracts](#file-organization) table above; shard- and slot-isolation rules are enforced by the loader (see [Loader Validation](#loader-validation)).
+
+**Key Design Rules:**
+
+- **No Overlap (mandatory vs defaults)**: A field must never appear in both `mandatory` and `defaults`. A field cannot simultaneously require explicit specification and have a fallback value.
+- **Category Isolation**: Each category directory only contains attributes relevant to its specific test domain.
+- **Optional Sections**: Any optional section listed above may be omitted; the loader silently ignores missing slots.
+
+#### Priority-Based Attribute Resolution
+
+Attributes are resolved using this hierarchy (highest to lowest priority):
+
+1. **DUT-specific**: `dut.<DUT_NAME>`
+2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
+3. **Normalized Vendor Name + PN + Firmware Version**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.firmware_overrides.<FW_VERSION>` (resolved against the currently active firmware version of the module under test)
+4. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
+5. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
+6. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved against the `deployment` field in `BASE_ATTRIBUTES`, which the framework parses from `transceiver_configuration` in `dut_info/<dut_hostname>.json`)
+7. **HWSKU-specific**: `hwskus.<PLATFORM>.<HWSKU>` (from `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`; the merged tree is keyed by both `<PLATFORM>` and `<HWSKU>` so the same `<HWSKU>` filename under different platform directories never collides)
+8. **Platform-specific**: `platforms.<PLATFORM>` (from `<category>/platforms/<PLATFORM>/<category>.json`)
+9. **Global defaults**: `defaults`
+
+> **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
+>
+> **Firmware overrides (reserved slot):** `firmware_overrides` lets a PN override specific attributes only when a particular firmware version is active (e.g. a workaround needed until a firmware bug is fixed in a later release). It is **not** required and most PN files will omit it; the loader silently ignores missing `firmware_overrides` sections. The slot is reserved now so contributors don't invent ad-hoc keys for firmware-conditional overrides.
+
+#### Example Category Shards
+
+A complete `eeprom` category illustrated across the shard types:
+
+**`attributes/eeprom/eeprom.json`** (category-level):
+
+```json
+{
+  "mandatory": ["sff8024_identifier"],
+  "defaults": {
+    "vdm_supported": false,
+    "cdb_backgroundmode_supported": false,
+    "sfputil_eeprom_dump_sec": 2
+  },
+  "transceivers": {
+    "deployment_configurations": {
+      "2x100G_200G_SIDE": { "vdm_supported": true }
+    }
+  }
+}
+```
+
+**`attributes/eeprom/platforms/x86_64-acme_as7726_32x-r0/eeprom.json`** (platform-level, optional):
+
+```json
+{
+  "sfputil_eeprom_dump_sec": 4
+}
+```
+
+**`attributes/eeprom/platforms/x86_64-acme_as7726_32x-r0/hwskus/ACME-AS7726-32X.json`** (HWSKU-level, optional):
+
+```json
+{
+  "sfputil_eeprom_dump_sec": 5
+}
+```
+
+**`attributes/eeprom/transceivers/vendors/ACME_CORP/eeprom.json`** (vendor-level):
+
+```json
+{
+  "defaults": { "vdm_supported": false }
+}
+```
+
+**`attributes/eeprom/transceivers/vendors/ACME_CORP/part_numbers/QSFP-2X100G-AOC-GENERIC_2_ENDM/eeprom.json`** (per-PN):
+
+```json
+{
+  "sff8024_identifier": "0x18",
+  "firmware_overrides": {
+    "1.2.3": { "eeprom_dump_timeout_sec": 7 }
+  },
+  "platform_hwsku_overrides": {
+    "x86_64-acme_as7726_32x-r0+ACME-AS7726-32X": {
+      "eeprom_dump_timeout_sec": 5
+    }
+  }
+}
+```
+
+#### Framework Implementation
+
+The test framework loads and merges attributes from all relevant category shards (category-level, vendor-level, and per-PN) for each transceiver, using hierarchical override rules. This enables category-specific test logic to access only needed attributes while supporting platform, HWSKU, vendor, PN, firmware-version, and DUT overrides.
+
+**Core Components:**
+
+1. **AttributeManager**: Central class for loading, merging, and accessing transceiver attributes
+2. **Category File Loader**: Loads JSON files for each test category
+3. **Priority Resolver**: Implements the 9-level priority hierarchy
+4. **Validator**: Ensures mandatory fields are present
+
+**Data Structure:**
+The framework builds a `port_attributes_dict` keyed by logical port name, containing only ports from `dut_info/<dut_hostname>.json`:
+
+```python
+{
+    "PORT_NAME": {
+        # Base transceiver information from dut_info/<dut_hostname>.json
+        "BASE_ATTRIBUTES": {
+            "vendor_name": "vendor_name",
+            "normalized_vendor_name": "NORMALIZED_VENDOR_NAME",
+            "vendor_pn": "vendor_part_number",
+            "normalized_vendor_pn": "NORMALIZED_VENDOR_PN",
+            "vendor_sn": "serial_number",
+            "vendor_date": "vendor_date_code",
+            "vendor_oui": "vendor_oui",
+            "vendor_rev": "revision_number",
+            "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # original configuration string
+            # Parsed components from transceiver_configuration
+            "cable_type": "AOC",                    # extracted from TYPE
+            "speed_gbps": 200,                      # extracted from SPEED
+            "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+            "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+            "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+            "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+            "media_lane_count": 8,                  # derived from media_lane_mask
+            "host_lane_count": 8                    # derived from host_lane_mask
+        },
+        # Category-specific attributes with merged overrides applied
+        "EEPROM_ATTRIBUTES": {
+            "attribute_1": "value_1",
+            "attribute_2": "value_2",
+            ...
+        }
+        "SYSTEM_ATTRIBUTES": {
+            "attribute_1": "value_1",
+            "attribute_2": "value_2",
+            ...
+        }
+        ...
+    }
+}
+```
+
+#### Attribute Merging Process
+
+The framework builds `port_attributes_dict` using this systematic process:
+
+1. **Initialize** port dictionary from `dut_info/<dut_hostname>.json` base attributes
+2. **For each category file**, perform priority-based merging using the 9-level hierarchy
+3. **Validate** mandatory fields for the current category
+4. **Store** merged attributes under category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
+5. **Expose** the complete dictionary via the session-scoped fixture `port_attributes_dict` (an autouse session fixture logs its contents for traceability).
+
+**Merging Behavior:**
+
+- Higher priority fields completely override earlier values
+- Missing sections are silently skipped
+- Graceful error handling for missing files and invalid JSON
+- The entire `port_attributes_dict` is captured in the log for debugging
+
+#### Usage
+
+Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`. The session-scoped, autouse `port_attributes_dict` fixture is built once per session and its contents are logged at startup for traceability.
+
+**Example (inside a test):**
+
+```python
+def test_example(port_attributes_dict):
+    # Access EEPROM attributes
+    eeprom_attrs = port_attributes_dict["Ethernet0"].get("EEPROM_ATTRIBUTES", {})
+    vdm_supported = eeprom_attrs.get("vdm_supported")
+
+    # Access base transceiver configuration (parsed from transceiver_configuration)
+    base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
+    cable_type = base_attrs["cable_type"]
+    deployment = base_attrs["deployment"]
+
+    assert cable_type in ("AOC", "DAC", "LR", "DR")
+```
+
+**Benefits:** Modular design, independent updates per category, conflict prevention, flexible overrides, and performance optimization.
+
+### Attribute Completeness Validation
+
+> **Process Flow**: See the [Validation Flow Diagram](diagrams/validation_flow.md) for a visual overview of the validation process and pytest integration.
+
+Optional post-processing validation ensures comprehensive attribute coverage for transceiver qualification by comparing the populated `port_attributes_dict` against deployment-specific templates.
+
+#### Template Structure
+
+**Location:** `ansible/files/transceiver/inventory/templates/deployment_templates.json`
+
+**Schema:** Templates define required and optional attributes by deployment type:
+
+```json
+{
+  "deployment_templates": {
+    "2x100G_200G_SIDE": {
+      "required_attributes": {
+        "BASE_ATTRIBUTES": ["vendor_name", "vendor_pn", "cable_type", "speed_gbps", "deployment"],
+        "EEPROM_ATTRIBUTES": ["vdm_supported"],
+        "DOM_ATTRIBUTES": ["temperature", "voltage", "tx_power", "alarm_flags"]
+      },
+      "optional_attributes": {
+        "BASE_ATTRIBUTES": ["hardware_rev", "vendor_rev"],
+        "CDB_FW_ATTRIBUTES": ["firmware_upgrade_support"]
+      }
+    }
+  }
+}
+```
+
+#### Template Components
+
+- `deployment_templates`: Root object containing all deployment templates
+  - `<DEPLOYMENT_NAME>`: Individual deployment template (e.g., `2x100G_200G_SIDE`)
+    - `required_attributes`: Lists of attributes that must be present for each category
+    - `optional_attributes`: Lists of attributes that should be present if available
+    - **Note:** Each category (e.g., `BASE_ATTRIBUTES`, `EEPROM_ATTRIBUTES`, `DOM_ATTRIBUTES`) can have its own set of required and optional attributes.
+
+#### Validation Process
+
+1. **Template Selection**: Uses `deployment` field from `BASE_ATTRIBUTES` to select appropriate template
+2. **Attribute Comparison**: Compares actual vs required attributes per category
+3. **Gap Analysis**: Identifies missing required/optional attributes
+4. **Pytest Integration**: Reports results with standard log levels (INFO/WARNING/ERROR/DEBUG)
+
+#### Configuration Control
+
+The validation feature can also be controlled via passing a test parameters:
+
+- **`--skip_transceiver_template_validation`**: When specified, completely bypasses the attribute completeness validation
+  - Use case: Quick test runs during development or when template definitions are incomplete
+  - Default: `False` (validation is performed if the deployment_templates.json files exists)
+  - Example: `pytest test_transceiver.py --skip_transceiver_template_validation`
+
+**Note:** Even when validation is skipped, all attributes from category files are still loaded and available for test execution. This parameter only affects the post-processing template validation step.
+
+#### Console Output
+
+```python
+INFO     PASS: Ethernet0 (2x100G_200G_SIDE) - FULLY_COMPLIANT (19/20 attributes)
+WARNING  PARTIAL: Ethernet4 - Missing optional: VDM_ATTRIBUTES.historical_data
+ERROR    FAIL: Ethernet8 - Missing required: DOM_ATTRIBUTES.alarm_flags
+INFO     Overall Compliance: 87.5% (21/24 ports fully compliant)
+```
+
+#### Execution Control
+
+The validation results determine test execution flow:
+
+- **Critical failures**: `pytest.fail()` - stops test execution when required attributes are missing
+- **Warnings only**: `pytest.warns()` - continues with warnings for missing optional attributes
+- **Fully compliant**: Normal test execution proceeds without validation messages
+
+**Skipping Validation:**
+
+See the [Configuration Control](#configuration-control) section above for pytest parameter details.
+
+### Transceiver Firmware Info File
+
+A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+
+```csv
+normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
+# Add more vendor part numbers as needed
+```
+
+For each firmware binary, the following metadata should be included:
+
+- `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `fw_version`: The version of the firmware.
+- `fw_binary_name`: The filename of the firmware binary.
+- `md5sum`: The MD5 checksum of the firmware binary.
+
+### CMIS CDB Firmware Base URL File
+
+A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+
+```csv
+inv_name,fw_base_url
+<inventory_file_name>,<base_url>
+```
+
+- `inv_name`: The name of the inventory file that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file). The `inv_name` allows DUTs to be grouped based on their inventory file, enabling the test framework to fetch the correct base URL for firmware downloads.
+- `fw_base_url`: The base URL from which the CMIS CDB firmware binaries can be downloaded. This URL should point to the directory where the firmware binaries are stored. e.g., `http://1.2.3.4/cmis_cdb_firmware/`.
+
+Example of the file:
+
+```csv
+inv_name,fw_base_url
+lab,http://1.2.3.4/cmis_cdb_firmware/
+```
+
+## Detailed Test Plans
+
+The following child test plans provide comprehensive, attribute-driven test cases for specific test categories. Each plan defines its own attributes, test cases, and validation procedures:
+
+| Test Plan | Description |
+|-----------|-------------|
+| [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, and breakout serial number pattern validation |
+| [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
+| [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
+| [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
+
+### Document Relationships
+
+This repository uses three types of test documentation:
+
+- **This document (Infrastructure & Framework)**: Defines configuration file formats, attribute resolution, normalization rules, validation templates, and shared CLI reference. All other test plans reference this document for infrastructure details.
+- **Child attribute plans** (EEPROM, DOM, System, Port Config, VDM, PM, CMIS Firmware upgrade, Transceiver OIR): Define *what* to validate per test category — specific attributes, expected values, and category-scoped test cases.
+- **Scenario test plan** (future): Will define *how* to exercise the system — end-to-end test sequences (shut/noshut, reboot, failure injection) that compose and orchestrate tests from the per-category child plans above for scenario-driven validation.
 
 ### 1. Tests not involving traffic
 
@@ -96,182 +1059,22 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 - All sides of the breakout cable should be connected to the DUT, and each port should be tested individually starting from subport 1 to subport N. The test should be run in reverse order as well i.e. starting from subport N to subport 1.
 - For link toggling tests on a subport, it's crucial to ensure that the link status of remaining subports of the breakout port group remains unaffected.
 
-**Pre-requisites for the Below Tests:**
-
-1. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver connected to every port of each DUT. Following should be the format of the file
-
-    ```csv
-    dut_name,physical_port,vendor_pn,normalized_vendor_pn,vendor_sn,vendor_date,vendor_oui,vendor_rev
-    dut_name_1,port_1,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
-    dut_name_1,port_2,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
-    # Add more DUTs as needed
-    ```
-
-    - `dut_name`: The name of the DUT.
-    - `physical_port`: The physical port number on the DUT where the transceiver is connected (e.g., 1, 2, etc.).
-    - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `vendor_sn`: The vendor serial number.
-    - `vendor_date`: The vendor date code.
-    - `vendor_oui`: The vendor OUI.
-    - `vendor_rev`: The vendor revision number.
-
-    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
-    The `normalized_vendor_pn` from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.
-    > Note: If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.
-
-    Example of an dictionary created by parsing the above files
-
-    ```python
-    {
-        "dut_name_1": {
-            "port_1": {
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "vendor_sn": "serial_number",
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "normalized_vendor_part_number",
-                "active_firmware": "active_firmware_version",
-                "inactive_firmware": "inactive_firmware_version",
-                "cmis_rev": "cmis_revision",
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "normalized_vendor_name",
-                'vdm_supported': True,
-                'cdb_backgroundmode_supported': True,
-                'dual_bank_supported': True
-            },
-            "port_2": {
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "vendor_sn": "serial_number",
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "normalized_vendor_part_number",
-                "active_firmware": "active_firmware_version",
-                "inactive_firmware": "inactive_firmware_version",
-                "cmis_rev": "cmis_revision",
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "normalized_vendor_name",
-                'vdm_supported': True,
-                'cdb_backgroundmode_supported': True,
-                'dual_bank_supported': True
-            }
-        }
-    }
-    ```
-
-2. A file named `transceiver_common_attributes.csv` (located in the `ansible/files/transceiver_inventory` directory) must be present to define the common attributes for each transceiver, keyed by normalized vendor part number. The file should use the following format:
-
-    ```csv
-    normalized_vendor_name,normalized_vendor_pn,active_firmware,inactive_firmware,cmis_rev,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<True or False>,<True or False>,<True or False>
-    <normalized_vendor_name_2>,<normalized_vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<True or False>,<True or False>,<True or False>
-    # Add more entries as needed
-    ```
-
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    <br>The normalization rules ensure that the vendor name is consistent and compatible with directory structures used in firmware management and upgrade tests.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    <br>This ensures the inventory does not need to list every possible cable length and standardizes the format for compatibility with directory structures used in firmware management and upgrade tests. See the detailed normalization rules in the referenced section for full details.
-    - `active_firmware` and `inactive_firmware`: Firmware version strings in the format `X.Y.Z` (e.g., `1.2.3`). The `active_firmware` version represents the gold firmware version.
-    - `cmis_rev`: CMIS revision string in the format `X.Y`.
-    - `vdm_supported`, `cdb_backgroundmode_supported`, `dual_bank_supported`: Boolean values indicating support for VDM, CDB background mode, and dual bank firmware, respectively.
-
-3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
-
-    ```csv
-    normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
-    # Add more vendor part numbers as needed
-    ```
-
-    For each firmware binary, the following metadata should be included:
-
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `fw_version`: The version of the firmware.
-    - `fw_binary_name`: The filename of the firmware binary.
-    - `md5sum`: The MD5 checksum of the firmware binary.
-
-4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver_inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
-
-    ```csv
-    inv_name,fw_base_url
-    <inventory_file_name>,<base_url>
-    ```
-
-    - `inv_name`: The name of the inventory file that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file). The `inv_name` allows DUTs to be grouped based on their inventory file, enabling the test framework to fetch the correct base URL for firmware downloads.
-    - `fw_base_url`: The base URL from which the CMIS CDB firmware binaries can be downloaded. This URL should point to the directory where the firmware binaries are stored. e.g., `http://1.2.3.4/cmis_cdb_firmware/`.
-
-    Example of the file:
-
-    ```csv
-    inv_name,fw_base_url
-    lab,http://1.2.3.4/cmis_cdb_firmware/
-    ```
-
-5. A file (`sonic_{inv_name}_links.csv`) containing the connections of the ports should be present. This file is used to create the topology of the testbed which is required for minigraph generation.
-
-    - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
-
-#### 1.1 Link related tests
-
-The following tests aim to validate the link status and stability of transceivers under various conditions.
-
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure that the link goes down |
-| Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure that the link is up and the port appears in the LLDP table. |
-| In a loop, issue startup/shutdown command 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
-| Restart `xcvrd` | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Modify xcvrd.py to raise an Exception and induce a crash | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Restart `pmon` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Restart `swss` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Restart `syncd` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Perform a config reload | Test transceiver re-initialization and link status | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
-| Execute a cold reboot | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| In a loop, execute cold reboot 100 times | Stress test to validate transceiver re-initialization and link status with cold reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| Execute a warm reboot (if platform supports it) | Test link stability through warm reboot | Ensure `xcvrd` restarts and maintains link stability for the interested ports, with their presence confirmed in the LLDP table |
-| Execute a fast reboot (if platform supports it) | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-
-#### 1.2 `sfputil` Command Tests
-
-The following tests aim to validate various functionalities of the transceiver (transceiver) using the `sfputil` command.
-
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Verify if transceiver presence works with CLI | Transceiver presence validation | Ensure transceiver presence is detected |
-| Reset the transceiver followed by issuing shutdown and then startup command | Transceiver reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). Also, ensure that the DataPath is in DPDeactivated state and LowPwrAllowRequestHW (page 0h, byte 26.6) is set to 1. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
-| Put transceiver in low power mode (if transceiver supports it) followed by restoring to high power mode | Transceiver low power mode validation | Ensure transceiver is in high power mode initially. Then put the transceiver in low power mode and ensure that the port is linked down and the DataPath is in DPDeactivated state. Ensure that the port is in low power mode through CLI. Disable low power mode and ensure that the link is up now and transceiver is in high power mode now |
-| Verify EEPROM of the transceiver using CLI | Transceiver specific fields validation from EEPROM | Ensure transceiver specific fields are matching with the values retrieved from the transceiver dictionary created using the csv files |
-| Verify DOM information of the transceiver using CLI when interface is in shutdown and no shutdown state (if transceiver supports DOM) | Basic DOM validation | Ensure the fields are in line with the expectation based on interface shutdown/no shutdown state |
-| Verify EEPROM hexdump of the transceiver using CLI | Transceiver EEPROM hexdump validation | Ensure the output shows Lower Page (0h) and Upper Page (0h) for all 128 bytes on each page. Information from the transceiver dictionary created using the csv files can be used to validate contents of page 0h. Also, ensure that page 11h shows the Data Path state correctly |
-| Verify firmware version of the transceiver using CLI (requires disabling DOM config) | Firmware version validation | Ensure the active and inactive firmware version is in line with the expectation from the transceiver dictionary created using the csv files |
-| Verify different types of loopback | Transceiver loopback validation | Ensure that the various supported types of loopback work on the transceiver. The LLDP neighbor can also be used to verify the data path after enabling loopback (such as host-side input loopback) |
-
-#### 1.3 `sfpshow` Command Tests
+#### 1.1 `sfpshow` Command Tests
 
 The following tests aim to validate various functionalities of the transceiver using the `sfpshow` command.
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Verify transceiver specific information through CLI | Validate CLI relying on redis-db | Ensure transceiver specific fields match the values retrieved from transceiver dictionary created using the csv files |
-| Verify DOM data is read correctly and is within an acceptable range (if transceiver supports DOM) | Validate CLI relying on redis-db | Ensure DOM data is read correctly and falls within the acceptable range |
-| Verify transceiver status when the interface is in shutdown and no shutdown state | Validate CLI relying on redis-db | Ensure the fields align with expectations based on the interface being in shutdown or no shutdown state |
 | Verify PM information (for C-CMIS transceivers) | Validate CLI relying on redis-db | Ensure that the PM related fields are populated |
 | Verify VDM information for CMIS cables | Validate CLI relying on redis-db | Ensure that all the Pre-FEC and FERC media and host related VDM related fields are populated. The acceptable values for Pre-FEC fields are from 0 through 1e-4 and the FERC values should be <= 0|
 | Verify transceiver error-status | Validate CLI relying on redis-db | Ensure the relevant port is in an "OK" state |
 | Verify transceiver error-status with hardware verification | Validate CLI relying on transceiver hardware | Ensure the relevant port is in an "OK" state |
 
-#### 1.4 CMIS CDB Firmware Upgrade Testing
+#### 1.2 CMIS CDB Firmware Upgrade Testing
 
-##### 1.4.1 CMIS CDB Firmware Binary Management
+##### 1.2.1 CMIS CDB Firmware Binary Management
 
-###### 1.4.1.1 Firmware Binary Naming Guidelines
+###### 1.2.1.1 Firmware Binary Naming Guidelines
 
 CMIS CDB firmware binaries must follow strict naming conventions to ensure compatibility across different filesystems and automation tools.
 
@@ -286,7 +1089,7 @@ CMIS CDB firmware binaries must follow strict naming conventions to ensure compa
 2. **File Extension:**
    - Use `.bin` extension
 
-###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
+###### 1.2.1.2 Normalization Rules for Vendor Name and Part Number
 
 To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
 
@@ -356,7 +1159,7 @@ def normalize_vendor_field(field: str) -> str:
     return field.upper()
 ```
 
-###### 1.4.1.3 Firmware Binary Storage on SONiC Device
+###### 1.2.1.3 Firmware Binary Storage on SONiC Device
 
 The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
 
@@ -373,7 +1176,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 
 **Requirements:**
 
-- All directory and file names **must be uppercase** and follow the normalization rules defined in section 1.4.1.2
+- All directory and file names **must be uppercase** and follow the [Normalization Rules for Vendor Name and Part Number](#1212-normalization-rules-for-vendor-name-and-part-number)
 - Use the `GENERIC_N_END` placeholder for cable lengths as described in the normalization rules
 
 **Example Directory Structure:**
@@ -390,7 +1193,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 └── ...
 ```
 
-###### 1.4.1.4 Firmware Binary Storage on Remote Server
+###### 1.2.1.4 Firmware Binary Storage on Remote Server
 
 The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
 
@@ -409,8 +1212,6 @@ lab,http://firmware-server.example.com/cmis_cdb_firmware
 production,https://secure-firmware.example.com/cmis_cdb_firmware
 ```
 
-> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name and part number.
-
 **Download URL Format:**
 Firmware binaries are accessed using the following URL pattern:
 ```
@@ -422,7 +1223,7 @@ Firmware binaries are accessed using the following URL pattern:
 http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ```
 
-##### 1.4.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
+##### 1.2.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
 
 This section describes the automated process for copying firmware binaries to the DUT, ensuring only the required firmware versions are present for testing.
 
@@ -431,13 +1232,13 @@ This section describes the automated process for copying firmware binaries to th
 To ensure only the necessary firmware binaries are present for each transceiver:
 
 1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
-2. **Parse `transceiver_dut_info.csv`** to identify the transceivers present on each DUT.
-3. **Parse `transceiver_common_attributes.csv`** to get the gold firmware version for each transceiver type.
+2. **Parse `dut_info/<dut_hostname>.json`** to identify the transceivers present on each DUT.
+3. **Parse the appropriate per-category attributes file** to get the gold firmware version for each transceiver type.
 4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
    - Parse firmware versions using semantic versioning (X.Y.Z format)
    - Sort available firmware versions in descending order (most recent first)
    - **Selection criteria:**
-     - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
+   - Always include the gold firmware version (from the per-category attributes file)
      - Include the two most recent firmware versions in addition to the gold version
      - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary. If there are fewer than 3 firmware versions available for a transceiver, the entire test will fail.
 5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
@@ -448,7 +1249,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 - The firmware binary folder on the DUT (`/tmp/cmis_cdb_firmware/`) will be deleted after the test module run is complete to ensure a clean state for subsequent tests
 - Cleanup includes removing both the directory structure and any temporary files created during the process
 
-##### 1.4.3 CMIS CDB Firmware Upgrade Tests
+##### 1.2.3 CMIS CDB Firmware Upgrade Tests
 
 **Prerequisites:**
 
@@ -456,7 +1257,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped during firmware operations.
 3. **Firmware requirements:**
    - At least two firmware versions must be available for each transceiver type to enable upgrade testing
-   - The gold firmware version (specified in `transceiver_common_attributes.csv`) must be available
+   - The gold firmware version (specified in the per-category attributes file) must be available
    - All firmware versions must support the CDB protocol for proper testing
 4. **Module capabilities:** The module must support dual banks for firmware upgrade operations.
 5. **Network connectivity:** The DUT must have network access to the firmware server specified in `cmis_cdb_firmware_base_url.csv` for downloading firmware binaries.
@@ -471,7 +1272,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
 
-#### 1.5 Remote Reseat related tests
+#### 1.3 Remote Reseat related tests
 
 The following tests aim to validate the functionality of remote reseating of the transceiver module.
 All the below steps should be executed in a sequential manner.
@@ -486,25 +1287,16 @@ All the below steps should be executed in a sequential manner.
 |6 | Issue CLI command to startup the port | Remote reseat validation | Ensure that the port is linked up and is seen in the LLDP table |
 |7 | Issue CLI command to enable DOM monitoring for the port | Remote reseat validation | Ensure that the DOM monitoring is enabled for the port |
 
-#### 1.6 Transceiver Specific Capabilities
+#### 1.4 Transceiver Specific Capabilities
 
-##### 1.6.1 General Tests
+##### 1.4.1 General Tests
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Add `"skip_xcvrd": true,` to the `pmon_daemon_control.json` file and reboot the device | Ensure CMIS transceiver is in low power mode upon boot-up | Ensure the transceiver is in low power mode after device reboot. Revert back the file to original after verification |
-| Disable the Tx by directly writing to the EEPROM/or by calling `tx_disable` API | Ensure Tx is disabled within the advertised time for CMIS transceivers | Ensure that the DataPath state changes from DPActivated to a different state within the MaxDurationDPTxTurnOff time (page 1h, byte 168.7:4). Issue shut/no shutdown command to restore the link. This can be a stress test |
 | Adjust FEC mode | Validate FEC mode adjustment for transceivers supporting FEC | Ensure that the FEC mode can be adjusted to different modes and revert to original FEC mode after testing |
 | Validate FEC stats counters | Validate FEC stats counters | Ensure that FEC correctable, uncorrectable and symbol errors have integer values |
 
-##### 1.6.2 C-CMIS specific tests
-
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Adjust frequency | Validate frequency adjustment for C-CMIS transceivers | Ensure that the frequency can be adjusted to minimum and maximum supported frequency and revert to original frequency after testing |
-| Adjust tx power | Validate tx power adjustment for C-CMIS transceivers | Ensure that the tx power can be adjusted to minimum and maximum supported power and revert to original tx power after testing |
-
-##### 1.6.3 VDM specific tests
+##### 1.4.2 VDM specific tests
 
 **Prerequisites:**
 
@@ -518,7 +1310,7 @@ All the below steps should be executed in a sequential manner.
 |3 | VDM freeze and unfreeze when 1 or more lanes have Tx disabled   | 1. Shutdown the first lane of the physical port<br>2. Repeat the steps of TC #1<br>3. Repeat the steps of TC #2<br>4. Increase the number of lanes shutdown by 1 until all 8 lanes are disabled | 1. For step 2, follow the expectations of TC #1<br>2. For step 3, follow the expectations of TC #2 |
 |4| VDM freeze and unfreeze with non sequential lanes Tx disabled | 1. Shutdown all the odd-numbered lanes of the physical port<br>2. Repeat the steps of TC #1<br>3. Repeat the steps of TC #2<br>4. Startup all the odd-numbered lanes and shutdown all the even-numbered lanes of the physical port and repeat step #2 and #3 | 1. For step 2, follow the expectations of TC #1<br>2. For step 3, follow the expectations of TC #2 |
 
-#### CLI commands
+## CLI Commands
 
 **Note**
 
@@ -664,6 +1456,33 @@ Dump EEPROM of the transceiver
 
 ```
 sudo sfputil show eeprom -p <port>
+```
+
+Read/Write specific offset from/to EEPROM
+
+```
+sudo sfputil read-eeprom --help
+  -p, --port <logical_port_name>  Logical port name  [required]
+  -n, --page <page>               EEPROM page number in hex  [required]
+  -o, --offset <offset>           EEPROM offset within the page  [required]
+  -s, --size <size>               Size of byte to be read  [required]
+  --no-format                     Display non formatted data
+  --wire-addr TEXT                Wire address of sff8472
+  --help                          Show this message and exit.
+
+sudo sfputil write-eeprom --help
+Usage: sfputil write-eeprom [OPTIONS]
+
+  Write SFP EEPROM data
+
+Options:
+  -p, --port <logical_port_name>  Logical port name  [required]
+  -n, --page <page>               EEPROM page number in hex  [required]
+  -o, --offset <offset>           EEPROM offset within the page  [required]
+  -d, --data <data>               Hex string EEPROM data  [required]
+  --wire-addr TEXT                Wire address of sff8472
+  --verify                        Verify the data by reading back
+  --help                          Show this message and exit.
 ```
 
 Dump EEPROM DOM information of the transceiver and verify fields based on the below information

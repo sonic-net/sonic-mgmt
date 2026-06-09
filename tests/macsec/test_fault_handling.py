@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -147,10 +147,6 @@ class TestFaultHandling():
 
         port_name, nbr = list(unctrl_links.items())[0]
 
-        disable_macsec_port(duthost, port_name)
-        disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
-
         # Wait till macsec session has gone down.
         wait_until(20, 3, 0,
                    lambda: not duthost.iface_macsec_ok(port_name) and
@@ -159,7 +155,7 @@ class TestFaultHandling():
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
         enable_macsec_port(duthost, port_name, profile_name)
-        set_macsec_profile(nbr["host"], nbr["port"], profile_name, default_priority,
+        set_macsec_profile(nbr["host"], profile_name, default_priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
 
@@ -176,5 +172,5 @@ class TestFaultHandling():
         # Teardown
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+        delete_macsec_profile(nbr["host"], profile_name)
         sleep(300)

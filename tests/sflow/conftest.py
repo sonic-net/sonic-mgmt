@@ -19,7 +19,7 @@ DROP_LIMIT_FIELD = "drop_monitor_limit"
 
 
 class RestconfClient:
-    """Thin requests wrapper returning the raw requests.Response."""
+    """ wrapper returning the raw requests.Response."""
 
     def __init__(self, host, port=REST_PORT, cert=None, auth=None, verify=False):
         self.base_url = f"https://{host}:{port}"
@@ -68,14 +68,11 @@ def rest_client(duthost, creds):
     """
     RESTCONF client bound to the DUT management IP.
 
-    Defaults to basic auth using the standard testbed creds. Switch to
-    cert-based mTLS by passing cert=(crt, key) and auth=None if your
-    rest_server is configured for client-certificate auth.
+    Defaults to basic auth using the standard testbed creds.
     """
     client = RestconfClient(
         duthost.mgmt_ip,
         auth=(creds["sonicadmin_user"], creds["sonicadmin_password"]),
-        # cert=("/path/to/client.crt", "/path/to/client.key"),
     )
     return client
 

@@ -7,6 +7,35 @@ from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from .bug_handler_helper import get_bughandler_instance
 
 
+def _cleanup_orphaned_ansible_processes(timed_out_duts):
+    """Kill orphaned ansible processes on DUTs whose analyze_logs did not complete.
+
+    When parallel_run kills the local controller process on timeout, the remote
+    ansible module (e.g. slurp) keeps running on the DUT, consuming memory.
+    The orphan process tree looks like:
+      sh -c sudo ... 'echo BECOME-SUCCESS-xxx ; /usr/bin/python3'  (has BECOME-SUCCESS)
+        -> sudo ...                                                 (has BECOME-SUCCESS)
+          -> /usr/bin/python3                                       (no distinguishing args)
+    We match log analyzer commands on the parent to get the PGID, then kill the entire
+    process group. etimes > 60 avoids killing the current cleanup session itself.
+    """
+    kill_cmd = (
+        "ps -eo pgid,etimes,args --no-headers"
+        " | awk '$2 > 60 && $1 > 1 && "
+        "(/AnsiballZ_extract_log\\.py/ || /\\/tmp\\/loganalyzer\\.py/) {print $1}'"
+        " | sort -un"
+        " | xargs -r -I{} kill -9 -{} 2>/dev/null;"
+        " true"
+    )
+
+    for duthost in timed_out_duts:
+        try:
+            duthost.shell(kill_cmd, module_ignore_errors=True)
+            logging.info("Cleaned up orphaned ansible processes on %s", duthost.hostname)
+        except Exception:
+            logging.warning("Failed to clean up orphaned ansible processes on %s", duthost.hostname)
+
+
 def pytest_addoption(parser):
     parser.addoption("--disable_loganalyzer", action="store_true", default=False,
                      help="disable loganalyzer analysis for 'loganalyzer' fixture")
@@ -85,15 +114,30 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     should_rotate_log = request.config.getoption("--loganalyzer_rotate_logs")
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis") if duthosts else False
 
+    # Import here, not at module load: conftest imports common before loganalyzer
+    # finishes loading; a top-level import creates a circular import.
+    try:
+        from tests.conftest import get_specified_dpus
+        # Get dpuhosts if the --dpu-pattern is provided to enable loganalyzer on dpus
+        dpuhosts = request.getfixturevalue("dpuhosts") if get_specified_dpus(request) else []
+    except Exception:
+        dpuhosts = []
+
+    analyzer_hosts = []
+    for duthost in duthosts:
+        analyzer_hosts.append(duthost)
+    for dpuhost in dpuhosts:
+        analyzer_hosts.append(dpuhost)
+
     # We make sure only run logrotate as "function" scope for non-modular chassis for optimisation purpose.
     # For modular chassis please refer to "log_rotate_modular_chassis" fixture
     if should_rotate_log and not is_modular_chassis:
-        parallel_run(analyzer_logrotate, [], {}, duthosts, timeout=120)
-    for duthost in duthosts:
+        parallel_run(analyzer_logrotate, [], {}, analyzer_hosts, timeout=120)
+    for duthost in analyzer_hosts:
         analyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=request.node.name, request=request)
         analyzer.load_common_config()
         analyzers[duthost.hostname] = analyzer
-    markers = parallel_run(analyzer_add_marker, [analyzers], {}, duthosts, timeout=120)
+    markers = parallel_run(analyzer_add_marker, [analyzers], {}, analyzer_hosts, timeout=120)
 
     yield analyzers
 
@@ -101,16 +145,28 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     if "rep_call" in request.node.__dict__ and request.node.rep_call.skipped or \
             "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
+
+    # It's possible we modify the analyzers in tests to skip some duthosts
+    analyzer_hosts = [duthost for duthost in analyzer_hosts if duthost.hostname in analyzers]
+
     logging.info("Starting to analyse on all DUTs")
     la_results = parallel_run(
         analyze_logs,
         [analyzers, markers],
         {'fail_test': fail_test, 'store_la_logs': store_la_logs},
-        duthosts,
+        analyzer_hosts,
         timeout=240
     )
+
+    timed_out_duts = [dut for dut in duthosts if dut.hostname not in la_results]
+    if timed_out_duts:
+        logging.warning(
+            "analyze_logs did not complete for: %s, cleaning up orphaned ansible processes",
+            [dut.hostname for dut in timed_out_duts])
+        _cleanup_orphaned_ansible_processes(timed_out_duts)
+
     consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
-    consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
+    consolidated_bughandler.bug_handler_wrapper(analyzers, analyzer_hosts, la_results)
 
 
 @pytest.fixture(autouse=True)
@@ -132,5 +188,25 @@ def ignore_pkt_trim_errors(duthosts, loganalyzer):
                          r"[\d]+ Get Trim stats packets failed with error -2.*"),
                         (r".*ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_switch_attribute_enum_values_capability:"
                          r"[\d]+ packet trim Enum Capability values get for [\d]+ failed with error -2.*")
+                    ]
+                )
+
+
+@pytest.fixture(autouse=True)
+def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
+    """Ignore PORT_PHY_ATTR ERR on VS/KVM platforms.
+
+    VS SAI does not implement PHY attributes (RX_SIGNAL_DETECT,
+    FEC_ALIGNMENT_LOCK, RX_SNR), so orchagent logs ERR for every port.
+    Long-term fix tracked in sonic-net/sonic-swss#4242.
+    https://github.com/sonic-net/sonic-mgmt/issues/22510
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.facts.get("asic_type") == "vs":
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        r".*ERR swss#orchagent.*verifyPortSupportsAllPhyAttr.*PORT_PHY_ATTR.*"
+                        r"does not support.*attribute.*"
                     ]
                 )

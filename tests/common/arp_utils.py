@@ -116,7 +116,7 @@ def setupFerret(duthost, ptfhost, tbinfo):
     __prepareVxlanConfigData(duthost, ptfhost, tbinfo)
 
     logger.info('Refreshing supervisor control with ferret configuration')
-    ptfhost.shell('supervisorctl reread && supervisorctl update')
+    ptfhost.shell('supervisorctl reread && supervisorctl update && supervisorctl start ferret')
 
 
 def setupRouteToPtfhost(duthost, ptfhost):

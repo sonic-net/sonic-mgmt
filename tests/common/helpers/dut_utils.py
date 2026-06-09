@@ -5,19 +5,23 @@ import jinja2
 import glob
 import re
 import yaml
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
-from tests.common.connections.console_host import ConsoleHost
-from tests.common.utilities import get_dut_current_passwd
+from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
+from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
+from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -124,6 +128,72 @@ def clear_failed_flag_and_restart(duthost, container_name):
                            0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
+
+
+def restart_service_with_startlimit_guard(duthost, service_name, is_namespaced=False,
+                                          backoff_seconds=30, verify_timeout=180):
+    """
+    Restart a systemd-managed service with StartLimitHit guard.
+
+    Strategy:
+    0) Pre-detect StartLimitHit and, if present, skip a failing restart
+    1) When not rate-limited, reset-failed to clear stale counters and try restart
+    2) If restart fails, rate-limit is detected, or container isn't running:
+       - 'systemctl reset-failed <service>.service'
+       - fixed backoff (default 30s when rate-limited, 1s otherwise)
+       - 'systemctl start <service>.service'
+       - wait until container is running
+
+    Returns: True when the service is (re)started and running; asserts on failure.
+    """
+
+    if is_namespaced:
+        # just check first namespaced instance
+        container_name = "{}0".format(service_name)
+        service_name = "{}@0".format(service_name)
+    else:
+        container_name = service_name
+
+    # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
+    pre_rate_limited = is_hitting_start_limit(duthost, service_name)
+
+    if not pre_rate_limited:
+        # 1) Proactively clear stale failure counters and try a normal restart
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        ret = duthost.shell(
+            f"sudo systemctl restart {service_name}.service",
+            module_ignore_errors=True
+        )
+        rate_limited = is_hitting_start_limit(duthost, service_name)
+    else:
+        logger.info(
+            f"StartLimitHit pre-detected for {service_name}, applying reset-failed and "
+            f"fixed backoff {backoff_seconds}s before start"
+        )
+        # Force the recovery path below without attempting an immediate restart.
+        ret = {"rc": 1}
+        rate_limited = True
+
+    # 2/3) Recovery path: reset-failed + backoff + start if needed
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, container_name):
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        time.sleep(backoff_seconds if rate_limited else 1)
+        duthost.shell(
+            f"sudo systemctl start {service_name}.service",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, container_name, True),
+            f"{container_name} container did not become running after recovery start"
+        )
+
+    return True
 
 
 def get_group_program_info(duthost, container_name, group_name):
@@ -371,12 +441,14 @@ def ignore_t2_syslog_msgs(duthost):
 
 
 def get_sai_sdk_dump_file(duthost, dump_file_name):
-    full_path_dump_file = f"/tmp/{dump_file_name}"
+    # a folder mounted from the host to the syncd container
+    # visible as /var/log/sdk_dbg for both the host and the syncd container
+    # and this won't cause syncd container memory usage to grow
+    dump_folder = "/var/log/sdk_dbg"
+    full_path_dump_file = f"{dump_folder}/{dump_file_name}"
+    logger.info(f"Generating SDK dump file: {full_path_dump_file}")
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
-
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"  # noqa E231
-    duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
     duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
@@ -395,10 +467,23 @@ def is_mellanox_devices(hwsku):
         or 'mlnx' in hwsku
 
 
+def is_virtual_platform(duthost):
+    """Check if the DUT is running on a virtual (KVM) platform.
+
+    Args:
+        duthost: DUT host object.
+
+    Returns:
+        True if the platform is x86_64-kvm_x86_64-r0 (used by both VS and VPP testbeds),
+        False otherwise.
+    """
+    return duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0"
+
+
 def is_mellanox_fanout(duthost, localhost):
     # Ansible localhost fixture which calls ansible playbook on the local host
 
-    if duthost.facts.get("asic_type") == "vs":
+    if is_virtual_platform(duthost):
         return False
 
     try:
@@ -424,6 +509,74 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_supervisor_for_linecard(duthost, duthosts, inv_files):
+    """
+    Returns the supervisor duthost for a given linecard duthost.
+
+    Args:
+        duthost: The potential linecard duthost
+        duthosts: Collection of all duthosts in the testbed
+        inv_files: Inventory files for looking up node types
+
+    Returns:
+        supervisor duthost object if this is a linecard with a supervisor, None otherwise
+
+    Conditions satisfied for returning supervisor:
+        - duthost is NOT a supervisor node
+        - A supervisor node exists in duthosts collection
+    """
+    if is_supervisor_node(inv_files, duthost.hostname):
+        return None
+
+    for node in duthosts.nodes:
+        node_hostname = node.hostname
+        if is_supervisor_node(inv_files, node_hostname):
+            return duthosts[node_hostname]
+
+    return None
+
+
+def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
+    """
+    Instantiates a CONSOLE_LINECARD connection for accessing a linecard via supervisor.
+
+    Args:
+        supervisor: The supervisor duthost object
+        linecard_duthost: The linecard duthost object
+        inv_files: Inventory files for looking up slot numbers
+        creds: Credentials dictionary
+
+    Returns:
+        ConsoleHost instance configured for linecard console access
+
+    Raises:
+        pytest.skip: If platform is not supported or slot_num not found
+    """
+    supervisor_ip = supervisor.host.options['inventory_manager'].get_host(
+        supervisor.hostname).vars['ansible_host']
+
+    host_vars = get_host_visible_vars(inv_files, linecard_duthost.hostname)
+    slot_num = host_vars.get('slot_num')
+
+    if not slot_num:
+        pytest.skip(f"Could not determine slot number for linecard {linecard_duthost.hostname} from inventory. "
+                    f"Ensure 'slot_num' variable is defined in inventory.")
+
+    try:
+        return ConsoleHost(
+            console_type=CONSOLE_LINECARD,
+            console_host=None,
+            console_port=None,
+            sonic_username=creds['sonicadmin_user'],
+            sonic_password=[creds['sonicadmin_password']],
+            supervisor_ip=supervisor_ip,
+            slot_num=slot_num,
+            hwsku=supervisor.facts['hwsku']
+        )
+    except UnsupportedPlatformError as e:
+        pytest.skip(f"Linecard console not supported: {str(e)}")
+
+
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
@@ -431,12 +584,18 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_auth_type = conn_graph_facts['device_console_info'][dut_hostname].get('AuthType', "")
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
+    update_console_creds(creds, console_auth_type)
+
+    if console_menu_type and console_menu_type.lower() != "n/a":
+        console_menu_type = f"{console_type}_{console_menu_type}"
+    else:
+        console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
@@ -459,25 +618,23 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    host = None
     for attempt in range(1, 4):
         try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type],
-                               console_device=console_device)
-            break
+            return ConsoleHost(
+                console_type=console_type,
+                console_host=console_host,
+                console_port=console_port,
+                sonic_username=creds["sonicadmin_user"],
+                sonic_password=sonic_password,
+                console_username=console_username,
+                console_password=creds["console_password"][console_type],
+                console_device=console_device,
+            )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-    return host
 
 
 def creds_on_dut(duthost):
@@ -522,8 +679,11 @@ def creds_on_dut(duthost):
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
+
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
+
+    # load default creds for console
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
@@ -570,10 +730,10 @@ def duthost_clear_console_port(
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
     """
-    if menu_type == "console_ssh_":
+    if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
 
-    if menu_type == "console_conserver_":
+    if menu_type == "console_conserver":
         logger.info("Skip clearing conserver console port")
         return
 
@@ -725,3 +885,29 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def get_random_reload_type(duthost):
+    """
+    Get a random reload type from the list of reload types
+    :param duthost: duthost object
+    :return: a random reload type
+    """
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    reboot_type = random.choice(reload_types)
+    logger.info(f"Selected reload type: {reboot_type}")
+    return reboot_type
+
+
+def migrate_container_systemd(duthost, service, parameters):
+    # Remove --net=host in parameters because it is already existed in /usr/bin/{service}.sh
+    parts = parameters.split()
+    no_network_parts = [p for p in parts if p != "--net=host"]
+    no_network_parameters = " ".join(no_network_parts)
+
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {no_network_parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)
