@@ -7,7 +7,7 @@ parameters:
 - name: PRE_TEST_AGENT_POOL
   type: object
   default:
-    name: sonic-ubuntu-1c
+    name: sonic-ubuntu-1c-2
 
 - name: BUILD_REASON
   type: string
