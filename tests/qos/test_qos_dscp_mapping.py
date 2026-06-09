@@ -8,15 +8,24 @@ import allure
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf import mask
-from scapy.all import Ether, IP
+from scapy.all import Ether, IP, IPv6
 from tabulate import tabulate
 from tests.common.reboot import reboot
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link, \
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown  # noqa F401
-from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue, \
-    get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
+from tests.common.utilities import (
+    find_egress_queue,
+    get_dscp_to_queue_value,
+    get_egress_queue_pkt_count_all_port_prio,
+    get_loopback_ip,
+    get_vlan_from_port,
+    is_ipv4_address,
+    is_ipv6_address,
+    is_ipv6_only_topology,
+    wait_until,
+)
 from tests.common.helpers.assertions import pytest_assert
 from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
@@ -33,11 +42,15 @@ DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 500
 BASE_EXABGP_PORT = 5000
+BASE_EXABGP_PORT_V6 = 6000
 WITHDRAW = 'withdraw'
 ANNOUNCE = 'announce'
 DUMMY_OUTER_SRC_IP = '8.8.8.8'
 DUMMY_INNER_SRC_IP = '9.9.9.9'
 INNER_DST_IP_PREFIX = '10.10.10.'
+DUMMY_OUTER_SRC_IP_V6 = '2001:db8:1::1'
+DUMMY_INNER_SRC_IP_V6 = '2001:db8:2::1'
+INNER_DST_IP_PREFIX_V6 = '2001:db8:3::'
 output_table = []
 packet_egressed_success = []
 
@@ -54,25 +67,32 @@ def completeness_level(pytestconfig):
 
 @pytest.fixture(scope='module')
 def route_config(nbrhosts, tbinfo):
+    ipv6_only = is_ipv6_only_topology(tbinfo)
     ptf_ip = tbinfo['ptf_ip']
-    upstream_exabgp_port_list = get_upstream_exabgp_port(nbrhosts=nbrhosts,
-                                                         tbinfo=tbinfo,
-                                                         exabgp_base_port=BASE_EXABGP_PORT)
+    exabgp_base_port = BASE_EXABGP_PORT_V6 if ipv6_only else BASE_EXABGP_PORT
+    inner_dst_ip_prefix = INNER_DST_IP_PREFIX_V6 if ipv6_only else INNER_DST_IP_PREFIX
+    prefix_len = '/128' if ipv6_only else '/32'
+
+    upstream_exabgp_port_list = get_upstream_exabgp_port(
+        nbrhosts=nbrhosts,
+        tbinfo=tbinfo,
+        exabgp_base_port=exabgp_base_port
+    )
     upstream_vm_num = len(upstream_exabgp_port_list)
-    inner_dst_ip_list = [INNER_DST_IP_PREFIX + str(i + 1) for i in range(upstream_vm_num)]
+    inner_dst_ip_list = [inner_dst_ip_prefix + str(i + 1) for i in range(upstream_vm_num)]
 
     for i in range(upstream_vm_num):
-        logger.info(f"{ANNOUNCE} {inner_dst_ip_list[i] + '/32'} from upstream VMs")
+        logger.info(f"{ANNOUNCE} {inner_dst_ip_list[i] + prefix_len} from upstream VMs")
         announce_route(ptfip=ptf_ip,
-                       route=inner_dst_ip_list[i] + '/32',
+                       route=inner_dst_ip_list[i] + prefix_len,
                        port=upstream_exabgp_port_list[i])
 
     yield inner_dst_ip_list
 
     for i in range(upstream_vm_num):
-        logger.info(f"{WITHDRAW} {inner_dst_ip_list[i] + '/32'} from upstream VMs")
+        logger.info(f"{WITHDRAW} {inner_dst_ip_list[i]+prefix_len} from upstream VMs")
         announce_route(ptfip=ptf_ip,
-                       route=inner_dst_ip_list[i] + '/32',
+                       route=inner_dst_ip_list[i] + prefix_len,
                        port=upstream_exabgp_port_list[i],
                        action=WITHDRAW)
 
@@ -148,41 +168,17 @@ def dscp_config_pipe(rand_selected_dut, loganalyzer):
     apply_dscp_cfg_teardown(duthost, loganalyzer)
 
 
-def create_ipip_packet(outer_src_mac,
-                       outer_dst_mac,
-                       outer_src_pkt_ip,
-                       outer_dst_pkt_ip,
-                       outer_dscp,
-                       inner_src_pkt_ip,
-                       inner_dst_pkt_ip,
-                       inner_dscp,
-                       decap_mode):
-    """
-    Generate IPV4 IP-IP packets.
-
-    Args:
-        outer_src_mac: Outer source MAC address
-        outer_dst_mac: Outer destination MAC address
-        outer_src_pkt_ip: Outer source IP address
-        outer_dst_pkt_ip: Outer destination IP address
-        outer_dscp: Outer DSCP value
-        inner_src_pkt_ip: Inner source IP address
-        inner_dst_pkt_ip: Inner destination IP address
-        inner_dscp: Inner DSCP value
-        decap_mode: DSCP decap mode
-
-    Returns:
-        IP-IP packet, expected packet
-    """
+def build_ipv4_ipip_packet(
+    outer_src_mac, outer_dst_mac, outer_src_pkt_ip, outer_dst_pkt_ip,
+    outer_dscp, inner_src_pkt_ip, inner_dst_pkt_ip, inner_dscp, exp_dscp,
+):
 
     inner_pkt = testutils.simple_tcp_packet(ip_src=inner_src_pkt_ip,
                                             ip_dst=inner_dst_pkt_ip,
                                             ip_dscp=inner_dscp,
                                             ip_ecn=DEFAULT_ECN,
                                             ip_ttl=DEFAULT_TTL)
-
     inner_pkt.ttl -= 1
-
     outer_pkt = testutils.simple_ipv4ip_packet(eth_src=outer_src_mac,
                                                eth_dst=outer_dst_mac,
                                                ip_src=outer_src_pkt_ip,
@@ -190,28 +186,92 @@ def create_ipip_packet(outer_src_mac,
                                                ip_dscp=outer_dscp,
                                                ip_ecn=DEFAULT_ECN,
                                                inner_frame=inner_pkt[scapy.IP])
-
     inner_pkt.ttl += 1
-
-    if decap_mode == "uniform":
-        exp_dscp = outer_dscp
-    elif decap_mode == "pipe":
-        exp_dscp = inner_dscp
 
     exp_pkt = testutils.simple_tcp_packet(ip_src=inner_src_pkt_ip,
                                           ip_dst=inner_dst_pkt_ip,
                                           ip_dscp=exp_dscp,
                                           ip_ecn=DEFAULT_ECN,
                                           ip_ttl=DEFAULT_TTL)
-
     exp_pkt = mask.Mask(exp_pkt)
     exp_pkt.set_do_not_care_scapy(Ether, 'src')
     exp_pkt.set_do_not_care_scapy(Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(IP, 'id')
     exp_pkt.set_do_not_care_scapy(IP, 'ttl')
     exp_pkt.set_do_not_care_scapy(IP, 'chksum')
-
     return outer_pkt, exp_pkt
+
+
+def build_ipv6_ipip_packet(
+    outer_src_mac, outer_dst_mac, outer_src_pkt_ip, outer_dst_pkt_ip,
+    outer_dscp, inner_src_pkt_ip, inner_dst_pkt_ip, inner_dscp, exp_dscp,
+):
+    # DSCP is carried in the traffic class field: (DSCP << 2) | ECN
+    inner_tc = (inner_dscp << 2) | DEFAULT_ECN
+    outer_tc = (outer_dscp << 2) | DEFAULT_ECN
+
+    inner_pkt = testutils.simple_tcpv6_packet(ipv6_src=inner_src_pkt_ip,
+                                              ipv6_dst=inner_dst_pkt_ip,
+                                              ipv6_tc=inner_tc,
+                                              ipv6_hlim=DEFAULT_TTL)
+    inner_ipv6 = inner_pkt[scapy.IPv6]
+    inner_ipv6.hlim -= 1
+    outer_pkt = testutils.simple_ipv6ip_packet(eth_src=outer_src_mac,
+                                               eth_dst=outer_dst_mac,
+                                               ipv6_src=outer_src_pkt_ip,
+                                               ipv6_dst=outer_dst_pkt_ip,
+                                               ipv6_tc=outer_tc,
+                                               ipv6_hlim=DEFAULT_TTL,
+                                               inner_frame=inner_ipv6)
+    inner_ipv6.hlim += 1
+
+    exp_tc = (exp_dscp << 2) | DEFAULT_ECN
+    exp_pkt = testutils.simple_tcpv6_packet(ipv6_src=inner_src_pkt_ip,
+                                            ipv6_dst=inner_dst_pkt_ip,
+                                            ipv6_tc=exp_tc,
+                                            ipv6_hlim=DEFAULT_TTL)
+    exp_pkt = mask.Mask(exp_pkt)
+    exp_pkt.set_do_not_care_scapy(Ether, 'src')
+    exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+    exp_pkt.set_do_not_care_scapy(IPv6, 'hlim')
+    return outer_pkt, exp_pkt
+
+
+def create_ipip_packet(
+    test_params, outer_src_mac, outer_dscp, inner_dst_pkt_ip, inner_dscp,
+    decap_mode, is_ipv6_only=False,
+):
+    """
+    Generate IPV4/IPV6 IP-IP packets.
+
+    Args:
+        test_params (dict): Test setup parameters. Uses keys 'dst_mac',
+            'outer_src_ip', 'outer_dst_ip', 'inner_src_ip'.
+        outer_src_mac: Source MAC for the outer header.
+        outer_dscp: DSCP value for the outer header.
+        inner_dst_pkt_ip: Destination IP for the inner packet.
+        inner_dscp: DSCP value for the inner header.
+        decap_mode: Tunnel decap mode ("uniform" or "pipe").
+        is_ipv6_only: Whether the topology is IPv6 only. Defaults to False.
+
+    Returns:
+        IP-IP packet, expected packet
+    """
+    exp_dscp = outer_dscp if decap_mode == "uniform" else inner_dscp
+    ip_in_ip_packet_builder = (
+        build_ipv6_ipip_packet if is_ipv6_only else build_ipv4_ipip_packet
+    )
+    return ip_in_ip_packet_builder(
+        outer_src_mac,
+        test_params['dst_mac'],
+        test_params['outer_src_ip'],
+        test_params['outer_dst_ip'],
+        outer_dscp,
+        test_params['inner_src_ip'],
+        inner_dst_pkt_ip,
+        inner_dscp,
+        exp_dscp,
+    )
 
 
 def send_and_verify_traffic(ptfadapter,
@@ -253,6 +313,7 @@ def send_and_verify_traffic(ptfadapter,
     except AssertionError as detail:
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet(s) was not received on any of the ports -> {}".format(ptf_dst_port_ids))
+        return None
 
 
 def find_queue_count_and_value(duthost, queue_val_list, dut_egress_port_list):
@@ -290,19 +351,18 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             downstream_links (fixture): Dictionary of downstream links info for DUT
             upstream_links (fixture): Dictionary of upstream links info for DUT
         """
-        links = {**downstream_links, **upstream_links}
+        is_ipv6_only = is_ipv6_only_topology(tbinfo)
+        downlink = select_random_link(downstream_links)
+        uplink_ptf_ports = get_stream_ptf_ports(upstream_links)
 
-        loopback_ip = get_ipv4_loopback_ip(duthost)
+        identify_ip_ver = is_ipv6_address if is_ipv6_only else is_ipv4_address
+        loopback_ip = get_loopback_ip(duthost, identify_ip_ver)
         pytest_assert(loopback_ip is not None, "No loopback IP found")
 
-        src_link = select_random_link(links)
-        pytest_assert(src_link is not None, "src_link is None")
-
-        ptf_src_port_id = src_link.get("ptf_port_id")
-        pytest_assert(src_link is not None, "ptf_src_port_id is None")
-
-        src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_src_port_id)
-        pytest_assert(src_port_name, "No port on DUT found for ptf src port {}".format(ptf_src_port_id))
+        ptf_downlink_port_id = downlink.get("ptf_port_id")
+        src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_downlink_port_id)
+        pytest_assert(src_port_name, "No port on DUT found for ptf src port {}".format(ptf_downlink_port_id))
+        ptf_src_port_id = ptf_downlink_port_id
 
         vlan_name = get_vlan_from_port(duthost, src_port_name)
         logger.debug("Found VLAN {} on port {}".format(vlan_name, src_port_name))
@@ -316,7 +376,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(dst_mac is not None, "No router/vlan MAC found")
 
-        ptf_dst_port_ids = get_stream_ptf_ports(links)
+        outer_src_ip = DUMMY_OUTER_SRC_IP_V6 if is_ipv6_only else DUMMY_OUTER_SRC_IP
+        inner_src_ip = DUMMY_INNER_SRC_IP_V6 if is_ipv6_only else DUMMY_INNER_SRC_IP
+
+        ptf_dst_port_ids = list(uplink_ptf_ports)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
         if ptf_src_port_id in ptf_dst_port_ids:
@@ -325,7 +388,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         return {
             'ptf_src_port_id': ptf_src_port_id,
             'ptf_dst_port_ids': ptf_dst_port_ids,
-            'outer_src_ip': '8.8.8.8',
+            'outer_src_ip': outer_src_ip,
+            'inner_src_ip': inner_src_ip,
             'outer_dst_ip': loopback_ip,
             'dst_mac': dst_mac,
         }
@@ -352,6 +416,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        is_ipv6_only = is_ipv6_only_topology(tbinfo)
         ptf_port_to_dut_port_map = {}
         if "backend" in tbinfo["topo"]["type"]:
             pytest.skip("Dscp-queue mapping is not supported on {}".format(tbinfo["topo"]["type"]))
@@ -361,9 +426,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_src_port_id = test_params['ptf_src_port_id']
         ptf_dst_port_ids = test_params['ptf_dst_port_ids']
         outer_dst_pkt_ip = test_params['outer_dst_ip']
-        outer_src_pkt_ip = DUMMY_OUTER_SRC_IP
+        outer_src_pkt_ip = test_params['outer_src_ip']
+        inner_src_pkt_ip = test_params['inner_src_ip']
         inner_dst_pkt_ip_list = inner_dst_ip_list
-        inner_src_pkt_ip = DUMMY_INNER_SRC_IP
+
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
         step = len(inner_dst_ip_list)
         failed_once = False
@@ -379,11 +445,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             real_dscp_mode = duthost.shell('redis-cli hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
-        def check_ip_route(duthost, step):
-            ip_route_list = [f"{INNER_DST_IP_PREFIX}{i}/32" for i in range(1, step)]
-            for route in ip_route_list:
-                output = duthost.shell(f"show ip route {route}")["stdout"]
-                if route not in output:
+        def check_ip_route(duthost, dst_ip_list, is_ipv6_only):
+            prefix_len = 128 if is_ipv6_only else 32
+            show_cmd_tmpl = f"show ip{'v6' if is_ipv6_only else ''} route {{}}"
+
+            for dst_ip in dst_ip_list:
+                prefix = f"{dst_ip}/{prefix_len}"
+                route = duthost.shell(show_cmd_tmpl.format(prefix))["stdout"]
+                if prefix not in route:
                     return False
             return True
 
@@ -392,7 +461,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         logger.info("Checking test ports status")
         _check_test_port_status(duthost, tbinfo, ptf_dst_port_ids[:] + [ptf_src_port_id])
         logger.info("Checking ip routes")
-        pytest_assert(wait_until(30, 10, 0, check_ip_route, duthost, step), "IP routes are not configured")
+        pytest_assert(
+            wait_until(30, 10, 0, check_ip_route, duthost, inner_dst_pkt_ip_list, is_ipv6_only),
+            "IP routes are not configured"
+        )
 
         # Log packet information
         logger.info("Outer Pkt Src IP: {}".format(outer_src_pkt_ip))
@@ -419,18 +491,15 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                             f"{outer_dscp + i if decap_mode == 'uniform' else DEFAULT_DSCP}, "
                             f"inner_dscp = {inner_dscp if decap_mode == 'uniform' else inner_dscp + i}")
                 pkt, exp_pkt = create_ipip_packet(outer_src_mac=ptf_src_mac,
-                                                  outer_dst_mac=dst_mac,
-                                                  outer_src_pkt_ip=outer_src_pkt_ip,
-                                                  outer_dst_pkt_ip=outer_dst_pkt_ip,
+                                                  test_params=test_params,
                                                   outer_dscp=outer_dscp + i if decap_mode == "uniform" else
                                                   DEFAULT_DSCP,
-                                                  inner_src_pkt_ip=inner_src_pkt_ip,
                                                   inner_dst_pkt_ip=inner_dst_pkt_ip_list[i],
                                                   inner_dscp=inner_dscp if decap_mode == "uniform" else inner_dscp + i,
-                                                  decap_mode=decap_mode)
+                                                  decap_mode=decap_mode,
+                                                  is_ipv6_only=is_ipv6_only)
                 pkt_list.append(pkt)
                 exp_pkt_list.append(exp_pkt)
-
             queue_val_list = []
             global output_table
 
@@ -591,12 +660,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         with allure.step("Prepare test parameters"):
             test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
 
-        dst_mac = test_params['dst_mac']
         ptf_src_port_id = test_params['ptf_src_port_id']
         ptf_dst_port_ids = test_params['ptf_dst_port_ids']
-        outer_dst_pkt_ip = test_params['outer_dst_ip']
-        outer_src_pkt_ip = DUMMY_OUTER_SRC_IP
-        inner_src_pkt_ip = DUMMY_INNER_SRC_IP
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
 
         failed_once = False
@@ -632,11 +697,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     logger.info(f"pipe mode: outer_dscp={DEFAULT_DSCP}, inner_dscp={inner_dscp}")
                     pkt, exp_pkt = create_ipip_packet(
                         outer_src_mac=ptf_src_mac,
-                        outer_dst_mac=dst_mac,
-                        outer_src_pkt_ip=outer_src_pkt_ip,
-                        outer_dst_pkt_ip=outer_dst_pkt_ip,
+                        test_params=test_params,
                         outer_dscp=DEFAULT_DSCP,
-                        inner_src_pkt_ip=inner_src_pkt_ip,
                         inner_dst_pkt_ip=inner_dst_pkt_ip_list[i],
                         inner_dscp=inner_dscp,
                         decap_mode="pipe"
