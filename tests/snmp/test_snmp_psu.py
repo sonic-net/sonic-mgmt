@@ -62,6 +62,8 @@ def test_snmp_psu_status(duthosts, enum_supervisor_dut_hostname, snmp_psu_module
         return
 
     psu_keys = natsorted(redis_get_keys(duthost, 'STATE_DB', 'PSU_INFO|*'))
+    assert psu_keys, "No PSU_INFO keys found in STATE_DB."
+
     for psu_indx, operstatus in snmp_facts['snmp_psu'].items():
         get_presence = duthost.shell(
             "redis-cli -n 6 hget '{}' presence".format(psu_keys[int(psu_indx)-1]))
@@ -97,4 +99,4 @@ def redis_get_keys(duthost, db_id, pattern):
     logging.debug('Getting keys from redis by command: {}'.format(cmd))
     output = duthost.shell(cmd)
     content = output['stdout'].strip()
-    return content.split('\n') if content else None
+    return content.split('\n') if content else []
