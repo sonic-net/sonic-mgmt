@@ -14,7 +14,7 @@ jobs:
     condition: ${{ parameters.condition }}
     displayName: 'Run Probe UT/IT'
     timeoutInMinutes: 15
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
       - checkout: self
       - template: /.azure-pipelines/probe-tests/steps/run-probe-tests.yml
