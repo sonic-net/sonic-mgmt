@@ -136,6 +136,112 @@ def _vrf_scope_bash_commands(commands, vrf):
     return _rewrite_one(commands)
 
 
+_SHOW_BGP_RE = re.compile(r'^\s*show\s+(?:ip|ipv6)\s+bgp\b', re.IGNORECASE)
+
+
+def _vrf_scope_eos_reads(commands, vrf):
+    """VRF-scope raw ``show ip|ipv6 bgp`` reads on converged hosts.
+
+    Tests that read the BGP table with a plain
+    ``run_command('show ip bgp ...')`` hit the prime's *default* VRF, which on
+    a converged peer carries only the backplane -- the logical neighbor's
+    learned/advertised routes live under its per-neighbor VRF (same rationale
+    as ``get_route``). This injects ``vrf <vrf>`` into such reads, before any
+    ``| <filter>`` pipe where EOS requires it (``show ip bgp ... vrf X`` is
+    valid, ``show ip bgp vrf X ...`` is not).
+
+    Only plain string commands are rewritten; the structured ``dict`` commands
+    built by ``get_route``/``run_command_json`` are left untouched (``get_route``
+    already scopes its own VRF). Commands that already carry an explicit
+    ``vrf`` token, and non ``show ... bgp`` commands (e.g.
+    ``show run | grep 'router bgp'``), are left untouched. Returns ``commands``
+    unchanged when no VRF is set so stock topologies are byte-identical.
+    """
+    if not vrf or commands is None:
+        return commands
+
+    def _rewrite_text(text):
+        if not _SHOW_BGP_RE.match(text):
+            return text
+        if re.search(r'\bvrf\b', text, re.IGNORECASE):
+            return text
+        if '|' in text:
+            head, _, tail = text.partition('|')
+            return '{} vrf {} |{}'.format(head.rstrip(), vrf, tail)
+        return '{} vrf {}'.format(text.rstrip(), vrf)
+
+    def _rewrite_one(item):
+        if isinstance(item, str):
+            return _rewrite_text(item)
+        return item
+
+    if isinstance(commands, list):
+        return [_rewrite_one(c) for c in commands]
+    return _rewrite_one(commands)
+
+
+# Loopback IDs created ad-hoc by tests via the lowercase
+# ``interface loopback <N>`` idiom collide with the converged prime's per-VRF
+# ``Loopback<N>`` interfaces (each merged sub-peer owns a small-numbered
+# Loopback for its router-id). EOS interface names are global, so a test
+# creating ``loopback 10`` would otherwise steal ``Loopback10`` from another
+# VRF. On converged hosts we shift the test's loopback id by this offset into
+# an unused range (well above the per-VRF loopback space, which is bounded by
+# the cEOS interface limit) and place it in the neighbor's VRF. Validated on
+# the cEOS lab image (``Loopback1010`` accepted).
+_CONVERGED_TEST_LOOPBACK_OFFSET = 1000
+
+_ROUTER_BGP_RE = re.compile(r'^\s*router\s+bgp\s+\d+', re.IGNORECASE)
+# Match only the lowercase ad-hoc idiom (``interface loopback <N>``); the
+# converged prime's real interfaces render as capitalized ``Loopback<N>`` and
+# must not be renumbered.
+_TEST_LOOPBACK_RE = re.compile(r'^(\s*)interface\s+loopback\s+(\d+)\s*$')
+
+
+def _vrf_scope_eos_config(commands, vrf, prime_asn):
+    """VRF-scope ad-hoc BGP/loopback config pushed via ``run_command_list``.
+
+    Some tests push config by feeding ``eos_command`` a ``configure``-prefixed
+    list of native CLI lines (instead of ``eos_config``). On converged hosts
+    that config must be VRF-scoped exactly like ``eos_config`` does:
+
+    * ``router bgp <asn>`` -> ``router bgp <prime_asn>`` followed by
+      ``vrf <vrf>`` so the nested ``address-family``/``network`` statements
+      land in the neighbor's VRF rather than the prime's default process.
+    * ``interface loopback <N>`` -> a collision-free
+      ``Loopback<N + offset>`` (see ``_CONVERGED_TEST_LOOPBACK_OFFSET``)
+      followed by ``vrf <vrf>``, so the connected host route used to source an
+      advertised ``network`` exists in the right VRF instead of clobbering a
+      sub-peer's Loopback.
+
+    Returns ``commands`` unchanged when no VRF is set, the input is not a list,
+    or nothing matches -- so stock topologies and ordinary command lists are
+    byte-identical.
+    """
+    if not vrf or not isinstance(commands, list):
+        return commands
+    if not any(isinstance(c, str)
+               and (_ROUTER_BGP_RE.match(c) or _TEST_LOOPBACK_RE.match(c))
+               for c in commands):
+        return commands
+    rewritten = []
+    for cmd in commands:
+        if isinstance(cmd, str):
+            loopback_match = _TEST_LOOPBACK_RE.match(cmd)
+            if loopback_match:
+                indent, num = loopback_match.group(1), int(loopback_match.group(2))
+                rewritten.append('{}interface Loopback{}'.format(
+                    indent, num + _CONVERGED_TEST_LOOPBACK_OFFSET))
+                rewritten.append('vrf {}'.format(vrf))
+                continue
+            if _ROUTER_BGP_RE.match(cmd) and prime_asn:
+                rewritten.append('router bgp {}'.format(prime_asn))
+                rewritten.append('vrf {}'.format(vrf))
+                continue
+        rewritten.append(cmd)
+    return rewritten
+
+
 class EosHost(AnsibleHostBase):
     """
     @summary: Class for Eos switch
@@ -230,7 +336,7 @@ class EosHost(AnsibleHostBase):
     def eos_command(self, *args, **kwargs):
         """Converged-peer-aware wrapper around the ``eos_command`` Ansible module.
 
-        On converged topologies two transparent rewrites happen:
+        On converged topologies these transparent rewrites happen:
 
         * ``interface <name>`` / ``interfaces <name>`` tokens in ``commands``
           are translated through ``intf_map`` so tests can keep using the
@@ -239,6 +345,12 @@ class EosHost(AnsibleHostBase):
           ``bash sudo ip netns exec ns-<bgp_vrf> <cmd>`` so network tools
           (snmpget, ping, ...) execute in the VRF that holds the BGP routes
           to the DUT instead of the route-less default namespace.
+        * raw ``show ip|ipv6 bgp ...`` reads are VRF-scoped (``vrf <bgp_vrf>``
+          injected before any ``| <filter>`` pipe) so they read the logical
+          neighbor's routes instead of the prime's default VRF.
+        * ad-hoc ``router bgp``/``interface loopback`` config lines pushed
+          through ``run_command_list`` are VRF-scoped and de-collided the same
+          way ``eos_config`` scopes BGP config (see ``_vrf_scope_eos_config``).
 
         On stock topologies the call is passed through unchanged.
         """
@@ -247,6 +359,10 @@ class EosHost(AnsibleHostBase):
         if self.bgp_vrf and 'commands' in kwargs:
             kwargs['commands'] = _vrf_scope_bash_commands(
                 kwargs['commands'], self.bgp_vrf)
+            kwargs['commands'] = _vrf_scope_eos_reads(
+                kwargs['commands'], self.bgp_vrf)
+            kwargs['commands'] = _vrf_scope_eos_config(
+                kwargs['commands'], self.bgp_vrf, self.bgp_prime_asn)
         ansible_eos_command = self.__getattr__('eos_command')
         return ansible_eos_command(*args, **kwargs)
 

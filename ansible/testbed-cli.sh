@@ -216,6 +216,18 @@ function converge_topo_if_needed
     backup_file="${topo_file}".bak
 
     if [[ "$use_converged_peers" == "True" ]]; then
+        # The converged (multi-VRF) peer model is implemented for cEOS
+        # neighbors only: a single cEOS VM hosts every merged sub-peer as a VRF,
+        # and only the cEOS startup-config templates render that VRF config.
+        # SONiC-VS / cisco / csonic neighbors have no converged render path, so
+        # reshaping the topology for them produces a DUT minigraph whose BGP
+        # neighbors the unconverged VS peers can't answer ("Not all bgp sessions
+        # established"). Gate on vm_type so non-cEOS deployments of a
+        # converged-enabled testbed behave exactly as they did historically.
+        if [[ "$vm_type" != "ceos" ]]; then
+            echo "use_converged_peers is true but vm_type='$vm_type' is not ceos; skipping converge (converged peer model is cEOS-only)."
+            return
+        fi
         echo "use_converged_peers is true, converging topo..."
 
         if [[ -f "$backup_file" ]];then

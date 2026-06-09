@@ -28,7 +28,10 @@
   dut:
     - vlab-01
   inv_name: veos_vtb
-  use_converged_peers: True
+  # TODO(converged-peers): csonic neighbors are non-cEOS, so the converged
+  # (multi-VRF) peer model is gated off in conftest.py / testbed-cli.sh and
+  # never runs here. Re-enable once converged peers support csonic.
+  # use_converged_peers: True
   auto_recover: 'False'
   comment: Tests cSONiC virtual switch VMs without PortChannels
 
@@ -532,7 +535,10 @@
     - vlab-vpp-01
   inv_name: veos_vtb
   auto_recover: 'False'
-  use_converged_peers: True
+  # TODO(converged-peers): vpp neighbors are non-cEOS, so the converged
+  # (multi-VRF) peer model is gated off in conftest.py / testbed-cli.sh and
+  # never runs here. Re-enable once converged peers support vpp.
+  # use_converged_peers: True
   comment: Tests virtual vpp switch vm
 
 - conf-name: vms-kvm-vpp-t1
@@ -563,7 +569,10 @@
     - vlab-vpp-02
   inv_name: veos_vtb
   auto_recover: 'False'
-  use_converged_peers: True
+  # TODO(converged-peers): vpp neighbors are non-cEOS, so the converged
+  # (multi-VRF) peer model is gated off in conftest.py / testbed-cli.sh and
+  # never runs here. Re-enable once converged peers support vpp.
+  # use_converged_peers: True
   comment: Tests virtual vpp switch vm
 
 - conf-name: vms-kvm-dual-vpp-t0-1
