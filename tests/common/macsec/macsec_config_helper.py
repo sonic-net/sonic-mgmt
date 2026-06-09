@@ -1,7 +1,7 @@
 import logging
 import time
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
-     submit_async_task, load_all_macsec_info
+     submit_async_task
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
 from tests.common.devices.eos import EosHost
 from tests.common.utilities import wait_until
@@ -35,7 +35,7 @@ def get_macsec_profile(host):
     return request.config.getoption("--macsec_profile", default=None)
 
 
-def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
+def set_macsec_profile(host, profile_name, priority, cipher_suite,
                        primary_cak, primary_ckn, policy, send_sci, rekey_period=0):
     if isinstance(host, EosHost):
         eos_cipher_suite = {
@@ -64,14 +64,22 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         "primary_cak": primary_cak,
         "primary_ckn": primary_ckn,
         "policy": policy,
-        "send_sci": send_sci,
+        "send_sci" if send_sci == "true" else "no_send_sci": "",
         "rekey_period": rekey_period,
     }
-    cmd = "sonic-db-cli {} CONFIG_DB HMSET 'MACSEC_PROFILE|{}' ".format(
-        getns_prefix(host, port), profile_name)
+
+    opts = ""
     for k, v in list(macsec_profile.items()):
-        cmd += " '{}' '{}' ".format(k, v)
-    host.command(cmd)
+        opts += " --{} {}".format(k, v)
+
+    if host.is_multi_asic:
+        for ns in host.get_asic_namespace_list():
+            cmd = "config macsec -n {} profile add {} {}".format(ns, profile_name, opts)
+            host.command(cmd)
+    else:
+        cmd = "config macsec profile add {} {}".format(profile_name, opts)
+        host.command(cmd)
+
     if send_sci == "false":
         # The MAC address of SONiC host is locally administrated
         # So, LLDPd will use an arbitrary fixed value (00:60:08:69:97:ef)
@@ -111,23 +119,21 @@ def is_macsec_configured(host, mac_profile, ctrl_links):
     return is_profile_present and is_port_profile_present
 
 
-def delete_macsec_profile(host, port, profile_name):
+def delete_macsec_profile(host, profile_name):
     if isinstance(host, EosHost):
         host.eos_config(
             lines=['no profile {}'.format(profile_name)],
             parents=['mac security'])
         return
 
-    # if port is None, the macsec profile is deleted from all namespaces if multi-asic
-    if host.is_multi_asic and port is None:
+    if host.is_multi_asic:
         for ns in host.get_asic_namespace_list():
             CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
-            cmd = "sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
-            host.command(cmd)
+            cmd = "config macsec {} profile del {}".format(CMD_PREFIX, profile_name)
+            host.command(cmd, module_ignore_errors=True)
     else:
-        cmd = ("sonic-db-cli {} CONFIG_DB DEL 'MACSEC_PROFILE|{}'"
-               .format(getns_prefix(host, port), profile_name))
-        host.command(cmd)
+        cmd = ("config macsec profile del {}".format(profile_name))
+        host.command(cmd, module_ignore_errors=True)
 
 
 def enable_macsec_port(host, port, profile_name):
@@ -144,7 +150,7 @@ def enable_macsec_port(host, port, profile_name):
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
 
-    cmd = "sonic-db-cli {} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(getns_prefix(host, port), port, profile_name)
+    cmd = "config macsec {} port add {} {}".format(getns_prefix(host, port), port, profile_name)
     host.command(cmd)
 
     if dnx_platform and pc:
@@ -164,7 +170,7 @@ def disable_macsec_port(host, port):
     if dnx_platform and pc:
         host.command("sudo config portchannel {} member del {} {}".format(getns_prefix(host, port), pc["name"], port))
 
-    cmd = "sonic-db-cli {} CONFIG_DB HDEL 'PORT|{}' 'macsec'".format(getns_prefix(host, port), port)
+    cmd = "config macsec {} port del {}".format(getns_prefix(host, port), port)
     host.command(cmd)
 
     if dnx_platform and pc:
@@ -210,13 +216,13 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     wait_all_complete(timeout=300)
 
     logger.info("Cleanup macsec configuration step2: delete macsec profile")
-    # Delete the macsec profile once after it is removed from all interfaces. if we pass port as None,
-    # the profile is removed from the DB in all namespaces.
-    submit_async_task(delete_macsec_profile, (duthost, None, profile_name))
+    # Delete the macsec profile once after it is removed from all interfaces.
+    # On multi-asic the profile is removed from the DB in all namespaces.
+    submit_async_task(delete_macsec_profile, (duthost, profile_name))
 
     # Delete the macsec profile in neighbors
     for d in devices:
-        submit_async_task(delete_macsec_profile, (d, None, profile_name))
+        submit_async_task(delete_macsec_profile, (d, profile_name))
     wait_all_complete(timeout=300)
 
     logger.info("Cleanup macsec configuration step3: wait for automatic cleanup")
@@ -243,18 +249,19 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
 def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priority,
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo):
     logger.info("Setup macsec configuration step1: set macsec profile")
-    # 1. Set macsec profile
+    # 1. Set macsec profile. The profile is host-wide (no port arg), so the
+    # DUT-side set runs once outside the per-link loop.
+    submit_async_task(set_macsec_profile, (duthost, profile_name, default_priority,
+                      cipher_suite, primary_cak, primary_ckn, policy,
+                      send_sci, rekey_period))
     i = 0
     for dut_port, nbr in ctrl_links.items():
-        submit_async_task(set_macsec_profile, (duthost, dut_port, profile_name, default_priority,
-                          cipher_suite, primary_cak, primary_ckn, policy,
-                          send_sci, rekey_period))
         if i % 2 == 0:
             priority = default_priority - 1
         else:
             priority = default_priority + 1
         submit_async_task(set_macsec_profile,
-                          (nbr["host"], nbr["port"], profile_name, priority,
+                          (nbr["host"], profile_name, priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period))
         i += 1
     wait_all_complete(timeout=180)
@@ -277,9 +284,6 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
     # protocols. To hold some time for protocol recovery.
     time.sleep(60)
     logger.info("Setup macsec configuration finished")
-
-    # Load the MACSEC_INFO, to have data of all macsec sessions
-    load_all_macsec_info(duthost, ctrl_links, tbinfo)
 
 
 def wait_for_macsec_cleanup(host, interfaces, timeout=90):

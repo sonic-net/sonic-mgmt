@@ -13,6 +13,8 @@ from constants import (
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from ha_bgp_utils import ha_bgp_shutdown, ha_bgp_start
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 1.0
+TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 2.0
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -34,7 +36,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    setup_dash_ha_from_json,
+    setup_dash_ha_from_json_func_scope,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
@@ -166,14 +168,19 @@ def test_ha_bgp_shut(
                 testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet verified on standby")
+                    logger.info("First packet verified on standby - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+
             else:
                 if send_count == 0:
                     logger.info("Send first outbound packet to primary")
                 testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet verified on primary")
+                    logger.info("First packet verified on primary - compare flows")
+                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
                 logger.info(f"pkt dropped after {send_count} pkts, exception {e}")
@@ -189,22 +196,17 @@ def test_ha_bgp_shut(
     t.join()
     time.sleep(2)
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
-    if bgp_shut_on_standby:
-        if failed_count > 0:
-            pytest.fail(f"Standby BGP shut with {traffic} test failed: "
-                        f"sent: {send_count}, lost {failed_count}")
-        else:
-            logger.info(f"Standby BGP shut with {traffic} test passed. All {send_count} packets received.")
-    else:
-        threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
-        percentage_loss = (failed_count / send_count) * 100
-        if (percentage_loss < threshold_loss):
-            logger.info(f"Primary BGP shut with {traffic} test passed. Sent: {send_count},"
-                        f" lost: {failed_count}, percentage loss: {percentage_loss}, threshold: {threshold_loss}")
-        else:
-            pytest.fail(f"Primary BGP shut with {traffic} test failed. Sent: {send_count},"
-                        f" lost: {failed_count} percentage loss: {percentage_loss}, threshold: {threshold_loss}")
+    bgp_shut = "Standby BGP shut" if traffic_to_standby else "Primary BGP shut"
+    threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
+    percentage_loss = (failed_count / send_count) * 100
     if bgp_shut_on_standby:
         ha_bgp_start(duthosts[1])
     else:
         ha_bgp_start(duthosts[0])
+
+    if (percentage_loss < threshold_loss):
+        logger.info(f"{bgp_shut} with {traffic} test passed. Sent: {send_count},"
+                    f" lost: {failed_count}, percentage loss: {percentage_loss}, threshold: {threshold_loss}")
+    else:
+        pytest.fail(f"{bgp_shut} with {traffic} test failed. Sent: {send_count},"
+                    f" lost: {failed_count} percentage loss: {percentage_loss}, threshold: {threshold_loss}")

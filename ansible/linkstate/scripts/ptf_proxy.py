@@ -3,7 +3,7 @@ import pickle
 import socket
 import argparse
 import yaml
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 import datetime
 import operator
 

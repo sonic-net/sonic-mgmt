@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def xcvr_skip_list(duthosts):
     """Return empty transceiver skip list per DUT. Shared across upgrade-related test suites."""
+    # Required by reboot_and_check() empty list = no transceivers skipped during post-reboot health check.
     return {dut.hostname: [] for dut in duthosts}
 
 
@@ -49,6 +50,7 @@ class GnoiUpgradeConfig:
     metadata: Optional[GrpcMetadata] = None
     ss_reboot_ready_timeout: int = 1200
     ss_reboot_message: str = "Rebooting DPU for maintenance"
+    skip_reboot: bool = False  # If True, only stage the image, do NOT reboot (reboot happens later via NPU)
 
 
 def pytest_runtest_setup(item):
@@ -88,7 +90,7 @@ def check_sonic_version(duthost, target_version):
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
-def install_sonic(duthost, image_url, tbinfo):
+def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
     new_route_added = False
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
@@ -103,7 +105,8 @@ def install_sonic(duthost, image_url, tbinfo):
             logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
             duthost.shell("ip route replace default via {}".format(mg_gwaddr), module_ignore_errors=True)
             new_route_added = True
-        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
+        res = duthost.reduce_and_add_sonic_images(
+            new_image_url=image_url, skip_platform_check=skip_platform_check)
     else:
         out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
@@ -118,7 +121,8 @@ def install_sonic(duthost, image_url, tbinfo):
             duthost.shell("mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs", module_ignore_errors=True)
         logger.info("Image exists locally. Copying the image {} into the device path {}".format(image_url, save_as))
         duthost.copy(src=image_url, dest=save_as)
-        res = duthost.reduce_and_add_sonic_images(save_as=save_as)
+        res = duthost.reduce_and_add_sonic_images(
+            save_as=save_as, skip_platform_check=skip_platform_check)
 
     # if the new default mgmt-gateway route was added, remove it. This is done so that
     # default route src address matches Loopback0 address
@@ -431,14 +435,33 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=No
     return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
 
 
-def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+def _upgrade_one_dpu_via_gnoi(
+    duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
+    localhost=None, duthosts=None,
+) -> Dict:
+    """
+    Upgrade a single DPU via gNOI.
+
+    Steps:
+      1. Verify the DPU is reachable (gNOI System.Time)
+      2. Transfer the image to the DPU (File.TransferToRemote)
+      3. Stage the image as the next boot image (System.SetPackage)
+      4. Reboot the DPU (System.Reboot)  -- skipped if cfg.skip_reboot=True
+      5. Wait for DPU to come back up (gNOI System.Time)  -- skipped if cfg.skip_reboot=True
+
+    When cfg.skip_reboot=True, only steps 1-3 are performed.
+    This is used when you want to stage the image on the DPU but trigger the
+    actual reboot later (e.g. via an NPU reboot that also reboots all DPUs).
+    """
     if cfg.metadata is None:
         raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
 
     md = cfg.metadata
 
+    # Step 1: Verify DPU is reachable before we start
     ptf_gnoi.system_time(metadata=md)
 
+    # Step 2: Download the image onto the DPU
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         url=cfg.to_image,
         local_path=cfg.dut_image_path,
@@ -446,6 +469,7 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
         metadata=md,
     )
 
+    # Step 3: Mark the downloaded image as the next boot image
     setpkg_resp = ptf_gnoi.system_set_package(
         local_path=cfg.dut_image_path,
         version=cfg.to_version,
@@ -453,29 +477,39 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
         metadata=md,
     )
 
-    method = str(cfg.upgrade_type).upper()
-    try:
-        reboot_resp = ptf_gnoi.system_reboot(
-            method=method,
-            delay=0,
-            message=cfg.ss_reboot_message,
-            metadata=md,
-        )
-    except Exception as e:
-        logger.info("Reboot raised (often expected): %s", e)
-        reboot_resp = None
+    if cfg.skip_reboot:
+        logger.info("skip_reboot=True: image staged on DPU, skipping reboot")
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": None}
+
+    from tests.common.ptf_gnoi import PtfGnoi
+    dpu_grpc = ptf_gnoi.grpc_client.with_ss_target("dpu", cfg.ss_target_index)
+    dpu_ptf_gnoi = PtfGnoi(dpu_grpc)
+
+    reboot_and_check(
+        localhost,
+        duthost,
+        {},
+        {},
+        reboot_type=cfg.upgrade_type,
+        duthosts=duthosts,
+        invocation_type="gnoi_based",
+        ptf_gnoi=dpu_ptf_gnoi,
+    )
 
     if cfg.allow_fail:
-        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
-    ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
-    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
-
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
 
-def perform_gnoi_upgrade_smartswitch_dpu(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
-    return _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg)
+def perform_gnoi_upgrade_smartswitch_dpu(
+    duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
+    localhost=None, duthosts=None,
+) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(
+        duthost, tbinfo, ptf_gnoi, cfg,
+        localhost=localhost, duthosts=duthosts,
+    )
 
 
 def perform_gnoi_upgrade_smartswitch_dpus_parallel(
@@ -483,6 +517,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     ptf_gnoi,
     cfgs: Sequence[GnoiUpgradeConfig],
     max_workers: Optional[int] = None,
+    localhost=None, duthosts=None,
 ) -> Dict[int, Dict]:
     if not cfgs:
         raise ValueError("cfgs is empty")
@@ -493,7 +528,10 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     with SafeThreadPoolExecutor(max_workers=workers) as executor:
         futs = {}
         for i, cfg in enumerate(cfgs):
-            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg)
+            futs[i] = executor.submit(
+                _upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg,
+                localhost, duthosts,
+            )
 
         for i, fut in futs.items():
             results[i] = fut.get()

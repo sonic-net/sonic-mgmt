@@ -23,6 +23,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state
 from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
+    PLACEHOLDER_PREFIX,
     ROUTE_PROPAGATION_WAIT,
     AggregateCfg,
     announce_contributing_routes,
@@ -48,7 +49,6 @@ AGGR_V4_1 = "10.100.0.0/16"
 EXTRA_AGGR_V4_1 = "10.200.0.0/16"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
 CONTRIBUTING_V4_SECOND = ["10.200.1.0/24", "10.200.2.0/24"]
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 
