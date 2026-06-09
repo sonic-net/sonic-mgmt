@@ -130,7 +130,8 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
-def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds=30, verify_timeout=180):
+def restart_service_with_startlimit_guard(duthost, service_name, is_namespaced=False,
+                                          backoff_seconds=30, verify_timeout=180):
     """
     Restart a systemd-managed service with StartLimitHit guard.
 
@@ -145,6 +146,13 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
 
     Returns: True when the service is (re)started and running; asserts on failure.
     """
+
+    if is_namespaced:
+        # just check first namespaced instance
+        container_name = "{}0".format(service_name)
+        service_name = "{}@0".format(service_name)
+    else:
+        container_name = service_name
 
     # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
     pre_rate_limited = is_hitting_start_limit(duthost, service_name)
@@ -170,7 +178,7 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
         rate_limited = True
 
     # 2/3) Recovery path: reset-failed + backoff + start if needed
-    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, container_name):
         duthost.shell(
             f"sudo systemctl reset-failed {service_name}.service",
             module_ignore_errors=True
@@ -181,8 +189,8 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
             module_ignore_errors=True
         )
         pytest_assert(
-            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
-            f"{service_name} container did not become running after recovery start"
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, container_name, True),
+            f"{container_name} container did not become running after recovery start"
         )
 
     return True
