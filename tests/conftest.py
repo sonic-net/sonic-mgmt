@@ -465,6 +465,22 @@ def converge_topo_if_needed(config):
         if not use_converged_peers:
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
+
+        # The converged (multi-VRF) peer model is implemented for cEOS neighbors
+        # only (see ansible/testbed-cli.sh::converge_topo_if_needed and the
+        # cEOS startup-config templates). For SONiC-VS / cisco / csonic
+        # neighbors there is no converged render path, so reshaping the in-memory
+        # topology here would make tbinfo disagree with the actually-deployed
+        # (unconverged) testbed. Gate on neighbor_type so non-cEOS runs keep the
+        # historical, byte-identical behavior.
+        neighbor_type = config.getoption("--neighbor_type")
+        if neighbor_type not in ("eos", "ceos"):
+            logger.info(
+                f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
+                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
+                f"model is cEOS-only)")
+            return
+
         logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
 
         topo_name = tb_config.get('topo', '').strip()

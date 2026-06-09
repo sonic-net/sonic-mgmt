@@ -76,22 +76,10 @@ class SonicTopoConverger:
 
             for label in device_properties:
                 if label in labels:
-                    # Key the prime selection on (label, ASN) so peers sharing
-                    # a role but using distinct ASNs (e.g. the two ToRs on the
-                    # dpu topology, ASN 65200 vs 65201) each become their own
-                    # prime VM. Without the ASN in the key both would collapse
-                    # into a single ``router bgp <first-asn>`` process and the
-                    # second peer would never establish BGP (DUT expects the
-                    # other ASN). Topologies where every peer under a role
-                    # shares one ASN (t0/t1/t2/vpp/multi-asic-t1) collapse to
-                    # the same primes as before, so behavior is unchanged
-                    # there.
-                    asn = config[device].get("bgp", {}).get("asn")
-                    prime_key = (label, asn)
-                    if prime_key not in cur_prime_devs or create_new_prime:
-                        cur_prime_devs[prime_key] = device
+                    if label not in cur_prime_devs or create_new_prime:
+                        cur_prime_devs[label] = device
                         self.prime_devices.append(device)
-                    prime = cur_prime_devs[prime_key]
+                    prime = cur_prime_devs[label]
                     if prime not in self.prime_device_mapping:
                         self.prime_device_mapping[prime] = []
                     self.prime_device_mapping[prime].append(device)
@@ -263,6 +251,18 @@ class SonicTopoConverger:
         if key in old_topo:
             new_topo[key] = old_topo[key].copy()
 
+        # Preserve top-level topology metadata that minigraph generation reads
+        # directly off the topology dict (ansible/library/topo_facts.py).
+        # dut_num in particular sizes the per-DUT interface_indexes lists:
+        # multi-linecard chassis topologies (t2 variants carry dut_num 3-6)
+        # have VM vlans with dut_index > 0, so dropping dut_num makes
+        # topo_facts default it to 1 and raise "IndexError: list index out of
+        # range" during deploy-mg. Single-DUT topos omit dut_num (defaults to
+        # 1), so this is a no-op for them.
+        for key in ("dut_num", "topo_type"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key]
+
         new_topo = self.converged_topo
         old_topo = self.topo
         key = "configuration_properties"
@@ -283,8 +283,10 @@ class SonicTopoConverger:
         # subsequent ``vm_topology bind`` fails with "Too many vlans".
         #
         # Surface the required count as ``max_fp_num_provided`` at the topo
-        # root so ``roles/vm_set/tasks/start.yml`` (which already honors this
-        # override via set_fact) bumps max_fp_num for the whole vm_set. Cap at
+        # root so the vm_set role bumps max_fp_num for the whole vm_set. The
+        # override is applied in ``roles/vm_set/tasks/main.yml`` (common to
+        # every action, including ``add_topo`` which actually creates the
+        # br-VM-N bridges) and ``roles/vm_set/tasks/start.yml``. Cap at
         # CEOSLAB_INTF_LIMIT to stay within cEOSLab's per-container interface
         # ceiling, and never go below the default so single-vlan converged
         # topologies (e.g. dpu) keep the existing minimum.
