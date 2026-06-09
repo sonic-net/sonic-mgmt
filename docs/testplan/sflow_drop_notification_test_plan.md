@@ -817,7 +817,7 @@ class TestSflowDropNotification:
         assert drops[0]['reason'] == 258, "Drop reason should be ACL (258)"
 ```
 
-**Test Results Summary**
+## Test Results Summary
 
 * Pass: 17
 * Fail: 3 (TC#5, TC#7, TC#9)
