@@ -21,7 +21,7 @@ stages:
       - job: check_probe_changes
         displayName: 'Check if changes affect MMU probe code'
         timeoutInMinutes: 5
-        pool: sonic-ubuntu-1c-2
+        pool: sonic-ubuntu-1c
         steps:
           - checkout: self
           - script: |
