@@ -119,4 +119,4 @@ class TestControlPlane():
             setup_macsec_configuration(duthost, ctrl_link, profile_name, default_priority,
                                        cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, tbinfo)
             # Clean up new macsec profile
-            delete_macsec_profile(duthost, port_name, new_profile_name)
+            delete_macsec_profile(duthost, new_profile_name)

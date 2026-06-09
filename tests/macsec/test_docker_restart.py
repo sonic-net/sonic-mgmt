@@ -19,6 +19,7 @@ def test_restart_macsec_docker(duthosts, ctrl_links, policy, cipher_suite, send_
     duthost = duthosts[enum_rand_one_per_hwsku_macsec_frontend_hostname]
 
     logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
-    restart_service_with_startlimit_guard(duthost, "macsec", backoff_seconds=35, verify_timeout=180)
+    restart_service_with_startlimit_guard(duthost, "macsec", is_namespaced=duthost.is_multi_asic,
+                                          backoff_seconds=35, verify_timeout=180)
     logger.info(duthost.shell(cmd="docker ps", module_ignore_errors=True)['stdout'])
     assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)

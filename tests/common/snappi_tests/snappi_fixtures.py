@@ -1601,7 +1601,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 if 'profile' in line:
                     profile_name = line.split()[1]
                     logger.info('Removing already configured Macsec profile {}'.format(profile_name))
-                    delete_macsec_profile(port['duthost'], port['peer_port'], profile_name)
+                    delete_macsec_profile(port['duthost'], profile_name)
             macsec_enabled_port = port
             macsec_profile_name = '256_XPN_SCI'
             cipher = all_values[macsec_profile_name]['cipher_suite']
@@ -1613,7 +1613,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             send_sci = all_values[macsec_profile_name]['send_sci']
             logger.info('Configuring DUTHOST:{}'.format(port['duthost'].hostname))
             logger.info('Configuring MACSEC on DUT Interfaces: {}'.format(port['peer_port']))
-            set_macsec_profile(port['duthost'], port['peer_port'], macsec_profile_name, priority,
+            set_macsec_profile(port['duthost'], macsec_profile_name, priority,
                                cipher, primary_cak, primary_ckn, policy, send_sci, rekey_period)
             enable_macsec_port(port['duthost'], port['peer_port'], macsec_profile_name)
             if port['asic_value'] is None:
@@ -1876,7 +1876,7 @@ def cleanup_config(duthost_list, snappi_ports):
         logger.info('Deleting macsec profile {} on {} port {}'.format(macsec_profile_name,
                                                                       macsec_enabled_port['duthost'].hostname,
                                                                       macsec_enabled_port['peer_port']))
-        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_enabled_port['peer_port'], macsec_profile_name)
+        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_profile_name)
 
 
 @pytest.fixture(scope="module")
