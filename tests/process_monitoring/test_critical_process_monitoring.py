@@ -494,10 +494,6 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
-    if critical_process in ["dhcp6relay", "dhcprelayd"]:
-        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
-        critical_process = "dhcp-relay" + ":" + critical_process
-
     logger.info("Checking whether process '{}' in container '{}' is running..."
                 .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)
@@ -555,7 +551,8 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
-                    ensure_process_is_running(duthost, container_name_in_namespace, program_name)
+                    ensure_process_is_running(duthost, container_name_in_namespace,
+                                              critical_group + ":" + program_name)
 
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
