@@ -22,34 +22,33 @@
 # downloaded from the URLs defined in the variables. Please update the URLs to the actual URLs of the image files in
 # your environment.
 
-# ---- Distribution detection ----
-- name: get host distribution
-  shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
-  register: host_distribution
-  changed_when: False
-
-- name: get host distribution version
-  shell: grep ^VERSION_ID /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
-  register: host_distribution_version
-  changed_when: False
-
-# ---- Fail if Ubuntu < 22.04 ----
-- name: Fail if distribution is not Ubuntu
+# ---- Fail if Ubuntu < 22.04 or Debian < 13 ----
+- name: Fail if distribution is not Ubuntu or Debian
   fail:
     msg: >-
-      Distribution '{{ host_distribution.stdout }}' is not supported.
-      Only Ubuntu 22.04 and 24.04 are supported.
+      Distribution '{{ ansible_distribution }}' is not supported.
+      Only Ubuntu 22.04, Ubuntu 24.04, and Debian 13 (Trixie) are supported.
   when:
-    - host_distribution.stdout != "Ubuntu"
+    - ansible_distribution != "Ubuntu"
+    - ansible_distribution != "Debian"
 
 - name: Fail if Ubuntu version is not supported
   fail:
     msg: >-
-      Ubuntu {{ host_distribution_version.stdout }} is not supported.
+      Ubuntu {{ ansible_distribution_version}} is not supported.
       Minimum required version is 22.04.
   when:
-    - host_distribution.stdout == "Ubuntu"
-    - host_distribution_version.stdout is version("22.04", "<")
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "<")
+
+- name: Fail if Debian version is not supported
+  fail:
+    msg: >-
+      Debian {{ ansible_distribution_version}} is not supported.
+      Minimum required version is 13.
+  when:
+    - ansible_distribution == "Debian"
+    - ansible_distribution_version is version("13.0", "<")
 
 # ---- Host setup gating ----
 - name: Pick package_installation from env
