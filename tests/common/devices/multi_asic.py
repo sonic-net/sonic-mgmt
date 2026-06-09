@@ -573,30 +573,32 @@ class MultiAsicSonicHost(object):
                 if service_name in self.sonichost.critical_services:
                     services.append(service_name)
 
+        enable_interval_pattern = r'SysSock\.RateLimit\.Interval="[1-9][0-9]*"'
+        disable_interval_value = "SysSock.RateLimit.Interval=\"0\""
+        default_interval_value = "SysSock.RateLimit.Interval=\"300\""
+
         for docker in services:
             # This is to avoid gbsyncd check fo VS test_disable_rsyslog_rate_limit
             # we are still getting whatever enabled feature in test_disable_rsyslog_rate_limit
             # and gbsyncd feature will be added to services
             if self.get_facts()['asic_type'] == 'vs' and "gbsyncd" in docker:
                 continue
-            cmd_disable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^\$SystemLogRateLimit/#\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_enable_rate_limit = (
-                r"docker exec -i {} sed -i "
-                r"'s/^#\$SystemLogRateLimit/\$SystemLogRateLimit/g' "
-                r"/etc/rsyslog.conf"
-            )
-            cmd_reload = r"docker exec -i {} supervisorctl restart rsyslogd"
+            cmd_reload = f"docker exec -i {docker} supervisorctl restart rsyslogd"
             cmds = []
 
             if rl_option == 'disable':
-                cmds.append(cmd_disable_rate_limit.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{enable_interval_pattern}/{disable_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
             else:
-                cmds.append(cmd_enable_rate_limit.format(docker))
-            cmds.append(cmd_reload.format(docker))
+                cmds.append(
+                    f"docker exec -i {docker} sed -i "
+                    f"'s/{disable_interval_value}/{default_interval_value}/g' "
+                    f"/etc/rsyslog.conf"
+                )
+            cmds.append(cmd_reload)
             self.sonichost.shell_cmds(cmds=cmds)
 
     def get_bgp_neighbors(self, namespace=None):
