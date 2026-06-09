@@ -13,7 +13,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('bmc-dual-mgmt', 'bmc-shared-mgmt'),
+    pytest.mark.topology('bmc'),
 ]
 
 RESET_PATH = "/redfish/v1/Systems/system/Actions/ComputerSystem.Reset"
@@ -72,6 +72,25 @@ def _ensure_system_in_reset(redfish_client, bmc_exec):
 
 
 class TestRedfishComputerReset:
+
+    @pytest.fixture(autouse=True)
+    def _restore_cpu_on(self, redfish_client, bmc_exec):
+        """Best-effort finalizer: never leave the x86 CPU held in reset.
+
+        GracefulShutdown / PowerCycle power the CPU off and restore it before
+        returning, but a mid-test failure (failed assertion, timeout) would
+        otherwise leave the CPU in reset for every subsequent test. This runs
+        after each test and powers the CPU back on if it is still in reset,
+        logging instead of asserting so it never masks the test's own failure.
+        """
+        yield
+        if _cpu_running(bmc_exec):
+            return
+        logger.warning("CPU left in reset after test; restoring with ResetType=On")
+        redfish_client.post(RESET_PATH, json={"ResetType": "On"})
+        if not wait_until(POWER_ON_TIMEOUT, POLL_INTERVAL, 0,
+                          _cpu_state_matches, bmc_exec, True):
+            logger.error("Failed to restore x86 CPU to running state in teardown")
 
     def test_reset_on_when_already_on(self, redfish_client, bmc_exec):
         """
@@ -194,9 +213,20 @@ class TestRedfishComputerReset:
         try:
             error_body = response.json()
         except ValueError:
-            pytest_assert(False, "Error response is not valid JSON: {}".format(response.text))
-
+            error_body = None
         pytest_assert(
-            "error" in error_body,
-            "Expected Redfish error object with 'error' key, got: {}".format(error_body)
+            isinstance(error_body, dict),
+            "Error response is not a valid JSON object: {}".format(response.text)
+        )
+
+        # Redfish error responses carry an "error" object with at least a
+        # "code" and a "message" field (DSP0266 error payload shape).
+        error = (error_body or {}).get("error")
+        pytest_assert(
+            isinstance(error, dict),
+            "Expected a Redfish error object under 'error', got: {}".format(error_body)
+        )
+        pytest_assert(
+            "code" in (error or {}) and "message" in (error or {}),
+            "Redfish error object must contain 'code' and 'message', got: {}".format(error)
         )

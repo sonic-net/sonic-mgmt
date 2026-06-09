@@ -13,7 +13,7 @@ from tests.redfish.redfish_utils import (
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('bmc-dual-mgmt', 'bmc-shared-mgmt'),
+    pytest.mark.topology('bmc'),
 ]
 
 FIRMWARE_COLLECTION_PATH = "/redfish/v1/UpdateService/FirmwareInventory"

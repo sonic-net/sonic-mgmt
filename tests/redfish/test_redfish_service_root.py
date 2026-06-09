@@ -15,7 +15,7 @@ from tests.redfish.redfish_utils import (
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('bmc-dual-mgmt', 'bmc-shared-mgmt'),
+    pytest.mark.topology('bmc'),
 ]
 
 REQUIRED_FIELDS = ["@odata.type", "@odata.id", "RedfishVersion", "UUID", "Links"]

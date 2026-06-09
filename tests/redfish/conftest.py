@@ -6,7 +6,6 @@ import textwrap
 import time
 
 import pytest
-import yaml
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.utilities import wait_until
@@ -22,31 +21,25 @@ BMCWEB_READY_POLL = 2
 
 
 @pytest.fixture(scope="session")
-def bmc_ip(duthosts, tbinfo):
-    """Return the BMC mgmt IP from the <dut>-bmc inventory entry."""
-    dut_name = tbinfo["duts"][0]
-    return duthosts[dut_name].host.options[
-        "inventory_manager"
-    ].get_host(dut_name).get_vars()["ansible_host"]
+def bmc_duthost(duthosts, tbinfo):
+    """Return the BMC SonicHost (the DUT in a bmc-* testbed).
+
+    In bmc-dual-mgmt / bmc-shared-mgmt testbeds, duts[0] is the <switch>-bmc
+    device: the BMC itself runs SONiC and is modeled as the DUT (the host-side
+    switch is the separate bmc_host entry). Running commands or copying files
+    through this host object uses the framework's Ansible connection, with
+    credentials resolved from inventory — so the tests need no SSH/credential
+    handling of their own.
+    """
+    duthost = duthosts[tbinfo["duts"][0]]
+    pyrequire(duthost.is_bmc(), "Redfish BMC tests require a BMC DUT (NetworkBmc)")
+    return duthost
 
 
 @pytest.fixture(scope="session")
-def bmc_creds():
-    """Return BMC SSH credentials from ansible/group_vars/all/creds.yml.
-
-    Used only for SSH/SCP into the BMC during cert install — Redfish API
-    auth is performed via client certificate (see redfish_client fixture).
-    """
-    creds_file = os.path.join(
-        os.path.dirname(__file__), "../../ansible/group_vars/all/creds.yml"
-    )
-    with open(creds_file) as f:
-        creds_data = yaml.safe_load(f)
-    default_passwords = creds_data.get("sonic_default_passwords", [])
-    return {
-        "user": creds_data.get("sonic_login"),
-        "password": default_passwords[0] if default_passwords else None,
-    }
+def bmc_ip(bmc_duthost):
+    """Return the BMC management IP, used to build Redfish https URLs."""
+    return bmc_duthost.mgmt_ip
 
 
 @pytest.fixture(scope="session")
@@ -70,25 +63,19 @@ def redfish_client(bmc_ip, bmc_tls_certs):
 
 
 @pytest.fixture(scope="session")
-def bmc_exec(bmc_ip, bmc_creds):
-    """Return a callable that runs a command directly on bmc_ip via SSH.
+def bmc_exec(bmc_duthost):
+    """Return a callable that runs a command on the BMC via the framework.
 
     Usage in tests:
         stdout, stderr, rc = bmc_exec("docker exec redfish ls /etc/ssl/certs/https/")
 
-    Use this (not bmc_duthost) for any command that must run on the BMC itself,
-    since bmc_duthost connects to the SONiC management IP, not bmc_ip.
+    The command runs on the BMC over its Ansible connection. A non-zero exit is
+    returned in rc (not raised) so callers can assert on it.
     """
     def _exec(cmd):
-        return _bmc_ssh(bmc_ip, bmc_creds["password"], "'{}'".format(cmd))
+        res = bmc_duthost.shell(cmd, module_ignore_errors=True)
+        return res["stdout"], res["stderr"], res["rc"]
     return _exec
-
-
-@pytest.fixture(scope="module")
-def bmc_duthost(duthosts, tbinfo):
-    """Return the DUT host object for the BMC device (for SSH-based checks)."""
-    dut_name = tbinfo["duts"][0]
-    return duthosts[dut_name]
 
 
 def _safe(fn, *args, **kwargs):
@@ -107,52 +94,16 @@ def _run(cmd, cwd=None):
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-def _bmc_ssh(bmc_ip, bmc_pass, cmd, bmc_user="admin"):
-    """Run a command on the BMC itself via sshpass+ssh.
-
-    Used for docker cp / docker exec operations that must run on bmc_ip,
-    not on the SONiC management host that bmc_duthost connects to.
-    Returns (stdout, stderr, returncode).
-    """
-    ssh_cmd = (
-        "sshpass -p {pass_} ssh -o StrictHostKeyChecking=no "
-        "-o UserKnownHostsFile=/dev/null -T {user}@{ip} {cmd}".format(
-            pass_=bmc_pass, user=bmc_user, ip=bmc_ip, cmd=cmd)
-    )
-    result = subprocess.run(ssh_cmd, shell=True, check=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # The BMC prints a login banner (/etc/issue) before command output.
-    # Strip the banner line to get clean output.
-    raw_stdout = result.stdout.decode()
-    stdout = raw_stdout.replace("Debian GNU/Linux 13 \\n \\l", "").strip()
-    return stdout, result.stderr.decode().strip(), result.returncode
-
-
-def _bmc_scp(bmc_ip, bmc_pass, local_path, remote_path, bmc_user="admin"):
-    """Copy a local file to the BMC via sshpass+scp."""
-    scp_cmd = (
-        "sshpass -p {pass_} scp -o StrictHostKeyChecking=no "
-        "-o UserKnownHostsFile=/dev/null {src} {user}@{ip}:{dst}".format(
-            pass_=bmc_pass, user=bmc_user, ip=bmc_ip,
-            src=local_path, dst=remote_path)
-    )
-    subprocess.run(scp_cmd, shell=True, check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-
-def _bmcweb_running(bmc_ip, bmc_pass):
+def _bmcweb_running(bmc_duthost):
     """True iff `supervisorctl status bmcweb` reports RUNNING in the redfish container.
 
     Used as the wait_until condition.
     """
-    try:
-        stdout, _, _ = _bmc_ssh(
-            bmc_ip, bmc_pass,
-            "'docker exec {} supervisorctl status bmcweb'".format(BMCWEB_CONTAINER),
-        )
-    except subprocess.CalledProcessError:
-        return False
-    return "RUNNING" in stdout
+    res = bmc_duthost.shell(
+        "docker exec {} supervisorctl status bmcweb".format(BMCWEB_CONTAINER),
+        module_ignore_errors=True,
+    )
+    return res["rc"] == 0 and "RUNNING" in res["stdout"]
 
 
 def _generate_ca_cert(cert_dir):
@@ -281,7 +232,7 @@ def _generate_certs(cert_dir, bmc_ip, client_cn):
 
 
 @pytest.fixture(scope="session")
-def bmc_clock_in_sync(bmc_ip, bmc_creds):
+def bmc_clock_in_sync(bmc_duthost):
     """Skip cert tests early if BMC clock is skewed beyond the cert NotBefore window.
 
     Generated certs use the sonic-mgmt container's current time as NotBefore.
@@ -289,10 +240,8 @@ def bmc_clock_in_sync(bmc_ip, bmc_creds):
     fails the TLS handshake with SSLV3_ALERT_BAD_CERTIFICATE — surfacing as an
     opaque "bad certificate" error far from the actual cause.
     """
-    bmc_pass = bmc_creds["password"]
     container_now = int(time.time())
-    stdout, _, _ = _bmc_ssh(bmc_ip, bmc_pass, "'date -u +%s'")
-    bmc_now = int(stdout.strip())
+    bmc_now = int(bmc_duthost.shell("date -u +%s")["stdout"].strip())
     skew = container_now - bmc_now
     pyrequire(
         abs(skew) <= 60,
@@ -307,12 +256,12 @@ def bmc_clock_in_sync(bmc_ip, bmc_creds):
 
 
 @pytest.fixture(scope="session")
-def bmc_tls_certs(bmc_ip, bmc_creds, bmc_clock_in_sync, tmp_path_factory):
+def bmc_tls_certs(bmc_duthost, bmc_ip, bmc_clock_in_sync, tmp_path_factory):
     """Generate TLS certificates, install them on the BMC, and clean up at session end.
 
     What this fixture does:
     1. Generates CA, server, and client certs inside the sonic-mgmt container using openssl.
-    2. Copies the server cert, CA cert, and TLS config to the BMC via SSH.
+    2. Copies the server cert, CA cert, and TLS config to the BMC.
     3. Installs the certs into the redfish container and enables TLSStrict in bmcweb.
     4. Yields a dict with paths to client-cert.pem, client-key.pem, and CA-cert.pem
        for use in requests(cert=..., verify=...) calls.
@@ -323,8 +272,7 @@ def bmc_tls_certs(bmc_ip, bmc_creds, bmc_clock_in_sync, tmp_path_factory):
     logger.info("Generating TLS certificates in {}".format(cert_dir))
 
     # --- Step 1: Generate certificates using openssl inside the container ---
-    # Client cert CN must match a bmcweb user; use "bmcweb" rather than the SSH
-    # login ("admin") which is only used for cert install over SSH/SCP below.
+    # Client cert CN must match a bmcweb user; use the "bmcweb" user.
     _generate_certs(cert_dir, bmc_ip, client_cn="bmcweb")
 
     server_combined = str(cert_dir / "server-combined.pem")
@@ -335,52 +283,49 @@ def bmc_tls_certs(bmc_ip, bmc_creds, bmc_clock_in_sync, tmp_path_factory):
 
     logger.info("Certificates generated. Installing on BMC {}".format(bmc_ip))
 
-    bmc_pass = bmc_creds["password"]
-
     # --- Step 2: Copy files to BMC ---
-    _bmc_scp(bmc_ip, bmc_pass, server_combined, "/tmp/server-combined.pem")
-    _bmc_scp(bmc_ip, bmc_pass, ca_cert, "/tmp/CA-cert.pem")
-    _bmc_scp(bmc_ip, bmc_pass, tls_config, "/tmp/bmcweb_tls_config.json")
+    bmc_duthost.copy(src=server_combined, dest="/tmp/server-combined.pem")
+    bmc_duthost.copy(src=ca_cert, dest="/tmp/CA-cert.pem")
+    bmc_duthost.copy(src=tls_config, dest="/tmp/bmcweb_tls_config.json")
 
     # --- Step 3: Install server certificate (backup the original first) ---
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker exec {} cp /etc/ssl/certs/https/server.pem "
-             "/etc/ssl/certs/https/server.pem.bak'".format(BMCWEB_CONTAINER))
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker cp /tmp/server-combined.pem {}:/etc/ssl/certs/https/server.pem'".format(
-                 BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker exec {} cp /etc/ssl/certs/https/server.pem "
+        "/etc/ssl/certs/https/server.pem.bak".format(BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker cp /tmp/server-combined.pem {}:/etc/ssl/certs/https/server.pem".format(
+            BMCWEB_CONTAINER))
 
     # --- Step 4: Install CA certificate into truststore ---
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker exec {} mkdir -p /etc/ssl/certs/authority'".format(BMCWEB_CONTAINER))
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker cp /tmp/CA-cert.pem {}:/etc/ssl/certs/authority/CA-cert.pem'".format(
-                 BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker exec {} mkdir -p /etc/ssl/certs/authority".format(BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker cp /tmp/CA-cert.pem {}:/etc/ssl/certs/authority/CA-cert.pem".format(
+            BMCWEB_CONTAINER))
 
     # Compute the hash on the BMC host (where /tmp/CA-cert.pem is accessible),
     # then create the symlink inside the container using the explicit hash value.
     # This avoids $() being evaluated in the wrong shell context.
-    ca_hash, _, _ = _bmc_ssh(
-        bmc_ip, bmc_pass,
-        "'openssl x509 -hash -noout -in /tmp/CA-cert.pem'")
+    ca_hash = bmc_duthost.shell(
+        "openssl x509 -hash -noout -in /tmp/CA-cert.pem")["stdout"].strip()
     logger.info("CA cert hash: {}".format(ca_hash))
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker exec {c} bash -c \"cd /etc/ssl/certs/authority && "
-             "ln -sf CA-cert.pem {h}.0\"'".format(c=BMCWEB_CONTAINER, h=ca_hash))
+    bmc_duthost.shell(
+        'docker exec {c} bash -c "cd /etc/ssl/certs/authority && '
+        'ln -sf CA-cert.pem {h}.0"'.format(c=BMCWEB_CONTAINER, h=ca_hash))
 
     # --- Step 5: Enable TLSStrict and restart bmcweb ---
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker exec {} supervisorctl stop bmcweb'".format(BMCWEB_CONTAINER))
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker cp /tmp/bmcweb_tls_config.json {}:/bmcweb_persistent_data.json'".format(
-                 BMCWEB_CONTAINER))
-    _bmc_ssh(bmc_ip, bmc_pass,
-             "'docker exec {} supervisorctl start bmcweb'".format(BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker exec {} supervisorctl stop bmcweb".format(BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker cp /tmp/bmcweb_tls_config.json {}:/bmcweb_persistent_data.json".format(
+            BMCWEB_CONTAINER))
+    bmc_duthost.shell(
+        "docker exec {} supervisorctl start bmcweb".format(BMCWEB_CONTAINER))
 
     # Wait for bmcweb to reach RUNNING again after the supervisorctl restart.
     pyrequire(
         wait_until(BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
-                   _bmcweb_running, bmc_ip, bmc_pass),
+                   _bmcweb_running, bmc_duthost),
         "bmcweb did not reach RUNNING within {}s after enabling TLSStrict".format(
             BMCWEB_READY_TIMEOUT),
     )
@@ -398,38 +343,44 @@ def bmc_tls_certs(bmc_ip, bmc_creds, bmc_clock_in_sync, tmp_path_factory):
     # the BMC half-configured (e.g. CA removed but server cert/TLSStrict not restored).
     logger.info("Cleaning up: removing certs from BMC and disabling TLSStrict")
 
-    _safe(_bmc_ssh, bmc_ip, bmc_pass,
-          "'docker exec {} supervisorctl stop bmcweb'".format(BMCWEB_CONTAINER))
+    _safe(bmc_duthost.shell,
+          "docker exec {} supervisorctl stop bmcweb".format(BMCWEB_CONTAINER),
+          module_ignore_errors=True)
 
     # Remove CA cert and its hash symlink from truststore.
     # Compute hash on the host first (same reason as setup — avoid $() context issues).
-    ca_hash_result = _safe(_bmc_ssh, bmc_ip, bmc_pass,
-                           "'openssl x509 -hash -noout -in /tmp/CA-cert.pem 2>/dev/null'")
-    if ca_hash_result:
-        ca_hash_td = ca_hash_result[0]
-        _safe(_bmc_ssh, bmc_ip, bmc_pass,
-              "'docker exec {c} bash -c \"rm -f /etc/ssl/certs/authority/CA-cert.pem "
-              "/etc/ssl/certs/authority/{h}.0\"'".format(c=BMCWEB_CONTAINER, h=ca_hash_td))
+    ca_hash_res = _safe(bmc_duthost.shell,
+                        "openssl x509 -hash -noout -in /tmp/CA-cert.pem 2>/dev/null",
+                        module_ignore_errors=True)
+    if ca_hash_res and ca_hash_res["stdout"].strip():
+        ca_hash_td = ca_hash_res["stdout"].strip()
+        _safe(bmc_duthost.shell,
+              'docker exec {c} bash -c "rm -f /etc/ssl/certs/authority/CA-cert.pem '
+              '/etc/ssl/certs/authority/{h}.0"'.format(c=BMCWEB_CONTAINER, h=ca_hash_td),
+              module_ignore_errors=True)
 
     # Restore the original server.pem from the backup taken at setup
-    _safe(_bmc_ssh, bmc_ip, bmc_pass,
-          "'docker exec {c} bash -c \"mv -f /etc/ssl/certs/https/server.pem.bak "
-          "/etc/ssl/certs/https/server.pem\"'".format(c=BMCWEB_CONTAINER))
+    _safe(bmc_duthost.shell,
+          'docker exec {c} bash -c "mv -f /etc/ssl/certs/https/server.pem.bak '
+          '/etc/ssl/certs/https/server.pem"'.format(c=BMCWEB_CONTAINER),
+          module_ignore_errors=True)
 
     # Write TLSStrict=false config, copy to BMC, install into container
     _safe(_write_bmcweb_tls_config, cert_dir, tls_strict=False)
     restore_config = str(cert_dir / "bmcweb_tls_config.json")
-    _safe(_bmc_scp, bmc_ip, bmc_pass, restore_config, "/tmp/bmcweb_tls_restore.json")
-    _safe(_bmc_ssh, bmc_ip, bmc_pass,
-          "'docker cp /tmp/bmcweb_tls_restore.json {}:/bmcweb_persistent_data.json'".format(
-              BMCWEB_CONTAINER))
+    _safe(bmc_duthost.copy, src=restore_config, dest="/tmp/bmcweb_tls_restore.json")
+    _safe(bmc_duthost.shell,
+          "docker cp /tmp/bmcweb_tls_restore.json {}:/bmcweb_persistent_data.json".format(
+              BMCWEB_CONTAINER),
+          module_ignore_errors=True)
 
-    _safe(_bmc_ssh, bmc_ip, bmc_pass,
-          "'docker exec {} supervisorctl start bmcweb'".format(BMCWEB_CONTAINER))
+    _safe(bmc_duthost.shell,
+          "docker exec {} supervisorctl start bmcweb".format(BMCWEB_CONTAINER),
+          module_ignore_errors=True)
 
     # Wait for RUNNING again.
     if not wait_until(BMCWEB_READY_TIMEOUT, BMCWEB_READY_POLL, 0,
-                      _bmcweb_running, bmc_ip, bmc_pass):
+                      _bmcweb_running, bmc_duthost):
         logger.warning("bmcweb did not reach RUNNING within %ds during teardown",
                        BMCWEB_READY_TIMEOUT)
     logger.info("BMC restored to Basic Auth mode.")

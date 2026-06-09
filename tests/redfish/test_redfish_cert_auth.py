@@ -19,7 +19,7 @@ from tests.redfish.redfish_utils import BMC_TEST_CA_NAME, assert_status_ok, redf
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('bmc-dual-mgmt', 'bmc-shared-mgmt'),
+    pytest.mark.topology('bmc'),
 ]
 
 SERVICE_ROOT_PATH = "/redfish/v1"
