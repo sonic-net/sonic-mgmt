@@ -187,7 +187,7 @@ def common_setup_teardown(
             # For FT2, we need to use vtysh to configure an external BGP neighbor
             use_vtysh = True
     elif dut_type in ["LowerRegionalHub"]:
-        neigh_type = "SpineRouter" # or "UpperSpineRouter"
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
         if confed_asn is not None:
             use_vtysh = True
     elif dut_type in ["UpperRegionalHub"]:

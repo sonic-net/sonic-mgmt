@@ -165,7 +165,7 @@ def setup_bgp_peers(
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
             use_vtysh = True
     elif dut_type in ["LowerRegionalHub"]:
-        neigh_type = "SpineRouter" # or "UpperSpineRouter"
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
         if confed_asn is not None:
             use_vtysh = True
     elif dut_type in ["UpperRegionalHub"]:
