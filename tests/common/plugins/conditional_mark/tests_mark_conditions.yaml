@@ -2583,7 +2583,7 @@ generic_config_updater/test_dynamic_acl.py:
      as well."
     conditions_logical_operator: "AND"
     conditions:
-      - "release in ['202511']
+      - "release in ['202511']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0']"
 
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_arp_rule_creation[IPV4:
