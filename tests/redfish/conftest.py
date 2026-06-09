@@ -22,14 +22,12 @@ BMCWEB_READY_POLL = 2
 
 @pytest.fixture(scope="session")
 def bmc_duthost(duthosts, tbinfo):
-    """Return the BMC SonicHost (the DUT in a bmc-* testbed).
+    """Return the SonicHost for the BMC under test.
 
-    In bmc-dual-mgmt / bmc-shared-mgmt testbeds, duts[0] is the <switch>-bmc
-    device: the BMC itself runs SONiC and is modeled as the DUT (the host-side
-    switch is the separate bmc_host entry). Running commands or copying files
-    through this host object uses the framework's Ansible connection, with
-    credentials resolved from inventory — so the tests need no SSH/credential
-    handling of their own.
+    In the bmc-* topologies the testbed's DUT is the BMC itself -- the
+    ``<switch>-bmc`` inventory host, which runs SONiC -- so it is ``duts[0]``;
+    the host-side switch is a separate device referenced via the ``bmc_host``
+    field. Skips the test if the resolved DUT is not a BMC.
     """
     duthost = duthosts[tbinfo["duts"][0]]
     pyrequire(duthost.is_bmc(), "Redfish BMC tests require a BMC DUT (NetworkBmc)")
@@ -64,13 +62,12 @@ def redfish_client(bmc_ip, bmc_tls_certs):
 
 @pytest.fixture(scope="session")
 def bmc_exec(bmc_duthost):
-    """Return a callable that runs a command on the BMC via the framework.
+    """Return a callable that runs a command on the BMC, returning (stdout, stderr, rc).
 
     Usage in tests:
         stdout, stderr, rc = bmc_exec("docker exec redfish ls /etc/ssl/certs/https/")
 
-    The command runs on the BMC over its Ansible connection. A non-zero exit is
-    returned in rc (not raised) so callers can assert on it.
+    A non-zero exit is reported in rc rather than raised, so callers can assert on it.
     """
     def _exec(cmd):
         res = bmc_duthost.shell(cmd, module_ignore_errors=True)
