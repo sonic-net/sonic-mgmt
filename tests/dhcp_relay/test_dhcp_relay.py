@@ -730,7 +730,7 @@ def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_r
 
     if duthost.facts.get("asic_type") == "vs":
         pytest.skip("VS/KVM dataplane does not enforce SAI_PACKET_ACTION_TRAP removal semantics; "
-                     "broadcasts are L2-flooded even when COPP traps them to CPU")
+                    "broadcasts are L2-flooded even when COPP traps them to CPU")
 
     for dhcp_relay in dut_dhcp_relay_data:
         if not dhcp_relay['other_client_ports']:
