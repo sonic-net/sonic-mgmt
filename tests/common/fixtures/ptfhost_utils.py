@@ -30,6 +30,7 @@ TEMPLATES_DIR = "templates/"
 ACS_TESTS = "acstests"
 PTF_TESTS = "ptftests"
 SAI_TESTS = "saitests"
+TAI_TESTS = "TAI"
 ARP_RESPONDER_PY = "arp_responder.py"
 ICMP_RESPONDER_PY = "icmp_responder.py"
 ICMP_RESPONDER_CONF_TEMPL = "icmp_responder.conf.j2"
@@ -113,6 +114,27 @@ def copy_saitests_directory(ptfhost):
 
     logger.info("Delete SAI test files from PTF host '{0}'".format(ptfhost.hostname))
     ptfhost.file(path=os.path.join(ROOT_DIR, SAI_TESTS), state="absent")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def copy_tai_directory(ptfhost):
+    """
+        Copies TAI (Test Abstraction Interface) directory to PTF host so that
+        PTF tests can import platform-specific adapters via 'from TAI import ...'.
+
+        Args:
+            ptfhost (AnsibleHost): Packet Test Framework (PTF)
+
+        Returns:
+            None
+    """
+    logger.info("Copy TAI directory to PTF host '{0}'".format(ptfhost.hostname))
+    ptfhost.copy(src=TAI_TESTS, dest=ROOT_DIR)
+
+    yield
+
+    logger.info("Delete TAI directory from PTF host '{0}'".format(ptfhost.hostname))
+    ptfhost.file(path=os.path.join(ROOT_DIR, TAI_TESTS), state="absent")
 
 
 @pytest.fixture(scope="session", autouse=True)

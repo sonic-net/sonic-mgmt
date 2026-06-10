@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="620" viewBox="0 0 760 620" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="cf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5f6368"/>
+    </marker>
+    <style>
+      .t  { font-size: 14px; font-weight: 600; fill: #202124; }
+      .s  { font-size: 11.5px; fill: #5f6368; }
+      .m  { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 11px; fill: #1a73e8; }
+      .e  { font-size: 11px; fill: #5f6368; font-style: italic; }
+      .fl { stroke: #5f6368; stroke-width: 1.6; fill: none; }
+    </style>
+  </defs>
+  <rect width="760" height="620" fill="#ffffff"/>
+
+  <!-- Test -->
+  <rect x="170" y="24" width="420" height="56" rx="10" fill="#e8f0fe" stroke="#4285f4" stroke-width="1.6"/>
+  <text x="380" y="46" text-anchor="middle" class="t">Test</text>
+  <text x="380" y="66" text-anchor="middle" class="m">platform_adapter.check_rx_drop(...)</text>
+  <path class="fl" d="M380,80 L380,112" marker-end="url(#cf-arrow)"/>
+
+  <!-- Facade -->
+  <rect x="170" y="112" width="420" height="58" rx="10" fill="#e6f4ea" stroke="#34a853" stroke-width="1.6"/>
+  <text x="380" y="135" text-anchor="middle" class="t">PlatformAdapter  (facade.py)</text>
+  <text x="380" y="156" text-anchor="middle" class="s">looks up adapter (built at construction)</text>
+  <path class="fl" d="M380,170 L380,202" marker-end="url(#cf-arrow)"/>
+
+  <!-- Factory -->
+  <rect x="170" y="202" width="420" height="62" rx="10" fill="#fef7e0" stroke="#f9ab00" stroke-width="1.6"/>
+  <text x="380" y="225" text-anchor="middle" class="t">AdapterFactory  (factory.py)</text>
+  <text x="380" y="246" text-anchor="middle" class="s">at construction: hwsku 'NH-4020...' &#8594; TH6 adapter</text>
+  <path class="fl" d="M380,264 L380,296" marker-end="url(#cf-arrow)"/>
+
+  <!-- TH6 -->
+  <rect x="170" y="296" width="420" height="52" rx="10" fill="#f3e8fd" stroke="#a142f4" stroke-width="1.6"/>
+  <text x="380" y="318" text-anchor="middle" class="t">TH6ThriftAdapter</text>
+  <text x="380" y="338" text-anchor="middle" class="s">method not overridden here</text>
+  <path class="fl" d="M380,348 L380,378" marker-end="url(#cf-arrow)"/>
+  <text x="392" y="368" class="e">fall through MRO</text>
+
+  <!-- TH5 -->
+  <rect x="170" y="378" width="420" height="52" rx="10" fill="#f3e8fd" stroke="#a142f4" stroke-width="1.6"/>
+  <text x="380" y="400" text-anchor="middle" class="t">TH5ThriftAdapter</text>
+  <text x="380" y="420" text-anchor="middle" class="s">method not overridden here</text>
+  <path class="fl" d="M380,430 L380,460" marker-end="url(#cf-arrow)"/>
+  <text x="392" y="450" class="e">fall through MRO</text>
+
+  <!-- base -->
+  <rect x="170" y="460" width="420" height="56" rx="10" fill="#e8eaed" stroke="#5f6368" stroke-width="1.6"/>
+  <text x="380" y="483" text-anchor="middle" class="t">ThriftAdapter  (core/thrift.py)</text>
+  <text x="380" y="503" text-anchor="middle" class="s">defines check_rx_drop &#8594; runs, returns (ok, reason)</text>
+
+  <!-- return -->
+  <path class="fl" d="M610,488 C700,488 700,52 600,52" marker-end="url(#cf-arrow)" stroke-dasharray="5 4"/>
+  <text x="648" y="275" text-anchor="middle" class="e" transform="rotate(90 648 275)">result back to test</text>
+</svg>
