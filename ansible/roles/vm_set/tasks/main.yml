@@ -22,6 +22,18 @@
 # downloaded from the URLs defined in the variables. Please update the URLs to the actual URLs of the image files in
 # your environment.
 
+# Gather distribution facts (ansible_distribution / ansible_distribution_version) when they
+# are not already available. Several playbooks that include this role run with
+# `gather_facts: no` (e.g. testbed_renumber_vm_topology.yml), in which case these facts are
+# undefined and the distribution checks below fail with "'ansible_distribution' is undefined".
+- name: Gather distribution facts if not already gathered
+  setup:
+    gather_subset:
+      - "!all"
+      - "!min"
+      - distribution
+  when: ansible_distribution is not defined
+
 # ---- Fail if Ubuntu < 22.04 or Debian < 13 ----
 - name: Fail if distribution is not Ubuntu or Debian
   fail:
