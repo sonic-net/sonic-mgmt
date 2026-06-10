@@ -3,6 +3,7 @@ from tests.common.utilities import (wait)
 from tests.common.helpers.assertions import pytest_assert
 import logging
 import json
+import time
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -12,6 +13,60 @@ BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
 NG_LIST = []
 aspaths = [65002, 65003]
+
+
+def _unbind_everflow_acl_from_ports(duthost, ports):
+    """Remove EVERFLOW ACL tables when they are bound to the ports used by this test."""
+    target_ports = set(ports)
+    acl_table_out = duthost.shell("show acl table", module_ignore_errors=True)
+    acl_stdout = acl_table_out.get('stdout', '')
+    if not acl_stdout:
+        logger.warning('DEBUG: show acl table returned no output; skipping EVERFLOW unbind')
+        return
+    for table_name in ('EVERFLOW', 'EVERFLOWV6'):
+        if table_name not in acl_stdout:
+            continue
+        bound_to_target = False
+        for line in acl_stdout.splitlines():
+            if table_name in line and any(port in line for port in target_ports):
+                bound_to_target = True
+                break
+        if not bound_to_target:
+            continue
+        logger.warning('DEBUG: Removing ACL table %s to unbind test ports %s', table_name, sorted(target_ports))
+        rm_result = duthost.shell('sudo config acl remove table {}'.format(table_name), module_ignore_errors=True)
+        logger.warning('DEBUG: ACL remove result for %s: %s', table_name, rm_result)
+        pytest_assert(
+            rm_result.get('rc', 1) == 0 and 'Error' not in rm_result.get('stderr', ''),
+            'Failed to remove ACL table {} before BGP PortChannel setup: {}'.format(
+                table_name, rm_result.get('stderr', '')))
+
+
+def _snappi_layer1_speed(port_entry):
+    speed = port_entry.get('snappi_speed_type') or port_entry.get('speed')
+    if isinstance(speed, str) and speed.startswith('speed_'):
+        return speed
+    return 'speed_{}_gbps'.format(int(int(speed) / 1000))
+
+
+def _snappi_rs_fec_enabled(port_entry):
+    """Infer RS-FEC behavior when fixture does not provide explicit FEC fields."""
+    if port_entry.get('fec_disable') is True:
+        return False
+    if 'fec' in port_entry:
+        return bool(port_entry.get('fec'))
+    speed = port_entry.get('snappi_speed_type') or port_entry.get('speed')
+    if isinstance(speed, str) and speed.startswith('speed_'):
+        try:
+            speed_g = int(speed.replace('speed_', '').replace('_gbps', ''))
+        except ValueError:
+            speed_g = 0
+    else:
+        try:
+            speed_g = int(int(speed) / 1000)
+        except Exception:
+            speed_g = 0
+    return speed_g >= 100
 
 
 def run_bgp_convergence_performance(snappi_api,
@@ -101,7 +156,45 @@ def run_bgp_scalability_v4_v6(snappi_api,
     """
         Run the BGP Scalability test
     """
-    get_bgp_scalability_result(snappi_api, localhost, tgen_bgp_config, limit_flag, duthost)
+    # Debug: Print TGEN config summary
+    logger.info("TGEN BGP config: %s", tgen_bgp_config)
+    for flow in getattr(tgen_bgp_config, 'flows', []):
+        logger.info("Flow %s: tx_rx=%s, packet=%s", getattr(flow, 'name', ''), getattr(flow, 'tx_rx', ''), getattr(flow, 'packet', ''))
+
+    # Debug: Print BGP session and route state before traffic
+    try:
+        logger.info("BGP summary:\n%s", duthost.shell("show ip bgp summary")['stdout'])
+        logger.info("BGP IPv4 neighbors:\n%s", duthost.shell("show ip bgp neighbors")['stdout'])
+        logger.info("BGP IPv6 summary:\n%s", duthost.shell("show ipv6 bgp summary")['stdout'])
+        logger.info("FIB routes:\n%s", duthost.shell("show ip route")['stdout'])
+    except Exception as e:
+        logger.warning("Could not fetch BGP/FIB info: %s", e)
+
+    # Debug: List core files before traffic
+    try:
+        core_files_before = duthost.shell("ls /var/core/", module_ignore_errors=True)['stdout_lines']
+        logger.info("Core files before traffic: %s", core_files_before)
+    except Exception as e:
+        logger.warning("Could not list core files before traffic: %s", e)
+
+    get_bgp_scalability_result(snappi_api,
+                               localhost,
+                               tgen_bgp_config,
+                               limit_flag,
+                               duthost,
+                               ipv4_routes,
+                               ipv6_routes)
+
+    # Debug: List core files after traffic
+    try:
+        core_files_after = duthost.shell("ls /var/core/", module_ignore_errors=True)['stdout_lines']
+        logger.info("Core files after traffic: %s", core_files_after)
+        new_cores = set(core_files_after) - set(core_files_before)
+        if new_cores:
+            logger.error("New core dumps detected after traffic: %s", new_cores)
+            logger.info("Last 100 lines of syslog:\n%s", duthost.shell("tail -n 100 /var/log/syslog")['stdout'])
+    except Exception as e:
+        logger.warning("Could not list core files after traffic: %s", e)
 
 
 def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
@@ -117,6 +210,32 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     duthost.command('sudo crm config thresholds ipv4 route high 85')
     duthost.command('sudo crm config thresholds ipv4 route low 70')
     temp_tg_port = tgen_ports
+    _unbind_everflow_acl_from_ports(
+        duthost,
+        [tgen_ports[i]['peer_port'] for i in range(port_count)]
+    )
+
+    # Remove test ports from any existing Vlan/PortChannel membership before
+    # adding to new PortChannels (SONiC won't allow adding a Vlan member to a PC)
+    config_db_current = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    vlan_members = config_db_current.get("VLAN_MEMBER", {})
+    pc_members = config_db_current.get("PORTCHANNEL_MEMBER", {})
+    for i in range(port_count):
+        peer_port = tgen_ports[i]['peer_port']
+        for vlan_key in list(vlan_members.keys()):
+            vlan_name, member_port = vlan_key.split('|', 1)
+            if member_port == peer_port:
+                vlan_id = vlan_name.replace('Vlan', '')
+                logger.info(f"Removing {peer_port} from {vlan_name} before PortChannel config")
+                duthost.shell(f"sudo config vlan member del {vlan_id} {peer_port}",
+                              module_ignore_errors=True)
+        for pc_key in list(pc_members.keys()):
+            pc_name, member_port = pc_key.split('|', 1)
+            if member_port == peer_port:
+                logger.info(f"Removing {peer_port} from {pc_name} before PortChannel config")
+                duthost.shell(f"sudo config portchannel member del {pc_name} {peer_port}",
+                              module_ignore_errors=True)
+
     for i in range(port_count):
         port = tgen_ports[i]
         intf_config = (
@@ -124,19 +243,26 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
             f"sudo config interface ip remove {port['peer_port']} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
         )
         logger.info(f"Removing IPs from {port['peer_port']}")
-        duthost.shell(intf_config)
+        duthost.shell(intf_config, module_ignore_errors=True)
 
     for i in range(port_count):
         port = tgen_ports[i]
         idx = i + 1
-        portchannel_config = (
-            f"sudo config portchannel add PortChannel{idx} \n"
-            f"sudo config portchannel member add PortChannel{idx} {port['peer_port']}\n"
-            f"sudo config interface ip add PortChannel{idx} {port['peer_ip']}/{port['prefix']}\n"
-            f"sudo config interface ip add PortChannel{idx} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
-        )
         logger.info(f"Configuring {port['peer_port']} to PortChannel{idx}")
-        duthost.shell(portchannel_config)
+        duthost.shell(f"sudo config portchannel add PortChannel{idx}",
+                      module_ignore_errors=True)
+        result = duthost.shell(
+            f"sudo config portchannel member add PortChannel{idx} {port['peer_port']}")
+        pytest_assert(
+            result.get('rc', 1) == 0,
+            f"Failed to add {port['peer_port']} to PortChannel{idx}: {result.get('stderr', '')}")
+        pytest_assert(
+            'Error:' not in result.get('stderr', ''),
+            f"PortChannel{idx} member add failed for {port['peer_port']}: {result.get('stderr', '')}")
+        duthost.shell(
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ip']}/{port['prefix']}")
+        duthost.shell(
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ipv6']}/{port['ipv6_prefix']}")
 
     duthost.command("sudo config save -y")
     # BGP Configuration
@@ -146,6 +272,15 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
         "Loopback0|1::1/128": {},
     }
     config_db = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    all_test_ports = tgen_ports[:port_count]
+    bgp_ports = tgen_ports[:port_count]
+
+    # Remove stale Snappi neighbors from prior runs, then add neighbors for all test ports.
+    bgp_neighbor_table = config_db.setdefault("BGP_NEIGHBOR", {})
+    for port in all_test_ports:
+        bgp_neighbor_table.pop(port['ip'], None)
+        bgp_neighbor_table.pop(port['ipv6'], None)
+
     bgp_neighbors = {
         addr: {
             "asn": TGEN_AS_NUM,
@@ -156,29 +291,41 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
             "nhopself": "0",
             "rrclient": "0",
         }
-        for port in tgen_ports
+        for port in bgp_ports
         for addr, ip_version in [(port['ip'], port['peer_ip']), (port['ipv6'], port['peer_ipv6'])]
     }
 
-    device_neighbors = {
-        port['peer_port']: {
+    # Keep Snappi neighbor metadata only for Rx-side BGP ports used in this test.
+    device_neighbor_table = config_db.setdefault("DEVICE_NEIGHBOR", {})
+    for port in all_test_ports:
+        device_neighbor_table.pop(port['peer_port'], None)
+    for port in bgp_ports:
+        device_neighbor_table[port['peer_port']] = {
             "name": "snappi-sonic",
             "port": "Ethernet1"
         }
-        for port in tgen_ports
+
+    device_neighbor_metadata_table = config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {})
+    device_neighbor_metadata_table["snappi-sonic"] = {
+        "hwsku": "snappi-sonic",
+        "mgmt_addr": "172.16.149.206",
+        "type": "LeafRouter"
     }
 
-    device_neighbor_metadatas = {
-        "snappi-sonic": {
-            "hwsku": "snappi-sonic",
-            "mgmt_addr": "172.16.149.206",
-            "type": "ToRRouter"
+    # Remove test ports from VLAN_MEMBER in the config_db so they don't get
+    # restored as Vlan members after config reload.
+    # Do NOT filter PORTCHANNEL_MEMBER — the new PortChannel memberships added
+    # above were saved by config save -y and must survive the reload.
+    test_ports = {tgen_ports[i]['peer_port'] for i in range(port_count)}
+    if "VLAN_MEMBER" in config_db:
+        config_db["VLAN_MEMBER"] = {
+            k: v for k, v in config_db["VLAN_MEMBER"].items()
+            if k.split('|', 1)[-1] not in test_ports
         }
-    }
     config_db.setdefault("LOOPBACK_INTERFACE", {}).update(loopback_interfaces)
     config_db.setdefault("BGP_NEIGHBOR", {}).update(bgp_neighbors)
-    config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {}).update(device_neighbor_metadatas)
-    config_db.setdefault("DEVICE_NEIGHBOR", {}).update(device_neighbors)
+    config_db.setdefault("DEVICE_NEIGHBOR", {}).update(device_neighbor_table)
+    config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {}).update(device_neighbor_metadata_table)
     with open("/tmp/temp_config.json", 'w') as fp:
         json.dump(config_db, fp, indent=4)
     duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
@@ -188,6 +335,23 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
         pytest_assert('Error' not in duthost.shell("sudo config reload -y \n")['stderr'],
                       'Error while reloading config in {} !!!!!'.format(duthost.hostname))
     wait(60, "For DUT to come back online after config reload")
+
+    # Validate that runtime BGP neighbor config contains Snappi peers for this test.
+    runtime_bgp_neighbors = duthost.shell("sonic-cfggen -d -v BGP_NEIGHBOR", module_ignore_errors=True)
+    logger.info("Runtime BGP_NEIGHBOR table:\n%s", runtime_bgp_neighbors.get('stdout', ''))
+    logger.info("Runtime IPv4 BGP summary after reload:\n%s", duthost.shell("show ip bgp summary", module_ignore_errors=True).get('stdout', ''))
+    logger.info("Runtime IPv6 BGP summary after reload:\n%s", duthost.shell("show ipv6 bgp summary", module_ignore_errors=True).get('stdout', ''))
+    expected_v4 = [p['ip'] for p in bgp_ports]
+    expected_v6 = [p['ipv6'] for p in bgp_ports]
+    missing_neighbors = [
+        n for n in (expected_v4 + expected_v6)
+        if n not in runtime_bgp_neighbors.get('stdout', '')
+    ]
+    pytest_assert(
+        not missing_neighbors,
+        "Missing Snappi BGP neighbors in runtime config after reload: {}".format(missing_neighbors)
+    )
+
     logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
 
@@ -214,28 +378,37 @@ def __tgen_bgp_config(snappi_api,
         config.ports.port(name="Source", location=temp_tg_port[0]['location'])
         .port(name="Destination", location=temp_tg_port[1]['location'])
     )
+
     lag1 = config.lags.lag(name="lag1")[-1]
     lp1 = lag1.ports.port(port_name=p1.name)[-1]
-
-    lag1.protocol.lacp.actor_system_id = "00:11:03:00:00:03"
+    lag1.protocol.lacp.actor_system_id = "00:10:00:00:00:01"
+    lag1.protocol.lacp.actor_system_priority = int(1)
+    lag1.protocol.lacp.actor_key = int(1)
     lp1.ethernet.name = "lag_Ethernet 1"
-    lp1.ethernet.mac = "00:13:01:00:00:01"
+    lp1.ethernet.mac = "00:10:01:00:00:01"
+    lp1.lacp.actor_port_number = int(1)
+    lp1.lacp.actor_port_priority = int(1)
 
     lag2 = config.lags.lag(name="lag2")[-1]
     lp2 = lag2.ports.port(port_name=p2.name)[-1]
-    lag2.protocol.lacp.actor_system_id = "00:11:03:00:00:04"
+    lag2.protocol.lacp.actor_system_id = "00:10:00:00:00:02"
+    lag2.protocol.lacp.actor_system_priority = int(1)
+    lag2.protocol.lacp.actor_key = int(1)
     lp2.ethernet.name = "lag_Ethernet 2"
-    lp2.ethernet.mac = "00:13:01:00:00:02"
+    lp2.ethernet.mac = "00:10:01:00:00:02"
+    lp2.lacp.actor_port_number = int(1)
+    lp2.lacp.actor_port_priority = int(1)
 
     config.options.port_options.location_preemption = True
-    layer1 = config.layer1.layer1()[-1]
-    layer1.name = 'port settings'
-    layer1.port_names = [port.name for port in config.ports]
-    layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
-    layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
-    layer1.speed = temp_tg_port[0]['speed']
-    layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
+    for index, port_data in enumerate(temp_tg_port[:2]):
+        layer1 = config.layer1.layer1()[-1]
+        layer1.name = '{}_settings'.format(index)
+        layer1.port_names = [config.ports[index].name]
+        layer1.speed = _snappi_layer1_speed(port_data)
+        layer1.ieee_media_defaults = False
+        layer1.auto_negotiation.rs_fec = _snappi_rs_fec_enabled(port_data)
+        layer1.auto_negotiation.link_training = port_data.get('link_training', False)
+        layer1.auto_negotiate = port_data.get('autoneg', False)
 
     # Source
     config.devices.device(name='Tx')
@@ -372,7 +545,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
         layer1.ieee_media_defaults = False
         layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
         layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
-        layer1.speed = temp_tg_port[0]['speed']
+        layer1.speed = _snappi_layer1_speed(temp_tg_port[0])
         layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
         def create_v4_topo():

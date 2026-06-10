@@ -800,6 +800,76 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
     return result if result else None
 
 
+def _normalize_interface_ip_map(interface_table):
+    interface_ip_map = {}
+    for key, val in list(interface_table.items()):
+        if '|' in key:
+            intf_name, addr = key.split('|', 1)
+            interface_ip_map.setdefault(intf_name, []).append(addr)
+        else:
+            addrs = list(val.keys()) if isinstance(val, dict) else list(val)
+            interface_ip_map.setdefault(key, []).extend(addrs)
+    return interface_ip_map
+
+
+def _enrich_tgen_ports_with_l3_info(snappi_ports, config_facts):
+    interface_ip_map = _normalize_interface_ip_map(config_facts.get('INTERFACE') or {})
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR') or {}
+    local_to_neighbor = {}
+    for neighbor_ip, props in list(bgp_neighbors.items()):
+        local_addr = props.get('local_addr')
+        if local_addr:
+            local_to_neighbor[local_addr.lower()] = neighbor_ip.lower()
+
+    dut_asn_global = _normalize_sonic_config_asn(
+        ((config_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}).get('bgp_asn')
+    )
+    bgp_merged = _merged_bgp_neighbor_table(config_facts)
+
+    fallback_peer_ipv4 = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
+    fallback_tgen_ipv4 = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
+    fallback_peer_ipv6 = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
+    fallback_tgen_ipv6 = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
+
+    for index, port in enumerate(snappi_ports):
+        addrs = interface_ip_map.get(port['peer_port'], [])
+        peer_ip = peer_ipv6 = prefix = ipv6_prefix = None
+        for addr in addrs:
+            if ':' in addr:
+                peer_ipv6, ipv6_prefix = addr.split('/', 1)
+            else:
+                peer_ip, prefix = addr.split('/', 1)
+
+        if peer_ip:
+            port['peer_ip'] = peer_ip
+            port['prefix'] = prefix
+            port['ip'] = local_to_neighbor.get(peer_ip.lower()) or get_addrs_in_subnet(
+                peer_ip + '/' + prefix, 1, exclude_ips=[peer_ip])[0]
+        else:
+            port['peer_ip'] = fallback_peer_ipv4[index]
+            port['prefix'] = str(prefix_length)
+            port['ip'] = fallback_tgen_ipv4[index]
+
+        if peer_ipv6:
+            port['peer_ipv6'] = peer_ipv6.lower()
+            port['ipv6_prefix'] = ipv6_prefix
+            port['ipv6'] = local_to_neighbor.get(peer_ipv6.lower()) or get_addrs_in_subnet(
+                peer_ipv6 + '/' + ipv6_prefix, 1, exclude_ips=[peer_ipv6])[0]
+        else:
+            port['peer_ipv6'] = fallback_peer_ipv6[index].lower()
+            port['ipv6_prefix'] = str(v6_prefix_length)
+            port['ipv6'] = fallback_tgen_ipv6[index].lower()
+
+        if dut_asn_global is not None:
+            port['dut_asn'] = dut_asn_global
+
+        peer_asn = _peer_asn_from_bgp_neighbor_table(bgp_merged, port.get('ip') or '')
+        if peer_asn is None:
+            peer_asn = _peer_asn_from_bgp_neighbor_table(bgp_merged, port.get('ipv6') or '')
+        if peer_asn is not None:
+            port['peer_asn'] = peer_asn
+
+
 def _peer_asn_from_bgp_neighbor_table(bgp_table, neighbor_ip):  # noqa: F811
     if not neighbor_ip:
         return None
@@ -1010,7 +1080,7 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
 
 
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, request):      # noqa: F811
+def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, request, tbinfo):      # noqa: F811
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -1018,6 +1088,7 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
         get_snappi_ports (pytest fixture): snappi ports
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
+        tbinfo (pytest fixture): fixture provides information about testbed
     Return:
         [{'card_id': '1',
         'ip': '22.1.1.2',
@@ -1060,62 +1131,39 @@ def tgen_ports(duthost, get_snappi_ports, conn_graph_facts, fanout_graph_facts, 
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
-    dut_port_table = config_facts.get('PORT', {})
+    
+    # Filter snappi_fanouts to only include those present in fanout_graph_facts
+    # Some fanouts may be detected via tbinfo but not in the direct connection graph
+    # (e.g., when Ixia is behind an L1 switch). We only want fanouts that are
+    # direct peers of the DUT so we can get proper port information.
+    available_fanouts = [f for f in snappi_fanouts if f in fanout_graph_facts]
+    
+    pytest_assert(available_fanouts, 'No snappi fanout devices found in direct connection graph for {}'.format(duthost.hostname))
+    
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    for snappi_fanout in snappi_fanouts:
+    snappi_ports_all = []
+    for snappi_fanout in available_fanouts:
         snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-        port_speeds = {int(p['speed']) for p in snappi_ports}
-        if len(port_speeds) != 1:
-            """ All the ports should have the same bandwidth """
-            return None
-        port_speed = port_speeds.pop()
-        dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
-        tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
-        dutv6Ips = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
-        tgenv6Ips = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
-        for port_id, port in enumerate(snappi_ports):
-            port['port_id'] = str(port_id + 1)
-            dut_port_info = dut_port_table.get(port['peer_port'], {})
-            port['autoneg'] = dut_port_info.get('autoneg') == 'on'
-            port['fec'] = str(dut_port_info.get('fec', '')).strip().lower().startswith('rs')
-            link_training_value = str(dut_port_info.get('link_training', '')).strip().lower()
-            port['link_training'] = link_training_value in ['on', 'true', 'yes', '1']
-            port['speed'] = speed_type.get(str(port_speed), port['speed'])
-            peer_port = port['peer_port']
-            entry = bool(config_facts.get('INTERFACE', {}).get(peer_port))
-            for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
-                if ipver == "ipv4":
-                    dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
-                    peer_ip_key, prefix_key, ip_key = "peer_ip", "prefix", "ip"
-                else:
-                    dut_list, tgen_list, mask = dutv6Ips, tgenv6Ips, v6_prefix_length
-                    peer_ip_key, prefix_key, ip_key = "peer_ipv6", "ipv6_prefix", "ipv6"
-                if not entry:
-                    # Assign and configure new IPs
-                    port[peer_ip_key] = dut_list[port_id]
-                    port[prefix_key] = mask
-                    port[ip_key] = tgen_list[port_id]
-                    try:
-                        logger.info(
-                            f"Pre-configuring {addr_type}: {duthost.hostname} "
-                            f"port {peer_port} -> {dut_list[port_id]}/{mask}"
-                        )
-                        duthost.command(
-                            f"sudo config interface ip add {peer_port} {dut_list[port_id]}/{mask}"
-                        )
-                    except Exception as e:
-                        pytest.fail(
-                            f"Unable to configure {addr_type} on {peer_port}: {e}",
-                            pytrace=False,
-                        )
-                else:
-                    int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-                    entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
-                    port[peer_ip_key], port[prefix_key] = entry.split("/")
-                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
-    return snappi_ports
+        # Add snappi ports for each chassis connetion
+        for sp in snappi_ports:
+            snappi_ports_all.append(sp)
+
+        for port in snappi_ports_all:
+            port['intf_config_changed'] = False
+            port['api_server_ip'] = tbinfo['ptf_ip']
+            port['asic_type'] = duthost.facts["asic_type"]
+            port['duthost'] = duthost
+            port['snappi_speed_type'] = speed_type[port['speed']]
+            if duthost.facts["num_asic"] > 1:
+                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+            else:
+                port['asic_value'] = None
+    for index, port in enumerate(snappi_ports_all):
+        port['port_id'] = str(index + 1)
+    _enrich_tgen_ports_with_l3_info(snappi_ports_all, config_facts)
+    return snappi_ports_all
 
 
 def snappi_multi_base_config(duthost_list,
@@ -1940,12 +1988,22 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
 
     """ Generate L1 config """
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                             dut_hostname=duthost.hostname)
+                                             dut_hostname=duthost.hostname,
+                                             tbinfo=tbinfo)
 
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+    
+    # Filter snappi_fanouts to only include those present in fanout_graph_facts
+    # Some fanouts may be detected via tbinfo but not in the direct connection graph
+    # (e.g., when Ixia is behind an L1 switch). We only want fanouts that are
+    # direct peers of the DUT so we can get proper port information.
+    available_fanouts = [f for f in snappi_fanouts if f in fanout_graph_facts]
+    
+    pytest_assert(available_fanouts, 'No snappi fanout devices found in direct connection graph for {}'.format(duthost.hostname))
+    
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_ports_all = []
-    for snappi_fanout in snappi_fanouts:
+    for snappi_fanout in available_fanouts:
         snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
@@ -2098,9 +2156,9 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
         f"wanted: {rx_port_count}")
     pytest_require(
         len(tx_snappi_ports) == tx_port_count,
-        f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
-        f"ansible/files/*links.csv: tx_snappi_ports: {tx_snappi_ports}, and "
-        f"wanted: {tx_port_count}")
+        f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
+        f"ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
+        f"wanted:{tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports

@@ -205,7 +205,7 @@ def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     return results
 
 
-def get_peer_snappi_chassis(conn_data, dut_hostname):
+def get_peer_snappi_chassis(conn_data, dut_hostname, tbinfo=None):
     """
     Get the Snappi chassis connected to the DUT
     Note that a DUT can only be connected to a Snappi chassis
@@ -249,21 +249,81 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
         u'device_vlan_map_list': {u'sonic-s6100-dut': {u'19': 2}},
         u'device_vlan_range': {u'sonic-s6100-dut': [u'2']}}
         dut_hostname (str): hostname of the DUT
+        tbinfo (dict): optional testbed information containing 'tgs' list (traffic generators)
     Returns:
         The name of the peer Snappi chassis or None
     """
-
-    device_conn = conn_data['device_conn']
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    device_conn = conn_data.get('device_conn', {})
+    device_info = conn_data.get('device_info', {})
+    
+    logger.debug(f"DEBUG get_peer_snappi_chassis: dut_hostname={dut_hostname}")
+    logger.debug(f"DEBUG: device_conn keys: {list(device_conn.keys())}")
+    
     if dut_hostname not in device_conn:
+        logger.debug(f"DEBUG: {dut_hostname} not found in device_conn, returning None")
         return None
 
     dut_device_conn = device_conn[dut_hostname]
-    peer_devices = [dut_device_conn[port]['peerdevice'] for port in dut_device_conn]
-    peer_devices = list(set(peer_devices))
+    logger.debug(f"DEBUG: dut_device_conn type={type(dut_device_conn)}, content={dut_device_conn}")
+
+    def _is_snappi_peer(peer_name, peer_port):
+        if not peer_name:
+            return False
+            
+        peer_name_l = str(peer_name).lower()
+        if 'snappi' in peer_name_l or 'ixia' in peer_name_l:
+            logger.debug(f"DEBUG: {peer_name} matched Tier 1 (hostname has snappi/ixia)")
+            return True
+
+        peer_info = device_info.get(peer_name, {})
+        peer_type_l = str(peer_info.get('Type', '')).lower()
+        peer_hwsku_l = str(peer_info.get('HwSku', '')).lower()
+        if any(token in peer_type_l for token in ('snappi', 'ixia', 'devsnappi', 'devixia')):
+            logger.debug(f"DEBUG: {peer_name} matched Tier 2 (Type={peer_type_l})")
+            return True
+        if peer_hwsku_l in ('snappi-tester', 'ixia-tester') or 'ixia' in peer_hwsku_l:
+            logger.debug(f"DEBUG: {peer_name} matched Tier 3 (HwSku={peer_hwsku_l})")
+            return True
+
+        # Some labs use generic hostnames for Ixia/Snappi fanouts, but their peer port
+        # format is still card/port style (e.g. Card1/Port4 or Port1.1).
+        if peer_port:
+            peer_port_l = str(peer_port).lower()
+            if peer_port_l.startswith('card') or peer_port_l.startswith('port'):
+                logger.debug(f"DEBUG: {peer_name} matched Tier 4 (port format={peer_port_l})")
+                return True
+
+        logger.debug(f"DEBUG: {peer_name} did not match any tier (port={peer_port})")
+        return False
+
     peer_snappi_devices = []
-    for peer in peer_devices:
-        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
-            peer_snappi_devices.append(peer)
+    for port in dut_device_conn:
+        port_data = dut_device_conn[port]
+        logger.debug(f"DEBUG: Processing port {port}, data type={type(port_data)}")
+        
+        if isinstance(port_data, dict):
+            peer_name = port_data.get('peerdevice')
+            peer_port = port_data.get('peerport')
+            logger.debug(f"DEBUG: Port {port}: peerdevice={peer_name}, peerport={peer_port}")
+            
+            if _is_snappi_peer(peer_name, peer_port) and peer_name not in peer_snappi_devices:
+                peer_snappi_devices.append(peer_name)
+                logger.debug(f"DEBUG: Added {peer_name} to peer_snappi_devices")
+        else:
+            logger.debug(f"DEBUG: Port data is not dict: {type(port_data)}")
+
+    logger.debug(f"DEBUG: Found peer_snappi_devices from conn_data: {peer_snappi_devices}")
+    
+    # Note: We do NOT use tbinfo as fallback here. The fixture requires fanouts that
+    # are DIRECT peers of the DUT (in fanout_graph_facts), so we can access their
+    # port information. When Ixia/Snappi is behind an L1 switch (not a direct peer),
+    # it cannot be used by this fixture.
+    # See: tests/common/fixtures/conn_graph_facts.py::fanout_graph_facts
+    
+    logger.debug(f"DEBUG: Final result: peer_snappi_devices={peer_snappi_devices}")
     if len(peer_snappi_devices) >= 1:
         return peer_snappi_devices
     else:

@@ -15,6 +15,33 @@ NG_LIST = []
 aspaths = [65002, 65003]
 
 
+def _snappi_layer1_speed(port_entry):
+    speed = port_entry.get('snappi_speed_type') or port_entry.get('speed')
+    if isinstance(speed, str) and speed.startswith('speed_'):
+        return speed
+    return 'speed_{}_gbps'.format(int(int(speed) / 1000))
+
+
+def _snappi_rs_fec_enabled(port_entry):
+    """Infer RS-FEC behavior when fixture does not provide explicit FEC fields."""
+    if port_entry.get('fec_disable') is True:
+        return False
+    if 'fec' in port_entry:
+        return bool(port_entry.get('fec'))
+    speed = port_entry.get('snappi_speed_type') or port_entry.get('speed')
+    if isinstance(speed, str) and speed.startswith('speed_'):
+        try:
+            speed_g = int(speed.replace('speed_', '').replace('_gbps', ''))
+        except ValueError:
+            speed_g = 0
+    else:
+        try:
+            speed_g = int(int(speed) / 1000)
+        except Exception:
+            speed_g = 0
+    return speed_g >= 100
+
+
 def _asn_from_port_entry(port_entry, skip_duthost_bgp_config, fixture_keys, default):
     """
     When skip_duthost_bgp_config is True, prefer ASN from tgen_ports (dut_asn / peer_asn
@@ -27,6 +54,35 @@ def _asn_from_port_entry(port_entry, skip_duthost_bgp_config, fixture_keys, defa
         if val is not None:
             return int(val)
     return int(default)
+
+
+def _unbind_everflow_acl_from_ports(duthost, ports):
+    """Remove EVERFLOW ACL tables when they are bound to the ports used by this test."""
+    target_ports = set(ports)
+    acl_table_out = duthost.shell("show acl table", module_ignore_errors=True)
+    acl_stdout = acl_table_out.get('stdout', '')
+    if not acl_stdout:
+        logger.debug('DEBUG: show acl table returned no output; skipping EVERFLOW unbind')
+        return
+
+    for table_name in ('EVERFLOW', 'EVERFLOWV6'):
+        if table_name not in acl_stdout:
+            continue
+        bound_to_target = False
+        for line in acl_stdout.splitlines():
+            if table_name in line and any(port in line for port in target_ports):
+                bound_to_target = True
+                break
+        if not bound_to_target:
+            continue
+
+        logger.debug('DEBUG: Removing ACL table %s to unbind test ports %s', table_name, sorted(target_ports))
+        rm_result = duthost.shell('sudo config acl remove table {}'.format(table_name), module_ignore_errors=True)
+        logger.debug('DEBUG: ACL remove result for %s: %s', table_name, rm_result)
+        pytest_assert(
+            rm_result.get('rc', 1) == 0 and 'Error' not in rm_result.get('stderr', ''),
+            'Failed to remove ACL table {} before BGP PortChannel setup: {}'.format(
+                table_name, rm_result.get('stderr', '')))
 
 
 def run_bgp_local_link_failover_test(snappi_api,
@@ -227,6 +283,10 @@ def duthost_bgp_config(duthost,
     """
     global temp_tg_port
     temp_tg_port = tgen_ports
+    _unbind_everflow_acl_from_ports(
+        duthost,
+        [tgen_ports[i]['peer_port'] for i in range(0, port_count)]
+    )
     for i in range(0, port_count):
         intf_config = (
             "sudo config interface ip remove %s %s/%s \n"
@@ -238,6 +298,7 @@ def duthost_bgp_config(duthost,
                     (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
 
+    logger.debug('DEBUG: tgen_ports content: %s', tgen_ports)
     for i in range(0, port_count):
         portchannel_config = (
             "sudo config portchannel add PortChannel%s \n"
@@ -248,9 +309,28 @@ def duthost_bgp_config(duthost,
         portchannel_config %= (i+1, i+1, tgen_ports[i]['peer_port'], i+1, tgen_ports[i]
                                ['peer_ip'], tgen_ports[i]['prefix'], i+1, tgen_ports[i]['peer_ipv6'],
                                tgen_ports[i]['ipv6_prefix'])
-        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (
-            tgen_ports[i]['peer_port'], i+1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
-        duthost.shell(portchannel_config)
+        logger.debug('DEBUG: Configuring PortChannel%s: member=%s, IPv4=%s/%s, IPv6=%s/%s',
+                       i+1, tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
+                       tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
+        logger.debug('DEBUG: Running config command:\n%s', portchannel_config)
+        result = duthost.shell(portchannel_config)
+        logger.debug('DEBUG: Command result: %s', result)
+        pytest_assert(
+            result.get('rc', 1) == 0,
+            'Failed PortChannel{} config for member {}. stderr={}'.format(
+                i+1, tgen_ports[i]['peer_port'], result.get('stderr', '')))
+        pytest_assert(
+            'Error:' not in result.get('stderr', ''),
+            'PortChannel{} member add failed for {}: {}'.format(
+                i+1, tgen_ports[i]['peer_port'], result.get('stderr', '')))
+
+    pc_status = duthost.shell('show interfaces portchannel')
+    logger.debug('DEBUG: DUT portchannel status after config:\n%s', pc_status.get('stdout', ''))
+    for i in range(0, port_count):
+        expected_member = tgen_ports[i]['peer_port']
+        pytest_assert(
+            expected_member in pc_status.get('stdout', ''),
+            'Configured member {} not present in show interfaces portchannel output'.format(expected_member))
     bgp_config = (
         "vtysh "
         "-c 'configure terminal' "
@@ -352,11 +432,11 @@ def __tgen_bgp_config(snappi_api,
         layer1 = config.layer1.layer1()[-1]
         layer1.name = f"{index}_settings"
         layer1.port_names = [config.ports[index].name]
-        layer1.speed = port_data['speed']
+        layer1.speed = _snappi_layer1_speed(port_data)
         layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = port_data.get('fec', False)
+        layer1.auto_negotiation.rs_fec = _snappi_rs_fec_enabled(port_data)
         layer1.auto_negotiation.link_training = port_data.get('link_training', False)
-        layer1.speed = port_data['speed']
+        layer1.speed = _snappi_layer1_speed(port_data)
         layer1.auto_negotiate = port_data.get('autoneg', False)
 
     def create_v4_topo():
@@ -941,11 +1021,11 @@ def get_RIB_IN_capacity(snappi_api,
             layer1 = config.layer1.layer1()[-1]
             layer1.name = f"{index}_settings"
             layer1.port_names = [config.ports[index].name]
-            layer1.speed = port_data['speed']
+            layer1.speed = _snappi_layer1_speed(port_data)
             layer1.ieee_media_defaults = False
-            layer1.auto_negotiation.rs_fec = port_data.get('fec', False)
+            layer1.auto_negotiation.rs_fec = _snappi_rs_fec_enabled(port_data)
             layer1.auto_negotiation.link_training = port_data.get('link_training', False)
-            layer1.speed = port_data['speed']
+            layer1.speed = _snappi_layer1_speed(port_data)
             layer1.auto_negotiate = port_data.get('autoneg', False)
 
         def create_v4_topo():
