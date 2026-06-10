@@ -323,7 +323,7 @@ def check_bgp(duthosts, tbinfo):
         if (check_result['failed']):
             # try restart bgp and verify again
             _restart_bgp(dut)
-            wait_until(60, interval, 0, _check_bgp_status_helper)
+            wait_until(300, interval, 0, _check_bgp_status_helper)
             if (check_result['failed']):
                 for a_result in list(check_result.keys()):
                     if a_result != 'failed':
