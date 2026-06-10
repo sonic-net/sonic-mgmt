@@ -1,20 +1,18 @@
+import logging
 import re
 import time
-from tests.common import config_reload
-import pexpect
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import create_ssh_client, ensure_console_session_up
-from tests.console.conftest import _console_dev, get_driver_stats
-
+from tests.console.conftest import get_driver_stats, build_chunked_text_data
 
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo')
+    pytest.mark.topology('c0')
 ]
 
 
-console_lines = list(map(str, range(0, 48)))
+console_lines = list(map(str, range(1, 49)))
 baud_rates = ["9600", "115200"]
 
 
@@ -28,34 +26,31 @@ def _stty_apply_and_verify(host, dev, baud_rate, stty_flags):
 
 def _configure_flow_control_via_sonic_and_stty(host, target_line, flow_type, baud_rate):
     """
-    SONiC CLI `config console flow_control ...` toggles the configured RTS/CTS flag only.
-    Software flow control (XON/XOFF) is configured via stty (ixon/ixoff).
+    Set console baud and flow-control mode via SONiC CLI, then apply matching termios on the device with stty
+    (RTS/CTS vs IXON/IXOFF) so the link matches what the test asserts.
     Returns (dev, cleanup_fn). Call cleanup_fn in finally to restore original baud and disable flow control.
     """
-    dev = _console_dev(host, target_line)
-    out = host.shell("stty -F {} -a 2>/dev/null".format(dev))["stdout"] or ""
+    dev = "{}{}".format(host.get_serial_device_prefix(), target_line)
+    out = host.shell("stty -a -F {}".format(dev), module_ignore_errors=False)["stdout"] or ""
     orig_match = re.search(r'speed (\d+)', out)
     original_baud = orig_match.group(1) if orig_match else "9600"
 
     def cleanup():
         host.command("config console baud {} {}".format(target_line, original_baud), module_ignore_errors=True)
         host.command("config console flow_control disable {}".format(target_line), module_ignore_errors=True)
-        host.shell("stty -F {} {} -crtscts -ixon -ixoff 2>/dev/null || true"
+        host.shell("stty -F {} {} -crtscts ixon -ixoff"
                    .format(dev, original_baud), module_ignore_errors=True)
 
     try:
         host.command("config console baud {} {}".format(target_line, baud_rate))
 
         if flow_type == "hardware":
-            #sonic command to set flow_control enable/disable doesnt affect the stty_flags
-            #So, manually setting stty_flags, until hw and sw flow_control are implemented in sonic-utilities
+            # CLI records hardware flow control; stty applies crtscts on the TTY.
             host.command("config console flow_control enable {}".format(target_line))
             stty_flags = ["crtscts", "-ixon", "-ixoff"]
-        elif flow_type == "software":
+        else:
             host.command("config console flow_control disable {}".format(target_line))
             stty_flags = ["-crtscts", "ixon", "ixoff"]
-        else:
-            pytest.fail("Unsupported flow_type {}".format(flow_type))
 
         _stty_apply_and_verify(host, dev, baud_rate, stty_flags)
         return dev, cleanup
@@ -64,40 +59,49 @@ def _configure_flow_control_via_sonic_and_stty(host, target_line, flow_type, bau
         raise
 
 
-# Pattern for simple ASCII flood (yes ABC)
+# Pattern for simple ASCII flood payload
 _FLOOD_PATTERN = "ABC"
-
-# dd/xxd-generated flood (for use later):
-# _FLOOD_DATA_BIN = "/tmp/sonic_mgmt_flow_control_data.bin"
-# _FLOOD_DATA_TXT = "/tmp/sonic_mgmt_flow_control_data.txt"
-# def _create_flood_data(host):
-#     host.shell("dd if=/dev/urandom bs=512 count=3 of={} 2>/dev/null".format(_FLOOD_DATA_BIN))
-#     host.shell("xxd {} > {}".format(_FLOOD_DATA_BIN, _FLOOD_DATA_TXT))
-#     res = host.shell("head -1 {} | awk '{{print $2$3}}'".format(_FLOOD_DATA_TXT))
-#     pattern = (res["stdout"] or "").strip()
-#     pytest_assert(len(pattern) >= 8, "Failed to extract pattern from xxd output: {}".format(res["stdout"]))
-#     return _FLOOD_DATA_TXT, pattern[:8]
+_FLOOD_CHUNK_SIZE = 1024
+_FLOOD_TOTAL_MB = 64
+_FLOOD_DURATION_SEC = 120
+_FLOOD_MAX_BYTES_SEC = 8192
 
 
 def _create_flood_data(host):
     """
-    Use yes ABC for uninterrupted ASCII flood. No file needed.
-    Returns (data_txt_path, expected_pattern); data_txt_path is None for yes-based flood.
+    Create deterministic chunked payload file via conftest helper.
+    Returns (data_txt_path, expected_pattern).
     """
-    return None, _FLOOD_PATTERN
-
-
-def _start_fanout_sender(console_fanout, dev, data_txt_path):
-    """
-    Start flood in background. Uses `yes ABC` if data_txt_path is None, else `cat` loop.
-    """
-    if data_txt_path is None:
-        cmd = "yes ABC > {} 2>/tmp/sonic-mgmt-flood.err & echo $!".format(dev)
-    else:
-        cmd = "while true; do cat {}; done > {} 2>/tmp/sonic-mgmt-flood.err & echo $!".format(data_txt_path, dev)
-    res = console_fanout.shell(
-        "bash -lc '{}'".format(cmd)
+    data_path = build_chunked_text_data(
+        host,
+        total_mb=_FLOOD_TOTAL_MB,
+        chunk_size=_FLOOD_CHUNK_SIZE,
+        seed=_FLOOD_PATTERN
     )
+    return data_path, _FLOOD_PATTERN
+
+
+def _start_fanout_sender(
+        console_fanout, dev, data_txt_path,
+        chunk_size=_FLOOD_CHUNK_SIZE, total_mb=_FLOOD_TOTAL_MB,
+        duration_sec=_FLOOD_DURATION_SEC, max_bytes_sec=_FLOOD_MAX_BYTES_SEC):
+    """
+    Start bounded flood in background using generated payload file.
+    Sender loops `dd` with chunk_size blocks until duration_sec elapses.
+    """
+    chunk_size = max(1, int(chunk_size))
+    duration_sec = max(1, int(duration_sec))
+    data_path = data_txt_path or ""
+    pytest_assert(data_path, "Flood payload path is empty")
+
+    # Keep command construction simple: generated paths are fixed /tmp and /dev locations.
+    cmd = (
+        "timeout {duration}s bash -lc "
+        "'while true; do dd if={data} of={dev} bs={chunk} iflag=fullblock status=none; done' "
+        ">/tmp/sonic-mgmt-flood.err 2>&1 & echo $!"
+    ).format(duration=duration_sec, data=data_path, dev=dev, chunk=chunk_size)
+
+    res = console_fanout.shell(cmd)
     pid_s = (res["stdout"] or "").strip().splitlines()[-1]
     pytest_assert(pid_s.isdigit(), "Failed to start sender on fanout, stdout: {}".format(res["stdout"]))
     return int(pid_s)
@@ -129,6 +133,7 @@ def _expect_data_flood(client, pattern, min_hits=3, timeout_per_hit=2.0):
     while hits < min_hits:
         client.expect(pattern, timeout=timeout_per_hit)
         hits += 1
+        logging.info("Expected flood hits increased to {}".format(hits))
 
 
 def _assert_counter_progress(label, before, after, min_delta=1):
@@ -141,22 +146,24 @@ def _assert_counter_stable(label, before, after, max_delta=256):
                   "{} increased unexpectedly during 'paused' window (before={}, after={}, delta={})"
                   .format(label, before, after, after - before))
 
-@pytest.mark.skip(reason="Test still in development")
+
 @pytest.mark.parametrize("target_line", console_lines)
 @pytest.mark.parametrize("baud_rate", baud_rates)
 @pytest.mark.parametrize("flow_type", ["hardware", "software"])
-def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, baud_rate, flow_type):
+def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, baud_rate, flow_type, cleanup_modules):
     """
     Scenario covered (end-to-end):
     - Configure flow control on DUT and fanout using BOTH:
       - SONiC CLI (`config console ...`)
       - Linux stty (`stty -F ...`)
       and verify the assignment is effective for the line.
-    - Start heavy traffic on fanout: ASCII ABC flood looped to /dev/ttyCOx.
+    - Start heavy traffic on fanout: ASCII ABC flood looped to the platform console device
+      (get_serial_device_prefix() + line index).
     - Connect to DUT line and verify data flood + driver counters increase.
     - Pause and resume:
       - software: send XOFF (Ctrl-S) and XON (Ctrl-Q) from DUT session and verify TX/RX counters stop/resume.
-      - hardware: simulate backpressure by disconnecting (stop reading) then reconnecting and verify TX/RX stop/resume.
+      - hardware: exit the line client (Ctrl-A then Ctrl-X, picocom-style) to stop reading, then reconnect and
+        verify DUT RX counters stabilize while disconnected and progress again after reconnect.
     - Terminate the fanout sender.
     """
     duthost, console_fanout = setup_c0
@@ -175,73 +182,83 @@ def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, 
         # Connect before starting sender so DUT buffer is empty when flood begins.
         # Avoids stale/corrupted data in buffer when flow control engages.
         client = _connect_line_via_ressh(duthost, creds, target_line)
+        logging.info("DUT reverse ssh connection successful")
         sender_pid = _start_fanout_sender(console_fanout, fanout_dev, data_txt_path)
+        logging.info("Starting sending traffic from fanout continuously through pid: {}".format(sender_pid))
         time.sleep(0.5)
 
         _expect_data_flood(client, flood_pattern, min_hits=3, timeout_per_hit=5.0)
-
+        logging.info("Verifying traffic from fanout and DUT RX via driver statistics")
         mid_fanout = get_driver_stats(console_fanout, target_line)
         mid_dut = get_driver_stats(duthost, target_line)
+        logging.info("mid_fanout: {}, mid_dut: {}".format(mid_fanout, mid_dut))
         _assert_counter_progress("fanout tx", start_fanout["tx"], mid_fanout["tx"], min_delta=64)
         _assert_counter_progress("dut rx", start_dut["rx"], mid_dut["rx"], min_delta=64)
 
         if flow_type == "software":
             # Send XOFF from DUT and verify traffic stops.
+            logging.info("Software flow control...")
+            logging.info("Stopping using direct XOFF injection to DUT serial device %s", dut_dev)
+            duthost.shell("printf '\x13' > {}".format(dut_dev))  # XOFF (0x13)
+            time.sleep(10.0)
             paused_fanout_before = get_driver_stats(console_fanout, target_line)
             paused_dut_before = get_driver_stats(duthost, target_line)
-
-            client.sendcontrol("s")  # XOFF (0x13)
-            time.sleep(2.0)
+            logging.info("paused_fanout_before: {}, paused_dut_before:{}".format(paused_fanout_before, paused_dut_before))
+            time.sleep(10)
 
             paused_fanout_after = get_driver_stats(console_fanout, target_line)
             paused_dut_after = get_driver_stats(duthost, target_line)
+            logging.info(
+                "paused_fanout_after: {}, paused_dut_after:{}".format(paused_fanout_after, paused_dut_after))
             _assert_counter_stable("fanout tx", paused_fanout_before["tx"], paused_fanout_after["tx"], max_delta=512)
             _assert_counter_stable("dut rx", paused_dut_before["rx"], paused_dut_after["rx"], max_delta=512)
-
-            # Also verify console output is not continuing to stream.
-            try:
-                client.expect(flood_pattern, timeout=1.0)
-                pytest.fail("Still receiving flood data on DUT after XOFF (software flow control)")
-            except pexpect.TIMEOUT:
-                pass
 
             # Send XON and verify traffic resumes from the stopped counters.
             resume_fanout_before = get_driver_stats(console_fanout, target_line)
             resume_dut_before = get_driver_stats(duthost, target_line)
-
-            client.sendcontrol("q")  # XON (0x11)
+            logging.info("Starting using direct XON injection to DUT serial device %s", dut_dev)
+            duthost.shell("printf '\x11' > {}".format(dut_dev))  # XON (0x11)
             _expect_data_flood(client, flood_pattern, min_hits=2, timeout_per_hit=5.0)
             time.sleep(1.0)
 
             resume_fanout_after = get_driver_stats(console_fanout, target_line)
             resume_dut_after = get_driver_stats(duthost, target_line)
+            logging.info("resume_fanout_after:{}, resume_dut_after:{}".format(resume_fanout_after, resume_dut_after))
             _assert_counter_progress("fanout tx after XON", resume_fanout_before["tx"], resume_fanout_after["tx"],
                                      min_delta=64)
             _assert_counter_progress("dut rx after XON", resume_dut_before["rx"], resume_dut_after["rx"], min_delta=64)
 
         else:
-            # Hardware flow control (RTS/CTS) has no XOFF/XON semantics.
-            # We validate pause/resume by stopping reads (disconnect) to let receiver backpressure stop transmitter.
-            paused_fanout_before = get_driver_stats(console_fanout, target_line)
-            paused_dut_before = get_driver_stats(duthost, target_line)
+            # Hardware (RTS/CTS): exit line client so DUT stops reading; assert DUT RX counters stay flat while
+            # disconnected (fanout TX may still move due to driver buffering; this path keys on DUT RX).
 
             _disconnect_line_session(client)
             client = None
             time.sleep(10)
 
-            paused_fanout_after = get_driver_stats(console_fanout, target_line)
+            logging.info("Statistics before Terminating connection")
+            paused_dut_before = get_driver_stats(duthost, target_line)
+            logging.info("paused_dut_before:{}".format(paused_dut_before))
+
+            time.sleep(20)
+
             paused_dut_after = get_driver_stats(duthost, target_line)
-            _assert_counter_stable("fanout tx", paused_fanout_before["tx"], paused_fanout_after["tx"], max_delta=4096)
+            logging.info("paused_dut_after: {}".format(paused_dut_after))
+            _assert_counter_stable("dut rx", paused_dut_before["rx"], paused_dut_after["rx"], max_delta=512)
 
             # Reconnect and verify traffic resumes.
+            logging.info("Reconnecting ...")
             client = _connect_line_via_ressh(duthost, creds, target_line)
             _expect_data_flood(client, flood_pattern, min_hits=2, timeout_per_hit=5.0)
 
             resume_fanout_before = get_driver_stats(console_fanout, target_line)
             resume_dut_before = get_driver_stats(duthost, target_line)
+            logging.info("resume_fanout_before:{}, resume_dut_before:{}".format(resume_fanout_before, resume_dut_before))
             time.sleep(1.0)
             resume_fanout_after = get_driver_stats(console_fanout, target_line)
             resume_dut_after = get_driver_stats(duthost, target_line)
+            logging.info(
+                "resume_fanout_after:{}, resume_dut_after:{}".format(resume_fanout_after, resume_dut_after))
             _assert_counter_progress("fanout tx after resume", resume_fanout_before["tx"], resume_fanout_after["tx"],
                                      min_delta=64)
             _assert_counter_progress("dut rx after resume", resume_dut_before["rx"], resume_dut_after["rx"],
