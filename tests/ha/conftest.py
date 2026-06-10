@@ -612,6 +612,14 @@ def setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_g
 
     logger.info("HA: setup from json for Primary and Standby")
 
+    # TODO: remove once neighbor flakiness is fixed.
+    for i in range(len(duthosts)):
+        logger.info(f"Sending ping to DPU{dpuhosts[i].dpu_index} for {duthosts[i].hostname}")
+        ip_part = 200 + i
+        ip_last = dpuhosts[i].dpu_index + 1
+        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
+        logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
+
     for i in range(len(duthosts)):
         wait_for_dpu_neighbor_resolution(
             duthost=duthosts[i],
