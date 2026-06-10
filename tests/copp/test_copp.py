@@ -120,6 +120,7 @@ class TestCOPP(object):
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
@@ -130,6 +131,7 @@ class TestCOPP(object):
             else:
                 feature_list, _ = duthost.get_feature_status()
                 trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -147,6 +149,7 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type,
+                     has_trap=has_trap,
                      is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.parametrize("protocol", ["IP2ME",
