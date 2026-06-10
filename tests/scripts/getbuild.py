@@ -13,6 +13,7 @@ _last_time = None
 artifact_size = 0
 NOT_FOUND_BUILD_ID = -999
 MAX_DOWNLOAD_TIMES = 3
+BACKOFF_BASE_SECONDS = 30
 
 
 def reporthook(count, block_size, total_size):
@@ -47,13 +48,18 @@ def reporthook(count, block_size, total_size):
 def validate_url_or_abort(url):
     print("Validating URL: {}".format(url))
 
-    # Attempt to retrieve HTTP response code
-    try:
-        urlfile = urlopen(url)
-        response_code = urlfile.getcode()
-        urlfile.close()
-    except IOError:
-        response_code = None
+    # Attempt to retrieve HTTP response code, retry on transient network errors.
+    response_code = None
+    for attempt in range(1, MAX_DOWNLOAD_TIMES + 1):
+        try:
+            urlfile = urlopen(url)
+            response_code = urlfile.getcode()
+            urlfile.close()
+            break
+        except IOError as e:
+            print("Validate URL error (attempt {}/{}): {}".format(attempt, MAX_DOWNLOAD_TIMES, e))
+            if attempt < MAX_DOWNLOAD_TIMES:
+                time.sleep(BACKOFF_BASE_SECONDS * attempt)
 
     if not response_code:
         print("Did not receive a response from remote machine. Aborting...")
@@ -109,6 +115,8 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 filename = 'sonic-vs.img.gz'
         elif platform == "vpp":
             filename = 'sonic-vpp.img.gz'
+        elif platform == "ptf":
+            filename = 'docker-ptf.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
 
@@ -196,7 +204,7 @@ def main():
     parser.add_argument('--branch', metavar='branch',
                         type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-                        choices=['broadcom', 'mellanox', 'vs', 'vpp'],
+                        choices=['broadcom', 'mellanox', 'vs', 'vpp', 'ptf'],
                         help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
                         choices=['all', 'image'], default='image',
@@ -228,7 +236,10 @@ def main():
     else:
         buildid = int(args.buildid)
 
-    artifact_name = "sonic-buildimage.{}".format(args.platform)
+    if args.platform == 'ptf':
+        artifact_name = "sonic-buildimage.vs"  # PTF images are typically built with VS platform
+    else:
+        artifact_name = "sonic-buildimage.{}".format(args.platform)
 
     (dl_url, artifact_size) = get_download_url(buildid, artifact_name,
                                                url_prefix=args.url_prefix,

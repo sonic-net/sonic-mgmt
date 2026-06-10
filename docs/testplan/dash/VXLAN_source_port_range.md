@@ -12,7 +12,7 @@
 ## Overview
   The feature "VXLAN source port range" is to support entropy in the VxLAN UDP source port field on the smartsiwtch.
   A smartswitch DPU should use connection 5-tuple to calculate entropy, and fill it in the VxLAN UDP source port field.
-  The entropy should be within the range of [5128, 5255].
+  The entropy should be within the range of [5120, 5247](5120 with 7 bit mask).
   The configuration should be applied on the DPU via swssconfig in the swss container, and it takes effect immediatly after the configuration is applied.
   The purpose of this test is to verify the functionality of VXLAN source port range on smartswitch.
 
@@ -37,7 +37,7 @@ Configuration example to config the VxLAN UDP source port range:
 [
     {
         "SWITCH_TABLE:switch": {
-            "vxlan_sport": 5128,
+            "vxlan_sport": 5120,
             "vxlan_mask": 7
         },
         "OP": "SET"
@@ -52,9 +52,9 @@ Verify VXLAN UDP source port range can be configured as user defined range on th
 ### Test steps
 * The validation of the VxLAN port is integrated to the dash PL test tests/dash/test_dash_privatelink.py.
 * For now there is only one test case in the PL test: test_privatelink_basic_transform.
-* The UDP port range configuration(vxlan_sport=5128, vxlan_mask=7) is applied in the setup phase of the PL test module.
+* The UDP port range configuration(vxlan_sport=5120, vxlan_mask=7) is applied in the setup phase of the PL test module.
 * Send the outbound and inbound PL traffic.
-* Validate that the VxLAN UDP source port in the captured inbound packet is in the range of [5128, 5255]
+* Validate that the VxLAN UDP source port in the captured inbound packet is in the range of [5120, 5247]
 * Restore the source port range config to the default by config reload on the DPU.
 
 

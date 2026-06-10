@@ -79,9 +79,8 @@ def enable_zmq(duthost):
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 --notls '
-    cmd += '--notls '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
     cmd += '-m set-update '
@@ -121,7 +120,7 @@ def test_gnmi_zmq(duthosts,
                   enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 
-    command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
+    command = 'ps -auxww | grep "/usr/sbin/telemetry.*--port 8080"'
     gnmi_process = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("gnmi_process: {}".format(gnmi_process))
 

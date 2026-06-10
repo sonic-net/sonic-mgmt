@@ -108,9 +108,6 @@ def duthost_bgp_config(duthost,
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         port_count: total number of ports used in test
     """
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     global temp_tg_port
     temp_tg_port = tgen_ports
     for i in range(0, port_count):
@@ -131,7 +128,8 @@ def duthost_bgp_config(duthost,
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
     tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]
-                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'],
+                              tgen_ports[0]['ipv6_prefix'])
     logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (
         tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(tx_portchannel_config)
@@ -147,7 +145,7 @@ def duthost_bgp_config(duthost,
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
                   (tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
-                  (tgen_ports[1]['peer_ipv6'], 64))
+                  (tgen_ports[1]['peer_ipv6'], tgen_ports[1]['ipv6_prefix']))
     bgp_config = (
         "vtysh "
         "-c 'configure terminal' "
@@ -376,7 +374,7 @@ def get_lacp_add_remove_link_physically(snappi_api,
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_tx_rate)
-            assert sum(tx_frate) == sum(rx_frate),\
+            assert sum(tx_frate) == sum(rx_frate), \
                 "Traffic has not converged after link flap: TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")

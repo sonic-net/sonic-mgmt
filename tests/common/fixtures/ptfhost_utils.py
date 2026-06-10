@@ -14,7 +14,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from pytest_ansible.errors import AnsibleConnectionFailure
 
@@ -37,7 +37,6 @@ GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 PROBER_INTERVAL_MS = 3000
-PTFHOST_EXCEPTION_RC = 16
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -186,6 +185,8 @@ def copy_arp_responder_py(ptfhost):
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     arp_responder_cfg = {}
+    if is_ipv6_only_topology(tbinfo):
+        ipv4_base = None
     config_facts = rand_selected_dut.config_facts(
         host=rand_selected_dut.hostname, source="running"
     )['ansible_facts']
@@ -223,9 +224,14 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
                 server_ip[port]['server_ipv6'].split('/')[0]
             ]
             continue
-        arp_responder_cfg['eth{}'.format(ptf_index)] = [
-            str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
-        ]
+        if is_ipv6_only_topology(tbinfo):
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv6_base.ip + ip_offset)
+            ]
+        else:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
+            ]
 
     CFG_FILE = '/tmp/arp_responder_vlan.json'
     with open(CFG_FILE, 'w') as file:
@@ -251,6 +257,11 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     yield vlan, ipv4_base, ipv6_base, ip_offset
 
     ptfhost.command('supervisorctl stop arp_responder')
+    # Remove the rendered config so it can't mislead diagnostics or be picked up
+    # by a later, stale invocation of arp_responder. The supervisor unit file
+    # itself is intentionally left in place because the autouse fixture re-renders
+    # it on every module setup; deleting only the data file is enough.
+    ptfhost.file(path=CFG_FILE, state="absent")
 
 
 def _ptf_portmap_file(duthost, ptfhost, tbinfo):
@@ -300,12 +311,6 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
     A module level fixture that calls _ptf_portmap_file
     """
     yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
-
-
-def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("ptfhost_exception", None):
-        session.config.cache.set("ptfhost_exception", None)
-        session.exitstatus = PTFHOST_EXCEPTION_RC
 
 
 icmp_responder_session_started = False
@@ -470,8 +475,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
-                server_ipv4 = str(server_ipv4_base_addr + i)
-                server_ipv6 = str(server_ipv6_base_addr + i)
+                server_ipv4 = str(server_ipv4_base_addr + i) if server_ipv4_base_addr else ''
+                server_ipv6 = str(server_ipv6_base_addr + i) if server_ipv6_base_addr else ''
                 mux_cable_table[intf] = {}
                 mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
                 mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
@@ -483,8 +488,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         for vlan_intf, config in list(mux_cable_table.items()):
             ptf_port_index = ptf_indices[vlan_intf]
-            server_ip = ip_interface(config['server_ipv4']).ip
-            server_ipv6 = ip_interface(config['server_ipv6']).ip
+            server_ip = ip_interface(config['server_ipv4']).ip if config['server_ipv4'] else ''
+            server_ipv6 = ip_interface(config['server_ipv6']).ip if config['server_ipv6'] else ''
 
             garp_config[ptf_port_index] = {
                                             'dut_mac': '{}'.format(dut_mac),
@@ -701,6 +706,6 @@ def skip_traffic_test(request):
 
 @pytest.fixture(scope='function')
 def iptables_drop_ipv6_tx(ptfhost):
-    ptfhost.shell("ip6tables -P OUTPUT DROP")
+    ptfhost.shell("ip6tables -P OUTPUT DROP || true")
     yield
-    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT || true")

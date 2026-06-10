@@ -16,6 +16,22 @@ def pytest_addoption(parser):
         default=False,
         help="Disable memory utilization analysis for the 'memory_utilization' fixture"
     )
+    parser.addoption(
+        "--enable_monit_refresh",
+        action="store_true",
+        default=False,
+        help="Enable the monit cache refresh in the memory_utilization fixture. "
+             "When NOT set (default), the fixture does NOT issue `sudo monit "
+             "validate` before collection and does NOT retry the `sudo monit "
+             "status` read for freshness; the first read is returned as-is "
+             "(faster, may contain stale monit cache data). When set, the fixture "
+             "issues `sudo monit validate` to refresh the cache and retries the "
+             "`sudo monit status` read for freshness, costing up to "
+             "~MONIT_STATUS_FRESHNESS_WAIT_SECONDS * "
+             "MONIT_STATUS_FRESHNESS_MAX_RETRIES seconds per setup/teardown when "
+             "the cache is stale. Refresh can also be enabled per-test via "
+             "`@pytest.mark.enable_monit_refresh`."
+    )
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -48,14 +64,31 @@ def pytest_runtest_setup(item):
     logger.debug("Memory monitors ready: {}".format(list(memory_monitors.keys()) if memory_monitors else "None"))
     logger.debug("memory_values {} ".format(memory_values))
 
+    enable_monit_refresh = item.config.getoption("--enable_monit_refresh") or \
+        "enable_monit_refresh" in item.keywords
+
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
 
+        if enable_monit_refresh:
+            # Trigger monit to refresh its cache so subsequent collection reads fresh data
+            logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
+        else:
+            logger.info(
+                "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
+                    duthost.hostname))
+
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
-                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                if name == "monit":
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                        cmd, enable_retry=enable_monit_refresh)
+                else:
+                    output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["before_test"][duthost.hostname][name] = memory_check(output, memory_params)
             except Exception as e:
                 logger.warning("Error collecting initial memory data for {}: {}".format(name, str(e)))
@@ -87,14 +120,31 @@ def pytest_runtest_teardown(item, nextitem):
     memory_monitors, memory_values = memory_utilization
     memory_errors = []
 
+    enable_monit_refresh = item.config.getoption("--enable_monit_refresh") or \
+        "enable_monit_refresh" in item.keywords
+
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
 
+        if enable_monit_refresh:
+            # Trigger monit to refresh its cache so subsequent collection reads fresh data
+            logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
+        else:
+            logger.info(
+                "enable_monit_refresh=False; bypassing 'sudo monit validate' pre-trigger on {}".format(
+                    duthost.hostname))
+
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
-                output = memory_monitors[duthost.hostname].execute_command(cmd)
+                if name == "monit":
+                    output = memory_monitors[duthost.hostname].read_monit_status_with_freshness_retry(
+                        cmd, enable_retry=enable_monit_refresh)
+                else:
+                    output = memory_monitors[duthost.hostname].execute_command(cmd)
                 memory_values["after_test"][duthost.hostname][name] = memory_check(output, memory_params)
             except Exception as e:
                 logger.warning("Error collecting final memory data for {}: {}".format(name, str(e)))

@@ -20,6 +20,14 @@ _ADD_IP_SCRIPT = "scripts/add_ip.sh"
 _ADD_IP_BACKEND_SCRIPT = "scripts/add_ip_backend.sh"
 _UPDATE_COPP_SCRIPT = "copp/scripts/update_copp_config.py"
 
+_PTF_COMMIT = "9d41838d634c479fc24fac7a527ec5ee2d0ce8eb"
+_PTF_NN_AGENT_URL = (
+    "https://raw.githubusercontent.com/p4lang/ptf"
+    "/{}/ptf_nn/ptf_nn_agent.py".format(_PTF_COMMIT))
+_PTF_AFPACKET_URL = (
+    "https://raw.githubusercontent.com/p4lang/ptf"
+    "/{}/src/ptf/afpacket.py".format(_PTF_COMMIT))
+
 _BASE_COPP_CONFIG = "/tmp/base_copp_config.json"
 _APP_DB_COPP_CONFIG = ":/etc/swss/config.d/00-copp.config.json"
 _CONFIG_DB_COPP_CONFIG = "/etc/sonic/copp_cfg.json"
@@ -199,6 +207,30 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
 
+def is_ptf_nn_agent_running(dut, nn_target_namespace):
+    """
+    Check if ptf_nn_agent is already running inside the syncd container.
+
+    On platforms where Docker state is stored in RAM (e.g., Arista 7060CX with
+    docker_inram=on), the syncd container is recreated on every cold reboot, losing
+    ptf_nn_agent. This helper is used to detect that case before attempting reinstall.
+
+    Args:
+        dut (SonicHost): The target device.
+        nn_target_namespace (str): The namespace for the syncd instance.
+
+    Returns:
+        bool: True if ptf_nn_agent is running, False otherwise.
+    """
+    asichost = dut.asic_instance_from_namespace(nn_target_namespace)
+    syncd_docker_name = asichost.get_docker_name("syncd")
+    result = dut.command(
+        "docker exec {} supervisorctl status ptf_nn_agent".format(syncd_docker_name),
+        module_ignore_errors=True
+    )
+    return result["rc"] == 0 and "RUNNING" in result["stdout"]
+
+
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
     syncd_docker_name = asichost.get_docker_name("syncd")
@@ -214,20 +246,21 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
-        cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                chmod 1777 /tmp \
+        cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
+                mkdir -p /var/tmp_build \
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                 python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && pip3 install cffi==1.16.0 && pip3 install nnpy \
-                && mkdir -p /opt && cd /opt && wget \
-                https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                && mkdir ptf && cd ptf && wget \
-                https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
+                && rm -rf /var/tmp_build \
+                && mkdir -p /opt && cd /opt && wget {3} \
+                && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
                 python3-setuptools wget \
-                " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                             _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
 
 
@@ -240,8 +273,9 @@ def _install_nano(dut, creds,  syncd_docker_name):
             creds (dict): Credential information according to the dut inventory
     """
 
-    if "bookworm" in dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
-                               .format(syncd_docker_name))['stdout'].lower():
+    codename = dut.shell("docker exec {} grep VERSION_CODENAME /etc/os-release"
+                         .format(syncd_docker_name))['stdout'].lower()
+    if "bookworm" in codename or "trixie" in codename:
         _install_nano_bookworm(dut, creds, syncd_docker_name)
         return
 
@@ -258,7 +292,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
         check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
-            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+            cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                     chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
@@ -268,13 +302,12 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
                     && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
                     && rm -f 1.0.0.tar.gz && pip3 install cffi && pip3 install --upgrade cffi && pip3 install nnpy \
-                    && mkdir -p /opt && cd /opt && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                    && mkdir ptf && cd ptf && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                    && mkdir -p /opt && cd /opt && wget {3} \
+                    && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                                 _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         else:
-            cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
+            cmd = '''docker exec -e http_proxy={0} -e https_proxy={1} {2} bash -c " \
                     chmod 1777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
@@ -285,11 +318,10 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
                     && rm -f 1.0.0.tar.gz && pip2 install cffi==1.7.0 && pip2 install --upgrade \
                     cffi==1.7.0 && pip2 install nnpy \
-                    && mkdir -p /opt && cd /opt && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
-                    && mkdir ptf && cd ptf && wget \
-                    https://raw.githubusercontent.com/p4lang/ptf/master/src/ptf/afpacket.py && touch __init__.py \
-                    " '''.format(http_proxy, https_proxy, syncd_docker_name)
+                    && mkdir -p /opt && cd /opt && wget {3} \
+                    && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
+                    " '''.format(http_proxy, https_proxy, syncd_docker_name,
+                                 _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
 
 
@@ -396,7 +428,7 @@ def restore_config_db(dut):
     """
     dut.command("sudo cp {} {}".format(_TEMP_CONFIG_DB, _CONFIG_DB))
     dut.command("sudo rm -f {}".format(_TEMP_CONFIG_DB))
-    config_reload(dut)
+    config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
 
 def uninstall_trap(dut, feature_name, trap_id):
@@ -492,7 +524,7 @@ def get_copp_trap_capabilities(duthost):
     return trap_ids.split(",")
 
 
-def parse_show_copp_configuration(duthost):
+def parse_show_copp_configuration(duthost, namespace):
     """
     Parses the output of the `show copp configuration` command into a structured dictionary.
     Args:
@@ -500,8 +532,10 @@ def parse_show_copp_configuration(duthost):
     Returns:
         dict: A dictionary mapping trap IDs to their configuration details.
     """
-
-    copp_config_output = duthost.shell("show copp configuration")["stdout"]
+    command = "show copp configuration"
+    if namespace is not None:
+        command = namespace.ns_arg + ' ' + command
+    copp_config_output = duthost.shell(command)["stdout"]
     copp_config_lines = copp_config_output.splitlines()
 
     # Parse the command output into a structured format
@@ -523,7 +557,7 @@ def parse_show_copp_configuration(duthost):
     return copp_config_data
 
 
-def is_trap_installed(duthost, trap_id):
+def is_trap_installed(duthost, trap_id, namespace=None):
     """
     Checks if a specific trap is installed by parsing the output of `show copp configuration`.
     Args:
@@ -533,14 +567,26 @@ def is_trap_installed(duthost, trap_id):
         bool: True if the trap is installed, False otherwise.
     """
 
-    output = parse_show_copp_configuration(duthost)
-    assert trap_id in output, f"Trap {trap_id} not found in the configuration"
+    output = parse_show_copp_configuration(duthost, namespace)
+    assert trap_id in output, "Trap {} not found in the configuration".format(trap_id)
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
     return output[trap_id]["hw_status"] == "installed"
 
 
-def get_trap_hw_status(duthost):
+def is_trap_uninstalled(duthost, trap_id):
+    """
+    Checks if a specific trap is uninstalled by parsing the output of `show copp configuration`.
+    Args:
+        dut (SonicHost): The target device
+        trap_id: The trap ID to check.
+    Returns:
+        bool: True if the trap is uninstalled, False otherwise.
+    """
+    return not is_trap_installed(duthost, trap_id)
+
+
+def get_trap_hw_status(duthost, namespace):
     """
     Retrieves the hw_status for traps from the STATE_DB.
     Args:
@@ -548,14 +594,19 @@ def get_trap_hw_status(duthost):
     Returns:
         dict: A dictionary mapping trap IDs to their hw_status.
     """
-
-    state_db_data = duthost.shell("sonic-db-cli STATE_DB KEYS 'COPP_TRAP_TABLE|*'")["stdout"]
+    if namespace is None:
+        state_db_cmd = "sonic-db-cli STATE_DB KEYS 'COPP_TRAP_TABLE|*'"
+        trap_data_cmd = "sonic-db-cli STATE_DB HGETALL "
+    else:
+        state_db_cmd = "sonic-db-cli -n {} STATE_DB KEYS 'COPP_TRAP_TABLE|*'".format(namespace.namespace)
+        trap_data_cmd = "sonic-db-cli -n {} STATE_DB HGETALL ".format(namespace.namespace)
+    state_db_data = duthost.shell(state_db_cmd)["stdout"]
     state_db_data = state_db_data.splitlines()
     hw_status = {}
 
     for key in state_db_data:
         trap_id = key.split("|")[-1]
-        trap_data = duthost.shell(f"sonic-db-cli STATE_DB HGETALL '{key}'")["stdout"]
+        trap_data = duthost.shell(trap_data_cmd + f"'{key}'")["stdout"]
         trap_data_dict = ast.literal_eval(trap_data)
         hw_status[trap_id] = trap_data_dict.get("hw_status", "not-installed")
 

@@ -109,6 +109,7 @@ def main():
 
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
     logger.addHandler(handler)
 
     """

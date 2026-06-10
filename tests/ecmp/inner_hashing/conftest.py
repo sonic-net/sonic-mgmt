@@ -444,9 +444,8 @@ def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times,
         for group in ports_groups:
             exp_ports_multiplier += len(group)
         hash_keys_multiplier = len(hash_keys)
-        # for hash key "ip-proto", the traffic sends always in one way
-        exp_count = (balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier - 1)
-                     + (balancing_test_times * exp_ports_multiplier))
+        # All hash keys now send traffic with symmetric_multiplier (including ip-proto with doubled iterations)
+        exp_count = balancing_test_times * symmetric_multiplier * exp_ports_multiplier * hash_keys_multiplier
         pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
         for outer_encap_format in OUTER_ENCAP_FORMATS:
             regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)

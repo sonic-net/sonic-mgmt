@@ -11,7 +11,6 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
-from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -25,7 +24,8 @@ pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.skip_check_dut_health,
+    pytest.mark.sanity_check(skip_pre_sanity=False)
 ]
 
 
@@ -62,35 +62,6 @@ def test_cleanup_cache():
     folder = '_cache'
     if os.path.exists(folder):
         os.system('rm -rf {}'.format(folder))
-
-
-def test_cleanup_testbed(duthosts, request, ptfhost):
-    deep_clean = request.config.getoption("--deep_clean")
-    if deep_clean:
-
-        def deep_clean_dut(dut):
-            logger.info("Deep cleaning DUT {}".format(dut.hostname))
-            # Remove old log files.
-            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
-            # Remove old core files.
-            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
-            # Remove old dump files.
-            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
-
-            # delete other log files that are more than a day old,
-            # this step is needed to remove some backup files or the debug files added by users
-            # which can create issue for log-analyzer
-            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
-                      module_ignore_errors=True, executable="/bin/bash")
-
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(deep_clean_dut, duthost)
-
-    # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
-    if ptfhost:
-        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
-                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
 
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
@@ -143,6 +114,41 @@ def collect_dut_info(dut, metadata):
     metadata[dut.hostname] = dut_info
 
 
+def update_testbed_metadata(metadata, tbname, filepath):
+    """Update or create testbed metadata JSON file.
+
+    Reads existing metadata file (if present), updates or adds testbed metadata,
+    and writes back to file. Handles missing files and JSON decode errors gracefully.
+
+    Args:
+        metadata: Dictionary containing DUT metadata to be stored.
+        tbname: Testbed name used as key in the metadata file.
+        filepath: Path to the metadata JSON file.
+
+    Returns:
+        None.
+    """
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+        try:
+            info[tbname].update(metadata)
+        except KeyError:
+            logger.info(f"The testbed '{tbname}' is not in the file '{filepath}', adding it.")
+            info[tbname] = metadata
+    except FileNotFoundError:
+        logger.info(f"The testbed metadata file '{filepath}' was not found, creating new file.")
+        info = {tbname: metadata}
+    except json.JSONDecodeError as e:
+        logger.warning(f"Error: Failed to decode JSON from the file '{filepath}': {e}, recreating the file.")
+        info = {tbname: metadata}
+    try:
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
 def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     metadata = {}
     tbname = tbinfo['conf-name']
@@ -152,17 +158,11 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
         for duthost in duthosts:
             executor.submit(collect_dut_info, duthost, metadata)
 
-    info = {tbname: metadata}
     folder = 'metadata'
+    if not os.path.exists(folder):
+        os.mkdir(folder)
     filepath = os.path.join(folder, tbname + '.json')
-    try:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        with open(filepath, 'w') as yf:
-            json.dump(info, yf, indent=4)
-    except IOError as e:
-        logger.warning('Unable to create file {}: {}'.format(filepath, e))
-
+    update_testbed_metadata(metadata, tbname, filepath)
     prepare_autonegtest_params(duthosts, fanouthosts)
 
 
@@ -644,27 +644,3 @@ def test_generate_running_golden_config(duthosts):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(generate_running_golden_config, duthost)
-
-
-def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
-    """
-    Clean mux/nic simulator logs from /tmp/ on the server before test run.
-    """
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    log_name = None
-    if active_standby_ports:
-        server = tbinfo['server']
-        tbname = tbinfo['conf-name']
-        inv_files = utilities.get_inventory_files(request)
-        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
-        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
-    elif active_active_ports:
-        vm_set = tbinfo['group-name']
-        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
-
-    if log_name:
-        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
-        for log_file in log_files:
-            vmhost.shell("rm -f {}".format(log_file))

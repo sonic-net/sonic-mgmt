@@ -19,7 +19,7 @@ from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, g
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def run_tsb_on_linecard(linecard):
         linecard.shell('TSB')
         linecard.shell('sudo config save -y')
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard, cmd='TSC no-stats'),
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(linecard, 'TSC no-stats')),
                       "DUT is not in normal state")
 
 
@@ -132,7 +132,7 @@ def test_sup_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
         def verify_linecard_after_sup_tsa(lc):
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is not enabled".format(lc.hostname))
@@ -188,7 +188,7 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             lc.shell('sudo config save -y')
             # Ensure that the DUT is in maintenance state
             pytest_assert(
-                TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                 "DUT is not in maintenance state",
             )
 
@@ -204,7 +204,7 @@ def test_sup_tsa_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
         def verify_linecard_after_sup_tsa(lc):
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state with supervisor TSA action")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is not enabled".format(lc.hostname))
@@ -264,7 +264,7 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
         def verify_linecard_after_sup_tsa(lc):
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
 
         # Confirm all the line cards are in BGP operational TSA state due to supervisor TSA
@@ -287,7 +287,7 @@ def test_sup_tsb_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
         # Verify line cards change the state to TSB from TSA after supervisor TSB
         def verify_linecard_after_sup_tsb(lc):
             # Verify DUT changes to normal state with supervisor TSB action
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in normal state with supervisor TSB action")
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is enabled".format(lc.hostname))
@@ -343,7 +343,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
 
         # Similarly keep line cards in TSA mode to start with as part of the test
@@ -359,7 +359,7 @@ def test_sup_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
 
         def verify_linecard_after_sup_tsb(lc):
             # Verify DUT continues to be in maintenance state even with supervisor TSB action
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is enabled".format(lc.hostname))
@@ -419,7 +419,7 @@ def test_dut_tsa_act_when_sup_duts_on_tsb_initially(duthosts, localhost, enum_su
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
@@ -484,7 +484,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
 
         def verify_linecard_after_sup_tsa(lc):
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Verify line card config TSA enabled is still false
             pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
@@ -502,7 +502,7 @@ def test_dut_tsa_act_when_sup_on_tsa_duts_on_tsb_initially(duthosts, localhost, 
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
@@ -568,7 +568,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
@@ -593,7 +593,7 @@ def test_dut_tsb_act_when_sup_on_tsb_duts_on_tsa_initially(duthosts, localhost, 
             pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
                           "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in normal state
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in normal state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
@@ -652,7 +652,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
 
         # Similarly keep line cards in TSA mode to start with as part of the test
@@ -667,7 +667,7 @@ def test_dut_tsb_act_when_sup_and_duts_on_tsa_initially(duthosts, localhost, enu
             pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
                           "DUT {} tsa_enabled config is enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
@@ -743,7 +743,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
 
         def verify_linecard_after_sup_tsa(lc):
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is not enabled".format(lc.hostname))
@@ -781,7 +781,7 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in the same maintenance state like before supervisor reboot
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is not enabled".format(lc.hostname))
@@ -812,12 +812,17 @@ def test_sup_tsa_act_with_sup_reboot(duthosts, localhost, enum_supervisor_dut_ho
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify dut continues to be in TSA even after startup_tsa_tsb service is stopped
-                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                pytest_assert(wait_until(30, 5, 0,
+                                         lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
                 pytest_assert('true' == get_tsa_chassisdb_config(lc),
                               "{} tsa_enabled config is not enabled".format(lc.hostname))
+
                 # Verify line card config changed to TSB after startup-tsa-tsb service expiry
-                pytest_assert(verify_dut_configdb_tsa_value(lc) is False,
+
+                def verify_dut_configdb_tsa_disabled(lc):
+                    return verify_dut_configdb_tsa_value(lc) is False
+                pytest_assert(wait_until(120, 1, 0, verify_dut_configdb_tsa_disabled, lc),
                               "DUT {} tsa_enabled config is enabled".format(lc.hostname))
 
         # Once all line cards are in maintenance state, proceed further
@@ -883,7 +888,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
             lc.shell('TSA')
             lc.shell('sudo config save -y')
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
 
         # Convert line cards to BGP operational TSA state for the current test as initial config
@@ -898,7 +903,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
                       "Supervisor {} tsa_enabled config is not enabled".format(suphost.hostname))
 
         def verify_tsa_after_sup_tsa(lc):
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state with supervisor TSA action")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled config is not enabled".format(lc.hostname))
@@ -919,7 +924,7 @@ def test_sup_tsa_act_when_duts_on_tsa_with_sup_config_reload(duthosts, localhost
 
         def verify_line_card_after_sup_config_reload(lc):
             # Verify DUT is in the same maintenance state like before supervisor config reload
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state after supervisor config reload")
             pytest_assert('true' == get_tsa_chassisdb_config(lc),
                           "{} tsa_enabled chassisdb config is not enabled".format(lc.hostname))
@@ -991,7 +996,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             pytest_assert(verify_dut_configdb_tsa_value(lc) is True,
                           "DUT {} tsa_enabled config is not enabled".format(lc.hostname))
             # Ensure that the DUT is in maintenance state
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('false' == get_tsa_chassisdb_config(lc),
@@ -1019,7 +1024,7 @@ def test_dut_tsa_act_with_reboot_when_sup_dut_on_tsb_init(duthosts, localhost, e
             pytest_assert(wait_until(tsa_tsb_timer[lc], 20, 0, get_tsa_tsb_service_status, lc, 'exited'),
                           "startup_tsa_tsb service is in running state after dut reboot which is not expected")
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state")
             # Ensure line card chassisdb config is in sync with supervisor
             pytest_assert('false' == get_tsa_chassisdb_config(lc),

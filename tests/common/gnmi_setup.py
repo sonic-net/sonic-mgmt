@@ -15,6 +15,7 @@ import time
 
 import tests.common.gu_utils as gu_utils
 
+from tests.common.cert_utils import TlsCertificateGenerator
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.utilities import wait_until
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
@@ -39,8 +40,8 @@ IP      = %s
 
 
 def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
-                  module_ignore_errors=True)
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
@@ -139,8 +140,9 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
+    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
     is_time_synced = False
     for i in range(3):
@@ -174,9 +176,17 @@ def recover_cert_config(duthost):
 
 def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
     """
-    Create GNMI CA, server and client certificates
-    :param localhost: localhost fixture
-    :param duthost_mgmt_ip: DUT management IP
+    Create GNMI CA, server and client certificates.
+
+    Builds the test PKI in-process via cryptography (not openssl shell) so
+    that notBefore can be backdated by 7 days. This absorbs clock skew
+    between the sonic-mgmt runner, the DUT, and the PTF docker; otherwise
+    the TLS handshake fails with "certificate is not yet valid". The
+    openssl 3.0.x runtime on Ubuntu 24.04 has no CLI flag to set
+    notBefore on `req -x509` or `x509 -req` (added only in 3.5).
+
+    :param localhost: localhost fixture (unused; kept for backward compat)
+    :param duthost_mgmt_ip: DUT management IP (included in server cert SAN)
     :param cert_path: Path to store the certificates
     :return: True if successful, False otherwise
     """
@@ -199,105 +209,24 @@ def create_certificates(localhost, duthost_mgmt_ip, cert_path: Path):
         logger.error(f"Failed to create directory {dest_dir}: {e}")
         raise Exception(f"Failed to create directory {dest_dir}: {e}")
 
-    # Create CA key and certificate
-    logger.info("Creating CA key and certificate.")
-    key_file = str(dest_dir / 'gnmiCA.key')
-    out_file = str(dest_dir / 'gnmiCA.pem')
-    logger.debug(f"CA key file: {key_file}, CA certificate file: {out_file}")
-    local_command = f"openssl genrsa -out {key_file} 2048"
-    localhost.shell(local_command)
-    local_command = (
-        f"openssl req -x509 -new -nodes -key {key_file} "
-        f"-sha256 -days 1825 -subj '/CN=test.gnmi.sonic' "
-        f"-out {out_file}"
-    )
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to create CA certificate {out['stderr']}")
-        return False
-
-    # Create server key
-    logger.info("Creating server key.")
-    key_file = str(dest_dir / 'gnmiserver.key')
-    logger.debug(f"Server key file: {key_file}")
-    local_command = f"openssl genrsa -out {key_file} 2048"
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to create server key {out['stderr']}")
-        return False
-
-    # Create server CSR
-    logger.info("Creating server CSR.")
-    out_file = str(dest_dir / 'gnmiserver.csr')
-    logger.debug(f"Server CSR file: {out_file}")
-    local_command = (
-        f"openssl req -new -key {key_file} "
-        f"-subj '/CN=test.server.gnmi.sonic' -out {out_file}"
-    )
-    localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to create server CSR {out['stderr']}")
-        return False
-
-    # Sign server certificate
-    logger.info("Signing server certificate.")
-    extfile_path = str(dest_dir / 'extfile.cnf')
-    logger.debug(f"Extension file path: {extfile_path}")
-    create_ext_conf(duthost_mgmt_ip, extfile_path)
-    ca_key = str(dest_dir / 'gnmiCA.key')
-    ca_pem = str(dest_dir / 'gnmiCA.pem')
-    in_file = str(dest_dir / 'gnmiserver.csr')
-    out_file = str(dest_dir / 'gnmiserver.crt')
-    logger.debug(f"CA key: {ca_key}, CA PEM: {ca_pem}, Input CSR: {in_file}, Output CRT: {out_file}")
-    local_command = (
-        f"openssl x509 -req -in {in_file} "
-        f"-CA {ca_pem} -CAkey {ca_key} -CAcreateserial "
-        f"-out {out_file} -days 825 -sha256 "
-        f"-extensions req_ext -extfile {extfile_path}"
-    )
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to sign server certificate {out['stderr']}")
-        return False
-
-    # Create client key
-    logger.info("Creating client key.")
-    key_file = str(dest_dir / 'gnmiclient.key')
-    logger.debug(f"Client key file: {key_file}")
-    local_command = f"openssl genrsa -out {key_file} 2048"
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to create client key {out['stderr']}")
-        return False
-
-    # Create client CSR
-    logger.info("Creating client CSR.")
-    out_file = str(dest_dir / 'gnmiclient.csr')
-    logger.debug(f"Client CSR file: {out_file}")
-    local_command = (
-        f"openssl req -new -key {key_file} "
-        f"-subj '/CN=test.client.gnmi.sonic' -out {out_file}"
-    )
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to create client CSR {out['stderr']}")
-        return False
-
-    # Sign client certificate
-    logger.info("Signing client certificate.")
-    in_file = str(dest_dir / 'gnmiclient.csr')
-    ca_pem = str(dest_dir / 'gnmiCA.pem')
-    ca_key = str(dest_dir / 'gnmiCA.key')
-    out_file = str(dest_dir / 'gnmiclient.crt')
-    logger.debug(f"CA key: {ca_key}, CA PEM: {ca_pem}, Input CSR: {in_file}, Output CRT: {out_file}")
-    local_command = (
-        f"openssl x509 -req -in {in_file} "
-        f"-CA {ca_pem} -CAkey {ca_key} "
-        f"-CAcreateserial -out {out_file} -days 825 -sha256"
-    )
-    out = localhost.shell(local_command)
-    if out['rc'] != 0:
-        logger.error(f"Failed to sign client certificate {out['stderr']}")
+    try:
+        generator = TlsCertificateGenerator(
+            server_ip=duthost_mgmt_ip,
+            backdate_days=7,
+            dns_names=["hostname.com"],
+            ca_cn="test.gnmi.sonic",
+            server_cn="test.server.gnmi.sonic",
+            client_cn="test.client.gnmi.sonic",
+            ca_cert_name="gnmiCA.pem",
+            ca_key_name="gnmiCA.key",
+            server_cert_name="gnmiserver.crt",
+            server_key_name="gnmiserver.key",
+            client_cert_name="gnmiclient.crt",
+            client_key_name="gnmiclient.key",
+        )
+        generator.write_all(str(dest_dir))
+    except Exception as e:
+        logger.error(f"Failed to generate GNMI certificates: {e}")
         return False
 
     logger.info("Certificate creation process completed successfully.")

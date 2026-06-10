@@ -27,6 +27,7 @@ from scapy.layers.inet6 import IPv6
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa: F401
@@ -1658,7 +1659,8 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
             str(ipaddress.ip_interface(config_vals["SERVER"]["IPv4"]).ip),
             str(ipaddress.ip_interface(config_vals["SERVER"]["IPv6"]).ip)]
 
-    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True), dest="/tmp/from_t1.json")
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True),
+                 dest=ARP_RESPONDER_DEFAULT_CONFIG)
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 

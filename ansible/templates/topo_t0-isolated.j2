@@ -33,7 +33,6 @@ configuration_properties:
   common:
     dut_asn: {{ dut.asn }}
     dut_type: ToRRouter
-    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -45,12 +44,21 @@ configuration_properties:
     leaf_asn_start: 64600
     tor_asn_start: 65500
     failure_rate: 0
+  tor:
+    swrole: tor
+  leaf:
+    swrole: leaf
 
 configuration:
 {%- for vm in vm_list %}
   {{vm.name}}:
     properties:
     - common
+  {%- if vm.role == 'pt0' %}
+    - tor
+  {%- else %}
+    - leaf
+  {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:

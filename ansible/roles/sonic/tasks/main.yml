@@ -39,3 +39,6 @@
 
 - include_tasks: vsonic.yml
   when: vm_type == "vsonic"
+
+- include_tasks: csonic.yml
+  when: vm_type == "csonic"

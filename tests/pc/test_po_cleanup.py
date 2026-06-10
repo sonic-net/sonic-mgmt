@@ -1,8 +1,11 @@
 import pytest
 import logging
+
+from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateAndWaitSyslogContext, LogAnalyzer
 
 pytestmark = [
     pytest.mark.disable_route_check,
@@ -35,6 +38,21 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
             ".*teamsyncd: :- cleanTeamSync.*"
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(expectRegex)
+
+
+@pytest.fixture(autouse=True)
+def disable_route_check_for_duthost(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if topo_name in allowed_topologies:
+        logging.info("Stopping route check monitor before test case")
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
+    else:
+        logging.info("Topology {} is not allowed for disable_route_check_for_duthost fixture".format(topo_name))
+
+    yield
 
 
 def check_kernel_po_interface_cleaned(duthost, asic_index):
@@ -88,7 +106,17 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     for pc in port_channel_intfs:
         loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
 
+    watchdog_pid = None
     try:
+        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
+        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
+        # where the test may be killed before reaching the finally block.
+        # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
+        watchdog_timeout = 600  # 10 minutes — well beyond config_reload's 240s wait
+        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
+            watchdog_timeout)
+        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
+
         # Make CPU high
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
@@ -104,13 +132,23 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         #
         # Since we don't care about logs from swss for this test case, stop rsyslogd in
         # the swss container completely.
-        duthost.command("docker exec swss supervisorctl stop rsyslogd")
+        for asic_id in duthost.get_asic_ids():
+            if asic_id is None:
+                asic_id = ""
+            duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
         with loganalyzer:
-            logging.info("Reloading config..")
-            config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
-
-        duthost.shell("killall yes")
+            with DisableLogrotateAndWaitSyslogContext(
+                duthost,
+                cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
+            ):
+                logging.info("Reloading config..")
+                config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
+        # Cancel the watchdog so it doesn't fire during later tests
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
     except Exception:
-        duthost.shell("killall yes")
+        duthost.shell("killall yes", module_ignore_errors=True)
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise

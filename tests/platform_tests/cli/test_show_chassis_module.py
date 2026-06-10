@@ -10,7 +10,7 @@ from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logic
 logger = logging.getLogger('__name__')
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 CMD_SHOW_CHASSIS_MODULE = "show chassis modules"
@@ -224,8 +224,9 @@ def test_show_chassis_module_status_after_docker_restart(duthosts, tbinfo):
         pytest_assert(
             initial_res[mod_idx] == final_res[mod_idx],
             "Mismatch in module status for slot {}: initial={} final={}."
-        ).format(
-            mod_idx, initial_res[mod_idx], final_res[mod_idx]
+            .format(
+                mod_idx, initial_res[mod_idx], final_res[mod_idx]
+            )
         )
 
     logger.info(

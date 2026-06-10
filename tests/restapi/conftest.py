@@ -1,23 +1,34 @@
 import logging
 import pytest
 import urllib3
+import ipaddress
 from six.moves.urllib.parse import urlunparse
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 from helper import apply_cert_config
 
 RESTAPI_CONTAINER_NAME = 'restapi'
 
 
+@pytest.fixture(scope="module")
+def setup_loganalyzer(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestRestapi")
+    loganalyzer.expect_regex = [".*restapi#.*https endpoint started.*"]
+    return loganalyzer
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
+def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost, setup_loganalyzer):
     '''
     Create RESTAPI client certificates and copy the subject names to the config DB
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    loganalyzer = setup_loganalyzer
 
     # Check if RESTAPI is enabled on the device
     pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True),
@@ -94,18 +105,22 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost.copy(src='restapiserver.key',
                  dest='/etc/sonic/credentials/testrestapiserver.key')
 
-    apply_cert_config(duthost)
-    urllib3.disable_warnings()
-
-    yield
-    # Perform a config load_minigraph to ensure config_db is not corrupted
-    config_reload(duthost, config_source='minigraph')
-    # Delete all created certs
-    local_command = "rm \
-                        restapiCA.* \
-                        restapiserver.* \
-                        restapiclient.*"
-    localhost.shell(local_command)
+    try:
+        with loganalyzer:
+            apply_cert_config(duthost)
+        urllib3.disable_warnings()
+        yield
+    except LogAnalyzerError as err:
+        pytest.fail(str(err))
+    finally:
+        # Perform a config load_minigraph to ensure config_db is not corrupted
+        config_reload(duthost, config_source='minigraph')
+        # Delete all created certs
+        local_command = "rm \
+                            restapiCA.* \
+                            restapiserver.* \
+                            restapiclient.*"
+        localhost.shell(local_command)
 
 
 @pytest.fixture
@@ -113,7 +128,18 @@ def construct_url(duthosts, rand_one_dut_hostname):
     def get_endpoint(path):
         duthost = duthosts[rand_one_dut_hostname]
         RESTAPI_PORT = "8081"
-        netloc = duthost.mgmt_ip+":"+RESTAPI_PORT
+
+        # Handle IPv6 addresses by wrapping them in square brackets
+        try:
+            ip_obj = ipaddress.ip_address(duthost.mgmt_ip)
+            if ip_obj.version == 6:
+                netloc = "[{}]:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+            else:
+                netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+        except ValueError:
+            # If it's not a valid IP address, treat it as hostname and use as-is
+            netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+
         try:
             tup = ('https', netloc, path, '', '', '')
             endpoint = urlunparse(tup)

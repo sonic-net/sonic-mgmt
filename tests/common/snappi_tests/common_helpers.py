@@ -11,21 +11,26 @@ in .csv format etc.
 """
 
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from enum import Enum
+import logging
 from functools import lru_cache
+from typing import List, Optional
 import sys
 import ipaddr
 import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network, IPv6Address
-from random import getrandbits
+from ipaddress import IPv6Network
+import ipaddress
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
+logger = logging.getLogger(__name__)
 
 
 def increment_ip_address(ip, incr=1):
@@ -181,25 +186,23 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     return dropped_packets
 
 
-def get_addrs_in_subnet(subnet, number_of_ip):
+def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IP addresses in a subnet.
-    Args:
-        subnet (str): IPv4 subnet, e.g., '192.168.1.1/24'
-        number_of_ip (int): Number of IP addresses to get
-    Return:
-        Return n IPv4 addresses in this subnet in a list.
+    Efficiently yield N IPs from a subnet, skipping excluded IPs.
+    Handles large IPv6 subnets quickly.
     """
-    ip_addr = subnet.split('/')[0]
-    ip_addrs = [str(x) for x in list(IPNetwork(subnet))]
-    ip_addrs.remove(ip_addr)
+    net = ipaddress.ip_network(subnet, strict=False)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    results = []
 
-    """ Try to avoid network and broadcast addresses """
-    if len(ip_addrs) >= number_of_ip + 2:
-        del ip_addrs[0]
-        del ip_addrs[-1]
-
-    return ip_addrs[:number_of_ip]
+    # Calculate the first usable host (for IPv4, skip network & broadcast)
+    hosts = net.hosts() if net.version == 4 else net.hosts()
+    for addr in hosts:
+        if str(addr) not in exclude_set:
+            results.append(str(addr))
+            if len(results) == number_of_ip:
+                break
+    return results
 
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
@@ -257,14 +260,12 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     dut_device_conn = device_conn[dut_hostname]
     peer_devices = [dut_device_conn[port]['peerdevice'] for port in dut_device_conn]
     peer_devices = list(set(peer_devices))
-    # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
-    # try to filter out the other device based on the name for now.
-    peer_snappi_devices = list(filter(
-        lambda dut_name: ('ixia' in dut_name or 'snappi' in dut_name), peer_devices)
-    )
-
-    if len(peer_snappi_devices) == 1:
-        return peer_snappi_devices[0]
+    peer_snappi_devices = []
+    for peer in peer_devices:
+        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
+            peer_snappi_devices.append(peer)
+    if len(peer_snappi_devices) >= 1:
+        return peer_snappi_devices
     else:
         return None
 
@@ -539,8 +540,8 @@ def enable_ecn(host_ans, prio, asic_value=None):
     """
     if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
-        results = host_ans.shell('ecnconfig -q {}'.format(prio))
-        if re.search("queue {}: on".format(prio), results['stdout']):
+        results = host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+        if re.search("sudo ecnconfig -q {} on".format(prio), results['cmd']):
             return True
     else:
         host_ans.shell('sudo ecnconfig -n {} -q {} on'.format(asic_value, prio))
@@ -889,27 +890,39 @@ def enable_packet_aging(duthost, asic_value=None):
                     duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IPv6 addresses in a subnet.
+    Get N IPv6 addresses in a subnet, sequentially iterating hosts
+    and skipping excluded IPs. Consistent with get_addrs_in_subnet behavior.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
+        exclude_ips (list): Optional list of IPs to exclude
     Return:
         Return n IPv6 addresses in this subnet in a list.
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
+    network = IPv6Network(subnet)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
 
+    ipv6_list = []
+    for addr in network.hosts():
+        if str(addr) not in exclude_set:
+            ipv6_list.append(str(addr))
+            if len(ipv6_list) == number_of_ip:
+                break
     return ipv6_list
+
+
+def get_other_hosts_from_ipv6_host(ip_str, prefix_length):
+    # Parse the IPv6 address and subnet
+    interface = ipaddress.IPv6Interface(f"{ip_str}/{prefix_length}")
+    network = interface.network
+    input_ip = interface.ip
+    # Return all other valid host addresses (excluding the input IP)
+    return [str(ip) for ip in network.hosts() if ip != input_ip]
 
 
 def sec_to_nanosec(secs):
@@ -1125,6 +1138,77 @@ def get_rx_frame_count(duthost, port):
     return rx_ok_frame_count, rx_drp_frame_count
 
 
+def check_tx_drp_counts(
+    duthost,
+    ports: List[str],
+    threshold: int = 0,
+    greater_than: bool = True,
+    verbose: bool = False,
+):
+    """Check TX_DRP counts for a list of ports against a threshold.
+    Issues one portstat command for all specified ports and parses JSON output.
+
+    Args:
+        duthost: Ansible host instance (device under test)
+        ports (list[str]): List of port names (e.g., ["Ethernet3", "Ethernet4"]).
+        threshold (int): Threshold to compare TX_DRP against (default 0).
+        greater_than (bool): If True require TX_DRP > threshold; if False require TX_DRP < threshold.
+        verbose (bool): If True, logs per-port TX_DRP counts via stdout for debug.
+
+    Returns:
+        tuple: (overall_pass (bool), details (dict|None))
+            details maps port -> { 'tx_drp': int, 'threshold': int, 'comparison': '>'|'<', 'pass': bool }
+            If verbose is False, details will be None for lighter-weight usage.
+
+    Raises:
+        AssertionError: If ports list empty, command fails, parsing fails, or a port missing in output.
+    """
+    pytest_assert(
+        ports and isinstance(ports, (list)), "Ports list must be non-empty list"
+    )
+
+    port_list_str = ",".join(ports)
+    cmd = f"portstat -i {port_list_str} -j"
+    raw_out = duthost.shell(cmd)["stdout"]
+
+    raw_json_str = re.sub(r"^(?:(?!{).)*\n", "", raw_out, count=1)
+    try:
+        stats = json.loads(raw_json_str)
+    except Exception as e:
+        pytest_assert(
+            False,
+            f"Failed to parse JSON from portstat output: {e}\nRaw: {raw_out[:200]}",
+        )
+
+    comparison = ">" if greater_than else "<"
+    all_pass = True
+    details = {} if verbose else None
+
+    for p in ports:
+        pytest_assert(p in stats, f"Port {p} not found in portstat output")
+        tx_drp_raw = stats[p].get("TX_DRP")
+        pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
+        try:
+            tx_drp_val = int(tx_drp_raw.replace(",", ""))
+        except ValueError:
+            pytest_assert(
+                False, f"Non-integer TX_DRP value '{tx_drp_raw}' for port {p}"
+            )
+
+        passed = (tx_drp_val > threshold) if greater_than else (tx_drp_val < threshold)
+        if not passed:
+            all_pass = False
+        if verbose:
+            details[p] = {
+                "tx_drp": tx_drp_val,
+                "threshold": threshold,
+                "comparison": comparison,
+                "pass": passed,
+            }
+
+    return all_pass, details
+
+
 def get_egress_queue_count(duthost, port, priority):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
@@ -1161,11 +1245,13 @@ class packet_capture(Enum):
     ENUM of packet capture settings
     NO_CAPTURE - No capture
     PFC_CAPTURE - PFC capture enabled
-    IP_CAPTURE - IP capture enabled
+    IP_CAPTURE - IPv4 capture enabled
+    IP_V6_CAPTURE - IPv6 capture enabled
     """
     NO_CAPTURE = "No_Capture"
     PFC_CAPTURE = "PFC_Capture"
-    IP_CAPTURE = "IP_Capture"
+    IP_CAPTURE = "ipv4"
+    IP_V6_CAPTURE = "ipv6"
 
 
 class traffic_flow_mode(Enum):
@@ -1186,7 +1272,107 @@ class traffic_flow_mode(Enum):
     FIXED_DURATION = -97
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
+@dataclass
+class IPCaptureFilter:
+    """
+    Represents an IP-based capture filter for Snappi captures.
+    Each field maps to the corresponding Capture.Field subobject.
+    """
+    max_whole_packet_size: Optional[int] = None
+    min_whole_packet_size: int = 0
+
+    version_value: Optional[str] = None
+    version_mask: Optional[str] = None
+    version_negate: bool = False
+
+    traffic_class_value: Optional[str] = None
+    traffic_class_mask: Optional[str] = None
+    traffic_class_negate: bool = False
+
+    flow_label_value: Optional[str] = None
+    flow_label_mask: Optional[str] = None
+    flow_label_negate: bool = False
+
+    payload_length_value: Optional[str] = None
+    payload_length_mask: Optional[str] = None
+    payload_length_negate: bool = False
+
+    next_header_value: Optional[str] = None
+    next_header_mask: Optional[str] = None
+    next_header_negate: bool = False
+
+    hop_limit_value: Optional[str] = None
+    hop_limit_mask: Optional[str] = None
+    hop_limit_negate: bool = False
+
+    src_value: Optional[str] = None
+    src_mask: Optional[str] = None
+    src_negate: bool = False
+
+    dst_value: Optional[str] = None
+    dst_mask: Optional[str] = None
+    dst_negate: bool = False
+
+
+def to_hex16(value: int) -> str:
+    """
+    Convert an integer to a 4-digit zero-padded lowercase hex string.
+    Example: 88 -> "0058"
+    """
+    if not (0 <= value <= 0xFFFF):
+        raise ValueError("Value must fit into 16 bits (0-65535)")
+    return format(value, "04x")
+
+
+def config_capture_settings(api,
+                            port_names: List[str],
+                            capture_type: packet_capture,
+                            ip_filter: IPCaptureFilter,
+                            ):
+    """
+    Use the IxNetwork API to configure custom packet capture settings and filters on specified ports.
+
+    Args:
+        api: Snappi API object
+        port_names (list of string): names of ixia ports to capture packets on
+        capture_type (packet_capture Enum): Type of packet to capture
+        ip_filter (IPCaptureFilter or None): Optional IP-based filter settings for IP captures
+    Returns:
+        N/A
+    """
+    if not port_names:
+        raise ValueError("At least one port name must be provided to configure port capture settings")
+    elif ip_filter is None:
+        raise ValueError("ip_filter object must be provided")
+    elif capture_type == packet_capture.NO_CAPTURE or capture_type == packet_capture.PFC_CAPTURE:
+        return
+
+    ixnet_session = api._ixnetwork
+    for port_name in port_names:
+        port = ixnet_session.Vport.find(Name=port_name)
+        if not port:
+            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")
+
+        port.Capture.HardwareEnabled = True  # enables data plane capture
+        port.Capture.Filter.CaptureFilterEnable = True
+        # For now we only support frame size filtering since it is not reliable through snappi
+        # This function can be extended later to add other types of filtering through ixnetwork
+        # TODO: Replace with snappi when bug fix for packet capture filtering is provided.
+        if ip_filter.min_whole_packet_size and ip_filter.max_whole_packet_size:
+            port.Capture.Filter.CaptureFilterFrameSizeEnable = True
+            port.Capture.Filter.CaptureFilterFrameSizeFrom = ip_filter.min_whole_packet_size
+            port.Capture.Filter.CaptureFilterFrameSizeTo = ip_filter.max_whole_packet_size
+            logger.debug(f"Configured frame size filter with min size: {ip_filter.min_whole_packet_size} \
+                         bytes and max size: {ip_filter.max_whole_packet_size} bytes")
+
+
+def config_capture_pkt(testbed_config,
+                       port_names,
+                       capture_type,
+                       capture_name=None,
+                       capture_overwrite=True,
+                       format="pcapng"
+                       ):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -1195,6 +1381,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
+        capture_overwrite (bool): Whether to overwrite existing capture files when capture buffer gets full
         format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
@@ -1208,6 +1395,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         cap.format = format
     else:
         raise Exception("Unsupported capture format")
+    cap.overwrite = capture_overwrite
 
 
 def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
@@ -1248,12 +1436,13 @@ def start_pfcwd_fwd(duthost, asic_value=None):
                       format(asic_value))
 
 
-def clear_counters(duthost, port):
+def clear_counters(duthost, port=None, namespace=None):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
+        namespace (str): namespace name in case of multi asic duthost
     Returns:
         None
     """
@@ -1269,8 +1458,15 @@ def clear_counters(duthost, port):
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
-        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+        pytest_assert(
+            port or namespace,
+            'Cannot clear counters in case of multi asic, either port or namespace needs to be provided.'
+            )
+        if not namespace:
+            namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
+    else:
+        duthost.command("sonic-clear dropcounters \n")
 
 
 def get_interface_stats(duthost, port=None):
@@ -1479,9 +1675,88 @@ def get_pfc_count(duthost, port):
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override and override_data is not None:
+    if is_override and override_data is not None and override_data != []:
         return override_data
     return default
+
+
+def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
+                                    qos_map_profile=None):
+    """
+    Build a per-queue scheduler/weight map for an interface by joining the
+    ``QUEUE`` and ``SCHEDULER`` config-DB tables, and optionally annotating
+    each queue with one of its DSCP values via ``DSCP_TO_TC_MAP`` and
+    ``TC_TO_QUEUE_MAP``.
+
+    Args:
+        host_ans: Ansible host instance of the device.
+        asic_value: asic namespace; pass ``None`` (default) or the string
+            ``"None"`` for single-asic devices.
+        port (str, optional): interface name to read ``QUEUE`` for. Defaults
+            to the first interface present in ``QUEUE``.
+        qos_map_profile (str, optional): name of the profile inside
+            ``DSCP_TO_TC_MAP`` / ``TC_TO_QUEUE_MAP`` to use for the ``dscp``
+            field. Defaults to the first profile (typically ``"AZURE"``).
+            If the maps are missing, ``dscp`` is set to ``None``.
+
+    Returns:
+        dict[int, dict]: ``{queue: {"scheduler": <name>, "type": <DWRR/...>,
+        "weight": <int>, "dscp": <int|None>}}``. The result always covers
+        queues 0-7; any queue not present in the per-port ``QUEUE`` config
+        (or whose scheduler is missing from ``SCHEDULER``) falls back to a
+        default entry with equal DWRR weight 15.
+    """
+    if asic_value in (None, "None"):
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running")["ansible_facts"]
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running",
+                                             namespace=asic_value)["ansible_facts"]
+
+    queue_cfg_all = config_facts.get("QUEUE") or {}
+    scheduler_cfg = config_facts.get("SCHEDULER") or {}
+
+    dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
+    tc_to_queue = config_facts.get("TC_TO_QUEUE_MAP") or {}
+    if qos_map_profile is None and dscp_to_tc:
+        qos_map_profile = next(iter(dscp_to_tc))
+    dscp_to_tc_map = dscp_to_tc.get(qos_map_profile, {}) if qos_map_profile else {}
+    tc_to_queue_map = tc_to_queue.get(qos_map_profile, {}) if qos_map_profile else {}
+
+    queue_to_dscp = {}
+    for dscp, tc in dscp_to_tc_map.items():
+        q = tc_to_queue_map.get(str(tc))
+        if q is not None:
+            queue_to_dscp.setdefault(int(q), int(dscp))
+
+    # default entry with equal DWRR weight 15
+    result = {
+        q: {"scheduler": None, "type": "DWRR", "weight": 15,
+            "dscp": queue_to_dscp.get(q)}
+        for q in range(8)
+    }
+
+    if not queue_cfg_all:
+        return result
+
+    if port is None:
+        port = next(iter(queue_cfg_all))
+    if port not in queue_cfg_all:
+        raise KeyError("Port {} not found in QUEUE config (available: {})".format(port, sorted(queue_cfg_all)))
+
+    for q, value in queue_cfg_all[port].items():
+        scheduler = value.get("scheduler")
+        if scheduler is None or scheduler not in scheduler_cfg:
+            continue
+        sched = scheduler_cfg[scheduler]
+        result[int(q)] = {
+            "scheduler": scheduler,
+            "type": sched.get("type"),
+            "weight": int(sched["weight"]),
+            "dscp": queue_to_dscp.get(int(q)),
+        }
+    return result
 
 
 @lru_cache

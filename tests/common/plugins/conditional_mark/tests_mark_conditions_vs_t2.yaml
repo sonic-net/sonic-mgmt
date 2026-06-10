@@ -158,11 +158,6 @@ console/test_console_reversessh.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-console/test_console_udevrule.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 container_checker/test_container_checker:
   skip:
     conditions:
@@ -255,6 +250,11 @@ everflow/test_everflow_testbed.py:
     - asic_type in ['vs'] and 't2' in topo_name
     - https://github.com/sonic-net/sonic-mgmt/issues/20257
     reason: This test case takes too much time on virtual chassis
+generic_config_updater/add_cluster/test_add_cluster.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_bgp_prefix.py:
   skip:
     conditions:
@@ -301,11 +301,6 @@ generic_config_updater/test_pfcwd_interval.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_pg_headroom_update.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
-generic_config_updater/test_portchannel_interface.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -796,6 +791,11 @@ qos/test_ecn_config.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 qos/test_oq_watchdog.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+qos/test_qos_probe.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name

@@ -10,6 +10,7 @@ from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
 from tests.common.helpers.custom_msg_utils import add_custom_msg
+from tests.common.helpers.dut_utils import is_container_running, migrate_container_systemd
 
 
 logger = logging.getLogger(__name__)
@@ -22,17 +23,33 @@ CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
+    "docker-telemetry-watchdog": "telemetry_watchdog",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
     "docker-auditd-watchdog": "auditd_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
+    "kubesonic-cleanup": "k8s_cleanup",
+    "docker-sonic-restapi": "restapi",
+    "docker-restapi-watchdog": "restapi_watchdog",
+    "docker-restapi-sidecar": "restapi_sidecar",
 }
 
-existing_service_list = [
-    "gnmi"
+existing_systemd_services = [
+    "telemetry"
 ]
+
+
+def find_systemd_service(container_name):
+    """Check if a container corresponds to a systemd-managed service.
+
+    Returns the service name if found, None otherwise.
+    """
+    for service in existing_systemd_services:
+        if service in container_name:
+            return service
+    return None
 
 
 def parse_containers(container_string):
@@ -72,6 +89,20 @@ def parse_os_versions(os_versions_string):
     return os_versions
 
 
+def extract_major_version(os_version):
+    if not os_version or not isinstance(os_version, str):
+        return ""
+    os_version = os_version.strip()
+    # Need at least 6 characters for major version (YYYYMM)
+    if len(os_version) < 6:
+        return ""
+    # Validate first 6 chars are digits
+    major_version = os_version[:6]
+    if not major_version.isdigit():
+        return ""
+    return major_version
+
+
 def create_image_list(os_versions, image_url_template_string):
     image_list = []
 
@@ -79,7 +110,13 @@ def create_image_list(os_versions, image_url_template_string):
         pytest.fail("Invalid image_url_template_string")
 
     for os_version in os_versions:
-        image_list.append(image_url_template_string.replace("<osversion>", os_version))
+        url = image_url_template_string.replace("<osversion>", os_version)
+        if "<majorversion>" in url:
+            major_version = extract_major_version(os_version)
+            if not major_version:
+                pytest.fail(f"Failed to extract major version from os_version: {os_version}")
+            url = url.replace("<majorversion>", major_version)
+        image_list.append(url)
 
     return image_list
 
@@ -94,7 +131,7 @@ def create_testcase_mapping(testcase_file):
 def create_parameters_mapping(containers, parameters_file):
     with open(parameters_file, 'r') as file:
         data = json.load(file)
-    container_parameters = {container: details['parameters'] for container, details in data.items()}
+    container_parameters = {container: ' '.join(details['parameters']) for container, details in data.items()}
 
     return container_parameters
 
@@ -126,29 +163,54 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "All critical services should be fully started!")
 
 
-def disable_features(duthost):
-    for service in existing_service_list:
-        logger.info(f"Disabling {service} feature")
-        duthost.shell(f"config feature state {service} disabled", module_ignore_errors=True)
-    duthost.shell("config save -y", module_ignore_errors=True)
+def check_container_not_running(duthost, container_name):
+    return not is_container_running(duthost, container_name)
+
+
+def validate_is_v1_enabled(duthost, sidecar_container_name):
+    """
+    If sidecar container of existing service has IS_V1_ENABLED=false,
+    existing service container should not be running
+    """
+    container_name = sidecar_container_name.replace("_sidecar", "")
+    cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    if "IS_V1_ENABLED=false" in output:
+        py_assert(wait_until(30, 5, 5, check_container_not_running, duthost, container_name),
+                  f"{container_name} container should not be running")
 
 
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
-
-    # Disable features, and new container will be managed by kubernetes
-    disable_features(duthost)
     registry = load_docker_registry_info(duthost, creds)
-    for container, version, name in zip(env.containers, env.container_versions, env.container_names):
+    container_entries = list(zip(env.containers, env.container_versions, env.container_names))
+    # Ensure sidecars are processed first
+    container_entries.sort(key=lambda t: 0 if "sidecar" in t[2] else 1)
+
+    for container, version, name in container_entries:
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
+        optional_parameters = env.optional_parameters
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
-        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
-                         module_ignore_errors=True)['rc'] != 0:
-            pytest.fail("Not able to run container using pulled image")
+        duthost.shell(f"docker tag {docker_image} {container}:latest")
+        if "IS_V1_ENABLED=true" in optional_parameters \
+                and "watchdog" not in name and "sidecar" not in name:
+            systemd_service = find_systemd_service(name)
+            if systemd_service:
+                # This service is managed by systemd, so restart it through systemd
+                # instead of running a standalone docker container
+                migrate_container_systemd(duthost, systemd_service, parameters)
+                continue
+        else:
+            if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
+                             module_ignore_errors=True)['rc'] != 0:
+                pytest.fail("Not able to run container using pulled image")
+
+        if "sidecar" in name:
+            validate_is_v1_enabled(duthost, name)
 
 
 def store_results(request, test_results, env):

@@ -1,19 +1,21 @@
 import asyncio
 
 
+def get_op_by_name(op):
+    return globals()[op]
+
+
+# helper function for ops
 async def async_command(duthost, command):
     return duthost.command(command)
 
 
+# helper function for ops
 async def async_command_ignore_errors(duthost, command):
     try:
         return duthost.command(command, module_ignore_errors=True)
     except Exception:
         return
-
-
-def get_op_by_name(op):
-    return globals()[op]
 
 
 # Defining an op.
@@ -32,21 +34,23 @@ def get_op_by_name(op):
 # add async before def.
 
 
-async def noop(duthost):
+async def noop(request):
     yield True
 
 
-async def bad_op(duthost):
+async def bad_op(request):
     yield False
 
 
-async def reboot_by_cmd(duthost):
+async def reboot_by_cmd(request):
+    duthost = request.getfixturevalue("duthost")
     command = asyncio.create_task(async_command_ignore_errors(duthost, "reboot"))
     yield True
     await command
 
 
-async def config_reload_by_cmd(duthost):
+async def config_reload_by_cmd(request):
+    duthost = request.getfixturevalue("duthost")
     command = asyncio.create_task(async_command_ignore_errors(duthost, "config reload -f -y"))
     yield True
     await command

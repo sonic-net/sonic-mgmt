@@ -1,18 +1,20 @@
-from tests.common.snappi_tests.snappi_fixtures import snappi_api     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import (           # noqa: F401
-    snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
+from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports,
+    get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
 from tests.snappi_tests.reboot.files.reboot_helper import run_reboot_test
 from tests.common.fixtures.conn_graph_facts import (        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
 import pytest
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm'])
 def test_reboot(snappi_api,                # noqa: F811
                 duthost,
+                setup_bgp_testbed,  # noqa: F811
+                get_snappi_ports,  # noqa: F811
                 localhost,
                 tgen_ports,             # noqa: F811
                 conn_graph_facts,       # noqa: F811

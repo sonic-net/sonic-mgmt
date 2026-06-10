@@ -1,4 +1,6 @@
 import sys
+import argparse
+import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 
@@ -21,6 +23,14 @@ class writer(object):
     def write(self, data):
         log_to_file("crl.log", data)
 
+    def flush(self):
+        # No-op for file logging, but required for stdout/stderr compatibility
+        pass
+
+
+class IPv6HTTPServer(HTTPServer):
+    address_family = socket.AF_INET6
+
 
 class TempHttpServer(BaseHTTPRequestHandler):
 
@@ -36,12 +46,28 @@ class TempHttpServer(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='CRL HTTP Server')
+    parser.add_argument('--bind', default='0.0.0.0', help='IP address to bind to')
+    parser.add_argument('--port', type=int, default=1234, help='Port to bind to (default: 1234)')
+    args = parser.parse_args()
+
     # nohup will break stderr and cause broken pipe error
     sys.stdout = writer()
     sys.stderr = writer()
 
-    httpd = HTTPServer(('', 1234), TempHttpServer)
-    log_to_file("crl.log", "HTTPServer stated\n")
+    # Create HTTP server with specified bind address
+    # Automatically detect if we need IPv6 or IPv4 based on the bind address
+    try:
+        # Try to parse the address to determine if it's IPv6
+        socket.inet_pton(socket.AF_INET6, args.bind)
+        # If successful, it's an IPv6 address
+        httpd = IPv6HTTPServer((args.bind, args.port), TempHttpServer)
+        log_to_file("crl.log", f"IPv6 HTTPServer started on [{args.bind}]:{args.port}\n")
+    except socket.error:
+        # Not a valid IPv6 address, fallback to IPv4
+        httpd = HTTPServer((args.bind, args.port), TempHttpServer)
+        log_to_file("crl.log", f"IPv4 HTTPServer started on {args.bind}:{args.port}\n")
 
     # load cert
     load_cert()

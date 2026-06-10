@@ -1860,7 +1860,7 @@ configuration_properties:
     dut_type: LeafRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-    podset_number: 200
+    podset_number: 32
     tor_number: 16
     tor_subnet_number: 2
     max_tor_subnet_number: 16

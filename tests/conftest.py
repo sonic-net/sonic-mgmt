@@ -1,14 +1,13 @@
-import concurrent.futures
 from functools import lru_cache
+from typing import Optional
 import enum
 import os
 import json
 import logging
-import getpass
 import random
-from concurrent.futures import as_completed
 import re
 import sys
+import shutil
 
 import pytest
 import yaml
@@ -19,6 +18,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -28,6 +28,7 @@ from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -35,7 +36,8 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
@@ -62,16 +64,21 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.utilities import get_upstream_neigh_type, file_exists_on_dut
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
+    get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -86,11 +93,14 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+from tests.common.helpers.yang_utils import run_yang_validation
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-DUTHOSTS_FIXTURE_FAILED_RC = 15
+HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -112,12 +122,30 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
-                  'tests.common.fixtures.duthost_utils')
+                  'tests.common.fixtures.duthost_utils',
+                  'tests.common.plugins.parallel_fixture',
+                  'tests.common.plugins.erspan_mirror')
+
+
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
+
+
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
 
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
+                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
+    parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
+    parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
+    parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
+    parser.addoption("--l47_trafficgen", action="store_true", help="Enable L47 trafficgen config")
+    parser.addoption("--save_l47_trafficgen", action="store_true", help="Save L47 trafficgen config")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
@@ -135,7 +163,8 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str,
+                     choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -145,12 +174,30 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
+
     #####################################
-    # dash, vxlan, route shared options #
+    # ha, dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
+    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
+    parser.addoption("--vxlan_udp_dport", action="store", default="random",
+                     help="The vxlan udp dst port used in the test")
+    parser.addoption("--dpu_index", action="store", default=0, type=int,
+                     help="The default dpu used for the test")
+
+    ############################
+    # sflow options            #
+    ############################
+    parser.addoption("--enable_sflow_feature", action="store_true", default=False, help="Enable sFlow feature on DUT")
 
     ############################
     # pfc_asym options         #
@@ -175,12 +222,18 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--skip_sanity", action="store_true", default=False,
                      help="Skip sanity check")
+    parser.addoption("--skip_pre_sanity", action="store_true", default=False,
+                     help="Skip pre-test sanity check")
+    parser.addoption("--enable_pre_sanity", action="store_true", default=False,
+                     help="Enable pre-test sanity check (override default skip)")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
     parser.addoption("--post_check", action="store_true", default=False,
                      help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--skip_post_check", action="store_true", default=False,
+                     help="Skip post-test sanity check (override default enable)")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
     parser.addoption("--recover_method", action="store", default="adaptive",
@@ -189,11 +242,13 @@ def pytest_addoption(parser):
     ########################
     #   pre-test options   #
     ########################
-    parser.addoption("--deep_clean", action="store_true", default=False,
-                     help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    parser.addoption("--enable_qos_ptf_pdb", action="store_true", default=False,
+                     help="Enable QoS PTF test debugging mode with pdb breakpoint")
+    parser.addoption("--ingress_drop_probing", action="store_true", default=False,
+                     help="Enable ingress drop threshold probing instead of PFC xoff probing")
 
     #########################
     #   post-test options   #
@@ -202,6 +257,11 @@ def pytest_addoption(parser):
                      help="collect show techsupport since <date>. <date> should be a string which can "
                           "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
                           "To collect all time spans, please use '@0' as the value.")
+    ############################
+    #   weak server options    #
+    ############################
+    parser.addoption("--weak_server", action="store_true", default=False,
+                     help="Treat testbed as a weak server (reduces packet counts and adds delays in relevant tests)")
 
     ############################
     #  keysight ixanvl options #
@@ -230,6 +290,8 @@ def pytest_addoption(parser):
     ############################
     #   macsec options         #
     ############################
+    parser.addoption("--snappi_macsec", action="store_true", default=False,
+                     help="Enable macsec on tgen links of testbed")
     parser.addoption("--enable_macsec", action="store_true", default=False,
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
@@ -256,6 +318,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################
@@ -271,8 +339,43 @@ def pytest_addoption(parser):
     ############################
     #   SmartSwitch options    #
     ############################
-    parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
-
+    parser.addoption(
+        "--dpu-pattern",
+        action="store",
+        default="None",
+        help="Smartswitch dpus that should be involved in the test (e.g. 'dut-dpu-0,dut-dpu-1')"
+    )
+    parser.addoption(
+        "--ss_target_index",
+        action="store",
+        default="",
+        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
+    )
+    parser.addoption(
+        "--ss_target_indices",
+        action="store",
+        default="",
+        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
+    )
+    parser.addoption(
+        "--ss-max-workers",
+        action="store",
+        type=int,
+        default=4,
+        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
+    parser.addoption(
+        "--ss_npu_target_image",
+        action="store",
+        default="",
+        help="SmartSwitch NPU image URL used in the full upgrade test (DPUs staged first, then NPU rebooted)",
+    )
+    parser.addoption(
+        "--ss_npu_target_version",
+        action="store",
+        default="",
+        help="SmartSwitch NPU version string used in the full upgrade test (e.g. SONiC-OS-internal-202511.xxx)",
+    )
     ##################################
     #   Container Upgrade options    #
     ##################################
@@ -286,6 +389,8 @@ def pytest_addoption(parser):
                      help="File that containers parameters for each container")
     parser.addoption("--testcase_file", action="store", default=None, type=str,
                      help="File that contains testcases to execute per iteration")
+    parser.addoption("--optional_parameters", action="store", default="", type=str,
+                     help="Extra args appended to docker run, e.g. '-e IS_V1_ENABLED=true'")
 
     #################################
     #   Stress test options         #
@@ -298,6 +403,31 @@ def pytest_addoption(parser):
     parser.addoption("--container_test", action="store", default="",
                      help="This flag indicates that the test is being run by the container test.")
 
+    #################################
+    #   YANG validation options     #
+    #################################
+    parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False, dest="skip_yang",
+                     help="Skip YANG validation")
+
+    #################################
+    #   BGP convergence options     #
+    #################################
+    # BGP RIB tests: use port-channel info from config_db (minigraph) for tgen_ports
+    parser.addoption("--bgp_pc_config", action="store_true", default=False,
+                     help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
+
+    ##########################################
+    #   Dualtor MUX_CABLE combo options      #
+    ##########################################
+    parser.addoption("--prober_type", action="store", default=None, type=str,
+                     choices=["hardware", "software"],
+                     help="MUX_CABLE prober_type value (hardware|software). "
+                          "Only applies to dualtor/dualtor_io suites.")
+    parser.addoption("--neighbor_mode", action="store", default=None, type=str,
+                     choices=["host-route", "prefix-route"],
+                     help="MUX_CABLE neighbor_mode value (host-route|prefix-route). "
+                          "Only applies to dualtor/dualtor_io suites.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -306,6 +436,103 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
+    converge_topo_if_needed(config)
+
+
+def _load_testbed_config(tbfile, tbname):
+    """Load testbed configuration from file"""
+    with open(tbfile, 'r') as f:
+        testbed_data = yaml.safe_load(f)
+
+    for tb in testbed_data:
+        if tb.get('conf-name') == tbname:
+            return tb
+
+    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    return
+
+
+def converge_topo_if_needed(config):
+    tbname = config.getoption("testbed")
+    tbfile = config.getoption("testbed_file")
+    if tbname is None or tbfile is None:
+        return
+    try:
+        tb_config = _load_testbed_config(tbfile, tbname)
+        if not tb_config:
+            return
+        use_converged_peers = tb_config.get('use_converged_peers', False)
+        if not use_converged_peers:
+            logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
+            return
+        logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
+
+        topo_name = tb_config.get('topo', '').strip()
+        if not topo_name:
+            logger.warning(f"No valid topo name found in testbed '{tbname}', skipping converge")
+            return
+
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+        vars_dir = os.path.join(ansible_dir, "vars")
+        topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+        backup_file = f"{topo_file}.bak"
+
+        if not os.path.exists(topo_file):
+            logger.warning(f"Topo file not found: {topo_file}")
+            return
+
+        original_stat = os.stat(topo_file)
+        original_mode = original_stat.st_mode
+        original_uid = original_stat.st_uid
+        original_gid = original_stat.st_gid
+
+        if os.path.exists(backup_file):
+            logger.info("Backup file exists, recovering original topo file")
+            shutil.copy(backup_file, topo_file)
+        else:
+            logger.info(f"Creating backup: {backup_file}")
+            shutil.copy(topo_file, backup_file)
+
+        converger_path = os.path.join(ansible_dir, "ceos_topo_converger.py")
+        spec = importlib.util.spec_from_file_location("ceos_topo_converger", converger_path)
+        ceos_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ceos_module)
+
+        ceos_module.converge_testbed(backup_file, topo_file)
+        logger.info(f"Topology '{topo_name}' converged successfully")
+
+        os.chmod(topo_file, original_mode)
+        os.chown(topo_file, original_uid, original_gid)
+        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+        config.cache.set("converged_topo_file", topo_file)
+        config.cache.set("converged_topo_backup", backup_file)
+    except Exception as e:
+        logger.error(f"Error during topo converge: {e}")
+        raise
+
+
+@pytest.fixture(scope="session")
+def ipv6_only_mgmt_enabled(request):
+    """
+    Fixture to check and configure IPv6-only management mode.
+
+    When --ipv6_only_mgmt is passed to pytest (or -6 to run_tests.sh),
+    this enables IPv6-only management mode where DUT mgmt_ip will use
+    the IPv6 address (ansible_hostv6) instead of IPv4 (ansible_host).
+
+    This fixture must be used before duthosts fixture to ensure the
+    mode is configured before SonicHost objects are created.
+
+    Returns:
+        bool: True if IPv6-only management mode is enabled, False otherwise.
+    """
+    from tests.common.devices.base import AnsibleHostBase
+
+    enabled = request.config.getoption("ipv6_only_mgmt", default=False)
+    AnsibleHostBase.set_ipv6_only_mgmt(enabled)
+    return enabled
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -339,24 +566,6 @@ def enhance_inventory(request, tbinfo):
 
 
 def pytest_cmdline_main(config):
-
-    # Filter out unnecessary pytest_ansible plugin log messages
-    pytest_ansible_logger = logging.getLogger("pytest_ansible")
-    if pytest_ansible_logger:
-        pytest_ansible_logger.setLevel(logging.WARNING)
-
-    # Filter out unnecessary ansible log messages (ansible v2.8)
-    # The logger name of ansible v2.8 is nasty
-    mypid = str(os.getpid())
-    user = getpass.getuser()
-    ansible_loggerv28 = logging.getLogger("p=%s u=%s | " % (mypid, user))
-    if ansible_loggerv28:
-        ansible_loggerv28.setLevel(logging.WARNING)
-
-    # Filter out unnecessary ansible log messages (latest ansible)
-    ansible_logger = logging.getLogger("ansible")
-    if ansible_logger:
-        ansible_logger.setLevel(logging.WARNING)
 
     # Filter out unnecessary logs generated by calling the ptfadapter plugin
     dataplane_logger = logging.getLogger("dataplane")
@@ -448,6 +657,9 @@ def get_specified_device_info(request, device_pattern):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
+    # When no DPUs specified (None/"None"/empty), return [] so DPU tests skip instead of fail
+    if device_pattern == '--dpu-pattern' and (host_pattern is None or host_pattern == 'None' or host_pattern == ''):
+        return []
     if host_pattern == 'all':
         if device_pattern == '--dpu-pattern':
             testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
@@ -492,44 +704,29 @@ def pytest_sessionstart(session):
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
 
-    # Invoke the build-gnmi-stubs.sh script
-    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    base_dir = os.getcwd()  # Use the current working directory as the base directory
-    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
-
-    try:
-        result = subprocess.run(
-            [script_path, base_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # Do not raise an exception automatically on non-zero exit
-        )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
-        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
-
-        if result.returncode != 0:
-            logger.error(f"{script_path} failed with exit code {result.returncode}")
-            session.exitstatus = 1  # Fail the pytest session
-        else:
-            # Add the generated directory to sys.path for module imports
-            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-            if generated_path not in sys.path:
-                sys.path.insert(0, generated_path)
-                logger.info(f"Added {generated_path} to sys.path")
-    except Exception as e:
-        logger.error(f"Exception occurred while invoking {script_path}: {e}")
-        session.exitstatus = 1  # Fail the pytest session
-
 
 def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("duthosts_fixture_failed", None):
+    if (session.config.cache.get("duthosts_fixture_failed", None) or
+            session.config.cache.get("ptfhost_exception", None)):
         session.config.cache.set("duthosts_fixture_failed", None)
-        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+        session.config.cache.set("ptfhost_exception", None)
+        session.exitstatus = HOST_FIXTURE_FAILED_RC
+
+    topo_file = session.config.cache.get("converged_topo_file", None)
+    backup_file = session.config.cache.get("converged_topo_backup", None)
+    if topo_file and backup_file and os.path.exists(backup_file):
+        logger.info(f"Restoring original topo file from backup: {backup_file} -> {topo_file}")
+        try:
+            shutil.copy(backup_file, topo_file)
+            logger.info("Original topo file restored successfully")
+            session.config.cache.set("converged_topo_file", None)
+            session.config.cache.set("converged_topo_backup", None)
+        except Exception as e:
+            logger.error(f"Failed to restore topo file: {e}")
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -538,6 +735,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
+    @param ipv6_only_mgmt_enabled: fixture to configure IPv6-only management mode before DUT initialization
     """
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
@@ -612,6 +810,12 @@ def fixture_dpuhosts(enhance_inventory, ansible_adhoc, tbinfo, request, enable_n
 
 
 @pytest.fixture(scope="session")
+def all_dpuhosts(dpuhosts):
+    """All DPU hosts unfiltered. Use this when a conftest overrides dpuhosts with a subset."""
+    return dpuhosts
+
+
+@pytest.fixture(scope="session")
 def dpuhost(dpuhosts, request):
     '''
     @summary: Shortcut fixture for getting DPU host. For a lengthy test case, test case module can
@@ -646,6 +850,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut
@@ -802,7 +1008,9 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         return None
     if tbinfo['topo']['name'].startswith("nut-"):
         return None
-    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+    if ("ptf_image_name" in tbinfo
+            and ("docker-keysight-api-server" in tbinfo["ptf_image_name"]
+                 or "docker-stc-api-server" in tbinfo["ptf_image_name"])):
         return None
     if "ptf" in tbinfo:
         _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
@@ -817,8 +1025,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+        _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
@@ -862,20 +1070,34 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     logger.info("Fixture nbrhosts started")
     devices = {}
-    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or \
-        'ptf' in tbinfo['topo']['name'] or \
-            'ixia' in tbinfo['topo']['name']:
+    topo_name = tbinfo['topo']['name']
+    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in topo_name) or \
+            'ptf' in topo_name or 'ixia' in topo_name:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
     neighbor_type = request.config.getoption("--neighbor_type")
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
-        logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
+        logger.info("No VMs exist for this topology: {}".format(
+            tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
+    def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
         logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {'vrf': neighbor_name,
+                                  'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                                  'primary_host': multi_vrf_primary_host,
+                                  'primary_host_asn': primary_asn,
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                  'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                                  'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(
                 {
                     'host': EosHost(
@@ -886,10 +1108,12 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                    'is_multi_vrf_peer': multi_vrf_peer,
+                    'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
-        elif neighbor_type == "sonic":
+        elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
                     'host': SonicHost(
@@ -913,13 +1137,20 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
+        elif neighbor_type == "csonic":
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
@@ -927,21 +1158,27 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
-    for server in servers:
-        vm_base = int(server['vm_base'][2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.get_vms_by_dut_interfaces(
-                tbinfo['topo']['properties']['topology']['VMs'],
-                server['dut_interfaces']
-            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
-        for neighbor_name, neighbor in vms.items():
-            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for server in servers:
+            vm_base = int(server['vm_base'][2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+            vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                    tbinfo['topo']['properties']['topology']['VMs'],
+                    server['dut_interfaces']
+                ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
+            for neighbor_name, neighbor in vms.items():
+                vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+                if topo_is_multi_vrf:
+                    convergence_info = tbinfo['topo']['properties']['convergence_data']
+                    for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
+                        executor.submit(initial_neighbor, vrf_name, vm_name,
+                                        multi_vrf_peer=True,
+                                        multi_vrf_primary_host=neighbor_name)
+                else:
+                    executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 
@@ -950,84 +1187,136 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
+    Supports both Ethernet connections and Serial connections
+
+    For Ethernet connections: Uses device_conn from conn_graph_facts
+    For Serial connections: Uses device_serial_link from conn_graph_facts
     """
 
-    dev_conn = conn_graph_facts.get('device_conn', {})
+    # Internal helper functions
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
+        """
+        Create FanoutHost if not exists, or return existing one.
+        Fanout creation logic for both Ethernet and Serial connections.
+
+        Args:
+            fanout_hosts (dict): Dictionary of existing fanout hosts
+            fanout_name (str): Fanout device hostname
+            dut_host (str): DUT hostname that connects to this fanout
+
+        Returns:
+            FanoutHost: Fanout host object
+        """
+        # Return existing fanout if already created
+        if fanout_name in fanout_hosts:
+            fanout = fanout_hosts[fanout_name]
+            if dut_host not in fanout.dut_hostnames:
+                fanout.dut_hostnames.append(dut_host)
+            return fanout
+
+        # Get fanout device info from inventory
+        try:
+            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_name).vars
+        except Exception as e:
+            logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
+            return None
+
+        os_type = host_vars.get('os', 'eos')
+
+        # Get credentials based on OS type
+        if 'fanout_tacacs_user' in creds:
+            fanout_user = creds['fanout_tacacs_user']
+            fanout_password = creds['fanout_tacacs_password']
+        elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
+            fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
+            fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
+        elif os_type == 'sonic':
+            fanout_user = creds.get('fanout_sonic_user', None)
+            fanout_password = creds.get('fanout_sonic_password', None)
+        elif os_type == 'eos':
+            fanout_user = creds.get('fanout_network_user', None)
+            fanout_password = creds.get('fanout_network_password', None)
+        elif os_type == 'onyx':
+            fanout_user = creds.get('fanout_mlnx_user', None)
+            fanout_password = creds.get('fanout_mlnx_password', None)
+        elif os_type == 'ixia':
+            # Skip for ixia device which has no fanout
+            return None
+        else:
+            pytest.fail(f"Unsupported fanout OS type {os_type} for fanout {fanout_name}")
+
+        # EOS specific shell credentials
+        eos_shell_user = None
+        eos_shell_password = None
+        if os_type == "eos":
+            admin_user = creds['fanout_admin_user']
+            admin_password = creds['fanout_admin_password']
+            eos_shell_user = creds.get('fanout_shell_user', admin_user)
+            eos_shell_password = creds.get('fanout_shell_password', admin_password)
+
+        # Create FanoutHost object
+        fanout = FanoutHost(
+            ansible_adhoc,
+            os_type,
+            fanout_name,
+            'FanoutLeaf',
+            fanout_user,
+            fanout_password,
+            eos_shell_user=eos_shell_user,
+            eos_shell_passwd=eos_shell_password
+        )
+        fanout.dut_hostnames = [dut_host]
+        fanout_hosts[fanout_name] = fanout
+
+        # For SONiC fanout, get port alias to name mapping
+        if fanout.os == 'sonic':
+            ifs_status = fanout.host.get_interfaces_status()
+            for key, interface_info in list(ifs_status.items()):
+                fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+            logging.info(f"fanout {fanout_name} fanout_port_alias_to_name {fanout.fanout_port_alias_to_name}")
+
+        return fanout
+
+    # Main fixture logic
+
     fanout_hosts = {}
 
+    # Skip special topologies that have no fanout
     if tbinfo['topo']['name'].startswith('nut-'):
-        # Nut topology has no fanout
+        logging.info("Nut topology has no fanout")
         return fanout_hosts
 
-    # WA for virtual testbed which has no fanout
-    for dut_host, value in list(dev_conn.items()):
-        duthost = duthosts[dut_host]
+    # Process Ethernet connections
+
+    dev_conn = conn_graph_facts.get('device_conn', {})
+
+    for dut_name, ethernet_ports in dev_conn.items():
+
+        duthost = duthosts[dut_name]
+
+        # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            continue  # skip for kvm platform which has no fanout
+            logging.info(f"Skipping kvm platform {dut_name}")
+            continue
+
+        # Get minigraph facts for port alias mapping
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        for dut_port in list(value.keys()):
-            fanout_rec = value[dut_port]
+
+        # Process each Ethernet port connection
+        for dut_port, fanout_rec in ethernet_ports.items():
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
 
-            if fanout_host in list(fanout_hosts.keys()):
-                fanout = fanout_hosts[fanout_host]
-            else:
-                host_vars = ansible_adhoc().options[
-                    'inventory_manager'].get_host(fanout_host).vars
-                os_type = host_vars.get('os', 'eos')
-                if 'fanout_tacacs_user' in creds:
-                    fanout_user = creds['fanout_tacacs_user']
-                    fanout_password = creds['fanout_tacacs_password']
-                elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
-                    fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
-                    fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
-                elif os_type == 'sonic':
-                    fanout_user = creds.get('fanout_sonic_user', None)
-                    fanout_password = creds.get('fanout_sonic_password', None)
-                elif os_type == 'eos':
-                    fanout_user = creds.get('fanout_network_user', None)
-                    fanout_password = creds.get('fanout_network_password', None)
-                elif os_type == 'onyx':
-                    fanout_user = creds.get('fanout_mlnx_user', None)
-                    fanout_password = creds.get('fanout_mlnx_password', None)
-                elif os_type == 'ixia':
-                    # Skip for ixia device which has no fanout
-                    continue
-                else:
-                    # when os is mellanox, not supported
-                    pytest.fail("os other than sonic and eos not supported")
+            # Create or get fanout object
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            if fanout is None:
+                continue
 
-                eos_shell_user = None
-                eos_shell_password = None
-                if os_type == "eos":
-                    admin_user = creds['fanout_admin_user']
-                    admin_password = creds['fanout_admin_password']
-                    eos_shell_user = creds.get('fanout_shell_user', admin_user)
-                    eos_shell_password = creds.get('fanout_shell_password', admin_password)
+            # Add Ethernet port mapping: DUT port -> Fanout port
+            fanout.add_port_map(encode_dut_port_name(dut_name, dut_port), fanout_port)
 
-                fanout = FanoutHost(ansible_adhoc,
-                                    os_type,
-                                    fanout_host,
-                                    'FanoutLeaf',
-                                    fanout_user,
-                                    fanout_password,
-                                    eos_shell_user=eos_shell_user,
-                                    eos_shell_passwd=eos_shell_password)
-                fanout.dut_hostnames = [dut_host]
-                fanout_hosts[fanout_host] = fanout
-
-                if fanout.os == 'sonic':
-                    ifs_status = fanout.host.get_interfaces_status()
-                    for key, interface_info in list(ifs_status.items()):
-                        fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                    logging.info("fanout {} fanout_port_alias_to_name {}"
-                                 .format(fanout_host, fanout.fanout_port_alias_to_name))
-
-            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
-
-            # Add port name to fanout port mapping port if dut_port is alias.
-            if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+            # Handle port alias mapping if available
+            if dut_port in mg_facts.get('minigraph_port_alias_to_name_map', {}):
                 mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
                 # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
                 # it happens when an interface has the same name with another alias, for example:
@@ -1035,11 +1324,43 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
                 # --------------------
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
-                if mapped_port not in list(value.keys()):
-                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+                if mapped_port not in list(ethernet_ports.keys()):
+                    fanout.add_port_map(encode_dut_port_name(dut_name, mapped_port), fanout_port)
 
-            if dut_host not in fanout.dut_hostnames:
-                fanout.dut_hostnames.append(dut_host)
+    # Process Serial connections
+
+    dev_serial_link = conn_graph_facts.get('device_serial_link', {})
+
+    for dut_name, serial_ports_map in dev_serial_link.items():
+
+        duthost = duthosts[dut_name]
+
+        # Skip virtual testbed which has no fanout
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            logging.info(f"Skipping kvm platform {dut_name} for serial links")
+            continue
+
+        # Process each Serial port connection
+        for host_port, link_info in serial_ports_map.items():
+            fanout_host = str(link_info['peerdevice'])
+            fanout_port = str(link_info['peerport'])
+            baud_rate = link_info.get('baud_rate', "9600")
+            flow_control = link_info.get('flow_control', "0") == "1"
+
+            # Create or get fanout object
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            if fanout is None:
+                continue
+
+            # Add Serial port mapping
+            fanout.add_serial_port_map(dut_name, host_port, fanout_port, baud_rate, flow_control)
+
+            logging.debug(
+                f"Added serial port mapping: {dut_name} Console{host_port} -> "
+                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+            )
+
+    logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
 
     return fanout_hosts
 
@@ -1060,11 +1381,13 @@ def vmhosts(enhance_inventory, ansible_adhoc, request, tbinfo):
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].keys():
             vmhost = get_test_server_host(inv_files, server)
-            hosts.append(VMHost(ansible_adhoc, vmhost.name))
+            if vmhost:
+                hosts.append(VMHost(ansible_adhoc, vmhost.name))
     elif "server" in tbinfo:
         server = tbinfo["server"]
         vmhost = get_test_server_host(inv_files, server)
-        hosts.append(VMHost(ansible_adhoc, vmhost.name))
+        if vmhost:
+            hosts.append(VMHost(ansible_adhoc, vmhost.name))
     else:
         logger.info("No VM host exist for this topology: {}".format(tbinfo['topo']['name']))
     return hosts
@@ -1107,6 +1430,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1114,8 +1441,9 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            log_path=log_path,
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
+            verbose=False
         )
         if 'topo_routes' not in res:
             logger.warning("No routes generated.")
@@ -1241,7 +1569,7 @@ def collect_techsupport_all_duts(request, duthosts):
 @pytest.fixture
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
-    if request.config.getoption("neighbor_type") == "sonic":
+    if request.config.getoption("neighbor_type") in ("sonic", "csonic"):
         [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
@@ -2285,7 +2613,7 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    upstream_nbr_type = get_upstream_neigh_type(tbinfo["topo"]["type"], is_upper=True)
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
     if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
@@ -2300,13 +2628,56 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
                 format(tbinfo["topo"]["type"], upstream_nbr_type))
 
 
-@pytest.fixture(scope="module")
-def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa: F811
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+@pytest.fixture(scope='module')
+def enum_downstream_dut_hostname(duthosts, tbinfo):
+    s = get_downstream_neigh_type(tbinfo, is_upper=True).split(',')
+    downstream_nbr_type = [item.strip() for item in s if item.strip()]
+    if downstream_nbr_type is None:
+        downstream_nbr_type = "T1"
 
-    yield host
-    host.disconnect()
+    for a_dut in duthosts.frontend_nodes:
+        minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+        minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+        for key, value in minigraph_neighbors.items():
+            if any(downstream_type in value['name'] for downstream_type in downstream_nbr_type):
+                return a_dut.hostname
+
+    pytest.fail("Did not find a dut in duthosts that for topo type {} that has downstream nbr type {}".
+                format(tbinfo["topo"]["type"], downstream_nbr_type))
+
+
+@pytest.fixture(scope="module")
+def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localhost,
+                    conn_graph_facts, creds):   # noqa: F811
+    """
+    Provides a console connection object for testing.
+
+    Automatically determines node type and returns appropriate console:
+    - For LINECARD: Uses LinecardConsoleConn via supervisor
+    - For everything else (SUPERVISOR/STANDALONE): Uses create_duthost_console()
+
+    This fixture runs once per unique hwsku in the testbed.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    inv_files = get_inventory_files(request)
+
+    # Check if this is a linecard that needs supervisor access
+    supervisor = get_supervisor_for_linecard(duthost, duthosts, inv_files)
+
+    if supervisor:
+        # LINECARD node - use console via supervisor
+        console = create_linecard_console(supervisor, duthost, inv_files, creds)
+    else:
+        # SUPERVISOR or STANDALONE node - use standard console
+        console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+
+    yield console
+
+    if console:
+        try:
+            console.disconnect()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope='session')
@@ -2544,7 +2915,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 
@@ -3008,12 +3379,18 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def temporarily_disable_route_check(request, duthosts):
+def temporarily_disable_route_check(request, tbinfo, duthosts):
     check_flag = False
     for m in request.node.iter_markers():
         if m.name == "disable_route_check":
             check_flag = True
             break
+
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if check_flag and topo_name not in allowed_topologies:
+        logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))
+        check_flag = False
 
     def wait_for_route_check_to_pass(dut):
 
@@ -3037,7 +3414,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
 
             yield
 
@@ -3047,7 +3424,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost, wait_for_status=True)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
@@ -3077,13 +3454,20 @@ def on_exit():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def add_mgmt_test_mark(duthosts):
+def add_mgmt_test_mark(duthosts, request):
     '''
     @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
     @param duthosts: fixture to get DUT hosts
+    @param request: pytest request object
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
-    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    try:
+        duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to create mgmt test mark on DUT, DUT may be unreachable.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! add_mgmt_test_mark fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
@@ -3302,15 +3686,29 @@ def setup_pfc_test(
         if expected_vlan_ifaces:
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-        # gather all vlan specific info
-        ip_index = 0 if ip_version == "IPv4" else 1
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
+        # Select the VLAN interface matching the requested IP version.
+        expected_ip_ver = 4 if ip_version == "IPv4" else 6
+        vlan_iface = next(
+            (iface for iface in mg_facts['minigraph_vlan_interfaces']
+             if ip_interface(str(iface['addr'])).version == expected_ip_ver),
+            None
+        )
+        if vlan_iface is None:
+            msg = "No {} VLAN interface found in minigraph_vlan_interfaces: {}".format(
+                ip_version, mg_facts['minigraph_vlan_interfaces'])
+            logger.error(msg)
+            pytest.fail(msg)
+        vlan_addr = vlan_iface['addr']
+        vlan_prefix = vlan_iface['prefixlen']
+        vlan_dev = vlan_iface['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
+        logger.debug(
+            "setup_pfc_test: ip_version={} vlan_addr={} vlan_prefix={} "
+            "vlan_dev={} vlan_ips={} vlan_nw={}".format(
+                ip_version, vlan_addr, vlan_prefix, vlan_dev, vlan_ips, vlan_nw))
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
@@ -3367,10 +3765,54 @@ def setup_pfc_test(
 
 
 @pytest.fixture(scope="session")
-def setup_gnmi_server(request, localhost, duthost):
+def build_gnmi_stubs(request):
+    """
+    Generate gRPC stub client code for gNMI server interaction.
+    This fixture only runs when SAI validation is enabled.
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled, skipping gNMI stub generation")
+        yield
+        return
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            pytest.fail(f"gNMI stub generation failed with exit code {result.returncode}")
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        pytest.fail(f"gNMI stub generation failed: {e}")
+
+    yield
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     """
     SAI validation library uses gNMI to access sonic-db data
-    objects. This fixture is used by tests to set up gNMI server
+    objects. This fixture is used by tests to set up gNMI server.
+    Depends on build_gnmi_stubs to ensure gRPC stubs are generated first.
     """
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
@@ -3439,6 +3881,17 @@ def restore_golden_config_db(duthost):
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
     yield connection
+
+
+@pytest.fixture(scope="session")
+def weak_server(request, duthosts):
+    """
+    Returns True if the testbed should be treated as a weak server.
+    Can be forced via --weak_server CLI flag.
+    """
+    if request.config.getoption("--weak_server"):
+        return True
+    return False
 
 
 class DualtorMuxPortSetupConfig(enum.Flag):
@@ -3662,3 +4115,64 @@ def pytest_runtest_setup(item):
         if fixturedef.argname == "setup_dualtor_mux_ports":
             fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def yang_validation_check(request, duthosts):
+    """
+    YANG validation check that runs before and after each test module
+    """
+    skip_yang = request.config.getoption("skip_yang")
+
+    if skip_yang:
+        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
+        yield
+        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
+        return
+
+    def run_yang_validation_all(stage):
+        """Run YANG validation on all DUTs and return results"""
+        validation_results = {}
+        for duthost in duthosts:
+            validation_results[duthost.hostname] = run_yang_validation(duthost, stage)
+        return validation_results
+
+    # pre-test YANG validation
+    pre_results = run_yang_validation_all("pre-test")
+
+    # Check if any pre-test validation failed
+    pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
+    if pre_failures:
+        error_summary = []
+        for host, result in pre_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
+
+    yield
+
+    # post-test YANG validation
+    post_results = run_yang_validation_all("post-test")
+
+    # Check if any post-test validation failed
+    post_failures = {host: result for host, result in post_results.items() if result['failed']}
+    if post_failures:
+        error_summary = []
+        for host, result in post_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
+
+
+@pytest.fixture(scope="function", autouse=False)
+def restore_counter_poll(rand_selected_dut):
+    counter_poll_show = ConterpollHelper.get_counterpoll_show_output(rand_selected_dut)
+    parsed_counterpoll_before = ConterpollHelper.get_parsed_counterpoll_show(counter_poll_show)
+    yield
+    counter_poll_show = ConterpollHelper.get_counterpoll_show_output(rand_selected_dut)
+    parsed_counterpoll_after = ConterpollHelper.get_parsed_counterpoll_show(counter_poll_show)
+    ConterpollHelper.restore_counterpoll_status(
+        rand_selected_dut,
+        parsed_counterpoll_before,
+        parsed_counterpoll_after
+    )
