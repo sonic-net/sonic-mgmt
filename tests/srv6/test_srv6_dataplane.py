@@ -297,6 +297,7 @@ class SRv6Base():
 
 class TestSRv6DataPlaneBase(SRv6Base):
 
+    @pytest.mark.enable_monit_refresh
     def test_srv6_full_func(self, config_setup, srv6_crm_total_sids,
                             setup_standby_ports_on_rand_unselected_tor,       # noqa: F811
                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
