@@ -117,12 +117,14 @@ class TestIPPacket(object):
         asic_id = duthost.get_asic_id_from_namespace(ptf_port_idx_namespace)
         ingress_router_mac = duthost.asic_instance(asic_id).get_router_mac()
 
-        # Some platforms do not support rif counter
+        # Some platforms do not support rif counters.
+        # Check via the interfaces and fields the test actually uses (rx_err, tx_err)
         try:
             rif_counter_out = parse_rif_counters(
                 duthost.command("show interfaces counters rif")["stdout_lines"])
-            rif_iface = list(rif_counter_out.keys())[0]
-            rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
+            rif_iface_data = rif_counter_out.get(rif_rx_ifaces, {})
+            rif_support = (rif_iface_data.get('rx_err') not in (None, 'N/A')
+                           and rif_iface_data.get('tx_err') not in (None, 'N/A'))
         except Exception as e:
             logger.info("Show rif counters failed with exception: {}".format(repr(e)))
             rif_support = False
