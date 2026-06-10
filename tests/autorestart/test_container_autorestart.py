@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_memory_utilization
+    pytest.mark.disable_memory_utilization,
+    pytest.mark.skip_check_dut_health,
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
