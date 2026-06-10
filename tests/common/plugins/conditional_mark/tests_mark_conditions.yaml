@@ -3191,9 +3191,11 @@ ipfwd/test_mtu.py:
 
 ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
   xfail:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform or IPv6-only issue https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_count:
   xfail:
