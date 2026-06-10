@@ -16,7 +16,10 @@ GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 GCUTIMEOUT_MAP = {
     'armhf-nokia_ixs7215_52x-r0': 1200,
-    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+    'x86_64-nvidia_sn5640-r0': 3600,  # Increase timeout due to issue #22370
+    # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
+    # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
+    'x86_64-nokia_ixr7220_h6_128-r0': 1800,
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
