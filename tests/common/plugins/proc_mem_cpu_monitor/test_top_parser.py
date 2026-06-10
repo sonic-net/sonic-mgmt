@@ -10,6 +10,10 @@ from tests.common.plugins.proc_mem_cpu_monitor.top_parser import (
     parse_top_host_all,
 )
 
+pytestmark = [
+    pytest.mark.topology('t0', 't1', 'any')
+]
+
 
 PROCPS_TOP = """
 top - 14:32:10 up 1 day,  2 users,  load average: 0.10, 0.12, 0.09

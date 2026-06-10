@@ -10,6 +10,7 @@ import os
 import re
 import threading
 import time
+from contextlib import contextmanager
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import pytest
 
 from tests.common.plugins.proc_mem_cpu_monitor.constants import MEM_LEAK_EVENT
+from tests.common.plugins.proc_mem_cpu_monitor.tcmalloc_parser import parse_tcmalloc_stats
 from tests.common.plugins.proc_mem_cpu_monitor.top_parser import parse_free_m_used, parse_top, parse_top_host_all
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,20 @@ OUTPUT_BASENAME_STYLES = ("full", "short_node", "dut_ts_hash")
 
 # Host logical CPU count (first DUT in ``start()`` probe order); same pipeline as manual SONiC check.
 _NUM_CORES_CMD = "sh -c 'cat /proc/cpuinfo | grep processor | wc -l'"
+
+_DEVICES_BASE_LOGGER = logging.getLogger("tests.common.devices.base")
+
+
+@contextmanager
+def _suppress_devices_base_debug():
+    """Raise ``tests.common.devices.base`` to INFO for this block (skip large Ansible DEBUG dumps)."""
+    log = _DEVICES_BASE_LOGGER
+    previous = log.level
+    log.setLevel(logging.INFO)
+    try:
+        yield
+    finally:
+        log.setLevel(previous)
 
 
 def _first_free_total_mib_from_samples(samples: List[Dict[str, Any]]) -> Optional[float]:
@@ -223,12 +239,21 @@ def _top_cmd_docker(duthost: Any, asic: Any, docker_service: str) -> str:
     return "sudo docker exec {} {}".format(docker_name, inner)
 
 
+def _tcmalloc_cmd_docker(duthost: Any, asic: Any, docker_service: str) -> str:
+    inner = 'vtysh -c "show tcmalloc stats"'
+    if duthost.sonichost.is_multi_asic:
+        return asic.get_docker_cmd(inner, docker_service)
+    docker_name = asic.get_docker_name(docker_service)
+    return "sudo docker exec {} {}".format(docker_name, inner)
+
+
 @dataclass
 class MemCpuMonitorResult:
     samples: List[Dict[str, Any]] = field(default_factory=list)
     events: List[Dict[str, Any]] = field(default_factory=list)
     timeline: List[Dict[str, Any]] = field(default_factory=list)
     top_raw_log_path: Optional[str] = None
+    tcmalloc_raw_log_path: Optional[str] = None
 
 
 class ProcMemCpuMonitor(object):
@@ -254,6 +279,8 @@ class ProcMemCpuMonitor(object):
     def __init__(self, request):
         self.request = request
         self._lock = threading.RLock()
+        # Serialize duthost.command(): sampler thread vs snapshot(MEM_LEAK_EVENT) / same Ansible SSH.
+        self._dut_ssh_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._running = False
@@ -272,6 +299,8 @@ class ProcMemCpuMonitor(object):
         self._capture_raw_stdout: bool = False
         self._raw_log_path: Optional[str] = None
         self._top_raw_log_path: Optional[str] = None
+        self._include_tcmalloc_stats: bool = False
+        self._tcmalloc_raw_log_path: Optional[str] = None
         self._output_basename_style: str = "full"
         self._host_top_num_cores: Optional[int] = None
 
@@ -280,18 +309,20 @@ class ProcMemCpuMonitor(object):
         return self._seq
 
     def _append_event(self, name: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        now = datetime.now(timezone.utc)
-        mono = time.monotonic()
-        ev = {
-            "kind": "event",
-            "event": name,
-            "t_wall": now,
-            "t_mono": mono,
-            "seq": self._next_seq(),
-        }
-        if extra:
-            ev.update(extra)
-        self._events.append(ev)
+        # Serialize with sampler thread: it calls _next_seq() under self._lock in _poll_tick().
+        with self._lock:
+            now = datetime.now(timezone.utc)
+            mono = time.monotonic()
+            ev = {
+                "kind": "event",
+                "event": name,
+                "t_wall": now,
+                "t_mono": mono,
+                "seq": self._next_seq(),
+            }
+            if extra:
+                ev.update(extra)
+            self._events.append(ev)
 
     def _append_raw_log(self, hostname: str, scope: str, kind: str, cmd: str, stdout: str) -> None:
         if not self._capture_raw_stdout or not self._raw_log_path:
@@ -316,18 +347,35 @@ class ProcMemCpuMonitor(object):
             with open(self._top_raw_log_path, "a", encoding="utf-8") as fh:
                 fh.write(block)
 
+    def _append_tcmalloc_raw_log(self, hostname: str, scope: str, kind: str, cmd: str, stdout: str) -> None:
+        """Append full ``show tcmalloc stats`` stdout to the dedicated tcmalloc raw log file."""
+        if kind != "tcmalloc" or not self._tcmalloc_raw_log_path:
+            return
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        block = "\n===== {} hostname={} scope={} kind={}\nCMD: {}\n-----\n{}\n".format(
+            ts, hostname, scope, kind, cmd, stdout or ""
+        )
+        with self._lock:
+            with open(self._tcmalloc_raw_log_path, "a", encoding="utf-8") as fh:
+                fh.write(block)
+
     def _dut_command_raw(self, duthost: Any, cmd: str, hostname: str, scope: str, kind: str) -> str:
-        try:
-            out = duthost.command(cmd, module_ignore_errors=True)
-        except Exception as ex:  # noqa: BLE001 — DUT command failures should not kill sampler
-            logger.warning("mem_cpu_monitor command failed: %s", ex)
-            self._append_raw_log(hostname, scope, kind, cmd, "<exception: {}>\n".format(ex))
-            self._append_top_raw_log(hostname, scope, kind, cmd, "<exception: {}>\n".format(ex))
-            return ""
-        stdout = (out or {}).get("stdout") or ""
-        self._append_raw_log(hostname, scope, kind, cmd, stdout)
-        self._append_top_raw_log(hostname, scope, kind, cmd, stdout)
-        return stdout
+        with self._dut_ssh_lock:
+            try:
+                with _suppress_devices_base_debug():
+                    out = duthost.command(cmd, module_ignore_errors=True)
+            except Exception as ex:  # noqa: BLE001 — DUT command failures should not kill sampler
+                logger.warning("mem_cpu_monitor command failed: %s", ex)
+                err = "<exception: {}>\n".format(ex)
+                self._append_raw_log(hostname, scope, kind, cmd, err)
+                self._append_top_raw_log(hostname, scope, kind, cmd, err)
+                self._append_tcmalloc_raw_log(hostname, scope, kind, cmd, err)
+                return ""
+            stdout = (out or {}).get("stdout") or ""
+            self._append_raw_log(hostname, scope, kind, cmd, stdout)
+            self._append_top_raw_log(hostname, scope, kind, cmd, stdout)
+            self._append_tcmalloc_raw_log(hostname, scope, kind, cmd, stdout)
+            return stdout
 
     def _probe_host_num_cores_once(self) -> None:
         """Set ``_host_top_num_cores`` from ``/proc/cpuinfo`` on the first DUT (per ``_targets`` order)."""
@@ -340,7 +388,9 @@ class ProcMemCpuMonitor(object):
                 continue
             seen.add(hn)
             try:
-                out = duthost.command(_NUM_CORES_CMD, module_ignore_errors=True)
+                with self._dut_ssh_lock:
+                    with _suppress_devices_base_debug():
+                        out = duthost.command(_NUM_CORES_CMD, module_ignore_errors=True)
             except Exception as ex:  # noqa: BLE001
                 logger.debug("mem_cpu_monitor num_cores probe failed: %s", ex)
                 continue
@@ -360,64 +410,101 @@ class ProcMemCpuMonitor(object):
     def _poll_tick(self) -> None:
         proc_list = self._proc_list
         for duthost, scope, cmd, kind in self._targets:
-            hostname = duthost.hostname
-            stdout = self._dut_command_raw(duthost, cmd, hostname, scope, kind)
-            now = datetime.now(timezone.utc)
-            mono = time.monotonic()
-            if kind == "free":
-                data = parse_free_m_used(stdout)
-                if not data:
+            try:
+                hostname = duthost.hostname
+                stdout = self._dut_command_raw(duthost, cmd, hostname, scope, kind)
+                now = datetime.now(timezone.utc)
+                mono = time.monotonic()
+                if kind == "free":
+                    data = parse_free_m_used(stdout)
+                    if not data:
+                        continue
+                    with self._lock:
+                        rec = {
+                            "kind": "sample",
+                            "dut": hostname,
+                            "scope": scope,
+                            "process": "free_used",
+                            "cpu_pct": None,
+                            "mem_pct": data["used_pct"],
+                            "mem_mib_used": data["used_mib"],
+                            "mem_total_mib": data.get("total_mib"),
+                            "mem_res_mib": round(data["used_mib"], 2),
+                            "mem_unit": "%",
+                            "probe_transport": "free",
+                            "t_wall": now,
+                            "t_mono": mono,
+                            "seq": self._next_seq(),
+                        }
+                        self._samples.append(rec)
+                        key = (hostname, scope, "free_used")
+                        if key not in self._baseline_mem:
+                            self._baseline_mem[key] = data["used_pct"]
                     continue
-                with self._lock:
-                    rec = {
-                        "kind": "sample",
-                        "dut": hostname,
-                        "scope": scope,
-                        "process": "free_used",
-                        "cpu_pct": None,
-                        "mem_pct": data["used_pct"],
-                        "mem_mib_used": data["used_mib"],
-                        "mem_total_mib": data.get("total_mib"),
-                        "mem_res_mib": round(data["used_mib"], 2),
-                        "mem_unit": "%",
-                        "probe_transport": "free",
-                        "t_wall": now,
-                        "t_mono": mono,
-                        "seq": self._next_seq(),
-                    }
-                    self._samples.append(rec)
-                    key = (hostname, scope, "free_used")
-                    if key not in self._baseline_mem:
-                        self._baseline_mem[key] = data["used_pct"]
-                continue
 
-            if kind == "top_all":
-                rows = parse_top_host_all(stdout)
-                cap = _host_top_capture_names(rows, proc_list, self._jumper_top_n)
-                rows = [r for r in rows if r["process"] in cap]
-            else:
-                rows = parse_top(stdout, proc_list)
-            with self._lock:
-                for row in rows:
-                    rec = {
-                        "kind": "sample",
-                        "dut": hostname,
-                        "scope": scope,
-                        "process": row["process"],
-                        "cpu_pct": row["cpu_pct"],
-                        "mem_pct": row["mem_pct"],
-                        "mem_res_mib": row.get("mem_res_mib"),
-                        "mem_unit": "%",
-                        "probe_transport": "top",
-                        "pid": row.get("pid"),
-                        "t_wall": now,
-                        "t_mono": mono,
-                        "seq": self._next_seq(),
-                    }
-                    self._samples.append(rec)
-                    key = (hostname, scope, row["process"])
-                    if key not in self._baseline_mem and self._should_set_mem_baseline(row["process"]):
-                        self._baseline_mem[key] = row["mem_pct"]
+                if kind == "tcmalloc":
+                    rows = parse_tcmalloc_stats(stdout)
+                    with self._lock:
+                        for row in rows:
+                            heap_b = row["heap_size_bytes"]
+                            free_b = row["pageheap_free_bytes"]
+                            rec = {
+                                "kind": "sample",
+                                "dut": hostname,
+                                "scope": scope,
+                                "process": row["process"],
+                                "cpu_pct": None,
+                                "mem_pct": None,
+                                "mem_res_mib": round(heap_b / (1024.0 * 1024.0), 2),
+                                "mem_unit": "bytes",
+                                "probe_transport": "tcmalloc",
+                                "tcmalloc_heap_size_bytes": heap_b,
+                                "tcmalloc_pageheap_free_bytes": free_b,
+                                "t_wall": now,
+                                "t_mono": mono,
+                                "seq": self._next_seq(),
+                            }
+                            self._samples.append(rec)
+                    continue
+
+                if kind == "top_all":
+                    rows = parse_top_host_all(stdout)
+                    cap = _host_top_capture_names(rows, proc_list, self._jumper_top_n)
+                    rows = [r for r in rows if r["process"] in cap]
+                else:
+                    rows = parse_top(stdout, proc_list)
+                with self._lock:
+                    for row in rows:
+                        rec = {
+                            "kind": "sample",
+                            "dut": hostname,
+                            "scope": scope,
+                            "process": row["process"],
+                            "cpu_pct": row["cpu_pct"],
+                            "mem_pct": row["mem_pct"],
+                            "mem_res_mib": row.get("mem_res_mib"),
+                            "mem_unit": "%",
+                            "probe_transport": "top",
+                            "pid": row.get("pid"),
+                            "t_wall": now,
+                            "t_mono": mono,
+                            "seq": self._next_seq(),
+                        }
+                        self._samples.append(rec)
+                        key = (hostname, scope, row["process"])
+                        if key not in self._baseline_mem and self._should_set_mem_baseline(row["process"]):
+                            self._baseline_mem[key] = row["mem_pct"]
+            except Exception as ex:  # noqa: BLE001 — one bad target must not stop the sampler
+                hn = getattr(duthost, "hostname", None) or str(duthost)
+                logger.warning(
+                    "mem_cpu_monitor: poll_tick failed for hostname=%s scope=%s kind=%s; "
+                    "skipping this target for this interval: %s",
+                    hn,
+                    scope,
+                    kind,
+                    ex,
+                    exc_info=True,
+                )
 
     def _loop(self) -> None:
         try:
@@ -427,7 +514,7 @@ class ProcMemCpuMonitor(object):
                         break
                 self._poll_tick()
                 self._stop_event.wait(self._interval)
-        except Exception as ex:  # noqa: BLE001
+        except Exception as ex:  # noqa: BLE001 — surface sampler failures on stop(), not BaseException
             logger.exception("mem_cpu_monitor sampler thread died")
             self._thread_exc = ex
 
@@ -446,6 +533,8 @@ class ProcMemCpuMonitor(object):
         capture_raw_stdout: bool = False,
         raw_log_path: Optional[str] = None,
         top_raw_log_path: Optional[str] = None,
+        include_tcmalloc_stats: bool = False,
+        tcmalloc_raw_log_path: Optional[str] = None,
         output_basename_style: str = "full",
     ) -> None:
         """
@@ -480,6 +569,12 @@ class ProcMemCpuMonitor(object):
                 Default ``<tmp_path>/mem_cpu_monitor_top_raw.log`` when any ``top`` target is configured;
                 omitted when the run only probes ``free`` (no ``top``). The path is logged from
                 ``stop()`` / ``plot()`` / ``export_samples()`` and included in JSON as ``top_raw_log``.
+            include_tcmalloc_stats: if True, run ``docker exec <bgp> vtysh -c "show tcmalloc stats"`` each
+                tick (per ASIC when docker probes are configured) and store ``generic.heap_size`` /
+                ``tcmalloc.pageheap_free_bytes`` per FRR daemon. Raw CLI output goes to
+                ``tcmalloc_raw_log_path`` (separate from ``top_raw_log`` / ``raw_log_path``).
+            tcmalloc_raw_log_path: optional path for tcmalloc-only raw stdout. Default
+                ``<tmp_path>/mem_cpu_monitor_tcmalloc_raw.log`` when ``include_tcmalloc_stats`` is True.
             output_basename_style: how to build PNG/JSON/CSV basename — ``full`` (default, long
                 ``nodeid``), ``short_node`` (``node.name`` only), or ``dut_ts_hash`` (DUT + time + hash).
         """
@@ -495,10 +590,15 @@ class ProcMemCpuMonitor(object):
             dut_list = _normalize_duts(duts)
             if not dut_list:
                 raise ValueError("mem_cpu_monitor.start() needs at least one DUT")
-            if not proc_list and not include_host_free and not host_top_all_procs:
+            if (
+                not proc_list
+                and not include_host_free
+                and not host_top_all_procs
+                and not include_tcmalloc_stats
+            ):
                 raise ValueError(
                     "mem_cpu_monitor.start() needs proc_list and/or include_host_free=True "
-                    "and/or host_top_all_procs=True"
+                    "and/or host_top_all_procs=True and/or include_tcmalloc_stats=True"
                 )
 
             skip_eff = skip_docker_top
@@ -510,6 +610,7 @@ class ProcMemCpuMonitor(object):
             self._host_top_all_procs = bool(host_top_all_procs)
             self._jumper_top_n = int(jumper_top_n)
             self._capture_raw_stdout = bool(capture_raw_stdout)
+            self._include_tcmalloc_stats = bool(include_tcmalloc_stats)
             self._output_basename_style = output_basename_style
             self._raw_log_path = None
             if self._capture_raw_stdout:
@@ -520,6 +621,7 @@ class ProcMemCpuMonitor(object):
                     fh.write("# mem_cpu_monitor: raw DUT stdout for each command invocation\n")
             self._targets = []
             self._top_raw_log_path = None
+            self._tcmalloc_raw_log_path = None
             use_asics = asics or "frontend"
 
             for duthost in dut_list:
@@ -542,6 +644,16 @@ class ProcMemCpuMonitor(object):
                 if include_host_free:
                     self._targets.append((duthost, "host:free", "free -m", "free"))
 
+                if self._include_tcmalloc_stats:
+                    if use_asics == "all":
+                        tcmalloc_asics = list(duthost.asics)
+                    else:
+                        tcmalloc_asics = list(getattr(duthost, "frontend_asics", None) or []) or [duthost.asics[0]]
+                    for asic in tcmalloc_asics:
+                        scope = "docker:{}:{}".format(docker_service, asic.asic_index)
+                        cmd = _tcmalloc_cmd_docker(duthost, asic, docker_service)
+                        self._targets.append((duthost, scope, cmd, "tcmalloc"))
+
             if not self._targets:
                 raise ValueError("mem_cpu_monitor.start(): no probe targets configured")
 
@@ -553,6 +665,18 @@ class ProcMemCpuMonitor(object):
                 )
                 with open(self._top_raw_log_path, "w", encoding="utf-8") as fh:
                     fh.write("# mem_cpu_monitor: raw stdout from every host/docker `top` probe\n")
+
+            if self._include_tcmalloc_stats:
+                log_dir = self._resolve_out_dir(None)
+                os.makedirs(log_dir, exist_ok=True)
+                self._tcmalloc_raw_log_path = tcmalloc_raw_log_path or os.path.join(
+                    log_dir, "mem_cpu_monitor_tcmalloc_raw.log"
+                )
+                with open(self._tcmalloc_raw_log_path, "w", encoding="utf-8") as fh:
+                    fh.write(
+                        "# mem_cpu_monitor: raw stdout from every "
+                        "`docker exec <bgp> vtysh -c \"show tcmalloc stats\"` probe\n"
+                    )
 
             self._host_top_num_cores = None
             self._probe_host_num_cores_once()
@@ -577,6 +701,8 @@ class ProcMemCpuMonitor(object):
                     "jumper_top_n": self._jumper_top_n,
                     "raw_log_path": self._raw_log_path,
                     "top_raw_log_path": self._top_raw_log_path,
+                    "include_tcmalloc_stats": self._include_tcmalloc_stats,
+                    "tcmalloc_raw_log_path": self._tcmalloc_raw_log_path,
                     "output_basename_style": output_basename_style,
                     "num_cores": self._host_top_num_cores,
                 },
@@ -674,6 +800,7 @@ class ProcMemCpuMonitor(object):
                 events=list(self._events),
                 timeline=merged,
                 top_raw_log_path=self._top_raw_log_path,
+                tcmalloc_raw_log_path=self._tcmalloc_raw_log_path,
             )
             self._last_result = result
             self._stopped = True
@@ -683,6 +810,8 @@ class ProcMemCpuMonitor(object):
                 logger.error("mem_cpu_monitor thread had failed: %s", exc)
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.stop() top raw stdout log: %s", self._top_raw_log_path)
+            if self._tcmalloc_raw_log_path:
+                logger.info("mem_cpu_monitor.stop() tcmalloc raw stdout log: %s", self._tcmalloc_raw_log_path)
             return result
 
     def _resolve_out_dir(self, out_dir: Optional[str]) -> str:
@@ -695,7 +824,17 @@ class ProcMemCpuMonitor(object):
 
     @staticmethod
     def _filter_samples_for_plot(res: MemCpuMonitorResult, proc_subset: Optional[List[str]]) -> List[Dict[str, Any]]:
-        return [s for s in res.samples if not proc_subset or s["process"] in proc_subset]
+        samples = [
+            s for s in res.samples
+            if s.get("probe_transport") not in ("tcmalloc",)
+        ]
+        if proc_subset:
+            samples = [s for s in samples if s["process"] in proc_subset]
+        return samples
+
+    @staticmethod
+    def _tcmalloc_samples_for_plot(res: MemCpuMonitorResult) -> List[Dict[str, Any]]:
+        return [s for s in res.samples if s.get("probe_transport") == "tcmalloc"]
 
     def _output_stem(self, out_dir: str, samples: List[Dict[str, Any]], basename_style: Optional[str] = None) -> str:
         style = basename_style or self._output_basename_style
@@ -778,6 +917,8 @@ class ProcMemCpuMonitor(object):
             logger.info("matplotlib not available; mem_cpu_monitor.plot() skipped")
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.plot() top raw stdout log: %s", self._top_raw_log_path)
+            if self._tcmalloc_raw_log_path:
+                logger.info("mem_cpu_monitor.plot() tcmalloc raw stdout log: %s", self._tcmalloc_raw_log_path)
             return None
 
         res = result or self._last_result
@@ -785,20 +926,26 @@ class ProcMemCpuMonitor(object):
             logger.info("mem_cpu_monitor.plot(): no samples to plot")
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.plot() top raw stdout log: %s", self._top_raw_log_path)
+            if self._tcmalloc_raw_log_path:
+                logger.info("mem_cpu_monitor.plot() tcmalloc raw stdout log: %s", self._tcmalloc_raw_log_path)
             return None
 
         resolved = self._resolve_plot_proc_subset(res, proc_subset, auto_host_jumper_subset)
         if resolved is not None:
             logger.info("mem_cpu_monitor.plot() proc subset: %s", resolved)
         samples = self._filter_samples_for_plot(res, resolved)
-        if not samples:
+        tcmalloc_samples = self._tcmalloc_samples_for_plot(res)
+        if not samples and not tcmalloc_samples:
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.plot() top raw stdout log: %s", self._top_raw_log_path)
+            if self._tcmalloc_raw_log_path:
+                logger.info("mem_cpu_monitor.plot() tcmalloc raw stdout log: %s", self._tcmalloc_raw_log_path)
             return None
 
         out_dir = self._resolve_out_dir(out_dir)
         os.makedirs(out_dir, exist_ok=True)
-        path = self._output_stem(out_dir, samples, basename_style) + ".png"
+        plot_samples = samples if samples else tcmalloc_samples
+        path = self._output_stem(out_dir, plot_samples, basename_style) + ".png"
 
         by_proc: Dict[str, List[Tuple[datetime, float, float, Optional[float]]]] = defaultdict(list)
         for s in samples:
@@ -813,17 +960,51 @@ class ProcMemCpuMonitor(object):
                 mib = float(s["mem_mib_used"])
             by_proc[s["process"]].append((tw, cpu_val, float(s["mem_pct"]), mib))
 
-        fig, axes = plt.subplots(3, 1, figsize=(11, 10), sharex=True)
+        by_tcmalloc_heap: Dict[str, List[Tuple[datetime, float]]] = defaultdict(list)
+        by_tcmalloc_free: Dict[str, List[Tuple[datetime, float]]] = defaultdict(list)
+        for s in tcmalloc_samples:
+            tw = s["t_wall"]
+            if isinstance(tw, str):
+                tw = datetime.fromisoformat(tw.replace("Z", "+00:00"))
+            if tw.tzinfo is None:
+                tw = tw.replace(tzinfo=timezone.utc)
+            heap_b = s.get("tcmalloc_heap_size_bytes")
+            free_b = s.get("tcmalloc_pageheap_free_bytes")
+            proc = s["process"]
+            if heap_b is not None:
+                by_tcmalloc_heap[proc].append((tw, float(heap_b) / (1024.0 * 1024.0)))
+            if free_b is not None:
+                by_tcmalloc_free[proc].append((tw, float(free_b) / (1024.0 * 1024.0)))
+
+        n_rows = 5 if tcmalloc_samples else 3
+        fig, axes = plt.subplots(n_rows, 1, figsize=(11, 4 + 2.5 * n_rows), sharex=True)
+        if n_rows == 3:
+            ax_cpu, ax_mem_pct, ax_mem_mib = axes
+            ax_tcm_heap = ax_tcm_free = None
+        else:
+            ax_cpu, ax_mem_pct, ax_mem_mib, ax_tcm_heap, ax_tcm_free = axes
+
         for proc, series in by_proc.items():
             series.sort(key=lambda x: x[0])
             xs = [x[0] for x in series]
-            axes[0].plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
-            axes[1].plot(xs, [x[2] for x in series], marker="o", markersize=2, label=proc)
+            ax_cpu.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
+            ax_mem_pct.plot(xs, [x[2] for x in series], marker="o", markersize=2, label=proc)
             xs_m = [x[0] for x in series if x[3] is not None]
             ys_m = [x[3] for x in series if x[3] is not None]
             if xs_m:
-                axes[2].plot(xs_m, ys_m, marker="o", markersize=2, label=proc)
+                ax_mem_mib.plot(xs_m, ys_m, marker="o", markersize=2, label=proc)
 
+        if ax_tcm_heap is not None and ax_tcm_free is not None:
+            for proc, series in by_tcmalloc_heap.items():
+                series.sort(key=lambda x: x[0])
+                xs = [x[0] for x in series]
+                ax_tcm_heap.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
+            for proc, series in by_tcmalloc_free.items():
+                series.sort(key=lambda x: x[0])
+                xs = [x[0] for x in series]
+                ax_tcm_free.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
+
+        plot_axes = list(axes) if hasattr(axes, "__iter__") else [axes]
         for ev in res.events:
             if ev.get("kind") != "event":
                 continue
@@ -833,7 +1014,7 @@ class ProcMemCpuMonitor(object):
             if tw.tzinfo is None:
                 tw = tw.replace(tzinfo=timezone.utc)
             label = ev.get("event", "event")
-            for ax in axes:
+            for ax in plot_axes:
                 ax.axvline(tw, color="red", linestyle="--", alpha=0.35)
                 ymax = ax.get_ylim()[1]
                 ax.text(
@@ -848,16 +1029,21 @@ class ProcMemCpuMonitor(object):
                     clip_on=False,
                 )
 
-        axes[0].set_ylabel("CPU %")
-        axes[0].set_title(self.request.node.nodeid, fontsize=7)
+        ax_cpu.set_ylabel("CPU %")
+        ax_cpu.set_title(self.request.node.nodeid, fontsize=7)
 
-        axes[1].set_ylabel("MEM % (top %MEM / free %total)")
+        ax_mem_pct.set_ylabel("MEM % (top %MEM / free %total)")
 
-        axes[2].set_ylabel("MiB (top RES / free used)")
-        axes[2].set_xlabel("Time (UTC)")
+        ax_mem_mib.set_ylabel("MiB (top RES / free used)")
+        if n_rows == 3:
+            ax_mem_mib.set_xlabel("Time (UTC)")
+        else:
+            ax_tcm_heap.set_ylabel("tcmalloc heap (MiB)")
+            ax_tcm_free.set_ylabel("tcmalloc pageheap free (MiB)")
+            ax_tcm_free.set_xlabel("Time (UTC)")
 
         dt_fmt = mdates.DateFormatter("%H:%M:%S")
-        for ax in axes:
+        for ax in plot_axes:
             ax.yaxis.set_minor_locator(AutoMinorLocator(1))
             ax.grid(True, which="major", alpha=0.3)
             ax.grid(True, which="minor", alpha=0.15, linestyle=":", linewidth=0.6)
@@ -865,25 +1051,8 @@ class ProcMemCpuMonitor(object):
             ax.tick_params(axis="x", labelbottom=True, labelrotation=22, labelsize=8)
 
         top_margin = 0.94
-        # Reference line (total_mem / num_cores) on PNG — disabled for now; uncomment to restore.
-        # ref_parts: List[str] = []
-        # total_ref = _first_free_total_mib_from_samples(res.samples)
-        # if total_ref is not None:
-        #     ref_parts.append("total_mem: {:.0f} MiB (free -m)".format(total_ref))
-        # if self._host_top_num_cores is not None:
-        #     ref_parts.append("num_cores: {} (/proc/cpuinfo)".format(self._host_top_num_cores))
-        # if ref_parts:
-        #     fig.text(
-        #         0.5,
-        #         0.99,
-        #         "Reference: " + "  |  ".join(ref_parts),
-        #         transform=fig.transFigure,
-        #         ha="center",
-        #         va="top",
-        #         fontsize=9,
-        #     )
-        #     top_margin = 0.88
-        ncol = min(8, max(1, len(by_proc)))
+        legend_proc_count = max(len(by_proc), len(by_tcmalloc_heap), len(by_tcmalloc_free), 1)
+        ncol = min(8, max(1, legend_proc_count))
         legend_kw = {
             "loc": "upper center",
             "bbox_to_anchor": (0.5, -0.32),
@@ -891,15 +1060,22 @@ class ProcMemCpuMonitor(object):
             "fontsize": 7,
             "frameon": True,
         }
-        axes[0].legend(**legend_kw)
-        axes[1].legend(**legend_kw)
-        axes[2].legend(**legend_kw)
+        if by_proc:
+            ax_cpu.legend(**legend_kw)
+            ax_mem_pct.legend(**legend_kw)
+            ax_mem_mib.legend(**legend_kw)
+        if ax_tcm_heap is not None and by_tcmalloc_heap:
+            ax_tcm_heap.legend(**legend_kw)
+        if ax_tcm_free is not None and by_tcmalloc_free:
+            ax_tcm_free.legend(**legend_kw)
         fig.subplots_adjust(hspace=0.85, bottom=0.12, top=top_margin)
         fig.savefig(path, dpi=120, bbox_inches="tight")
         plt.close(fig)
         logger.info("mem_cpu_monitor.plot() wrote %s", path)
         if self._top_raw_log_path:
             logger.info("mem_cpu_monitor.plot() top raw stdout log: %s", self._top_raw_log_path)
+        if self._tcmalloc_raw_log_path:
+            logger.info("mem_cpu_monitor.plot() tcmalloc raw stdout log: %s", self._tcmalloc_raw_log_path)
         return path
 
     def export_samples(
@@ -926,14 +1102,21 @@ class ProcMemCpuMonitor(object):
 
         resolved = self._resolve_plot_proc_subset(res, proc_subset, auto_host_jumper_subset)
         samples = self._filter_samples_for_plot(res, resolved)
-        if not samples:
+        tcmalloc_samples = self._tcmalloc_samples_for_plot(res)
+        export_samples = samples + tcmalloc_samples
+        if not export_samples:
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.export_samples() top raw stdout log: %s", self._top_raw_log_path)
+            if self._tcmalloc_raw_log_path:
+                logger.info(
+                    "mem_cpu_monitor.export_samples() tcmalloc raw stdout log: %s",
+                    self._tcmalloc_raw_log_path,
+                )
             return {}
 
         out_dir = self._resolve_out_dir(out_dir)
         os.makedirs(out_dir, exist_ok=True)
-        stem = self._output_stem(out_dir, samples, basename_style)
+        stem = self._output_stem(out_dir, export_samples, basename_style)
         style_used = basename_style or self._output_basename_style
         fmt_set = {str(f).lower() for f in formats}
         written: Dict[str, str] = {}
@@ -949,7 +1132,8 @@ class ProcMemCpuMonitor(object):
                 "plot_proc_subset_resolved": resolved,
                 "raw_command_log": self._raw_log_path,
                 "top_raw_log": self._top_raw_log_path,
-                "samples": [_build_export_sample_row(s) for s in samples],
+                "tcmalloc_raw_log": self._tcmalloc_raw_log_path,
+                "samples": [_build_export_sample_row(s) for s in export_samples],
                 "events": [_serialize_event(e) for e in res.events],
             }
             with open(path, "w", encoding="utf-8") as fh:
@@ -959,7 +1143,7 @@ class ProcMemCpuMonitor(object):
 
         if "csv" in fmt_set:
             path = stem + ".csv"
-            rows = [_build_export_sample_row(s) for s in samples]
+            rows = [_build_export_sample_row(s) for s in export_samples]
             fieldnames_set = set()
             for row in rows:
                 fieldnames_set.update(row.keys())
@@ -974,6 +1158,12 @@ class ProcMemCpuMonitor(object):
         if self._top_raw_log_path:
             written["top_raw_log"] = self._top_raw_log_path
             logger.info("mem_cpu_monitor.export_samples() top raw stdout log: %s", self._top_raw_log_path)
+        if self._tcmalloc_raw_log_path:
+            written["tcmalloc_raw_log"] = self._tcmalloc_raw_log_path
+            logger.info(
+                "mem_cpu_monitor.export_samples() tcmalloc raw stdout log: %s",
+                self._tcmalloc_raw_log_path,
+            )
 
         return written
 
@@ -1001,13 +1191,15 @@ def _serialize_event(ev: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_export_sample_row(s: Dict[str, Any]) -> Dict[str, Any]:
-    """Same numeric fields used for matplotlib panels (CPU, %MEM, MiB)."""
+    """Same numeric fields used for matplotlib panels (CPU, %MEM, MiB, tcmalloc)."""
     mib = s.get("mem_res_mib")
     if mib is None and s.get("mem_mib_used") is not None:
         mib = float(s["mem_mib_used"])
     tw = s.get("t_wall")
     tw_out = tw.isoformat() if hasattr(tw, "isoformat") else str(tw)
-    return {
+    heap_b = s.get("tcmalloc_heap_size_bytes")
+    free_b = s.get("tcmalloc_pageheap_free_bytes")
+    row = {
         "seq": s.get("seq"),
         "t_wall": tw_out,
         "t_mono": float(s["t_mono"]) if s.get("t_mono") is not None else None,
@@ -1026,4 +1218,11 @@ def _build_export_sample_row(s: Dict[str, Any]) -> Dict[str, Any]:
         "mem_unit": s.get("mem_unit"),
         "probe_transport": s.get("probe_transport"),
         "kind": s.get("kind"),
+        "tcmalloc_heap_size_bytes": heap_b,
+        "tcmalloc_pageheap_free_bytes": free_b,
     }
+    if heap_b is not None:
+        row["plot_tcmalloc_heap_mib"] = float(heap_b) / (1024.0 * 1024.0)
+    if free_b is not None:
+        row["plot_tcmalloc_pageheap_free_mib"] = float(free_b) / (1024.0 * 1024.0)
+    return row
