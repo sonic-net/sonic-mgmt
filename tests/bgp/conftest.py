@@ -472,7 +472,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
+    def _setup_interfaces_t1_t2_drh(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
@@ -622,11 +622,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0"]):
-        setup_func = _setup_interfaces_t1_or_t2
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh"]):
+        setup_func = _setup_interfaces_t1_t2_drh
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
-            setup_func = _setup_interfaces_t1_or_t2
+            setup_func = _setup_interfaces_t1_t2_drh
         else:
             setup_func = _setup_interfaces_t0_or_mx
     else:
