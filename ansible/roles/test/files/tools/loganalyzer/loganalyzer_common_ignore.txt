@@ -485,7 +485,7 @@ r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplep
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
-
+r, ".*ERR sfputil.*message repeated \d+ times.*Failed to read from file \/sys\/module\/sx_core\/asic\d+\/module\d+\/present.*FileNotFoundError.*"
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
