@@ -535,18 +535,20 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
             first_line = output[0]
             first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
-                          "First line content does not match. Difference: {}".format(first_line_diff))
+            if not set(first_line.values()) == set(expected_first_line_content):
+                logger.warning(f"First line content does not match. Difference: {first_line_diff}")
+                return False
 
             table_bindings = [first_line["binding"]]
             for i in range(len(output)):
                 table_bindings.append(output[i]["binding"])
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
-            pytest_assert(set(table_bindings) == set(expected_bindings),
-                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            if not set(table_bindings) == set(expected_bindings):
+                logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
+                return False
             return True
 
-        wait_until(30, 5, 0, check_table)
+        pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
