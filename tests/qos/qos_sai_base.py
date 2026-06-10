@@ -52,7 +52,7 @@ class QosBase:
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
         "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
-        "t0-88-o8c80", "t0-f2-d40u8"
+        "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-f2-d10u8",
@@ -950,8 +950,12 @@ class QosSaiBase(QosBase):
                 pytest.skip(
                     "Did not find any frontend node that is multi-asic - so can't run single_dut_multi_asic tests")
             dst_dut_index = src_dut_index
-            src_asic_index = 0
-            dst_asic_index = 1
+            # Randomize ASIC selection
+            selected_dut = duthosts.frontend_nodes[src_dut_index]
+            num_frontend_asics = len(selected_dut.frontend_asics)
+            asic_indices = list(range(num_frontend_asics))
+            src_asic_index, dst_asic_index = random.sample(asic_indices, 2)
+            logger.info(f"Selected src asic index: {src_asic_index} and dest asic index: {dst_asic_index}")
 
         else:
             # Dealing with multi-dut
@@ -1071,6 +1075,9 @@ class QosSaiBase(QosBase):
         dst_dut_port_ips = testPortIps[dst_dut_idx]
         dst_test_port_ips = dst_dut_port_ips[dst_asic_idx]
 
+        # Determine if source and destination are on the same ASIC
+        sameSrcDestDutAndAsic = src_dut_idx == dst_dut_idx and src_asic_idx == dst_asic_idx
+
         if dstPorts is None:
             if dst_port_ids:
                 pytest_assert(
@@ -1079,15 +1086,24 @@ class QosSaiBase(QosBase):
                     "Dest port id passed in qos.yml not valid"
                 )
                 dstPorts = dst_port_ids
-            elif len(dst_test_port_ids) >= 4:
-                dstPorts = [0, 2, 3]
-                if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["asic_type"]
-                        in ['cisco-8000']):
-                    dstPorts = [2, 3, 4]
-            elif len(dst_test_port_ids) == 3:
-                dstPorts = [0, 2, 2]
+            # When src and dst are on same ASIC, they share the same port list.
+            elif sameSrcDestDutAndAsic:
+                if len(dst_test_port_ids) >= 4:
+                    dstPorts = [0, 2, 3]
+                    if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["asic_type"]
+                            in ['cisco-8000']):
+                        dstPorts = [2, 3, 4]
+                elif len(dst_test_port_ids) == 3:
+                    dstPorts = [0, 2, 2]
+                else:
+                    dstPorts = [0, 0, 0]
             else:
-                dstPorts = [0, 0, 0]
+                if len(dst_test_port_ids) >= 3:
+                    dstPorts = [0, 1, 2]
+                elif len(dst_test_port_ids) == 2:
+                    dstPorts = [0, 1, 1]
+                else:
+                    dstPorts = [0, 0, 0]
 
         if srcPorts is None:
             if src_port_ids:
@@ -1124,14 +1140,28 @@ class QosSaiBase(QosBase):
         )
         logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
 
-        pytest_assert(
-            len(set(dstPorts).intersection(set(srcPorts))) == 0,
-            "Duplicate destination and source ports '{0}'".format(
-                set(dstPorts).intersection(set(srcPorts))
+        # Only check for port index overlap when source and destination are on the same ASIC.
+        # When on different ASICs, they use separate port lists, so index overlap doesn't
+        # imply physical port overlap.
+        if sameSrcDestDutAndAsic:
+            overlap = set(dstPorts).intersection(set(srcPorts))
+            pytest_assert(
+                len(overlap) == 0,
+                "Port index overlap detected on DUT[{0}] ASIC[{1}]: "
+                "source indices {2}, destination indices {3}, overlap {4}. "
+                "Since source and destination are on the same ASIC, this means the same "
+                "physical port(s) would be used for both source and destination, which is invalid.".format(
+                    src_dut_idx,
+                    src_asic_idx,
+                    set(srcPorts),
+                    set(dstPorts),
+                    overlap
+                )
             )
-        )
 
-        # TODO: Randomize port selection
+        random.shuffle(dstPorts)
+        random.shuffle(srcPorts)
+
         dstPort = dstPorts[0] if dst_port_ids else dst_test_port_ids[dstPorts[0]]
         dstVlan = dst_test_port_ips[dstPort]['vlan_id'] if 'vlan_id' in dst_test_port_ips[dstPort] else None
         dstPort2 = dstPorts[1] if dst_port_ids else dst_test_port_ids[dstPorts[1]]
@@ -1838,7 +1868,7 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_asic, "lldp", "enabled")
+            updateFeatureState(dst_dut, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
@@ -2379,6 +2409,7 @@ class QosSaiBase(QosBase):
                 executor.submit(
                     config_reload,
                     duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True,
+                    wait_for_bgp=True,
                 )
 
     @pytest.fixture(scope='module', autouse=True)

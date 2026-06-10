@@ -41,6 +41,8 @@
             "PRIORITY": "9994"
         },
         "CUSTOM_IPV6_TABLE|DEFAULT_DROP_RULE": {
+            "SRC_IPV6": "2001:db8:200::1/128",
+            "DST_IPV6": "2001:db8:201::1/128",
             "IP_TYPE": "IPV6ANY",
             "PACKET_ACTION": "DROP",
             "PRIORITY": "1"

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 import yaml
 
 from .ansible_hosts import AnsibleHost
@@ -15,9 +16,37 @@ _self_dir = os.path.dirname(os.path.abspath(__file__))
 ansible_path = os.path.realpath(os.path.join(_self_dir, "../../"))
 
 
+def _resolve_localhost_python_interpreter():
+    """Return a python interpreter that has the sonic-mgmt dependencies
+    (PyYAML, ansible, etc.) available.
+
+    Historically this was hardcoded to ``/usr/bin/python3``. That assumes the
+    sonic-mgmt docker image installs every dependency into system python,
+    which is no longer true: the new ``docker-sonic-mgmt`` image installs
+    everything into a uv-managed venv at ``/opt/venv`` and leaves
+    ``/usr/bin/python3`` bare. Calling Ansible modules on localhost via the
+    bare system python then fails with
+    ``ModuleNotFoundError: No module named 'yaml'``.
+
+    Resolution order:
+      1. ``LOCALHOST_PYTHON_INTERPRETER`` env override.
+      2. ``sys.executable`` -- the interpreter actually running this code,
+         which by definition has our deps.
+      3. ``/usr/bin/python3`` legacy fallback.
+    """
+    override = os.environ.get("LOCALHOST_PYTHON_INTERPRETER")
+    if override:
+        return override
+    if sys.executable and os.path.exists(sys.executable):
+        return sys.executable
+    return "/usr/bin/python3"
+
+
 def init_localhost(inventories=None, options={}, hostvars={}):
+    localhost_hostvars = hostvars.copy()
+    localhost_hostvars["ansible_python_interpreter"] = _resolve_localhost_python_interpreter()
     try:
-        return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=hostvars.copy())
+        return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=localhost_hostvars.copy())
     except (NoAnsibleHostError, MultipleAnsibleHostsError) as e:
         logger.error(
             "Failed to initialize localhost from inventories '{}', exception: {}".format(str(inventories), repr(e))

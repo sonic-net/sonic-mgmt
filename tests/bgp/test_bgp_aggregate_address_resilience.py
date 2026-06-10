@@ -80,6 +80,27 @@ def setup_teardown(duthost):
         delete_checkpoint(duthost)
 
 
+@pytest.fixture(autouse=True)
+def ignore_disruption_loganalyzer_noise(duthost, loganalyzer):
+    """Ignore transient ERR logs caused by reload/reboot disruptions.
+
+    - iptables TACACS noise: every reload/iptables-change moment briefly
+      breaks DUT->TACACS reachability; the existing common-ignore rule for
+      `nss_tacplus: failed to connect TACACS+ server` has an unescaped '+'
+      and does not actually match, so we add a properly-escaped pair here.
+      The sibling `tac_connect_single: ... Network is unreachable` line has
+      no common-ignore at all, add it too.
+    """
+    if loganalyzer and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .*",
+            r".* ERR iptables: tac_connect_single: connection to .* failed: "
+            r"Network is unreachable.*",
+            r".* ERR iptables: tac_author_read: reply timeout after \d+ secs.*",
+        ])
+    yield
+
+
 # ---- Fixtures ----
 @pytest.fixture(scope="module")
 def bgp_neighbors(duthosts, rand_one_dut_hostname):
@@ -217,6 +238,10 @@ def test_aggregate_persists_config_reload(
 # ===========================================================================
 # Test Case 5.3 — Config save and cold reboot
 # ===========================================================================
+# Cold reboot truncates /var/log/syslog so the LogAnalyzer start marker is
+# lost; disable LogAnalyzer for this test (matches the pattern used by other
+# reboot-based tests in the repo).
+@pytest.mark.disable_loganalyzer
 def test_aggregate_persists_config_save_and_reboot(
     duthosts, rand_one_dut_hostname, localhost, bgp_neighbors
 ):
@@ -308,6 +333,10 @@ def test_aggregate_bbr_required_inactive_persists_bgp_restart(
 # ===========================================================================
 # Test Case 5.5 — Warm reboot
 # ===========================================================================
+# Warm reboot rotates/truncates /var/log/syslog so the LogAnalyzer start
+# marker is lost; disable LogAnalyzer for this test (matches the pattern
+# used by other reboot-based tests in the repo).
+@pytest.mark.disable_loganalyzer
 def test_aggregate_persists_warm_reboot(
     duthosts, rand_one_dut_hostname, localhost, bgp_neighbors
 ):
