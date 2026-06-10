@@ -1007,10 +1007,10 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 dhcp_relay:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "Not applicable to isolated topologies."
     conditions_logical_operator: or
     conditions:
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
       - "'bmc' in topo_type"
 
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress:
