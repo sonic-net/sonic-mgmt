@@ -43,15 +43,37 @@ def _resolve_localhost_python_interpreter():
 
 
 def init_localhost(inventories=None, options={}, hostvars={}):
-    localhost_hostvars = hostvars.copy()
-    localhost_hostvars["ansible_python_interpreter"] = _resolve_localhost_python_interpreter()
     try:
-        return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=localhost_hostvars.copy())
+        ah = AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=hostvars.copy())
     except (NoAnsibleHostError, MultipleAnsibleHostsError) as e:
         logger.error(
             "Failed to initialize localhost from inventories '{}', exception: {}".format(str(inventories), repr(e))
         )
         return None
+
+    # Pin ansible_python_interpreter for localhost only, by setting it as a
+    # host-level variable on the inventory Host object.
+    #
+    # We deliberately do NOT pass this through the ``hostvars`` kwarg of
+    # AnsibleHost: that path lands in ``VariableManager.extra_vars`` (see
+    # ``AnsibleHostsBase.__init__``), and ansible-core's
+    # ``ansible.utils.vars.load_extra_vars`` caches its return dict on the
+    # function object. Every VariableManager constructed afterwards in the
+    # same process shares the same ``_extra_vars`` dict, so a mutation here
+    # would leak ``ansible_python_interpreter`` to every subsequent play --
+    # including ones targeting real DUTs that do not have the controller's
+    # interpreter path. extra_vars also have the highest precedence in
+    # ansible, so they would override the DUTs' inventory/group vars.
+    interpreter = _resolve_localhost_python_interpreter()
+    try:
+        for h in ah.im.get_hosts("localhost"):
+            h.set_variable("ansible_python_interpreter", interpreter)
+    except Exception as e:
+        logger.warning(
+            "Failed to pin ansible_python_interpreter='{}' on localhost: {}".format(interpreter, repr(e))
+        )
+
+    return ah
 
 
 def init_host(inventories, host_pattern, options={}, hostvars={}):
