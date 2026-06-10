@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import pytest
 from tests.common.plugins.proc_mem_cpu_monitor.controller import (
     _host_top_capture_names,
     effective_adaptive_plot_processes,
