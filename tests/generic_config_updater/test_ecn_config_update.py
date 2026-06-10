@@ -165,7 +165,10 @@ def determine_delta_values(ecn_data, fields, wred_green_enabled):
     max_threshold = int(ecn_data["green_max_threshold"])
     assert 0 <= min_threshold <= max_threshold, \
         f"Invalid thresholds: green_min_threshold={min_threshold}, green_max_threshold={max_threshold}"
-    if "green_min_threshold" in fields and "green_max_threshold" in fields:
+    if ecn_data.get("wred_green_enable", "true") == "false" or ecn_data.get("green_enable", "true") == "false":
+        # Ignore this profile as it's not being used
+        return delta
+    elif "green_min_threshold" in fields and "green_max_threshold" in fields:
         # Both fields are being updated.
         if min_threshold > 0:
             delta["green_min_threshold"] = -1
