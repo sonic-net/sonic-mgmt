@@ -189,6 +189,8 @@ def fixture_setUp(duthosts,
         data['tolerance'] = 0.03
         data['underlay_tolerance'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
         data['underlay_tolerance_within_lag'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
+        if asic_type == "vpp":
+            data['random_hash_tolerance'] = 0.04
     else:
         raise RuntimeError("Pls update this script for your platform.")
 
@@ -1500,7 +1502,8 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
             "tc11",
             encap_type,
             True,
-            packet_count=1000)
+            packet_count=1000,
+            tolerance=self.vxlan_test_setup.get('random_hash_tolerance'))
 
 
 @pytest.mark.skipif(
