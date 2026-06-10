@@ -594,14 +594,30 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     def _verify_show_mux_status(**kwargs):
         dut = kwargs['node']
         results = kwargs['results']
-        dut_mux_status = dut.show_and_parse("show mux status")
 
-        dut_parsed_mux_status = {}
+        dut_mux_status = []
+
+        def _show_mux_status_ready():
+            # Right after deploy/reboot, linkmgrd may not have populated the mux
+            # state in STATE_DB MUX_CABLE_TABLE for every port yet. In that case
+            # "show mux status" exits non-zero (e.g. "could not retrieve key state
+            # value for port ... inside table MUX_CABLE_TABLE"), which otherwise
+            # aborts the whole sanity check on the very first sample. Treat it as a
+            # transient not-ready condition and wait for the mux state to converge.
+            try:
+                dut_mux_status[:] = dut.show_and_parse("show mux status")
+            except RunAnsibleModuleFail as e:
+                logger.warning('"show mux status" is not ready yet on %s: %s' % (dut.hostname, repr(e)))
+                return False
+            return len(dut_mux_status) == len(port_cable_types)
+
+        wait_until(120, 10, 0, _show_mux_status_ready)
+
         dut_wrong_mux_status_ports = []
         check_result = {"failed": False, "check_item": "check_mux_simulator", "host": dut.hostname, "error_msg": []}
         logger.info('Verify that "show mux status" has output ON {}'.format(dut.hostname))
         if len(dut_mux_status) != len(port_cable_types):
-            check_result["error_msg"] = "Some ports doesn't have 'show mux status' output"
+            check_result["error_msg"].append("Some ports doesn't have 'show mux status' output")
             check_result["failed"] = True
 
         dut_parsed_mux_status = {}
