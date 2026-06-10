@@ -23,6 +23,24 @@
 # your environment.
 
 # ---- Fail if Ubuntu < 22.04 or Debian < 13 ----
+# Callers of this role are inconsistent about fact gathering:
+#   * Some set `gather_facts: no` (testbed_renumber_vm_topology.yml,
+#     testbed_connect_vms.yml, testbed_disconnect_vms.yml, testbed_start_k8s_VMs.yml,
+#     testbed_stop_k8s_VMs.yml, testbed_connect_topo.yml) so that their `pre_tasks`
+#     can override ansible_user / ansible_password from vm_host_user etc. before any
+#     connection is made.
+#   * Others rely on the default `gather_facts: yes` (testbed_add_vm_topology.yml,
+#     testbed_remove_vm_topology.yml, testbed_start_VMs.yml, testbed_stop_VMs.yml).
+# Gather a minimal fact subset here, but only when the facts are missing, so the
+# checks work for both kinds of caller. `gather_subset: min` is cheap and skips the
+# expensive interface/hardware enumeration; the `when` guard makes it a no-op when
+# the caller already gathered facts.
+- name: Gather minimal host facts for distribution checks
+  setup:
+    gather_subset:
+      - min
+  when: ansible_distribution is not defined or ansible_distribution_version is not defined
+
 - name: Fail if distribution is not Ubuntu or Debian
   fail:
     msg: >-
