@@ -3,7 +3,9 @@ Test the auto-restart feature of containers
 """
 import logging
 import re
+import signal
 from collections import defaultdict
+from contextlib import contextmanager
 
 import pytest
 
@@ -30,6 +32,63 @@ POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
 PROGRAM_STATUS = "RUNNING"
+
+# Per-container watchdog budget for a single parametrized autorestart case.
+# Each test_containers_autorestart[<feature>] exercises exactly one container; the
+# slowest legitimate container (telemetry) finishes in ~22 min, so 40 min gives a
+# comfortable ~1.8x margin for healthy runs. A container that hangs during
+# stop/restart or post-check is interrupted here and fails with a junit entry,
+# instead of blocking until the framework's module-level timeout (~155 min) kills
+# the run and discards all results as phantom "no xml file" failures.
+SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
+
+# Upper bound for the best-effort config_reload that recovers the DUT after a
+# per-container hang. A healthy `config_reload(safe_reload, wait_for_bgp)` -- even
+# on a slow/modular topology -- completes well within this; if recovery itself
+# exceeds it, something is badly wrong and we just log and fail the case anyway.
+RECOVERY_RELOAD_TIMEOUT_SECS = 600
+
+
+class ContainerAutorestartTimeout(Exception):
+    """Raised when a single container's autorestart sub-test exceeds its watchdog budget."""
+
+
+@contextmanager
+def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_TIMEOUT_SECS):
+    """Interrupt a single container's autorestart sub-test if it hangs.
+
+    Uses SIGALRM so a blocked SSH/docker call is actually interrupted -- a thread
+    based timer cannot break out of a blocking C-level read, but an exception raised
+    from the signal handler propagates and aborts the syscall (PEP 475). Only
+    effective on the main thread on POSIX; on platforms without SIGALRM, or when not
+    running on the main thread, it is a no-op and execution falls back to the
+    framework's module-level timeout.
+    """
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    def _on_timeout(signum, frame):
+        raise ContainerAutorestartTimeout(
+            "Autorestart test for container '{}' exceeded {} seconds and was interrupted. "
+            "The container most likely hung during stop/restart or post-check.".format(
+                container_name, timeout_secs)
+        )
+
+    try:
+        previous_handler = signal.signal(signal.SIGALRM, _on_timeout)
+    except ValueError:
+        # signal handlers can only be installed on the main thread.
+        logger.warning("single_container_timeout disabled for '%s': not on main thread", container_name)
+        yield
+        return
+
+    signal.alarm(timeout_secs)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -628,4 +687,19 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    try:
+        with single_container_timeout(container_name):
+            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    except ContainerAutorestartTimeout as timeout_err:
+        # Recover the DUT before failing so the remaining per-container cases in this
+        # module are not poisoned by a half-restarted container, then surface the hang
+        # as a normal failure (with junit) instead of a phantom run. The recovery is
+        # itself bounded so it cannot hang the module either.
+        logger.error(str(timeout_err))
+        try:
+            with single_container_timeout(container_name, timeout_secs=RECOVERY_RELOAD_TIMEOUT_SECS):
+                config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+                enable_autorestart(duthost)
+        except ContainerAutorestartTimeout:
+            logger.error("Recovery config_reload timed out after a hang on container '%s'", container_name)
+        pytest.fail(str(timeout_err))
