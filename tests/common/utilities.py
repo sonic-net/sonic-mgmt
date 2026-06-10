@@ -1375,7 +1375,7 @@ def capture_and_check_packet_on_dut(
         duthost.file(path=pcap_save_path, state="absent")
 
 
-def _paramiko_ssh(ip_address, username, passwords):
+def _paramiko_ssh(ip_address, username, passwords, port=22):
     """
     Connect to the device via ssh using paramiko
     Args:
@@ -1383,6 +1383,7 @@ def _paramiko_ssh(ip_address, username, passwords):
         username (str): The username of device
         passwords (str or list): Potential passwords of device
             this argument can be either a string or a list of string
+        port (int): The SSH port to connect to (default: 22)
     Returns:
         AuthResult: the ssh session of device
     """
@@ -1397,8 +1398,9 @@ def _paramiko_ssh(ip_address, username, passwords):
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(ip_address, username=username, password=password,
-                        allow_agent=False, look_for_keys=False, timeout=10)
+            ssh.connect(ip_address, port=port, username=username,
+                        password=password, allow_agent=False,
+                        look_for_keys=False, timeout=10)
             return ssh, password
         except AuthenticationException:
             continue
@@ -1409,18 +1411,19 @@ def _paramiko_ssh(ip_address, username, passwords):
     raise AuthenticationException
 
 
-def paramiko_ssh(ip_address, username, passwords):
-    ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+def paramiko_ssh(ip_address, username, passwords, port=22):
+    ssh, pwd = _paramiko_ssh(ip_address, username, passwords, port=port)
     return ssh
 
 
-def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords,
+                           port=22):
     try:
-        _, passwd = _paramiko_ssh(ipv4_address, username, passwords)
+        _, passwd = _paramiko_ssh(ipv4_address, username, passwords, port=port)
     except AuthenticationException:
         raise
     except Exception:
-        _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
+        _, passwd = _paramiko_ssh(ipv6_address, username, passwords, port=port)
     return passwd
 
 
