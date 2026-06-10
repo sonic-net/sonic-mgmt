@@ -715,3 +715,45 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+
+
+def test_dhcp_broadcast_not_flooded(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist,
+                                    testing_config, relay_agent):
+    """Verify DHCP broadcast packets are trapped to CPU and not L2-flooded to other VLAN member ports.
+
+    The COPP trap_action for DHCP is 'trap' (SAI_PACKET_ACTION_TRAP), meaning packets
+    are sent exclusively to CPU and removed from the forwarding pipeline. This test
+    sends DHCP Discover and Request broadcasts from a client port and asserts that
+    no copy of the original broadcast appears on any other VLAN member port.
+    """
+    testing_mode, duthost = testing_config
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        if not dhcp_relay['other_client_ports']:
+            pytest.skip("Need at least two VLAN member ports to verify non-flooding behavior")
+
+        ptf_runner(ptfhost,
+                   "ptftests",
+                   "dhcp_relay_test.DHCPBroadcastNotFloodedTest",
+                   platform_dir="ptftests",
+                   params={"hostname": duthost.hostname,
+                           "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                           "other_client_port": repr(dhcp_relay['other_client_ports']),
+                           "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                           "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                           "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                           "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                           "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                           "dest_mac_address": BROADCAST_MAC,
+                           "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                           "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "testing_mode": testing_mode,
+                           "kvm_support": True,
+                           "relay_agent": relay_agent,
+                           "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name'])},
+                   log_file=("/tmp/dhcp_relay_test.DHCPBroadcastNotFloodedTest.{}.log"
+                             .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                   is_python3=True)
