@@ -514,9 +514,11 @@ def run_bgp_4_byte_asn_community_sonic(setup):
     output = setup['neighhost'].shell("show ipv6 bgp summary | grep {}".format(setup['dut_ip_v6'].lower()))['stdout']
     assert str(dut_4byte_asn) in output.split()[2]
     output = setup['neighhost'].shell("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))['stdout']
-    assert str(dut_4byte_asn) in str(output.split('\n')[9].split()[5])
+    assert str(dut_4byte_asn) in dut_bgp_routes_table_body(output), (
+        "ASN {} not found in neighbor IPv4 routes table".format(dut_4byte_asn))
     output = setup['neighhost'].shell("show ipv6 bgp neighbors {} routes".format(setup['dut_ip_v6'].lower()))['stdout']
-    assert str(dut_4byte_asn) in str(output.split('\n')[9].split()[5])
+    assert str(dut_4byte_asn) in dut_bgp_routes_table_body(output), (
+        "ASN {} not found in neighbor IPv6 routes table".format(dut_4byte_asn))
 
 
 def run_bgp_4_byte_asn_community_eos(setup):
