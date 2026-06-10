@@ -470,6 +470,16 @@ class SonicHost(AnsibleHostBase):
 
         file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
                 && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        # If the docker exec failed (e.g. container is not running) the shell returns a non-zero rc
+        # with empty stdout_lines. The previous implementation would silently return succeeded=True with
+        # empty lists in that case, masking the real failure. Treat any non-zero rc as a failure so callers
+        # can react (retry, wait, fail) instead of believing every container is healthy.
+        if file_content.get("rc", 1) != 0:
+            logging.warning(
+                "Reading critical_processes file from container '%s' failed: rc=%s, stderr=%s",
+                container_name, file_content.get("rc"), file_content.get("stderr"))
+            return critical_group_list, critical_process_list, False
+
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
