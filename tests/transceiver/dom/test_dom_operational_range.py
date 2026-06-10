@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from tests.transceiver.dom.utils.dom_constants import (
@@ -9,9 +11,10 @@ from tests.transceiver.dom.utils.dom_field_mapper import (
     get_lane_count,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def test_dom_sensor_operational_range_validation(
-    dom_health_guard,
     dom_ports,
     dom_port_context,
     dom_sensor_by_port,
@@ -22,10 +25,9 @@ def test_dom_sensor_operational_range_validation(
     """TC2: Validate configured operational ranges against DOM sensor readings.
 
     Args:
-        dom_health_guard: Explicit pre-test and post-test DOM health guard.
         dom_ports: DOM-enabled ports selected for validation.
         dom_port_context: Per-port DOM context with configured DOM attributes.
-        dom_sensor_by_port: Initial ``TRANSCEIVER_DOM_SENSOR`` data keyed by port.
+        dom_sensor_by_port: Per-test baseline ``TRANSCEIVER_DOM_SENSOR`` data keyed by port.
         parse_dom_numeric: Parser for numeric DOM values.
         parse_dom_update_time: Parser for DOM ``last_update_time`` values.
         dom_now_utc: Callable that returns the current UTC time.
@@ -37,6 +39,7 @@ def test_dom_sensor_operational_range_validation(
     all_failures = []
     has_configured_checks = False
     now_utc = dom_now_utc()
+    checked_fields_by_port = {}
 
     for port in dom_ports:
         # Step 1: Resolve per-port context and DOM sensor data.
@@ -45,6 +48,7 @@ def test_dom_sensor_operational_range_validation(
         base_attrs = context["base"]
         sensor_data = dom_sensor_by_port.get(port, {})
         field_failures = []
+        checked_fields = 0
 
         # Step 2: Validate timestamp freshness when data_max_age_min is configured.
         max_age_min = dom_attrs.get("data_max_age_min")
@@ -104,9 +108,21 @@ def test_dom_sensor_operational_range_validation(
                     field_failures.append(
                         "{} value {} out of range [{}, {}]".format(field, numeric_value, min_value, max_value)
                     )
+                    continue
+
+                checked_fields += 1
+                logger.debug(
+                    "DOM operational range PASS %s %s=%s within [{}, {}]",
+                    port,
+                    field,
+                    numeric_value,
+                    min_value,
+                    max_value,
+                )
 
         if field_failures:
             all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
+        checked_fields_by_port[port] = checked_fields
 
     # Step 5: Final decision for skip/fail.
     if not has_configured_checks:
@@ -114,3 +130,16 @@ def test_dom_sensor_operational_range_validation(
 
     if all_failures:
         pytest.fail("DOM operational range validation failures:\n" + "\n".join(all_failures))
+
+    total_checked_fields = sum(checked_fields_by_port.values())
+    logger.info(
+        "DOM operational range validation passed: %d field(s) across %d port(s)",
+        total_checked_fields,
+        len(checked_fields_by_port),
+    )
+    for port in sorted(checked_fields_by_port):
+        logger.info(
+            "DOM operational range validation %s: checked %d field(s)",
+            port,
+            checked_fields_by_port[port],
+        )

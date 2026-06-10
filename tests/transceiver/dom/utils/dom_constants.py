@@ -48,8 +48,3 @@ CONSISTENCY_VARIATION_RULES = {
     "temperature_operational_range": ("temperature_consistency_variation_threshold", "abs"),
     "voltage_operational_range": ("voltage_consistency_variation_threshold", "abs"),
 }
-
-DOM_CORE_FILES_PATH = "/var/core"
-DOM_HEALTH_CHECK_SERVICES = ("xcvrd", "pmon", "swss", "syncd")
-DOM_POST_TEST_HEALTH_CHECK_SERVICES = ("xcvrd", "pmon")
-DOM_SERVICE_MIN_UPTIME_SEC = 300

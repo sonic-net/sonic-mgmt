@@ -104,9 +104,9 @@ def pytest_collection_modifyitems(config, items):
     Adds two markers to every collected item under ``tests/transceiver/``
     (and to its parent ``Module``):
 
-    * ``topology("ptp")`` – the transceiver suite only runs on PTP testbeds;
+    * ``topology("ptp")`` - the transceiver suite only runs on PTP testbeds;
       applying it here saves every test module from declaring ``pytestmark``.
-    * ``skip_check_dut_health`` – the suite has its own per-test health check
+    * ``skip_check_dut_health`` - the suite has its own per-test health check
       fixture (``_per_test_health_check``) that monitors core dumps and PIDs
       at finer granularity, so the global module-scoped
       ``core_dump_and_config_check`` fixture in ``tests/conftest.py`` is
@@ -245,12 +245,12 @@ def _ensure_transceiver_infra_initialized(port_attributes_dict):
     return
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # Session-wide guard: skip the entire transceiver suite on virtual switch
 # testbeds. VS DUTs lack physical optics, ``xcvrd`` does not run, and the
 # per-test health check would otherwise mass-skip every test with a
 # misleading message about a missing process.
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -260,15 +260,15 @@ def _skip_transceiver_suite_on_vs(duthost):
         pytest.skip("Transceiver tests are not supported on virtual switch testbed")
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # Session-scoped prerequisite fixtures (gates).
-# These are session-scoped (computed once per session) but NOT autouse —
+# These are session-scoped (computed once per session) but NOT autouse -
 # a category opts in by requesting the fixture from its own conftest.py
 # (typically via an autouse fixture that lists the gates as parameters).
 # Each gate wraps a check primitive in common/prerequisites.py and calls
 # pytest.skip on failure so every dependent test is skipped with a clear
 # message.
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session")
@@ -276,7 +276,7 @@ def presence_verified(duthost, port_attributes_dict):
     """Gate: all transceivers in port_attributes_dict are present.
 
     Opted into by DOM, System, CDB FW (via their category conftests).
-    EEPROM does NOT opt in — it owns the presence test cases directly.
+    EEPROM does NOT opt in - it owns the presence test cases directly.
     """
     result = check_presence_show_cli(duthost, port_attributes_dict)
     if not result["passed"]:
@@ -295,7 +295,7 @@ def gold_fw_verified(duthost, port_attributes_dict):
     Other ports are out of scope (no expectation to compare against).
 
     Opted into by DOM, System (via their category conftests). CDB FW does
-    NOT opt in — it owns the gold-firmware test case directly.
+    NOT opt in - it owns the gold-firmware test case directly.
     """
     result = check_gold_firmware(duthost, port_attributes_dict)
     if not result["passed"]:
@@ -309,7 +309,7 @@ def links_verified(duthost, port_attributes_dict):
     """Gate: every transceiver port in port_attributes_dict is admin-up and oper-up.
 
     Opted into by EEPROM, DOM, System, CDB FW (via their category
-    conftests). Port Config does NOT opt in — its tests query CONFIG_DB
+    conftests). Port Config does NOT opt in - its tests query CONFIG_DB
     only and do not require live links.
     """
     result = check_links_up(duthost, port_attributes_dict)
@@ -319,11 +319,11 @@ def links_verified(duthost, port_attributes_dict):
     return result
 
 
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # Per-test health-check fixture (autouse, function-scoped).
 # Pre-test failures skip the test; post-test failures abort the session.
 # Both phases append to health_check_events for the terminal summary.
-# ──────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)

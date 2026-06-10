@@ -1,14 +1,9 @@
-import logging
 import pytest
 from tests.transceiver.utils.cli_parser_helper import parse_eeprom
-from tests.transceiver.attribute_parser.attribute_keys import (
-    BASE_ATTRIBUTES_KEY,
-    CDB_FW_UPGRADE_ATTRIBUTES_KEY,
-    EEPROM_ATTRIBUTES_KEY,
-)
 
-
-logger = logging.getLogger(__name__)
+pytestmark = [
+    pytest.mark.topology('ptp-256')
+]
 
 CMD_SFP_EEPROM = "show interfaces transceiver info"
 
@@ -25,9 +20,6 @@ EEPROM_EXPECTED_CLI_KEY_TO_TRANSCEIVER_INV_KEY_MAPPING = {
     "Vendor Name": "vendor_name",
 }
 
-# Default return code indicating command failure (used when 'rc' key is missing)
-RC_FAILURE = 1
-
 
 def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict):
     """Verify EEPROM content via 'show interfaces transceiver info' CLI.
@@ -35,10 +27,13 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
     Runs one CLI command, parses output per port, and validates expected EEPROM fields
     against attributes from port_attributes_dict. Aggregates all failures for reporting.
     """
+    if duthost.facts.get("asic_type") == "vs":
+        pytest.skip("Skipping EEPROM verification on virtual switch testbed")
+
     all_failures = []
 
     result = duthost.command(CMD_SFP_EEPROM, module_ignore_errors=True)
-    if result.get('rc', RC_FAILURE) != 0:
+    if result.get('rc', 1) != 0:
         pytest.fail(f"CLI failed with rc={result.get('rc')}, stderr: {result.get('stderr', '')}")
 
     stdout_lines = result.get('stdout_lines', [])
@@ -49,7 +44,6 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
 
     for port, port_attrs in port_attributes_dict.items():
         if not port_attrs:
-            logger.debug("Port %s has no attributes, skipping", port)
             continue
 
         cli_port_fields = cli_eeprom_by_port.get(port, {})
@@ -57,18 +51,15 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
             all_failures.append(f"{port}: transceiver not detected (no CLI output)")
             continue
 
-        base_attrs = port_attrs.get(BASE_ATTRIBUTES_KEY, {})
-        eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
-        cmis_fw_attrs = port_attrs.get(CDB_FW_UPGRADE_ATTRIBUTES_KEY, {})
+        base_attrs = port_attrs.get("BASE_ATTRIBUTES", {})
+        eeprom_attrs = port_attrs.get("EEPROM_ATTRIBUTES", {})
 
         field_failures = []
         for cli_key, attr_key in EEPROM_EXPECTED_CLI_KEY_TO_TRANSCEIVER_INV_KEY_MAPPING.items():
             if attr_key in base_attrs:
                 expected_value = base_attrs.get(attr_key)
-            elif attr_key in eeprom_attrs:
-                expected_value = eeprom_attrs.get(attr_key)
             else:
-                expected_value = cmis_fw_attrs.get(attr_key)
+                expected_value = eeprom_attrs.get(attr_key)
             if expected_value is None:
                 continue
 

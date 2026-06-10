@@ -1,15 +1,14 @@
 import time
 
+import logging
 import pytest
+
+logger = logging.getLogger(__name__)
 
 
 def test_dom_data_consistency_verification(
-    dom_health_guard,
     dom_ports,
-    dom_port_context,
-    dom_operational_fields_by_port,
-    dom_operational_ranges_by_port,
-    dom_consistency_variation_thresholds_by_port,
+    dom_consistency_validation_plan_by_port,
     dom_consistency_variation_rules,
     dom_db_reader,
     parse_dom_numeric,
@@ -18,12 +17,8 @@ def test_dom_data_consistency_verification(
     """TC4: Validate DOM data consistency across polling cycles.
 
     Args:
-        dom_health_guard: Explicit pre-test and post-test DOM health guard.
         dom_ports: DOM-enabled ports selected for validation.
-        dom_port_context: Per-port DOM context with configured DOM attributes.
-        dom_operational_fields_by_port: Expected DOM sensor fields keyed by port.
-        dom_operational_ranges_by_port: Operational range metadata keyed by port and sensor field.
-        dom_consistency_variation_thresholds_by_port: Parsed optional variation thresholds keyed by port.
+        dom_consistency_validation_plan_by_port: Static consistency validation plan keyed by port.
         dom_consistency_variation_rules: Mapping from operational attributes to variation threshold rules.
         dom_db_reader: Callable DOM STATE_DB readers for repeated polling.
         parse_dom_numeric: Parser for numeric DOM values.
@@ -34,6 +29,7 @@ def test_dom_data_consistency_verification(
     """
     all_failures = []
     has_configured_checks = bool(dom_ports)
+    logger.info("DOM consistency validation starting for %d port(s)", len(dom_ports))
 
     read_sensor = dom_db_reader["sensor"]
     poll_groups = {}
@@ -41,56 +37,35 @@ def test_dom_data_consistency_verification(
 
     for port in dom_ports:
         # Step 1: Resolve per-port polling configuration and expected DOM fields.
-        dom_attrs = dom_port_context[port]["dom"]
-        expected_fields = dom_operational_fields_by_port.get(port, [])
-        field_ranges = dom_operational_ranges_by_port.get(port, {})
-        variation_config = dom_consistency_variation_thresholds_by_port.get(port, {})
+        plan = dom_consistency_validation_plan_by_port.get(port)
+        if plan is None:
+            all_failures.append("{}:\n  missing consistency validation plan".format(port))
+            continue
+
+        dom_attrs = plan["dom_attrs"]
+        expected_fields = plan["expected_fields"]
+        field_ranges = plan["field_ranges"]
+        variation_thresholds = plan["variation_thresholds"]
+        poll_count = plan["poll_count"]
+        poll_interval_sec = plan["poll_interval_sec"]
         field_failures = []
         invalid_range_attrs = set()
         invalid_variation_rule_attrs = set()
 
-        for error in variation_config.get("errors", []):
+        for error in plan["errors"]:
             field_failures.append(error)
 
-        variation_thresholds = variation_config.get("thresholds", {})
-
-        poll_count_raw = dom_attrs.get("consistency_check_poll_count")
-        poll_interval_raw = dom_attrs.get("max_update_time_sec")
-
-        if "consistency_check_poll_count" not in dom_attrs:
-            field_failures.append(
-                "missing required DOM attribute consistency_check_poll_count for consistency validation"
-            )
-        if "max_update_time_sec" not in dom_attrs:
-            field_failures.append("missing required DOM attribute max_update_time_sec for consistency validation")
-
         if field_failures:
             all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
             continue
 
-        poll_count = None
-        try:
-            poll_count = int(poll_count_raw)
-        except (TypeError, ValueError):
-            field_failures.append(
-                "invalid consistency_check_poll_count={} in DOM_ATTRIBUTES".format(poll_count_raw)
-            )
-        if poll_count is not None and poll_count < 2:
-            field_failures.append(
-                "invalid consistency_check_poll_count={} (must be >= 2)".format(poll_count)
-            )
-
-        poll_interval_sec = None
-        try:
-            poll_interval_sec = int(poll_interval_raw)
-        except (TypeError, ValueError):
-            field_failures.append("invalid max_update_time_sec={} in DOM_ATTRIBUTES".format(poll_interval_raw))
-        if poll_interval_sec is not None and poll_interval_sec < 1:
-            field_failures.append("invalid max_update_time_sec={} (must be >= 1)".format(poll_interval_sec))
-
-        if field_failures:
-            all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
-            continue
+        logger.info(
+            "DOM consistency validation %s: poll_count=%d poll_interval_sec=%d field(s)=%d",
+            port,
+            poll_count,
+            poll_interval_sec,
+            len(expected_fields),
+        )
 
         # Step 2: Capture baseline DOM sensor snapshot.
         previous = read_sensor(port)
@@ -107,18 +82,28 @@ def test_dom_data_consistency_verification(
             "expected_fields": expected_fields,
             "field_ranges": field_ranges,
             "variation_thresholds": variation_thresholds,
+            "poll_count": poll_count,
+            "poll_interval_sec": poll_interval_sec,
             "field_failures": field_failures,
             "invalid_range_attrs": invalid_range_attrs,
             "invalid_variation_rule_attrs": invalid_variation_rule_attrs,
             "previous": previous,
             "previous_ts": previous_ts,
             "polling_active": True,
+            "checked_fields": 0,
         }
         poll_groups.setdefault((poll_count, poll_interval_sec), []).append(port)
 
     # Step 3/4: Poll grouped ports repeatedly so the sleep cost scales by poll group, not by port.
     for (poll_count, poll_interval_sec), grouped_ports in poll_groups.items():
+        logger.debug(
+            "DOM consistency polling group ports=%s poll_count=%d poll_interval_sec=%d",
+            ", ".join(grouped_ports),
+            poll_count,
+            poll_interval_sec,
+        )
         for poll_idx in range(1, poll_count):
+            poll_start = time.monotonic()
             time.sleep(poll_interval_sec)
 
             for port in grouped_ports:
@@ -212,10 +197,21 @@ def test_dom_data_consistency_verification(
                                 field, prev_val, curr_val, delta, allowed_delta, threshold_attr
                             )
                         )
+                        continue
+
+                    state["checked_fields"] += 1
 
                 state["previous"] = current
                 if curr_ts is not None:
                     state["previous_ts"] = curr_ts
+
+            logger.debug(
+                "DOM consistency poll %d/%d for ports=%s took %.2fs",
+                poll_idx + 1,
+                poll_count,
+                ", ".join(grouped_ports),
+                time.monotonic() - poll_start,
+            )
 
     for port in dom_ports:
         state = port_states.get(port)
@@ -228,3 +224,18 @@ def test_dom_data_consistency_verification(
 
     if all_failures:
         pytest.fail("DOM consistency validation failures:\n" + "\n".join(all_failures))
+
+    total_checked_fields = sum(state["checked_fields"] for state in port_states.values())
+    logger.info(
+        "DOM consistency validation passed: %d field(s) across %d port(s)",
+        total_checked_fields,
+        len(port_states),
+    )
+    for port in sorted(port_states):
+        state = port_states[port]
+        logger.info(
+            "DOM consistency validation %s: checked %d field(s) over %d poll(s)",
+            port,
+            state["checked_fields"],
+            state["poll_count"],
+        )
