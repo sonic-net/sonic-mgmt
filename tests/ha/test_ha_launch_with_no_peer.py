@@ -42,11 +42,13 @@ def setup_dash_ha(duthost, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_o
     scope_fields['owner'] = ha_owner
 
     # TODO: remove once neighbor flakiness is fixed.
+    '''
     ip_part = 200 + role_index
     ip_last = dpuhost.dpu_index + 1
     logger.info(f"Sending ping to DPU{dpuhost.dpu_index} for {duthost.hostname}")
     ping_result = duthost.shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
     logger.info(f"{duthost.hostname} ping_result [{ping_result}]")
+    '''
 
     wait_for_dpu_neighbor_resolution(
         duthost=duthost,
