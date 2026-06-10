@@ -662,10 +662,30 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                       f"sudo sonic-db-cli CONFIG_DB del 'INTERFACE|{iface}'",
                       f"Deleting localhost INTERFACE {iface}")
     # PORTCHANNEL_INTERFACE
-    for entry in config_facts.get("PORTCHANNEL_INTERFACE", {}).keys():
+    # Handle both base entry and IP prefix entries
+    localhost_pc_if_entries_to_delete = []
+    for entry, entry_value in config_facts.get("PORTCHANNEL_INTERFACE", {}).items():
+        pc_name = entry.split('|')[0] if '|' in entry else entry
+        if pc_name:
+            # Add base PortChannel entry to delete list
+            localhost_pc_if_entries_to_delete.append(entry)
+            
+            # If value is a dict with IP prefixes, add those to delete list too
+            if isinstance(entry_value, dict) and entry_value:
+                for ip_prefix in entry_value.keys():
+                    pc_if_ip_key = f"{entry}|{ip_prefix}"
+                    localhost_pc_if_entries_to_delete.append(pc_if_ip_key)
+        else:
+            logger.info(f"Preserving localhost internal PORTCHANNEL_INTERFACE: {entry}")
+
+    # Now delete all collected localhost entries
+    logger.info(f"Localhost PORTCHANNEL_INTERFACE entries to delete: {localhost_pc_if_entries_to_delete}")
+    for entry_key in localhost_pc_if_entries_to_delete:
+        logger.info(f"PORTCHANNEL_INTERFACE del entry with IP prefix entries: {entry_key}")
         run_and_check("localhost",
-                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry}'",
-                      f"Deleting localhost PORTCHANNEL_INTERFACE {entry}")
+                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry_key}'",
+                      f"Deleting localhost PORTCHANNEL_INTERFACE {entry_key}")
+        
     # PORTCHANNEL_MEMBER
     pc_keys = config_facts.get("PORTCHANNEL", {}).keys()
     localhost_pc_member_dict = config_facts_localhost.get("PORTCHANNEL_MEMBER", {})
@@ -685,7 +705,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                       f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
                       f"Removing localhost ACL_TABLE {acl_table} ports")
     # PORTCHANNEL
-    for entry in config_facts("PORTCHANNEL", {}).keys():
+    for entry in config_facts.get("PORTCHANNEL", {}).keys():
         run_and_check("localhost",
                       f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
                       f"Deleting localhost PORTCHANNEL {entry}")
