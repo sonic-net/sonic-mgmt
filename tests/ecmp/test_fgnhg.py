@@ -8,7 +8,7 @@ from collections import defaultdict
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -147,10 +147,10 @@ def setup_arpresponder(ptfhost, ip_to_port):
         iface = "eth{}".format(port)
         d[iface].append(ip)
 
-    with open('/tmp/from_t1.json', 'w') as file:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, 'w') as file:
         json.dump(d, file)
 
-    ptfhost.copy(src='/tmp/from_t1.json', dest='/tmp/from_t1.json')
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
     extra_vars = {
             'arp_responder_args': ''
@@ -655,9 +655,10 @@ def cleanup(duthost, ptfhost):
     logger.info("Start cleanup")
     ptfhost.command('rm -f /tmp/fg_ecmp_persist_map.json')
     # Stop arp_responder and remove the rendered config so a stale invocation
-    # in a later test cannot inherit our IP/MAC mapping for /tmp/from_t1.json.
+    # in a later test cannot inherit our IP/MAC mapping for the default
+    # arp_responder config path.
     ptfhost.command('supervisorctl stop arp_responder', module_ignore_errors=True)
-    ptfhost.command('rm -f /tmp/from_t1.json')
+    ptfhost.command('rm -f {}'.format(ARP_RESPONDER_DEFAULT_CONFIG))
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 

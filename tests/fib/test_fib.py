@@ -727,6 +727,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    switch_type = duthosts[0].facts.get('switch_type')
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.VxlanHashTest",
@@ -743,6 +744,7 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
+                       "switch_type": switch_type,
                        "ipver": vxlan_ipver,
                        "topo_name": tbinfo['topo']['name'],
                        "topo_type": tbinfo['topo']['type'],
@@ -781,6 +783,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     if duthost.facts['asic_type'] in ["marvell-teralynx"]:
         logging.info("Marvell-Teralynx: hash-key is src-ip, dst-ip")
         hash_keys = ['src-ip', 'dst-ip']
+    if duthost.facts['asic_type'] in ["vpp"]:
+        logging.info("VPP: hash-keys are src-ip, dst-ip, src-port, dst-port")
+        hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
@@ -792,6 +797,7 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+    switch_type = duthosts[0].facts.get('switch_type')
     ptf_runner(ptfhost,
                "ptftests",
                "hash_test.NvgreHashTest",
@@ -807,6 +813,7 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "vlan_ids": VLANIDS,
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
+                       "switch_type": switch_type,
                        "ipver": nvgre_ipver,
                        "topo_name": tbinfo['topo']['name'],
                        "topo_type": tbinfo['topo']['type'],

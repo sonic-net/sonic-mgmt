@@ -1,7 +1,8 @@
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
+from tests.common.utilities import (wait)
 from tests.common.helpers.assertions import pytest_assert
 import logging
+import json
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -34,12 +35,12 @@ def run_bgp_convergence_performance(snappi_api,
         stop_routes: ending route count value
         route_type: IPv4 or IPv6 routes
     """
-    port_count = multipath + 1
+
     """ Create bgp config on dut """
 
-    duthost_bgp_3port_config(duthost,
-                             tgen_ports,
-                             port_count,)
+    """ Create bgp config on dut """
+    duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
+
     """
         Run the convergence test by withdrawing all the route ranges
         one by one and calculate the convergence values
@@ -51,9 +52,6 @@ def run_bgp_convergence_performance(snappi_api,
                                              stop_routes,
                                              route_type,
                                              duthost,)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
 
 def run_bgp_scalability_v4_v6(snappi_api,
@@ -79,6 +77,9 @@ def run_bgp_scalability_v4_v6(snappi_api,
 
     port_count = multipath + 1
 
+    """ Create bgp config on dut """
+    duthost_bgp_scalability_config(duthost, tgen_ports, multipath)
+
     if ipv4_routes == 0 and ipv6_routes == 0:
         assert False, "Both v4 and v6 route counts can't be zero"
     elif ipv4_routes > 0 and ipv6_routes > 0:
@@ -103,93 +104,6 @@ def run_bgp_scalability_v4_v6(snappi_api,
     get_bgp_scalability_result(snappi_api, localhost, tgen_bgp_config, limit_flag, duthost)
 
 
-def duthost_bgp_3port_config(duthost,
-                             tgen_ports,
-                             port_count,):
-    """
-    Configures BGP on the DUT with N-1 ecmp
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-        tgen_ports (pytest fixture): Ports mapping info of T0 testbed
-        port_count:multipath + 1
-    """
-    duthost.command('sudo crm config polling interval 30')
-    duthost.command('sudo crm config thresholds ipv4 route high 85')
-    duthost.command('sudo crm config thresholds ipv4 route low 70')
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
-    global temp_tg_port
-    temp_tg_port = tgen_ports
-    for i in range(0, port_count):
-        intf_config = (
-            "sudo config interface ip remove %s %s/%s \n"
-            "sudo config interface ip remove %s %s/%s \n"
-        )
-        intf_config %= (
-            tgen_ports[i]['peer_port'],
-            tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-            tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'],
-            tgen_ports[i]['ipv6_prefix']
-        )
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
-        duthost.shell(intf_config)
-
-    for i in range(0, port_count):
-        portchannel_config = (
-            "sudo config portchannel add PortChannel%s \n"
-            "sudo config portchannel member add PortChannel%s %s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-        )
-        portchannel_config %= (
-            i + 1,
-            i + 1,
-            tgen_ports[i]['peer_port'],
-            i + 1,
-            tgen_ports[i]['peer_ip'],
-            tgen_ports[i]['prefix'],
-            i + 1,
-            tgen_ports[i]['peer_ipv6'],
-            64
-        )
-        logger.info('Configuring %s to PortChannel%s with IPs %s,%s' % (tgen_ports[i]['peer_port'],
-                    i + 1, tgen_ports[i]['peer_ip'], tgen_ports[i]['peer_ipv6']))
-        duthost.shell(portchannel_config)
-
-    bgp_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'no bgp ebgp-requires-policy' "
-        "-c 'bgp bestpath as-path multipath-relax' "
-        "-c 'maximum-paths %s' "
-        "-c 'exit' "
-    )
-    bgp_config %= (DUT_AS_NUM, port_count-1)
-    duthost.shell(bgp_config)
-
-    for i in range(1, port_count):
-        bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv4 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv6 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
-        )
-        bgp_config_neighbor %= (
-            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
-            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
-        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
-                    tgen_ports[i]['ipv6']))
-        duthost.shell(bgp_config_neighbor)
-
-
 def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     """
     Configures BGP on the DUT with N-1 ecmp
@@ -202,63 +116,79 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     duthost.command('sudo crm config polling interval 30')
     duthost.command('sudo crm config thresholds ipv4 route high 85')
     duthost.command('sudo crm config thresholds ipv4 route low 70')
-    duthost.command("sudo config save -y")
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     temp_tg_port = tgen_ports
-    for i in range(0, port_count):
+    for i in range(port_count):
+        port = tgen_ports[i]
         intf_config = (
-            "sudo config interface ip remove %s %s/%s \n"
-            "sudo config interface ip remove %s %s/%s \n"
+            f"sudo config interface ip remove {port['peer_port']} {port['peer_ip']}/{port['prefix']}\n"
+            f"sudo config interface ip remove {port['peer_port']} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
         )
-        intf_config %= (tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ip'], tgen_ports[i]['prefix'],
-                        tgen_ports[i]['peer_port'], tgen_ports[i]['peer_ipv6'], tgen_ports[i]['ipv6_prefix'])
-        logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
+        logger.info(f"Removing IPs from {port['peer_port']}")
         duthost.shell(intf_config)
 
-    for i in range(0, port_count):
+    for i in range(port_count):
+        port = tgen_ports[i]
+        idx = i + 1
         portchannel_config = (
-            "sudo config portchannel add PortChannel%s \n"
-            "sudo config portchannel member add PortChannel%s %s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
-            "sudo config interface ip add PortChannel%s %s/%s\n"
+            f"sudo config portchannel add PortChannel{idx} \n"
+            f"sudo config portchannel member add PortChannel{idx} {port['peer_port']}\n"
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ip']}/{port['prefix']}\n"
+            f"sudo config interface ip add PortChannel{idx} {port['peer_ipv6']}/{port['ipv6_prefix']}\n"
         )
-        portchannel_config %= (i + 1, i + 1, tgen_ports[i]['peer_port'], i + 1, tgen_ports[i]['peer_ip'],
-                               tgen_ports[i]['prefix'], i + 1, tgen_ports[i]['peer_ipv6'],
-                               tgen_ports[i]['ipv6_prefix'])
-        logger.info('Configuring %s to PortChannel%s' % (tgen_ports[i]['peer_port'], i + 1))
+        logger.info(f"Configuring {port['peer_port']} to PortChannel{idx}")
         duthost.shell(portchannel_config)
 
-    bgp_config = (
-        "vtysh "
-        "-c 'configure terminal' "
-        "-c 'router bgp %s' "
-        "-c 'no bgp ebgp-requires-policy' "
-        "-c 'bgp bestpath as-path multipath-relax' "
-        "-c 'maximum-paths %s' "
-        "-c 'exit' "
-    )
-    bgp_config %= (DUT_AS_NUM, port_count-1)
-    duthost.shell(bgp_config)
+    duthost.command("sudo config save -y")
+    # BGP Configuration
+    loopback_interfaces = {
+        "Loopback0": {},
+        "Loopback0|1.1.1.1/32": {},
+        "Loopback0|1::1/128": {},
+    }
+    config_db = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+    bgp_neighbors = {
+        addr: {
+            "asn": TGEN_AS_NUM,
+            "holdtime": "180",
+            "keepalive": "60",
+            "local_addr": ip_version,
+            "name": "snappi-sonic",
+            "nhopself": "0",
+            "rrclient": "0",
+        }
+        for port in tgen_ports
+        for addr, ip_version in [(port['ip'], port['peer_ip']), (port['ipv6'], port['peer_ipv6'])]
+    }
 
-    for i in range(1, port_count):
-        bgp_config_neighbor = (
-            "vtysh "
-            "-c 'configure terminal' "
-            "-c 'router bgp %s' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv4 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'neighbor %s remote-as %s' "
-            "-c 'address-family ipv6 unicast' "
-            "-c 'neighbor %s activate' "
-            "-c 'exit' "
-        )
-        bgp_config_neighbor %= (
-            DUT_AS_NUM, tgen_ports[i]['ip'], TGEN_AS_NUM, tgen_ports[i]['ip'],
-            tgen_ports[i]['ipv6'], TGEN_AS_NUM, tgen_ports[i]['ipv6'])
-        logger.info('Configuring BGP v4 Neighbor {}, v6 Neighbor {}'.format(tgen_ports[i]['ip'],
-                    tgen_ports[i]['ipv6']))
-        duthost.shell(bgp_config_neighbor)
+    device_neighbors = {
+        port['peer_port']: {
+            "name": "snappi-sonic",
+            "port": "Ethernet1"
+        }
+        for port in tgen_ports
+    }
+
+    device_neighbor_metadatas = {
+        "snappi-sonic": {
+            "hwsku": "snappi-sonic",
+            "mgmt_addr": "172.16.149.206",
+            "type": "ToRRouter"
+        }
+    }
+    config_db.setdefault("LOOPBACK_INTERFACE", {}).update(loopback_interfaces)
+    config_db.setdefault("BGP_NEIGHBOR", {}).update(bgp_neighbors)
+    config_db.setdefault("DEVICE_NEIGHBOR_METADATA", {}).update(device_neighbor_metadatas)
+    config_db.setdefault("DEVICE_NEIGHBOR", {}).update(device_neighbors)
+    with open("/tmp/temp_config.json", 'w') as fp:
+        json.dump(config_db, fp, indent=4)
+    duthost.copy(src="/tmp/temp_config.json", dest="/etc/sonic/config_db.json")
+    logger.info("Reloading config on DUT {}".format(duthost.hostname))
+    error = duthost.command("sudo config reload -f -y \n")['stderr']
+    if 'Error' in error:
+        pytest_assert('Error' not in duthost.shell("sudo config reload -y \n")['stderr'],
+                      'Error while reloading config in {} !!!!!'.format(duthost.hostname))
+    wait(60, "For DUT to come back online after config reload")
+    logger.info('Config Reload Successful in {} !!!'.format(duthost.hostname))
 
 
 def __tgen_bgp_config(snappi_api,
@@ -302,10 +232,10 @@ def __tgen_bgp_config(snappi_api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
-    layer1.auto_negotiation.link_training = False
+    layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+    layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
     layer1.speed = temp_tg_port[0]['speed']
-    layer1.auto_negotiate = False
+    layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
     # Source
     config.devices.device(name='Tx')
@@ -417,7 +347,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
         route_type: IPv4 or IPv6 routes
     """
     table = []
-    global NG_LIST
+    global NG_LIST  # noqa: F824
 
     def tgen_config(routes):
         config = snappi_api.config()
@@ -440,10 +370,10 @@ def get_convergence_for_remote_link_failover(snappi_api,
         layer1.name = 'port settings'
         layer1.port_names = [port.name for port in config.ports]
         layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = False
-        layer1.auto_negotiation.link_training = False
+        layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+        layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
         layer1.speed = temp_tg_port[0]['speed']
-        layer1.auto_negotiate = False
+        layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
@@ -701,18 +631,3 @@ def get_bgp_scalability_result(snappi_api, localhost, bgp_config, flag, duthost)
     else:
         assert float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
         logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    duthost.command("sudo cp {} {}".format("/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')

@@ -16,6 +16,7 @@ from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -342,7 +343,7 @@ class AdvancedReboot:
         """
         arp_responder_args = '-e'
         if item is not None:
-            arp_responder_args += ' -c /tmp/from_t1_{0}.json'.format(item)
+            arp_responder_args += ' -c ' + ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT % item
         self.ptfhost.host.options['variable_manager'].extra_vars.update({'arp_responder_args': arp_responder_args})
 
         logger.info('Copying arp responder config file to {0}'.format(self.ptfhost.hostname))

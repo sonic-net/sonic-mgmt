@@ -1,5 +1,5 @@
 {% set host = configuration[hostname] %}
-{% set converged = topo_is_multi_vrf|default(false) %}
+{% set converged = topo_is_multi_vrf|default(false)|bool %}
 {% if converged %}
     {% set conv_config = convergence_data["converged_peers"][hostname] %}
     {% set conv_mapping = convergence_data["convergence_mapping"][hostname] %}
@@ -190,6 +190,10 @@ router bgp {{ conv_config['bgp']['asn'] }}
             {% endif %}
         {% endif %}
   local-as {{ vrf_bgp['asn'] }}
+{% if vrf_bgp['confed_asn'] is defined and vrf_bgp['confed_asn'] %}
+  bgp confederation identifier {{ vrf_bgp['confed_asn'] }}
+  bgp confederation peers {{ vrf_bgp['confed_peers'] | replace(',', ' ') }}
+{% endif %}
         {% for asn, remote_ips in vrf_bgp['peers'].items() %}
             {% for remote_ip in remote_ips %}
   neighbor {{ remote_ip }} remote-as {{ asn }}
