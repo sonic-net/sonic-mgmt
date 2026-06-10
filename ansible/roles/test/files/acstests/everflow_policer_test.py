@@ -241,7 +241,18 @@ class EverflowPolicerTest(BaseTest):
                                                 inner_frame=bytes(payload),
                                                 ip_id=0,
                                                 sgt_other=0x4)
-        else:
+        elif self.asic_type in ["cisco-8000"]:
+	    exp_pkt = testutils.ipv4_erspan_pkt(eth_src=self.router_mac,
+                                                ip_src=self.session_src_ip,
+                                                ip_dst=self.session_dst_ip,
+                                                ip_dscp=self.session_dscp,
+                                                ip_ttl=self.session_ttl-1,
+                                                inner_frame=bytes(payload),
+                                                ip_id=0,
+                                                version=1)
+
+            exp_pkt['ERSPAN II'].ver = 1
+	else:
             exp_pkt['GRE'].proto = 0x88be
 
         masked_exp_pkt = Mask(exp_pkt)
