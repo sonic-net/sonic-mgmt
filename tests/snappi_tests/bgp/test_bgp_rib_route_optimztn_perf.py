@@ -226,6 +226,7 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
         include_host_free=True,
         host_top_all_procs=True,
         capture_raw_stdout=True,
+        include_tcmalloc_stats=True,
         output_basename_style="short_node",
     )
 
@@ -242,10 +243,9 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                                     mem_cpu_monitor=mem_cpu_monitor)
     finally:
         mem_cpu_monitor.stop()
-
-    plot_path = mem_cpu_monitor.plot(out_dir=str(tmp_path))
-    if plot_path:
-        logger.info('mem_cpu_monitor plot written to %s', plot_path)
-    exported = mem_cpu_monitor.export_samples(out_dir=str(tmp_path))
-    for fmt, p in exported.items():
-        logger.info('mem_cpu_monitor export_samples (%s) wrote %s', fmt, p)
+        plot_path = mem_cpu_monitor.plot(out_dir=str(tmp_path))
+        if plot_path:
+            logger.info('mem_cpu_monitor plot written to %s', plot_path)
+        exported = mem_cpu_monitor.export_samples(out_dir=str(tmp_path))
+        for fmt, p in exported.items():
+            logger.info('mem_cpu_monitor export_samples (%s) wrote %s', fmt, p)

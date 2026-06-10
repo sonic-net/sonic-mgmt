@@ -15,6 +15,11 @@ temp_tg_port = dict()
 NG_LIST = []
 aspaths = [65002, 65003]
 
+# ``get_rib_in_convergence`` ``finally``: pre-``stop()`` sleep for ``mem_cpu_monitor`` sampling.
+# Full wait only when all iterations finish without exception; short wait on failure/early exit.
+MEM_CPU_MONITOR_RIB_IN_POST_SUCCESS_SEC = 300
+MEM_CPU_MONITOR_RIB_IN_POST_FAILURE_SEC = 7
+
 
 def _asn_from_port_entry(port_entry, skip_duthost_bgp_config, fixture_keys, default):
     """
@@ -805,8 +810,10 @@ def get_rib_in_convergence(snappi_api,
         route_type: IPv4 or IPv6 or IPv4v6 routes
         timeout: timeout for route withdraw and advertisement.
         mem_cpu_monitor: optional controller from ``mem_cpu_monitor`` fixture; when set,
-            records snapshots around RIB-IN convergence, waits **60 seconds** after the loop for
-            extra samples, then ``stop()`` in ``finally`` (pair with ``start()`` in the test).
+            records snapshots around RIB-IN convergence, then in ``finally`` waits
+            ``MEM_CPU_MONITOR_RIB_IN_POST_SUCCESS_SEC`` before ``stop()`` if all iterations
+            completed successfully, else ``MEM_CPU_MONITOR_RIB_IN_POST_FAILURE_SEC`` (pair with
+            ``start()`` in the test).
     """
     if timeout is not None:
         TIMEOUT = timeout
@@ -835,6 +842,7 @@ def get_rib_in_convergence(snappi_api,
                             seg.SegmentType.Single('asseq')
 
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
+    rib_in_all_iterations_completed = False
     try:
         for i in range(0, iteration):
             logger.info(
@@ -919,14 +927,27 @@ def get_rib_in_convergence(snappi_api,
             if mem_cpu_monitor is not None:
                 mem_cpu_monitor.snapshot(
                     event="After_protocol_stop_iter_{}".format(i + 1))
+        # Only after every iteration body finishes without raising.
+        rib_in_all_iterations_completed = iteration > 0
     finally:
         if mem_cpu_monitor is not None:
             try:
-                logger.info("mem_cpu_monitor: waiting 60s before stop() for post-convergence sampling")
-                time.sleep(60)
+                if rib_in_all_iterations_completed:
+                    delay = MEM_CPU_MONITOR_RIB_IN_POST_SUCCESS_SEC
+                    reason = "all iterations completed"
+                else:
+                    delay = MEM_CPU_MONITOR_RIB_IN_POST_FAILURE_SEC
+                    reason = "early exit or failure"
+                if delay > 0:
+                    logger.info(
+                        "mem_cpu_monitor: waiting %ss before stop() for post-convergence sampling (%s)",
+                        delay,
+                        reason,
+                    )
+                    time.sleep(delay)
                 mem_cpu_monitor.stop()
             except Exception:
-                logger.exception("mem_cpu_monitor.stop() after RIB-IN convergence")
+                logger.exception("mem_cpu_monitor teardown after RIB-IN convergence")
     table.append('Advertise All BGP Routes')
     table.append(route_type)
     table.append(number_of_routes)

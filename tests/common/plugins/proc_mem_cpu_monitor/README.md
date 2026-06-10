@@ -15,6 +15,12 @@ The plugin is registered in the repo root [`tests/conftest.py`](../../conftest.p
 
 If you load this package only from a **local** `pytest_plugins` (without root registration), the same opt-in rules apply once the plugin is loaded.
 
+## Logging (`--log-cli-level DEBUG`)
+
+Periodic probes call `duthost.command()` (via `tests.common.devices.base`). At **DEBUG**, that layer can log full Ansible args and JSON results on every call, which is very noisy at short **`interval`** values.
+
+While each probe runs, this plugin **temporarily sets** the logger **`tests.common.devices.base`** to **INFO** and restores the previous level afterward, so **DEBUG** on the rest of the test (and other loggers) is unchanged. Other code that runs **in parallel** on the same process could still see that window—usually negligible under normal serial pytest use.
+
 ## Fixture API (`mem_cpu_monitor`)
 
 ```python
@@ -117,6 +123,12 @@ Writes the **same filtered samples** as `plot()` to JSON and/or CSV. JSON includ
 ```python
 from tests.common.plugins.proc_mem_cpu_monitor import MEM_LEAK_EVENT, ProcMemCpuMonitor
 ```
+
+## Alternate controller (`show event cpu`)
+
+The default ``controller.py`` (and the ``mem_cpu_monitor`` fixture from ``__init__.py``) does **not** implement FRR **``show event cpu``** periodic sampling.
+
+A full-featured copy that still supports ``include_event_cpu_stats`` / ``event_cpu_raw_log_path`` / ``probe_transport == "event_cpu"`` samples lives beside it as **`event_cpu.controller.py`**. Because the filename contains a **dot**, it is **not** a normal importable dotted module; load it with ``importlib.util.spec_from_file_location`` if needed, or rename it in a fork (e.g. ``event_cpu_controller.py``) for plain ``import``.
 
 ## Limitations (v1)
 
