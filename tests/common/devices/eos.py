@@ -21,6 +21,20 @@ FEC_MAP = {
     'rs': 'reed-solomon'
 }
 
+# Keys set by EosHost for network_cli / ssh sessions. Cleared before each update so
+# connection settings from a prior VM do not bleed into the next (sonic-mgmt #1941).
+CONNECTION_EXTRA_VAR_KEYS = (
+    'ansible_connection',
+    'ansible_network_os',
+    'ansible_user',
+    'ansible_password',
+    'ansible_ssh_user',
+    'ansible_ssh_pass',
+    'ansible_become',
+    'ansible_become_method',
+    'ansible_become_password',
+)
+
 
 class EosHost(AnsibleHostBase):
     """
@@ -51,6 +65,13 @@ class EosHost(AnsibleHostBase):
         self.localhost = ansible_adhoc(inventory='localhost', connection='local',
                                        host_pattern="localhost")["localhost"]
 
+    def _reset_network_connection(self):
+        """Close persistent network_cli socket so the next module uses current extra_vars."""
+        try:
+            self.host.meta('reset_connection')
+        except Exception as err:
+            logger.debug('meta reset_connection on %s failed: %s', self.hostname, err)
+
     def __getattr__(self, module_name):
         if module_name.startswith('eos_'):
             evars = {
@@ -60,7 +81,9 @@ class EosHost(AnsibleHostBase):
                 'ansible_password': self.eos_passwd,
                 'ansible_ssh_user': self.eos_user,
                 'ansible_ssh_pass': self.eos_passwd,
-                'ansible_become_method': 'enable'
+                'ansible_become': True,
+                'ansible_become_method': 'enable',
+                'ansible_become_password': self.eos_passwd,
             }
         else:
             if not self.shell_user or not self.shell_passwd:
@@ -72,9 +95,14 @@ class EosHost(AnsibleHostBase):
                 'ansible_password': self.shell_passwd,
                 'ansible_ssh_user': self.shell_user,
                 'ansible_ssh_pass': self.shell_passwd,
-                'ansible_become_method': 'sudo'
+                'ansible_become_method': 'sudo',
             }
-        self.host.options['variable_manager'].extra_vars.update(evars)
+        extra_vars = self.host.options['variable_manager'].extra_vars
+        for key in CONNECTION_EXTRA_VAR_KEYS:
+            extra_vars.pop(key, None)
+        extra_vars.update(evars)
+        if module_name.startswith('eos_'):
+            self._reset_network_connection()
         return super(EosHost, self).__getattr__(module_name)
 
     def __str__(self):
