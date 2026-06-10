@@ -3,7 +3,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require       
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                     # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, stop_pfcwd, \
-    disable_packet_aging, sec_to_nanosec, get_interface_stats                           # noqa: F401
+    disable_packet_aging, sec_to_nanosec, get_interface_stats, \
+    get_queue_scheduler_weight_dict                                                     # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
@@ -18,11 +19,135 @@ TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = [20, 10]
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = [20, 20]
+BG_LOSS_TOLERANCE_PERCENT = 1
 DATA_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 10
 DATA_FLOW_DELAY_SEC = 5
 SNAPPI_POLL_DELAY_SEC = 2
 UDP_PORT_START = 5000
+
+
+def get_expected_bg_loss_percent(egress_duthost,
+                                 test_prio_list,
+                                 test_flow_rate_percent,
+                                 bg_prio_list,
+                                 bg_flow_rate_percent,
+                                 asic_value=None,
+                                 port=None,
+                                 qos_map_profile=None):
+    """
+    Compute the expected per-Background-Flow loss percent for the m2o
+    fluctuating-lossless scenario by deriving each flow's egress-queue DWRR
+    weight from ``get_queue_scheduler_weight_dict``.
+
+    Args:
+        egress_duthost: the DUT whose egress port is the congestion point
+        test_prio_list (list[int]): priorities (TCs) of the test flows
+        test_flow_rate_percent (list[int]): per-test-flow line-rate percents,
+            aligned with ``test_prio_list``
+        bg_prio_list (list[int]): priorities (TCs) of the background flows
+            (one flow per priority, on a distinct queue)
+        bg_flow_rate_percent (list[int]): line-rate percents used to generate
+            the background flows; all entries are expected to be equal
+        asic_value: asic namespace of the egress port; ``None`` for single-asic
+            DUTs.
+        port (str, optional): egress port whose ``QUEUE``/``SCHEDULER`` config
+            should drive the weight lookup. Defaults to the first interface in
+            ``QUEUE``, which may not be the congested port on multi-port DUTs.
+        qos_map_profile (str, optional): profile name inside ``DSCP_TO_TC_MAP``
+            / ``TC_TO_QUEUE_MAP``. Defaults to the first profile.
+
+    Returns:
+        float: expected per-Background-Flow loss percent
+    """
+    cfg_args = {"host": egress_duthost.hostname, "source": "running"}
+    if asic_value not in (None, "None"):
+        cfg_args["namespace"] = asic_value
+    config_facts = egress_duthost.config_facts(**cfg_args)["ansible_facts"]
+    q_weight_dict = get_queue_scheduler_weight_dict(
+        egress_duthost,
+        asic_value=asic_value,
+        port=port,
+        qos_map_profile=qos_map_profile)
+    pytest_assert(q_weight_dict,
+                  "FAIL: Unable to read queue scheduler weights from config DB")
+
+    def _prio_to_queue(prio):
+        """Map a SONiC traffic-class (priority) to its egress queue."""
+        tc_to_queue_all = config_facts.get('TC_TO_QUEUE_MAP') or {}
+        pytest_assert(tc_to_queue_all, "FAIL: TC_TO_QUEUE_MAP is missing from config DB")
+        profile = qos_map_profile or next(iter(tc_to_queue_all))
+        tc_to_queue_map = tc_to_queue_all.get(profile) or {}
+        pytest_assert(tc_to_queue_map, "FAIL: TC_TO_QUEUE_MAP profile '{}' is missing".format(profile))
+        pytest_assert(str(prio) in tc_to_queue_map,
+                      "FAIL: TC {} missing from TC_TO_QUEUE_MAP profile '{}'".format(prio, profile))
+        return int(tc_to_queue_map[str(prio)])
+
+    def _compute_dwrr_allocation(queue_demand, queue_weight):
+        """
+        Run the DWRR allocation algorithm: iteratively give each active queue
+        its weight-proportional share of the remaining bandwidth. Queues
+        whose demand is below their share take only what they need; the
+        leftover is redistributed by weight among the remaining queues.
+        """
+        allocated = {q: 0.0 for q in queue_demand}
+        active = {q for q, d in queue_demand.items() if d > 0}
+        remaining_bw = 100.0
+        while active:
+            total_weight = sum(queue_weight[q] for q in active)
+            newly_satisfied = [
+                q for q in active
+                if remaining_bw * queue_weight[q] / total_weight
+                >= queue_demand[q] - allocated[q]
+            ]
+            if newly_satisfied:
+                for q in newly_satisfied:
+                    pending = queue_demand[q] - allocated[q]
+                    allocated[q] = queue_demand[q]
+                    remaining_bw -= pending
+                    active.discard(q)
+            else:
+                for q in active:
+                    allocated[q] += remaining_bw * queue_weight[q] / total_weight
+                return allocated
+        return allocated
+
+    queue_demand = {}
+    queue_weight = {}
+
+    def _add_demand(prio, rate):
+        q = _prio_to_queue(prio)
+        pytest_assert(q in q_weight_dict,
+                      "FAIL: No scheduler weight found for queue {} (TC {})".format(q, prio))
+        queue_demand[q] = queue_demand.get(q, 0.0) + rate
+        queue_weight[q] = q_weight_dict[q]["weight"]
+
+    # zip() silently ignores extra entries when lists differ in length; validate equal length first.
+    pytest_assert(
+        len(test_prio_list) == len(test_flow_rate_percent),
+        "FAIL: test_prio_list and test_flow_rate_percent must have same length (got {} and {})".format(
+            len(test_prio_list), len(test_flow_rate_percent)))
+    for prio, rate in zip(test_prio_list, test_flow_rate_percent):
+        _add_demand(prio, rate)
+
+    pytest_assert(bg_flow_rate_percent, "FAIL: bg_flow_rate_percent must be non-empty")
+
+    # Current assumption: all bg_flow_rate_percent entries must be equal; relax once unequal rates are supported.
+    pytest_assert(
+        len(set(bg_flow_rate_percent)) == 1,
+        "FAIL: bg_flow_rate_percent entries must be equal, got {}".format(bg_flow_rate_percent))
+
+    bg_rate_per_flow = bg_flow_rate_percent[0]
+    for prio in bg_prio_list:
+        _add_demand(prio, bg_rate_per_flow)
+
+    allocated = _compute_dwrr_allocation(queue_demand, queue_weight)
+
+    losses = []
+    for prio in bg_prio_list:
+        q = _prio_to_queue(prio)
+        losses.append((queue_demand[q] - allocated[q]) / queue_demand[q] * 100)
+    return sum(losses) / len(losses)
 
 
 def run_m2o_fluctuating_lossless_test(api,
@@ -154,10 +279,22 @@ def run_m2o_fluctuating_lossless_test(api,
 
     pytest_assert(abs(drop_percentage - 8) < 1, 'FAIL: Drop packets must be around 8 percent')
 
+    expected_bg_loss_percent = get_expected_bg_loss_percent(
+        egress_duthost=egress_duthost,
+        test_prio_list=test_prio_list,
+        test_flow_rate_percent=TEST_FLOW_AGGR_RATE_PERCENT,
+        bg_prio_list=bg_prio_list,
+        bg_flow_rate_percent=BG_FLOW_AGGR_RATE_PERCENT,
+        asic_value=rx_port.get('asic_value'),
+        port=dut_tx_port)
+    logger.info('Expected per-Background-Flow loss: {:.2f}% (tolerance +/- {}%)'.format(
+        expected_bg_loss_percent, BG_LOSS_TOLERANCE_PERCENT))
+
     """ Verify Results """
     verify_m2o_fluctuating_lossless_result(flow_stats,
                                            tx_port,
-                                           rx_port)
+                                           rx_port,
+                                           expected_bg_loss_percent)
 
 
 def __gen_traffic(testbed_config,
@@ -394,7 +531,8 @@ def __gen_data_flow(testbed_config,
 
 def verify_m2o_fluctuating_lossless_result(rows,
                                            tx_port,
-                                           rx_port):
+                                           rx_port,
+                                           expected_bg_loss_percent):
     """
     Verifies the required loss % from the Traffic Items Statistics
 
@@ -402,13 +540,21 @@ def verify_m2o_fluctuating_lossless_result(rows,
         rows (list): Traffic Item Statistics from snappi config
         tx_port (list): Ingress Ports
         rx_port : Egress Port
+        expected_bg_loss_percent (float): expected per-Background-Flow loss
+            percent (derived from the egress DWRR scheduler weights)
     Returns:
         N/A
     """
     background_loss = 0
+    background_flow_count = 0
     for row in rows:
         if 'Test Flow' in row.name:
             pytest_assert(int(row.loss) == 0, "FAIL: {} must have 0% loss".format(row.name))
         elif 'Background Flow' in row.name:
+            background_flow_count += 1
             background_loss += float(row.loss)
-    pytest_assert((abs(background_loss/4) - 10) < 1, "Each Background Flow must have an avg of 10% loss ")
+    pytest_assert(background_flow_count > 0, "FAIL: No Background Flow rows found in traffic stats")
+    avg_loss = background_loss / background_flow_count
+    pytest_assert(abs(avg_loss - expected_bg_loss_percent) < BG_LOSS_TOLERANCE_PERCENT,
+                  "Each Background Flow must have an avg of {:.2f}% loss (got {:.2f}%)".format(
+                      expected_bg_loss_percent, avg_loss))
