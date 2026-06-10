@@ -341,3 +341,6 @@ r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/33376635
 r, ".* ERR kernel.*audit: rate limit exceeded.*"
+
+# Ignore leapsecond file being expired, the only functional impact is that the system clock might be a second off
+r, ".* ERR ntpd.*: CLOCK: leapsecond file .* expired .*"
