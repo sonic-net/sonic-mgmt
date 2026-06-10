@@ -28,7 +28,6 @@ ECN_PARAMS_BY_ASIC = {
 }
 
 
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_dequeue_ecn(request,
                      snappi_api,                    # noqa: F811
                      conn_graph_facts,              # noqa: F811
