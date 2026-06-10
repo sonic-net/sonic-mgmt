@@ -148,6 +148,14 @@ def get_ifindex(duthost, port):
     ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' % port)['stdout']
     return ifindex
 
+
+def sflow_intfs_exist(duthost, interfaces):
+    for intf in interfaces:
+        res = duthost.shell(f"test -e /sys/class/net/{intf}", module_ignore_errors=True)
+        if res['rc'] != 0:
+            return False
+    return True
+
 # ----------------------------------------------------------------------------------
 
 
@@ -737,6 +745,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after fast reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
@@ -761,6 +771,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after warm reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
