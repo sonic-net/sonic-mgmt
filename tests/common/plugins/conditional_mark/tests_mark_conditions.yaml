@@ -4261,6 +4261,12 @@ qos/test_pfc_counters.py:
                    'Mellanox-SN5640-C448O16']"
       - "release in ['202412']"
 
+qos/test_pfc_counters.py::test_continous_pfc:
+  skip:
+    reason: "PFC RX counters do not increment reliably on Nokia TH6 with current image/fanout combination"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_h6_128-r0']"
+
 qos/test_pfc_counters.py::test_pfc_unpause:
   # The test case expects both XON and XOFF frames to be supported.
   # In wistron platform the port PFC stats count only XOFF frames. Hence skipping this case.
