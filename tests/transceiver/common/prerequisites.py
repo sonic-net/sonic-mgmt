@@ -207,8 +207,14 @@ def check_gold_firmware(duthost, port_attributes_dict):
     matched = []
     failures = []
     for port in in_scope:
+        # gold_firmware_version is canonically defined under
+        # CDB_FW_UPGRADE_ATTRIBUTES, but for inventories that keep it alongside
+        # the rest of the EEPROM facts (e.g. in eeprom.json), fall back to
+        # EEPROM_ATTRIBUTES so this check works against either layout without
+        # forcing inventory churn.
         cdb_fw_attrs = port_attributes_dict[port].get(CDB_FW_UPGRADE_ATTRIBUTES_KEY, {})
         expected_fw = cdb_fw_attrs.get("gold_firmware_version")
+
         if not expected_fw:
             failures.append(f"{port}: gold_firmware_version not configured")
             logger.warning("Port %s: cmis_active_optical=True but gold_firmware_version missing", port)
