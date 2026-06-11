@@ -375,9 +375,8 @@ def test_dhcp_relay_agent_mode(
 
     Relay Modes Tested:
         - "discard": Drops packets containing Option 82.
-        - "forward_untouched": Forwards packets with Option 82 unmodified.
-        - "forward_and_replace": Replaces existing Option 82 with new data before forwarding.
-        - "forward_and_append": Appends a new Option 82 to packets that already have it.
+        - "replace": Replaces existing Option 82 with new data before forwarding.
+        - "append": Appends a new Option 82 to packets that already have it.
 
     Key Actions:
         - Configures the device under test (DUT) with the selected relay mode.
@@ -432,6 +431,12 @@ def test_dhcp_relay_agent_mode(
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+    finally:
+        # Restore the baseline DHCPV4_RELAY row shape that
+        # enable_sonic_dhcpv4_relay_agent set up (dhcpv4_servers only,
+        # no agent_relay_mode), by reusing the same helpers.
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)
 
 
 @pytest.mark.parametrize("testcase", ["vrf_selection", "source_intf", "server_id_override"])
@@ -905,3 +910,9 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
+    finally:
+        # Restore the baseline DHCPV4_RELAY row shape that
+        # enable_sonic_dhcpv4_relay_agent set up (dhcpv4_servers only,
+        # no agent_relay_mode / max_hop_count), by reusing the same helpers.
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+        sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data)

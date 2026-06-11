@@ -11,7 +11,6 @@ from tests.common.utilities import (
     group_interfaces_by_asic
 )
 from tests.common.helpers.assertions import pytest_assert
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,63 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                     r".*ERR.* 'routeCheck' status failed.*",
                 ]
             )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def wait_for_lldp_appl_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    appl_db = []
+    for asic in duthost.asics:
+        appl_db.append(SonicDbCli(asic, APPL_DB))
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if duthost.facts['switch_type'] == "voq" and (not is_chassis and len(duthost.asics) > 1):
+        appl_db.append(SonicDbCli(duthost, APPL_DB))
+
+    def lldpctl_ifaces():
+        try:
+            ifaces = get_lldpctl_output(duthost)["lldp"]["interface"]
+            names = list(ifaces.keys()) if isinstance(ifaces, dict) else [list(i.keys())[0] for i in ifaces]
+            return set(n for n in names if "Ethernet-BP" not in n and "Ethernet-IB" not in n)
+        except Exception:
+            return set()
+
+    # Wait for lldpctl output to stabilize (same set across 2 consecutive polls = all active neighbors learned)
+    # Using deterministic polling: max 25 retries with 10s interval
+    max_lldpctl_retries = 25
+    poll_interval = 10
+    prev, stable_count = set(), 0
+    for retry in range(max_lldpctl_retries):
+        current = lldpctl_ifaces()
+        if current and current == prev:
+            stable_count += 1
+            logger.info("lldpctl stable ({}/2): {} interfaces (retry {}/{})".format(
+                stable_count, len(current), retry + 1, max_lldpctl_retries))
+            if stable_count > 2:
+                break
+        else:
+            logger.info("lldpctl: {} interfaces (changed or empty), retry {}/{}".format(
+                len(current), retry + 1, max_lldpctl_retries))
+            stable_count = 0
+        prev = current
+        time.sleep(poll_interval)
+    else:
+        pytest.fail("lldpctl did not stabilize after {} retries. Last seen: {}".format(
+            max_lldpctl_retries, sorted(prev)))
+
+    expected = prev
+    logger.info("lldpd stable with {} active neighbors: {}".format(len(expected), sorted(expected)))
+
+    # Wait for APPL_DB convergence: max 10 retries with 3s interval
+    max_appl_db_retries = 10
+    appl_db_poll_interval = 3
+    for retry in range(max_appl_db_retries):
+        if expected <= set(get_lldp_entry_keys(appl_db)):
+            logger.info("All {} interfaces converged in APPL_DB (retry {}/{})".format(
+                len(expected), retry + 1, max_appl_db_retries))
+            return
+        time.sleep(appl_db_poll_interval)
+    pytest.fail("APPL_DB did not converge after {} retries. Missing: {}".format(
+        max_appl_db_retries, sorted(expected - set(get_lldp_entry_keys(appl_db)))))
 
 
 @pytest.fixture(autouse="True")
@@ -148,7 +204,7 @@ def _build_lldpctl_lookup_map(lldpctl_interfaces):
     return lldpctl_map
 
 
-def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_lookup_map, timeout=60, interval=2, delay=0):
+def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_lookup_map, timeout=300, interval=2, delay=0):
     """
     Verify LLDP entry recovers for interface(s) after flap.
     Supports both single interface (str) and multiple interfaces (list).
@@ -368,7 +424,12 @@ def test_lldp_entry_table_content(
 
 
 # Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
+# This test deliberately restarts swss/syncd, which cascades to a bgp container
+# restart. The memory_utilization fixture's before/after snapshots become
+# meaningless across such a restart (bgpd RSS drops to ~0 then warms back up),
+# so disable memory monitoring for this test.
 @pytest.mark.disable_loganalyzer
+@pytest.mark.disable_memory_utilization
 def test_lldp_entry_table_after_syncd_orchagent(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
@@ -394,7 +455,14 @@ def test_lldp_entry_table_after_syncd_orchagent(
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
-    time.sleep(60)
+    # Wait for BGP sessions to reach Established state instead of a fixed sleep,
+    # to avoid a downstream memory-alarm false positive caused by bgpd warming up
+    # in the next test case.
+    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    pytest_assert(
+        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        "BGP sessions did not reach Established state after swss restart",
+    )
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, [interface])

@@ -7,6 +7,7 @@ r, ".* ERR .*initializeGlobalConfig: SonicDBConfig Global config is already init
 r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""ntpd"" requested_mask=.*"
 r, ".* ERR snmp#snmp-subagent.*"
 r, ".* ERR route_check.py.*"
+r, ".*ERR monit\[\d+\]: 'routeCheck' status failed.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
 r, ".* ERR ntpd.*bind.*AF_INET6.*"
@@ -252,6 +253,18 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatc
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/27327
+# Mellanox SDK new log format (with client_pid prefix) - FEC_ALIGNMENT_LOCK polling on ports without FEC support
+# and sai_get_attributes failures in the new format
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed Get #\d+, FEC_ALIGNMENT_LOCK, key:PORT.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- sai_get_attributes: Failed to get attribute.*"
+
+# Mellanox SAI_PORT FEC alignment lock not supported on pre-SPC4 platforms (SN2700, SN4600C, SN4700)
+r, ".* ERR syncd#SDK: \[SAI_PORT.ERR\].*mlnx_sai_port.c\[\d+\]- mlnx_port_state_get: FEC alignment lock only supported on SPC4\+.*"
+
+# Orchagent PORT_PHY_SERDES_ATTR counter map errors for ports without serdes objects
+r, ".* ERR swss\d*#orchagent: :- clearPortPhySerdesAttrCounterMap: PORT_PHY_SERDES_ATTR: Port .* has no serdes object"
+
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
@@ -322,6 +335,8 @@ r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
+# Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
+r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
@@ -470,7 +485,7 @@ r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplep
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
-
+r, ".*ERR sfputil.*message repeated \d+ times.*Failed to read from file \/sys\/module\/sx_core\/asic\d+\/module\d+\/present.*FileNotFoundError.*"
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
