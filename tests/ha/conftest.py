@@ -29,6 +29,8 @@ from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.utilities import wait_until
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
@@ -37,6 +39,71 @@ from tests.ha.ha_utils import (
 
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
+
+
+def _get_dpu_neighbor_ip(role_index, dpu_index):
+    return f"20.0.{200 + role_index}.{dpu_index + 1}"
+
+
+def _get_appl_db_neighbor_key(duthost, neighbor_ip):
+    result = duthost.shell(
+        f'sonic-db-cli APPL_DB KEYS "NEIGH_TABLE:*:{neighbor_ip}"',
+        module_ignore_errors=True,
+    )
+    if result.get("rc", 0) != 0:
+        logger.debug(
+            "%s failed querying APPL_DB for %s: rc=%s stderr=%s",
+            duthost.hostname,
+            neighbor_ip,
+            result.get("rc"),
+            result.get("stderr", "").strip(),
+        )
+        return None
+
+    return next(
+        (key for key in result.get("stdout_lines", []) if key.endswith(neighbor_ip)),
+        None,
+    )
+
+
+def wait_for_dpu_neighbor_resolution(duthost, role_index, dpu_index, timeout=120, interval=2):
+    neighbor_ip = _get_dpu_neighbor_ip(role_index, dpu_index)
+
+    def _neighbor_is_resolved():
+        neighbor_key = _get_appl_db_neighbor_key(duthost, neighbor_ip)
+        if not neighbor_key:
+            return False
+
+        neigh_result = duthost.shell(
+            f'sonic-db-cli APPL_DB HGET "{neighbor_key}" neigh',
+            module_ignore_errors=True,
+        )
+        if neigh_result.get("rc", 0) != 0:
+            return False
+
+        neighbor_mac = neigh_result["stdout"].strip()
+        if not neighbor_mac:
+            return False
+
+        logger.info(
+            "%s resolved DPU neighbor %s in %s with MAC %s",
+            duthost.hostname,
+            neighbor_ip,
+            neighbor_key,
+            neighbor_mac,
+        )
+        return True
+
+    logger.info(
+        "Waiting for DPU%s neighbor %s to resolve in APPL_DB on %s",
+        dpu_index,
+        neighbor_ip,
+        duthost.hostname,
+    )
+    pt_assert(
+        wait_until(timeout, interval, 0, _neighbor_is_resolved),
+        f"Timed out waiting for APPL_DB NEIGH_TABLE entry for {neighbor_ip} on {duthost.hostname}",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -545,14 +612,20 @@ def setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_g
 
     logger.info("HA: setup from json for Primary and Standby")
 
-    # Workaround for the neigh resolve issue
-    # To be removed after fixes are merged: PR 147, 148 in sonic-dash-ha
+    # TODO: remove once neighbor flakiness is fixed.
     for i in range(len(duthosts)):
         logger.info(f"Sending ping to DPU{dpuhosts[i].dpu_index} for {duthosts[i].hostname}")
         ip_part = 200 + i
         ip_last = dpuhosts[i].dpu_index + 1
         ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
         logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
+
+    for i in range(len(duthosts)):
+        wait_for_dpu_neighbor_resolution(
+            duthost=duthosts[i],
+            role_index=i,
+            dpu_index=dpuhosts[i].dpu_index,
+        )
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
