@@ -1,0 +1,656 @@
+---
+# config_macsec_basedon_minigraph.yml
+#
+# Configure per-interface MACsec on DUT and neighbors (cEOS or vSONiC).
+# MACsec links are declared in the topology YAML under a top-level
+# 'macsec_links' list:
+#
+#   macsec_links:
+#     - vm: ARISTA01T3
+#       profile: 128_SCI
+#
+# DUT↔VM port mapping is resolved via minigraph_neighbors (parsed from
+# /etc/sonic/minigraph.xml on the DUT) — no template changes required.
+#
+# Called from deploy_minigraph() in testbed-cli.sh after the main
+# config_sonic_basedon_testbed.yml playbook.  Safe to run on testbeds
+# that have no MACsec links — Play 1 exits cleanly via meta: end_play.
+#
+# Usage:
+#   ansible-playbook -i <inventory> config_macsec_basedon_minigraph.yml \
+#     --vault-password-file=<pass> -l <dut> \
+#     -e testbed_name=<name> -e testbed_file=<file> -e vm_file=veos
+
+# ---------------------------------------------------------------------------
+# Play 1: DUT — build port map, configure CONFIG_DB, register vSONiC neighbors
+# ---------------------------------------------------------------------------
+- name: Configure DUT CONFIG_DB and neighbors for MACsec
+  hosts: sonic
+  gather_facts: no
+  vars:
+    profile_json_path: "{{ playbook_dir }}/../tests/common/macsec/profile.json"
+
+  tasks:
+    - name: Set default testbed file
+      set_fact:
+        testbed_file: testbed.yaml
+      when: testbed_file is not defined
+
+    - name: Gather testbed facts
+      test_facts:
+        testbed_name: "{{ testbed_name }}"
+        testbed_file: "{{ testbed_file }}"
+      delegate_to: localhost
+
+    - name: Load topology variables (provides macsec_links list if declared)
+      include_vars: "vars/topo_{{ testbed_facts['topo'] }}.yml"
+      delegate_to: localhost
+
+    - name: Exit early — no MACsec links declared in topology
+      meta: end_play
+      when: macsec_links is not defined or not macsec_links
+
+    - name: Gather minigraph facts from DUT (provides minigraph_neighbors)
+      minigraph_facts:
+        host: "{{ inventory_hostname }}"
+
+    - name: Build MACsec port map from minigraph neighbors
+      # minigraph_neighbors: {dut_port: {name: vm_name, port: vm_port, namespace: ns}}
+      # macsec_links: [{vm: vm_name, profile: profile_name}]
+      # Result macsec_port_map: {dut_port: {neighbor, neighbor_port, profile, namespace}}
+      # namespace is '' on single-ASIC and 'asicN' on multi-ASIC (VOQ/chassis) DUTs.
+      set_fact:
+        macsec_port_map: >-
+          {{
+            macsec_port_map | default({}) | combine({
+              item.key: {
+                'neighbor': item.value.name,
+                'neighbor_port': item.value.port,
+                'namespace': item.value.namespace | default(''),
+                'profile': (macsec_links
+                            | selectattr('vm', 'equalto', item.value.name)
+                            | map(attribute='profile')
+                            | first)
+              }
+            })
+          }}
+      loop: "{{ minigraph_neighbors | dict2items }}"
+      when: macsec_links | selectattr('vm', 'equalto', item.value.name) | list | length > 0
+
+    - name: Exit early — no MACsec-enabled neighbors found in minigraph
+      meta: end_play
+      when: macsec_port_map is not defined or not macsec_port_map
+
+    # Multi-ASIC support: collect the set of namespaces holding MACsec ports so
+    # we can target MACSEC_PROFILE creation per-ASIC.  Single-ASIC DUTs yield
+    # [''] (host-level CONFIG_DB); VOQ/chassis DUTs yield ['asic0', 'asic1', ...].
+    - name: Compute MACsec namespaces (unique)
+      set_fact:
+        macsec_namespaces: >-
+          {{ macsec_port_map.values()
+             | map(attribute='namespace') | unique | list }}
+
+    - name: Record PortChannel member ports
+      set_fact:
+        portchannel_member_ports: >-
+          {{
+            minigraph_portchannels.values()
+            | map(attribute='members')
+            | sum(start=[])
+            | list
+          }}
+      when: minigraph_portchannels is defined
+
+    # Reverse map {member_port: portchannel_name} so we can DEL/HSET the
+    # PORTCHANNEL_MEMBER|<pc>|<port> key for each PC-member port we MACsec.
+    - name: Initialize port-to-PortChannel reverse map
+      set_fact:
+        port_to_portchannel: {}
+      when: minigraph_portchannels is defined
+
+    - name: Build port-to-PortChannel reverse map
+      set_fact:
+        port_to_portchannel: "{{ port_to_portchannel | combine({item.1: item.0.key}) }}"
+      with_subelements:
+        - "{{ minigraph_portchannels | dict2items }}"
+        - value.members
+      when: minigraph_portchannels is defined
+
+    - name: Compute MACsec PortChannel-member ports
+      set_fact:
+        macsec_pc_ports: >-
+          {{ macsec_port_map.keys() | list
+             | select('in', portchannel_member_ports) | list }}
+
+    - name: Gather testbed VM management IP mapping
+      testbed_vm_info:
+        base_vm: "{{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else '' }}"
+        topo: "{{ testbed_facts['topo'] }}"
+        vm_file: "{{ vm_file | default('veos') }}"
+        servers_info: "{{ testbed_facts['servers'] | default({}) }}"
+      delegate_to: localhost
+
+    - name: Load MACsec profile definitions
+      set_fact:
+        macsec_profiles: "{{ lookup('file', profile_json_path) | from_json }}"
+      delegate_to: localhost
+
+    - name: Deploy MACsec profile store to DUT for config-reload-minigraph persistence
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../tests/common/macsec/profile.json"
+        dest: /etc/sonic/macsec_profiles.json
+        mode: '0644'
+
+    # Step 1 (DUT): enable MACsec feature container
+    - name: Enable MACsec feature on DUT
+      become: true
+      shell: config feature state macsec enabled
+      register: macsec_feature_result
+      failed_when:
+        - macsec_feature_result.rc != 0
+        - "'already enabled' not in (macsec_feature_result.stderr | default(''))"
+
+    - name: Wait for MACsec docker to start on DUT
+      become: true
+      shell: docker ps | grep macsec | grep -v grep
+      register: macsec_docker
+      until: macsec_docker.rc == 0
+      retries: 36
+      delay: 5
+
+    # ---------------------------------------------------------------------------
+    # Static DUT MACsec config (MACSEC_PROFILE, PORT.macsec, PORT.mtu,
+    # PORTCHANNEL.mtu) is rendered by `generate_golden_config_db` into
+    # /etc/sonic/golden_config_db.json and applied at `config load_minigraph
+    # --override_config` time.  This playbook only handles what golden config
+    # cannot: the temporal PC-member detach/reattach dance required because
+    # macsecmgrd's wpa_supplicant does not negotiate MKA on ports that are
+    # PortChannel members in CONFIG_DB.
+    # ---------------------------------------------------------------------------
+
+    # Pre-detach PC-member ports so wpa_supplicant can run MKA on them.
+    # PORT.macsec was bound at config_load_minigraph time but macsecmgrd
+    # silently skipped these ports because they were PC members.  After we
+    # DEL the PORTCHANNEL_MEMBER row, the port becomes standalone — but
+    # macsecmgrd doesn't watch PORTCHANNEL_MEMBER, so we must re-poke
+    # PORT.macsec (HDEL then HSET below) to force re-evaluation.
+    - name: Detach PC-member MACsec ports from PortChannel for MKA negotiation
+      become: true
+      shell: >-
+        sonic-db-cli {{ ('-n ' + macsec_port_map[item].namespace) if macsec_port_map[item].namespace else '' }} CONFIG_DB DEL
+        'PORTCHANNEL_MEMBER|{{ port_to_portchannel[item] }}|{{ item }}'
+      loop: "{{ macsec_pc_ports }}"
+      loop_control:
+        label: "{{ item }} ({{ port_to_portchannel[item] }}) ns={{ macsec_port_map[item].namespace or '(host)' }}"
+      when: macsec_pc_ports | length > 0
+
+    - name: Wait for orchagent to remove PC members from LAG
+      pause:
+        seconds: 5
+      when: macsec_pc_ports | length > 0
+
+    # Re-poke PORT.macsec on PC member ports only — golden config already
+    # bound the profile on every macsec port, but macsecmgrd silently skipped
+    # the PC-member ones.  HDEL then HSET emits a CONFIG_DB change event so
+    # macsecmgrd re-evaluates now that the port is standalone.  Non-PC ports
+    # are NOT touched here so we don't churn already-working MKA sessions.
+    - name: Re-poke PORT.macsec on PC-member ports (HDEL) to force macsecmgrd re-evaluation
+      become: true
+      shell: >-
+        sonic-db-cli {{ ('-n ' + macsec_port_map[item].namespace) if macsec_port_map[item].namespace else '' }} CONFIG_DB HDEL
+        'PORT|{{ item }}' 'macsec'
+      loop: "{{ macsec_pc_ports }}"
+      loop_control:
+        label: "{{ item }} ns={{ macsec_port_map[item].namespace or '(host)' }}"
+      when: macsec_pc_ports | length > 0
+
+    - name: Wait for macsecmgrd to tear down existing SAs on PC-member ports
+      pause:
+        seconds: 3
+      when: macsec_pc_ports | length > 0
+
+    - name: Re-poke PORT.macsec on PC-member ports (HSET) to trigger MKA start
+      become: true
+      shell: >-
+        sonic-db-cli {{ ('-n ' + macsec_port_map[item].namespace) if macsec_port_map[item].namespace else '' }} CONFIG_DB HSET
+        'PORT|{{ item }}' 'macsec' '{{ macsec_port_map[item].profile }}'
+      loop: "{{ macsec_pc_ports }}"
+      loop_control:
+        label: "{{ item }} ns={{ macsec_port_map[item].namespace or '(host)' }}"
+        pause: 3
+      when: macsec_pc_ports | length > 0
+
+    # ---------------------------------------------------------------------------
+    # Configure each neighbor inline via delegate_to.
+    # Using delegate_to within Play 1 avoids the Ansible 2.18 behavior where
+    # a play targeting a dynamically-created group (via add_host) is skipped
+    # because the group doesn't exist at playbook compile time.
+    # vm_type (from inventory) selects the neighbor path: vsonic or ceos.
+    # ---------------------------------------------------------------------------
+
+    # --- vSONiC neighbors ---
+
+    - name: Deploy MACsec profile store to vSONiC neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      copy:
+        src: "{{ profile_json_path }}"
+        dest: /etc/sonic/macsec_profiles.json
+        mode: '0644'
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Enable MACsec feature on vSONiC neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: config feature state macsec enabled
+      register: nbr_macsec_feature_result
+      failed_when:
+        - nbr_macsec_feature_result.rc != 0
+        - "'already enabled' not in (nbr_macsec_feature_result.stderr | default(''))"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Wait for MACsec docker to start on vSONiC neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: docker ps | grep macsec | grep -v grep
+      register: nbr_macsec_docker
+      until: nbr_macsec_docker.rc == 0
+      retries: 36
+      delay: 5
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    # Even-indexed links: neighbor priority = priority-1 (DUT becomes key-server)
+    # Odd-indexed links:  neighbor priority = priority+1 (neighbor becomes key-server)
+    - name: Set MACsec profile in vSONiC neighbor CONFIG_DB
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: >-
+        sonic-db-cli CONFIG_DB HMSET
+        'MACSEC_PROFILE|{{ item.value.profile }}'
+        'priority' '{{ (macsec_profiles[item.value.profile]["priority"] | int) - 1 if link_idx % 2 == 0 else (macsec_profiles[item.value.profile]["priority"] | int) + 1 }}'
+        'cipher_suite' '{{ macsec_profiles[item.value.profile]["cipher_suite"] }}'
+        'primary_cak' '{{ macsec_profiles[item.value.profile]["primary_cak"] }}'
+        'primary_ckn' '{{ macsec_profiles[item.value.profile]["primary_ckn"] }}'
+        'policy' '{{ macsec_profiles[item.value.profile].get("policy", "security") }}'
+        'send_sci' '{{ macsec_profiles[item.value.profile]["send_sci"] }}'
+        'rekey_period' '{{ macsec_profiles[item.value.profile].get("rekey_period", 0) }}'
+        'enable_replay_protect' '{{ macsec_profiles[item.value.profile].get("enable_replay_protect", "false") }}'
+        {{ ("'replay_window' '" + (macsec_profiles[item.value.profile].get("replay_window", 0) | string) + "'") if macsec_profiles[item.value.profile].get("enable_replay_protect", "false") == "true" else "" }}
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+        index_var: link_idx
+      when: vm_type | default('ceos') == 'vsonic'
+
+    # YANG schema requires replay_window absent when enable_replay_protect=false.
+    - name: Remove replay_window from vSONiC neighbor CONFIG_DB when replay protect disabled
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: sonic-db-cli CONFIG_DB HDEL 'MACSEC_PROFILE|{{ item.value.profile }}' replay_window
+      when: vm_type | default('ceos') == 'vsonic' and macsec_profiles[item.value.profile].get("enable_replay_protect", "false") != "true"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+
+    # --- vSONiC neighbor: PC member detach for MKA negotiation ----------------
+    # vSONiC neighbors with PC-member ports also need the detach/reattach dance:
+    # macsecmgrd's wpa_supplicant on the neighbor cannot negotiate MKA when the
+    # port is a PORTCHANNEL_MEMBER.  We query each neighbor at runtime to find
+    # which ports are PC members, detach them, apply MACsec, then re-attach in
+    # Play 3 once MKA has established.
+
+    # Build the neighbor-side PC-member re-attach list from the topology data
+    # (configuration[<vm>].interfaces[<port>].lacp == 1) rather than querying
+    # CONFIG_DB at runtime.  Topology is the intended-state source of truth and
+    # makes the playbook idempotent across re-runs even if a prior run left the
+    # neighbor in a partially-detached state.  The PC name on vSONiC strips the
+    # hyphen from the topology's "Port-Channel<N>" naming → "PortChannel<N>".
+    - name: Initialize vSONiC neighbor PC re-attach list
+      set_fact:
+        nbr_pc_attach: []
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Build vSONiC neighbor PC re-attach list from topology
+      set_fact:
+        nbr_pc_attach: >-
+          {{ nbr_pc_attach + [{
+               'neighbor_ip': neighbor_eosvm_mgmt[item.value.neighbor],
+               'neighbor': item.value.neighbor,
+               'pc_name': (configuration[item.value.neighbor].interfaces.keys()
+                           | select('match', '^Port-Channel')
+                           | list | first | replace('-', '')),
+               'port': item.value.neighbor_port,
+               'pc_key': 'PORTCHANNEL_MEMBER|' +
+                         (configuration[item.value.neighbor].interfaces.keys()
+                          | select('match', '^Port-Channel')
+                          | list | first | replace('-', '')) +
+                         '|' + item.value.neighbor_port
+             }] }}
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when:
+        - vm_type | default('ceos') == 'vsonic'
+        - configuration is defined
+        - item.value.neighbor in configuration
+        - configuration[item.value.neighbor].interfaces[item.value.neighbor_port] is defined
+        - configuration[item.value.neighbor].interfaces[item.value.neighbor_port].get('lacp', 0) == 1
+
+    - name: Detach vSONiC neighbor PC member ports for MKA negotiation
+      delegate_to: "{{ item.neighbor_ip }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: sonic-db-cli CONFIG_DB DEL '{{ item.pc_key }}'
+      loop: "{{ nbr_pc_attach | default([]) }}"
+      loop_control:
+        label: "{{ item.neighbor }}: {{ item.pc_key }}"
+      when:
+        - vm_type | default('ceos') == 'vsonic'
+        - (nbr_pc_attach | default([])) | length > 0
+
+    - name: Wait for vSONiC orchagent to remove neighbor PC members from LAG
+      pause:
+        seconds: 5
+      when:
+        - vm_type | default('ceos') == 'vsonic'
+        - (nbr_pc_attach | default([])) | length > 0
+
+    - name: Remove MACsec profile from vSONiC neighbor port to force SA recreation
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: >-
+        sonic-db-cli CONFIG_DB HDEL
+        'PORT|{{ item.value.neighbor_port }}' 'macsec'
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Wait for macsecmgrd to tear down existing SAs on vSONiC neighbors
+      pause:
+        seconds: 3
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Enable MACsec profile on vSONiC neighbor port
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: >-
+        sonic-db-cli CONFIG_DB HSET
+        'PORT|{{ item.value.neighbor_port }}' 'macsec' '{{ item.value.profile }}'
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    - name: Reduce vSONiC neighbor MACsec port MTU by MACsec frame overhead (32 bytes)
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: config interface mtu {{ item.value.neighbor_port }} 9068
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'vsonic'
+
+    # PortChannel MTU on vSONiC overrides member-port MTU once the port is
+    # re-attached.  vSONiC's `config interface mtu` CLI rejects PortChannel
+    # names ("Invalid port") so we write CONFIG_DB directly.  The PC name is
+    # extracted from the queried PORTCHANNEL_MEMBER key.
+    - name: Reduce vSONiC neighbor PortChannel MTU when it carries MACsec members
+      delegate_to: "{{ item.neighbor_ip }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: sonic-db-cli CONFIG_DB HSET 'PORTCHANNEL|{{ item.pc_name }}' mtu 9068
+      loop: "{{ nbr_pc_attach | default([]) }}"
+      loop_control:
+        label: "{{ item.neighbor }}: {{ item.pc_name }}"
+      when:
+        - vm_type | default('ceos') == 'vsonic'
+        - (nbr_pc_attach | default([])) | length > 0
+
+    # --- cEOS neighbors ---
+
+    - name: Set MACsec profile on cEOS neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: enable
+      vars:
+        ansible_connection: network_cli
+        ansible_network_os: eos
+        ansible_user: "{{ eos_login }}"
+        ansible_password: "{{ eos_password }}"
+      arista.eos.eos_config:
+        lines:
+          - "cipher {{ {'GCM-AES-128': 'aes128-gcm', 'GCM-AES-256': 'aes256-gcm', 'GCM-AES-XPN-128': 'aes128-gcm-xpn', 'GCM-AES-XPN-256': 'aes256-gcm-xpn'}[macsec_profiles[item.value.profile]['cipher_suite']] }}"
+          - "key {{ macsec_profiles[item.value.profile]['primary_ckn'] }} 7 {{ macsec_profiles[item.value.profile]['primary_cak'] }}"
+          - "mka key-server priority {{ (macsec_profiles[item.value.profile]['priority'] | int) - 1 if link_idx % 2 == 0 else (macsec_profiles[item.value.profile]['priority'] | int) + 1 }}"
+        parents:
+          - "mac security"
+          - "profile {{ item.value.profile }}"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+        index_var: link_idx
+      when: vm_type | default('ceos') == 'ceos'
+
+    - name: Set rekey period on cEOS neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: enable
+      vars:
+        ansible_connection: network_cli
+        ansible_network_os: eos
+        ansible_user: "{{ eos_login }}"
+        ansible_password: "{{ eos_password }}"
+      arista.eos.eos_config:
+        lines:
+          - "mka session rekey-period {{ macsec_profiles[item.value.profile]['rekey_period'] }}"
+        parents:
+          - "mac security"
+          - "profile {{ item.value.profile }}"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'ceos' and (macsec_profiles[item.value.profile].get('rekey_period', 0) | int) > 0
+
+    - name: Enable SCI on cEOS neighbor
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: enable
+      vars:
+        ansible_connection: network_cli
+        ansible_network_os: eos
+        ansible_user: "{{ eos_login }}"
+        ansible_password: "{{ eos_password }}"
+      arista.eos.eos_config:
+        lines:
+          - "sci"
+        parents:
+          - "mac security"
+          - "profile {{ item.value.profile }}"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'ceos' and macsec_profiles[item.value.profile]['send_sci'] == 'true'
+
+    - name: Bind MACsec profile to cEOS interface
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: enable
+      vars:
+        ansible_connection: network_cli
+        ansible_network_os: eos
+        ansible_user: "{{ eos_login }}"
+        ansible_password: "{{ eos_password }}"
+      arista.eos.eos_config:
+        lines:
+          - "mac security profile {{ item.value.profile }}"
+        parents:
+          - "interface {{ item.value.neighbor_port }}"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'ceos'
+
+    - name: Reduce cEOS neighbor MACsec interface MTU by MACsec frame overhead (32 bytes)
+      delegate_to: "{{ neighbor_eosvm_mgmt[item.value.neighbor] }}"
+      become: true
+      become_method: enable
+      vars:
+        ansible_connection: network_cli
+        ansible_network_os: eos
+        ansible_user: "{{ eos_login }}"
+        ansible_password: "{{ eos_password }}"
+      arista.eos.eos_config:
+        lines:
+          - "mtu 9068"
+        parents:
+          - "interface {{ item.value.neighbor_port }}"
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.value.neighbor }}:{{ item.value.neighbor_port }}"
+      when: vm_type | default('ceos') == 'ceos'
+
+# ---------------------------------------------------------------------------
+# Play 3: DUT — wait for MACsec sessions, then save config
+# ---------------------------------------------------------------------------
+- name: Wait for MACsec ready on DUT and save config
+  hosts: sonic
+  gather_facts: no
+
+  tasks:
+    - name: Retrieve facts set in Play 1
+      set_fact:
+        macsec_port_map: "{{ hostvars[inventory_hostname].get('macsec_port_map', {}) }}"
+        portchannel_member_ports: "{{ hostvars[inventory_hostname].get('portchannel_member_ports', []) }}"
+        port_to_portchannel: "{{ hostvars[inventory_hostname].get('port_to_portchannel', {}) }}"
+        macsec_pc_ports: "{{ hostvars[inventory_hostname].get('macsec_pc_ports', []) }}"
+        nbr_pc_attach: "{{ hostvars[inventory_hostname].get('nbr_pc_attach', []) }}"
+        neighbor_eosvm_mgmt: "{{ hostvars[inventory_hostname].get('neighbor_eosvm_mgmt', {}) }}"
+        sonic_login: "{{ hostvars[inventory_hostname].get('sonic_login', sonic_login) }}"
+        sonic_password: "{{ hostvars[inventory_hostname].get('sonic_password', sonic_password) }}"
+        vm_type: "{{ hostvars[inventory_hostname].get('vm_type', vm_type | default('ceos')) }}"
+
+    # Step 3: poll STATE_DB until both sides report ready (up to 300 s / 3 s interval).
+    # All MACsec ports — including PC-member ports detached in Play 1 — are polled.
+    # MKA negotiates on the (currently standalone) PC ports because they were
+    # removed from PORTCHANNEL_MEMBER before MACsec was applied.
+    - name: Wait for MACSEC_PORT_TABLE state=ok in STATE_DB
+      become: true
+      shell: >-
+        sonic-db-cli {{ ('-n ' + item.value.namespace) if item.value.namespace else '' }} STATE_DB HGET 'MACSEC_PORT_TABLE|{{ item.key }}' state
+      register: macsec_state
+      until: macsec_state.stdout | trim == 'ok'
+      retries: 100
+      delay: 3
+      loop: "{{ macsec_port_map | dict2items }}"
+      loop_control:
+        label: "{{ item.key }} ns={{ item.value.namespace or '(host)' }}"
+      when: macsec_port_map | length > 0
+
+    # Re-attach the previously-detached PC member ports.  At this point MACsec
+    # is active on each port (policy=security, enable_encrypt=true), so Broadcom
+    # processes LACP through the MACsec engine and the peer decrypts cleanly.
+    - name: Re-attach DUT PC-member MACsec ports to their PortChannel
+      become: true
+      shell: >-
+        sonic-db-cli {{ ('-n ' + macsec_port_map[item].namespace) if macsec_port_map[item].namespace else '' }} CONFIG_DB HSET
+        'PORTCHANNEL_MEMBER|{{ port_to_portchannel[item] }}|{{ item }}' NULL NULL
+      loop: "{{ macsec_pc_ports }}"
+      loop_control:
+        label: "{{ item }} → {{ port_to_portchannel[item] }} ns={{ macsec_port_map[item].namespace or '(host)' }}"
+      when: macsec_pc_ports | length > 0
+
+    - name: Re-attach vSONiC neighbor PC-member ports to their PortChannel
+      delegate_to: "{{ item.neighbor_ip }}"
+      become: true
+      become_method: sudo
+      vars:
+        ansible_user: "{{ sonic_login }}"
+        ansible_password: "{{ sonic_password }}"
+        ansible_connection: ssh
+        ansible_ssh_extra_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      shell: sonic-db-cli CONFIG_DB HSET '{{ item.pc_key }}' NULL NULL
+      loop: "{{ nbr_pc_attach | default([]) }}"
+      loop_control:
+        label: "{{ item.neighbor }}: {{ item.pc_key }}"
+      when:
+        - vm_type | default('ceos') == 'vsonic'
+        - (nbr_pc_attach | default([])) | length > 0
+
+    - name: Wait for PortChannel to re-establish over MACsec
+      pause:
+        seconds: 15
+      when: macsec_pc_ports | length > 0 or (nbr_pc_attach | default([])) | length > 0
+
+    - name: Save config after MACsec setup
+      become: true
+      shell: config save -y
+      when: macsec_port_map | length > 0

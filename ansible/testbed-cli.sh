@@ -231,6 +231,57 @@ function converge_topo_if_needed
     fi
 }
 
+function store_vm_type_in_inventory
+{
+  # Write vm_type (set via -k flag) into the inventory file (e.g. lab) for
+  # every DUT in $duts so that subsequent playbooks (e.g.
+  # config_macsec_basedon_minigraph.yml) can read it from the inventory.
+  # Uses line-based editing to preserve the file's existing formatting.
+  local _inv_file=$1
+  local _vm_type=$2
+  for _dut in $(echo "$duts" | tr ',' ' '); do
+    python3 - "$_inv_file" "$_dut" "$_vm_type" <<'PYEOF'
+import sys, re
+
+inv_file, dut, vm_type = sys.argv[1], sys.argv[2], sys.argv[3]
+
+with open(inv_file) as f:
+    lines = f.readlines()
+
+host_re = re.compile(r'^(\s+)' + re.escape(dut) + r'\s*:\s*$')
+updated = False
+i = 0
+while i < len(lines):
+    m = host_re.match(lines[i])
+    if m:
+        prop_indent = m.group(1) + '    '
+        j = i + 1
+        # Scan the host's property block
+        while j < len(lines) and (not lines[j].strip() or lines[j].startswith(prop_indent)):
+            if re.match(r'\s*vm_type\s*:', lines[j]):
+                old = lines[j]
+                lines[j] = re.sub(r'(vm_type\s*:\s*).*', r'\g<1>' + vm_type, lines[j])
+                if lines[j] != old:
+                    updated = True
+                break
+            j += 1
+        else:
+            # vm_type not found in block — insert after host header line
+            lines.insert(i + 1, prop_indent + 'vm_type: ' + vm_type + '\n')
+            updated = True
+        break
+    i += 1
+
+if updated:
+    with open(inv_file, 'w') as f:
+        f.writelines(lines)
+    print("Stored vm_type={} for {} in {}".format(vm_type, dut, inv_file))
+elif not any(host_re.match(l) for l in lines):
+    sys.stderr.write("WARNING: host {} not found in {}\n".format(dut, inv_file))
+PYEOF
+  done
+}
+
 function read_file
 {
   echo reading
@@ -471,6 +522,7 @@ function add_topo
   parse_parallel_args "$@"
 
   read_file ${testbed_name}
+  store_vm_type_in_inventory "$inv_name" "$vm_type"
 
   echo "$dut" "$duts"
 
@@ -838,6 +890,11 @@ function deploy_minigraph
   fi
 
   ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag $lab_name_flag "${filtered_args[@]}"
+
+  # Configure per-interface MACsec from minigraph LinkMetadata declarations.
+  # Exits cleanly (meta: end_play) when no MACsec links are present — safe to
+  # run unconditionally without pre-inspecting the minigraph.
+  ansible-playbook -i "$inventory" config_macsec_basedon_minigraph.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
