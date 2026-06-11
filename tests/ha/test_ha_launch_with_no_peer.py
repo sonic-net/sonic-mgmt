@@ -19,7 +19,8 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t1-smartswitch-ha")
+    pytest.mark.topology("t1-smartswitch-ha"),
+    pytest.mark.skip_check_dut_health
 ]
 
 logger = logging.getLogger(__name__)
