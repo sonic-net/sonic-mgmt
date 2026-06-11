@@ -105,6 +105,9 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
     """
     Get pending operation ID from STATE_DB DASH_HA_SCOPE_STATE (single query, no retry).
 
+    Uses a single HMGET so ``pending_operation_ids`` and
+    ``pending_operation_types`` are read atomically.
+
     Args:
         duthost: DUT host object
         scope_key: HA scope key (e.g., "vdpu0_0:haset0_0")
@@ -116,34 +119,38 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
     db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
 
     try:
-        ids_res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_ids'
+        res = duthost.shell(
+            f'sonic-db-cli STATE_DB HMGET "{db_key}" '
+            f'pending_operation_ids pending_operation_types'
         )
-        types_res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_types'
-        )
-
-        if ids_res.get("rc", 0) != 0 or types_res.get("rc", 0) != 0:
+        if res.get("rc", 0) != 0:
             logger.debug(
-                f"{duthost.hostname} STATE_DB query failed for scope {scope_key}: "
-                f"ids_rc={ids_res.get('rc')}, types_rc={types_res.get('rc')}"
+                f"{duthost.hostname} STATE_DB HMGET failed for scope "
+                f"{scope_key}: rc={res.get('rc')}"
             )
             return None
 
-        ids_str = ids_res["stdout"].strip()
-        types_str = types_res["stdout"].strip()
+        lines = res["stdout"].splitlines()
+        ids_str = lines[0].strip() if len(lines) > 0 else ""
+        types_str = lines[1].strip() if len(lines) > 1 else ""
+
         pending_ops = extract_pending_operations(ids_str, types_str)
+
+        logger.debug(
+            f"{duthost.hostname} scope {scope_key}: {len(pending_ops)} pending "
+            f"operation(s) (looking for type={expected_op_type!r}): {pending_ops}"
+        )
 
         for op_type, op_id in pending_ops:
             if op_type == expected_op_type:
                 logger.debug(
                     f"{duthost.hostname} Found pending_operation_id {op_id} "
-                    f"for scope {scope_key}"
+                    f"(type={op_type!r}) for scope {scope_key}"
                 )
                 return op_id
 
         logger.debug(
-            f"{duthost.hostname} No {expected_op_type} operation found. "
+            f"{duthost.hostname} No {expected_op_type!r} operation found. "
             f"Available: {pending_ops}"
         )
         return None
