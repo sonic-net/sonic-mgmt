@@ -18,6 +18,7 @@
           't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
           't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
           't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+          't1-isolated-d32u1s2',
           't1-isolated-d224u8', 't1-isolated-v6-d224u8',
           't1-isolated-d28u1', 't1-isolated-v6-d28u1',
           't1-isolated-d28u4',
