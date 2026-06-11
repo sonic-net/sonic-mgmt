@@ -920,6 +920,15 @@ class BaseEverflowTest(object):
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
 
+            # Skip for ASICs that do not support mirror policing
+            vendor = duthost.facts["asic_type"]
+            hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+            for asic in getattr(self, "MIRROR_POLICER_UNSUPPORTED_ASIC_LIST", []):
+                vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                if vendorAsic in list(hostvars.keys()) and duthost.facts['hwsku'] in hostvars[vendorAsic]:
+                    pytest.skip("Skipping test since mirror policing is not supported on {0} {1} platforms"
+                                .format(vendor, asic))
+
             # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
             if config_method == CONFIG_MODE_CLI:
                 switch_caps = everflow_capabilities.get(duthost.hostname, {})
