@@ -4123,6 +4123,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
+
 platform_tests/test_reboot.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
