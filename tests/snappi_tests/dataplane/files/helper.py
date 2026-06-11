@@ -168,6 +168,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
     }
     """
     get_autoneg_fec(duthosts, get_snappi_ports)
+
     for duthost in duthosts:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         bgp_neighbors = config_facts['BGP_NEIGHBOR']
@@ -750,9 +751,9 @@ def boundary_check(snappi_api, snappi_config, frame_bytes, line_rate, rfc2889_en
     ixnet = getattr(snappi_api, "_ixnetwork", None)
     if ixnet is None:
         pytest_assert(False, "boundary_check requires an Ixia/IxNetwork backend (snappi_api._ixnetwork)")
-    ixnet.Traffic.StartStatelessTrafficBlocking()
+    # ixnet.Traffic.StartStatelessTrafficBlocking()
     wait_with_message("Running traffic for", 30)
-    start_stop(snappi_api, operation="stop", op_type="traffic")
+    # start_stop(snappi_api, operation="stop", op_type="traffic")
     df = get_stats(snappi_api, "Traffic Item Statistics", columns=None, return_type="df")
 
     df = df[["name", "frames_tx", "frames_rx", "loss"]]

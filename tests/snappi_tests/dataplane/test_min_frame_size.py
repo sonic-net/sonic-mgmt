@@ -10,20 +10,6 @@ from tests.common.telemetry.constants import (
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology("nut")]
 
-test_results = pd.DataFrame(
-    columns=[
-        "IP Version",
-        "Frame Ordering",
-        "Frame Size",
-        "Line Rate (%)",
-        "Tx Frames",
-        "Rx Frames",
-        "Loss %",
-        "Status",
-        "Duration (s)",
-    ]
-)
-
 ROUTE_RANGES = {"IPv6": [[["777:777:777::1", 64, 16]]], "IPv4": [[["100.1.1.1", 24, 16]]]}
 
 LINE_RATE_PERCENT = 100
@@ -32,7 +18,7 @@ START_FRAME = 64
 END_FRAME = 9100
 
 
-@pytest.mark.parametrize("ip_version", ["IPv6", "IPv4"])
+@pytest.mark.parametrize("ip_version", ["IPv4", "IPv6"])
 @pytest.mark.parametrize("rfc2889_enabled", [True, False])
 def test_min_frame_size_no_loss(
     request,
@@ -55,6 +41,22 @@ def test_min_frame_size_no_loss(
     """
     frame_ordering_mode = "RFC2889" if rfc2889_enabled else "none"
     no_loss_min_frame = GaugeMetric("no_loss_min_frame", "No Loss Minimum Frame Size", "bytes", db_reporter)
+
+    # Per-invocation result accumulator. Kept local (not a module global) so the
+    # logged summary below is not polluted by rows from other parametrized runs.
+    test_results = pd.DataFrame(
+        columns=[
+            "IP Version",
+            "Frame Ordering",
+            "Frame Size",
+            "Line Rate (%)",
+            "Tx Frames",
+            "Rx Frames",
+            "Loss %",
+            "Status",
+            "Duration (s)",
+        ]
+    )
 
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, ip_version, protocol_type="bgp")
@@ -101,7 +103,6 @@ def test_min_frame_size_no_loss(
     snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
     snappi_api.set_config(snappi_config)
     start_stop(snappi_api, operation="start", op_type="protocols")
-    global test_results
     try:
         # Ixia/IxNetwork-specific: SNAPPI does not expose BiDirectional/SrcDestMesh or
         # FrameOrderingMode, so reach into the RestPy session to set them directly.
@@ -119,10 +120,8 @@ def test_min_frame_size_no_loss(
         # Verify the largest frame size passes before searching; otherwise the
         # binary-search default would silently report END_FRAME as the answer.
         logger.info(
-                    "=" * 50 + "\n"
-                    f"Sanity check {ip_version}: max frame size {frame_sizes[-1]} bytes "
+                    f"\nSanity check {ip_version}: max frame size {frame_sizes[-1]} bytes "
                     f"at {LINE_RATE_PERCENT}% line rate\n"
-                    "=" * 50
                 )
         result = boundary_check(snappi_api, snappi_config, frame_sizes[-1], LINE_RATE_PERCENT, rfc2889_enabled)
         result["IP Version"] = ip_version
@@ -137,16 +136,16 @@ def test_min_frame_size_no_loss(
                                 [test_results, pd.DataFrame([row_data])],
                                 ignore_index=True
                                 )
-
         req = snappi_api.config_update().flows
         req.property_names = [req.SIZE]
         update_flow = snappi_config.flows[0]
         req.flows.append(update_flow)
 
         def _passes(frame_size):
-            global test_results
+            nonlocal test_results
             update_flow.size.fixed = frame_size
             snappi_api.update_flows(req)
+            ixnet.ClearStats()
             result = boundary_check(snappi_api, snappi_config, frame_size, LINE_RATE_PERCENT, rfc2889_enabled)
             result["IP Version"] = ip_version
             row_data = {k: v for k, v in result.items() if k != "no_loss"}
