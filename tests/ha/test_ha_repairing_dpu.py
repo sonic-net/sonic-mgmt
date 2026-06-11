@@ -160,7 +160,9 @@ def require_replacement_dpu(dpuhosts):
 
 
 @pytest.fixture(params=["primary", "standby"], ids=["primary", "standby"])
-def repair_target(request):
+def repair_target(request, ha_owner):
+    if request.param == "primary" and ha_owner != "dpu":
+        pytest.skip("Re-pairing the Active (primary) DPU is only supported for DPU-driven mode")
     return request.param
 
 
