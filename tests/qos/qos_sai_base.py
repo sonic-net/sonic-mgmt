@@ -3937,6 +3937,32 @@ def clear_pg_watermark(interface):
         yield
         return
 
+    @pytest.fixture(scope="function", autouse=False)
+    def clear_queue_wm(self, get_src_dst_asic_and_duts):
+        """
+            Clear queue watermarks before the test runs.
+
+            This ensures the test measures only the watermarks from the current
+            test traffic, not residual watermarks from previous runs or background
+            traffic.
+
+            Args:
+                get_src_dst_asic_and_duts: Fixture providing DUT and ASIC info
+
+            Returns:
+                None
+        """
+        for dut in get_src_dst_asic_and_duts['all_duts']:
+            if dut.sonichost.is_multi_asic:
+                for asic in dut.asics:
+                    dut.command(
+                        "sonic-clear queue watermark unicast -n asic{}".format(asic.asic_index))
+            else:
+                dut.command("sonic-clear queue watermark unicast")
+
+        yield
+        return
+
     @pytest.fixture(scope='class', autouse=True)
     def ecnLosslessProfile(
             self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811

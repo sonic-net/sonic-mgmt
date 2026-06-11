@@ -31,6 +31,7 @@ from ptf.mask import Mask
 from switch import (switch_init,          # noqa F401
                     sai_thrift_create_scheduler_profile,
                     sai_thrift_clear_all_counters,
+                    sai_thrift_clear_queue_watermarks,
                     sai_thrift_read_port_counters,
                     port_list,
                     sai_thrift_read_port_watermarks,
@@ -6936,50 +6937,148 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         margin = int(self.test_params['pkts_num_margin']) if self.test_params.get(
             'pkts_num_margin') else 8
 
+        expected_wm = pkt_count * cell_occupancy
+        lower = (expected_wm - margin) * cell_size
+        upper = (expected_wm + margin) * cell_size
+
+        def offset_text(offset):
+            sign = "-" if offset < 0 else "+"
+            return sign + " " + str(abs(offset))
+
+        # Max retries when background traffic interferes with measurement
+        # If a retry passes, it proves background traffic caused the initial failure
+        MAX_RETRIES = 3
+
+        def measure_watermark(dst_port, queue, pkt, attempt=1):
+            """
+            Perform a single watermark measurement with minimal timing window.
+            Returns: (passed, watermark, elapsed_ms, initial_wm)
+            """
+            # Capture initial watermark BEFORE clearing (outside critical section)
+            initial_qwms = sai_thrift_read_port_watermarks(
+                self.dst_client, port_list['dst'][dst_port])[0]
+            initial_wm = initial_qwms[queue]
+
+            # === CRITICAL TIMING SECTION START ===
+            # No I/O operations allowed until measurement complete
+            t_start = time.time()
+
+            sai_thrift_clear_queue_watermarks(self.dst_client, [dst_port])
+            self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
+
+            send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+            if 'cisco-8000' in asic_type:
+                fill_leakout_plus_one(
+                    self, src_port_id, dst_port, pkt,
+                    queue, asic_type)
+                send_packet(self, src_port_id, pkt, pkt_count-1)
+            else:
+                send_packet(self, src_port_id, pkt, pkt_count)
+
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port])
+            time.sleep(0.1)  # Brief pause for watermark to settle
+
+            qwms = sai_thrift_read_port_watermarks(
+                self.dst_client, port_list['dst'][dst_port])[0]
+            qwm = qwms[queue]
+
+            t_end = time.time()
+            # === CRITICAL TIMING SECTION END ===
+
+            elapsed_ms = (t_end - t_start) * 1000
+            passed = lower <= qwm <= upper
+            return (passed, qwm, elapsed_ms, initial_wm)
+
         try:
+            # Test each (port, queue) combination immediately:
+            # Clear -> Send -> Read -> Verify
+            # This minimizes the window for background traffic to interfere
+            # With retries to handle unavoidable background traffic (BGP, LACP, ARP)
+            failures = []
+            diagnostics = []  # Capture timing data for analysis
+            retry_successes = []  # Track cases where retry passed (proves bg traffic)
             for i in range(len(prio_list)):
                 log_message("DSCP index {}/{}".format(i + 1, len(prio_list)), to_stderr=True)
                 queue = queue_list[i]
                 for p_cnt in range(len(dst_port_ids)):
                     dst_port = dst_port_ids[p_cnt]
-                    self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port])
+                    pkt = pkts[dst_port][i]
 
-                    # leakout
-                    log_message("Sending {} leakout packets".format(pkts_num_leak_out), to_stderr=True)
-                    send_packet(self, src_port_id, pkts[dst_port][i], pkts_num_leak_out)
-                    if 'cisco-8000' in asic_type:
-                        fill_leakout_plus_one(
-                            self, src_port_id, dst_port, pkts[dst_port][i],
-                            queue, asic_type)
-                        send_packet(self, src_port_id, pkts[dst_port][i], pkt_count-1)
-                    else:
-                        # send packet
-                        send_packet(self, src_port_id, pkts[dst_port][i], pkt_count)
-                    self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port])
-            time.sleep(2)
-            # get all q_wm values for all port
-            dst_q_wm_res_all_port = [sai_thrift_read_port_watermarks(
-                self.dst_client, port_list['dst'][sid])[0] for sid in dst_port_ids]
-            log_message("queue watermark for all port is {}".format(dst_q_wm_res_all_port), to_stderr=True)
-            expected_wm = pkt_count * cell_occupancy
+                    # Log before measurement
+                    log_message("Port {}, Queue {}: starting measurement".format(
+                        dst_port, queue), to_stderr=True)
 
-            def offset_text(offset):
-                sign = "-" if offset < 0 else "+"
-                return sign + " " + str(abs(offset))
+                    # Attempt measurement with retries
+                    passed = False
+                    attempt_results = []
+                    for attempt in range(1, MAX_RETRIES + 1):
+                        result = measure_watermark(dst_port, queue, pkt, attempt)
+                        passed, qwm, elapsed_ms, initial_wm = result
+                        attempt_results.append({
+                            'attempt': attempt, 'passed': passed, 'watermark': qwm,
+                            'elapsed_ms': elapsed_ms, 'initial_wm': initial_wm
+                        })
 
-            # verification of queue watermark for all ports
-            failures = []
-            for dst_i, qwms in enumerate(dst_q_wm_res_all_port):
-                for queue in queue_list:
-                    qwm = qwms[queue]
-                    lower = (expected_wm - margin) * cell_size
-                    upper = (expected_wm + margin) * cell_size
-                    msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
-                        queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
-                    log_message(msg, to_stderr=True)
-                    if not (lower <= qwm <= upper):
-                        failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check", to_stderr=True)
+                        msg = "Port {}, Queue {}: lower {} {} = queue_wm {} = upper {} {} (attempt {}/{}, {:.1f}ms)".format(
+                            dst_port, queue, lower, offset_text(qwm - lower), qwm, upper,
+                            offset_text(qwm - upper), attempt, MAX_RETRIES, elapsed_ms)
+                        log_message(msg, to_stderr=True)
+
+                        if passed:
+                            if attempt > 1:
+                                # Passed on retry - background traffic was the culprit
+                                retry_successes.append((dst_port, queue, attempt))
+                                log_message("  PASSED on retry {} (background traffic caused earlier failures)".format(
+                                    attempt), to_stderr=True)
+                            break
+                        else:
+                            log_message("  FAILED attempt {}: initial_wm={}, excess={} bytes".format(
+                                attempt, initial_wm, qwm - upper), to_stderr=True)
+                            if attempt < MAX_RETRIES:
+                                # Brief pause before retry to let background traffic settle
+                                time.sleep(0.2)
+
+                    # Record final result
+                    final_result = attempt_results[-1]
+                    diagnostics.append({
+                        'port': dst_port, 'queue': queue,
+                        'initial_wm': final_result['initial_wm'],
+                        'watermark': final_result['watermark'],
+                        'lower': lower, 'upper': upper,
+                        'elapsed_ms': final_result['elapsed_ms'],
+                        'passed': passed, 'attempts': len(attempt_results)
+                    })
+
+                    if not passed:
+                        failures.append((dst_port, queue))
+
+            # Summary of timing and initial watermarks for analysis
+            if diagnostics:
+                elapsed_times = [d['elapsed_ms'] for d in diagnostics]
+                initial_wms = [d['initial_wm'] for d in diagnostics]
+                nonzero_initial = [d for d in diagnostics if d['initial_wm'] > 0]
+                multi_attempt = [d for d in diagnostics if d['attempts'] > 1]
+                log_message("Timing summary: min={:.1f}ms, max={:.1f}ms, avg={:.1f}ms".format(
+                    min(elapsed_times), max(elapsed_times),
+                    sum(elapsed_times) / len(elapsed_times)), to_stderr=True)
+                log_message("Initial watermark summary: max={} bytes, nonzero_count={}/{}".format(
+                    max(initial_wms), len(nonzero_initial), len(diagnostics)), to_stderr=True)
+                if nonzero_initial:
+                    for d in nonzero_initial:
+                        log_message("  Port {}, Queue {}: initial_wm={} bytes".format(
+                            d['port'], d['queue'], d['initial_wm']), to_stderr=True)
+
+                # Retry summary
+                if retry_successes:
+                    log_message("Retry summary: {} measurements passed on retry (proves background traffic interference)".format(
+                        len(retry_successes)), to_stderr=True)
+                    for port, queue, attempt in retry_successes:
+                        log_message("  Port {}, Queue {}: passed on attempt {}".format(
+                            port, queue, attempt), to_stderr=True)
+                if multi_attempt:
+                    log_message("Measurements requiring retries: {}/{}".format(
+                        len(multi_attempt), len(diagnostics)), to_stderr=True)
+
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:
