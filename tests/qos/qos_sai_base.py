@@ -52,7 +52,7 @@ class QosBase:
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
         "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
-        "t0-88-o8c80", "t0-f2-d40u8"
+        "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-f2-d10u8",
@@ -61,7 +61,7 @@ class QosBase:
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -1868,7 +1868,7 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_asic, "lldp", "enabled")
+            updateFeatureState(dst_dut, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)

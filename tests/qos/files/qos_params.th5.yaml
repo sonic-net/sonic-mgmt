@@ -213,7 +213,7 @@ qos_params:
                 lossless_weight: 30
         topo-t0-standalone-256: *topo-t0-standalone
         topo-t0-standalone-32:  *topo-t0-standalone
-        topo-ft2-64:
+        topo-ft2-64: &topo-ft2-64
             800000_5m:
                 hdrm_pool_size:
                     dscps:
@@ -333,6 +333,7 @@ qos_params:
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
                 q7_num_of_pkts: 80
+        topo-ft2-16: *topo-ft2-64
         topo-lt2-p32o64:
             800000_5m:
                 hdrm_pool_size:
@@ -573,7 +574,7 @@ qos_params:
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
                 q7_num_of_pkts: 80
-        topo-t0-f2-d40u8:
+        topo-t0-f2-d40u8: &topo-t0-f2-d40u8
             200000_5m:
                 hdrm_pool_size:
                     dscps:
@@ -879,6 +880,7 @@ qos_params:
                 q5_num_of_pkts: 80
                 q6_num_of_pkts: 80
                 q7_num_of_pkts: 80
+        topo-t0-f2-d40u8-po2vlan: *topo-t0-f2-d40u8
         topo-t1-f2-d10u8:
             400000_300m:
                 hdrm_pool_size:
