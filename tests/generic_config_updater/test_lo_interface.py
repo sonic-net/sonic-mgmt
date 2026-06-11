@@ -385,6 +385,7 @@ def test_lo_interface_tc1_suite(duthosts, rand_one_dut_front_end_hostname, cfg_f
     lo_interface_tc1_remove(duthost, lo_intf)
 
 
+@pytest.mark.enable_monit_refresh
 def test_lo_interface_tc2_vrf_change(duthosts, rand_one_dut_front_end_hostname, lo_intf):
     """ Replace lo interface vrf
 
