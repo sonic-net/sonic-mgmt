@@ -152,7 +152,7 @@ Leak-sensor tests run only on liquid-cooled systems. A module-scoped autouse fix
 
 ### Platform API Tests
 
-**File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`, `tests/platform_tests/api/test_switch_host_module.py`
+**File**: `tests/platform_tests/api/test_thermal_leak_sensor.py`, `tests/platform_tests/api/test_liquid_cooling_leakage.py`, `tests/platform_tests/api/test_switch_host_module.py`
 
 These tests use the `platform_api_conn` fixture, which is an HTTP connection to the `platform_api_server` running inside the `pmon` docker. Each API call is dispatched as an HTTP request to the server, which invokes the vendor platform implementation and returns the result. No direct shell or redis access is used in this section.
 
@@ -212,6 +212,20 @@ Verify `LeakSensorProfileBase` methods (`get_type()`, `get_leak_max_minor_durati
 - `get_profile_type()` returns a non-empty string for every sensor
 - `get_leak_max_minor_duration_sec()` returns a positive int/float or None
 - `get_all_profiles()` returns a list of profile objects (when supported)
+
+---
+
+#### Additional Coverage: test_liquid_cooling_leakage.py
+
+**File**: `tests/platform_tests/api/test_liquid_cooling_leakage.py`
+
+This module is also part of the BMC liquid-cooling API scope. It validates the same leak-sensor domain through `LiquidCoolingBase`/`LeakageSensorBase` entry points with:
+- `test_get_name`
+- `test_is_leak`
+- `test_get_leak_sensor_status`
+- `test_get_all_leak_sensors`
+
+It complements Test Cases #1-#3 by covering aggregate leak-sensor API behavior on liquid-cooled BMC platforms.
 
 ---
 
