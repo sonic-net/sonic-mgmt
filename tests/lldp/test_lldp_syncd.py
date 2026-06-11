@@ -2,6 +2,7 @@
 # Test plan in docs/testplan/LLDP-syncd-test-plan.md
 import pytest
 import json
+import time
 from tests.common.helpers.sonic_db import SonicDbCli
 import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
