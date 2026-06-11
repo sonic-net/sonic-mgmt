@@ -43,6 +43,7 @@ all:
           - t2
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
+          - t2-single-node-min
           - m1-48
           - m1-44
           - m1-108
@@ -89,6 +90,7 @@ all:
         vlab-t2-1-1:
         vlab-t2-1-2:
         vlab-t2-1-sup:
+        vlab-ut2:
         vlab-c-02:
         vlab-vpp-01:
         vlab-vpp-02:
@@ -287,6 +289,18 @@ all:
           card_type: supervisor
           slot_num: slot0
           switch_type: dummy-sup
+        vlab-ut2:
+          ansible_host: 10.250.0.150
+          ansible_hostv6: fec0::ffff:afa:16
+          type: kvm
+          hwsku: Force10-S7000
+          switch_type: voq
+          num_asics: 1
+          card_type: ut2
+          serial_port: 9050
+          switchids: [0]
+          ansible_password: password
+          ansible_user: admin
         vlab-09:
           ansible_host: 10.250.0.115
           ansible_hostv6: fec0::ffff:afb:1

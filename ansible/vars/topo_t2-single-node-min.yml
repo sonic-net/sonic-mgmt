@@ -19,7 +19,7 @@ topology:
       vm_offset: 3
     VM07LT2:
       vlans:
-        - 34
+        - 31
       vm_offset: 4
 
   DUT:
