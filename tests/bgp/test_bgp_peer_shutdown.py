@@ -7,6 +7,7 @@ import time
 import pytest
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.layers.l2 import CookedLinux
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.errors import RunAnsibleModuleFail
@@ -16,7 +17,7 @@ from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
 ]
 
 TEST_ITERATIONS = 5
@@ -46,6 +47,10 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
 
     dut_type = ""
     for k, v in list(mg_facts["minigraph_devices"].items()):
@@ -56,6 +61,18 @@ def common_setup_teardown(
         neigh_type = "LeafRouter"
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -74,7 +91,7 @@ def common_setup_teardown(
             ptfhost,
             "pseudoswitch0",
             conn0["neighbor_addr"].split("/")[0],
-            dut_asn if dut_type == "FabricSpineRouter" else NEIGHBOR_ASN0,
+            NEIGHBOR_ASN0,
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
@@ -82,10 +99,13 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         )
     )
 
-    yield bgp_neighbor
+    yield bgp_neighbor, use_vtysh
 
     # Cleanup suppress-fib-pending config
     delete_tacacs_json = [
@@ -127,11 +147,20 @@ def is_neighbor_session_established(duthost, neighbor):
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
-    """Get bgp notification packets from pcap file."""
+    """Get incoming bgp notification packets from pcap file.
+
+    When tcpdump captures on the 'any' interface with LINUX_SLL link type,
+    each packet has a CookedLinux header with a pkttype field indicating
+    direction. Filter out outgoing packets (pkttype == 4, 'sent-by-us')
+    so only incoming notifications are validated.
+    """
     ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+        lfilter=lambda p: (ip_ver in p and
+                           bgp.BGPHeader in p and
+                           p[bgp.BGPHeader].type == 3 and
+                           not (CookedLinux in p and p[CookedLinux].pkttype == 4)),
     )
     return packets
 
@@ -147,7 +176,7 @@ def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time
         # error_code 6: Cease, error_subcode 3: Peer De-configured. References: RFC 4271
         return (bgp_fields["error_code"] == 6 and
                 bgp_fields["error_subcode"] == 3 and
-                float(packet.time) < bgp_session_down_time)
+                (bgp_session_down_time is None or float(packet.time) < bgp_session_down_time))
     else:
         return False
 
@@ -195,7 +224,7 @@ def test_bgp_peer_shutdown(
     tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    n0 = common_setup_teardown
+    n0, use_vtysh = common_setup_teardown
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     announced_route = {"prefix": "fc00:10::/64", "nexthop": n0.ip} if is_v6_topo else \
                       {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
@@ -240,7 +269,11 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)
+                if not use_vtysh:
+                    bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)  # noqa: E501
+                else:
+                    # There is no syslog if use vtysh to manage BGP neigh
+                    bgp_session_down_time = None
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
                                               is_v6_topo):
                     pytest.fail("BGP notification packet does not match expected values")

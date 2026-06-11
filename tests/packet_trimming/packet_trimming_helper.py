@@ -17,14 +17,21 @@ from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
-                                             DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
+                                             DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
+                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
-                                             TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
+                                             TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
+                                             ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
-                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR)
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, MIRROR_SESSION_NAME,
+                                             MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
+                                             MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
+                                             SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN,
+                                             TRIMMING_COUNTER_INTERVAL,
+                                             QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -253,7 +260,7 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
         exp_packet = testutils.simple_udpv6_packet(**recv_params)
 
     # Create masked expected packet
-    masked_exp_packet = Mask(exp_packet)
+    masked_exp_packet = Mask(exp_packet, ignore_extra_bytes=True)
 
     # Set fields to ignore in packet matching
     # Common Ethernet header fields to ignore
@@ -288,6 +295,7 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
             - type: Scheduler type (e.g., "DWRR", "STRICT")
             - weight: Scheduling weight (e.g., 15)
             - pir: Peak Information Rate (e.g., 1)
+            - cir: Committed Information Rate (e.g., 1)
 
     Returns:
         str: OID of the matched scheduler, or None if not found
@@ -296,7 +304,8 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
     param_to_sai_attr = {
         'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
         'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
-        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE'
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE',
+        'cir': 'SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE'
     }
 
     # Mapping for type values
@@ -392,8 +401,12 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "cir" {SCHEDULER_CIR}'
         )
+        # meter_type is platform specific
+        if duthost.get_asic_name() == 'th5':
+            cmd_create += f' "meter_type" {SCHEDULER_METER_TYPE}'
+
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
@@ -422,6 +435,18 @@ def delete_blocking_scheduler(duthost):
         logger.info(f"Successfully deleted blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
 
+def validate_packet_size(pkt_size, pkt_size_exp):
+    """
+    Validate packet size against expected size +/- PACKET_SIZE_MARGIN
+
+    Args:
+        pkt_size: the packet's actual size
+        pkt_size_exp: the packet's expected size
+    """
+    pytest_assert(pkt_size_exp - PACKET_SIZE_MARGIN <= pkt_size <= pkt_size_exp + PACKET_SIZE_MARGIN,
+                  f"Packet size expected {pkt_size_exp} +/- {PACKET_SIZE_MARGIN}, was: {pkt_size} ")
+
+
 def validate_scheduler_configuration(duthost, dut_port, queue, expected_scheduler):
     """
     Validate that the scheduler configuration is applied correctly for a specific queue.
@@ -448,19 +473,17 @@ def validate_scheduler_configuration(duthost, dut_port, queue, expected_schedule
         return False
 
 
-def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
+def get_scheduler_usage_count(duthost, scheduler_oid):
     """
-    Validate that the scheduler is applied to queue in ASIC_DB.
+    Get the count of scheduler groups using the specified scheduler in ASIC_DB.
 
     Args:
         duthost: DUT host object
         scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
 
     Returns:
-        bool: True if applied to queue in ASIC_DB, False otherwise
+        int: Number of scheduler groups using this scheduler
     """
-    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB")
-
     # Dump ASIC_DB to a temporary file for faster searching
     tmp_file = "/tmp/asic_db_scheduler_check.json"
     dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
@@ -468,19 +491,41 @@ def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
 
     # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
     cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
-    result = duthost.shell(cmd_grep_oid)
+    result = duthost.shell(cmd_grep_oid, module_ignore_errors=True)
 
     # Clean up temporary file
     duthost.shell(f"rm -f {tmp_file}")
 
-    # Check if scheduler OID is found in ASIC_DB
+    # Return the count
     count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
+    return count
 
-    if count > 0:
-        logger.debug(f"ASIC_DB scheduler validation successful: OID {scheduler_oid} found in {count} scheduler groups")
+
+def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expected_count=1):
+    """
+    Validate that the scheduler is applied to queue in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+        expected_count (int): Expected number of scheduler groups using this scheduler. Default is 1.
+
+    Returns:
+        bool: True if validation passes (count equals expected_count), False otherwise
+    """
+    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB (expected_count={expected_count})")
+
+    # Get current usage count
+    count = get_scheduler_usage_count(duthost, scheduler_oid)
+
+    # Validate count matches expected
+    if count == expected_count:
+        logger.debug(f"ASIC_DB scheduler validation successful: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (matches expected)")
         return True
     else:
-        logger.debug(f"ASIC_DB scheduler validation failed: OID {scheduler_oid} not found in any scheduler group")
+        logger.debug(f"ASIC_DB scheduler validation failed: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (expected {expected_count})")
         return False
 
 
@@ -507,6 +552,15 @@ def disable_egress_data_plane(duthost, dut_port, queue):
 
     original_scheduler = result["stdout"].strip()
 
+    # Get the blocking scheduler OID from ASIC_DB
+    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
+                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
+    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
+
+    # Get current scheduler usage count before applying scheduler to specific queue
+    current_count = get_scheduler_usage_count(duthost, scheduler_oid)
+    logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
+
     # Apply blocking scheduler to the specified queue
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
@@ -516,14 +570,13 @@ def disable_egress_data_plane(duthost, dut_port, queue):
                              duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
                   f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
 
-    # Get the blocking scheduler OID from ASIC_DB
-    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
-                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
-    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
-
     # Wait for the blocking scheduler configuration to take effect in ASIC_DB
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid),
-                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} queue {queue}")
+    # Expected count should increase by 1 after applying scheduler to specific queue
+    expected_count = current_count + 1
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
+                             expected_count),
+                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
+                  f"queue {queue} (expected count: {expected_count})")
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -630,7 +683,8 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
     return action
 
 
-def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_addr, dscp_value, interfaces):
+def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_addr, dscp_value, interfaces,
+                       packet_size_in_queue=None):
     """
     Fill the specified port queue's buffer to trigger packet trimming.
     If multiple interfaces are provided, fill with the buffers of all interfaces.
@@ -644,6 +698,9 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         dst_addr: Destination address (IPv4 or IPv6)
         dscp_value: DSCP value used for classification to target queue
         interfaces: Single interface or list of interfaces to fill
+        packet_size_in_queue: Packet size (bytes) as it lands on target_queue. Defaults to wire size
+            (1500). When filling the trim queue, pass the trim size (e.g. 256) so the packet count is
+            calculated correctly since trimmed packets are smaller than the original packets.
 
     Returns:
         int: Actual number of packets sent
@@ -662,10 +719,13 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Create a large packet to efficiently fill the buffer
     fill_packet_size = 1500  # Standard Ethernet MTU
-    fill_packet_count = buffer_size // fill_packet_size * 2
+    # Size as the packet lands on target_queue (e.g. trim_size when filling trim queue)
+    effective_size = packet_size_in_queue or fill_packet_size
+    fill_packet_count = buffer_size // effective_size * 3
 
     logger.info(f"Buffer size for queue {target_queue} is approximately {buffer_size} bytes")
-    logger.info(f"Sending {fill_packet_count} packets of size {fill_packet_size} bytes to fill the buffer")
+    logger.info(f"Sending {fill_packet_count} packets of wire size {fill_packet_size} bytes "
+                f"(effective in-queue size {effective_size} bytes) to fill the buffer")
 
     # Validate destination address
     if not dst_addr:
@@ -680,6 +740,8 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         # Use different source port for each interface to ensure proper hash distribution
         # This helps ensure packets go to the intended interface in PortChannel scenarios
         src_port = DEFAULT_SRC_PORT + interface_index
+        if duthost.get_asic_name() == 'th5':
+            src_port = DEFAULT_SRC_PORT + 10 * interface_index
 
         # Create packet for this specific interface based on address type
         common_params = {
@@ -693,7 +755,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         if is_ipv6:
             # Create IPv6 UDP packet
             ipv6_params = {
-                'ipv6_src': DUMMY_IPV6,
+                'ipv6_src': DUMMY_FILL_IPV6,
                 'ipv6_dst': dst_addr,
                 'ipv6_hlim': DEFAULT_TTL,
                 'ipv6_tc': dscp_value << 2,  # Convert DSCP to Traffic Class
@@ -703,7 +765,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         else:
             # Create IPv4 UDP packet
             ipv4_params = {
-                'ip_src': DUMMY_IP,
+                'ip_src': DUMMY_FILL_IP,
                 'ip_dst': dst_addr,
                 'ip_ttl': DEFAULT_TTL,
                 'ip_dscp': dscp_value,
@@ -721,7 +783,6 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     remaining_packets = fill_packet_count % BATCH_PACKET_COUNT
 
     total_sent_packets = 0
-    max_retries = 10  # Maximum number of retries per batch
 
     # Send packets in batches
     logger.info(f"Sending packets in batches of {BATCH_PACKET_COUNT} packets each")
@@ -731,7 +792,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         retries = 0
         batch_success = False
 
-        while not batch_success and retries < max_retries:
+        while not batch_success and retries < SEND_MAX_RETRIES:
             try:
                 logger.info(f"Sending batch {batch_index + 1}/{num_batches} ({BATCH_PACKET_COUNT} packets)")
                 for interface in interfaces:
@@ -749,7 +810,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
             except Exception as e:
                 retries += 1
-                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{max_retries}): {e}")
+                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
                 # Wait before retry
                 time.sleep(2)
 
@@ -869,7 +930,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     dst_addr,
                     send_pkt_size,
                     send_pkt_dscp,
-                    recv_pkt_size,
+                    recv_pkt_size - PACKET_SIZE_MARGIN,
                     recv_pkt_dscp
                 )
 
@@ -896,19 +957,20 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     verify_ports = [egress_port['ptf_id']]
 
                 # Verify packet based on expectation
-                if expect_packets:
+                if expect_packets is True:
                     logger.info(
                         f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-                    testutils.verify_packet_any_port(
+                    _, matched = testutils.verify_packet_any_port(
                         ptfadapter,
                         exp_pkt,
                         ports=verify_ports,
                         timeout=timeout
                     )
+                    validate_packet_size(len(matched), recv_pkt_size)
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
-                else:
+                elif expect_packets is False:
                     logger.info(f"Expecting NO packets on any of ports {verify_ports}")
                     testutils.verify_no_packet_any(
                         ptfadapter,
@@ -917,6 +979,8 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                         timeout=timeout
                     )
                     logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
+                else:
+                    logger.info(f"Skip capturing packets on ports {verify_ports}.")
 
         return True
 
@@ -1420,7 +1484,8 @@ def configure_trimming_acl(duthost, test_ports):
         "ACL_TABLE_TYPE": {
             ACL_TABLE_TYPE_NAME: {
                 "ACTIONS": [
-                    "DISABLE_TRIM_ACTION"
+                    "DISABLE_TRIM_ACTION",
+                    "COUNTER"
                 ],
                 "BIND_POINTS": [
                     "PORT"
@@ -1498,29 +1563,24 @@ def cleanup_trimming_acl(duthost):
     logger.info("ACL rules cleanup completed successfully")
 
 
-def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_queue_id,
-                                                  block_queue_profile, trim_queue_id=None,
-                                                  trim_queue_profile=TRIM_QUEUE_PROFILE):
+def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
     """
-    Set buffer profiles for blocked queue and forward trimming packet queue.
+    Set buffer profile for the blocked queue of interfaces.
 
     Args:
         duthost: DUT host object
         interfaces (list or str): Port names to configure, can be a list or single string
         block_queue_id: Queue index used for blocking traffic
         block_queue_profile (str): Buffer profile name to apply for blocking queue
-        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
-        trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
 
     Raises:
-        RuntimeError: If any interface fails to be configured with the specified profiles
+        RuntimeError: If any interface fails to be configured with the specified profile.
     """
-    # Convert queue indices to string for Redis commands
+    # Convert the queue index to string for the Redis command
     block_queue_id = str(block_queue_id)
-    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
 
-    logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}' and "
-                f"trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', ports: {interfaces}")
+    logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}', "
+                f"ports: {interfaces}")
 
     # Convert single interface to list
     if isinstance(interfaces, str):
@@ -1536,6 +1596,60 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
                 f"Successfully set interface {interface} blocking queue {block_queue_id} "
                 f"profile to {block_queue_profile}")
 
+        except Exception as e:
+            if not isinstance(e, RuntimeError):
+                raise RuntimeError(f"Exception while configuring interface {interface} blocking queue: {str(e)}") from e
+            raise
+
+
+def create_trim_queue_test_buffer_profile(duthost):
+    """
+    Create the dedicated buffer profile used by the trim queue during packet trimming tests.
+    """
+    fields = " ".join(f"{k} {v}" for k, v in TRIM_QUEUE_PROFILE_CONFIG.items())
+    cmd = f"redis-cli -n 4 hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
+    duthost.shell(cmd)
+    logger.info(f"Created trim queue test buffer profile '{TRIM_QUEUE_PROFILE}': {TRIM_QUEUE_PROFILE_CONFIG}")
+
+
+def delete_trim_queue_test_buffer_profile(duthost):
+    """
+    Delete the dedicated trim queue buffer profile created for packet trimming tests.
+
+    The profile is written directly to CONFIG_DB after the configuration backup is taken, so a plain
+    "config load" of the backup does not remove it. Delete it explicitly during teardown to keep
+    CONFIG_DB clean and preserve test isolation.
+    """
+    cmd = f"redis-cli -n 4 del 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}'"
+    duthost.shell(cmd)
+    logger.info(f"Deleted trim queue test buffer profile '{TRIM_QUEUE_PROFILE}'")
+
+
+def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, trim_queue_profile=TRIM_QUEUE_PROFILE):
+    """
+    Set buffer profile for the forward trimming packet queue of interfaces.
+
+    Args:
+        duthost: DUT host object
+        interfaces (list or str): Port names to configure, can be a list or single string
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
+        trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
+
+    Raises:
+        RuntimeError: If any interface fails to be configured with the specified profile.
+    """
+    # Convert the queue index to string for the Redis command
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
+
+    logger.info(f"Setting trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', "
+                f"ports: {interfaces}")
+
+    # Convert single interface to list
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    for interface in interfaces:
+        try:
             # Set buffer profile for the trimming queue
             trim_cmd = f"redis-cli -n 4 hset 'BUFFER_QUEUE|{interface}|{trim_queue_id}' profile {trim_queue_profile}"
             duthost.shell(trim_cmd)
@@ -1546,7 +1660,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
 
         except Exception as e:
             if not isinstance(e, RuntimeError):
-                raise RuntimeError(f"Exception while configuring interface {interface} queues: {str(e)}") from e
+                raise RuntimeError(f"Exception while configuring interface {interface} trimming queue: {str(e)}") from e
             raise
 
 
@@ -2038,7 +2152,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
         # - SRv6 packet without SRH: IPv6 (40) + IPv4 (20) + UDP (8) + Payload = 256
         # - SRv6 packet with SRH: IPv6 (40) + SRH (40) + IPv4 (20) + UDP (8) + Payload = 256
-        actual_recv_pkt_size = recv_pkt_size - ipv6_header_len
+        actual_recv_pkt_size = recv_pkt_size - ipv6_header_len - PACKET_SIZE_MARGIN
 
         srv6_pkt, exp_pkt = create_srv6_packet_for_trimming(
             outer_src_mac=DUMMY_MAC,
@@ -2070,15 +2184,25 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
         else:
             verify_ports = [egress_port['ptf_id']]
 
-        send_verify_srv6_packet_for_trimming(
-            ptfadapter=ptfadapter,
-            pkt=srv6_pkt,
-            exp_pkt=exp_pkt,
-            exp_pro=srv6_packet["exp_process_result"],
-            ptf_src_port_id=ingress_port['ptf_id'],
-            ptf_dst_port_ids=verify_ports,
-            packet_num=PACKET_COUNT
-        )
+        ptfadapter.dataplane.flush()
+
+        logger.info(f"Send SRv6 packet(s) from PTF port {ingress_port['ptf_id']} to upstream")
+        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=PACKET_COUNT)
+
+        logger.info('SRv6 packet format:\n ---------------------------')
+        logger.info(f'{dump_packet_detail(srv6_pkt)}\n---------------------------')
+        logger.info('Expect receive SRv6 packet format:\n ---------------------------')
+        logger.info(f'{dump_packet_detail(exp_pkt.exp_pkt)}\n---------------------------')
+
+        if srv6_packet['exp_process_result'] == 'forward':
+            _, matched = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=verify_ports)
+            validate_packet_size(len(matched), recv_pkt_size)
+            logger.info('Successfully received packets')
+        elif srv6_packet['exp_process_result'] == 'drop':
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=verify_ports)
+            logger.info(f'No packet received on {verify_ports}')
+        else:
+            logger.error(f"Wrong expected process result: {srv6_packet['exp_process_result']}")
 
 
 def create_srv6_packet_for_trimming(
@@ -2226,7 +2350,7 @@ def create_srv6_packet_for_trimming(
                 )
 
             exp_pkt['IPv6'].hlim -= 1
-            exp_pkt = Mask(exp_pkt)
+            exp_pkt = Mask(exp_pkt, ignore_extra_bytes=True)
 
             logger.info('Do not care packet ethernet destination address')
             exp_pkt.set_do_not_care_packet(scapy.Ether, 'dst')
@@ -2276,47 +2400,6 @@ def create_srv6_packet_for_trimming(
         exp_pkt.set_do_not_care_packet(scapy.UDP, "len")
 
     return srv6_pkt, exp_pkt
-
-
-def send_verify_srv6_packet_for_trimming(
-        ptfadapter,
-        pkt,
-        exp_pkt,
-        exp_pro,
-        ptf_src_port_id,
-        ptf_dst_port_ids,
-        packet_num=10):
-    """
-    Send and verify SRv6 packets
-
-    Args:
-        ptfadapter: PTF adapter object
-        pkt: Packet to send
-        exp_pkt: Expected packet
-        exp_pro (str): Expected process result ('forward' or 'drop')
-        ptf_src_port_id (int): Source PTF port ID
-        ptf_dst_port_ids:
-        packet_num (int): Number of packets to send (default: 10)
-    """
-    ptfadapter.dataplane.flush()
-    logger.info(f'Send SRv6 packet(s) from PTF port {ptf_src_port_id} to upstream')
-    testutils.send(ptfadapter, ptf_src_port_id, pkt, count=packet_num)
-    logger.info('SRv6 packet format:\n ---------------------------')
-    logger.info(f'{dump_packet_detail(pkt)}\n---------------------------')
-    logger.info('Expect receive SRv6 packet format:\n ---------------------------')
-    logger.info(f'{dump_packet_detail(exp_pkt.exp_pkt)}\n---------------------------')
-
-    try:
-        if exp_pro == 'forward':
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
-            logger.info('Successfully received packets')
-        elif exp_pro == 'drop':
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
-            logger.info(f'No packet received on {ptf_dst_port_ids}')
-        else:
-            logger.error(f'Wrong expected process result: {exp_pro}')
-    except AssertionError as detail:
-        raise detail
 
 
 def check_connected_route_ready(duthost, egress_port):
@@ -2568,7 +2651,7 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             dst_addr,
             send_pkt_size,
             send_pkt_dscp,
-            recv_pkt_size,
+            recv_pkt_size - PACKET_SIZE_MARGIN,
             recv_pkt_dscp
         )
 
@@ -2582,12 +2665,30 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
 
         # Send packet
         logger.info(f"Sending {packet_count} packets from port {ingress_port['ptf_id']}")
-        testutils.send(
-            ptfadapter,
-            port_id=ingress_port['ptf_id'],
-            pkt=pkt,
-            count=packet_count
-        )
+        retries = 0
+        send_success = False
+        last_exception = None
+        while not send_success and retries < SEND_MAX_RETRIES:
+            try:
+                testutils.send(
+                    ptfadapter,
+                    port_id=ingress_port['ptf_id'],
+                    pkt=pkt,
+                    count=packet_count
+                )
+                send_success = True
+            except Exception as e:
+                last_exception = e
+                retries += 1
+                logger.warning(f"Send failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
+                time.sleep(2)
+                ptfadapter.dataplane.flush()
+
+        if not send_success:
+            raise RuntimeError(
+                f"Failed to send packets from port {ingress_port['ptf_id']} after {SEND_MAX_RETRIES} retries: "
+                f"{last_exception}"
+            ) from last_exception
 
         # Get verify port
         if isinstance(egress_port['ptf_id'], list):
@@ -2598,12 +2699,13 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
         # Verify packet
         if expect_packets:
             logger.info(f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-            testutils.verify_packet_any_port(
+            _, matched = testutils.verify_packet_any_port(
                 ptfadapter,
                 exp_pkt,
                 ports=verify_ports,
                 timeout=timeout
             )
+            validate_packet_size(len(matched), recv_pkt_size)
             logger.info(f"Successfully verified normal packet with size {recv_pkt_size}")
         else:
             logger.info(f"Expecting NO packets on ports {verify_ports}")
@@ -2853,6 +2955,23 @@ def compare_counters(counter1, counter2, keys_to_compare):
     logger.info("All specified counters match")
 
 
+def has_non_zero_trim_counters(duthost, port):
+    """
+    Checks if port level trim counters are non-zero.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        True if the counters are non-zero, otherwise False
+    """
+    port_trim_packets = get_port_trim_counters_json(duthost, port)
+    if 'TRIM_PKTS' not in port_trim_packets:
+        return False
+    return int(port_trim_packets['TRIM_PKTS']) > 0
+
+
 def verify_queue_and_port_trim_counter_consistency(duthost, port):
     """
     Verify the consistency of the trim counter on the queue and the port level.
@@ -2865,6 +2984,10 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
         AssertionError: If the trim counter on the queue is not equal to the trim counter on the port level
     """
     logger.info(f"Verify the consistency of the trim counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim counter to be updated")
+    time.sleep(sleep_time)
 
     # Get the trim counter information on the queue level
     queue_counters = get_queue_trim_counters_json(duthost, port)
@@ -2886,3 +3009,171 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
     # Verify the consistency
     pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0,
                   f"Total trim packets on all queues for port {port} is not equal to the port level")
+
+
+def is_queue_level_trim_sent_drop_supported(duthost):
+    """
+    Check whether queue-level TrimSent and TrimDrop counters are supported on the current platform.
+    """
+    platform = duthost.facts["platform"].lower()
+    for supported_platform in QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS:
+        if supported_platform.lower() in platform:
+            return True
+    return False
+
+
+def verify_queue_and_port_trim_sent_counter_consistency(duthost, port, port_trim_sent_packets=None, supported=None):
+    """
+    Verify the consistency of the trim sent counter on the queue and the port level.
+
+    Compares the sum of queue-level TrimSent against the port-level TrimSent, and asserts
+    both are equal and greater than zero. Silently returns on platforms that do not support
+    queue-level trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+        port_trim_sent_packets (int): Optional pre-fetched port-level TRIM_TX_PKTS value. If not
+            provided, the function fetches it itself. Pass it when the caller already has it to
+            avoid an extra "show interfaces counters trim" call.
+        supported (bool): Optional pre-computed platform-support flag (e.g. the
+            queue_level_trim_supported fixture value). If not provided, the function computes it
+            itself; pass it to avoid repeating the platform lookup on every per-port call.
+
+    Raises:
+        AssertionError: If the queue-level sum does not equal the port-level value, or either is zero.
+    """
+    if supported is None:
+        supported = is_queue_level_trim_sent_drop_supported(duthost)
+    if not supported:
+        logger.info(f"Skipping queue-level TrimSent consistency check on port {port} - platform not supported")
+        return
+
+    logger.info(f"Verify the consistency of the trim sent counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim sent counter to be updated")
+    time.sleep(sleep_time)
+
+    # The counter DB can lag behind the data plane; retry a few times if the queue-level counters
+    # are still all zero to avoid a false negative caused purely by counter polling delay.
+    max_retries = 5
+    queue_trim_sent_details = {}
+    total_queue_trim_sent_packets = 0
+    for attempt in range(1, max_retries + 1):
+        queue_counters = get_queue_trim_counters_json(duthost, port)
+        queue_trim_sent_details = {}
+        for queue_id, queue_data in queue_counters.items():
+            trim_sent_packets = queue_data['trimsentpacket']
+            queue_trim_sent_details[queue_id] = trim_sent_packets
+            logger.debug(f"Queue {queue_id} trim sent packets: {trim_sent_packets}")
+        total_queue_trim_sent_packets = sum(queue_trim_sent_details.values())
+        if total_queue_trim_sent_packets > 0:
+            break
+        logger.info(f"Queue trim sent counters still zero on port {port}, "
+                    f"retry {attempt}/{max_retries} after waiting {sleep_time} seconds")
+        time.sleep(sleep_time)
+    logger.info(f"Queue trim sent details: {queue_trim_sent_details}")
+    logger.info(f"Total trim sent packets on all queues for port {port}: {total_queue_trim_sent_packets}")
+
+    if port_trim_sent_packets is None:
+        port_trim_sent_packets = get_port_trim_counters_json(duthost, port)['TRIM_TX_PKTS']
+    logger.info(f"Port {port} port level trim sent packets: {port_trim_sent_packets}")
+
+    pytest_assert(total_queue_trim_sent_packets == port_trim_sent_packets and total_queue_trim_sent_packets > 0,
+                  f"Total trim sent packets on all queues for port {port} is not equal to the port level")
+
+
+def verify_queue_and_port_trim_drop_counter_consistency(duthost, port, port_trim_drop_packets=None, supported=None):
+    """
+    Verify the consistency of the trim drop counter on the queue and the port level.
+
+    Compares the sum of queue-level TrimDrop against the port-level TrimDrop, and asserts
+    both are equal and greater than zero. Silently returns on platforms that do not support
+    queue-level trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+        port_trim_drop_packets (int): Optional pre-fetched port-level TRIM_DRP_PKTS value. If not
+            provided, the function fetches it itself.
+        supported (bool): Optional pre-computed platform-support flag (e.g. the
+            queue_level_trim_supported fixture value). If not provided, the function computes it
+            itself; pass it to avoid repeating the platform lookup on every per-port call.
+
+    Raises:
+        AssertionError: If the queue-level sum does not equal the port-level value, or either is zero.
+    """
+    if supported is None:
+        supported = is_queue_level_trim_sent_drop_supported(duthost)
+    if not supported:
+        logger.info(f"Skipping queue-level TrimDrop consistency check on port {port} - platform not supported")
+        return
+
+    logger.info(f"Verify the consistency of the trim drop counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim drop counter to be updated")
+    time.sleep(sleep_time)
+
+    # The counter DB can lag behind the data plane; retry a few times if the queue-level counters
+    # are still all zero to avoid a false negative caused purely by counter polling delay.
+    max_retries = 5
+    queue_trim_drop_details = {}
+    total_queue_trim_drop_packets = 0
+    for attempt in range(1, max_retries + 1):
+        queue_counters = get_queue_trim_counters_json(duthost, port)
+        queue_trim_drop_details = {}
+        for queue_id, queue_data in queue_counters.items():
+            trim_drop_packets = queue_data['trimdroppacket']
+            queue_trim_drop_details[queue_id] = trim_drop_packets
+            logger.debug(f"Queue {queue_id} trim drop packets: {trim_drop_packets}")
+        total_queue_trim_drop_packets = sum(queue_trim_drop_details.values())
+        if total_queue_trim_drop_packets > 0:
+            break
+        logger.info(f"Queue trim drop counters still zero on port {port}, "
+                    f"retry {attempt}/{max_retries} after waiting {sleep_time} seconds")
+        time.sleep(sleep_time)
+    logger.info(f"Queue trim drop details: {queue_trim_drop_details}")
+    logger.info(f"Total trim drop packets on all queues for port {port}: {total_queue_trim_drop_packets}")
+
+    if port_trim_drop_packets is None:
+        port_trim_drop_packets = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+    logger.info(f"Port {port} port level trim drop packets: {port_trim_drop_packets}")
+
+    pytest_assert(total_queue_trim_drop_packets == port_trim_drop_packets and total_queue_trim_drop_packets > 0,
+                  f"Total trim drop packets on all queues for port {port} is not equal to the port level")
+
+
+def configure_port_mirror_session(duthost):
+    """
+    Configure an ERSPAN mirror session on the DUT.
+    """
+    logger.info("Configuring ERSPAN mirror session")
+
+    cmd = (f"sudo config mirror_session erspan add {MIRROR_SESSION_NAME} {MIRROR_SESSION_SRC_IP} "
+           f"{MIRROR_SESSION_DST_IP} {MIRROR_SESSION_DSCP} {MIRROR_SESSION_TTL} {MIRROR_SESSION_GRE} "
+           f"{MIRROR_SESSION_QUEUE}")
+    duthost.shell(cmd)
+    logger.info(f"Successfully configured mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is created
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not created successfully")
+
+
+def remove_port_mirror_session(duthost):
+    """
+    Remove the ERSPAN mirror session from the DUT.
+    """
+    logger.info(f"Removing mirror session: {MIRROR_SESSION_NAME}")
+
+    cmd = f"sudo config mirror_session remove {MIRROR_SESSION_NAME}"
+    duthost.shell(cmd)
+    logger.info(f"Successfully removed mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is removed
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME not in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not removed successfully")

@@ -22,6 +22,7 @@ from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
+MIN_PROCESS_CHECK_TIMEOUT = 180
 MONIT_STABILIZE_MAX_TIME = 500
 OMEM_THRESHOLD_BYTES = 10485760     # 10MB
 cache = FactsCache()
@@ -40,7 +41,8 @@ CHECK_ITEMS = [
     'check_mux_simulator',
     'check_orchagent_usage',
     'check_bfd_up_count',
-    'check_mac_entry_count']
+    'check_mac_entry_count',
+    'check_disk_usage']
 
 __all__ = CHECK_ITEMS
 
@@ -114,7 +116,7 @@ def check_interfaces(duthosts, tbinfo):
         logger.info("Checking interfaces status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         if dut.get_facts().get("modular_chassis"):
             timeout = max(timeout, 600)
         interval = 20
@@ -198,8 +200,8 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
+            res = dut.shell("show ip{} route {}/0".format("" if version == 4 else "v6",
+                            "0.0.0.0" if version == 4 else "::"), module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _restart_bgp(dut):
@@ -218,6 +220,15 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
+
+            def _bgp_facts_ready():
+                try:
+                    return len(dut.bgp_facts(asic_index='all')) > 0
+                except Exception:
+                    return False
+
+            wait_until(120, 10, 0, _bgp_facts_ready)
+
             try:
                 bgp_facts = dut.bgp_facts(asic_index='all')
             except Exception as e:
@@ -313,7 +324,7 @@ def check_bgp(duthosts, tbinfo):
         if (check_result['failed']):
             # try restart bgp and verify again
             _restart_bgp(dut)
-            wait_until(60, interval, 0, _check_bgp_status_helper)
+            wait_until(300, interval, 0, _check_bgp_status_helper)
             if (check_result['failed']):
                 for a_result in list(check_result.keys()):
                     if a_result != 'failed':
@@ -769,7 +780,13 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 duthosts.shell("config mux mode auto all")
 
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
-            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+            try:
+                duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart linkmgrd %s" % (str(e)))
+                return check_passed
+
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:
@@ -908,7 +925,7 @@ def check_processes(duthosts):
         logger.info("Checking process status on %s..." % dut.hostname)
 
         networking_uptime = dut.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 0)
+        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), MIN_PROCESS_CHECK_TIMEOUT)
         interval = 20
         logger.info("networking_uptime=%d seconds, timeout=%d seconds, interval=%d seconds" %
                     (networking_uptime, timeout, interval))
@@ -1131,6 +1148,13 @@ def check_ipv4_mgmt(duthosts, localhost):
             results[dut.hostname] = check_result
             return
 
+        # Skip IPv4 check if mgmt_ip is an IPv6 address (IPv6-only management mode)
+        if is_ipv6_address(dut.mgmt_ip):
+            logger.info("%s is using IPv6 management address (%s). Skip the ipv4 mgmt reachability check."
+                        % (dut.hostname, dut.mgmt_ip))
+            results[dut.hostname] = check_result
+            return
+
         # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
         try:
             shell_result = localhost.shell("ping -c 2 -W 2 " + dut.mgmt_ip)
@@ -1350,6 +1374,80 @@ def check_mac_entry_count(duthosts):
                 executor.submit(_check_mac_entry_count_on_asic, asic, dut, check_result)
 
         logger.info("Done checking MAC entry count on {}".format(dut.hostname))
+        results[dut.hostname] = check_result
+
+    return _check
+
+
+@pytest.fixture(scope="module")
+def check_disk_usage(duthosts):
+    """Check disk usage on DUT. Fails if any partition is above the threshold (default 90%).
+
+    Why 90%: monit monitors disk usage and raises ERR syslog when usage exceeds 90%:
+        ERR monit[1722]: 'var-log' space usage 99.4% matches resource limit [space usage > 90.0%]
+    This monit error will cause loganalyzer to fail ALL subsequent test cases anyway.
+    By catching high disk usage in sanity check, we can:
+    1. Identify which test case increased disk usage
+    2. Kick unhealthy testbeds out of the testplan early
+
+    This is a quick checker (completes in <1s) and does not impact overall sanity check time.
+    """
+
+    DISK_USAGE_THRESHOLD = 90  # percentage - aligned with monit resource limit
+
+    def _check(*args, **kwargs):
+        init_result = {"failed": False, "check_item": "disk_usage"}
+        result = parallel_run(_check_disk_usage_on_dut, args, kwargs, duthosts,
+                              timeout=600, init_result=init_result)
+        return list(result.values())
+
+    @reset_ansible_local_tmp
+    def _check_disk_usage_on_dut(*args, **kwargs):
+        dut = kwargs['node']
+        results = kwargs['results']
+        logger.info("Checking disk usage on %s..." % dut.hostname)
+        check_result = {"failed": False, "check_item": "disk_usage", "host": dut.hostname}
+
+        res = dut.shell("df --output=pcent,target,source", module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.error("Failed to get disk usage on %s: %s" % (dut.hostname, res.get("stderr", "")))
+            check_result["failed"] = True
+            results[dut.hostname] = check_result
+            return
+
+        over_threshold = []
+        for line in res["stdout_lines"][1:]:  # Skip header
+            line = line.strip()
+            if not line:
+                continue
+            # Format: "Use% Mounted on Filesystem" e.g. " 92% /     /dev/sda3"
+            parts = line.split(None, 2)
+            if len(parts) < 2:
+                continue
+            usage_str = parts[0].rstrip('%')
+            try:
+                usage_pct = int(usage_str)
+            except ValueError:
+                continue
+            mount_point = parts[1]
+            filesystem = parts[2] if len(parts) > 2 else ""
+            if usage_pct >= DISK_USAGE_THRESHOLD:
+                over_threshold.append({
+                    "mount": mount_point,
+                    "use_pct": usage_pct,
+                    "filesystem": filesystem
+                })
+
+        if over_threshold:
+            check_result["failed"] = True
+            check_result["over_threshold"] = over_threshold
+            logger.error("Disk usage over %d%% on %s: %s" % (
+                DISK_USAGE_THRESHOLD, dut.hostname,
+                ", ".join(["{} at {}%".format(p["mount"], p["use_pct"]) for p in over_threshold])))
+        else:
+            logger.info("Disk usage OK on %s" % dut.hostname)
+
+        logger.info("Done checking disk usage on %s" % dut.hostname)
         results[dut.hostname] = check_result
 
     return _check

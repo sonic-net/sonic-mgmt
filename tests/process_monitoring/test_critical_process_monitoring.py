@@ -3,6 +3,7 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 202012 and newer images (Supervisor)
 """
 from collections import defaultdict
+import re
 import time
 import logging
 
@@ -10,15 +11,16 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
-from tests.common.constants import KVM_PLATFORM
+from tests.common.vs_data import is_vs_device
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.reboot import wait_for_startup
+from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, kill_process_by_pid
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,39 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+
+# Delay (seconds) between issuing the SysRq kernel reboot and when it fires.
+# Used on multi-ASIC VS: the reboot is scheduled just before the global DB
+# kill so that SSH is still alive when the nohup command is issued, but the
+# kernel reboot fires shortly after the global DB container is stopped.
+MULTI_ASIC_VS_REBOOT_DELAY_SEC = 15
+
+# Critical processes that are listed in the image's per-container critical_processes
+# file but are not actually runnable on BMC topology (BMC image runs a reduced set
+# of SONiC subsystems, e.g. no SWSS/CONFIG_DB population, so processes like
+# lldp-syncd cannot stay RUNNING). These should be excluded from both the
+# "expected alerting message" generation and the kill loop when running on BMC.
+BMC_UNSUPPORTED_CRITICAL_PROCESSES = {
+    "lldp": ["lldp-syncd"],
+}
+
+
+def _filter_bmc_unsupported(duthost, container_name, critical_process_list):
+    """Remove processes that are not supported on BMC devices from the given list.
+
+    Only filters when running on a BMC device; other devices are unchanged.
+    """
+    if not duthost.is_bmc():
+        return critical_process_list
+    unsupported = BMC_UNSUPPORTED_CRITICAL_PROCESSES.get(container_name, [])
+    if not unsupported:
+        return critical_process_list
+    filtered = [p for p in critical_process_list if p not in unsupported]
+    if filtered != critical_process_list:
+        logger.info(
+            "BMC device: removing unsupported critical processes %s from container '%s'; remaining=%s",
+            unsupported, container_name, filtered)
+    return filtered
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -105,7 +140,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /home/admin/monitrc.backup")
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
@@ -117,7 +152,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     yield
 
     logger.info("Restore original Monit configuration ...")
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /home/admin/monitrc.backup /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -231,6 +266,7 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
         critical_process_list, succeeded = get_critical_process_from_monit(duthost, container_name)
         pytest_assert(succeeded, "Failed to get critical processes of container '{}' from Monit config file"
                       .format(container_name))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             namespace_name = "host"
@@ -308,6 +344,7 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
             duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             namespace_name = "host"
@@ -322,6 +359,9 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
+                    continue
+                # Skip 'otel' process since it would autorestart
+                if "otel" in container_name_in_namespace and critical_process == "otel":
                     continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
@@ -418,6 +458,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
+        critical_process_list = _filter_bmc_unsupported(duthost, container_name, critical_process_list)
 
         for namespace_id in namespace_ids:
             container_name_in_namespace = container_name
@@ -426,7 +467,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             if 'lldp' in container_name:
                 # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
                 # move lldpd to the end of the list to avoid this issue
-                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                if 'lldpd' in critical_process_list:
+                    critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
                 logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
                     container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
@@ -524,7 +566,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
+    # Skip database container for generate redis crash alerting messages.
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -538,20 +580,138 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     return skip_containers
 
 
-@pytest.fixture
-def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+@pytest.fixture(scope='function')
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                               get_pdu_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Check if database container is being tested
+    is_testing_database = "database" not in skip_containers
+
+    # add log to indicate start of yield
+    logger.info("Starting test to monitor critical processes...")
     yield
 
-    logger.info("Executing the config reload...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Executing the config reload was done!")
+    # add log to indicate end of yield
+    logger.info("Test to monitor critical processes is done, starting recovery...")
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+    # Special handling for database container - use power cycle
+    if is_testing_database:
+        logger.info("Database container was tested - performing power cycle...")
+
+        # Check if this is a virtual switch (KVM) testbed (no PDU available)
+        if is_vs_device(duthost):
+            num_asics = duthost.facts.get("num_asic", 1)
+            if num_asics > 1:
+                # Multi-ASIC VS: after killing the global database container, SSH
+                # becomes unresponsive (sshd depends on the global namespace database).
+                # The SysRq reboot was pre-scheduled in Phase 2 while SSH was still
+                # alive.  Just wait here for the scheduled reboot to complete.
+                logger.info("Multi-ASIC KVM: SysRq reboot was pre-scheduled in Phase 2; "
+                            "waiting for DUT to come back up...")
+            else:
+                # Single-ASIC VS: SSH remains alive after killing the global database
+                # container (sshd does not depend on the database on single-ASIC KVM).
+                # Issue the SysRq reboot now; the DUT will reboot in ~2 seconds and
+                # wait_for_startup will wait for it to come back up.
+                logger.info("Single-ASIC KVM: issuing SysRq kernel reboot...")
+                try:
+                    duthost.shell(
+                        'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq '
+                        '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &',
+                        module_ignore_errors=True)
+                    logger.info("Kernel reboot trigger command issued successfully")
+                except Exception as e:
+                    logger.info("Reboot trigger (expected disconnect on immediate reboot): {}".format(str(e)))
+        else:
+            # For physical testbed, use PDU reboot
+            logger.info("Physical testbed - performing power cycle via PDU...")
+            try:
+                pdu_ctrl = get_pdu_controller(duthost)
+                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+
+                if pdu_ctrl is None:
+                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                                 .format(duthost.hostname))
+                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                                .format(duthost.hostname))
+
+                # Perform PDU reboot (power cycle)
+                logger.info("Starting PDU reboot...")
+                if not pdu_reboot(pdu_ctrl):
+                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+            except Exception as e:
+                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                raise
+
+        logger.info("Waiting for DUT to boot up after power cycle...")
+        # Wait for DUT to come back up after power cycle
+        # Get timeout values based on chassis type
+        timeout = 300
+        wait_time = 120
+        if duthost.facts.get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
+
+        # Wait for SSH to come back up
+        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+        logger.info("SSH is up, waiting for critical processes to recover...")
+
+        # After a dirty reboot (SysRq/PDU), /var/run/redis/sonic-db/database_config.json
+        # (on tmpfs) may not exist yet -- even "config reload -h" crashes without it.
+        # Wait for database_config.json first, then use config_reload for a clean
+        # recovery that also waits for BGP sessions to re-establish.
+        db_config_timeout = 120
+        if duthost.facts.get("modular_chassis"):
+            db_config_timeout = max(db_config_timeout, 600)
+
+        # Build list of database_config.json files to wait for.
+        # On multi-ASIC devices swsscommon.SonicDBConfig.load_sonic_global_db_config()
+        # loads both the global config (/var/run/redis/sonic-db/) and per-ASIC configs
+        # (/var/run/redis{N}/sonic-db/).  All of them must be present before
+        # "config reload" can run successfully.
+        db_config_files = ["/var/run/redis/sonic-db/database_config.json"]
+        num_asics = duthost.facts.get("num_asic", 1)
+        if num_asics > 1:
+            for asic_idx in range(num_asics):
+                db_config_files.append(
+                    "/var/run/redis{}/sonic-db/database_config.json".format(asic_idx)
+                )
+
+        logger.info("Waiting for database_config.json to be ready (files: {})...".format(db_config_files))
+
+        def _all_db_configs_ready():
+            for db_config_file in db_config_files:
+                if duthost.shell(
+                        "test -f {}".format(db_config_file),
+                        module_ignore_errors=True)["rc"] != 0:
+                    return False
+            return True
+
+        db_config_ready = wait_until(db_config_timeout, 5, 0, _all_db_configs_ready)
+        if not db_config_ready:
+            # Fail fast here to protect subsequent tests from a sick DUT.
+            pytest.fail("database_config.json not ready after %ds -- DUT recovery incomplete" % db_config_timeout)
+
+        logger.info("Database config ready, performing config reload for clean recovery...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+        logger.info("DUT recovered successfully after power cycle!")
+    else:
+        # Normal recovery for other containers
+        logger.info("Executing the config reload...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Executing the config reload was done!")
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
@@ -570,6 +730,11 @@ def test_monitoring_critical_processes(
     in the syslog if the autorestart were disabled and these critical processes
     were stopped.
 
+    Note: Database container alerting messages are intentionally not validated
+    by this test. Killing redis destabilizes the DUT before syslog messages
+    can be reliably written. Database containers are killed in a separate
+    phase solely to exercise the recovery path.
+
     Args:
         duthosts: list of DUTs.
         rand_one_dut_hostname: hostname of DUT.
@@ -587,19 +752,35 @@ def test_monitoring_critical_processes(
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Separate database from other containers.  Killing redis in the database
+    # container destabilizes the entire DUT (config DB is emptied), so we use
+    # a two-phase approach:
+    #   Phase 1 - kill non-database processes, wait, verify syslog alerts
+    #   Phase 2 - kill database processes last; the recover_critical_processes
+    #             fixture handles DUT recovery via reboot
+    database_containers = {k: v for k, v in containers_in_namespaces.items()
+                           if re.fullmatch(r"database(\d+)?", k)}
+    non_database_containers = {k: v for k, v in containers_in_namespaces.items()
+                               if not re.fullmatch(r"database(\d+)?", k)}
+
+    # Generate expected alerting messages only for non-database containers.
+    # Database alerting cannot be reliably verified via syslog because killing
+    # redis destabilizes the system before all messages can be written.
     if "20191130" in duthost.os_version:
-        expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
+        expected_alerting_messages = get_expected_alerting_messages_monit(duthost, non_database_containers)
     else:
-        expected_alerting_messages = get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
+        expected_alerting_messages = get_expected_alerting_messages_supervisor(
+            duthost, non_database_containers)
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
 
-    stop_critical_processes(duthost, containers_in_namespaces)
+    # Phase 1: Kill non-database critical processes and verify syslog alerts.
+    stop_critical_processes(duthost, non_database_containers)
 
     wait_time = 70
-    # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
-    if duthost.facts['platform'] == KVM_PLATFORM:
+    # For VS (KVM) DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
+    if is_vs_device(duthost):
         wait_time = 90
 
     # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
@@ -609,6 +790,71 @@ def test_monitoring_critical_processes(
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
+
+    # Phase 2: Kill database critical processes last.  The DUT will become
+    # unstable after this, so no further syslog verification is performed.
+    # Recovery strategy differs by topology:
+    #   - Multi-ASIC VS: SSH hangs after killing global database, so a SysRq
+    #     reboot is scheduled just before the global-DB kill (while SSH is still
+    #     alive).  The fixture waits for that scheduled reboot.
+    #   - Single-ASIC VS: SSH stays alive after killing global database, so
+    #     the fixture issues a 2-second SysRq reboot directly.
+    #   - Physical: fixture uses PDU power-cycle.
+    if database_containers:
+        logger.info("Killing database container critical processes (DUT will become unstable)...")
+
+        # On multi-ASIC, database has namespace_ids=[None, "0", "1",...].
+        # Killing the global database (None) destroys the config DB and causes
+        # SSH to hang on subsequent operations.  Split into two steps:
+        #   1. Kill per-ASIC namespaces first (SSH remains stable).
+        #   2. Schedule SysRq reboot (while SSH is still alive on multi-ASIC VS).
+        #   3. Kill global namespace last (SSH may hang after this).
+        per_asic_db_containers = {}
+        global_db_containers = {}
+        for k, ns_ids in database_containers.items():
+            per_asic = [nid for nid in ns_ids if nid != DEFAULT_ASIC_ID]
+            global_ns = [nid for nid in ns_ids if nid == DEFAULT_ASIC_ID]
+            if per_asic:
+                per_asic_db_containers[k] = per_asic
+            if global_ns:
+                global_db_containers[k] = global_ns
+
+        # Step 1: Kill per-ASIC database containers. SSH is stable here.
+        # Exceptions are unexpected and should propagate.
+        if per_asic_db_containers:
+            logger.info("Killing per-ASIC database containers (SSH still stable)...")
+            stop_critical_processes(duthost, per_asic_db_containers)
+            logger.info("Per-ASIC database containers killed successfully.")
+
+        # Step 2: Pre-schedule SysRq for multi-ASIC VS AFTER per-ASIC kills
+        # complete, just before the global DB kill.  A short delay is enough
+        # because we only need SSH to deliver the global kill command before
+        # the kernel reboots.
+        if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
+            duthost.shell(
+                'nohup bash -c "sleep {d} && echo 1 > /proc/sys/kernel/sysrq '
+                '&& echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &'.format(
+                    d=MULTI_ASIC_VS_REBOOT_DELAY_SEC),
+                module_ignore_errors=True)
+            logger.info("Multi-ASIC VS: SysRq kernel reboot scheduled in %ds "
+                        "(SSH will become unresponsive after global database kill).",
+                        MULTI_ASIC_VS_REBOOT_DELAY_SEC)
+
+        # Step 3: Kill global database container last.
+        # On multi-ASIC VS, SSH becomes unresponsive after this -- that is expected.
+        # On single-ASIC VS and physical DUTs, SSH should stay alive.
+        if global_db_containers:
+            logger.info("Killing global database container (DUT may become unstable)...")
+            try:
+                stop_critical_processes(duthost, global_db_containers)
+                logger.info("Global database container killed successfully.")
+            except Exception as e:
+                # SSH disconnect is only expected on multi-ASIC VS where sshd
+                # depends on the global namespace database.
+                if is_vs_device(duthost) and duthost.facts.get("num_asic", 1) > 1:
+                    logger.warning("Multi-ASIC VS: global DB kill caused SSH disconnect (expected): %s", e)
+                else:
+                    raise
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
@@ -628,15 +874,24 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
     marker = loganalyzer.init()
 
-    # freeze orchagent for warm-reboot
-    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
-    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
-    else:
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
-    exit_code = command_output["rc"]
+    # Retry up to 150 sec to accommodate for flex counter processing delay
+    max_retries = 30
+    retry_delay = 5
+    for retry_count in range(max_retries):
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -n", module_ignore_errors=True)
+        exit_code = command_output["rc"]
+        logger.warning("command_output: {}".format(command_output))
+        if exit_code == 0:
+            break
+        else:
+            logger.warning(f"Attempt {retry_count+1}/{max_retries} failed, retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
     logger.warning("command_output: {}".format(command_output))
-    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
+    exit_code = command_output["rc"]
+    pytest_assert(exit_code == 0,
+                  "Failed to freeze orchagent for warm reboot after {} seconds".format(retry_delay * max_retries))
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)

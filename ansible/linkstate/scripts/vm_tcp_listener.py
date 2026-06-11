@@ -18,12 +18,12 @@ def log(message, output_on_console=False):
 
 class TCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        data = pickle.load(self.rfile)
+        data = pickle.load(self.rfile)  # nosemgrep: avoid-pickle
         log("Received and send request %s" % str(data))
         self.server.fifo_client.write(data)
         data = self.server.fifo_client.read()
         log("Received and send reply %s" % str(data))
-        pickle.dump(data, self.wfile, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, self.wfile, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
 
 
 class FIFOClient(object):
@@ -35,11 +35,11 @@ class FIFOClient(object):
         self.fifor = open(self.FIFOr, 'w')
 
     def write(self, data):
-        pickle.dump(data, self.fifor, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, self.fifor, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
         self.fifor.flush()
 
     def read(self):
-        return pickle.load(self.fifow)
+        return pickle.load(self.fifow)  # nosemgrep: avoid-pickle
 
 
 def main():

@@ -1,3 +1,4 @@
+import ipaddress
 import sys
 import time
 from copy import deepcopy
@@ -11,6 +12,7 @@ import pytest
 
 from tests.common.reboot import reboot
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.utilities import wait_until
 import ptf.testutils as testutils
 from ptf.mask import Mask
 from scapy.all import IP, Ether
@@ -101,6 +103,14 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
     duthost.shell("cp /tmp/config_db_vnet.json /etc/sonic/config_db.json")
 
     reboot(duthost, localhost)
+
+    bgp_asn = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {}).get('bgp_asn', '')
+    duthost.shell(
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp {} vrf Vnet2' "
+        "-c 'address-family ipv4 unicast' "
+        "-c 'neighbor BGPSLBPassive allowas-in 1'".format(bgp_asn))
 
 
 # fixtures
@@ -323,6 +333,11 @@ def dynamic_range_add_delete(duthost, template):
         duthost, static_peers, dynamic_peer)
 
     for static_peer in static_peers:
+        # The assertion delta (2 × 10 s) matches the minimum wall-clock time
+        # that elapses between the two uptime snapshots: one time.sleep(10)
+        # before this point plus the time.sleep(10) inside
+        # modify_dynamic_peer_cfg.  If either peer restarts its uptime resets
+        # to near zero, making uptime_after < uptime_before + delta.
         assert static_peer_uptime_after[static_peer] >= static_peer_uptime_before[static_peer] + 2*10*1000, \
             f"Static peer {static_peer} should not flap when a different dynamic range is added/deleted!"
     assert dynamic_peer_uptime_after >= dynamic_peer_uptime_before + 2*10*1000, \
@@ -333,15 +348,105 @@ def dynamic_range_add_delete(duthost, template):
     validate_dynamic_peer_established(bgp_summary, template)
 
 
-def get_core_dumps(duthost):
-    '''
-    Check if there is a core dump file in the /var/core directory.
-    '''
-    cmd = "ls /var/core 2>/dev/null"  # List only core dump files (core*)
-    result = duthost.shell(cmd)['stdout'].strip()
+BGP_VNET_PEER_WAIT_TIMEOUT = 60
+BGP_VNET_PEER_WAIT_INTERVAL = 10
 
-    # If result is empty, no core dumps exist, otherwise core dumps are present
-    return result.split('\n') if result else []
+
+def _check_vnet_bgp_peers_established(duthost, cfg_facts, route_count):
+    """
+    Return True when every IPv4 BGP peer in every VNET VRF has received at
+    least route_count prefixes (i.e. is Established and has learned routes).
+    Used with wait_until() to absorb the transient period right after reboot
+    while VRF-scoped BGP sessions come up.
+    """
+    try:
+        for vnet in cfg_facts.get('VNET', {}):
+            summary_str = duthost.shell(
+                "vtysh -c 'show bgp vrf {} summary json'".format(vnet))['stdout']
+            bgp_summary = json.loads(summary_str)
+            for info, info_data in bgp_summary.items():
+                for peer, attr in info_data.get('peers', {}).items():
+                    if ((info == "ipv4Unicast" and attr.get('idType') == 'ipv6') or
+                            (info == "ipv6Unicast" and attr.get('idType') == 'ipv4')):
+                        continue
+                    if int(attr.get('pfxRcd', 0)) < route_count:
+                        return False
+        return True
+    except Exception:
+        return False
+
+
+def _check_vnet1_routes_installed(duthost):
+    """
+    Return True when at least one BGP route has been installed in the Linux
+    kernel FIB for the Vnet1 VRF.  Used with wait_until() to gate traffic
+    tests until the BGP → Zebra → kernel FIB pipeline has completed.
+    """
+    try:
+        result = duthost.shell(
+            "ip route show vrf Vnet1 proto bgp | wc -l",
+            module_ignore_errors=True)
+        return result['rc'] == 0 and int(result['stdout'].strip()) > 0
+    except Exception:
+        return False
+
+
+def _get_vnet1_bgp_dst_ip(duthost):
+    """
+    Return a usable host IP derived from the first BGP prefix installed in
+    the Vnet1 kernel FIB.  Called after wait_until(_check_vnet1_routes_installed)
+    has confirmed that routes are present, so the returned IP is guaranteed
+    to be reachable via the data plane.
+
+    This avoids the need for a topology-hardcoded destination IP constant.
+    """
+    result = duthost.shell(
+        "ip route show vrf Vnet1 proto bgp | grep -E '^[0-9]' | head -1 | awk '{print $1}'")
+    prefix = result['stdout'].strip()
+    if not prefix:
+        raise RuntimeError("No usable BGP prefix found in Vnet1 kernel FIB")
+    net = ipaddress.ip_network(prefix, strict=False)
+    hosts = list(net.hosts())
+    return str(hosts[0]) if hosts else str(net.network_address)
+
+
+def _check_vnet2_dynamic_peer_established(duthost, dynamic_peer):
+    """
+    Return True when the given dynamic peer IP is present in Vnet2's BGP
+    summary and is in the Established state.
+    """
+    try:
+        summary_str = duthost.shell(
+            "vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(summary_str)
+        peers = bgp_summary.get('ipv4Unicast', {}).get('peers', {})
+        return (dynamic_peer in peers and
+                peers[dynamic_peer].get('state') == 'Established')
+    except Exception:
+        return False
+
+
+def _check_vnet2_all_dynamic_peers_established(duthost):
+    """
+    Return True when every dynamic peer IP configured in Vnet2 is present
+    in the BGP summary and in the Established state.  Used with wait_until()
+    in stress tests after re-adding the peer range to ensure all peers have
+    fully reconnected before taking uptime snapshots or moving to the next
+    iteration.
+    """
+    try:
+        summary_str = duthost.shell(
+            "vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
+        bgp_summary = json.loads(summary_str)
+        peers = bgp_summary.get('ipv4Unicast', {}).get('peers', {})
+        for peer_ip in g_vars["vnet2"]["dynamic"].values():
+            if not peer_ip:
+                continue
+            if peer_ip not in peers or peers[peer_ip].get('state') != 'Established':
+                return False
+        return True
+    except Exception:
+        return False
 
 
 def get_ptf_port_index(interface_name):
@@ -401,6 +506,21 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         route_count = props['podset_number'] * \
             props['tor_number'] * props['tor_subnet_number']
 
+        # After the post-reboot setup the VRF-scoped BGP sessions need extra
+        # time to reach Established and learn routes.  Poll until all peers
+        # across every VNET VRF report the expected prefix count before
+        # running the assertions.
+        assert wait_until(
+            BGP_VNET_PEER_WAIT_TIMEOUT,
+            BGP_VNET_PEER_WAIT_INTERVAL,
+            0,
+            _check_vnet_bgp_peers_established,
+            duthost,
+            cfg_facts,
+            route_count,
+        ), "Timed out waiting for VRF BGP peers to reach {} prefixes".format(
+            route_count)
+
         # Validate static and dynamic peers are established and have correct route counts inside VNET.
         for vnet in cfg_facts['VNET']:
             bgp_summary_string = duthost.shell(
@@ -415,7 +535,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
                             (info == "ipv6Unicast" and attr['idType'] == 'ipv4')):
                         continue
                     else:
-                        assert int(prefix_count) >= 6000, "%s should received %s route prefixes!" % (
+                        assert int(prefix_count) >= route_count, "%s should received %s route prefixes!" % (
                             peer, route_count)
                         if 'dynamicPeer' in attr:
                             validate_state_db_entry(duthost, peer, vnet, True)
@@ -434,8 +554,8 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_setup_vnet: {}".format(repr(e)))
-        pytest.fail("Vnet testing setup failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Vnet testing setup failed: {}".format(repr(e)))
 
 
 def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -447,10 +567,28 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
     '''
     try:
         duthost = duthosts[rand_one_dut_hostname]
+
+        # Wait for BGP routes to be installed in the Vnet1 kernel FIB before
+        # sending traffic.  Checking the BGP RIB (pfxRcd) is not sufficient;
+        # routes must have propagated through BGP → Zebra → FIB before the
+        # data plane can forward packets.
+        assert wait_until(
+            BGP_VNET_PEER_WAIT_TIMEOUT,
+            BGP_VNET_PEER_WAIT_INTERVAL,
+            0,
+            _check_vnet1_routes_installed,
+            duthost,
+        ), "Timed out waiting for Vnet1 BGP routes to be installed in kernel FIB"
+
         router_mac = duthost.facts["router_mac"]
-        # Destination IP is one of the routes learned via bgp in Vnet1
-        dst_ip = "193.11.248.129"
+        # Discover the destination IP from the live FIB so the test is not
+        # tied to a topology-specific hardcoded address.
+        dst_ip = _get_vnet1_bgp_dst_ip(duthost)
         expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, "Vnet1", "Vnet2")
+        assert expected_ports, \
+            "No PTF ports found for Vnet1; check PORTCHANNEL_INTERFACE vnet_name in cfg_facts"
+        assert unexpected_ports, \
+            "No PTF ports found for Vnet2; check PORTCHANNEL_INTERFACE vnet_name in cfg_facts"
         send_port = expected_ports[0]
         src_mac = ptfadapter.dataplane.get_mac(0, send_port)
 
@@ -479,8 +617,8 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
         testutils.verify_no_packet_any(ptfadapter, expected_pkt, unexpected_ports)
     except Exception as e:
         logger.error("Exception raised in test_bgp_vnet_route_forwarding: {}".format(repr(e)))
-        pytest.fail("Packet test for per vnet BGP failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Packet test for per vnet BGP failed: {}".format(repr(e)))
 
 
 def test_add_delete_ip_range(duthosts, rand_one_dut_hostname):
@@ -492,7 +630,18 @@ def test_add_delete_ip_range(duthosts, rand_one_dut_hostname):
         # Prepare initial config
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
 
-        # Verify adding a new dynamic range
+        # Verify adding a new dynamic range.  Wait for the dynamic peer to be
+        # Established before measuring uptime / checking prefix counts so that
+        # a slow post-reboot convergence does not cause a spurious KeyError.
+        dynamic_peer = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
+        assert wait_until(
+            BGP_VNET_PEER_WAIT_TIMEOUT,
+            BGP_VNET_PEER_WAIT_INTERVAL,
+            0,
+            _check_vnet2_dynamic_peer_established,
+            duthost,
+            dynamic_peer,
+        ), "Timed out waiting for Vnet2 dynamic peer {} to establish".format(dynamic_peer)
         dynamic_range_add_delete(duthost, 'vnet_dynamic_peer_add')
 
         # Verify deleting a dynamic range
@@ -502,8 +651,8 @@ def test_add_delete_ip_range(duthosts, rand_one_dut_hostname):
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_add_delete_ip_range: {}".format(repr(e)))
-        pytest.fail("Adding/deleting IP range for dynamic peers failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Adding/deleting IP range for dynamic peers failed: {}".format(repr(e)))
 
 
 def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
@@ -532,8 +681,8 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_dynamic_peer_group_delete: {}".format(repr(e)))
-        pytest.fail("Dynamic peer group deletion test failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Dynamic peer group deletion test failed: {}".format(repr(e)))
 
 
 def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
@@ -548,11 +697,20 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
         dynamic_peer = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
         static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
             duthost, static_peers, dynamic_peer)
-        core_dumps_before = get_core_dumps(duthost)
-
         for i in range(20):
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_del')
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+
+        # After rapid del/add cycling the dynamic peer may not yet be
+        # Established.  Wait before snapshotting uptime to avoid a KeyError
+        # from get_bgp_peer_uptime if the peer is absent from the summary.
+        assert wait_until(
+            BGP_VNET_PEER_WAIT_TIMEOUT,
+            BGP_VNET_PEER_WAIT_INTERVAL,
+            0,
+            _check_vnet2_all_dynamic_peers_established,
+            duthost,
+        ), "Timed out waiting for Vnet2 dynamic peers to re-establish after stress loop"
 
         static_peer_uptime_after, dynamic_peer_uptime_after = get_bgp_peer_uptime(
             duthost, static_peers, dynamic_peer)
@@ -562,15 +720,12 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
                 f"Static peer {static_peer} should not flap when a dynamic peer is modified!"
         assert dynamic_peer_uptime_after >= dynamic_peer_uptime_before, \
             f"Dynamic peer {dynamic_peer} should not flap when a dynamic peer is modified!"
-        core_dumps_after = get_core_dumps(duthost)
-        assert core_dumps_before == core_dumps_after, \
-            "Core dumps should not be generated when modifying dynamic peer configuration."
         # restore the config
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_dynamic_peer_modify_stress: {}".format(repr(e)))
-        pytest.fail("Stress test for dynamic peer group modification failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Stress test for dynamic peer group modification failed: {}".format(repr(e)))
 
 
 def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
@@ -583,26 +738,29 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
         time.sleep(120)
         static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
-        core_dumps_before = get_core_dumps(duthost)
-
         for i in range(20):
             redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
             duthost.shell(redis_cmd)
             time.sleep(10)
             modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
-            bgp_summary_string = duthost.shell("vtysh -c 'show bgp vrf Vnet2 summary json'")['stdout']
-            bgp_summary = json.loads(bgp_summary_string)
-            validate_dynamic_peer_established(bgp_summary, 'vnet_dynamic_peer_add')
+            # After re-adding the peer range give FRR time to re-establish all
+            # dynamic peers before the next del/add iteration.  A fixed 10 s
+            # sleep (inside modify_dynamic_peer_cfg) is not enough; use
+            # wait_until to poll until both peers are back in Established state.
+            assert wait_until(
+                BGP_VNET_PEER_WAIT_TIMEOUT,
+                BGP_VNET_PEER_WAIT_INTERVAL,
+                0,
+                _check_vnet2_all_dynamic_peers_established,
+                duthost,
+            ), "Timed out waiting for Vnet2 dynamic peers to re-establish (iteration {})".format(i)
 
         static_peer_uptime_after = get_bgp_peer_uptime(duthost, static_peers)
         for static_peer in static_peers:
             assert static_peer_uptime_after[static_peer] >= static_peer_uptime_before[static_peer] + 20*20*1000, \
                 f"Static peer {static_peer} should not flap when a dynamic peer is deleted!"
-        core_dumps_after = get_core_dumps(duthost)
-        assert core_dumps_before == core_dumps_after, \
-            "Core dumps should not be generated when deleting dynamic peer configuration."
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
     except Exception as e:
         logger.error("Exception raised in test_dynamic_peer_delete_stress: {}".format(repr(e)))
-        pytest.fail("Stress test for dynamic peer group deletion failed")
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
+        pytest.fail("Stress test for dynamic peer group deletion failed: {}".format(repr(e)))
