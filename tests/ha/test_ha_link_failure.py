@@ -5,7 +5,6 @@ import ptf.testutils as testutils
 import pytest
 import time
 import threading
-import queue
 from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF,
@@ -15,8 +14,8 @@ from constants import (
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
-from ha_utils import set_dash_ha_scope, activate_secondary_dash_ha
+from ha_dash_flow_utils import compare_flow_tables
+from ha_utils import set_dash_ha_scope, activate_secondary_dash_ha, verify_ha_state
 from ha_link_utils import add_acl_link_drop, remove_acl_link_drop_table
 
 logger = logging.getLogger(__name__)
@@ -30,10 +29,10 @@ TRAFFIC_LOSS_DURATION = 2.0  # Up to 2s of allowable loss during link failure.
 RATE_PPS = 20  # packets per second
 
 
-def restore_ha_state(localhost, ptfhost, duthost, standby_vdpu_key="vdpu1_0:haset0_0"):
+def restore_ha_state(localhost, ptfhost, duthost, standby_vdpu_key="vdpu1_0:haset0_0", ha_owner="switch"):
     try:
-        set_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key, "dead", "dpu")
-        activate_secondary_dash_ha(localhost, duthost, ptfhost, standby_vdpu_key, "activate_role")
+        set_dash_ha_scope(localhost, duthost, ptfhost, standby_vdpu_key, "dead", ha_owner)
+        activate_secondary_dash_ha(localhost, duthost, ptfhost, standby_vdpu_key, "activate_role", ha_owner)
     except Exception as e:
         logger.error(f"HA state restoration on {duthost.hostname} exception: {e}")
 
@@ -112,11 +111,11 @@ We are testing 4 scenarios:
 
 @pytest.mark.parametrize(
     "standby_link_fail", [True, False],
-    ids=["Standby Link Fail", "Primary Link Fail"]
+    ids=["Standby_Link_Fail", "Primary_Link_Fail"]
 )
 @pytest.mark.parametrize(
     "traffic_to_standby", [True, False],
-    ids=["Standby Traffic", "Primary Traffic"]
+    ids=["Standby_Traffic", "Primary_Traffic"]
 )
 def test_ha_link_failure(
     ptfadapter,
@@ -127,7 +126,10 @@ def test_ha_link_failure(
     activate_dash_ha_from_json,
     dash_pl_config,
     standby_link_fail,
-    traffic_to_standby
+    traffic_to_standby,
+    primary_vdpu_key,
+    standby_vdpu_key,
+    ha_owner
 ):
     encap_proto = "vxlan"
     initial_send_count = 100
@@ -142,15 +144,17 @@ def test_ha_link_failure(
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
     _, exp_dpu_to_vm_pkt_standby = inbound_pl_packets(dash_pl_config[1])
-    packet_sending_flag = queue.Queue(1)
+    packet_sending_event = threading.Event()
+    stop_link_action_event = threading.Event()
 
     send_count = 0
     failed_count = 0
 
     def link_ha_action():
         # wait for packets sending started, then simulate link failure
-        while packet_sending_flag.empty() or (not packet_sending_flag.get()):
-            time.sleep(0.2)
+        while not packet_sending_event.is_set():
+            if stop_link_action_event.wait(0.2):
+                return
         if standby_link_fail:
             logger.info(f"Simulate standby link failure, pkt sent {send_count}")
             remove_acl_link_drop_table(duthosts[1])
@@ -172,7 +176,7 @@ def test_ha_link_failure(
         # After we send initial_send_count packets, awake link_ha_action thread
         if send_count == initial_send_count:
             logger.info("Awake link failure HA action thread")
-            packet_sending_flag.put(True)
+            packet_sending_event.set()
 
         try:
             if traffic_to_standby:
@@ -191,12 +195,11 @@ def test_ha_link_failure(
                     else:
                         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_vm_pkt, rcv_inbound_pl_ports)
                 except Exception as e:
-                    if failed_count < 3:
-                        logger.info(f"inbound pkt dropped: {e}")
+                    logger.info(f"inbound pkt dropped: {e}")
                     failed_count += 1
                 if send_count == 0:
                     logger.info("First packets verified to standby - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -217,30 +220,38 @@ def test_ha_link_failure(
                     if send_count == 0:
                         logger.info("First inbound packet received")
                 except Exception as e:
-                    if failed_count < 3:
-                        logger.warning(f"inbound pkt dropped: {e}")
+                    logger.warning(f"inbound pkt dropped: {e}")
                     failed_count += 1
         except Exception as e:
-            if failed_count == 0:
-                logger.info(f"pkt dropped after {send_count} pkts, exception {e}")
-                if send_count == 0:
-                    logger.error(f"pkt dropped exception {e}")
-                    pytest.fail("HA link fail test error: no packets were received")
+            logger.info(f"outbound pkt dropped after {send_count} pkts, exception {e}")
+            if send_count == 0:
+                logger.error(f"pkt dropped exception {e}")
+                pytest.fail("HA link fail test error: no packets were received")
             failed_count += 1
 
         send_count += 1
         time.sleep(delay)
         reached_max_time = time.time() > t_max
 
-    t.join()
+    stop_link_action_event.set()
+    t.join(timeout=5)
+    pytest_assert(not t.is_alive(), "link_ha_action thread did not exit in time")
+
+    if send_count < initial_send_count:
+        pytest.fail(
+            f"HA link fail test error: sent only {send_count} packets in test window, "
+            f"requires at least {initial_send_count} to trigger link failure action"
+        )
+
     time.sleep(2)
     if standby_link_fail:
         remove_acl_link_drop_table(duthosts[1])
     else:
         remove_acl_link_drop_table(duthosts[0])
     # take system out of split-brain
-    standby_vdpu_key = f"vdpu1_{dpuhosts[1].dpu_index}:haset0_0"
-    restore_ha_state(localhost, ptfhost, duthosts[1], standby_vdpu_key=standby_vdpu_key)
+    pytest_assert(verify_ha_state(duthosts[0], primary_vdpu_key, "standalone"),
+                  "Primary HA state is not standalone")
+    restore_ha_state(localhost, ptfhost, duthosts[1], standby_vdpu_key=standby_vdpu_key, ha_owner=ha_owner)
 
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     link_fail = "Standby link fail" if standby_link_fail else "Primary link fail"
