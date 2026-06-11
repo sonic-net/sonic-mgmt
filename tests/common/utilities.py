@@ -1738,11 +1738,10 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
     # Get DoW
     day_of_week = datetime.now().weekday()
     logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+    random.seed(day_of_week)  # Seed random with DoW for consistent selection across runs on the same day
 
     bucket_size = len(ports) // num_buckets
     remainder = len(ports) % num_buckets
-    shuffled_ports = list(ports)
-    random.shuffle(shuffled_ports)
     selected_ports = []
     start_idx = 0
 
@@ -1752,7 +1751,8 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
         if current_bucket_size == 0:
             break
         end_idx = start_idx + current_bucket_size
-        bucket_ports = shuffled_ports[start_idx:end_idx]
+        bucket_ports = ports[start_idx:end_idx]
+        random.shuffle(bucket_ports)
         # Select port based on DoW index (wrapping if bucket is smaller than 7)
         port_index = day_of_week % len(bucket_ports)
         selected_ports.append(bucket_ports[port_index])
