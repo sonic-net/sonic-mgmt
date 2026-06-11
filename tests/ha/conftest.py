@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from collections import defaultdict
 import os
+from tests.conftest import get_specified_dpus
 
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
@@ -107,9 +108,21 @@ def wait_for_dpu_neighbor_resolution(duthost, role_index, dpu_index, timeout=120
 
 
 @pytest.fixture(scope="session")
-def dpuhosts(dpuhosts):
-    """Limit to the first 2 DPU hosts for all HA tests."""
-    return dpuhosts.nodes[:2]
+def dpuhosts(all_dpuhosts, request):
+    """Limit standard HA tests to the first 2 requested DPU hosts."""
+    requested_dpuhosts = get_specified_dpus(request)
+    if not requested_dpuhosts:
+        return all_dpuhosts.nodes[:2]
+
+    nodes_by_hostname = {node.hostname: node for node in all_dpuhosts.nodes}
+    missing_dpuhosts = [
+        hostname for hostname in requested_dpuhosts if hostname not in nodes_by_hostname
+    ]
+    pt_require(
+        not missing_dpuhosts,
+        f"Requested DPU hosts were not initialized: {missing_dpuhosts}",
+    )
+    return [nodes_by_hostname[hostname] for hostname in requested_dpuhosts[:2]]
 
 
 ha_scope_per_dut = [
