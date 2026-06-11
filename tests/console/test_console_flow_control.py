@@ -262,11 +262,8 @@ def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, 
 
     finally:
         if client is not None:
-            try:
-                client.sendcontrol("a")
-                client.sendcontrol("x")
-            except Exception:
-                pass
+            client.sendcontrol("a")
+            client.sendcontrol("x")
         if sender_pid is not None:
             _stop_fanout_sender(console_fanout, sender_pid)
         dut_cleanup()
