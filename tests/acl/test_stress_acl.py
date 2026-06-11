@@ -40,6 +40,7 @@ LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 ACL_RULE_NUMS = 10
 
 DEFAULT_MAX_ACL_ENTRIES = 200
+PTF_TIMEOUT = 10
 
 # key: platform name
 # value: max number of ACL entries supported by the platform
@@ -200,7 +201,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
                 (topo == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"])) or \
                 (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]) or \
                 (topo == "m1" and ("MA" in neighbor["name"] or "MB" in neighbor["name"])) or \
-                (topo_name in ("t1-isolated-d32", "t1-isolated-d128") and "T0" in neighbor["name"]):
+                (topo_name in ("t1-isolated-d32", "t1-isolated-d128", "t1-isolated-d32u1s2")
+                 and "T0" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             ipv4_addr = [bgp_neighbor['addr'] for bgp_neighbor in mg_facts['minigraph_bgp']
@@ -247,7 +249,7 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
         ptfadapter.dataplane.flush()
         testutils.send(test=ptfadapter, port_id=ptf_src_port, pkt=pkt)
         if verity_status == "forward" or acl_id == del_rule_id:
-            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
+            testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports, timeout=PTF_TIMEOUT)
         elif verity_status == "drop" and acl_id != del_rule_id:
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
 
