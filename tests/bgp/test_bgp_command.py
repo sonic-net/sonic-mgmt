@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "c0"),
     pytest.mark.device_type('vs')
 ]
 
@@ -142,7 +142,7 @@ def test_bgp_commands_with_like_bgp_container(
     like_bgp_container_name = "database-like-bgp"
 
     create_result = duthost.shell(
-        'docker run --rm --detach --name={} docker-database:latest sleep infinity'.format(
+        'docker run --rm --detach --name={} -e DEV= docker-database:latest sleep infinity'.format(
             like_bgp_container_name
         ),
         module_ignore_errors=True

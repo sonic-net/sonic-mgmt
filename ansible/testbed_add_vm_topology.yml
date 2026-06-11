@@ -31,7 +31,6 @@
 # -e netns_mgmt_ip=10.255.0.254/23 - the ip address and prefix of netns mgmt interface, only for dualtor topo with ports in active-active cable type
 
 - hosts: servers:&vm_host
-  gather_facts: no
   pre_tasks:
   - set_fact: ansible_user="{{ vm_host_user }}"
     when:
@@ -95,6 +94,9 @@
 
   - set_fact:
       base_topo: "{{ topo.split('_') | first }}"
+  - set_fact:
+      base_topo: "{{ base_topo.split('-') | first }}"
+    when: base_topo not in topologies
 
   - name: Check that topo is a known topology
     fail: msg="Unknown topology {{ topo }}"
@@ -134,11 +136,11 @@
     when: base_topo == "t2" and (is_vs_testbed | default(false))
 
   roles:
-    - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
-    - { role: vm_set, action: 'start_sonic_vm' }
-    - { role: vm_set, action: 'start_sid' }
-    - { role: vm_set, action: 'start_8000e_sonic' }
-    - { role: vm_set, action: 'add_topo' }
+    - { role: vm_set, vm_set_action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
+    - { role: vm_set, vm_set_action: 'start_sonic_vm' }
+    - { role: vm_set, vm_set_action: 'start_sid' }
+    - { role: vm_set, vm_set_action: 'start_8000e_sonic' }
+    - { role: vm_set, vm_set_action: 'add_topo' }
 
 - hosts: servers:&eos
   gather_facts: no
@@ -151,6 +153,9 @@
 
         - set_fact:
             base_topo: "{{ topo.split('_') | first }}"
+        - set_fact:
+            base_topo: "{{ base_topo.split('-') | first }}"
+          when: base_topo not in topologies
 
         - name: Require VMs as CEOS by default
           set_fact:
@@ -167,6 +172,11 @@
 
         - name: Load topo variables
           include_vars: "vars/topo_{{ topo }}.yml"
+
+        - name: Set default value for topo_is_multi_vrf
+          set_fact:
+            topo_is_multi_vrf: false
+          when: topo_is_multi_vrf is not defined
 
         - name: Find current server group
           set_fact: current_server={{ group_names | extract_by_prefix('server_') }}

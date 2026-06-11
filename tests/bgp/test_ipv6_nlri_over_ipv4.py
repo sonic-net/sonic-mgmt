@@ -9,6 +9,7 @@ import re
 import time
 
 import pytest
+from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -17,7 +18,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
@@ -86,6 +87,14 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1].lower()
 
+    neigh_eos_vrf = None
+    neigh_eos_bgp_parents = None
+    if not is_sonic_neigh:
+        neigh_eos_bgp_parents = eos_bgp_neighbor_config_parents(
+            tbinfo, nbrhosts, neigh_name, neigh_asn[neigh_name])
+        if len(neigh_eos_bgp_parents) > 1 and neigh_eos_bgp_parents[1].startswith("vrf "):
+            neigh_eos_vrf = neigh_eos_bgp_parents[1].split(None, 1)[1]
+
     neigh_namespace = DEFAULT_NAMESPACE
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for dut_port, neigh in mg_facts['minigraph_neighbors'].items():
@@ -96,7 +105,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])
     logger.debug(duthost.shell('show ipv6 bgp summary')['stdout'])
 
-    cmd = "show ipv6 bgp neighbor {} received-routes -n {}".format(neigh_ip_v6, namespace)
+    dut_namespace = " -n " + namespace if duthost.is_multi_asic else ""
+    vtysh_ns = " -n {}".format(asic_index) if duthost.is_multi_asic else ""
+    cmd = "show ipv6 bgp neighbor {} received-routes {}".format(neigh_ip_v6, dut_namespace)
     dut_received_routes = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     dut_nlri_routes = parse_dut_received_routes(dut_received_routes)
     dut_nlri_route = dut_nlri_routes[2]
@@ -104,18 +115,28 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     neigh_host = nbrhosts[neigh_name]["host"]
     if is_sonic_neigh:
-        logger.debug(neigh_host.shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))
+        logger.debug(neigh_host.shell('vtysh -n {} -c "clear bgp * soft"'.format(vtysh_ns)))
         cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
         neigh_nlri_routes = neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
+        pytest_assert(len(neigh_nlri_routes) >= 3, "Neighbor didn't receive enough routes")
         logger.debug("neighbor routes: {}".format(neigh_nlri_routes[len(neigh_nlri_routes) - 3]))
         neigh_nlri_route = neigh_nlri_routes[len(neigh_nlri_routes) - 3].split()[1]
     else:
         logger.debug(neigh_host.eos_command(commands=["clear bgp * soft"]))
-        cmd = "show ipv6 bgp peers {} received-routes".format(dut_ip_v6)
-        neigh_nlri_routes = neigh_host.eos_command(commands=[cmd])['stdout'][0].split('\n')
-        neigh_nlri_route_output = neigh_nlri_routes[len(neigh_nlri_routes) - 1]
+        if neigh_eos_vrf:
+            # EOS: vrf after received-routes (same pattern as "routes vrf", not "peers ... vrf ... received-routes")
+            cmd = "show ipv6 bgp peers {} received-routes vrf {}".format(dut_ip_v6, neigh_eos_vrf)
+        else:
+            cmd = "show ipv6 bgp peers {} received-routes".format(dut_ip_v6)
+        neigh_nlri_routes = [
+            ln for ln in neigh_host.eos_command(commands=[cmd])['stdout'][0].split('\n') if ln.strip()
+        ]
+        pytest_assert(len(neigh_nlri_routes) >= 1, "Neighbor received-routes empty (cmd={})".format(cmd))
+        neigh_nlri_route_output = neigh_nlri_routes[-1]
         logger.debug("neighbor routes: {}".format(neigh_nlri_route_output))
-        neigh_nlri_route = neigh_nlri_route_output.split()[2]
+        parts = neigh_nlri_route_output.split()
+        pytest_assert(len(parts) >= 3, "Unexpected neighbor NLRI line: {}".format(neigh_nlri_route_output))
+        neigh_nlri_route = parts[2]
 
     setup_info = {
         'duthost': duthost,
@@ -133,10 +154,13 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'dut_nlri_route': dut_nlri_route,
         'neigh_nlri_route': neigh_nlri_route,
         'neigh_namespace': neigh_namespace,
-        'dut_namespace': namespace,
+        'dut_namespace': dut_namespace,
+        'vtysh_ns': vtysh_ns,
         'asic_index': asic_index,
         'neigh_asic_index': neigh_asic_index,
         'is_sonic_neigh': is_sonic_neigh,
+        'neigh_eos_vrf': neigh_eos_vrf,
+        'neigh_eos_bgp_parents': neigh_eos_bgp_parents,
     }
 
     logger.debug("DUT BGP Config: {}".format(duthost.shell('show run bgp')['stdout']))
@@ -164,27 +188,31 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
 def test_nlri(setup):
     # show current adjacency
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     logger.debug("DUT Route from neighbor: {}".format(setup['duthost'].shell(cmd)['stdout']))
-    cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     if setup['is_sonic_neigh']:
+        cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
         logger.debug("Neighbor Route from DUT: {}".format(setup['neighhost'].shell(cmd)['stdout']))
+    elif setup.get('neigh_eos_vrf'):
+        cmd = "show ipv6 route vrf {} {}".format(setup['neigh_eos_vrf'], setup['neigh_nlri_route'])
+        logger.debug("Neighbor Route from DUT: {}".format(setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]))
     else:
-        logger.debug("Neighbor Route from DUT: {}".format(setup['neighhost'].eos_command(commands=[cmd])['stdout']))
+        cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
+        logger.debug("Neighbor Route from DUT: {}".format(setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]))
 
     # remove current neighbor adjacency
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
         -c "no neighbor {} peer-group {}"'\
-        .format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
+        .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
                 setup['neigh_ip_v6'], setup['peer_group_v6'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Neighbor Removal: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
 
     if setup['is_sonic_neigh']:
         cmd = (
-            'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" '
+            'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" '
             '-c "no neighbor {} peer-group {}"'.format(
-                setup['asic_index'],
+                setup['vtysh_ns'],
                 setup['neigh_asn'],
                 setup['dut_ip_v4'],
                 setup['peer_group_v4'],
@@ -205,7 +233,7 @@ def test_nlri(setup):
 
         setup['neighhost'].eos_config(
             lines=cmds,
-            parents=['router bgp {}'.format(setup['neigh_asn'])],
+            parents=setup['neigh_eos_bgp_parents'],
         )
 
     wait_until(
@@ -219,10 +247,11 @@ def test_nlri(setup):
         setup['dut_ip_v6'],
         False,
         setup['is_sonic_neigh'],
+        setup.get('neigh_eos_vrf'),
     )
 
     # clear BGP table
-    cmd = 'vtysh -n {} -c "clear ip bgp * soft"'.format(setup['asic_index'])
+    cmd = 'vtysh {} -c "clear ip bgp * soft"'.format(setup['vtysh_ns'])
     setup['duthost'].shell(cmd)
     if setup['is_sonic_neigh']:
         cmd = 'vtysh -c "clear ip bgp * soft"'
@@ -232,33 +261,38 @@ def test_nlri(setup):
 
     # verify route is no longer shared
     time.sleep(30)
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     dut_route_out = setup['duthost'].shell(cmd)['stdout']
     pytest_assert(
         setup['neigh_ip_v6'] not in get_addresses_from_show_route(dut_route_out),
         "neigh_ip_v6 route still exists in DUT",
     )
 
-    cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     if setup['is_sonic_neigh']:
-        neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
+        neigh_route_cmd_rm = "show ipv6 route {}".format(setup['neigh_nlri_route'])
+        neigh_route_out = setup['neighhost'].shell(neigh_route_cmd_rm)['stdout']
+    elif setup.get('neigh_eos_vrf'):
+        neigh_route_cmd_rm = "show ipv6 route vrf {} {}".format(
+            setup['neigh_eos_vrf'], setup['neigh_nlri_route'])
+        neigh_route_out = setup['neighhost'].eos_command(commands=[neigh_route_cmd_rm])['stdout'][0]
     else:
-        neigh_route_out = setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]
+        neigh_route_cmd_rm = "show ipv6 route {}".format(setup['neigh_nlri_route'])
+        neigh_route_out = setup['neighhost'].eos_command(commands=[neigh_route_cmd_rm])['stdout'][0]
 
     pytest_assert(setup['dut_ip_v6'] not in neigh_route_out, "No route to IPv6 DUT.")
 
     # configure IPv4 peer config on DUT
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor NLRI peer-group" -c "address-family ipv4 unicast" \
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor NLRI peer-group" -c "address-family ipv4 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
         -c "neighbor NLRI soft-reconfiguration inbound" -c "exit-address-family" -c "address-family ipv6 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
-            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['asic_index'], setup['dut_asn'])
+            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['vtysh_ns'], setup['dut_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
         -c "address-family ipv4 unicast" -c "neighbor NLRI activate" -c "exit-address-family" \
         -c "address-family ipv6 unicast" -c "neighbor NLRI activate"'\
-            .format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
+            .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
                     setup['neigh_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Peer Config: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
@@ -283,23 +317,42 @@ def test_nlri(setup):
             "Neighbor BGP Config After Peer Config: {}".format(setup['neighhost'].shell('show run bgp')['stdout'])
         )
     else:
-        cmds = [
-            "neighbor NLRI peer group",
-            "address-family ipv4",
-            "neighbor NLRI allowas-in",
-            "neighbor NLRI send-community",
-            "neighbor NLRI rib-in pre-policy retain all",
-            "address-family ipv6",
-            # "neighbor NLRI activate",
-            "neighbor NLRI allowas-in",
-            "neighbor NLRI rib-in pre-policy retain all",
-            "neighbor {} peer group NLRI".format(setup['dut_ip_v4']),
-            "neighbor {} remote-as {}".format(setup['dut_ip_v4'], setup['dut_asn']),
-        ]
+        # Get the IPv6 address of the neighbor interface to use as next-hop
+        neigh_ipv6_addr = setup['neigh_ip_v6']
 
+        # Configure route-map to set IPv6 next-hop for route advertisements.
+        # This is needed because when advertising IPv6 NLRI over an IPv4 BGP session,
+        # the IPv6 next-hop must be explicitly set. Without this route-map, the IPv6
+        # routes would be advertised with an invalid or missing next-hop, causing the
+        # DUT to reject them. The route-map sets the IPv6 next-hop to the neighbor's
+        # own IPv6 address, ensuring the DUT can properly install the IPv6 routes.
         setup['neighhost'].eos_config(
-            lines=cmds,
-            parents=['router bgp {}'.format(setup['neigh_asn'])],
+            lines=[
+                "set ipv6 next-hop {}".format(neigh_ipv6_addr),
+            ],
+            parents=["route-map SET_IPV6_NH_TO_SELF permit 10"]
+        )
+
+        # Configure BGP peer-group at global level using eos_config
+        setup['neighhost'].eos_config(
+            lines=[
+                "neighbor NLRI peer group",
+                "neighbor NLRI allowas-in",
+                "neighbor NLRI send-community",
+                "neighbor NLRI rib-in pre-policy retain all",
+                "neighbor {} peer group NLRI".format(setup['dut_ip_v4']),
+                "neighbor {} remote-as {}".format(setup['dut_ip_v4'], setup['dut_asn']),
+            ],
+            parents=setup['neigh_eos_bgp_parents'],
+        )
+
+        # Configure IPv6 address-family and activate the neighbor along with applying the route map
+        setup['neighhost'].eos_config(
+            lines=[
+                "neighbor NLRI route-map SET_IPV6_NH_TO_SELF out",
+                "neighbor NLRI activate",
+                ],
+            parents=setup['neigh_eos_bgp_parents'] + ["address-family ipv6"],
         )
 
         logger.debug("Neighbor BGP Config After Peer Config: {}".format(
@@ -317,6 +370,7 @@ def test_nlri(setup):
         setup['dut_ip_v6'],
         False,
         setup['is_sonic_neigh'],
+        setup.get('neigh_eos_vrf'),
     )
 
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
@@ -324,7 +378,7 @@ def test_nlri(setup):
                   "Neighbor IPv4 state is no established.")
 
     # verify route is shared
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     pytest_assert(
         wait_until(
             180,
@@ -334,15 +388,24 @@ def test_nlri(setup):
         ),
         "Routing entry for DUT not established.",
     )
-
-    cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     if setup['is_sonic_neigh']:
-        neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
+        neigh_route_cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
+    elif setup.get('neigh_eos_vrf'):
+        neigh_route_cmd = "show ipv6 route vrf {} {}".format(
+            setup['neigh_eos_vrf'], setup['neigh_nlri_route'])
     else:
-        neigh_route_out = setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]
+        neigh_route_cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
 
-    pytest_assert("Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out,
-                  "Routing entry for neighbor not established.")
+    def verify_neigh_route():
+        if setup['is_sonic_neigh']:
+            neigh_route_out = setup['neighhost'].shell(neigh_route_cmd)['stdout']
+        else:
+            neigh_route_out = setup['neighhost'].eos_command(commands=[neigh_route_cmd])['stdout'][0]
+        return setup['neigh_nlri_route'] in neigh_route_out
+
+    pytest_assert(
+        wait_until(180, 15, 0, verify_neigh_route),
+        f"Routing entry for {setup['neigh_nlri_route']} not established.")
 
 
 def parse_dut_received_routes(command_output):
@@ -373,7 +436,7 @@ def parse_dut_received_routes(command_output):
     return routes
 
 
-def check_bgp_summary(host, neighbor_v4, v4_present, neighbor_v6, v6_present, is_sonic_neigh):
+def check_bgp_summary(host, neighbor_v4, v4_present, neighbor_v6, v6_present, is_sonic_neigh, eos_vrf=None):
     if is_sonic_neigh:
         ipv4_sum = host.shell(cmd="show ip bgp summary")[u'stdout']
         is_present = neighbor_v4 in ipv4_sum
@@ -386,12 +449,16 @@ def check_bgp_summary(host, neighbor_v4, v4_present, neighbor_v6, v6_present, is
             return False
         return True
     else:
-        ipv4_sum = host.eos_command(commands=["show ip bgp summary"])['stdout'][0]
+        if eos_vrf:
+            ipv4_sum = host.eos_command(commands=["show ip bgp summary vrf {}".format(eos_vrf)])['stdout'][0]
+            ipv6_sum = host.eos_command(commands=["show ipv6 bgp summary vrf {}".format(eos_vrf)])['stdout'][0]
+        else:
+            ipv4_sum = host.eos_command(commands=["show ip bgp summary"])['stdout'][0]
+            ipv6_sum = host.eos_command(commands=["show ipv6 bgp summary"])['stdout'][0]
         is_present = neighbor_v4 in ipv4_sum
         if is_present != v4_present:
             return False
 
-        ipv6_sum = host.eos_command(commands=["show ipv6 bgp summary"])['stdout'][0]
         is_present = neighbor_v6 in ipv6_sum
         if is_present != v6_present:
             return False

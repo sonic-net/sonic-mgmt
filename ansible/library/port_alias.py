@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
+import json
 import re
 import os
 
@@ -9,18 +10,30 @@ try:
 except ImportError:
     print("Failed to import multi_asic")
 
+try:
+    from portconfig import parse_platform_json_file
+except ImportError:
+    parse_platform_json_file = None
+
 DOCUMENTATION = '''
 module: port_alias.py
 Ansible_version_added:  2.0.0.2
 short_description:   Find SONiC device port alias mapping if there is alias mapping
 Description:
         Minigraph file is using SONiC device alias to describe the interface name,
-        it's vendor and and hardware platform dependent
-        This module is used to find the correct port_config.ini
-        for the hwsku and return Ansible ansible_facts.port_alias
+        it's vendor and hardware platform dependent.
+        This module is used to find the correct port configuration file
+        for the hwsku and return Ansible ansible_facts.port_alias.
         The definition of this mapping is specified in http://github.com/sonic-net/sonic-buildimage/device
-        You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container
-        For multi-asic platforms, port_config.ini for each asic will be parsed to get the port_alias information.
+        You should build docker-sonic-mgmt from sonic-buildimage and run Ansible from sonic-mgmt docker container.
+
+        Port config file lookup priority:
+          1. platform.json (if hwsku.json exists alongside it and platform.json contains
+             a non-empty "interfaces" section)
+          2. port_config.ini (fallback, supports per-asic and per-slot paths)
+
+        For multi-asic platforms, the port config for each asic will be parsed to get
+        the port_alias information.
         When bringing up the testbed, port-alias will only contain external interfaces,
         so that vs image can come up with external interfaces.
     Input:
@@ -58,6 +71,11 @@ PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
+PLATFORM_JSON = 'platform.json'
+HWSKU_JSON = 'hwsku.json'
+INTF_KEY = "interfaces"
+PORT_STR = "Ethernet"
+
 
 class SonicPortAliasMap():
     """
@@ -85,6 +103,28 @@ class SonicPortAliasMap():
         platform = self.get_platform_type()
         if platform is None:
             return None
+
+        platform_dir = os.path.join(FILE_PATH, platform)
+        hwsku_dir = os.path.join(platform_dir, self.hwsku)
+
+        # JSON-first: check hwsku.json + platform.json with non-empty interfaces guard
+        # (mirrors device_info.get_path_to_port_config_file logic)
+        hwsku_json_file = os.path.join(hwsku_dir, HWSKU_JSON)
+        if parse_platform_json_file is not None and os.path.isfile(hwsku_json_file):
+            platform_json_file = os.path.join(platform_dir, PLATFORM_JSON)
+            if os.path.isfile(platform_json_file):
+                try:
+                    with open(platform_json_file) as f:
+                        platform_data = json.load(f)
+                    interfaces = platform_data.get(INTF_KEY, None)
+                    if interfaces is not None and len(interfaces) > 0:
+                        return platform_json_file
+                except (json.JSONDecodeError, ValueError, KeyError):
+                    # platform.json is unreadable or malformed;
+                    # fall through to port_config.ini.
+                    pass
+
+        # INI fallback
         if asic_id is None or asic_id == '':
             portconfig = os.path.join(
                 FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
@@ -97,6 +137,72 @@ class SonicPortAliasMap():
         if os.path.exists(portconfig):
             return portconfig
         return None
+
+    def _get_portmap_from_json(self, platform_json_path, asic_id=None, include_internal=False,
+                               hostname=None, switchid=None, card_type=None):
+        """Parse platform.json + hwsku.json and return the same tuple format as get_portmap()."""
+        platform_dir = os.path.dirname(platform_json_path)
+        hwsku_json_path = os.path.join(platform_dir, self.hwsku, HWSKU_JSON)
+
+        (ports, _, _) = parse_platform_json_file(hwsku_json_path, platform_json_path)
+
+        aliases = []
+        front_panel_aliases = []
+        inband_aliases = []
+        portmap = {}
+        aliasmap = {}
+        portspeed = {}
+        indexmap = {}
+        front_panel_asic_ifnames = {}
+        front_panel_asic_id_map = {}
+        asic_if_names = {}
+        asic_if_ids = {}
+        sysports = []
+
+        for name in sorted(
+            (n for n in ports.keys() if n.startswith(PORT_STR)),
+            key=lambda x: int(x.replace(PORT_STR, ''))
+        ):
+            port_data = ports[name]
+            alias = port_data.get('alias', name)
+            speed = port_data.get('speed', None)
+            index = port_data.get('index', '-1')
+            role = port_data.get('role', 'Ext')
+
+            if role == "Ext":
+                front_panel_aliases.append(alias)
+            if role == "Inb":
+                inband_aliases.append(alias)
+
+            add_port = False
+            if role in {"Ext"} or (role in ["Int", "Inb", "Rec"] and include_internal):
+                add_port = True
+                aliases.append((alias, index))
+                portmap[name] = alias
+                aliasmap[alias] = name
+
+                if asic_id is not None:
+                    asic_if_names[alias] = name
+                    asic_if_ids[alias] = "ASIC" + str(asic_id)
+                    if role == "Ext":
+                        front_panel_asic_ifnames[alias] = name
+                        front_panel_asic_id_map[alias] = "ASIC" + str(asic_id)
+
+            if speed is not None and add_port:
+                portspeed[alias] = speed
+
+            if index != '-1':
+                indexmap[index] = name
+
+        if include_internal and card_type == "linecard":
+            aliases.append(("Cpu0/{}".format(asic_id if asic_id is not None else 0), -1))
+        if asic_id is not None and card_type == "linecard":
+            asic_if_names["Cpu0/{}".format(asic_id)] = "Cpu0"
+            asic_if_ids["Cpu0/{}".format(asic_id)] = "ASIC" + str(asic_id)
+
+        return (aliases, front_panel_aliases, inband_aliases, portmap, aliasmap, portspeed,
+                front_panel_asic_ifnames, front_panel_asic_id_map,
+                asic_if_names, asic_if_ids, sysports, indexmap)
 
     def get_portmap(self, asic_id=None, include_internal=False,
                     hostname=None, switchid=None, slotid=None, card_type=None):
@@ -125,6 +231,11 @@ class SonicPortAliasMap():
             raise Exception(
                 "Something wrong when trying to find the portmap file, "
                 "either the hwsku is not available or file location is not correct")
+
+        if filename.endswith('.json'):
+            return self._get_portmap_from_json(
+                filename, asic_id, include_internal, hostname, switchid, card_type)
+
         with open(filename) as f:
             lines = f.readlines()
         alias_index = -1
@@ -180,7 +291,7 @@ class SonicPortAliasMap():
                     if role == "Inb":
                         inband_aliases.append(alias)
 
-                    if role in {"Ext"} or (role in ["Int", "Inb", "Rec"] and include_internal):
+                    if role in {"Ext"} or (role in ["Int", "Inb", "Rec", "Dpc"] and include_internal):
                         add_port = True
                         aliases.append(
                             (alias, -1 if port_index == -1 or len(mapping) <= port_index else mapping[port_index]))

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-from telnetlib import Telnet
+from telnetlib3 import Telnet
 import logging
 from ansible.module_utils.debug_utils import config_module_logging
 
@@ -15,7 +15,7 @@ class EMatchNotFound(Exception):
 class SerialSession(object):
     def __init__(self, port):
         logging.debug('Starting')
-        self.tn = Telnet('127.0.0.1', port)
+        self.tn = Telnet('127.0.0.1', port)  # nosemgrep: telnetlib
         self.tn.write(b"\r\n")
 
         return

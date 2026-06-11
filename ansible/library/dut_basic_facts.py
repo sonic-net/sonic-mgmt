@@ -10,6 +10,8 @@ except ImportError:
     sys.path.append('..')
     from module_utils.parse_utils import parse_tabular_output
 
+import os
+
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
 
@@ -68,6 +70,10 @@ def main():
         results['is_dpu'] = False
         if hasattr(device_info, 'is_dpu'):
             results['is_dpu'] = device_info.is_dpu()
+
+        results['eth_mgmt_ctrl_available'] = False
+        if os.path.exists('/usr/bin/eth_mgmt_ctrl'):
+            results['eth_mgmt_ctrl_available'] = True
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':

@@ -22,9 +22,8 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network, IPv6Address
+from ipaddress import IPv6Network
 import ipaddress
-from random import getrandbits
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
@@ -263,7 +262,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_devices = list(set(peer_devices))
     peer_snappi_devices = []
     for peer in peer_devices:
-        if 'snappi' in peer or 'ixia' in peer:
+        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
             peer_snappi_devices.append(peer)
     if len(peer_snappi_devices) >= 1:
         return peer_snappi_devices
@@ -891,26 +890,29 @@ def enable_packet_aging(duthost, asic_value=None):
                     duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IPv6 addresses in a subnet.
+    Get N IPv6 addresses in a subnet, sequentially iterating hosts
+    and skipping excluded IPs. Consistent with get_addrs_in_subnet behavior.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
+        exclude_ips (list): Optional list of IPs to exclude
     Return:
         Return n IPv6 addresses in this subnet in a list.
     """
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
-    ipv6_list = []
-    for i in range(number_of_ip):
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
+    network = IPv6Network(subnet)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
 
+    ipv6_list = []
+    for addr in network.hosts():
+        if str(addr) not in exclude_set:
+            ipv6_list.append(str(addr))
+            if len(ipv6_list) == number_of_ip:
+                break
     return ipv6_list
 
 
@@ -1479,9 +1481,88 @@ def get_pfc_count(duthost, port):
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override and override_data is not None:
+    if is_override and override_data is not None and override_data != []:
         return override_data
     return default
+
+
+def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
+                                    qos_map_profile=None):
+    """
+    Build a per-queue scheduler/weight map for an interface by joining the
+    ``QUEUE`` and ``SCHEDULER`` config-DB tables, and optionally annotating
+    each queue with one of its DSCP values via ``DSCP_TO_TC_MAP`` and
+    ``TC_TO_QUEUE_MAP``.
+
+    Args:
+        host_ans: Ansible host instance of the device.
+        asic_value: asic namespace; pass ``None`` (default) or the string
+            ``"None"`` for single-asic devices.
+        port (str, optional): interface name to read ``QUEUE`` for. Defaults
+            to the first interface present in ``QUEUE``.
+        qos_map_profile (str, optional): name of the profile inside
+            ``DSCP_TO_TC_MAP`` / ``TC_TO_QUEUE_MAP`` to use for the ``dscp``
+            field. Defaults to the first profile (typically ``"AZURE"``).
+            If the maps are missing, ``dscp`` is set to ``None``.
+
+    Returns:
+        dict[int, dict]: ``{queue: {"scheduler": <name>, "type": <DWRR/...>,
+        "weight": <int>, "dscp": <int|None>}}``. The result always covers
+        queues 0-7; any queue not present in the per-port ``QUEUE`` config
+        (or whose scheduler is missing from ``SCHEDULER``) falls back to a
+        default entry with equal DWRR weight 15.
+    """
+    if asic_value in (None, "None"):
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running")["ansible_facts"]
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running",
+                                             namespace=asic_value)["ansible_facts"]
+
+    queue_cfg_all = config_facts.get("QUEUE") or {}
+    scheduler_cfg = config_facts.get("SCHEDULER") or {}
+
+    dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
+    tc_to_queue = config_facts.get("TC_TO_QUEUE_MAP") or {}
+    if qos_map_profile is None and dscp_to_tc:
+        qos_map_profile = next(iter(dscp_to_tc))
+    dscp_to_tc_map = dscp_to_tc.get(qos_map_profile, {}) if qos_map_profile else {}
+    tc_to_queue_map = tc_to_queue.get(qos_map_profile, {}) if qos_map_profile else {}
+
+    queue_to_dscp = {}
+    for dscp, tc in dscp_to_tc_map.items():
+        q = tc_to_queue_map.get(str(tc))
+        if q is not None:
+            queue_to_dscp.setdefault(int(q), int(dscp))
+
+    # default entry with equal DWRR weight 15
+    result = {
+        q: {"scheduler": None, "type": "DWRR", "weight": 15,
+            "dscp": queue_to_dscp.get(q)}
+        for q in range(8)
+    }
+
+    if not queue_cfg_all:
+        return result
+
+    if port is None:
+        port = next(iter(queue_cfg_all))
+    if port not in queue_cfg_all:
+        raise KeyError("Port {} not found in QUEUE config (available: {})".format(port, sorted(queue_cfg_all)))
+
+    for q, value in queue_cfg_all[port].items():
+        scheduler = value.get("scheduler")
+        if scheduler is None or scheduler not in scheduler_cfg:
+            continue
+        sched = scheduler_cfg[scheduler]
+        result[int(q)] = {
+            "scheduler": scheduler,
+            "type": sched.get("type"),
+            "weight": int(sched["weight"]),
+            "dscp": queue_to_dscp.get(int(q)),
+        }
+    return result
 
 
 @lru_cache

@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('m1', 't1', 'ptf')
+    pytest.mark.topology('m1', 't1', 'ptf', 'c0')
 ]
 
 
@@ -24,6 +24,8 @@ class TestNeighborMac:
     DUT_INTF_IP = "20.0.0.1"
     DUT_INTF_NETMASK = "24"
     TEST_MAC = ["00:c0:ca:c0:1a:05", "00:c0:ca:c0:1a:06"]
+    PTF_INTERFACE_READY_TIMEOUT = 10
+    PING_RETRY_TIMEOUT = 30
 
     @pytest.fixture(scope="module", autouse=True)
     def interfaceConfig(self, duthosts, rand_one_dut_hostname):
@@ -37,6 +39,8 @@ class TestNeighborMac:
                 None
         """
         duthost = duthosts[rand_one_dut_hostname]
+        if duthost.facts['platform'].startswith('arm64-c8220tg_48a_o'):
+            self.DUT_ETH_IF = "Ethernet1"
 
         intfStatus = duthost.show_interface(command="status")["ansible_facts"]["int_status"]
         if self.DUT_ETH_IF not in intfStatus:
@@ -105,6 +109,10 @@ class TestNeighborMac:
         ptfhost.shell("ifconfig {} down".format(self.PTF_HOST_IF))
         ptfhost.shell("ifconfig {} hw ether {}".format(self.PTF_HOST_IF, neighborMac))
         ptfhost.shell("ifconfig {} up".format(self.PTF_HOST_IF))
+        pytest_assert(
+            wait_until(self.PTF_INTERFACE_READY_TIMEOUT, 1, 0, self.__is_ptf_interface_ready, ptfhost),
+            "{} is not ready with IP {} after MAC update".format(self.PTF_HOST_IF, self.PTF_HOST_IP)
+        )
 
     def __startInterface(self, duthost):
         """
@@ -165,8 +173,39 @@ class TestNeighborMac:
             interfaceIp
         ])
 
+    def __is_ptf_interface_ready(self, ptfhost):
+        link_result = ptfhost.shell(
+            "ip -o link show dev {}".format(self.PTF_HOST_IF),
+            module_ignore_errors=True
+        )
+        addr_result = ptfhost.shell(
+            "ip -o addr show dev {}".format(self.PTF_HOST_IF),
+            module_ignore_errors=True
+        )
+        link_output = link_result.get("stdout", "")
+        addr_output = addr_result.get("stdout", "")
+        is_ready = (
+            link_result.get("rc") == 0 and
+            addr_result.get("rc") == 0 and
+            "state UP" in link_output and
+            "LOWER_UP" in link_output and
+            self.PTF_HOST_IP in addr_output
+        )
+        if not is_ready:
+            logger.info(
+                "PTF interface is not ready yet link_rc=%s addr_rc=%s link_output:\n%s\naddr_output:\n%s",
+                link_result.get("rc"), addr_result.get("rc"), link_output, addr_output
+            )
+        return is_ready
+
+    def __ping_dut_from_ptf(self, ptfhost):
+        return ptfhost.shell(
+            "ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP),
+            module_ignore_errors=True
+        )
+
     @pytest.fixture(autouse=True)
-    def configureNeighborIpAndPing(self, ptfhost, macIndex):
+    def configureNeighborIpAndPing(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex):
         """
             Configure Neighbor/Interface IP
 
@@ -174,15 +213,43 @@ class TestNeighborMac:
             the neighbor MAC 2 times.
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
+                duthosts (AnsibleHost): Device Under Test (DUT) hosts
+                rand_one_dut_hostname (str): selected DUT hostname
                 ptfhost (PTFHost): PTF instance used
                 macIndex (Fixture<int>): Index in the TEST_MAC list
 
             Returns:
                 None
         """
+        duthost = duthosts[rand_one_dut_hostname]
         self.__configureNeighborIp(ptfhost, macIndex)
-        ptfhost.shell("ping {} -c 3 -I {}".format(self.DUT_INTF_IP, self.PTF_HOST_IP))
+        ping_result = {}
+        ping_attempts = 0
+
+        def ping_dut():
+            nonlocal ping_attempts
+            ping_attempts += 1
+            ping_result.clear()
+            ping_result.update(self.__ping_dut_from_ptf(ptfhost))
+            logger.info("PTF ping attempt %s rc=%s", ping_attempts, ping_result.get("rc"))
+            return ping_result.get("rc") == 0
+
+        is_vpp = duthost.facts.get("asic_type") == "vpp"
+        if is_vpp:
+            ping_succeeded = wait_until(self.PING_RETRY_TIMEOUT, 1, 0, ping_dut)
+        else:
+            ping_succeeded = ping_dut()
+
+        pytest_assert(
+            ping_succeeded,
+            "Failed to ping DUT interface {} from PTF IP {}{}, stdout: {}, stderr: {}".format(
+                self.DUT_INTF_IP,
+                self.PTF_HOST_IP,
+                " within {} seconds".format(self.PING_RETRY_TIMEOUT) if is_vpp else "",
+                ping_result.get("stdout", ""),
+                ping_result.get("stderr", "")
+            )
+        )
 
         time.sleep(2)
 

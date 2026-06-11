@@ -1,0 +1,208 @@
+# Data Flow Architecture Diagram
+
+## Overall System Architecture
+
+```mermaid
+graph TB
+    subgraph "Input Files"
+        A[dut_info.json]
+        B["eeprom/ shards"]
+        C["system/ shards"]
+        D[Other category shards...]
+    end
+
+    subgraph "Framework Processing"
+        E[AttributeManager]
+        F[Port Expansion Processor]
+        G[Configuration Parser]
+        H[Priority Resolver]
+        I[Validator]
+    end
+
+    subgraph "Output Structure"
+        J[port_attributes_dict]
+        K[BASE_ATTRIBUTES]
+        L[EEPROM_ATTRIBUTES]
+        M[SYSTEM_ATTRIBUTES]
+        N[Other Category Attributes]
+    end
+
+    subgraph "Validation (Optional)"
+        Q[Deployment Templates]
+        R[AttributeCompletenessValidator]
+    end
+
+    subgraph "Test Infrastructure"
+        S[conftest.py session Fixtures]
+        T[common/prerequisites.py]
+        U[common/health_checks.py]
+    end
+
+    subgraph "Test Consumption"
+        O[Test Cases]
+        P[DUT Host Object]
+    end
+
+    A --> E
+    B --> E
+    C --> E
+    D --> E
+
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+
+    I --> K
+    I --> L
+    I --> M
+    I --> N
+
+    K --> J
+    L --> J
+    M --> J
+    N --> J
+
+    J --> R
+    Q --> R
+    R --> P
+    P --> O
+    J --> O
+
+    S --> T
+    T --> P
+    S --> U
+    U --> P
+    S -->|gates| O
+
+    style A fill:#e1f5fe
+    style E fill:#f3e5f5
+    style J fill:#e8f5e8
+    style O fill:#fff3e0
+    style S fill:#fce4ec
+```
+
+## Detailed Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant DI as dut_info.json
+    participant AM as AttributeManager
+    participant PP as Port Processor
+    participant CP as Config Parser
+    participant CF as Category Shards
+    participant PR as Priority Resolver
+    participant PD as port_attributes_dict
+    participant V as Validator
+    participant TC as Test Cases
+    participant CFF as conftest.py Fixtures
+    participant PRQ as common/prerequisites.py
+
+    TC->>AM: Initialize framework & load base data
+    AM->>DI: Load dut_info.json
+    DI-->>AM: Port specs & metadata
+    AM->>PP: Expand port specifications
+    PP-->>AM: Expanded port list
+    AM->>CP: Parse transceiver configuration strings
+    CP-->>AM: Parsed components
+    AM->>PD: Seed BASE_ATTRIBUTES per port
+
+    loop For each category
+        TC->>CF: Load all shards in <category>/ (category + vendor + per-PN), deep-merge
+        CF-->>TC: Raw category attributes (merged tree)
+        TC->>PR: Resolve via 9-level priority hierarchy
+        PR-->>TC: Merged CATEGORY_ATTRIBUTES
+        TC->>PD: Store CATEGORY_ATTRIBUTES
+        opt Attribute Completeness Validation
+            PD->>V: Validate against deployment templates
+            V-->>PD: Results
+        end
+        CFF->>PRQ: Session fixtures call prerequisite checks (once per session)
+        PRQ-->>CFF: Results (skip category if failed)
+        PD-->>TC: Run main category test cases
+    end
+```
+
+## Data Transformation Examples
+
+### Step 1: Port Expansion
+
+```text
+Input (dut_info.json):
+{
+  "dut_name_1": {
+    "Ethernet4:7": {
+      "vendor_name": "ACME Corp.",
+      "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF"
+    }
+  }
+}
+
+After Port Expansion:
+- Ethernet4: same attributes
+- Ethernet5: same attributes
+- Ethernet6: same attributes
+```
+
+### Step 2: Configuration Parsing
+
+```text
+Input: "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF"
+
+Parsed Components:
+- cable_type: "AOC"
+- speed_gbps: 100
+- form_factor: "QSFPDD"
+- deployment: "2x100G_100G_SIDE"
+- media_lane_mask: "0xFF"
+- host_lane_mask: "0xFF"
+- media_lane_count: 8
+- host_lane_count: 8
+```
+
+### Step 3: Attribute Merging
+
+```text
+For Ethernet4 EEPROM_ATTRIBUTES:
+
+Priority Resolution:
+1. defaults.vdm_supported = false
+2. deployment_configurations.2x100G_100G_SIDE.vdm_supported = true  ← WINS
+3. vendor.ACME_CORP.defaults.vdm_supported = false
+4. No higher priority overrides found
+
+Result: vdm_supported = true
+```
+
+### Step 4: Final Structure
+
+```python
+port_attributes_dict = {
+    "Ethernet4": {
+        "BASE_ATTRIBUTES": {
+            "vendor_name": "ACME Corp.",
+            "cable_type": "AOC",
+            "speed_gbps": 100,
+            "deployment": "2x100G_100G_SIDE",
+            # ... other parsed fields
+        },
+        "EEPROM_ATTRIBUTES": {
+            "vdm_supported": true,
+            # ... other resolved attributes
+        },
+        "SYSTEM_ATTRIBUTES": {
+            # ... resolved system attributes
+        }
+    }
+    # ... other ports
+}
+```
+
+## Key Benefits
+
+1. **Separation of Concerns**: Base hardware data vs. test-specific attributes
+2. **Modular Design**: Each category is sharded by ownership level (category / vendor / per-PN), so vendor onboarding and PN-specific tuning happen in isolated files
+3. **Flexible Overrides**: 9-level priority system handles all scenarios (including per-firmware-version overrides via the reserved `firmware_overrides.<FW_VERSION>` slot)
+4. **Efficient Grouping**: Port ranges reduce configuration overhead
+5. **Deployment Patterns**: Shared attributes for similar deployments
+6. **Extensible**: Easy to add new categories and attributes

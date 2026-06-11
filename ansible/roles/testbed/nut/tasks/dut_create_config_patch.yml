@@ -32,6 +32,17 @@
 #    var: device_bgp_neighbor_ports[inventory_hostname]
 #    #var: device_bgp_neighbors
 
+- name: set L2 snake defaults
+  set_fact:
+    device_vlan_list: "{{ device_vlan_list | default({}) }}"
+    device_port_vlans: "{{ device_port_vlans | default({}) }}"
+    device_vlans: "{{ device_vlans | default({}) }}"
+    device_vrfs: "{{ device_vrfs | default({}) }}"
+    device_conn: "{{ device_conn | default({}) }}"
+    device_interfaces: "{{ device_interfaces | default({}) }}"
+    device_bgp_neighbor_devices: "{{ device_bgp_neighbor_devices | default({}) }}"
+    device_bgp_neighbor_ports: "{{ device_bgp_neighbor_ports | default({}) }}"
+
 - name: define features settings
   set_fact:
     device_feature_settings:
@@ -49,11 +60,13 @@
   vars:
     info: "{{ device_info[inventory_hostname] }}"
     meta: "{{ device_meta[inventory_hostname] }}"
-    conn: "{{ device_conn[inventory_hostname] }}"
-    vlans: "{{ device_vlan_list[inventory_hostname] }}"
-    vrfs: "{{ device_vrfs[inventory_hostname] }}"
-    intfs: "{{ device_interfaces[inventory_hostname] }}"
-    port_vlans: "{{ device_port_vlans[inventory_hostname] }}"
-    bgp_neighbor_devices: "{{ device_bgp_neighbor_devices[inventory_hostname] }}"
-    bgp_neighbor_ports: "{{ device_bgp_neighbor_ports[inventory_hostname] }}"
+    conn: "{{ device_conn[inventory_hostname] | default({}) }}"
+    vlans: "{{ device_vlan_list[inventory_hostname] | default([]) }}"
+    vrfs: "{{ device_vrfs[inventory_hostname] | default({}) }}"
+    intfs: "{{ device_interfaces[inventory_hostname] | default({}) }}"
+    port_vlans: "{{ device_port_vlans[inventory_hostname] | default({}) }}"
+    bgp_neighbor_devices: "{{ device_bgp_neighbor_devices[inventory_hostname] | default({}) }}"
+    bgp_neighbor_ports: "{{ device_bgp_neighbor_ports[inventory_hostname] | default({}) }}"
     features: "{{ device_feature_settings }}"
+    cert_telemetry: "{{ device_cert_telemetry }}"
+    cert_restapi: "{{ device_cert_restapi }}"
