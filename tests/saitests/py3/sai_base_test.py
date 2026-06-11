@@ -145,7 +145,7 @@ class ThriftInterface(BaseTest):
         if self.dst_client != self.src_client:
             self.dst_transport.close()
 
-    def exec_cmd_on_dut(self, hostname, username, password, cmd):
+    def exec_cmd_on_dut(self, hostname, username, password, cmd, timeout=20):
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -157,7 +157,7 @@ class ThriftInterface(BaseTest):
         try:
             client.connect(hostname, username=username,
                            password=password, allow_agent=False)
-            si, so, se = client.exec_command(cmd, timeout=20)
+            si, so, se = client.exec_command(cmd, timeout=timeout)
             stdOut = so.readlines()
             stdErr = se.readlines()
             retValue = 0
