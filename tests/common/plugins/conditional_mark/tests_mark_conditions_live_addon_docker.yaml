@@ -1,0 +1,11 @@
+#######################################
+#####   live addon docker          #####
+#######################################
+
+live_addon_docker/test_utility_docker.py:
+  skip:
+    reason: "Live-addon docker tests are for Cisco 8000 only (skip VS/KVM and other asic_type)"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+      - "asic_type in ['vs']"
