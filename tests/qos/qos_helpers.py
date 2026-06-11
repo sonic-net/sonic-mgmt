@@ -404,6 +404,37 @@ def get_upstream_exabgp_port(nbrhosts, tbinfo, exabgp_base_port):
     return [_ + exabgp_base_port for _ in port_offset_list]
 
 
+def get_downstream_vm_offset(nbrhosts, tbinfo):
+    """
+    Get ports offset of exabgp port for the downstream tier.
+
+    Used as a fallback "remote side" on topologies that have no upstream tier
+    (e.g. an isolated T1 where the DUT only has downstream T0 neighbors).
+    """
+    port_offset_list = []
+    if 't1' in tbinfo['topo']['type']:
+        vm_filter = 'T0'
+    else:
+        # t0 (and others) have no BGP-speaking downstream tier to use as remote side
+        return port_offset_list
+    vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(vm_filter)]
+    for vm_name in vm_name_list:
+        if nbrhosts[vm_name].get('is_multi_vrf_peer', False):
+            port_offset = nbrhosts[vm_name]['multi_vrf_data']['vm_offset_mapping']
+        else:
+            port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
+        port_offset_list.append((port_offset))
+    return port_offset_list
+
+
+def get_downstream_exabgp_port(nbrhosts, tbinfo, exabgp_base_port):
+    """
+    Get exabgp ports for the downstream tier (fallback remote side).
+    """
+    port_offset_list = get_downstream_vm_offset(nbrhosts, tbinfo)
+    return [_ + exabgp_base_port for _ in port_offset_list]
+
+
 def install_route_from_exabgp(operation, ptfip, route, port):
     """
     Install or withdraw ip route by exabgp
