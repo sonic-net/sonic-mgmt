@@ -16,7 +16,8 @@
     privileged: yes
     volumes:
       - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic:/var/sonic
-      - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr:/etc/frr
+    env:
+      HWSKU: "SONiC-VM"
   delegate_to: "{{ VM_host[0] }}"
 
 - name: Wait for container to be fully started
@@ -53,55 +54,28 @@
   delegate_to: "{{ VM_host[0] }}"
   loop: "{{ host['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"
   vars:
-    host: "{{ configuration[inventory_hostname] }}"
+    host: "{{ configuration[hostname] }}"
   register: ifup_result
   failed_when: false
 
 - name: Bring up backplane interface if defined
   become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth_bp up
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth2 up
   delegate_to: "{{ VM_host[0] }}"
-  when: configuration[inventory_hostname]['bp_interface'] is defined
+  when: configuration[hostname]['bp_interface'] is defined
   register: bp_ifup_result
   failed_when: false
 
-- name: Set proper ownership for FRR config files
+- name: Wait for bgpcfgd to configure FRR from ConfigDB
   become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} chown -R frr:frr /etc/frr
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    vtysh -c "show running-config"
   delegate_to: "{{ VM_host[0] }}"
-  register: chown_result
-  failed_when: false
-
-- name: Set proper permissions for FRR config files
-  become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} chmod 640 /etc/frr/*.conf
-  delegate_to: "{{ VM_host[0] }}"
-  register: chmod_result
-  failed_when: false
-
-- name: Start zebra daemon in cSONiC container
-  become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl start zebra
-  delegate_to: "{{ VM_host[0] }}"
-  register: zebra_start
-  failed_when: false
-
-- name: Start bgpd daemon in cSONiC container
-  become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl start bgpd
-  delegate_to: "{{ VM_host[0] }}"
-  register: bgpd_start
-  failed_when: false
-
-- name: Display zebra startup status
-  debug:
-    msg: "Zebra daemon status: {{ zebra_start.stdout }}"
-  when: zebra_start.stdout is defined
-
-- name: Display bgpd startup status
-  debug:
-    msg: "BGPd daemon status: {{ bgpd_start.stdout }}"
-  when: bgpd_start.stdout is defined
+  register: frr_config
+  until: frr_config.stdout is search("router bgp")
+  retries: 30
+  delay: 2
 
 - name: Check FRR daemon status
   become: yes

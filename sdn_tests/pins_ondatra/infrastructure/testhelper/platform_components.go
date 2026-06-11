@@ -2,12 +2,11 @@ package testhelper
 
 import (
 	"fmt"
+	"github.com/openconfig/ondatra"
+	"github.com/pkg/errors"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/openconfig/ondatra"
-	"github.com/pkg/errors"
 )
 
 // Software Component APIs.
@@ -453,6 +452,7 @@ func (p PCIeInfo) GetName() string {
 
 // PcieInfoForDevice returns information about all PCIe devices.
 func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
+
 	info, err := platformInfoForDevice(t, d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch platform specific information")

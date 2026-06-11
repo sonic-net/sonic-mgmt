@@ -168,7 +168,7 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
 
     setup_info = {
         "duthost": duthost,
-        "dut_mac": duthost._get_router_mac(),
+        "dut_mac": duthost.facts["router_mac"],
         "dut_port": dut_port,
         "dut_downstream_port": dut_downstream_port,
         "ptf_src_port": ptf_src_port,

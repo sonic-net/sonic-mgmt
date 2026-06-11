@@ -21,7 +21,7 @@ PEER_COUNT = 16
 WAIT_TIMEOUT = 120
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -113,13 +113,14 @@ def measure_stats(dut, is_ipv6=False):
 
 
 @pytest.fixture
-def setup_duthost_intervals(duthost):
+def setup_duthost_intervals(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     '''
     Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
     The default is left relatively long to ensure that it passes on all platforms.
 
     Returns a list of float values.
     '''
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     DEFAULT_INTERVALS = [10.0, 9.0, 8.0]
     PLATFORM_INTERVALS = {
         'mellanox': [4.0, 3.5, 3.0],
@@ -139,7 +140,8 @@ def setup_duthost_intervals(duthost):
 
 @pytest.fixture
 def setup_bgp_peers(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,
     ptfhost,
     setup_interfaces,
@@ -148,14 +150,28 @@ def setup_bgp_peers(
 ):
     ASN_BASE = 61000
     PORT_BASE = 11000
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
@@ -194,20 +210,41 @@ def setup_bgp_peers(
             is_ipv6_only=is_ipv6_only_topology(tbinfo),
             namespace=connection_namespace,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False
+            is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh,
         )
 
         bgp_peers.append(peer)
 
     # Start sessions
-    for peer in bgp_peers:
-        peer.start_session()
+    started_peers = []
+    try:
+        for peer in bgp_peers:
+            started_peers.append(peer)
+            peer.start_session()
+        yield bgp_peers
+    finally:
+        # Always cleanup, even on setup failure
+        for peer in started_peers:
+            peer.stop_session()
 
-    yield bgp_peers
 
-    # End sessions
-    for peer in bgp_peers:
-        peer.stop_session()
+'''
+    Helper functions for wait conditions
+'''
+
+
+def _check_rib_routes_received(duthost, is_ipv6, min_expected_rib):
+    """Return True when RIB entry count reaches min_expected_rib."""
+    stats = measure_stats(duthost, is_ipv6)
+    return int(stats["num_rib"]) >= min_expected_rib
+
+
+def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
+    """Return True when RIB entry count drops to or below min_expected_rib."""
+    stats = measure_stats(duthost, is_ipv6)
+    return int(stats["num_rib"]) <= min_expected_rib
 
 
 '''
@@ -216,12 +253,15 @@ def setup_bgp_peers(
 
 
 def test_bgp_update_replication(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,
     setup_bgp_peers,
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
+    ROUTE_WAIT_TIMEOUT = 60
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
     is_ipv6 = is_ipv6_only_topology(tbinfo)
@@ -257,7 +297,8 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            time.sleep(interval)
+            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -280,7 +321,8 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            time.sleep(interval)
+            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))

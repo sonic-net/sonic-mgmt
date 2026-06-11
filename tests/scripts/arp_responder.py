@@ -12,6 +12,13 @@ scapy.conf.use_pcap = True
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 
 
+# Canonical default config path for the arp_responder helper. Kept in lock-step
+# with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG; we don't
+# import that here because this script is distributed to and executed inside
+# the PTF container, where the sonic-mgmt test tree is not on sys.path.
+DEFAULT_CONFIG_PATH = '/tmp/from_t1.json'
+
+
 class ARPResponder(object):
     ARP_OP_REQUEST = 1
     ip_sets = {}
@@ -92,7 +99,7 @@ class ARPResponder(object):
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf',
-                        default='/tmp/from_t1.json', help='path to json file with configuration')
+                        default=DEFAULT_CONFIG_PATH, help='path to json file with configuration')
     parser.add_argument('--extended', '-e', action='store_true',
                         dest='extended', default=False, help='enable extended mode')
     args = parser.parse_args()
@@ -119,8 +126,7 @@ def main():
         iface = str(iface)
         if iface.find('@') != -1:
             iface, vlan = iface.split('@')
-            vlan_tag = format(int(vlan), 'x')
-            vlan_tag = vlan_tag.zfill(4)
+            vlan_tag = int(vlan)
         if iface not in ip_sets:
             ip_sets[iface] = defaultdict(list)
         if args.extended:
@@ -130,12 +136,14 @@ def main():
             for ip in ip_dict:
                 ip_sets[iface][str(ip)] = scapy.get_if_hwaddr(iface)
         if vlan is not None:
-            ip_sets[iface]['vlan'].append(binascii.unhexlify(vlan_tag))
+            ip_sets[iface]['vlan'].append(vlan_tag)
 
     for iface in ip_sets:
         arp_filter_entries = []
         icmp_filter_entries = []
         for ip in ip_sets[iface]:
+            if ip == 'vlan':
+                continue
             ip_address = ipaddress.ip_address(ip)
             if ip_address.version == 4:
                 arp_filter_entries.append(f'arp[24:4] = 0x{int.from_bytes(ip_address.packed, "big"):0x}')  # noqa: E231

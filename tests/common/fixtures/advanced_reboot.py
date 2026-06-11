@@ -16,6 +16,7 @@ from tests.common.reboot import reboot as rebootDut
 from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -137,6 +138,8 @@ class AdvancedReboot:
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
         self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
+        if 'sonic' in self.neighborType:
+            self.neighborType = 'sonic'
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -340,7 +343,7 @@ class AdvancedReboot:
         """
         arp_responder_args = '-e'
         if item is not None:
-            arp_responder_args += ' -c /tmp/from_t1_{0}.json'.format(item)
+            arp_responder_args += ' -c ' + ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT % item
         self.ptfhost.host.options['variable_manager'].extra_vars.update({'arp_responder_args': arp_responder_args})
 
         logger.info('Copying arp responder config file to {0}'.format(self.ptfhost.hostname))
@@ -662,6 +665,11 @@ class AdvancedReboot:
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
@@ -761,6 +769,11 @@ class AdvancedReboot:
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
                     upgrade_path_str, traceback_msg)

@@ -67,6 +67,87 @@ class DisableLogrotateCronContext:
         self.ansible_host.command("systemctl start logrotate.timer", module_ignore_errors=True)
 
 
+class DisableLogrotateAndWaitSyslogContext:
+    """
+    Context class to disable logrotate and wait for syslog backlog to drain on exit.
+    """
+
+    def __init__(self, ansible_host, cleanup=None, syslog_path="/var/log/syslog",
+                 timeout=300, interval=10, stable_iterations=2):
+        """
+        Constructor of DisableLogrotateAndWaitSyslogContext.
+        :param ansible_host: DUT object representing a SONiC switch under test.
+        :param cleanup: Optional callable executed before waiting for syslog to stabilize.
+        :param syslog_path: Path to the syslog file on the DUT.
+        :param timeout: Maximum time to wait for syslog to stabilize.
+        :param interval: Poll interval when checking syslog size.
+        :param stable_iterations: Number of consecutive identical size checks required.
+        """
+        self.ansible_host = ansible_host
+        self.cleanup = cleanup
+        self.syslog_path = syslog_path
+        self.timeout = timeout
+        self.interval = interval
+        self.stable_iterations = stable_iterations
+        self.disable_logrotate_context = DisableLogrotateCronContext(ansible_host)
+
+    def __enter__(self):
+        self.disable_logrotate_context.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.cleanup is not None:
+                self.cleanup()
+            self._wait_for_file_size_to_stabilize()
+        finally:
+            self.disable_logrotate_context.__exit__(exc_type, exc_val, exc_tb)
+
+    def _wait_for_file_size_to_stabilize(self):
+        if self.stable_iterations < 1:
+            raise ValueError("stable_iterations must be at least 1")
+
+        stable_count = 0
+        previous_size = None
+        quoted_file_path = "'{}'".format(self.syslog_path.replace("'", "'\"'\"'"))
+        end = time.time() + self.timeout
+
+        while time.time() < end:
+            result = self.ansible_host.shell(
+                "stat -c %s {}".format(quoted_file_path),
+                module_ignore_errors=True
+            )
+            if result.get("failed") or result.get("rc", 0) != 0:
+                stable_count = 0
+                previous_size = None
+                logging.debug("Failed to stat file %s: %s", self.syslog_path, result)
+            else:
+                current_size = result.get("stdout", "").strip()
+                if current_size == previous_size:
+                    stable_count += 1
+                else:
+                    stable_count = 0
+                    previous_size = current_size
+
+                logging.debug(
+                    "File size check for %s: current=%s previous=%s stable_count=%s/%s",
+                    self.syslog_path,
+                    current_size,
+                    previous_size,
+                    stable_count,
+                    self.stable_iterations,
+                )
+
+                if stable_count >= self.stable_iterations:
+                    logging.info("File %s size stabilized", self.syslog_path)
+                    return True
+
+            time.sleep(self.interval)
+
+        logging.warning("File %s size did not stabilize within %s seconds", self.syslog_path, self.timeout)
+        return False
+
+
 class LogAnalyzerError(Exception):
     """Raised when loganalyzer found matches during analysis phase."""
     def __repr__(self):
@@ -107,7 +188,10 @@ class LogAnalyzer:
 
     def _add_end_marker(self, marker):
         """
-        @summary: Add stop marker into syslog on the DUT.
+        @summary: Add stop marker on the DUT. Markers always go to syslog; when
+        additional_files were initialized with the same paths as init() (empty
+        per-file start string), also pass --logs so the DUT loganalyzer places the
+        end marker into those files. Otherwise extract_log cannot bound those files.
 
         @return: True for successful execution False otherwise
         """
@@ -115,6 +199,13 @@ class LogAnalyzer:
 
         cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
             .format(run_dir=self.dut_run_dir, marker=marker)
+
+        log_files_for_end = []
+        for idx, path in enumerate(self.additional_files):
+            if not self.additional_start_str or self.additional_start_str[idx] == '':
+                log_files_for_end.append(path)
+        if log_files_for_end:
+            cmd += " --logs {}".format(','.join(log_files_for_end))
 
         logging.debug("Adding end marker '{}'".format(marker))
         self.ansible_host.command(cmd)

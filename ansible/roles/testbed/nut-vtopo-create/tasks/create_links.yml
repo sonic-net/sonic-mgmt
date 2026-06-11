@@ -1,0 +1,25 @@
+---
+# create_links.yml — Create Linux bridges for each front-panel link.
+# KVM VM interfaces and TG container interfaces will attach to these bridges.
+# Bridge naming: vbr_<testbed>_<idx> (max 15 chars for Linux interface name)
+
+- name: Create front-panel link bridges
+  shell: |
+    BRIDGE="vbr_{{ testbed_name[:8] }}_{{ idx }}"
+    if ip link show "$BRIDGE" >/dev/null 2>&1; then
+      echo "Bridge $BRIDGE already exists"
+    else
+      ip link add "$BRIDGE" type bridge
+      ip link set "$BRIDGE" up
+      echo "Created bridge $BRIDGE"
+    fi
+  loop: "{{ vnut_links }}"
+  loop_control:
+    index_var: idx
+    label: "{{ item.StartDevice }}:{{ item.StartPort }} <-> {{ item.EndDevice }}:{{ item.EndPort }}"
+  register: bridge_results
+  changed_when: "'Created' in bridge_results.stdout"
+
+- name: Display link bridge creation summary
+  debug:
+    msg: "Created {{ vnut_links | length }} front-panel link bridges"

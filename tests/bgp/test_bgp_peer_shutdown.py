@@ -7,6 +7,7 @@ import time
 import pytest
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.layers.l2 import CookedLinux
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.errors import RunAnsibleModuleFail
@@ -16,7 +17,7 @@ from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
 ]
 
 TEST_ITERATIONS = 5
@@ -46,6 +47,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
@@ -62,6 +64,15 @@ def common_setup_teardown(
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
             use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -88,6 +99,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         )
@@ -135,11 +147,20 @@ def is_neighbor_session_established(duthost, neighbor):
 
 
 def bgp_notification_packets(pcap_file, is_v6_topo):
-    """Get bgp notification packets from pcap file."""
+    """Get incoming bgp notification packets from pcap file.
+
+    When tcpdump captures on the 'any' interface with LINUX_SLL link type,
+    each packet has a CookedLinux header with a pkttype field indicating
+    direction. Filter out outgoing packets (pkttype == 4, 'sent-by-us')
+    so only incoming notifications are validated.
+    """
     ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+        lfilter=lambda p: (ip_ver in p and
+                           bgp.BGPHeader in p and
+                           p[bgp.BGPHeader].type == 3 and
+                           not (CookedLinux in p and p[CookedLinux].pkttype == 4)),
     )
     return packets
 

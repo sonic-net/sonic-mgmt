@@ -225,6 +225,8 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_se
     :param mirror_config: mirror_config fixture
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.facts['asic_type'] == 'vpp':
+        pytest.skip('Mirroring is not supported on VPP platform')
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
@@ -382,12 +384,8 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_hostname
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
     is_bmc_present = False
-    try:
-        if bmc.get_presence(platform_api_conn):
-            is_bmc_present = True
-    except Exception as e:
-        logger.warning("Failed to get BMC presence: {}".format(e))
-        is_bmc_present = False
+    if bmc.is_bmc_exists(duthost):
+        is_bmc_present = True
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
@@ -532,6 +530,30 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
             asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
         else:
             asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
+
+            # Check if soc commands should be supported
+            soc_supported = None
+            try:
+                soc_supported = duthost.shell(r'bcmcmd bsh -c SOC')
+            except Exception:
+                pass
+            else:
+                if (soc_supported and soc_supported['rc'] == 0
+                        and 'Unknown command: SOC' not in ' '.join(soc_supported["stdout_lines"])):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_soc
+                else:
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_th5
+
+            # Check if nat commands should be supported
+            nat_supported = None
+            try:
+                nat_supported = duthost.shell(r'bcmcmd "show feature" | grep -i nat')
+            except Exception:
+                pass
+            else:
+                if (nat_supported and nat_supported['rc'] == 0):
+                    asic_cmds += cmds.broadcom_cmd_bcmcmd_xgs_nat
+
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
@@ -555,8 +577,11 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
                 }
             )
     # Remove /proc/dma for armh
-    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "nokia-vs"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
+            cmds.copy_proc_files.remove("/proc/dma")
+    elif duthost.facts["asic_type"] == "vpp":
+        if 'arm64-' in duthost.facts["platform"] or 'kvm' in duthost.facts["platform"]:
             cmds.copy_proc_files.remove("/proc/dma")
 
     return cmds_to_check
