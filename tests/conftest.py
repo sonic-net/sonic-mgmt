@@ -422,6 +422,21 @@ def pytest_addoption(parser):
                      help="MUX_CABLE neighbor_mode value (host-route|prefix-route). "
                           "Only applies to dualtor/dualtor_io suites.")
 
+    ##########################################
+    #   Console SSH options                  #
+    ##########################################
+    parser.addoption("--use-console-ssh-legacy-kex", "--use_console_ssh_legacy_kex",
+                     action="store_true", default=False, dest="use_console_ssh_legacy_kex",
+                     help="Opt-in compatibility for legacy console SSH servers that only support "
+                          "older Diffie-Hellman KEX algorithms. When set, the connection's "
+                          "paramiko.Transport._preferred_kex is temporarily prepended with legacy "
+                          "algorithms for the duration of the console connect only.")
+    parser.addoption("--console-ssh-kex-algos", "--console_ssh_kex_algos",
+                     action="store", default="", type=str, dest="console_ssh_kex_algos",
+                     help="Comma-separated list of KEX algorithms to prepend for console SSH. "
+                          "Only applied when --use-console-ssh-legacy-kex is set. "
+                          "Defaults to diffie-hellman-group14-sha1,diffie-hellman-group1-sha1.")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -431,6 +446,14 @@ def pytest_configure(config):
         else:
             config.pluginmanager.register(MacsecPluginT0())
     converge_topo_if_needed(config)
+
+    # Propagate console SSH KEX override choice into the connections module so
+    # SSHConsoleConn can apply it without reading environment variables.
+    from tests.common.connections import ssh_console_conn
+    ssh_console_conn.configure_console_ssh_legacy_kex(
+        enabled=config.getoption("use_console_ssh_legacy_kex"),
+        algos=config.getoption("console_ssh_kex_algos"),
+    )
 
 
 def _load_testbed_config(tbfile, tbname):
