@@ -121,13 +121,6 @@ def _connect_line_via_ressh(duthost, creds, target_line):
     return client
 
 
-def _disconnect_line_session(client):
-    # connect line prints: "Press ^A ^X to disconnect"
-    client.sendcontrol("a")
-    client.sendcontrol("x")
-    client.close(force=True)
-
-
 def _expect_data_flood(client, pattern, min_hits=3, timeout_per_hit=2.0):
     hits = 0
     while hits < min_hits:
@@ -232,7 +225,10 @@ def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, 
             # Hardware (RTS/CTS): exit line client so DUT stops reading; assert DUT RX counters stay flat while
             # disconnected (fanout TX may still move due to driver buffering; this path keys on DUT RX).
 
-            _disconnect_line_session(client)
+            logging.info("Sending CTRL+A+X to stop line connection")
+            client.sendcontrol("a")
+            client.sendcontrol("x")
+
             client = None
             time.sleep(10)
 
@@ -267,7 +263,8 @@ def test_console_switch_flow_control_pause_resume(setup_c0, creds, target_line, 
     finally:
         if client is not None:
             try:
-                _disconnect_line_session(client)
+                client.sendcontrol("a")
+                client.sendcontrol("x")
             except Exception:
                 pass
         if sender_pid is not None:
