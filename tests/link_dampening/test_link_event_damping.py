@@ -1,11 +1,9 @@
 import logging
 import pytest
 import time
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.link_dampening.link_event_damping_utils import (
     get_dut_fronface_ports,
     configure_link_damping,
@@ -256,6 +254,8 @@ class TestLinkEventDampingConfiguration:
         is_persistent = validate_redis_persistence(dut, test_intf, DAMPING_CONFIG_PARAMS)
         pytest_assert(is_persistent, "Configuration not persisted in Redis")
 
+        logger.info(f"Persistent: {is_persistent}")
+
     def test_tc02_4_multiple_configuration_profiles(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC02.4 - Multiple Configuration Profiles
 
@@ -305,6 +305,8 @@ class TestLinkEventDampingConfiguration:
             is_configured = verify_configuration(dut, test_intf, param)
             pytest_assert(is_configured, f"Parameter {param} not configured correctly")
 
+        logger.info("individual  Parameter configuration verified")
+
     def test_tc02_6_configuration_synchronization(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC02.6 - Configuration Synchronization
 
@@ -326,6 +328,7 @@ class TestLinkEventDampingConfiguration:
 
         pytest_assert(config_db_ok and redis_ok, "Configuration not synchronized")
 
+        logger.info("Configuration synchronisation with CONFIG DB verified")
 
 class TestLinkEventDampingUnsupported:
     """Test cases for unsupported configuration handling (TC03)"""
@@ -383,6 +386,8 @@ class TestLinkEventDampingUnsupported:
         # Verify configuration accepted
         is_configured = verify_configuration(dut, test_intf, {"flap_penalty": 0})
         pytest_assert(is_configured, "Zero penalty configuration should be accepted")
+
+        logger.info("Zero penalty configuaration verified")
 
     def test_tc03_3_suppress_less_than_reuse(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC03.3 - Suppress Less Than Reuse
@@ -672,6 +677,7 @@ class TestLinkEventDampingOperationalState:
             phys_state = get_interface_physical_state(dut, test_intf)
             op_state = get_interface_operational_state(dut, test_intf)
 
+            logger.info(f"Initial Physical state: {initial_phys}, Operational state: {initial_op}")
             logger.info(f"Physical state: {phys_state}, Operational state: {op_state}")
             # States should diverge if suppression is active
 
@@ -748,7 +754,7 @@ class TestLinkEventDampingFrequency:
             time.sleep(2)
 
         suppression_duration = (datetime.now() - suppression_start).seconds
-        logger.warning(f"Suppression duration: {suppression_duration} seconds")
+        logger.warning(f"Suppression start time: {start_time}, duration: {suppression_duration} seconds")
 
         # Should be longer than minimal
         pytest_assert(suppression_duration > 5, "Suppression should last a reasonable time")

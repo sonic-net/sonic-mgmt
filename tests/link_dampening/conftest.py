@@ -5,7 +5,6 @@ Pytest configuration and fixtures for Layer1 (Physical) tests
 import logging
 import pytest
 
-#from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.link_dampening.link_event_damping_utils import get_dut_fronface_ports
 

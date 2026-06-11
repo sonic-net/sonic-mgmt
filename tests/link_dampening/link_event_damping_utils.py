@@ -10,8 +10,6 @@ This module provides helper functions for:
 
 import logging
 import time
-import json
-import re
 from datetime import datetime
 from natsort import natsorted
 
@@ -66,7 +64,7 @@ def configure_link_damping(dut, interface, suppress_threshold=None, reuse_thresh
             # TODO: Verify the correct command to disable damping
             cmd = f"config interface damping algo {interface} disabled"
             result = dut.shell(cmd, module_ignore_errors=True)
-            logger.info(f"Link damping disabled on {interface}")
+            logger.info(f"Link damping disabled on {interface} result {result}")
             return True
 
         # Step 1: Configure the damping algorithm
