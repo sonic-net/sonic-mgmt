@@ -30,6 +30,8 @@ def is_policer_supported(duthost):
     platform = duthost.facts.get('platform', '')
     if platform.startswith("x86_64-arista_7060x6"):
         return False
+    if platform.startswith("x86_64-nokia_ixr7220"):
+        return False
     return True
 
 
