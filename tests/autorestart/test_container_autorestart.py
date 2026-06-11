@@ -700,9 +700,13 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
             with single_container_timeout(container_name, timeout_secs=RECOVERY_RELOAD_TIMEOUT_SECS):
                 config_reload(duthost, safe_reload=True, wait_for_bgp=True)
                 enable_autorestart(duthost)
-        except Exception as recovery_err:
-            # Recovery itself failed (e.g. the reload watchdog tripped, or BGP did
-            # not re-converge). Log it but still fail with the original hang reason
-            # so triage sees which container hung rather than a masked recovery error.
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as recovery_err:
+            # Recovery itself failed -- e.g. the reload watchdog tripped, or a
+            # config_reload assertion such as BGP-not-converged, which pytest raises
+            # as Failed (a BaseException, not Exception). Log it but still fail with
+            # the original hang reason so triage sees which container hung rather than
+            # a masked recovery error.
             logger.error("Recovery after hang on container '%s' failed: %s", container_name, recovery_err)
         pytest.fail(str(timeout_err))
