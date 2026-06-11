@@ -1574,10 +1574,10 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Skipped on mellanox and nvidia asic from 202411 and later / This test is not run on this topology currently"
+    reason: "Skipped on mellanox, nvidia, and cisco-8000 asic from 202411 and later / This test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'nvidia']"
+      - "asic_type in ['mellanox', 'nvidia', 'cisco-8000']"
       - "topo_type not in ['t0']"
 
 #######################################
