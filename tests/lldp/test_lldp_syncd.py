@@ -11,7 +11,6 @@ from tests.common.utilities import (
     group_interfaces_by_asic
 )
 from tests.common.helpers.assertions import pytest_assert
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -425,7 +424,12 @@ def test_lldp_entry_table_content(
 
 
 # Test case 2: Verify LLDP_ENTRY_TABLE after restart syncd and orchagent
+# This test deliberately restarts swss/syncd, which cascades to a bgp container
+# restart. The memory_utilization fixture's before/after snapshots become
+# meaningless across such a restart (bgpd RSS drops to ~0 then warms back up),
+# so disable memory monitoring for this test.
 @pytest.mark.disable_loganalyzer
+@pytest.mark.disable_memory_utilization
 def test_lldp_entry_table_after_syncd_orchagent(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
@@ -451,7 +455,14 @@ def test_lldp_entry_table_after_syncd_orchagent(
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
-    time.sleep(60)
+    # Wait for BGP sessions to reach Established state instead of a fixed sleep,
+    # to avoid a downstream memory-alarm false positive caused by bgpd warming up
+    # in the next test case.
+    bgp_neighbors = list(duthost.get_bgp_neighbors().keys())
+    pytest_assert(
+        wait_until(300, 10, 30, duthost.check_bgp_session_state, bgp_neighbors),
+        "BGP sessions did not reach Established state after swss restart",
+    )
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, [interface])
