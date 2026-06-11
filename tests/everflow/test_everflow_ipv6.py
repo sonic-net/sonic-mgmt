@@ -15,7 +15,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "ft2", "m0", "m1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -225,6 +225,10 @@ class EverflowIPv6Tests(BaseEverflowTest):
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
             self.apply_ip_type_rule(duthost, 6)
+            # Wait for ACL rules to be programmed
+            everflow_utils.wait_for_acl_rules_in_asic_db(duthost)
+
+        everflow_utils.wait_for_acl_rules_in_asic_db(everflow_dut)
 
         yield
 

@@ -502,6 +502,9 @@ class VMTopology(object):
                 bridge_count += 1
                 self.destroy_ovs_bridge(fp_br_name)
 
+        # Wait the bridges to be cleaned up
+        self.wait_for_bridges_cleanup(bridge_count)
+
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
@@ -646,7 +649,8 @@ class VMTopology(object):
             vlan_id = data.get("vlan")
             if vlan_id:
                 vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
-                VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
+                if VMTopology.intf_exists(vlan_intf_name, pid=self.pid):
+                    VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
@@ -2566,6 +2570,13 @@ def main():
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
+
+            if module.params['duts_mgmt_port']:
+                for dut_mgmt_port in module.params['duts_mgmt_port']:
+                    if dut_mgmt_port != "":
+                        # For VS setup: rebind the DUT mgmt tap that the prior
+                        # unbind step detached from the mgmt bridge.
+                        net.bind_mgmt_port(mgmt_bridge, dut_mgmt_port)
 
             if net.netns:
                 net.unbind_mgmt_port(NETNS_MGMT_IF_TEMPLATE % net.vm_set_name)

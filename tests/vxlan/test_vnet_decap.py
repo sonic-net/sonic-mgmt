@@ -10,7 +10,7 @@ from ptf.mask import Mask
 
 
 pytestmark = [
-    pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
+    pytest.mark.topology("t0", "t1", "t1-64-lag", "t1-56-lag", "t1-lag"),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -85,7 +85,9 @@ def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, ou
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_DST_PORT, dutmac=router_mac)
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     outer_ip_version_str = f"v{outer_ip_version}"
-    vnet_interface = ecmp_utils.select_required_interfaces(duthost, 1, minigraph_facts, outer_ip_version_str)[0]
+    topo = tbinfo["topo"]["type"].upper()
+    vnet_interface = ecmp_utils.select_required_interfaces(duthost, 1, minigraph_facts, outer_ip_version_str,
+                                                           topo=topo)[0]
     vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version_str)
     inner_ip_version_str = f"v{inner_ip_version}"
     encap_type = f"{inner_ip_version_str}_in_{outer_ip_version_str}"
