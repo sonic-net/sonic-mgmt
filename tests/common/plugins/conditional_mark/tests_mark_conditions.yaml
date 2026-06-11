@@ -781,7 +781,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't1', 't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx', 'm1-48', 'm1-44', 'm1-108', 'm1-128', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2'] and 't2' not in topo_type and topo_type not in ['lrh', 'urh'])"
+      - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't1', 't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx', 'm1-48', 'm1-44', 'm1-108', 'm1-128', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2', 't0-isolated-d256u256s2', 't1-isolated-d448u15-lag', 't0-isolated-v6-d32u32s2', 't1-isolated-v6-d56u1-lag'] and 't2' not in topo_type and topo_type not in ['lrh', 'urh'])"
   xfail:
     reason: "xfail for IPv6-only topologies"
     conditions:
@@ -815,11 +815,11 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
 
 copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
   skip:
-    reason: "Copp test_trap_neighbor_miss is not supported on broadcom platforms and non-TOR topologies"
+    reason: "Copp test_trap_neighbor_miss is not supported on broadcom platforms in 202411 and non-TOR topologies"
     conditions_logical_operator: or
     conditions:
       - "(asic_type in ['broadcom'] and release in ['202411'])"
-      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2', 't0-isolated-d256u256s2', 't0-isolated-v6-d32u32s2'])"
 
 #######################################
 #####            crm              #####
