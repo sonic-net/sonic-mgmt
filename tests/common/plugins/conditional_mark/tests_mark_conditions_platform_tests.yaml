@@ -1287,15 +1287,27 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "is_smartswitch==True"
 
 #######################################
-#####   test_cont_warm_reboot.py  #####
+#####   test_auto_negotiation.py  #####
 #######################################
-
 
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: 'Auto negotiation tests require physical port interfaces, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+#######################################
+#####   test_chassis_reboot.py  #####
+#######################################
+platform_tests/test_chassis_reboot.py:
+  skip:
+    reason: "Chassis reboot test is not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+#######################################
+#####   test_cont_warm_reboot.py  #####
+#######################################
 
 platform_tests/test_cont_warm_reboot.py:
   skip:

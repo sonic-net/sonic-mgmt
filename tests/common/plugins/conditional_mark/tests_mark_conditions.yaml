@@ -761,6 +761,7 @@ console/:
 console/test_console_availability.py:
   skip:
     reason: "This test is applicable to virtual setup only."
+    conditions_logical_operator: OR
     conditions:
       - "asic_type in ['vpp'] and platform.startswith('arm64-c8220tg_48a_o')"
       - "platform in ['arm64-nokia_ixs7215_c1xa-r0']"
@@ -1007,10 +1008,10 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 dhcp_relay:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "Not applicable to isolated topologies."
     conditions_logical_operator: or
     conditions:
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
       - "'bmc' in topo_type"
 
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress:
@@ -3592,9 +3593,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
     conditions:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
   xfail:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform or IPv6-only issue https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_count:
   xfail:
@@ -4120,6 +4123,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
+  skip:
+    reason: "Broadcom TH does not support FEC_SYMBOL_ERR at 50G"
+    conditions:
+      - "'Arista-7060CX-32S-D48C8'in hwsku"
+
 platform_tests/test_reboot.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
@@ -4179,16 +4188,6 @@ portstat/test_portstat.py:
 #######################################
 #####     process_monitoring      #####
 #######################################
-process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
-  xfail:
-    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
-    conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
-  skip:
-    reason: "Skip test on VS due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
-    conditions:
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/10336"
-
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: "This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release. Also not applicable on BMC platforms which have no orchagent."
