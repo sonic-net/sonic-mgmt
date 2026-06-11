@@ -1,15 +1,27 @@
 import time
 import re
-from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
+from .base_console_conn import (
+    CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_LANTRONIX_CONFIG,
+    CONSOLE_SSH_RARITAN_CONFIG,
+    BaseConsoleConn,
+    CONSOLE_SSH,
+    CONSOLE_SSH_TO_PORT,
+    CONSOLE_SSH_CISCO_CONFIG,
+    CONSOLE_SSH_SONIC_CONFIG,
+)
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
+from netmiko.exceptions import ReadTimeout
 from paramiko.ssh_exception import SSHException
 
 
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
+        self.menu_port = None
+
         if "console_username" not in kwargs \
                 or "console_password" not in kwargs:
             raise ValueError("Either console_username or console_password is not set")
@@ -24,10 +36,19 @@ class SSHConsoleConn(BaseConsoleConn):
         if self.console_type == CONSOLE_SSH:
             # Login requires port to be provided
             kwargs['username'] = kwargs['console_username'] + r':' + str(kwargs['console_port'])
-            self.menu_port = None
-        elif self.console_type.endswith("config"):
+        elif self.console_type == CONSOLE_SSH_TO_PORT:
+            # Login to the per-line SSH/TCP port
+            kwargs["username"] = kwargs["console_username"]
+            kwargs["port"] = kwargs["direct_ssh_port"]
+        elif self.console_type in (
+            CONSOLE_SSH_DIGI_CONFIG,
+            CONSOLE_SSH_LANTRONIX_CONFIG,
+            CONSOLE_SSH_RARITAN_CONFIG,
+            CONSOLE_SSH_SONIC_CONFIG,
+            CONSOLE_SSH_CISCO_CONFIG,
+        ):
             # Login to config menu only requires username
-            kwargs['username'] = kwargs['console_username']
+            kwargs["username"] = kwargs["console_username"]
         else:
             # Login requires menu port
             kwargs['username'] = kwargs['console_username']
@@ -42,7 +63,7 @@ class SSHConsoleConn(BaseConsoleConn):
         self.logger.debug(session_init_msg)
 
         if re.search(
-            r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy)",
+            r"(Port is in use. Closing connection...|Cannot connect: line \[\d{2}\] is busy|Sorry, port is busy!)",
             session_init_msg,
             flags=re.M
         ):
@@ -53,6 +74,25 @@ class SSHConsoleConn(BaseConsoleConn):
             # We can skip stage 2 login for config menu connections
             self.session_preparation_finalise()
             return
+
+        # Raritan and similar console servers show a "You are now master for the port" banner before
+        # handing off to the DUT serial line. Send a newline to trigger the DUT login prompt, then wait
+        # for it — don't use a fixed sleep, because console servers can buffer large amounts of
+        # prior serial output and replay it at baud rate, which can take much longer than any
+        # reasonable fixed delay before the login prompt appears.
+        if self.console_type == CONSOLE_SSH_TO_PORT and re.search(
+            r"(You are now master for the port|Escape Sequence is:)", session_init_msg, flags=re.M
+        ):
+            self.logger.debug("Detected Raritan console server, sending newline to trigger login prompt")
+            self.write_channel(self.RETURN)
+            try:
+                response = self.read_until_pattern(
+                    pattern=r"(?:user:|username|login|user name)",
+                    read_timeout=60
+                )
+                self.logger.debug(f"Got login prompt after newline: {response[-200:]}")
+            except ReadTimeout as e:
+                self.logger.warning(f"No login prompt within 60s: {e}")
 
         if (self.menu_port):
             # For devices logining via menu port, 2 additional login are needed
@@ -80,8 +120,8 @@ class SSHConsoleConn(BaseConsoleConn):
         """
         Helper function to handle final stages of session preparation.
         """
-        # Digi config menu has a unique prompt terminator (----->)
-        if self.console_type == CONSOLE_SSH_DIGI_CONFIG:
+        # > as prompt terminator
+        if self.console_type in [CONSOLE_SSH_DIGI_CONFIG, CONSOLE_SSH_LANTRONIX_CONFIG, CONSOLE_SSH_RARITAN_CONFIG]:
             self.set_base_prompt(">")
         else:
             self.set_base_prompt()

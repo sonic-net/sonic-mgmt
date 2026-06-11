@@ -17,6 +17,8 @@ from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
+    CONSOLE_SSH_LANTRONIX_CONFIG,
+    CONSOLE_SSH_RARITAN_CONFIG,
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
@@ -588,6 +590,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
+    console_direct_ssh_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['direct_ssh_port']
 
     console_type = f"console_{console_type}"
     update_console_creds(creds, console_auth_type)
@@ -629,6 +632,7 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
                 console_username=console_username,
                 console_password=creds["console_password"][console_type],
                 console_device=console_device,
+                console_direct_ssh_port=console_direct_ssh_port
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
@@ -766,6 +770,16 @@ def duthost_clear_console_port(
             (f'clear line tty {console_port}', '[confirm]'),    # Clear DUT console port
             ('', '[OK]')                                        # Confirm selection
         ],
+        CONSOLE_SSH_LANTRONIX_CONFIG: [
+            ('enable', None),
+            (f'tunnel {console_port}', 'tunnel:'),
+            ('accept', 'tunnel-accept:'),
+            ('kill connection', 'tunnel-accept:')
+        ],
+        CONSOLE_SSH_RARITAN_CONFIG: [
+            ('maintenance', "Maintenance"),
+            (f'logoff port {console_port}', 'Force log off successful.')
+        ]
     }
 
     for command, wait_for_pattern in command_list[menu_type]:

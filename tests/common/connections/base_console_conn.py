@@ -24,6 +24,8 @@ CONSOLE_TELNET = "console_telnet"
 CONSOLE_SSH = "console_ssh"
 # Console login via SSH, then login to devices by 'menu ports'
 CONSOLE_SSH_MENU_PORTS = "console_ssh_menu_ports"
+# Console login via SSH based on port
+CONSOLE_SSH_TO_PORT = "console_ssh_to_port"
 # Console login via SSH, no stage 2 login (Digi Config Menu)
 CONSOLE_SSH_DIGI_CONFIG = "console_ssh_digi_config"
 # Console login via SSH, no stage 2 login (SONiC switch config)
@@ -32,6 +34,10 @@ CONSOLE_SSH_SONIC_CONFIG = "console_ssh_sonic_config"
 CONSOLE_SSH_CISCO_CONFIG = "console_ssh_cisco_config"
 # Console login via conserver
 CONSOLE_CONSERVER = "console_conserver"
+# Console login via SSH to Lantronix
+CONSOLE_SSH_LANTRONIX_CONFIG = "console_ssh_to_port_lantronix_config"
+# Console login via SSH to Raritan
+CONSOLE_SSH_RARITAN_CONFIG = "console_ssh_to_port_raritan_config"
 
 
 class BaseConsoleConn(CiscoBaseConnection):
@@ -40,10 +46,17 @@ class BaseConsoleConn(CiscoBaseConnection):
         self.logger = logging.getLogger(__name__)
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
-        key_to_rm = ['console_username', 'console_password',
-                     'console_host', 'console_port',
-                     'sonic_username', 'sonic_password',
-                     'console_type', 'console_device']
+        key_to_rm = [
+            "console_username",
+            "console_password",
+            "console_host",
+            "console_port",
+            "sonic_username",
+            "sonic_password",
+            "console_type",
+            "console_device",
+            "direct_ssh_port",
+        ]
         for key in key_to_rm:
             if key in kwargs:
                 del kwargs[key]

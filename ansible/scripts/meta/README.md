@@ -669,6 +669,7 @@ validators:
 - `E3008`: invalid_server_type - Console server has unexpected type (WARNING)
 - `E3009`: empty_console_port - Console connection has empty port
 - `E3010`: empty_optional_field - Console connection has empty optional field (WARNING)
+- `E3011`: missing_direct_ssh_port - Console type is ssh_to_port but direct_ssh_port is not specified
 
 #### 5.1.4. PDU Validator
 
