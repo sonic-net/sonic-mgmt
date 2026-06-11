@@ -407,9 +407,7 @@ def get_upstream_exabgp_port(nbrhosts, tbinfo, exabgp_base_port):
 def get_downstream_vm_offset(nbrhosts, tbinfo):
     """
     Get ports offset of exabgp port for the downstream tier.
-
-    Used as a fallback "remote side" on topologies that have no upstream tier
-    (e.g. an isolated T1 where the DUT only has downstream T0 neighbors).
+    Used as a fallback on topologies that have no upstream tier
     """
     port_offset_list = []
     if 't1' in tbinfo['topo']['type']:
@@ -429,7 +427,7 @@ def get_downstream_vm_offset(nbrhosts, tbinfo):
 
 def get_downstream_exabgp_port(nbrhosts, tbinfo, exabgp_base_port):
     """
-    Get exabgp ports for the downstream tier (fallback remote side).
+    Get exabgp ports for the downstream tier.
     """
     port_offset_list = get_downstream_vm_offset(nbrhosts, tbinfo)
     return [_ + exabgp_base_port for _ in port_offset_list]

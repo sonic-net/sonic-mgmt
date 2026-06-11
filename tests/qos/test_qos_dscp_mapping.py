@@ -16,7 +16,8 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link, \
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown  # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue, \
-    get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
+    get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port, \
+    get_day_of_week_distributed_ports_from_buckets
 from tests.common.helpers.assertions import pytest_assert
 from tests.qos.qos_helpers import get_upstream_exabgp_port, get_downstream_exabgp_port, announce_route
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
@@ -68,12 +69,12 @@ def route_config(nbrhosts, tbinfo):
                                                       exabgp_base_port=BASE_EXABGP_PORT)
         # downstream_vm_names[i] corresponds to exabgp_port_list[i].
         downstream_vm_names = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
-        # Use a fixed number of downstream neighbors as the remote side. This count
-        # becomes step in the test's range(0, 64, step) loop, so
-        # MAX_DOWNSTREAM_REMOTE_RECEIVERS is a divisor of 64 to keep every DSCP value
-        # covered exactly once with no value > 63 generated.
-        exabgp_port_list = exabgp_port_list[:MAX_DOWNSTREAM_REMOTE_RECEIVERS]
-        remote_vm_names = downstream_vm_names[:MAX_DOWNSTREAM_REMOTE_RECEIVERS]
+        # Select a fixed number of downstream neighbors as the remote side
+        paired_ports = list(zip(exabgp_port_list, downstream_vm_names))
+        selected_pairs = get_day_of_week_distributed_ports_from_buckets(
+            paired_ports, MAX_DOWNSTREAM_REMOTE_RECEIVERS)
+        exabgp_port_list = [port for port, _ in selected_pairs]
+        remote_vm_names = [name for _, name in selected_pairs]
 
     if not exabgp_port_list:
         pytest.skip("No BGP-speaking remote neighbors available to announce inner routes from")
