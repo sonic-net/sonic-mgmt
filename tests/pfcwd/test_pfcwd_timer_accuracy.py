@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
@@ -8,10 +7,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
+from tests.common.helpers.pfcwd_helper import get_storm_detected_count, get_storm_restored_count
+from tests.common.helpers.pfcwd_helper import wait_until_pfcwd_restored
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -108,7 +110,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     yield {'timers': timers,
            'storm_handle': storm_handle,
            'test_ports': test_ports,
-           'selected_test_port': pfc_wd_test_port
+           'test_port': pfc_wd_test_port,
            }
 
     logger.info("--- Pfcwd timer test cleanup ---")
@@ -183,20 +185,50 @@ class TestPfcwdAllTimer(object):
             logger.info("Flush logs")
             self.dut.shell("logrotate -f /etc/logrotate.conf")
 
-        selected_test_ports = [setup_info['selected_test_port']]
+        if self.dut.facts['asic_type'] == 'vs':
+            logger.info("Skip run_test for VS")
+            return
+
+        # Retry logic as workaround for issue #10848
+        num_tries = 3
+        storm_port = setup_info['test_port']
+        storm_detected_count = get_storm_detected_count(self.dut, storm_port)
+        storm_restored_count = get_storm_restored_count(self.dut, storm_port)
+
+        def check_stormed(storm_detected_count_prev):
+            storm_detected_count_latest = get_storm_detected_count(self.dut, storm_port)
+            return storm_detected_count_latest > storm_detected_count_prev
+
+        def check_restored(storm_restored_count_prev):
+            storm_restored_count_latest = get_storm_restored_count(self.dut, storm_port)
+            return storm_restored_count_latest > storm_restored_count_prev
+
+        selected_test_ports = [storm_port]
         test_ports_info = setup_info['test_ports']
         queues = [self.storm_handle.pfc_queue_idx]
 
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info, pkt_count=500):
-            self.storm_handle.start_storm()
-            logger.info("Wait for queue to recover from PFC storm")
-            time.sleep(32)
-            self.storm_handle.stop_storm()
-            time.sleep(16)
+            for _ in range(num_tries):
+                self.storm_handle.start_storm()
+                logger.info("Wait for PFC storm detected marker to appear in logs")
+                stormed = wait_until(25, 5, 5, check_stormed, storm_detected_count)
+                if stormed:
+                    break
+                logger.info("Storm not detected on port, trying again...")
+                self.storm_handle.stop_storm()
+            else:
+                pytest.fail("Could not detect storm on port even after {} retries".format(num_tries))
 
-        if self.dut.facts['asic_type'] == 'vs':
-            logger.info("Skip time detect for VS")
-            return
+            self.storm_handle.stop_storm()
+            logger.info("Wait for PFC storm restored marker to appear in logs")
+            for _ in range(num_tries):
+                restored = wait_until(3, 1, 1, check_restored, storm_restored_count)
+                if restored:
+                    break
+            else:
+                pytest.fail("Could not detect storm restoration on port even after {} retries".format(num_tries))
+
+        wait_until_pfcwd_restored(self.dut, setup_info['test_port'])
 
         skip_this_loop = False
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
@@ -204,9 +236,6 @@ class TestPfcwdAllTimer(object):
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
-
-        logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(16)
 
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
