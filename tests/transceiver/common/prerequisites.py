@@ -14,9 +14,9 @@ from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 
 logger = logging.getLogger(__name__)
 
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 # Transceiver presence check
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 
 CMD_SHOW_PRESENCE = "show interface transceiver presence"
 CMD_SFPUTIL_PRESENCE = "sfputil show presence"
@@ -140,9 +140,9 @@ def _parse_sfputil_presence(stdout_lines):
     return presence
 
 
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 # Gold firmware check
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 
 CMD_SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 CLI_KEY_ACTIVE_FIRMWARE = "Active Firmware"
@@ -241,9 +241,9 @@ def check_gold_firmware(duthost, port_attributes_dict):
     }
 
 
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 # Link-up check
-# ----------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────
 
 
 def check_links_up(duthost, port_attributes_dict):

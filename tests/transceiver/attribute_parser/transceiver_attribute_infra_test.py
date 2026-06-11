@@ -23,7 +23,7 @@ python transceiver/attribute_parser/transceiver_attribute_infra_test.py
 
 Expected Output:
 ----------------
-- Each test prints its name and status (PASS / FAIL)
+- Each test prints its name and status (✓ passed / ✗ failed)
 - Summary shows total passed/failed count
 - Exit code 0 if all tests pass, 1 if any fail
 
@@ -219,10 +219,10 @@ def run_test(test_func):
     test_name = test_func.__name__
     try:
         test_func()
-        print(f"PASS {test_name} passed")
+        print(f"✓ {test_name} passed")
         return True
     except Exception as e:
-        print(f"FAIL {test_name} failed: {e}")
+        print(f"✗ {test_name} failed: {e}")
         import traceback
         traceback.print_exc()
         return False

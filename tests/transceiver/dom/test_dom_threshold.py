@@ -2,15 +2,6 @@ import logging
 
 import pytest
 
-from tests.transceiver.dom.utils.dom_constants import (
-    THRESHOLD_FIELD_SUFFIXES,
-    THRESHOLD_SUFFIX,
-    VALUE_TOLERANCE,
-)
-from tests.transceiver.dom.utils.dom_field_mapper import (
-    operational_attr_candidates,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +11,10 @@ def test_dom_threshold_validation(
     dom_threshold_fields_by_port,
     dom_threshold_by_port,
     parse_dom_numeric,
+    dom_threshold_field_suffixes,
+    dom_threshold_suffix,
+    dom_threshold_value_tolerance,
+    dom_operational_attr_candidates,
 ):
     """TC3: Validate threshold values, hierarchy, and operational-vs-threshold relationship.
 
@@ -37,6 +32,7 @@ def test_dom_threshold_validation(
     all_failures = []
     has_configured_checks = False
     checked_attrs_by_port = {}
+    checked_attr_names_by_port = {}
     checked_fields_by_port = {}
 
     for port in dom_ports:
@@ -46,20 +42,21 @@ def test_dom_threshold_validation(
         threshold_data = dom_threshold_by_port.get(port, {})
         field_failures = []
         checked_attrs = 0
+        checked_attr_names = []
         checked_fields = 0
 
         for attr_name, attr_value in dom_attrs.items():
-            if not attr_name.endswith(THRESHOLD_SUFFIX) or not isinstance(attr_value, dict):
+            if not attr_name.endswith(dom_threshold_suffix) or not isinstance(attr_value, dict):
                 continue
 
             has_configured_checks = True
             attr_failure_count = len(field_failures)
 
             # Step 2: Validate threshold attribute completeness in configuration.
-            if not all(key in attr_value for key in THRESHOLD_FIELD_SUFFIXES):
+            if not all(key in attr_value for key in dom_threshold_field_suffixes):
                 field_failures.append(
                     "{} missing required keys {}; cannot validate threshold range".format(
-                        attr_name, THRESHOLD_FIELD_SUFFIXES
+                        attr_name, dom_threshold_field_suffixes
                     )
                 )
                 continue
@@ -90,10 +87,10 @@ def test_dom_threshold_validation(
                 continue
 
             # Step 4: Compare configured threshold values against STATE_DB values.
-            for logical_key in THRESHOLD_FIELD_SUFFIXES:
+            for logical_key in dom_threshold_field_suffixes:
                 expected = float(attr_value[logical_key])
                 actual = parsed_actual[logical_key]
-                if abs(actual - expected) > VALUE_TOLERANCE:
+                if abs(actual - expected) > dom_threshold_value_tolerance:
                     field_failures.append(
                         "{} expected {}={}, got {}".format(attr_name, logical_key, expected, actual)
                     )
@@ -121,8 +118,8 @@ def test_dom_threshold_validation(
                 )
 
             # Step 6: Validate operational range is inside warning window when both are configured.
-            base_name = attr_name[: -len(THRESHOLD_SUFFIX)]
-            for operational_attr in operational_attr_candidates(base_name):
+            base_name = attr_name[: -len(dom_threshold_suffix)]
+            for operational_attr in dom_operational_attr_candidates(base_name):
                 operational_range = dom_attrs.get(operational_attr)
                 if not isinstance(operational_range, dict):
                     continue
@@ -151,11 +148,13 @@ def test_dom_threshold_validation(
 
             if len(field_failures) == attr_failure_count:
                 checked_attrs += 1
+                checked_attr_names.append(attr_name)
                 checked_fields += len(field_map)
 
         if field_failures:
             all_failures.append("{}:\n  {}".format(port, "\n  ".join(field_failures)))
         checked_attrs_by_port[port] = checked_attrs
+        checked_attr_names_by_port[port] = checked_attr_names
         checked_fields_by_port[port] = checked_fields
 
     # Step 7: Final decision for skip/fail.
@@ -175,8 +174,9 @@ def test_dom_threshold_validation(
     )
     for port in sorted(checked_attrs_by_port):
         logger.info(
-            "DOM threshold validation %s: checked %d threshold attribute(s), %d threshold field(s)",
+            "DOM threshold validation %s: checked %d threshold attribute(s), %d threshold field(s): %s",
             port,
             checked_attrs_by_port[port],
             checked_fields_by_port[port],
+            ", ".join(sorted(checked_attr_names_by_port.get(port, []))) or "none",
         )

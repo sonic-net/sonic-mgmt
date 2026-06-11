@@ -96,13 +96,21 @@ def test_dom_data_consistency_verification(
 
     # Step 3/4: Poll grouped ports repeatedly so the sleep cost scales by poll group, not by port.
     for (poll_count, poll_interval_sec), grouped_ports in poll_groups.items():
+        grouped_ports_label = ", ".join(grouped_ports)
         logger.debug(
             "DOM consistency polling group ports=%s poll_count=%d poll_interval_sec=%d",
-            ", ".join(grouped_ports),
+            grouped_ports_label,
             poll_count,
             poll_interval_sec,
         )
         for poll_idx in range(1, poll_count):
+            logger.info(
+                "DOM consistency polling group %s: waiting %ds before poll %d/%d",
+                grouped_ports_label,
+                poll_interval_sec,
+                poll_idx + 1,
+                poll_count,
+            )
             poll_start = time.monotonic()
             time.sleep(poll_interval_sec)
 
@@ -209,7 +217,14 @@ def test_dom_data_consistency_verification(
                 "DOM consistency poll %d/%d for ports=%s took %.2fs",
                 poll_idx + 1,
                 poll_count,
-                ", ".join(grouped_ports),
+                grouped_ports_label,
+                time.monotonic() - poll_start,
+            )
+            logger.info(
+                "DOM consistency polling group %s: completed poll %d/%d after %.2fs",
+                grouped_ports_label,
+                poll_idx + 1,
+                poll_count,
                 time.monotonic() - poll_start,
             )
 

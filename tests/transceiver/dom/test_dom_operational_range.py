@@ -2,15 +2,6 @@ import logging
 
 import pytest
 
-from tests.transceiver.dom.utils.dom_constants import (
-    LANE_NUM_PLACEHOLDER,
-    OPERATIONAL_SUFFIX,
-)
-from tests.transceiver.dom.utils.dom_field_mapper import (
-    expand_operational_fields,
-    get_lane_count,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -21,6 +12,10 @@ def test_dom_sensor_operational_range_validation(
     parse_dom_numeric,
     parse_dom_update_time,
     dom_now_utc,
+    dom_operational_suffix,
+    dom_lane_num_placeholder,
+    dom_expand_operational_fields,
+    dom_get_lane_count,
 ):
     """TC2: Validate configured operational ranges against DOM sensor readings.
 
@@ -72,10 +67,10 @@ def test_dom_sensor_operational_range_validation(
                         )
 
         # Step 3: Dynamically derive expected sensor fields from *_operational_range attributes.
-        lane_count = get_lane_count(base_attrs)
+        lane_count = dom_get_lane_count(base_attrs)
 
         for attr_name, attr_value in dom_attrs.items():
-            if not attr_name.endswith(OPERATIONAL_SUFFIX) or not isinstance(attr_value, dict):
+            if not attr_name.endswith(dom_operational_suffix) or not isinstance(attr_value, dict):
                 continue
 
             has_configured_checks = True
@@ -86,8 +81,8 @@ def test_dom_sensor_operational_range_validation(
                 field_failures.append("{} missing required min/max in DOM_ATTRIBUTES".format(attr_name))
                 continue
 
-            fields = expand_operational_fields(attr_name, lane_count)
-            if not fields and LANE_NUM_PLACEHOLDER in attr_name:
+            fields = dom_expand_operational_fields(attr_name, lane_count)
+            if not fields and dom_lane_num_placeholder in attr_name:
                 field_failures.append("{} requires lane count but lane_count <= 0".format(attr_name))
                 continue
 
