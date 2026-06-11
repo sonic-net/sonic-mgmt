@@ -816,7 +816,10 @@ class VlanSubnetTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -858,7 +861,10 @@ class VlanSubnetIPinIPTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
