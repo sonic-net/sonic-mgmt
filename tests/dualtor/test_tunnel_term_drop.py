@@ -8,15 +8,15 @@ ToRs.
 
 Related issue: https://github.com/sonic-net/sonic-mgmt/issues/21092
 """
+import json
 import logging
-import pytest
 import random
 
+import pytest
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
 
-from tests.common.dualtor.dual_tor_mock import *  # noqa: F403
 from tests.common.dualtor.dual_tor_common import (  # noqa: F401
     active_active_ports,
     active_standby_ports,
@@ -24,21 +24,15 @@ from tests.common.dualtor.dual_tor_common import (  # noqa: F401
     CableType
 )
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
+from tests.common.dualtor.dual_tor_utils import get_t1_ptf_pc_ports
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.dual_tor_utils import (  # noqa: F401
-    config_active_active_dualtor_active_standby,
-    validate_active_active_dualtor_setup
-)
-from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
-    toggle_all_simulator_ports_to_rand_unselected_tor
-)
 from tests.common.dualtor.tunnel_traffic_utils import (  # noqa: F401
     tunnel_traffic_monitor
 )
-from tests.common.fixtures.ptfhost_utils import run_garp_service  # noqa: F401
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import dump_scapy_packet_show_output
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 
@@ -47,17 +41,22 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+PACKET_COUNT = 1000
+# Allow a 10% tolerance so the test is not flaky on a few PTF tx losses or
+# counter-read timing skew.
+COUNTER_RX_OK_THRESHOLD = int(PACKET_COUNT * 0.9)
+COUNTER_NO_TRAFFIC_THRESHOLD = int(PACKET_COUNT * 0.1)
+COUNTER_CHECK_TIMEOUT = 15
+COUNTER_CHECK_INTERVAL = 5
 
 
-@pytest.fixture(scope="module", autouse=True)
-def common_setup_teardown(
-    apply_mock_dual_tor_tables,          # noqa: F811
-    apply_mock_dual_tor_kernel_configs,  # noqa: F811
-    cleanup_mocked_configs,              # noqa: F811
-    request
-):
-    """Module-level setup for mocked dual ToR tables and kernel configs."""
-    request.getfixturevalue("run_garp_service")
+def _ptf_intf_to_port_index(ptf_intf):
+    """Convert a PTF interface name such as eth0 to a PTF port index."""
+    pytest_assert(
+        ptf_intf.startswith("eth"),
+        "Unexpected PTF interface name {}".format(ptf_intf)
+    )
+    return int(ptf_intf[len("eth"):])
 
 
 @pytest.fixture(scope="function")
@@ -111,7 +110,12 @@ def build_encapsulated_ip_packet(
         peer_switches,
         "Failed to get peer ToR address from CONFIG_DB"
     )
-    peer_ipv4_address = peer_switches[0]["address_ipv4"]
+    peer_switch = peer_switches[0]
+    pytest_assert(
+        "address_ipv4" in peer_switch,
+        "Failed to get peer ToR IPv4 address from CONFIG_DB"
+    )
+    peer_ipv4_address = peer_switch["address_ipv4"]
 
     loopback0_addrs = config_facts.get(
         "LOOPBACK_INTERFACE", {}
@@ -161,28 +165,150 @@ def _build_expected_server_packet(encapsulated_packet):
     exp_pkt = mask.Mask(inner_packet)
     exp_pkt.set_do_not_care_scapy(Ether, "dst")
     exp_pkt.set_do_not_care_scapy(Ether, "src")
+    # tos is a don't-care: this is a negative check (the packet must NOT
+    # appear), so widening the mask avoids a false pass where the ToR did
+    # wrongly forward the packet but rewrote ToS/DSCP so it failed to match.
+    exp_pkt.set_do_not_care_scapy(IP, "tos")
     exp_pkt.set_do_not_care_scapy(IP, "chksum")
     exp_pkt.set_do_not_care_scapy(IP, "ttl")
     return exp_pkt
 
 
+def _get_dut_intf_for_ptf_port(tor, tbinfo, ptf_port):
+    """Get DUT interface name connected to the given PTF port."""
+    ptf_port_index = _ptf_intf_to_port_index(ptf_port)
+    mg_facts = tor.get_extended_minigraph_facts(tbinfo)
+    for intf, index in mg_facts["minigraph_ptf_indices"].items():
+        if index == ptf_port_index:
+            return intf
+    raise ValueError(
+        "Failed to find DUT interface for PTF port {}".format(ptf_port)
+    )
+
+
+def _get_all_t1_dut_intfs(tor, tbinfo):
+    """Get all DUT-side interface names facing T1 (every portchannel member).
+
+    The packet-level re-encapsulation check in ``tunnel_traffic_monitor``
+    listens on every T1 PTF port, but it is skipped on VS/KVM platforms. On
+    those platforms the port-counter check below becomes the only guard
+    against the loop-prevention path, so it must mirror the same port set:
+    a wrongly re-encapsulated packet can egress on any T1 member port, not
+    just the one the test injected on.
+    """
+    pc_ports = get_t1_ptf_pc_ports(tor, tbinfo)
+    ptf_intfs = [intf for intfs in pc_ports.values() for intf in intfs]
+    return sorted(
+        {_get_dut_intf_for_ptf_port(tor, tbinfo, ptf_intf)
+         for ptf_intf in ptf_intfs}
+    )
+
+
+def _parse_counter(counter):
+    """Parse a SONiC counter value such as '1,000' into an integer."""
+    return int(str(counter).replace(",", ""))
+
+
+def _get_and_log_port_counters(tor, interfaces):
+    """Get and log selected port counters for traffic drop debugging."""
+    counters = json.loads(tor.get_port_counters(in_json=True))
+    missing_interfaces = [
+        intf for intf in interfaces
+        if intf not in counters
+    ]
+    pytest_assert(
+        not missing_interfaces,
+        "Missing port counters for {}".format(missing_interfaces)
+    )
+    selected_counters = {
+        intf: counters[intf] for intf in interfaces
+    }
+    logger.info(
+        "Port counters on %s:\n%s",
+        tor.hostname,
+        json.dumps(selected_counters, indent=4)
+    )
+    return selected_counters
+
+
+def _check_drop_counters(tor, server_intf, ingress_t1_intf, all_t1_intfs):
+    """Check that packet counters match tunnel drop expectations.
+
+    Expectations after sending PACKET_COUNT tunnel packets to a standby ToR:
+      - ingress T1 port RX_OK is at least 90% of what we sent (the packets
+        did arrive on the DUT),
+      - the server-facing port TX_OK stays under the no-traffic threshold
+        (not decapsulated and forwarded down to the server),
+      - EVERY T1-facing port TX_OK stays under the no-traffic threshold (not
+        re-encapsulated back toward T1 on any port -- a wrongly re-encapped
+        packet could egress on a different T1 member than the ingress one).
+    """
+    interfaces = sorted(set(all_t1_intfs) | {server_intf, ingress_t1_intf})
+
+    def _check_counters():
+        counters = _get_and_log_port_counters(tor, interfaces)
+        server_tx_ok = _parse_counter(counters[server_intf]["TX_OK"])
+        ingress_t1_rx_ok = _parse_counter(counters[ingress_t1_intf]["RX_OK"])
+        t1_tx_ok = {
+            intf: _parse_counter(counters[intf]["TX_OK"])
+            for intf in all_t1_intfs
+        }
+        max_t1_tx_intf = max(t1_tx_ok, key=t1_tx_ok.get)
+        max_t1_tx_ok = t1_tx_ok[max_t1_tx_intf]
+
+        logger.info(
+            "Counter expectation after sending %d packets: "
+            "%s RX_OK >= %d, %s TX_OK < %d, all T1 TX_OK < %d. "
+            "Current values: %s RX_OK=%d, %s TX_OK=%d, "
+            "max T1 TX_OK=%d on %s",
+            PACKET_COUNT,
+            ingress_t1_intf,
+            COUNTER_RX_OK_THRESHOLD,
+            server_intf,
+            COUNTER_NO_TRAFFIC_THRESHOLD,
+            COUNTER_NO_TRAFFIC_THRESHOLD,
+            ingress_t1_intf,
+            ingress_t1_rx_ok,
+            server_intf,
+            server_tx_ok,
+            max_t1_tx_ok,
+            max_t1_tx_intf
+        )
+        return (
+            ingress_t1_rx_ok >= COUNTER_RX_OK_THRESHOLD and
+            server_tx_ok < COUNTER_NO_TRAFFIC_THRESHOLD and
+            max_t1_tx_ok < COUNTER_NO_TRAFFIC_THRESHOLD
+        )
+
+    pytest_assert(
+        wait_until(
+            COUNTER_CHECK_TIMEOUT,
+            COUNTER_CHECK_INTERVAL,
+            0,
+            _check_counters
+        ),
+        "Port counters do not match tunnel drop expectations"
+    )
+
+
 @pytest.mark.enable_active_active
+@pytest.mark.dualtor_active_standby_toggle_to_random_unselected_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_tor
 def test_tunnel_term_drop_standby(
-    build_encapsulated_ip_packet, request,
+    build_encapsulated_ip_packet,
     rand_selected_mux_interface, ptfadapter,                # noqa: F811
-    cable_type,                                             # noqa: F811
-    tbinfo, rand_selected_dut, rand_unselected_dut,         # noqa: F811
-    config_active_active_dualtor_active_standby,            # noqa: F811
-    validate_active_active_dualtor_setup,                   # noqa: F811
+    tbinfo, rand_selected_dut, setup_dualtor_mux_ports,     # noqa: F811
     tunnel_traffic_monitor                                  # noqa: F811
 ):
     """
     Verify that a standby ToR drops IPinIP tunnel traffic from the peer ToR.
 
-    This injects the receiving side of the both-standby loop scenario:
-    the local ToR is standby and receives an IPinIP packet that would have been
-    generated by the peer ToR. If the local ToR does not drop this tunnel
-    packet, it can re-encapsulate traffic back toward T1 and create a loop.
+    The standard dualtor mux setup markers put the selected DUT into standby.
+    The test then injects the receiving side of the both-standby loop scenario:
+    the selected standby ToR receives an IPinIP packet that would have been
+    generated by the peer ToR. If the selected ToR does not drop this tunnel
+    packet, it can decapsulate it to the server or re-encapsulate it toward T1
+    and create a loop.
 
     The packet must NOT be:
       - Decapsulated and forwarded to the server port
@@ -191,17 +317,12 @@ def test_tunnel_term_drop_standby(
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet
     iface, _ = rand_selected_mux_interface
-
-    if cable_type == CableType.active_active:
-        config_active_active_dualtor_active_standby(
-            rand_unselected_dut, rand_selected_dut, [iface]
-        )
-    elif is_t0_mocked_dualtor(tbinfo):  # noqa: F405
-        request.getfixturevalue("apply_standby_state_to_orchagent")
-    else:
-        request.getfixturevalue(
-            "toggle_all_simulator_ports_to_rand_unselected_tor"
-        )
+    pytest_assert(setup_dualtor_mux_ports, "Failed to set up dualtor mux ports")
+    logger.info(
+        "Using %s as standby tunnel receiver on mux interface %s",
+        tor.hostname,
+        iface
+    )
 
     exp_ptf_port_index = get_ptf_server_intf_index(tor, tbinfo, iface)
     exp_pkt = _build_expected_server_packet(encapsulated_packet)
@@ -210,19 +331,24 @@ def test_tunnel_term_drop_standby(
     logger.info(
         "Sending encapsulated packet from PTF T1 interface %s", ptf_t1_intf
     )
+    t1_dut_intf = _get_dut_intf_for_ptf_port(tor, tbinfo, ptf_t1_intf)
+    all_t1_dut_intfs = _get_all_t1_dut_intfs(tor, tbinfo)
 
     # tunnel_traffic_monitor with existing=False asserts that the receiving
     # standby ToR does not re-encapsulate the packet back toward T1.
     with tunnel_traffic_monitor(tor, existing=False):
+        logger.info("Clear port counters on %s", tor.hostname)
+        tor.command("sonic-clear counters")
         ptfadapter.dataplane.flush()
         testutils.send(
             ptfadapter,
-            int(ptf_t1_intf.strip("eth")),
+            _ptf_intf_to_port_index(ptf_t1_intf),
             encapsulated_packet,
-            count=10
+            count=PACKET_COUNT
         )
         # Verify the packet is NOT forwarded to the server port
         testutils.verify_no_packet(
             ptfadapter, exp_pkt, exp_ptf_port_index, timeout=5
         )
+    _check_drop_counters(tor, iface, t1_dut_intf, all_t1_dut_intfs)
     logger.info("Verified: standby ToR dropped tunnel traffic as expected")
