@@ -321,6 +321,20 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
         for nexthop_addr in nexthop_addrs:
             duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
 
+        # On some platforms hardware forwarding table commit after config reload
+        # can lag behind. Poll until traffic is actually forwarded on the correct
+        # nexthop ports, then run the definitive flow-counter test.
+        def _hw_forwarding_ready_ctx():
+            try:
+                generate_and_verify_traffic(
+                    duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+                return True
+            except Exception:
+                return False
+        pytest_assert(
+            wait_until(300, 5, 5, _hw_forwarding_ready_ctx),
+            "Traffic not forwarded on expected nexthop ports within 300s after operation"
+        )
         # Verify traffic forwarding after operation
         with RouteFlowCounterTestContext(
             is_route_flow_counter_supported_flag,
@@ -419,6 +433,21 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             wait_all_bgp_up(duthost)
             for nexthop_addr in nexthop_addrs:
                 duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+
+            # On some platforms hardware forwarding table commit after config reload
+            # can lag behind. Poll until traffic is actually forwarded on the correct
+            # nexthop ports, then run the definitive flow-counter test.
+            def _hw_forwarding_ready():
+                try:
+                    generate_and_verify_traffic(
+                        duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
+                    return True
+                except Exception:
+                    return False
+            pytest_assert(
+                wait_until(300, 5, 5, _hw_forwarding_ready),
+                "Traffic not forwarded on expected nexthop ports within 300s after config reload"
+            )
             with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
                                              [prefix], {prefix: {'packets': COUNT}}):
                 generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
