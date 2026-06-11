@@ -48,7 +48,7 @@ stages:
     displayName: "Detect skip_expiry changes"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
     - checkout: self
       clean: true
@@ -82,7 +82,7 @@ stages:
     displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -90,7 +90,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -99,21 +99,21 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
   - job: markers_check
     displayName: "Markers Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/markers-check.yml
 
   - job: meta_check
     displayName: "Meta check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
       - template: .azure-pipelines/meta-check.yml
 
@@ -132,7 +132,7 @@ stages:
     displayName: "Run tools/skip_expiry unit tests"
     timeoutInMinutes: 15
     continueOnError: false
-    pool: sonic-ubuntu-1c-2
+    pool: sonic-ubuntu-1c
     steps:
     - checkout: self
       clean: true
