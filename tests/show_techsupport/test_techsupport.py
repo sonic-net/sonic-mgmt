@@ -576,6 +576,14 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_hostname):
                         add_asic_arg("/{}", cmds.copy_config_cmds, num),
                 }
             )
+        # Nokia IXR7220 H6 O256: generate_dump noop list does not include port_config.ini copy.
+        # Generic HWSKU changes - copy_config_cmds
+        if duthost.facts.get("hwsku") == "Nokia-IXR7220-H6-O256":
+            cmds_to_check["copy_config_cmds"] = [
+                c for c in cmds_to_check["copy_config_cmds"]
+                if not (isinstance(c, str) and "port_config.ini" in c)
+            ]
+
     # Remove /proc/dma for armh
     elif duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "nokia-vs"]:
         if 'armhf-' in duthost.facts["platform"] or 'arm64-' in duthost.facts["platform"]:
