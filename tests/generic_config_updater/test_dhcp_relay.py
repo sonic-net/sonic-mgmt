@@ -8,7 +8,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
-from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.dhcp_relay_utils import restart_dhcp_service
 
 
@@ -83,7 +83,40 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     }]
 
     utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=False)
+    # Wait for VLAN interface routes to be fully programmed in ASIC to avoid
+    # transient "Failed to get next hop 0.0.0.0@Vlan<id>" errors from orchagent
+    _wait_for_vlan_routes(duthost, vlan_intfs_dict)
+
     logger.info("CREATE TEST VLANS DONE")
+
+
+def _wait_for_vlan_routes(duthost, vlan_intfs_dict):
+    """Wait for VLAN interface routes to be programmed in ASIC_DB.
+    After VLAN creation, there's a race condition where orchagent may try to add
+    routes before the VLAN interface is ready as a next hop. This function waits
+    until the directly connected routes appear in ASIC_DB. This happens only for
+    newly created vlans, skipping for VLANs already present on DUT.
+    """
+    import ipaddress
+
+    def _check_routes_ready():
+        for vid, ent in vlan_intfs_dict.items():
+            if ent['orig']:
+                continue
+            # Calculate network prefix from the IP (e.g., 192.168.8.1/24 -> 192.168.8.0/24)
+            intf = ipaddress.ip_interface(ent['ip'])
+            network = str(intf.network.network_address) + '/' + str(intf.network.prefixlen)
+            # Check if the route for this network exists in ASIC_DB
+            cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{}*"'.format(network)
+            result = duthost.shell(cmd, module_ignore_errors=True)
+            if not result['stdout'].strip():
+                return False
+        return True
+
+    pytest_assert(
+        wait_until(30, 2, 0, _check_routes_ready),
+        "VLAN interface routes not programmed in ASIC_DB within timeout"
+    )
 
 
 def default_setup(duthost, vlan_intfs_list):
@@ -142,6 +175,22 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
     return dhcp_server_info['stdout']
 
 
+def _delete_lab_vlans_cli(duthost, vlan_port, vlan_intfs_dict):
+    """Drop lab VLANs in dependency order (replaces second ``config rollback``).
+    Logs showed teardown ERR ``swss#orchagent: :- removeVlan: Failed to remove ref count 1 VLAN Vlan108``
+    when using bulk rollback: VLAN removal can run before SVI teardown. CLI ordering avoids that.
+    """
+    cmds = []
+    for vid, ent in vlan_intfs_dict.items():
+        if ent['orig']:
+            continue
+        cmds.append('config vlan member del {} {}'.format(vid, vlan_port))
+        cmds.append('config interface ip remove Vlan{} {}'.format(vid, ent['ip'].upper()))
+        cmds.append('config vlan del {}'.format(vid))
+    if cmds:
+        duthost.shell_cmds(cmds=cmds)
+
+
 @pytest.fixture(autouse=True)
 def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
     duthost = duthosts[rand_one_dut_hostname]
@@ -159,8 +208,11 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     yield
 
     # --------------------- Teardown -----------------------
-    # Rollback twice. First rollback to checkpoint just before 'yield'
-    # Second rollback is to back to original setup
+    # Rollback twice: (1) undo GCU test changes to lab baseline; (2) remove lab VLANs.
+    # For (2), upstream used ``rollback_or_reload(duthost)`` → ``config rollback test``.
+    # ``rollback_or_reload`` only runs ``config_reload`` when that rollback *fails*; on success it never
+    # reloads. We replace the successful-rollback path with ordered CLI deletes to avoid orchagent
+    # ``removeVlan: Failed to remove ref count 1 VLAN Vlan108`` seen with bulk rollback teardown.
     try:
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
@@ -173,9 +225,9 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
             dhcp_relay_info_before_test == dhcp_relay_info_after_test,
             "dhcp relay info should be the same after rollback"
         )
+        logger.info("Removing lab VLANs via CLI (member, IP, vlan) instead of checkpoint rollback")
+        _delete_lab_vlans_cli(duthost, first_avai_vlan_port, vlan_intfs_dict)
 
-        logger.info("Rolled back to original checkpoint")
-        rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost, SETUP_ENV_CP)
         delete_checkpoint(duthost)
