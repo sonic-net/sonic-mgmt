@@ -172,9 +172,10 @@ class TestLinkLocalIPacket:
     def get_downlink_router_mac(duthost, member_iface, default_router_mac):
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         vlan_member = config_facts.get('VLAN_MEMBER') or {}
+        vlan_facts = config_facts.get('VLAN') or {}
         for vlan_interface, vlan_members in vlan_member.items():
             if member_iface in vlan_members:
-                vlan = config_facts['VLAN'][vlan_interface]
+                vlan = vlan_facts.get(vlan_interface) or {}
                 return vlan.get('mac', default_router_mac)
         return default_router_mac
 
