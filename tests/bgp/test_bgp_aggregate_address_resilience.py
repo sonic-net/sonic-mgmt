@@ -18,6 +18,8 @@ Verification approach:
 """
 
 import logging
+import re
+import time
 
 import pytest
 
@@ -381,3 +383,264 @@ def test_aggregate_persists_warm_reboot(
         except Exception:
             logger.warning("Cleanup: failed to remove aggregate %s, will be recovered by rollback", cfg.prefix)
         verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
+
+
+# ===========================================================================
+# Test Cases 5.6 / 5.7 — bgpcfgd startup race on prefix-list aggregates
+# ===========================================================================
+#
+# When a BGP_AGGREGATE_ADDRESS row carries the optional
+# `aggregate-address-prefix-list` and `contributing-address-prefix-list`
+# fields, bgpcfgd packs `router bgp ... / aggregate-address` (bgpd-routed)
+# together with `ip prefix-list ... permit ...` (mgmtd-routed) into ONE
+# `vtysh -f` invocation. On container restart, bgpcfgd may push that batch
+# while mgmtd is still replaying frr.conf and holds the CONFIG datastore
+# lock — the bgpd lines succeed (overall rc=0), but the mgmtd prefix-list
+# lines are silently rejected. bgpcfgd does not inspect per-line stderr,
+# stamps STATE_DB=active, and the divergence is invisible to
+# CONFIG_DB / STATE_DB / `show running-config` checks.
+#
+# The only reliable oracle is comparing `aggregate-address` lines in
+# running-config against the actual content of `show ip prefix-list <NAME>`.
+#
+# m1's frr.conf replay is small, so a single aggregate per restart is
+# ~0% hit. We use a combined A+C strategy to force reproduction on idle m1:
+#
+#   (A) Scale population & rounds: NUM_RACE_AGGREGATES * RACE_RESTART_ROUNDS
+#       = 200 * 8 = 1600 oracle samples per run (~7 min runtime).
+#       On bjw3-can-7050c-7 (m1-128, 7050CX3-32C) observed per-trial hit-rate
+#       is ~0.02-0.04%, giving ~30-50% cumulative detection probability per
+#       single pytest invocation. Run multiple times in CI for >90% cumulative.
+#
+#   (C) Add NUM_FILLER_AGGREGATES filler rows that reference a SEPARATE
+#       prefix-list (STRESS_ROUTES_V4). They are NOT checked by the oracle;
+#       their only purpose is to bloat frr.conf so mgmtd's startup datastore
+#       replay takes seconds instead of microseconds. This widens the lock
+#       window during which AggregateAddressMgr's vtysh -f batches arrive,
+#       which is exactly the race condition we want to hit.
+NUM_RACE_AGGREGATES = 200
+RACE_RESTART_ROUNDS = 8
+NUM_FILLER_AGGREGATES = 200
+RACE_AGG_PREFIX_LIST = "AGGREGATE_ROUTES_V4"
+RACE_AGG_CONTRIB_PREFIX_LIST = "AGGREGATE_CONTRIBUTING_ROUTES_V4"
+FILLER_AGG_PREFIX_LIST = "STRESS_ROUTES_V4"
+FILLER_AGG_CONTRIB_PREFIX_LIST = "STRESS_CONTRIBUTING_ROUTES_V4"
+RACE_POST_RESTART_CONVERGE_TIMEOUT = 300
+RACE_INITIAL_PROGRAM_TIMEOUT = 180
+
+
+def _race_prefixes(n=NUM_RACE_AGGREGATES):
+    """Generate N distinct /16 prefixes for the race test (oracle-checked)."""
+    # 10.0.0.0/16 .. 10.{N-1}.0.0/16
+    return [f"10.{i}.0.0/16" for i in range(n)]
+
+
+def _filler_prefixes(n=NUM_FILLER_AGGREGATES):
+    """Generate N distinct /16 prefixes for filler stress (NOT oracle-checked).
+
+    Uses 11.x.0.0/16 to stay clear of any 10.x test traffic and of the race
+    prefix range. These rows exist only to inflate frr.conf so mgmtd's
+    startup replay holds the CONFIG datastore lock longer, widening the
+    AggregateAddressMgr race window.
+    """
+    return [f"11.{i}.0.0/16" for i in range(n)]
+
+
+def _add_aggregate_with_pl(duthost, prefix, pl_name, contrib_pl_name):
+    """HSET a BGP_AGGREGATE_ADDRESS row with both prefix-list fields populated.
+
+    This is what makes bgpcfgd emit a mixed bgpd + mgmtd cmd_list — the
+    necessary precondition (R1+R2) for the race.
+    """
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB HSET 'BGP_AGGREGATE_ADDRESS|{prefix}' "
+        f"bbr-required false summary-only false as-set false "
+        f"aggregate-address-prefix-list {pl_name} "
+        f"contributing-address-prefix-list {contrib_pl_name}"
+    )
+
+
+def _add_race_aggregate(duthost, prefix):
+    _add_aggregate_with_pl(
+        duthost, prefix, RACE_AGG_PREFIX_LIST, RACE_AGG_CONTRIB_PREFIX_LIST
+    )
+
+
+def _add_filler_aggregate(duthost, prefix):
+    _add_aggregate_with_pl(
+        duthost, prefix, FILLER_AGG_PREFIX_LIST, FILLER_AGG_CONTRIB_PREFIX_LIST
+    )
+
+
+def _del_race_aggregate(duthost, prefix):
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB DEL 'BGP_AGGREGATE_ADDRESS|{prefix}'",
+        module_ignore_errors=True,
+    )
+
+
+def _aggregates_in_running_config(duthost):
+    """Set of prefixes that appear as `aggregate-address <prefix>` in FRR."""
+    out = duthost.shell(
+        "sudo vtysh -c 'show running-config'", module_ignore_errors=True
+    )["stdout"]
+    return set(re.findall(r"^\s+aggregate-address\s+(\S+)", out, re.MULTILINE))
+
+
+def _aggregates_in_prefix_list(duthost, pl_name):
+    """Set of prefixes that appear as `permit <prefix>` in the given prefix-list.
+
+    Strips any le/ge suffix and collapses ZEBRA + BGP views to a unique set.
+    """
+    out = duthost.shell(
+        f"vtysh -c 'show ip prefix-list {pl_name}'", module_ignore_errors=True
+    )["stdout"]
+    return set(re.findall(r"permit\s+(\d+\.\d+\.\d+\.\d+/\d+)", out))
+
+
+def _race_diff(duthost, expected_prefixes):
+    """Return (missing_from_pl, missing_from_rc) restricted to the race set."""
+    expected = set(expected_prefixes)
+    rc = _aggregates_in_running_config(duthost) & expected
+    pl = _aggregates_in_prefix_list(duthost, RACE_AGG_PREFIX_LIST) & expected
+    return sorted(rc - pl), sorted(expected - rc)
+
+
+def _wait_race_initial_program(duthost, expected_prefixes, filler_prefixes=()):
+    """Wait until bgpcfgd has programmed all aggregates into FRR + prefix-list.
+
+    Checks both the race set (in RACE_AGG_PREFIX_LIST) and the filler set
+    (in FILLER_AGG_PREFIX_LIST) so we don't restart bgp until the entire
+    400-row baseline is in place.
+    """
+    race_expected = set(expected_prefixes)
+    filler_expected = set(filler_prefixes)
+    all_expected = race_expected | filler_expected
+
+    def _ready():
+        rc = _aggregates_in_running_config(duthost)
+        if not (rc >= all_expected):
+            return False
+        if not (_aggregates_in_prefix_list(duthost, RACE_AGG_PREFIX_LIST) >= race_expected):
+            return False
+        if filler_expected and not (
+            _aggregates_in_prefix_list(duthost, FILLER_AGG_PREFIX_LIST) >= filler_expected
+        ):
+            return False
+        return True
+
+    pytest_assert(
+        wait_until(RACE_INITIAL_PROGRAM_TIMEOUT, 5, 0, _ready),
+        "Initial programming of race + filler aggregates did not converge "
+        "(prefix-list or running-config missing entries before restart)",
+    )
+
+
+def _run_race_test(duthost, bgp_neighbors, trigger_fn, trigger_label):
+    """Shared body for TC 5.6 / 5.7. trigger_fn(duthost) performs the disruption."""
+    prefixes = _race_prefixes()
+    fillers = _filler_prefixes()
+    all_aggregates = set(prefixes) | set(fillers)
+    try:
+        logger.info(
+            "Pre-installing %d race + %d filler aggregates (oracle checks race only)",
+            len(prefixes), len(fillers),
+        )
+        for p in prefixes:
+            _add_race_aggregate(duthost, p)
+        for p in fillers:
+            _add_filler_aggregate(duthost, p)
+        _wait_race_initial_program(duthost, prefixes, fillers)
+
+        for rnd in range(1, RACE_RESTART_ROUNDS + 1):
+            logger.info(
+                "[%s] race-detect round %d/%d (race=%d, filler=%d)",
+                trigger_label, rnd, RACE_RESTART_ROUNDS, len(prefixes), len(fillers),
+            )
+            trigger_fn(duthost)
+            wait_for_bgp_sessions(duthost, bgp_neighbors)
+
+            # Wait for bgpcfgd to drain ALL aggregates (race + filler) back
+            # into running-config. Checking too early races bgpcfgd's own
+            # batch drain and produces transient missing_from_pl results
+            # that have nothing to do with the bgpcfgd startup race we are
+            # hunting.
+            def _rc_has_all():
+                return _aggregates_in_running_config(duthost) >= all_aggregates
+
+            pytest_assert(
+                wait_until(RACE_POST_RESTART_CONVERGE_TIMEOUT, 5, 0, _rc_has_all),
+                f"[{trigger_label} round {rnd}] bgpcfgd did not finish pushing "
+                f"all {len(all_aggregates)} aggregates back into running-config within "
+                f"{RACE_POST_RESTART_CONVERGE_TIMEOUT}s after restart.",
+            )
+            # Settle: let any in-flight mgmtd prefix-list commits land before
+            # sampling the oracle. The race bug leaves PERMANENT divergence;
+            # this sleep only filters transient inflight states.
+            time.sleep(5)
+
+            missing_from_pl, missing_from_rc = _race_diff(duthost, prefixes)
+            pytest_assert(
+                not missing_from_pl,
+                f"[{trigger_label} round {rnd}] bgpcfgd startup race triggered: "
+                f"{len(missing_from_pl)}/{len(prefixes)} aggregate(s) present as "
+                f"`aggregate-address` in running-config but MISSING from prefix-list "
+                f"{RACE_AGG_PREFIX_LIST}: {missing_from_pl}. "
+                f"See doc/bgpcfgd-aggregate-prefix-list-race-bug.md."
+            )
+            if missing_from_rc:
+                logger.warning(
+                    "[%s round %d] %d aggregate(s) missing from running-config too: %s",
+                    trigger_label, rnd, len(missing_from_rc), missing_from_rc,
+                )
+    finally:
+        for p in prefixes:
+            _del_race_aggregate(duthost, p)
+        for p in fillers:
+            _del_race_aggregate(duthost, p)
+
+
+# ===========================================================================
+# Test Case 5.6 — prefix-list aggregates survive BGP container restart
+# ===========================================================================
+def test_aggregate_prefix_list_survives_bgp_restart_race(
+    duthosts, rand_one_dut_hostname, bgp_neighbors,
+):
+    """
+    TC 5.6: After `systemctl restart bgp`, every aggregate-address still
+    advertised by FRR MUST also have its `ip prefix-list` entry programmed
+    in mgmtd. Catches the bgpcfgd startup race where mixed bgpd+mgmtd
+    `vtysh -f` batches partially fail while mgmtd is still locking the
+    CONFIG datastore during frr.conf replay.
+
+    Scale: 50 aggregates x 3 restart rounds (~95% cumulative detection on
+    idle m1 given observed ~2% per-aggregate-per-restart hit rate).
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    def _restart_bgp(dh):
+        dh.shell("sudo systemctl reset-failed bgp.service", module_ignore_errors=True)
+        dh.shell("sudo systemctl restart bgp")
+
+    _run_race_test(duthost, bgp_neighbors, _restart_bgp, "systemctl restart bgp")
+
+
+# ===========================================================================
+# Test Case 5.7 — prefix-list aggregates survive `config reload`
+# ===========================================================================
+def test_aggregate_prefix_list_survives_config_reload_race(
+    duthosts, rand_one_dut_hostname, bgp_neighbors,
+):
+    """
+    TC 5.7: Same invariant as TC 5.6 but triggered by `sudo config reload -y -f`.
+    Per bug doc tier12 evidence, config reload internally stops sonic.target,
+    which restarts the bgp container through the same supervisor lifecycle —
+    confirming the race lives in the bgp container's startup pipeline, not in
+    the choice of restart command.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    def _config_reload(dh):
+        config_reload(dh, safe_reload=True, check_intf_up_ports=True)
+
+    _run_race_test(duthost, bgp_neighbors, _config_reload, "config reload -y -f")
