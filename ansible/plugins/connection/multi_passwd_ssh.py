@@ -70,6 +70,13 @@ CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
 # the "Permission denied" message to distinguish auth failures from
 # connectivity failures (timeout, no route to host, etc.).
 PERMISSION_DENIED_ERR_FLAG = "Permission denied"
+# When a task has `no_log: true`, Ansible censors the underlying SSH stderr
+# before the connection plugin sees it. In that case the error message no
+# longer contains "Permission denied", so the auth-failure detection above
+# would mis-classify wrong-password attempts as real connectivity failures
+# and abort the retry loop. Detect the censorship marker so we can still
+# iterate through remaining passwords.
+NO_LOG_CENSORED_FLAG = "censored due to no log"
 
 
 def _password_retry(func):
@@ -106,8 +113,17 @@ def _password_retry(func):
                 # ansible-core 2.19+ with ssh_askpass raises AnsibleConnectionFailure
                 # (not AnsibleAuthenticationFailure) for "Permission denied" auth failures.
                 # Treat it as an auth failure so the retry loop still iterates.
+                # If the task sets `no_log: true`, the SSH stderr is censored before
+                # this plugin can inspect it, so "Permission denied" will be absent
+                # from `err_msg`. In that case we cannot tell auth failure from a
+                # real connectivity failure; assume it may be auth and keep trying
+                # the remaining passwords rather than aborting prematurely.
                 err_msg = getattr(e, "message", "") or str(e)
-                if PERMISSION_DENIED_ERR_FLAG not in err_msg:
+                is_auth_failure = (
+                    PERMISSION_DENIED_ERR_FLAG in err_msg
+                    or NO_LOG_CENSORED_FLAG in err_msg
+                )
+                if not is_auth_failure:
                     raise  # not an auth failure; preserve original behaviour
                 if not conn_passwords:
                     raise  # exhausted all passwords

@@ -20,9 +20,15 @@
       HWSKU: "SONiC-VM"
   delegate_to: "{{ VM_host[0] }}"
 
-- name: Wait for container to be fully started
-  pause:
-    seconds: 5
+- name: Wait for CONFIG_DB to be ready in container
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} sonic-db-cli CONFIG_DB PING
+  delegate_to: "{{ VM_host[0] }}"
+  register: configdb_ping
+  until: configdb_ping.rc == 0 and (configdb_ping.stdout | trim) in ["True", "PONG"]
+  retries: 30
+  delay: 2
+  changed_when: false
 
 - name: Load config_db.json into SONiC ConfigDB
   become: yes
@@ -44,9 +50,20 @@
     msg: "Config load failed: {{ config_load_result.stderr }}"
   when: config_load_result.rc != 0 and config_load_result.rc is defined
 
-- name: Wait for configuration to be applied
-  pause:
-    seconds: 3
+- name: Collect front panel interfaces expected from CONFIG_DB
+  set_fact:
+    csonic_fp_interfaces: "{{ configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"
+
+- name: Wait for front panel interfaces to be created from CONFIG_DB
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link show {{ csonic_fp_interfaces[0] }}
+  delegate_to: "{{ VM_host[0] }}"
+  register: fp_intf_ready
+  until: fp_intf_ready.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  when: csonic_fp_interfaces | length > 0
 
 - name: Bring up front panel interface in container
   become: yes
@@ -60,8 +77,10 @@
 
 - name: Bring up backplane interface if defined
   become: yes
-  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth2 up
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth{{ bp_eth_idx }} up
   delegate_to: "{{ VM_host[0] }}"
+  vars:
+    bp_eth_idx: "{{ (configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list | length) + 1 }}"
   when: configuration[hostname]['bp_interface'] is defined
   register: bp_ifup_result
   failed_when: false
