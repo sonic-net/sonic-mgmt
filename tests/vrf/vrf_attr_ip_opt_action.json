@@ -1,7 +1,7 @@
 {
     "VRF": {
         "Vrf1": {
-            "ip_opt_action": "drop"
+            "ip_opt_action": "deny"
         },
         "Vrf2": {
             "ip_opt_action": "forward"
