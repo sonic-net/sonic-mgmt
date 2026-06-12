@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from ha_dash_flow_utils import compare_flow_tables
 from ha_dpu_utils import dpu_power_off_for_index, dpu_power_on_for_index
+from ha_utils import wait_for_ha_scope_pmon_state
 
 logger = logging.getLogger(__name__)
 
@@ -218,11 +219,49 @@ def test_ha_dpu_failure(
     t.join()
     time.sleep(2)
 
-    # bring back up the DPU
     dut = duthosts[1] if standby_dpu_fail else duthosts[0]
     dpu_name = f"DPU{dpu_id}"
+
+    # Verify HA scope PMON state on the failed-DPU NPU reports "down" for the
+    # local vDPU (midplane / control plane / data plane) while the DPU is off.
+    failed_dut_index = 1 if standby_dpu_fail else 0
+    scope_key = (
+        f"vdpu{failed_dut_index}_"
+        f"{dpuhosts[failed_dut_index].dpu_index}:haset0_0"
+    )
+    logger.info(
+        f"Verify DASH_HA_SCOPE_STATE PMON fields are 'down' on "
+        f"{dut.hostname} scope {scope_key}"
+    )
+    down_ok, down_state = wait_for_ha_scope_pmon_state(
+        dut, scope_key, expected_state="down",
+        timeout=60, interval=5,
+    )
+    pytest_assert(
+        down_ok,
+        f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not reach "
+        f"'down' for {scope_key} while {dpu_name} was powered off. "
+        f"Observed: {down_state}"
+    )
+
     logger.info(f"Startup {dpu_name} on {dut.hostname}")
     pytest_assert(dpu_power_on_for_index(dut, dpu_id), f"Failed to bring up {dpu_name} on {dut.hostname}")
+
+    # Verify HA scope PMON state returns to "up" after powering the DPU back on.
+    logger.info(
+        f"Verify DASH_HA_SCOPE_STATE PMON fields recover to 'up' on "
+        f"{dut.hostname} scope {scope_key}"
+    )
+    up_ok, up_state = wait_for_ha_scope_pmon_state(
+        dut, scope_key, expected_state="up",
+        timeout=480, interval=5,
+    )
+    pytest_assert(
+        up_ok,
+        f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not recover "
+        f"to 'up' for {scope_key} after powering on {dpu_name}. "
+        f"Observed: {up_state}"
+    )
 
     threshold_loss = TRAFFIC_LOSS_DURATION_CAP * RATE_PPS
     measured_loss = failed_count
