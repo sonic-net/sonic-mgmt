@@ -403,12 +403,17 @@ class GenerateGoldenConfigDBModule(object):
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
                                                      state="enabled", feature_data=None):
         full_config = json.loads(config)
-        if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
-            # need dump running config FEATURE + selected feature
-            gold_config_db = self.get_multiasic_feature_config()
-        else:
-            # need existing config + selected feature
-            gold_config_db = full_config
+        if "FEATURE" not in full_config.get("localhost", {}):
+            # Merge running config FEATURE into existing config instead of replacing,
+            # to preserve other tables (e.g. BGP_DEVICE_GLOBAL) already in full_config.
+            feature_config = self.get_multiasic_feature_config()
+            for ns, ns_data in feature_config.items():
+                if ns in full_config:
+                    full_config[ns].update(ns_data)
+                else:
+                    full_config[ns] = ns_data
+
+        gold_config_db = full_config
 
         if feature_data is None:
             feature_data = {
@@ -636,6 +641,16 @@ class GenerateGoldenConfigDBModule(object):
 
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
+
+        # Filter PORT entries: YANG validation requires the 'lanes' leaf for
+        # every PORT_LIST entry.  sonic-cfggen may emit PORT entries (e.g. from
+        # init_cfg.json or internal ports) that lack 'lanes', which causes
+        # 'config load_minigraph --override_config' to abort.  Exclude them so
+        # the golden config remains YANG-valid; those ports will keep their
+        # minigraph-generated values.
+        ori_config_db["PORT"] = {
+            k: v for k, v in ori_config_db["PORT"].items() if "lanes" in v
+        }
 
         if hwsku not in smartswitch_hwsku_config:
             return "{}"

@@ -47,6 +47,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
@@ -63,6 +64,15 @@ def common_setup_teardown(
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
             use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
+            use_vtysh = True
+
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -89,6 +99,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         )

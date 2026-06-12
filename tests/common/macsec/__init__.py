@@ -112,16 +112,24 @@ class MacsecPlugin(object):
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
+    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile, ctrl_links):
         '''
             setup macsec links
         '''
-        startup_macsec()
+        shutdown = False
+        if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+            macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
+            if not macsec_preconfigured:
+                shutdown = True
+                startup_macsec()
+            else:
+                logger.info(f"Macsec is already configured for {macsec_profile}, skipping setup")
         yield
-        shutdown_macsec()
+        if shutdown:
+            shutdown_macsec()
 
     @pytest.fixture(scope="module", autouse=True)
-    def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+    def load_macsec_info(self, request, macsec_setup, ctrl_links, macsec_duthost, tbinfo):
         """Pre-load MACsec session info for all control links.
 
         If MACsec is enabled and configured for this DUT/profile, wait for
@@ -132,20 +140,11 @@ class MacsecPlugin(object):
         """
 
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
-            if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
-                # MACsec is already configured (e.g., carried over from a
-                # previous module). Wait for MKA sessions to be established
-                # (SC/SA present in DB, including SAK) before loading info, so
-                # we don't race wpa_supplicant writing the egress SA row.
-                # If the wait_mka_establish fixture isn't registered in this
-                # environment, fall back to loading directly.
-                try:
-                    request.getfixturevalue('wait_mka_establish')
-                except pytest.FixtureLookupError:
-                    pass
-                load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
-            else:
-                request.getfixturevalue('macsec_setup')
+            try:
+                request.getfixturevalue('wait_mka_establish')
+            except pytest.FixtureLookupError:
+                pass
+            load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
 
     @pytest.fixture(scope="module")
     def macsec_nbrhosts(self, ctrl_links):
@@ -286,6 +285,8 @@ class MacsecPluginT2(MacsecPlugin):
         mg_facts = macsec_duthost.get_extended_minigraph_facts(tbinfo)
         if 'macsec_neighbors' in mg_facts:
             ctrl_nbr_names = mg_facts['macsec_neighbors']
+        else:
+            ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:4]
         return ctrl_nbr_names
 
     def downstream_neighbor(self,tbinfo, neighbor):

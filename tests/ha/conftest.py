@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from collections import defaultdict
 import os
+from tests.conftest import get_specified_dpus
 
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
@@ -29,6 +30,8 @@ from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
+from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.utilities import wait_until
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
@@ -39,10 +42,87 @@ ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
 
+def _get_dpu_neighbor_ip(role_index, dpu_index):
+    return f"20.0.{200 + role_index}.{dpu_index + 1}"
+
+
+def _get_appl_db_neighbor_key(duthost, neighbor_ip):
+    result = duthost.shell(
+        f'sonic-db-cli APPL_DB KEYS "NEIGH_TABLE:*:{neighbor_ip}"',
+        module_ignore_errors=True,
+    )
+    if result.get("rc", 0) != 0:
+        logger.debug(
+            "%s failed querying APPL_DB for %s: rc=%s stderr=%s",
+            duthost.hostname,
+            neighbor_ip,
+            result.get("rc"),
+            result.get("stderr", "").strip(),
+        )
+        return None
+
+    return next(
+        (key for key in result.get("stdout_lines", []) if key.endswith(neighbor_ip)),
+        None,
+    )
+
+
+def wait_for_dpu_neighbor_resolution(duthost, role_index, dpu_index, timeout=120, interval=2):
+    neighbor_ip = _get_dpu_neighbor_ip(role_index, dpu_index)
+
+    def _neighbor_is_resolved():
+        neighbor_key = _get_appl_db_neighbor_key(duthost, neighbor_ip)
+        if not neighbor_key:
+            return False
+
+        neigh_result = duthost.shell(
+            f'sonic-db-cli APPL_DB HGET "{neighbor_key}" neigh',
+            module_ignore_errors=True,
+        )
+        if neigh_result.get("rc", 0) != 0:
+            return False
+
+        neighbor_mac = neigh_result["stdout"].strip()
+        if not neighbor_mac:
+            return False
+
+        logger.info(
+            "%s resolved DPU neighbor %s in %s with MAC %s",
+            duthost.hostname,
+            neighbor_ip,
+            neighbor_key,
+            neighbor_mac,
+        )
+        return True
+
+    logger.info(
+        "Waiting for DPU%s neighbor %s to resolve in APPL_DB on %s",
+        dpu_index,
+        neighbor_ip,
+        duthost.hostname,
+    )
+    pt_assert(
+        wait_until(timeout, interval, 0, _neighbor_is_resolved),
+        f"Timed out waiting for APPL_DB NEIGH_TABLE entry for {neighbor_ip} on {duthost.hostname}",
+    )
+
+
 @pytest.fixture(scope="session")
-def dpuhosts(dpuhosts):
-    """Limit to the first 2 DPU hosts for all HA tests."""
-    return dpuhosts.nodes[:2]
+def dpuhosts(all_dpuhosts, request):
+    """Limit standard HA tests to the first 2 requested DPU hosts."""
+    requested_dpuhosts = get_specified_dpus(request)
+    if not requested_dpuhosts:
+        return all_dpuhosts.nodes[:2]
+
+    nodes_by_hostname = {node.hostname: node for node in all_dpuhosts.nodes}
+    missing_dpuhosts = [
+        hostname for hostname in requested_dpuhosts if hostname not in nodes_by_hostname
+    ]
+    pt_require(
+        not missing_dpuhosts,
+        f"Requested DPU hosts were not initialized: {missing_dpuhosts}",
+    )
+    return [nodes_by_hostname[hostname] for hostname in requested_dpuhosts[:2]]
 
 
 ha_scope_per_dut = [
@@ -393,17 +473,13 @@ def vxlan_udp_dport(request, duthost):
     config_vxlan_udp_dport(duthost, 4789)
 
 
-@pytest.fixture(scope="module")
-def set_vxlan_udp_sport_range(dpuhosts):
-    """
-    Configure VXLAN UDP source port range in dpu configuration.
-
-    """
+def _apply_vxlan_udp_sport_range(dpuhosts):
     vxlan_sport_config = [
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_port": "4789"
             },
             "OP": "SET"
         }
@@ -414,14 +490,34 @@ def set_vxlan_udp_sport_range(dpuhosts):
     for dpuhost in dpuhosts:
         dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
         apply_swssconfig_file(dpuhost, config_path)
-        if 'pensando' in dpuhost.facts['asic_type']:
-            logger.warning("Applying Pensando DPU VXLAN sport workaround")
-            dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+
+
+@pytest.fixture(scope="module")
+def set_vxlan_udp_sport_range(dpuhosts):
+    """
+    Configure VXLAN UDP source port range in dpu configuration.
+
+    """
+    _apply_vxlan_udp_sport_range(dpuhosts)
     yield
     for dpuhost in dpuhosts:
         if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0"
                                                          " hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
             config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="function")
+def ensure_vxlan_udp_sport_range(set_vxlan_udp_sport_range, dpuhosts):
+    dpuhosts_to_configure = []
+    for dpuhost in dpuhosts:
+        vxlan_sport = dpuhost.shell("redis-cli -n 0"
+                                    " hget SWITCH_TABLE:switch vxlan_sport")['stdout']
+        if str(VXLAN_UDP_BASE_SRC_PORT) not in vxlan_sport:
+            dpuhosts_to_configure.append(dpuhost)
+
+    if dpuhosts_to_configure:
+        logger.info("Re-applying VXLAN source port config after per-test cleanup reset")
+        _apply_vxlan_udp_sport_range(dpuhosts_to_configure)
 
 
 @pytest.fixture(scope="module")
@@ -545,14 +641,20 @@ def setup_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_g
 
     logger.info("HA: setup from json for Primary and Standby")
 
-    # Workaround for the neigh resolve issue
-    # To be removed after fixes are merged: PR 147, 148 in sonic-dash-ha
+    # TODO: remove once neighbor flakiness is fixed.
     for i in range(len(duthosts)):
         logger.info(f"Sending ping to DPU{dpuhosts[i].dpu_index} for {duthosts[i].hostname}")
         ip_part = 200 + i
         ip_last = dpuhosts[i].dpu_index + 1
         ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.{ip_last}", module_ignore_errors=True)["stdout"]
         logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
+
+    for i in range(len(duthosts)):
+        wait_for_dpu_neighbor_resolution(
+            duthost=duthosts[i],
+            role_index=i,
+            dpu_index=dpuhosts[i].dpu_index,
+        )
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
@@ -818,8 +920,8 @@ def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
 
 @pytest.fixture(scope="function")
 def setup_dash_pl_pipeline(
-     localhost, duthosts, ptfhost, dpu_index, skip_config,
-     dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
+    dpuhosts, setup_npu_dpu, ensure_vxlan_udp_sport_range
 ):
     if skip_config:
         yield

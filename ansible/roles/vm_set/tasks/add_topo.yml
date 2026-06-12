@@ -353,6 +353,13 @@
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
 
+  - name: Don't accept ipv6 router advertisements on PTF mgmt interface if it exists
+    command: >
+      docker exec -i ptf_{{ vm_set_name }}
+      sh -c 'test ! -e /proc/sys/net/ipv6/conf/mgmt/accept_ra ||
+             sysctl -w net.ipv6.conf.mgmt.accept_ra=0'
+    become: yes
+
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
     when: topo != 'fullmesh' and not (ptf_use_docker_network | default(false))
