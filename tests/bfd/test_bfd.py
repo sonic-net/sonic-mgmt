@@ -630,15 +630,22 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
 
         create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs)
 
-        duthost.shell("sonic-clear queuecounters")
-        # wait for queue counters to accumulate BFD traffic
+        # Per-queue packet counters are not supported on VPP; skip the
+        # queue-counter validation but still verify session state below.
+        skip_bfd_queue_counter_check = duthost.facts.get('asic_type') == 'vpp'
 
-        def _check_bfd_queue_nonzero():
-            queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
-            return queue_pkt_count > 0
+        if not skip_bfd_queue_counter_check:
+            duthost.shell("sonic-clear queuecounters")
+            # wait for queue counters to accumulate BFD traffic
 
-        wait_until(30, 5, 0, _check_bfd_queue_nonzero)
-        verify_bfd_queue_counters(duthost, dut_intf)
+            def _check_bfd_queue_nonzero():
+                queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
+                return queue_pkt_count > 0
+
+            wait_until(30, 5, 0, _check_bfd_queue_nonzero)
+            verify_bfd_queue_counters(duthost, dut_intf)
+        else:
+            logger.info("Skipping BFD queue-counter validation: not supported on VPP")
 
         for neighbor_addr in neighbor_addrs:
             check_dut_bfd_status(duthost, neighbor_addr, "Up")
