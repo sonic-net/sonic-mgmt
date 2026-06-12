@@ -1,5 +1,5 @@
 topology:
-  topo_type: smartswitch-ha
+  topo_type: t1-smartswitch-ha
   dut_num: 2
   VMs:
     ARISTA01T2:

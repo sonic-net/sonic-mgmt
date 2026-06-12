@@ -317,7 +317,7 @@ class VMTopology(object):
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
-        self._is_smartswitch_ha = self.topo.get('topo_type') == 'smartswitch-ha'
+        self._is_smartswitch_ha = self.topo.get('topo_type') == 't1-smartswitch-ha'
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
         if self.dut_interfaces:
