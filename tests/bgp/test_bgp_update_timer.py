@@ -99,10 +99,14 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
     duthost.shell(cmd)
 
-    # Soft-reset outbound so the filter takes effect immediately
+    # Soft-reset outbound so the filter takes effect immediately.
+    # Note: FRR vtysh syntax differs between v4 and v6:
+    #   v4: clear ip bgp <neighbor> soft out
+    #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
+    clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} bgp {} soft out'".format(
-            ns_option, "ipv6" if is_v6 else "ip", ip
+        duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
+            ns_option, clear_af, ip
         ))
 
 
