@@ -5,8 +5,8 @@ This module provides coupled pytest fixtures that bundle server configuration
 with matched clients, preventing misuse from decoupled server/client setup.
 
 Primary fixtures:
-    gnmi_tls:       Module-scoped fixture that sets up TLS and yields GnmiFixture
-    gnmi_plaintext: Module-scoped fixture for plaintext mode, yields GnmiFixture
+    gnmi_tls:       Function-scoped fixture that sets up TLS and yields GnmiFixture
+    gnmi_plaintext: Function-scoped fixture for plaintext mode, yields GnmiFixture
 
 Deprecated fixtures (kept for backward compatibility):
     setup_gnoi_tls_server: Thin wrapper around gnmi_tls, yields None
@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
-import time
 import pytest
 import logging
 from dataclasses import dataclass
@@ -33,6 +32,7 @@ from tests.common.ptf_gnoi import PtfGnoi
 from tests.common.ptf_gnmic import PtfGnmic
 from tests.common.dut_grpc import DutGrpc
 from tests.common.dut_gnoi import DutGnoi
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,33 @@ _GRPCURL_ARCH_MAP = {
     "arm64": "linux_arm64",
     "armhf": "linux_armv6",
 }
+
+
+def _get_target_duthost(duthosts, request):
+    """
+    Select DUT based on test parametrization or fallback to duthosts[0].
+
+    Args:
+        duthosts: All DUT host instances
+        request: Pytest request object for introspection
+
+    Returns:
+        duthost: The selected DUT host instance
+    """
+    dut_selectors = [
+        'enum_rand_one_per_hwsku_frontend_hostname',
+        'enum_rand_one_per_hwsku_hostname',
+        'rand_one_dut_hostname'
+    ]
+
+    for selector in dut_selectors:
+        if selector in request.fixturenames:
+            dut_name = request.getfixturevalue(selector)
+            duthost = duthosts[dut_name]
+            logger.info(f"_get_target_duthost: selected DUT {duthost.hostname}")
+            return duthost
+
+    return duthosts[0]
 
 
 def _ensure_grpcurl_on_dut(duthost):
@@ -169,8 +196,8 @@ class GnmiFixture:
         logger.info("Post-reboot TLS reconfiguration completed")
 
 
-@pytest.fixture(scope="module")
-def gnmi_tls(request, duthost, ptfhost):
+@pytest.fixture(scope="function")
+def gnmi_tls(request, duthosts, ptfhost):
     """
     Set up gNMI/gNOI environment and yield a coupled GnmiFixture.
 
@@ -200,6 +227,8 @@ def gnmi_tls(request, duthost, ptfhost):
             assert isinstance(result["time"], int)
             assert gnmi_tls.port == 50052
     """
+    duthost = _get_target_duthost(duthosts, request)
+
     transport = getattr(request, 'param', 'tls')
 
     if transport == 'uds':
@@ -231,7 +260,7 @@ def gnmi_tls(request, duthost, ptfhost):
         # Build coupled client with the exact config we just set up
         host = duthost.mgmt_ip
         port = grpc_config.DEFAULT_TLS_PORT
-        target = f"{host}:{port}"
+        target = f"[{host}]:{port}"
 
         ptf_cert_paths = grpc_config.get_ptf_cert_paths()
         cert_paths = CertPaths(
@@ -299,8 +328,8 @@ def gnmi_tls(request, duthost, ptfhost):
             logger.error(f"Failed to cleanup certificates: {e}")
 
 
-@pytest.fixture(scope="module")
-def gnmi_plaintext(duthost, ptfhost):
+@pytest.fixture(scope="function")
+def gnmi_plaintext(request, duthosts, ptfhost):
     """
     Plaintext gNMI/gNOI fixture — no TLS, no server reconfiguration.
 
@@ -312,6 +341,8 @@ def gnmi_plaintext(duthost, ptfhost):
         def test_plaintext(gnmi_plaintext):
             services = gnmi_plaintext.grpc.list_services()
     """
+    duthost = _get_target_duthost(duthosts, request)
+
     host = duthost.mgmt_ip
     port = grpc_config.DEFAULT_PLAINTEXT_PORT
     target = f"{host}:{port}"
@@ -372,7 +403,7 @@ def _gnmi_uds_flow(duthost):
 # Deprecated fixtures — kept for backward compatibility during migration
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def setup_gnoi_tls_server(gnmi_tls):
     """
     Deprecated: use gnmi_tls instead.
@@ -385,12 +416,15 @@ def setup_gnoi_tls_server(gnmi_tls):
 
 
 @pytest.fixture
-def ptf_grpc(ptfhost, duthost):
+def ptf_grpc(ptfhost, duthosts, request):
     """
     Deprecated: use gnmi_tls.grpc or gnmi_plaintext.grpc instead.
 
     Auto-configured gRPC client using GNMIEnvironment for discovery.
     """
+
+    duthost = _get_target_duthost(duthosts, request)
+
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     client = PtfGrpc(ptfhost, env, duthost=duthost, insecure=True)
 
@@ -492,44 +526,85 @@ def _restart_gnoi_server(duthost):
     if result['rc'] != 0:
         raise Exception(f"Failed to restart gnmi-native: {result['stderr']}")
 
-    # Verify process is running
-    time.sleep(3)  # Give process time to start
+    # Wait for supervisor to report RUNNING. This is a fast guard against
+    # immediate crash loops; it does NOT prove that telemetry has actually
+    # bound its TLS listener (supervisor flips RUNNING after startsecs=1,
+    # but on slow armhf platforms the gnmi-native wrapper + Go telemetry
+    # startup can take longer than that to call listen()). The end-to-end
+    # readiness check lives in _verify_gnoi_tls_connectivity, which retries
+    # bounded grpcurl calls from PTF.
+    def _supervisor_running():
+        status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
+                               module_ignore_errors=True)
+        return "RUNNING" in status.get('stdout', '')
 
-    status_result = duthost.shell("docker exec gnmi supervisorctl status gnmi-native", module_ignore_errors=True)
-    if "RUNNING" not in status_result['stdout']:
-        raise Exception(f"gnmi-native failed to start: {status_result['stdout']}")
+    if not wait_until(30, 1, 0, _supervisor_running):
+        status = duthost.shell("docker exec gnmi supervisorctl status gnmi-native",
+                               module_ignore_errors=True)
+        raise Exception(
+            f"gnmi-native failed to reach RUNNING within 30s: {status.get('stdout', '')}"
+        )
 
-    logger.info("gNOI server restart completed")
+    logger.info("gNOI server restart completed (supervisor reports RUNNING)")
 
 
 def _verify_gnoi_tls_connectivity(duthost, ptfhost):
-    """Verify TLS connectivity to gNOI server."""
+    """Verify TLS connectivity to gNOI server with retry on transient errors.
+
+    Retries each grpcurl call with a bounded per-attempt timeout. This absorbs
+    the brief window between supervisor reporting gnmi-native RUNNING and the
+    telemetry process actually accepting connections on the TLS port. On slow
+    armhf platforms (e.g. marvell-prestera) that window can be several
+    seconds, manifesting as `connect: connection refused` errors from PTF.
+    """
     logger.info("Verifying gNOI TLS connectivity")
 
-    # Test basic gRPC service listing with TLS
     cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
-    test_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} list"""
+    target = f"[{duthost.mgmt_ip}]:{grpc_config.DEFAULT_TLS_PORT}"
 
-    result = ptfhost.shell(test_cmd, module_ignore_errors=True)
+    # -connect-timeout bounds the TCP/TLS handshake portion; -max-time bounds
+    # the whole call. Both keep a single retry attempt from hanging if packets
+    # are blackholed instead of refused.
+    grpcurl_timeouts = "-connect-timeout 5 -max-time 10"
 
-    if result['rc'] != 0:
-        raise Exception(f"TLS connectivity test failed: {result['stderr']}")
+    list_cmd = (
+        f"grpcurl {grpcurl_timeouts} {cacert_arg} {cert_arg} {key_arg} "
+        f"{target} list"
+    )
+    time_cmd = (
+        f"grpcurl {grpcurl_timeouts} {cacert_arg} {cert_arg} {key_arg} "
+        f"{target} gnoi.system.System.Time"
+    )
 
-    if "gnoi.system.System" not in result['stdout']:
-        raise Exception(f"gNOI services not found in response: {result['stdout']}")
+    list_last = {}
 
-    # Test basic gNOI call
-    time_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} gnoi.system.System.Time"""
+    def _list_ok():
+        res = ptfhost.shell(list_cmd, module_ignore_errors=True)
+        list_last.clear()
+        list_last.update(res)
+        return res.get('rc', 1) == 0 and "gnoi.system.System" in res.get('stdout', '')
 
-    result = ptfhost.shell(time_cmd, module_ignore_errors=True)
+    if not wait_until(60, 2, 0, _list_ok):
+        raise Exception(
+            "TLS connectivity test failed after retries: "
+            f"rc={list_last.get('rc')} stderr={list_last.get('stderr', '')} "
+            f"stdout={list_last.get('stdout', '')}"
+        )
 
-    if result['rc'] != 0:
-        raise Exception(f"gNOI System.Time test failed: {result['stderr']}")
+    time_last = {}
 
-    if "time" not in result['stdout']:
-        raise Exception(f"Invalid System.Time response: {result['stdout']}")
+    def _time_ok():
+        res = ptfhost.shell(time_cmd, module_ignore_errors=True)
+        time_last.clear()
+        time_last.update(res)
+        return res.get('rc', 1) == 0 and "time" in res.get('stdout', '')
+
+    if not wait_until(30, 2, 0, _time_ok):
+        raise Exception(
+            "gNOI System.Time test failed after retries: "
+            f"rc={time_last.get('rc')} stderr={time_last.get('stderr', '')} "
+            f"stdout={time_last.get('stdout', '')}"
+        )
 
     logger.info("TLS connectivity verification completed successfully")
 

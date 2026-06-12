@@ -44,7 +44,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.multi_binding_acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -1060,7 +1060,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
-                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
+                                                 "x86_64-8122_64eh_o-r0",
+                                                 "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8223_64e_mo-r0",
+                                                 "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
@@ -1290,7 +1293,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
@@ -1323,7 +1326,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:

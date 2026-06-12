@@ -35,7 +35,6 @@ from bgp_aggregate_helpers import (
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
-from tests.bgp.bgp_helpers import get_upstream_ptf_intfs
 from tests.common.gcu_utils import (
     create_checkpoint,
     rollback,
@@ -147,6 +146,43 @@ def _generate_contributing_route(aggregate_prefix):
 
 
 # ---- Fixtures ----
+
+@pytest.fixture(autouse=True)
+def ignore_disruption_loganalyzer_noise(duthosts, loganalyzer):
+    """Ignore transient ERR syslog noise during scale_stress teardown.
+
+    Direct CONFIG_DB writes and config reloads briefly break DUT->TACACS
+    reachability and bounce dockers. Three signatures result:
+      - `iptables: nss_tacplus: failed to connect TACACS+ server ...`:
+        the common-ignore entry at loganalyzer_common_ignore.txt:360
+        has an unescaped '+' (regex quantifier) so the literal text
+        never matches. Re-add with a properly-escaped `\\+`.
+      - `iptables: tac_connect_single: ... Network is unreachable`:
+        no common-ignore entry at all.
+      - `memory_checker: cgroup memory usage file ... does not exist`:
+        race where memory_checker reads a docker cgroup file after the
+        container has been bounced by config reload.
+
+    Tests in this module pick a random DUT via `rand_one_dut_hostname`,
+    so register the ignores on every DUT in the testbed rather than
+    just `duthosts[0]`.
+    """
+    if not loganalyzer:
+        yield
+        return
+    for dut in duthosts:
+        if dut.hostname in loganalyzer:
+            loganalyzer[dut.hostname].ignore_regex.extend([
+                r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .*",
+                r".* ERR iptables: tac_connect_single: connection to .* failed: Network is unreachable.*",
+                (
+                    r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file "
+                    r"'/sys/fs/cgroup/system\.slice/docker-[0-9a-f]+\.scope/memory\.current' "
+                    r"of container '[0-9a-f]+' does not exist on device.*"
+                ),
+            ])
+    yield
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_teardown(duthost):
@@ -643,7 +679,16 @@ class TestGroup7CapacityStress:
         # Resolve PTF port mappings
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         router_mac = duthost.facts["router_mac"]
-        upstream_ptf_ports = get_upstream_ptf_intfs(mg_facts, tbinfo)
+
+        # Compute upstream (M2) ethernets and their PTF port indices.
+        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
+        upstream_ethernets = [
+            k for k, v in mg_facts["minigraph_neighbors"].items()
+            if v["name"].endswith(upstream_type)
+        ]
+        upstream_ptf_ports = [
+            mg_facts["minigraph_ptf_indices"][port] for port in upstream_ethernets
+        ]
         pytest_assert(
             upstream_ptf_ports,
             "No upstream PTF ports found for data-plane testing",
@@ -670,11 +715,6 @@ class TestGroup7CapacityStress:
         # Discover destination IPs routable via upstream (M2) neighbors.
         # These are routes the DUT learned from M2 with upstream nexthops.
         # We use M2 neighbor BGP peer IPs — always routable via upstream links.
-        upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
-        upstream_ethernets = [
-            k for k, v in mg_facts["minigraph_neighbors"].items()
-            if v["name"].endswith(upstream_type)
-        ]
         # Collect the M2-side peer IPs from the DUT's interface addresses
         upstream_dst_ips = []
         for intf in upstream_ethernets:

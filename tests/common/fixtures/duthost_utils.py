@@ -254,52 +254,60 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     return rtn_val
 
 
+def duthost_shutdown_ebgp(duthost):
+    orch_cpu_threshold = 10
+
+    orch_cpu_timeout = 60
+    # Get the original number of eBGP v4 and v6 routes on the DUT.
+    sumv4, sumv6 = duthost.get_ip_route_summary()
+    v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+    v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    # Shutdown all eBGP neighbors
+    duthost.command("sudo config bgp shutdown all")
+
+    # Verify that the total eBGP routes are 0.
+    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+    return v4_routes_count, v6_routes_count
+
+
+def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
+    orch_cpu_threshold = 10
+    orch_cpu_timeout = 60
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    duthost.command("sudo config bgp startup all")
+
+    pt_assert(wait_until(120, 10, 10, check_ebgp_routes, v4_routes_count, v6_routes_count, duthost),
+              "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
+              "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
-    orch_cpu_threshold = 10
-    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
-    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
-    duthost = duthosts[rand_one_dut_hostname]
-    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
-        # Get the original number of eBGP v4 and v6 routes on the DUT.
-        sumv4, sumv6 = duthost.get_ip_route_summary()
-        v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
-        v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
-        v4_routes_count = v4ebgps[duthost.hostname]
-        v6_routes_count = v6ebgps[duthost.hostname]
-        if v4_routes_count > 10000 or v6_routes_count > 10000:
-            orch_cpu_timeout = 120
-        # Shutdown all eBGP neighbors
-        duthost.command("sudo config bgp shutdown all")
-        # Verify that the total eBGP routes are 0.
-        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
 
     yield
 
     for duthost in duthosts.frontend_nodes:
-        # Startup all the eBGP neighbors
-        duthost.command("sudo config bgp startup all")
-
-    for duthost in duthosts.frontend_nodes:
-        # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
-        orig_v4_ebgp = v4ebgps[duthost.hostname]
-        orig_v6_ebgp = v6ebgps[duthost.hostname]
-        pt_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
-                  "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
-                  "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
 
 
 @pytest.fixture(scope="module")
