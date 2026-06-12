@@ -139,7 +139,7 @@ The test does not impose a fixed pass/fail threshold on the measured durations, 
 
 During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
-| User Interface Metric Name        | Metric Name in DB  | Example Value |
+| Metric Name                       | Metric Name in DB  | Example Value |
 |-----------------------------------|--------------------|---------------|
 | `METRIC_NAME_ECN_ENTER_TIME_NS`   | ecn.enter_time.ns  | 1250000       |
 | `METRIC_NAME_ECN_EXIT_TIME_NS`    | ecn.exit_time.ns   | 8730000       |

@@ -129,7 +129,7 @@ The test groups the captured packets into buckets by their enqueue-time queue de
 
 During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
-| User Interface Metric Name                  | Metric Name in DB           | Example Value |
+| Metric Name                                 | Metric Name in DB           | Example Value |
 |---------------------------------------------|-----------------------------|---------------|
 | `METRIC_NAME_TG_TX_FRAMES`                  | tg.tx.frames                | 100000        |
 | `METRIC_NAME_TG_RX_FRAMES`                  | tg.rx.frames                | 100000        |
