@@ -7,10 +7,11 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_grap
     fanout_graph_facts_multidut         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
-    is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
+    is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut,  \
+    tgen_port_info, snappi_port_selection  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd   # noqa: F401
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
+from tests.snappi_tests.files.helper import enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.bpfabric_helper import run_fabric_ecn_marking_test, run_backplane_ecn_marking_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.cisco_data import is_cisco_device
@@ -18,17 +19,19 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def number_of_tx_rx_ports():
     yield (1, 1)
 
 
-def validate_snappi_ports(snappi_ports):
+@pytest.fixture
+def validate_snappi_ports(tgen_port_info):    # noqa: F811
     '''
         To use Backplane and fabric ports for traffic
          - the ingress port and the egress port should be on diff DUT.
          - or they both should be on diff asic instance on same DUT
     '''
+    _, _, snappi_ports = tgen_port_info
 
     # Extract duthost and peer_port values for rx_dut and tx_dut configurations
     rx_dut = snappi_ports[0]['duthost']
@@ -48,7 +51,17 @@ def validate_snappi_ports(snappi_ports):
         pytest_require(is_cisco_device(rx_dut) and is_cisco_device(tx_dut), "Test supported on Cisco DUT only")
         return True
 
+    pytest.skip("Invalid combination of tx and rx ports. Skip.")
+    # To overcome CodeQL mixed-returns error.
     return False
+
+
+@pytest.fixture
+def supervisor_dut_cisco(duthosts):
+    dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
+    pytest_require(dut, "Supervisor DUT not found")
+    pytest_require(is_cisco_device(dut), "Test supported on Cisco Supervisor DUT only")
+    yield dut
 
 
 def test_fabric_ecn_marking_lossless_prio(
@@ -61,7 +74,10 @@ def test_fabric_ecn_marking_lossless_prio(
                                 tbinfo,      # noqa: F811
                                 disable_pfcwd,     # noqa: F811
                                 prio_dscp_map,  # noqa: F811
-                                setup_ports_and_dut):                    # noqa: F811
+                                tgen_port_info,   # noqa: F811
+                                supervisor_dut_cisco,
+                                validate_snappi_ports
+                                ):                    # noqa: F811
     """
     Verify Egress Fabric port to Egress DUT ECN marking on lossless prio
 
@@ -77,16 +93,7 @@ def test_fabric_ecn_marking_lossless_prio(
         N/A
     """
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
-
-    # find the supervisor DUT as the fabric ports are available in it.
-    supervisor_dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
-
-    pytest_require(supervisor_dut, "Supervisor DUT not found")
-
-    pytest_require(is_cisco_device(supervisor_dut), "Test supported on Cisco Supervisor DUT only")
-
-    pytest_require(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
@@ -99,7 +106,7 @@ def test_fabric_ecn_marking_lossless_prio(
                             dut_port=snappi_ports[0]['peer_port'],
                             test_prio_list=random.sample(lossless_prio_list, 1),
                             prio_dscp_map=prio_dscp_map,
-                            supervisor_dut=supervisor_dut,
+                            supervisor_dut=supervisor_dut_cisco,
                             snappi_extra_params=snappi_extra_params)
 
 
@@ -113,7 +120,8 @@ def test_backplane_ecn_marking_lossless_prio(
                                 tbinfo,      # noqa: F811
                                 disable_pfcwd,     # noqa: F811
                                 prio_dscp_map,  # noqa: F811
-                                setup_ports_and_dut):                    # noqa: F811
+                                tgen_port_info,   # noqa: F811
+                                validate_snappi_ports):                    # noqa: F811
     """
     Verify Ingress DUT Egress backplane port ECN marking on lossless prio
 
@@ -129,9 +137,7 @@ def test_backplane_ecn_marking_lossless_prio(
         N/A
     """
 
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
-
-    pytest_require(validate_snappi_ports(snappi_ports), "Invalid combination of duthosts or ASICs in snappi_ports")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()

@@ -4,14 +4,13 @@ import pytest
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config, is_snappi_multidut, get_snappi_ports, \
     get_snappi_ports_single_dut, get_snappi_ports_multi_dut, get_snappi_ports_for_rdma, \
-    snappi_dut_base_config  # noqa: F401
+    snappi_dut_base_config, tgen_port_info  # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa: F401
+    fanout_graph_facts, fanout_graph_facts_multidut  # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list  # noqa: F401
 from tests.common.cisco_data import is_cisco_device
-from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +28,27 @@ def number_of_tx_rx_ports():
     yield (2, 1)
 
 
+@pytest.fixture
+def skip_ecn_multilossless_prio(
+        duthosts,
+        rand_one_dut_portname_oper_up,
+        rand_one_dut_hostname,
+        tgen_port_info):    # noqa: F811
+    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
+    pytest_require(rand_one_dut_hostname == dut_hostname,
+                   "Port is not mapped to the expected DUT")
+
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    duthost = duthosts[rand_one_dut_hostname]
+    if not is_cisco_device(duthost):
+        pytest.skip("Test is supported on Cisco device only")
+
+    if is_snappi_multidut(duthosts):
+        pytest.skip("Test is not supported on multi-dut")
+
+    yield testbed_config, port_config_list, snappi_ports, duthost, dut_port
+
+
 def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
                                  conn_graph_facts,  # noqa: F811
                                  fanout_graph_facts,  # noqa: F811
@@ -36,8 +56,8 @@ def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
                                  rand_one_dut_hostname,
                                  rand_one_dut_portname_oper_up,
                                  lossless_prio_list,  # noqa: F811
-                                 setup_ports_and_dut,  # noqa: F811
-                                 prio_dscp_map,  # noqa: F811
+                                 prio_dscp_map,        # noqa: F811
+                                 skip_ecn_multilossless_prio   # noqa: F811
                                  ):
 
     """
@@ -59,26 +79,14 @@ def test_ecn_multi_lossless_prio(snappi_api,  # noqa: F811
         N/A
     """
 
-    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "Port is not mapped to the expected DUT")
-
-    testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
-    duthost = duthosts[rand_one_dut_hostname]
-    if not is_cisco_device(duthost):
-        pytest.skip("Test is supported on Cisco device only")
-
-    if is_snappi_multidut(duthosts):
-        pytest.skip("Test is not supported on multi-dut")
-
+    testbed_config, port_config_list, snappi_ports, dut_host, dut_port = skip_ecn_multilossless_prio
     test_prio_list = lossless_prio_list
-
     run_ecn_test_cisco8000(api=snappi_api,
                            testbed_config=testbed_config,
                            port_config_list=port_config_list,
                            conn_data=conn_graph_facts,
                            fanout_data=fanout_graph_facts,
-                           duthost=duthost,
+                           duthost=dut_host,
                            dut_port=dut_port,
                            test_prio_list=test_prio_list,
                            prio_dscp_map=prio_dscp_map,
