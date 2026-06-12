@@ -34,7 +34,7 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_fw_upgrade/
+│   ├── cdb_firmware_upgrade/
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -204,13 +204,13 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
-├── cdb_fw_upgrade/
+├── cdb_firmware_upgrade/
 │   ├── __init__.py
-│   ├── conftest.py                          # CDB FW upgrade-specific fixtures; autouse fixture requests
+│   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
 │   │                                        #   presence_verified, links_verified from top-level conftest.py
-│   │                                        #   (gold FW is CDB FW's own reportable test, so that gate is
+│   │                                        #   (gold FW is CDB firmware upgrade's own reportable test, so that gate is
 │   │                                        #    intentionally not consumed.)
-│   └── test_fw_upgrade.py                   # CDB FW upgrade test cases; includes gold FW check
+│   └── test_fw_upgrade.py                   # CDB firmware upgrade test cases; includes gold FW check
 │                                            #   (reportable test case; calls common/prerequisites.py::check_gold_firmware)
 │
 ├── port_config/

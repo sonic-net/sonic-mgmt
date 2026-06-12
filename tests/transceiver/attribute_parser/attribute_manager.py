@@ -324,7 +324,7 @@ class AttributeManager:
         # ``active_firmware_version`` is a reserved BASE_ATTRIBUTES key:
         # ``DutInfoLoader`` does not currently populate it, so
         # ``firmware_overrides`` shards are silently inert until the producer
-        # (planned to live with the CDB FW upgrade test infrastructure)
+        # (planned to live with the CDB firmware upgrade test infrastructure)
         # populates this key per port. The slot is reserved in the schema so
         # contributors do not invent ad-hoc keys for firmware-conditional
         # overrides; the resolver fail-safes to the empty layer when the key
