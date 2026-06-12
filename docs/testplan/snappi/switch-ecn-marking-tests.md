@@ -11,6 +11,7 @@
       2. [4.1.2. QoS config discovery](#412-qos-config-discovery)
       3. [4.1.3. Traffic stream setup](#413-traffic-stream-setup)
    2. [4.2. Test case 1: Basic ECN marking test](#42-test-case-1-basic-ecn-marking-test)
+   3. [4.3. Test case 2: Long duration soak test](#43-test-case-2-long-duration-soak-test)
 
 ## 1. Test Objective
 
@@ -58,6 +59,7 @@ The test needs to support the following parameters:
 - `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
 - `test_duration`: The duration of each traffic run in seconds, which supports 60 seconds by default.
 - `traffic_rate`: The rate of the traffic for each traffic stream, which is set to 70% of the line rate by default. With both streams running, the RX ports will receive 140% of the line rate, which guarantees congestion.
+- `ecn_codepoint`: The ECN codepoint to set on the packets of the traffic streams, which supports `non-ect` (00), `ect0` (10), `ect1` (01) and `ce` (11). The switch behaves differently for each codepoint, so each codepoint runs as a sub test.
 
 ## 4. Test Cases
 
@@ -95,23 +97,50 @@ Since each TX port group has the same number of ports as the RX ports and the tr
 Both traffic streams are configured as below:
 
 - The DSCP field is set to the representative DSCP value of the queue under test, so the traffic lands on the specified queue.
-- The ECN field is set to ECT(1) (ECN-capable transport), so the switch can mark the packets with CE instead of dropping them when congestion happens.
+- The ECN field is set based on the `ecn_codepoint` test parameter.
 - The traffic rate is set to `traffic_rate` (70% of the line rate by default) on each stream.
 - The frame size is set to `frame_bytes`.
 
 ### 4.2. Test case 1: Basic ECN marking test
 
-For each queue learned in the QoS config discovery step, the test runs the following steps:
+This test case runs as sub tests for each ECN codepoint defined in RFC 3168, controlled by the `ecn_codepoint` test parameter. The expected behavior of an ECN-enabled queue under congestion is different for each codepoint:
+
+| ECN Codepoint | Bits | Expected behavior under congestion                                                                        |
+|---------------|------|-----------------------------------------------------------------------------------------------------------|
+| Non-ECT       | 00   | Packets are never marked with CE. Depending on the WRED profile config, the packets can be dropped instead. |
+| ECT(0)        | 10   | Packets are marked with CE.                                                                                 |
+| ECT(1)        | 01   | Packets are marked with CE.                                                                                 |
+| CE            | 11   | Packets pass through with the CE codepoint unchanged.                                                       |
+
+> NOTE: Since the RX ports are oversubscribed when both traffic streams are running, packet loss is expected on every queue, no matter how the WRED profile is configured. Hence, the test does not check the TX frame count against the RX frame count. It only checks the ECN field of the received packets and whether it follows the WRED profile config on the switch.
+
+For each queue learned in the QoS config discovery step and each ECN codepoint, the test runs the following steps:
 
 1. Start traffic stream 1 only and run it for `test_duration` seconds.
    1. Since the number of TX ports equals the number of RX ports and the traffic is all-to-all, each RX port only receives 70% of the line rate, so no congestion should happen.
    2. Capture the received packets on the RX ports and check the ECN field.
-   3. Assert that no received packet is marked with CE, no matter whether ECN is enabled on the queue or not.
+   3. Assert that the ECN field of all received packets stays unchanged, no matter whether ECN is enabled on the queue or not.
 2. Start traffic stream 2, so both streams are running, and run them for `test_duration` seconds.
    1. Since each RX port now receives traffic from 2 times the number of TX ports at 140% of the line rate, congestion will happen on the egress queue of all RX ports.
    2. Capture the received packets on the RX ports and check the ECN field.
-   3. If ECN is enabled on the queue, assert that received packets are marked with CE.
-   4. If ECN is not enabled on the queue, assert that no received packet is marked with CE.
+   3. If ECN is enabled on the queue, assert that the received packets follow the expected behavior in the table above.
+   4. If ECN is not enabled on the queue, assert that the ECN field of all received packets stays unchanged.
 3. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
+
+### 4.3. Test case 2: Long duration soak test
+
+The WRED average queue depth is calculated using EWMA (Exponentially Weighted Moving Average), which can drift over time under sustained congestion and change the ECN marking behavior. To catch this kind of issue, this test case runs the same setup as test case 1 with the `ect1` codepoint, but holds the congestion for a much longer time.
+
+This test case requires one more parameter besides the ones defined above:
+
+- `soak_duration`: The duration to hold the congestion, which supports 30 minutes and 1 hour.
+
+The test consists of the following steps:
+
+1. Start traffic stream 1 only and assert that the ECN field of all received packets stays unchanged, same as test case 1.
+2. Start traffic stream 2 to create the congestion, and keep both streams running for `soak_duration`.
+3. During the congestion, sample the received packets periodically (e.g. every minute), and assert that the ECN-enabled queues keep marking packets with CE throughout the whole duration, without flapping or fading away.
+4. Stop traffic stream 2 and assert that the CE marking stops, which verifies the WRED EWMA state recovers after the long congestion.
+5. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
 
 This test is a functional test with clear pass/fail criteria, so it does not collect or report any metrics. If any assertion above fails, the test fails for that queue.
