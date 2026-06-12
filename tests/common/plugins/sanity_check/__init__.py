@@ -360,7 +360,8 @@ def sanity_check_full(parallel_manager, ptfhost, prepare_parallel_run, localhost
             else:
                 nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
-                                                pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
+                                                pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST,
+                                                parallel_manager=parallel_manager)
 
         logger.info("Done pre-test sanity check")
     else:
