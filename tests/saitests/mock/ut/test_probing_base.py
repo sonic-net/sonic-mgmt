@@ -662,6 +662,30 @@ class TestProbingBaseSetUp:
         assert pb.probe_cells_per_packet == 4
         print("[OK] testParams values preserved: 1350B, 4 cells/pkt")
 
+    @pytest.mark.order(941)
+    def test_setUp_applies_point_probing_step_size_env(self):
+        """Test real setUp() applies POINT_PROBING_STEP_SIZE from environment"""
+        print("\n=== Testing setUp() - Real POINT_PROBING_STEP_SIZE Env ===")
+
+        class MockThriftInterfaceDataPlane:
+            @staticmethod
+            def setUp(_test):
+                return None
+
+        pb = ConcreteProbingBase()
+        pb.clients = Mock()
+
+        with patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
+                   MockThriftInterfaceDataPlane):
+            with patch('probing_base.switch_init'):
+                with patch('probing_base.time.sleep'):
+                    with patch('probing_observer.ProbingObserver.trace'):
+                        with patch.dict(os.environ, {'POINT_PROBING_STEP_SIZE': '4'}, clear=True):
+                            pb.setUp()
+
+        assert pb.POINT_PROBING_STEP_SIZE == 4
+        print("[OK] real setUp() applies POINT_PROBING_STEP_SIZE")
+
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
