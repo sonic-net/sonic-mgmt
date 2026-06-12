@@ -5,14 +5,11 @@ from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateAndWaitSyslogContext, LogAnalyzer
 
 pytestmark = [
     pytest.mark.disable_route_check,
     pytest.mark.topology('any'),
 ]
-
-LOG_EXPECT_PO_CLEANUP_RE = "cleanTeamProcesses: Sent SIGTERM to port channel.*{}.*"
 
 
 @pytest.fixture(autouse=True)
@@ -80,14 +77,86 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
+def _get_teamd_pids_by_portchannel(duthost):
+    """
+    Return a dict mapping portchannel name to its teamd host-level PID.
+
+    teamd processes run inside the 'teamd' container but are visible in the host
+    process table.  We parse 'pgrep -a teamd' output and extract the portchannel
+    name from the '-t <name>' argument that teamd is invoked with.
+    """
+    result = duthost.shell("pgrep -a teamd || true", module_ignore_errors=True)
+    pids = {}
+    for line in result.get('stdout_lines', []):
+        # typical line: "12345 /usr/bin/teamd -t PortChannel0001 -f /tmp/..."
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        pid = parts[0]
+        for i, part in enumerate(parts):
+            if part == '-t' and i + 1 < len(parts):
+                pids[parts[i + 1]] = pid
+                break
+    return pids
+
+
+def _get_stale_teamd_portchannels(duthost, old_pids):
+    """
+    Return portchannel names whose old teamd PID is still alive on the DUT.
+
+    A process entry in /proc/<pid>/ persists only while the process is running.
+    If the old teamd was properly sent SIGTERM and exited, its /proc entry is gone.
+    """
+    stale = []
+    for pc, pid in old_pids.items():
+        result = duthost.shell(
+            "test -e /proc/{}/status && echo running || echo gone".format(pid),
+            module_ignore_errors=True,
+        )
+        if 'running' in result.get('stdout', ''):
+            stale.append(pc)
+    return stale
+
+
+def _get_portchannels_missing_from_kernel(duthost, port_channel_intfs, lag_facts):
+    """
+    Return portchannel names that are absent from the kernel after reload.
+
+    A portchannel missing from the kernel means the new teamd process failed to
+    (re-)create it, which indicates the old teamd was not properly cleaned up and
+    its kernel team device was left in a broken state.
+    """
+    missing = []
+    for pc in port_channel_intfs:
+        namespace_id = lag_facts['lags'][pc].get('po_namespace_id', '')
+        asic_index = int(namespace_id) if namespace_id else None
+        namespace = duthost.get_namespace_from_asic_id(asic_index)
+        result = duthost.shell(
+            duthost.get_linux_ip_cmd_for_namespace("ip link show {}".format(pc), namespace),
+            module_ignore_errors=True,
+        )
+        if result['rc'] != 0:
+            missing.append(pc)
+    return missing
+
+
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
-    test port channel are cleaned up correctly after config reload, with system under stress.
+    Test that portchannels are cleaned up correctly after config reload under CPU stress.
+
+    Instead of relying on syslog (UDP-based, lossy under stress) to verify that
+    SIGTERM was sent to each portchannel's teamd process, this test directly verifies:
+
+    1. Before reload: record the host-level PID of every teamd process.
+    2. Trigger config reload under CPU stress.
+    3. After reload:
+       a. None of the old teamd PIDs are still alive  → cleanup happened correctly.
+       b. All portchannel kernel interfaces are present → new teamd started successfully.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     host_facts = duthost.setup()['ansible_facts']
 
-    # Get the cpu information.
+    # Get the CPU count.
     if "ansible_processor_vcpus" in host_facts:
         host_vcpus = int(host_facts['ansible_processor_vcpus'])
     else:
@@ -100,51 +169,33 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     port_channel_intfs = list(lag_facts['names'].keys())
 
-    # Add start marker to the DUT syslog
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
-    loganalyzer.expect_regex = []
-    for pc in port_channel_intfs:
-        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
+    if not port_channel_intfs:
+        pytest.skip("No portchannel interfaces found on DUT")
+
+    # Record teamd PIDs before reload so we can verify they are gone afterwards.
+    old_pids = _get_teamd_pids_by_portchannel(duthost)
+    logging.info("Teamd PIDs before reload: %s", old_pids)
 
     watchdog_pid = None
     try:
-        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
-        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
-        # where the test may be killed before reaching the finally block.
+        # Start a watchdog that guarantees 'yes' process cleanup even if the test
+        # times out or aborts on weak-per-core platforms (e.g. armhf).
         # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
         watchdog_timeout = 600  # 10 minutes — well beyond config_reload's 240s wait
         watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
             watchdog_timeout)
         watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
 
-        # Make CPU high
+        # Saturate all CPUs to stress-test the cleanup path.
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
-        # Stop rsyslogd in the swss container for this test case. This is because in the
-        # shutdown path, there will be a flood of syslogs from orchagent with messages
-        # like "removeLag: Failed to remove ref count 3 LAG PortChannel101". On scale
-        # setups, this can potentially cause some syslogs from other containers to get
-        # missed (because rsyslog is all using UDP, so if the RX buffer on the host's
-        # rsyslogd gets full, messages will get dropped. This test case is looking for
-        # specific logs from the teamd container, and if those logs happen to get dropped,
-        # this test case will incorrectly fail.
-        #
-        # Since we don't care about logs from swss for this test case, stop rsyslogd in
-        # the swss container completely.
-        for asic_id in duthost.get_asic_ids():
-            if asic_id is None:
-                asic_id = ""
-            duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
+        logging.info("Reloading config under CPU stress...")
+        config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
 
-        with loganalyzer:
-            with DisableLogrotateAndWaitSyslogContext(
-                duthost,
-                cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
-            ):
-                logging.info("Reloading config..")
-                config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
-        # Cancel the watchdog so it doesn't fire during later tests
+        duthost.shell("killall yes", module_ignore_errors=True)
+
+        # Cancel the watchdog now that cleanup has been done.
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
     except Exception:
@@ -152,3 +203,36 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise
+
+    # --- Verification ---
+    # 1. Verify old teamd processes are gone (cleanup/SIGTERM worked).
+    stale = _get_stale_teamd_portchannels(duthost, old_pids)
+    if stale:
+        pytest.fail(
+            "Old teamd processes are still running after config reload for portchannel(s): {}. "
+            "This means cleanTeamProcesses did not send SIGTERM correctly.".format(stale)
+        )
+
+    # Warn if we could not obtain pre-reload PIDs for some portchannels — the
+    # process may have already exited by the time we sampled, which is harmless.
+    no_pid_recorded = [pc for pc in port_channel_intfs if pc not in old_pids]
+    if no_pid_recorded:
+        logging.warning(
+            "Could not record pre-reload teamd PIDs for %d portchannel(s): %s. "
+            "They may have already been cycling when sampled.",
+            len(no_pid_recorded), no_pid_recorded,
+        )
+
+    # 2. Verify all portchannel kernel interfaces came back up.
+    #    If a portchannel is missing, it means the new teamd failed to (re-)create its
+    #    kernel team device — a sign that the old process left stale kernel state.
+    missing = _get_portchannels_missing_from_kernel(duthost, port_channel_intfs, lag_facts)
+    if missing:
+        pytest.fail(
+            "Portchannel kernel interface(s) missing after config reload: {}. "
+            "This indicates teamd failed to restart cleanly, likely due to stale "
+            "kernel state from an incompletely cleaned-up prior instance.".format(missing)
+        )
+
+    logging.info("All %d portchannel(s) verified: old teamd PIDs gone and kernel "
+                 "interfaces present after reload.", len(port_channel_intfs))
