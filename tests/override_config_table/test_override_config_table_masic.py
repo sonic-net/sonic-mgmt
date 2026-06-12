@@ -34,6 +34,16 @@ def check_image_version(duthost):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
+@pytest.fixture(scope="module", autouse=True)
+def skip_single_asic(duthost):
+    """
+    Skips this test if the DUT is a single-asic platform
+    """
+    if not duthost.is_multi_asic:
+        pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
+                    test provided golden config format is not compatible with single-asics")
+
+
 @pytest.fixture(scope="module")
 def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -82,14 +92,15 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     config_reload(duthost, safe_reload=True)
 
 
-def load_minigraph_with_golden_empty_input(duthost):
+def load_minigraph_with_golden_empty_input(duthost, safe_reload_ignored_dockers=[]):
     """Test Golden Config with empty input
     """
     initial_host_config = get_running_config(duthost)
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
-    reload_minigraph_with_golden_config(duthost, empty_input)
+    reload_minigraph_with_golden_config(
+        duthost, empty_input, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
@@ -200,9 +211,6 @@ def test_load_minigraph_with_golden_config(duthosts, setup_env, tbinfo, enum_ran
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not duthost.is_multi_asic:
-        pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
-                    test provided golden config format is not compatible with single-asics")
     topo_type = tbinfo["topo"]["type"]
     if topo_type == 't2' and not is_upstream_t2_dut(duthost, tbinfo):
         # Skip empty golden-config testing on upstream linecards,
