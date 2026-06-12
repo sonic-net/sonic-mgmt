@@ -1631,7 +1631,13 @@ class VMTopology(object):
         Remove veth interface from docker
         """
         logging.info("=== Cleanup port, int_if: %s, ext_if: %s, tmp_name: %s ===" % (ext_if, int_if, tmp_name))
-        if VMTopology.intf_exists(int_if, pid=self.pid):
+        # When the PTF container is absent, self.pid is None and the interface that used to live
+        # inside the container (e.g. eth0/mgmt/backplane) is already gone with the container. The
+        # in-container manipulation below must be skipped in that case: intf_exists()/iface_down()
+        # with pid=None fall back to the host root namespace and would operate on a same-named host
+        # interface (e.g. eth0), knocking the host off the network. Only the host-side peer (ext_if,
+        # which is uniquely named per vm_set) still needs to be cleaned up.
+        if self.pid is not None and VMTopology.intf_exists(int_if, pid=self.pid):
             # Name it back to temp name in PTF container to avoid potential conflicts
             VMTopology.iface_down(int_if, pid=self.pid)
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, int_if, tmp_name))
