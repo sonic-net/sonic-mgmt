@@ -31,6 +31,16 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
                 [
                     # Interface flaps in test_lldp_entry_table_after_flap can cause routeCheck to fail momentarily
                     r".*ERR.* 'routeCheck' status failed.*",
+                    # During interface flap, FlexCounter may poll FEC counters while the port PHY
+                    # is still link-training. Broadcom SAI returns "Operation disabled" (0xfffffff4)
+                    # which cascades through the counter read path. These are transient and resolve
+                    # once the link is up. Three patterns cover the full error cascade:
+                    #   1. SAI-level: FEC symbol error counter read returns "Operation disabled"
+                    #   2. SAI-level: parent function reports "port info data get failed"
+                    #   3. syncd-level: collectData fails to get port counter stats with error -2
+                    r".*ERR syncd#syncd.*_brcm_sai_read_fec_stat_err_counters.*Operation disabled.*",
+                    r".*ERR syncd#syncd.*_brcm_sai_read_fec_stat_err_counters.*port info data get failed.*",
+                    r".*ERR syncd#syncd.*collectData.*Failed to get stats of Port Counter.*: -2.*",
                 ]
             )
 
