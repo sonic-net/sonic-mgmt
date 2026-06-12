@@ -36,6 +36,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     neigh_name = lldp_table[1]
@@ -84,6 +85,17 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
             peer_group_v6 is None or neigh_asn is None):
         pytest.skip("Failed to get neighbor info")
 
+    # Save the original topo dut_asn (the FRR process / member ASN) for vtysh 'router bgp' commands.
+    # When peer_in_bgp_confed is True, dut_asn gets overwritten to confed_asn for peer lookups,
+    # but vtysh still needs the original member ASN.
+    local_bgp_asn = int(dut_asn)
+
+    neigh_bgp_config = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']
+    peer_in_bgp_confed = neigh_bgp_config.get('peer_in_bgp_confed', False)
+    if peer_in_bgp_confed:
+        dut_asn = int(confed_asn)
+    else:
+        dut_asn = int(dut_asn)
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1].lower()
 
@@ -143,6 +155,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'neighhost': nbrhosts[neigh_name]["host"],
         'neigh_name': neigh_name,
         'dut_asn': dut_asn,
+        'local_bgp_asn': local_bgp_asn,
         'neigh_asn': neigh_asn[neigh_name],
         'namespace': namespace,
         'dut_ip_v4': dut_ip_v4,
@@ -203,7 +216,7 @@ def test_nlri(setup):
     # remove current neighbor adjacency
     cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
         -c "no neighbor {} peer-group {}"'\
-        .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
+        .format(setup['vtysh_ns'], setup['local_bgp_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
                 setup['neigh_ip_v6'], setup['peer_group_v6'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Neighbor Removal: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
@@ -286,13 +299,13 @@ def test_nlri(setup):
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
         -c "neighbor NLRI soft-reconfiguration inbound" -c "exit-address-family" -c "address-family ipv6 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
-            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['vtysh_ns'], setup['dut_asn'])
+            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['vtysh_ns'], setup['local_bgp_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
     cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
         -c "address-family ipv4 unicast" -c "neighbor NLRI activate" -c "exit-address-family" \
         -c "address-family ipv6 unicast" -c "neighbor NLRI activate"'\
-            .format(setup['vtysh_ns'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
+            .format(setup['vtysh_ns'], setup['local_bgp_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
                     setup['neigh_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Peer Config: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
