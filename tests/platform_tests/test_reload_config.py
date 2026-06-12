@@ -189,18 +189,35 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Reload configuration check")
 
-    # sometimes redis is not up in time (eg. t2 chassis), so retry until it's up
-    for i in range(10):
+    # Retry loop: handles two cases:
+    #   1. Redis not yet reachable (t2 chassis or slow boot): retry until connected.
+    #   2. Timing window missed (SSH auth delay ~145s caused us to arrive after SwSS
+    #      was fully started): restart SwSS to re-create the "not ready" window and retry.
+    MAX_RELOAD_CHECK_RETRIES = 3
+    for attempt in range(MAX_RELOAD_CHECK_RETRIES):
         result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
 
-        # Redis is up - can stop looping
-        if result and "RuntimeError: Unable to connect to redis" not in out['stderr']:
-            break
+        if result and "RuntimeError: Unable to connect to redis" not in out.get("stderr", ""):
+            if "Retry later" in out["stdout"]:
+                logging.info("[reload_check] Got expected 'Retry later' on attempt %d/%d",
+                             attempt + 1, MAX_RELOAD_CHECK_RETRIES)
+                break
 
-        time.sleep(1)
+            # SwSS was already fully started -- we missed the timing window.
+            logging.warning("[reload_check] Attempt %d/%d: config reload did NOT return Retry later. stdout: %s",
+                            attempt + 1, MAX_RELOAD_CHECK_RETRIES, out["stdout"][:300])
+            if attempt < MAX_RELOAD_CHECK_RETRIES - 1:
+                logging.info("[reload_check] Restarting SwSS to re-create 'not ready' timing window")
+                duthost.shell("sudo systemctl restart swss")
+                time.sleep(2)
+        else:
+            logging.info("[reload_check] Attempt %d/%d: Redis not ready yet, stderr: %s",
+                         attempt + 1, MAX_RELOAD_CHECK_RETRIES,
+                         (out.get("stderr", "") or "")[:200])
+            time.sleep(1)
 
     # config reload command shouldn't work immediately after system reboot
-    assert result and "Retry later" in out['stdout'], (
+    assert result and "Retry later" in out["stdout"], (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
     ).format(
