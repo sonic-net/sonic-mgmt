@@ -9,7 +9,6 @@ import yaml
 import random
 import logging
 import requests
-from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
@@ -270,7 +269,6 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     Get bgp_allow_list related information
     """
     duthost = duthosts[rand_one_dut_hostname]
-    topo_type = tbinfo["topo"]["type"]
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     pytest_require(constants_stat['stat']['exists'] is not None,
                    "No file {} on DUT, BGP Allow List is not supported".format(CONSTANTS_FILE))
@@ -292,27 +290,37 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     setup_info = {}
 
-    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_type = [t.upper() for t in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]]]
-    downstream_neighbors = \
-        natsorted(
-            [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(tuple(downstream_type))])
-    downstream = downstream_neighbors[0]
-    upstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
-    other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
-    if upstream_neighbors:
-        other_neighbors += upstream_neighbors[0:2]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    downstream_type = tuple(t.upper() for t in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]])
+
+    asic_neighbors = {}
+    for port, neigh in mg_facts['minigraph_neighbors'].items():
+        ns = neigh.get('namespace', DEFAULT_NAMESPACE)
+        if ns not in asic_neighbors:
+            asic_neighbors[ns] = []
+        asic_neighbors[ns].append(neigh['name'])
+
+    target_namespace = None
+    downstream = None
+    other_neighbors = []
+
+    for ns, neighbors in asic_neighbors.items():
+        possible_announcers = [n for n in neighbors if n.endswith(downstream_type)]
+        if possible_announcers and len(neighbors) >= 2:
+            target_namespace = ns
+            downstream = possible_announcers[0]
+            other_neighbors = [n for n in neighbors if n != downstream][:2]
+            break
+
+    pytest_require(target_namespace is not None,
+                   "Could not find an ASIC with both an announcer and verifier neighbors.")
 
     downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
 
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    downstream_namespace = DEFAULT_NAMESPACE
-    for _, neigh in list(mg_facts['minigraph_neighbors'].items()):
-        if downstream == neigh['name'] and neigh['namespace']:
-            downstream_namespace = neigh['namespace']
-            break
+    downstream_namespace = target_namespace
 
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
