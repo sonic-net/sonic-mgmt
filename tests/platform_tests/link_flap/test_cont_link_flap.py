@@ -17,7 +17,8 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
-    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage, validate_redis_memory_increase
+    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage, log_redis_state,\
+    validate_redis_memory_increase
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
@@ -117,6 +118,7 @@ class TestContLinkFlap(object):
         # Record Redis Memory at start
         start_time_redis_memory = get_avg_redis_mem_usage(duthost, 5, 5)
         logging.info("Redis Memory: %f M", start_time_redis_memory)
+        log_redis_state(duthost, "start")
 
         # Record ipv4 route counts at start
         sumv4, sumv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
@@ -253,6 +255,7 @@ class TestContLinkFlap(object):
         end_time_redis_memory = get_avg_redis_mem_usage(duthost, 5, 5)
         logging.info("Redis Memory at start: %f M", start_time_redis_memory)
         logging.info("Redis Memory at end: %f M", end_time_redis_memory)
+        log_redis_state(duthost, "end")
 
         result = validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory)
         pytest_assert(result, "Redis Memory Increases more than expected: start {}, end {}"
