@@ -2310,6 +2310,18 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
     conditions:
       - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/16110"
 
+fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_mac_learning:
+  skip:
+    reason: "Currently not supported on virtual switch."
+    conditions:
+      - "asic_type in ['vs']"
+
+fdb/test_fdb_mac_move.py::test_fdb_mac_move_guard_disable_port:
+  skip:
+    reason: "Currently not supported on virtual switch."
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####            fib              #####
 #######################################
