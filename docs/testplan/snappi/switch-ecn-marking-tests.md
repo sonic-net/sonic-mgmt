@@ -11,7 +11,6 @@
       2. [4.1.2. QoS config discovery](#412-qos-config-discovery)
       3. [4.1.3. Traffic stream setup](#413-traffic-stream-setup)
    2. [4.2. Test case 1: Basic ECN marking test](#42-test-case-1-basic-ecn-marking-test)
-5. [5. Metrics to collect](#5-metrics-to-collect)
 
 ## 1. Test Objective
 
@@ -115,25 +114,4 @@ For each queue learned in the QoS config discovery step, the test runs the follo
    4. If ECN is not enabled on the queue, assert that no received packet is marked with CE.
 3. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
 
-## 5. Metrics to collect
-
-During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
-
-| User Interface Metric Name          | Metric Name in DB     | Example Value |
-|-------------------------------------|-----------------------|---------------|
-| `METRIC_NAME_TG_TX_FRAMES`          | tg.tx.frames          | 124218975     |
-| `METRIC_NAME_TG_RX_FRAMES`          | tg.rx.frames          | 124218975     |
-| `METRIC_NAME_TG_RX_ECN_CE_FRAMES`   | tg.rx.ecn_ce.frames   | 5832110       |
-| `METRIC_NAME_TG_RX_ECN_CE_RATIO`    | tg.rx.ecn_ce.ratio    | 4.69          |
-
-The metrics needs to be reported with the following labels:
-
-| User Interface Label                    | Label Key in DB          | Example Value |
-|-----------------------------------------|--------------------------|---------------|
-| `METRIC_LABEL_TG_IP_VERSION`            | tg.ip_version            | 4             |
-| `METRIC_LABEL_TG_TRAFFIC_RATE`          | tg.traffic_rate          | 70            |
-| `METRIC_LABEL_TG_FRAME_BYTES`           | tg.frame_bytes           | 1024          |
-| `METRIC_LABEL_TG_DSCP`                  | tg.dscp                  | 3             |
-| `METRIC_LABEL_DEVICE_QUEUE_ID`          | device.queue.id          | 3             |
-| `METRIC_LABEL_TEST_PARAMS_DURATION_SEC` | test.params.duration.sec | 60            |
-| `METRIC_LABEL_TEST_PARAMS_CONGESTION`   | test.params.congestion   | true          |
+This test is a functional test with clear pass/fail criteria, so it does not collect or report any metrics. If any assertion above fails, the test fails for that queue.
