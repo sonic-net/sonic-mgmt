@@ -43,6 +43,7 @@ graph LR
     end
 
     TX -->|Traffic| ITX
+    ITX --> ERX
     ERX -->|Buffered packets after TX re-enabled| RX
 ```
 

@@ -41,6 +41,8 @@ graph LR
 
     TX1 -->|Traffic Stream 1| ITX1
     TX2 -->|Traffic Stream 2| ITX2
+    ITX1 --> ERX
+    ITX2 --> ERX
     ERX --> RX
 ```
 
