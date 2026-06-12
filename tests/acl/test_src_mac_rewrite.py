@@ -830,7 +830,6 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
             # Don't raise the exception to avoid masking test failures
 
 
-@pytest.mark.skip(reason="Temporarily disabled to focus on multi-VNI test")
 def test_single_ip_acl_rule(setUp):
     """
     Test ACL rule for inner source MAC rewriting with single IP (/32) matching.
@@ -839,7 +838,6 @@ def test_single_ip_acl_rule(setUp):
     _test_inner_src_mac_rewrite(setUp, "single_ip_test")
 
 
-@pytest.mark.skip(reason="Temporarily disabled to focus on multi-VNI test")
 def test_range_ip_acl_rule(setUp):
     """
     Test ACL rule for inner source MAC rewriting with IP range (/24) matching.
