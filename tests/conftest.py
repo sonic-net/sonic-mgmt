@@ -4109,9 +4109,26 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
 
 
 def pytest_runtest_setup(item):
-    # Let's place `setup_dualtor_mux_ports` at the tail of fixture list
-    # to make it running as last as possible.
     fixtureinfo = item._fixtureinfo
+
+    # Ensure sanity_check resolves FIRST among module-scoped fixtures.
+    # Post-test sanity check runs in sanity_check's teardown (after yield).
+    # By resolving it first, pytest guarantees its teardown runs last,
+    # so post-check ALWAYS executes even if later fixtures crash.
+    if "sanity_check" in fixtureinfo.names_closure:
+        fixtureinfo.names_closure.remove("sanity_check")
+        for i, name in enumerate(fixtureinfo.names_closure):
+            fxdefs = fixtureinfo.name2fixturedefs.get(name, [])
+            if fxdefs and fxdefs[0].scope == "module":
+                fixtureinfo.names_closure.insert(
+                    i, "sanity_check"
+                )
+                break
+        else:
+            fixtureinfo.names_closure.append("sanity_check")
+
+    # Place setup_dualtor_mux_ports at the tail of fixture list
+    # to make it running as last as possible.
     for fixturedef in fixtureinfo.name2fixturedefs.values():
         fixturedef = fixturedef[0]
         if fixturedef.argname == "setup_dualtor_mux_ports":
