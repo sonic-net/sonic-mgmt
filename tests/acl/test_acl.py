@@ -378,13 +378,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
-            if vlan_config == 'two_vlan_a':
-                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
-                DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
-                DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_ALLOW_VLAN
-                DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
-                    else DOWNSTREAM_IP_TO_BLOCK_VLAN
+            if vlan_config in ('one_vlan_a', 'two_vlan_a'):
+                if vlan_config == 'two_vlan_a' and vlan_name == "Vlan2000":
+                    DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000
+                    DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000
+                    DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000
+                else:
+                    DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN     # 192.168.0.123
+                    DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN  # 192.168.0.122
+                    DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN   # 192.168.0.121
         except KeyError:
             logger.error("topo {} keys are missing in the tbinfo:{}".format(tbinfo['topo']['name'], tbinfo))
     if topo in ["t0", "mx", "m0_vlan"]:
