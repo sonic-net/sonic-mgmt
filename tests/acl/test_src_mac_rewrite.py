@@ -6,6 +6,7 @@ for ACL rules that can rewrite the inner source MAC address of VXLAN-encapsulate
 """
 
 import os
+import time
 import logging
 import pytest
 import json
@@ -399,7 +400,18 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
 def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("Modifying ACL rule with new MAC: %s", new_src_mac)
 
-    setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac)
+    # Use config load to update the rule, which properly triggers change notifications
+    acl_rule = {
+        "ACL_RULE": {
+            f"{ACL_TABLE_NAME}|rule_1": {
+                "priority": "1005",
+                "TUNNEL_VNI": vni,
+                "INNER_SRC_IP": inner_src_ip,
+                "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
+            }
+        }
+    }
+    apply_config_chunk(duthost, acl_rule, "acl_rule_modify")
 
     # Verify the rule is still active in STATE_DB (confirms orchagent re-programmed it)
     logger.info("Verifying ACL rule is still active in STATE_DB after modification...")
@@ -441,13 +453,6 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     pytest_assert(wait_until(30, 2, 2, _check_vxlan_tunnel_config, duthost, tunnel_name),
                   f"VXLAN tunnel {tunnel_name} not found in CONFIG_DB after apply")
 
-    def _check_vxlan_tunnel_config(duthost, tunnel_name):
-        result = duthost.shell(f'redis-cli -n 0 KEYS "VXLAN_TUNNEL_TABLE:{tunnel_name}"')["stdout"]
-        return tunnel_name in result
-
-    pytest_assert(wait_until(60, 5, 5, _check_vxlan_tunnel_config, duthost, tunnel_name),
-                  f"VXLAN_TUNNEL_TABLE:{tunnel_name} not found in APPL_DB after config write")
-
     # Use ecmp_utils.create_vnets() for primary VNET (handles complex setup)
     logger.info("Creating primary VNET using ecmp_utils.create_vnets()")
     vnet_vni_map = ecmp_utils.create_vnets(
@@ -476,6 +481,9 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     }
     apply_config_chunk(duthost, route_config, "vnet_route")
 
+    pytest_assert(wait_until(60, 5, 5, _check_vxlan_tunnel_config, duthost, tunnel_name),
+                  f"VXLAN tunnel {tunnel_name} not found in CONFIG_DB after setup")
+
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
 
     # Allow time for VXLAN switch config to propagate through swss pipeline
@@ -484,11 +492,11 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
 
 def apply_config_chunk(duthost, payload, config_name):
-    """Apply configuration chunk similar to the scale test approach"""
+    """Apply configuration chunk using config load for proper notification"""
     content = json.dumps(payload, indent=2)
     file_dest = f"/tmp/{config_name}_chunk.json"
     duthost.copy(content=content, dest=file_dest)
-    duthost.shell(f"sonic-cfggen -j {file_dest} --write-to-db")
+    duthost.shell(f"config load -y {file_dest}")
     duthost.shell(f"rm -f {file_dest}")
 
 
