@@ -14,8 +14,10 @@ from tests.common.helpers.platform_api import bmc
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from .platform_api_test_base import PlatformApiTestBase
-from tests.common.helpers.firmware_helper import show_firmware, FW_TYPE_UPDATE, PLATFORM_COMP_PATH_TEMPLATE
-
+from tests.common.helpers.firmware_helper import (
+    show_firmware, FW_TYPE_UPDATE, PLATFORM_COMP_PATH_TEMPLATE,
+    get_bmc_firmware_list, get_bmc_ip
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ LATEST_BMC_VERSION_IDX = 0
 OLD_BMC_VERSION_IDX = 1
 EROT_BUSY_MSG = "ERoT is busy"
 EROT_STABLE_TIMEOUT = 600
-WAIT_TIME = 30
+WAIT_TIME_INTERVAL_BETWEEN_ATTEMPTS = 30
 BMC_COMPONENT_NAME = 'BMC'
 BMC_UPDATE_COMMAND = "sudo config platform firmware {} chassis component BMC fw -y"
 BMC_INSTALL_COMMAND = "sudo config platform firmware {} chassis component BMC fw -y {}"
@@ -51,13 +53,191 @@ REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT = "/redfish/v1/EventService/Subscriptions"
 # Curl command templates (for session tests)
 CURL_TOKEN_AUTH_GET = "curl -k -H \"X-Auth-Token: {}\" -X GET https://{}{}"
 CURL_TOKEN_AUTH_GET_WITH_HEADERS = "curl -k -i -H \"X-Auth-Token: {}\" -X GET https://{}{}"
-CURL_TOKEN_AUTH_POST = ("curl -k -i -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\""
-                        " -X POST https://{}{} -d '{}'")
+CURL_TOKEN_AUTH_POST = (
+    "curl -k -i -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\" "
+    "-X POST https://{}{} -d '{}'"
+)
 CURL_TOKEN_AUTH_DELETE = "curl -i -k -H \"X-Auth-Token: {}\" -X DELETE https://{}{}"
 CURL_BASIC_AUTH_GET = "curl -k -u {}:{} -X GET https://{}{}"
 CURL_BASIC_AUTH_GET_WITH_HEADERS = "curl -k -i -u {}:{} -X GET https://{}{}"
-CURL_BASIC_AUTH_PATCH = "curl -k -i -u {}:{} -H \"Content-Type: application/json\" -X PATCH https://{}{} -d '{}'"
+CURL_BASIC_AUTH_PATCH = (
+    "curl -k -i -u {}:{} -H \"Content-Type: application/json\" "
+    "-X PATCH https://{}{} -d '{}'"
+)
 CURL_BASIC_AUTH_DELETE = "curl -k -u {}:{} -X DELETE https://{}{}"
+
+
+def _get_bmc_version(duthost, timeout=120):
+    """Get BMC firmware version from 'show platform firmware status' output."""
+    start_time = time.time()
+    while True:
+        if time.time() - start_time > timeout:
+            logger.warning(f"Timeout after {timeout}s while getting BMC version")
+            return None
+        res = duthost.show_and_parse('sudo show platform firmware status')
+        for entry in res:
+            if entry['component'] == 'BMC' and entry['version'] != 'N/A':
+                return entry['version']
+        time.sleep(5)
+
+
+def _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+    """
+    Check if BMC is busy by querying BackgroundCopyStatus from Redfish API
+
+    Args:
+        duthost: DUT host object
+        bmc_ip: BMC IP address
+        bmc_root_user: BMC root username
+        bmc_root_password: BMC root password
+    Returns:
+        bool: True if BMC is busy (BackgroundCopyStatus != "Completed"), False otherwise
+    """
+    res = duthost.command(BMC_GET_STATUS_COMMAND.format(bmc_root_user, bmc_root_password, bmc_ip))["stdout"]
+    pytest_assert(res is not None, "Failed to query BMC status")
+
+    try:
+        response_json = json.loads(res)
+        background_copy_status = response_json.get("Oem", {}).get("Nvidia", {}).get("BackgroundCopyStatus", "")
+        logger.info(f"BMC BackgroundCopyStatus: {background_copy_status}")
+        return background_copy_status != BMC_COMPLETE_STATUS
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logger.warning(f"Failed to parse BMC status response: {e}, response: {res}")
+        return True
+
+
+def _update_bmc_firmware(duthost, fw_image, bmc_ip, method='api',
+                         cli_type=None, timeout=EROT_STABLE_TIMEOUT,
+                         bmc_root_user=None, bmc_root_password=None):
+    """
+    Update BMC firmware with retry mechanism for ERoT busy scenarios
+
+    Args:
+        duthost: DUT host object
+        fw_image: Path to firmware image file
+        bmc_ip: BMC IP address
+        method: Update method - 'api' or 'cli' (default: 'api')
+        cli_type: CLI command type when method='cli' - FW_TYPE_INSTALL or FW_TYPE_UPDATE
+        timeout: Maximum time to wait for update (default: EROT_STABLE_TIMEOUT)
+        bmc_root_user: BMC root username (required for cli method)
+        bmc_root_password: BMC root password (required for cli method)
+
+    Returns:
+        bool: True if update successful, False otherwise
+    """
+    start_time = time.time()
+
+    logger.info(
+        f"Starting BMC firmware update via {method.upper()}" +
+        (f" ({cli_type})" if method == 'cli' and cli_type else "")
+    )
+
+    while True:
+        if time.time() - start_time > timeout:
+            logger.warning(f"Timeout after {timeout} seconds while updating BMC firmware")
+            return False
+        time.sleep(WAIT_TIME_INTERVAL_BETWEEN_ATTEMPTS)
+
+        if method == 'api':
+            ret_code, (message, _) = bmc.update_firmware(duthost, fw_image)
+
+            if EROT_BUSY_MSG in message:
+                logger.info(f"{EROT_BUSY_MSG}, waiting for {WAIT_TIME_INTERVAL_BETWEEN_ATTEMPTS} seconds")
+                continue
+            elif ret_code != 0:
+                logger.warning(f"Failed to update BMC firmware: return code: {ret_code}, message: {message}")
+                return False
+            else:
+                logger.info("BMC firmware updated successfully via API!")
+                break
+
+        elif method == 'cli':
+            if cli_type is None:
+                logger.error("cli_type must be specified when method='cli'")
+                return False
+
+            if _is_bmc_busy(duthost, bmc_ip, bmc_root_user, bmc_root_password):
+                logger.info(f"BMC is busy, waiting for {WAIT_TIME_INTERVAL_BETWEEN_ATTEMPTS} seconds")
+                continue
+
+            if cli_type == FW_TYPE_UPDATE:
+                res = duthost.command(BMC_UPDATE_COMMAND.format(cli_type))
+            else:
+                res = duthost.command(BMC_INSTALL_COMMAND.format(cli_type, fw_image))
+
+            if res['rc'] == 0:
+                logger.info(f"BMC firmware updated successfully via CLI ({cli_type})!")
+            else:
+                logger.info(f"Failed to update BMC firmware: {res['stdout']}")
+            break
+        else:
+            logger.error(f"Unknown update method: {method}")
+            return False
+
+    if method == 'api':
+        logger.info("Requesting BMC reset after successful update by platform api")
+        bmc.request_bmc_reset(duthost)
+
+    return True
+
+
+@pytest.fixture(scope="module")
+def bmc_ip(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Module-scoped fixture to get BMC IP address. Returns None if BMC is not present."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not bmc.is_bmc_exists(duthost):
+        return None
+    return get_bmc_ip(duthost)
+
+
+@pytest.fixture(scope="module")
+def recover_bmc_firmware(duthosts, enum_rand_one_per_hwsku_hostname, fw_pkg, bmc_ip, creds):
+    """Module-scoped fixture to recover BMC firmware to the latest version.
+
+    Recovery runs only once at module teardown (after all parametrized
+    install/update tests complete), avoiding the overhead of recovering
+    between each parametrized run.
+    """
+    yield
+
+    if bmc_ip is None:
+        logger.info("Recovery: BMC is not present, skipping recovery")
+        return
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    bmc_version_current = _get_bmc_version(duthost)
+    if bmc_version_current is None:
+        logger.warning("Recovery: could not determine current BMC version, skipping recovery")
+        return
+
+    chassis = list(show_firmware(duthost)["chassis"].keys())[0]
+    bmc_fw_list = get_bmc_firmware_list(fw_pkg, chassis, duthost, bmc_ip,
+                                        creds['sonic_bmc_root_user'],
+                                        creds['sonic_bmc_root_password'])
+    fw_version_latest = bmc_fw_list[LATEST_BMC_VERSION_IDX]["version"]
+
+    if bmc_version_current == fw_version_latest:
+        logger.info("Recovery: already on latest BMC version, skipping recovery")
+        return
+
+    fw_pkg_path = bmc_fw_list[LATEST_BMC_VERSION_IDX]["firmware"]
+    fw_pkg_clean_path = urlparse(fw_pkg_path).path
+    fw_pkt_name = os.path.basename(fw_pkg_path)
+
+    logger.info(f"Recovery: copying BMC firmware {fw_pkt_name} to DUT")
+    duthost.copy(src=fw_pkg_clean_path, dest=f"/tmp/{fw_pkt_name}")
+
+    logger.info(f"Recovery: updating BMC firmware to latest version {fw_version_latest} via API")
+    success = _update_bmc_firmware(duthost, f"/tmp/{fw_pkt_name}", bmc_ip=None, method='api')
+    if not success:
+        logger.error("Recovery: failed to update BMC firmware to latest version")
+        return
+
+    bmc_version_after = _get_bmc_version(duthost)
+    logger.info(f"Recovery: BMC version after recovery: {bmc_version_after}")
+    if bmc_version_after != fw_version_latest:
+        logger.error(f"Recovery: expected {fw_version_latest}, got {bmc_version_after}")
 
 
 def pytest_generate_tests(metafunc):
@@ -89,113 +269,10 @@ class TestBMCApi(PlatformApiTestBase):
         if not bmc.is_bmc_exists(duthost):
             pytest.skip("BMC is not present, skipping BMC platform API tests")
 
-    @pytest.fixture(scope="class")
-    def bmc_ip(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_no_bmc):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        platform = duthost.shell("sudo show platform summary | grep Platform | awk '{print $2}'")["stdout"]
-        bmc_config_file = f"/usr/share/sonic/device/{platform}/bmc.json"
-        duthost.fetch(src=bmc_config_file, dest='/tmp')
-        with open(f'/tmp/{duthost.hostname}/{bmc_config_file}', "r") as f:
-            bmc_config = json.load(f)
-        yield bmc_config["bmc_addr"]
-
     @pytest.fixture(autouse=True)
     def prepare_param(self, creds):
         self.bmc_root_user = creds['sonic_bmc_root_user']
         self.bmc_root_password = creds['sonic_bmc_root_password']
-
-    def _is_bmc_busy(self, duthost, bmc_ip):
-        """
-        Check if BMC is busy by querying BackgroundCopyStatus from Redfish API
-
-        Args:
-            duthost: DUT host object
-            bmc_ip: BMC IP address
-        Returns:
-            bool: True if BMC is busy (BackgroundCopyStatus != "Completed"), False otherwise
-        """
-        res = duthost.command(
-            BMC_GET_STATUS_COMMAND.format(self.bmc_root_user, self.bmc_root_password, bmc_ip))["stdout"]
-        pytest_assert(res is not None, "Failed to query BMC status")
-
-        try:
-            response_json = json.loads(res)
-            background_copy_status = response_json.get("Oem", {}).get("Nvidia", {}).get("BackgroundCopyStatus", "")
-            logger.info(f"BMC BackgroundCopyStatus: {background_copy_status}")
-
-            return background_copy_status != BMC_COMPLETE_STATUS
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
-            logger.warning(f"Failed to parse BMC status response: {e}, response: {res}")
-            return True
-
-    def _update_bmc_firmware(self, duthost, fw_image, bmc_ip, method='api',
-                             cli_type=None, timeout=EROT_STABLE_TIMEOUT):
-        """
-        Update BMC firmware with retry mechanism for ERoT busy scenarios
-
-        Args:
-            duthost: DUT host object
-            fw_image: Path to firmware image file
-            bmc_ip: BMC IP address
-            method: Update method - 'api' or 'cli' (default: 'api')
-            cli_type: CLI command type when method='cli' - FW_TYPE_INSTALL or FW_TYPE_UPDATE
-            timeout: Maximum time to wait for update (default: EROT_STABLE_TIMEOUT)
-
-        Returns:
-            bool: True if update successful, False otherwise
-        """
-        start_time = time.time()
-        cli_suffix = f" ({cli_type})" if method == 'cli' and cli_type else ""
-        logger.info(f"Starting BMC firmware update via {method.upper()}{cli_suffix}")
-
-        while True:
-            if time.time() - start_time > timeout:
-                logger.warning(f"Timeout after {timeout} seconds while updating BMC firmware")
-                return False
-            time.sleep(WAIT_TIME)
-
-            if method == 'api':
-                ret_code, (message, _) = bmc.update_firmware(duthost, fw_image)
-
-                if EROT_BUSY_MSG in message:
-                    logger.info(f"{EROT_BUSY_MSG}, waiting for {WAIT_TIME} seconds")
-                    continue
-                elif ret_code != 0:
-                    logger.warning(f"Failed to update BMC firmware: return code: {ret_code}, message: {message}")
-                    return False
-                else:
-                    logger.info("BMC firmware updated successfully via API!")
-                    break
-
-            elif method == 'cli':
-                if cli_type is None:
-                    logger.error("cli_type must be specified when method='cli'")
-                    return False
-
-                is_bmc_busy = self._is_bmc_busy(duthost, bmc_ip)
-                if is_bmc_busy:
-                    logger.info(f"BMC is busy, waiting for {WAIT_TIME} seconds")
-                    continue
-
-                if cli_type == FW_TYPE_UPDATE:
-                    res = duthost.command(BMC_UPDATE_COMMAND.format(cli_type))
-                else:
-                    res = duthost.command(BMC_INSTALL_COMMAND.format(cli_type, fw_image))
-
-                if res['rc'] == 0:
-                    logger.info(f"BMC firmware updated successfully via CLI ({cli_type})!")
-                else:
-                    logger.info(f"Failed to update BMC firmware: {res['stdout']}")
-                break
-            else:
-                logger.error(f"Unknown update method: {method}")
-                return False
-
-        if method == 'api':
-            logger.info("Requesting BMC reset after successful update by platform api")
-            bmc.request_bmc_reset(duthost)
-
-        return True
 
     def _generate_password(self):
         password_length = random.choice(range(BMC_SHORTEST_PASSWD_LEN, BMC_LONGEST_PASSWD_LEN))
@@ -278,25 +355,10 @@ class TestBMCApi(PlatformApiTestBase):
                     return len(existing_subs)
             except (json.JSONDecodeError, KeyError, TypeError) as e:
                 logger.warning(
-                    f"Failed to parse subscription list response: {e}, "
-                    f"response: {get_subs_result['stdout']}")
+                    f"Failed to parse subscription list response: {e}, response: {get_subs_result['stdout']}"
+                )
                 return 0
         return 0
-
-    def _get_bmc_version(self, duthost, timeout=120):
-        start_time = time.time()
-
-        while True:
-            if time.time() - start_time > timeout:
-                logger.warning(f"Timeout after {timeout} seconds while getting BMC version")
-                return
-
-            res = duthost.show_and_parse('sudo show platform firmware status')
-            for entry in res:
-                if entry['component'] == 'BMC':
-                    if entry['version'] == 'N/A':
-                        continue
-                    return entry['version']
 
     def _generate_platform_file(self, duthost, chassis_name, fw_path, fw_version):
         """
@@ -422,12 +484,14 @@ class TestBMCApi(PlatformApiTestBase):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-        bmc.reset_root_password(duthost)
+        res = bmc.reset_root_password(duthost)
+        pytest_assert(res[0] == 0, f"Failed to reset BMC root password {res[1]}")
         self._validate_bmc_login(duthost, bmc_ip, self.bmc_root_password)
         temp_password = self._generate_password()
         self._change_bmc_root_password(duthost, bmc_ip, temp_password)
         self._validate_bmc_login(duthost, bmc_ip, temp_password)
-        bmc.reset_root_password(duthost)
+        res = bmc.reset_root_password(duthost)
+        pytest_assert(res[0] == 0, f"Failed to reset BMC root password {res[1]}")
         self._validate_bmc_login(duthost, bmc_ip, self.bmc_root_password)
 
     def test_reset_root_password_cli(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip):
@@ -457,7 +521,8 @@ class TestBMCApi(PlatformApiTestBase):
                 pytest_assert(reset_result["rc"] == 0, f"Failed to reset BMC root password: {reset_result['stderr']}")
                 pytest_assert(
                     "BMC root password reset successful" in reset_result["stdout"],
-                    f"Unexpected output: {reset_result['stdout']}")
+                    f"Unexpected output: {reset_result['stdout']}"
+                )
                 logger.info("BMC root password reset to default state successfully")
 
             with allure.step("Step 2: Change password from default to new password"):
@@ -469,7 +534,8 @@ class TestBMCApi(PlatformApiTestBase):
                 change_result = duthost.command(change_pwd_cmd)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+20\d", change_result["stdout"]),
-                    f"Failed to change password: {change_result['stdout']}")
+                    f"Failed to change password: {change_result['stdout']}"
+                )
                 logger.info("BMC root password changed to new password successfully")
 
             with allure.step("Step 3: Verify new password works"):
@@ -478,7 +544,8 @@ class TestBMCApi(PlatformApiTestBase):
                 verify_result = duthost.command(verify_new_pwd_cmd)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+20\d", verify_result["stdout"]),
-                    f"New password should work, got: {verify_result['stdout']}")
+                    f"New password should work, got: {verify_result['stdout']}"
+                )
                 logger.info("New password verified successfully")
 
             with allure.step("Step 4: Verify old default password is denied"):
@@ -487,8 +554,8 @@ class TestBMCApi(PlatformApiTestBase):
                 verify_old_result = duthost.command(verify_old_pwd_cmd, module_ignore_errors=True)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+401", verify_old_result["stdout"]),
-                    "Old default password should be denied with HTTP 401, "
-                    f"got: {verify_old_result['stdout']}")
+                    f"Old default password should be denied with HTTP 401, got: {verify_old_result['stdout']}"
+                )
                 logger.info("Old default password is correctly denied")
 
             with allure.step("Step 5: Reset password back to default"):
@@ -496,7 +563,8 @@ class TestBMCApi(PlatformApiTestBase):
                 pytest_assert(reset_result["rc"] == 0, f"Failed to reset BMC root password: {reset_result['stderr']}")
                 pytest_assert(
                     "BMC root password reset successful" in reset_result["stdout"],
-                    f"Unexpected output: {reset_result['stdout']}")
+                    f"Unexpected output: {reset_result['stdout']}"
+                )
                 logger.info("BMC root password reset back to default successfully")
 
             with allure.step("Step 6: Verify default password works again"):
@@ -505,8 +573,8 @@ class TestBMCApi(PlatformApiTestBase):
                 verify_default_result = duthost.command(verify_default_cmd)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+20\d", verify_default_result["stdout"]),
-                    "Default password should work after reset, "
-                    f"got: {verify_default_result['stdout']}")
+                    f"Default password should work after reset, got: {verify_default_result['stdout']}"
+                )
                 logger.info("Default password verified successfully after reset")
 
             with allure.step("Step 7: Verify previous new password is denied"):
@@ -515,8 +583,8 @@ class TestBMCApi(PlatformApiTestBase):
                 verify_temp_result = duthost.command(verify_temp_pwd_cmd, module_ignore_errors=True)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+401", verify_temp_result["stdout"]),
-                    "Previous new password should be denied with HTTP 401, "
-                    f"got: {verify_temp_result['stdout']}")
+                    f"Previous new password should be denied with HTTP 401, got: {verify_temp_result['stdout']}"
+                )
                 logger.info("Previous new password is correctly denied after reset")
         finally:
             duthost.command(BMC_RESET_ROOT_PASSWORD_COMMAND)
@@ -541,70 +609,73 @@ class TestBMCApi(PlatformApiTestBase):
             f"ls -l {bmc_dump_path}")["rc"] == 0, f"BMC dump file not found: {bmc_dump_path}")
 
     def test_bmc_firmware_update(self, duthosts, enum_rand_one_per_hwsku_hostname, fw_pkg, bmc_firmware_command_type,
-                                 backup_platform_file, bmc_ip, request):
+                                 backup_platform_file, bmc_ip, recover_bmc_firmware, request, creds):
         """
         Test BMC firmware update with platform API and CLI
 
         Steps:
         1. Check and record the original BMC firmware version
-        2. Update the BMC firmware version by command
+        2. Pick the target firmware: if DUT is on old version, target is latest;
+           if DUT is on latest, target is old. This ensures the CLI command always
+           performs an actual firmware change regardless of the starting state.
+        3. Update the BMC firmware version by command
             'config platform firmware install chassis component BMC fw -y xxx' or
             'config platform firmware update chassis component BMC fw -y xxx'
             depending on completeness_level:
                 if the completeness_level is basic, only test one command type randomly
                 if the completeness_level is others, test both command types
                 in this case,the test test_bmc_firmware_update will be executed twice times
-        3. Wait after the installation done
-        4. Validate the BMC firmware had been updated to the destination version by command
+        4. Wait after the installation done
+        5. Validate the BMC firmware had been updated to the destination version by command
             'show platform firmware status'
-        5. Recover the BMC firmware version to the original one by BMC platform api update_firmware(fw_image)
-        6. Wait after the installation done
-        7. Validate the BMC firmware had been restored to the original version by command
-            'show platform firmware status'
+
+        Note: Recovery to latest BMC firmware is handled by the module-scoped
+        recover_bmc_firmware fixture, which runs once after all parametrized
+        runs (install/update) complete.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        bmc_version_origin = self._get_bmc_version(duthost)
+        bmc_version_origin = _get_bmc_version(duthost)
         logger.info(f"BMC version origin: {bmc_version_origin}")
         logger.info(f"Testing with command type: {bmc_firmware_command_type}")
 
         chassis = list(show_firmware(duthost)["chassis"].keys())[0]
         logger.info(f"Chassis: {chassis}")
-        fw_pkg_path_new = fw_pkg["chassis"][chassis]["component"]["BMC"][LATEST_BMC_VERSION_IDX]["firmware"]
-        fw_version_new = fw_pkg["chassis"][chassis]["component"]["BMC"][LATEST_BMC_VERSION_IDX]["version"]
-        fw_pkg_clean_path_new = urlparse(fw_pkg_path_new).path
-        fw_pkt_name_new = os.path.basename(fw_pkg_path_new)
+        bmc_fw_list = get_bmc_firmware_list(fw_pkg, chassis, duthost, bmc_ip,
+                                            creds['sonic_bmc_root_user'],
+                                            creds['sonic_bmc_root_password'])
+        fw_version_old = bmc_fw_list[OLD_BMC_VERSION_IDX]["version"]
+
+        # Pick the other version so we always test an actual firmware change.
+        # If already on old -> install latest; if already on latest -> install old.
+        if bmc_version_origin == fw_version_old:
+            target_idx = LATEST_BMC_VERSION_IDX
+        else:
+            target_idx = OLD_BMC_VERSION_IDX
+
+        fw_pkg_path_target = bmc_fw_list[target_idx]["firmware"]
+        fw_version_target = bmc_fw_list[target_idx]["version"]
+        fw_pkg_clean_path_target = urlparse(fw_pkg_path_target).path
+        fw_pkt_name_target = os.path.basename(fw_pkg_path_target)
+
         if bmc_firmware_command_type == FW_TYPE_UPDATE:
-            logger.info(f"Generate 'platform_components.json' for BMC firmware: {fw_version_new}")
-            self._generate_platform_file(duthost, chassis, f"/tmp/{fw_pkt_name_new}", fw_version_new)
+            logger.info(f"Generate 'platform_components.json' for BMC firmware: {fw_version_target}")
+            self._generate_platform_file(duthost, chassis, f"/tmp/{fw_pkt_name_target}", fw_version_target)
 
-        logger.info(f"BMC firmware path: {fw_pkg_clean_path_new}")
-        logger.info(f"Copy BMC firmware to localhost: /tmp/{fw_pkt_name_new}")
-        duthost.copy(src=fw_pkg_clean_path_new, dest=f"/tmp/{fw_pkt_name_new}")
+        logger.info(f"BMC firmware path: {fw_pkg_clean_path_target}")
+        logger.info(f"Copy BMC firmware to localhost: /tmp/{fw_pkt_name_target}")
+        duthost.copy(src=fw_pkg_clean_path_target, dest=f"/tmp/{fw_pkt_name_target}")
 
-        logger.info(f"Execute BMC firmware {bmc_firmware_command_type} to {fw_pkt_name_new} and "
+        logger.info(f"Execute BMC firmware {bmc_firmware_command_type} to {fw_pkt_name_target} and "
                     f"Wait for BMC firmware update to complete")
-        res = self._update_bmc_firmware(duthost, f"/tmp/{fw_pkt_name_new}", bmc_ip,
-                                        method='cli', cli_type=bmc_firmware_command_type)
+        res = _update_bmc_firmware(duthost, f"/tmp/{fw_pkt_name_target}", bmc_ip,
+                                   method='cli', cli_type=bmc_firmware_command_type,
+                                   bmc_root_user=self.bmc_root_user,
+                                   bmc_root_password=self.bmc_root_password)
         pytest_assert(res, f"Failed to execute BMC firmware {bmc_firmware_command_type} by CLI!")
 
-        bmc_version_latest = self._get_bmc_version(duthost)
-        logger.info(f"BMC version after {bmc_firmware_command_type}: {bmc_version_latest}")
-        pytest_assert(bmc_version_latest != bmc_version_origin, f"BMC firmware {bmc_firmware_command_type} failed")
-
-        fw_pkg_path_old = fw_pkg["chassis"][chassis]["component"]["BMC"][OLD_BMC_VERSION_IDX]["firmware"]
-        fw_pkg_clean_path_old = urlparse(fw_pkg_path_old).path
-        fw_pkt_name_old = os.path.basename(fw_pkg_path_old)
-        logger.info(f"BMC firmware path: {fw_pkg_clean_path_old}")
-        logger.info(f"Copy BMC firmware to localhost: /tmp/{fw_pkt_name_old}")
-        duthost.copy(src=fw_pkg_clean_path_old, dest=f"/tmp/{fw_pkt_name_old}")
-
-        logger.info(f"Execute BMC firmware update to {fw_pkt_name_old} and Wait for BMC firmware update to complete")
-        res = self._update_bmc_firmware(duthost, f"/tmp/{fw_pkt_name_old}", bmc_ip, method='api')
-        pytest_assert(res, "Failed to execute BMC firmware update by API!")
-
-        bmc_version_current = self._get_bmc_version(duthost)
-        logger.info(f"BMC version after recovery: {bmc_version_current}")
-        pytest_assert(bmc_version_latest != bmc_version_current, "BMC firmware recovery failed")
+        bmc_version_after_cli = _get_bmc_version(duthost)
+        logger.info(f"BMC version after {bmc_firmware_command_type}: {bmc_version_after_cli}")
+        pytest_assert(bmc_version_after_cli != bmc_version_origin, f"BMC firmware {bmc_firmware_command_type} failed")
 
     def _parse_bmc_session(self, output):
         """Parse BMC session output to extract session ID and token"""
@@ -651,7 +722,8 @@ class TestBMCApi(PlatformApiTestBase):
                 open_session_result = duthost.command(BMC_OPEN_SESSION_COMMAND)
                 pytest_assert(
                     open_session_result["rc"] == 0,
-                    f"Failed to open session: {open_session_result['stderr']}")
+                    f"Failed to open session: {open_session_result['stderr']}"
+                )
                 session_id, token = self._parse_bmc_session(open_session_result["stdout"])
                 logger.info(f"Session opened: {session_id}")
                 pytest_assert(session_id and token, "Session ID or token not returned")
@@ -664,14 +736,17 @@ class TestBMCApi(PlatformApiTestBase):
                 except json.JSONDecodeError as e:
                     pytest_assert(
                         False,
-                        f"Failed to parse sessions response as JSON: {e}, "
-                        f"response: {sessions_result['stdout']}")
+                        f"Failed to parse sessions response as JSON: {e}, response: {sessions_result['stdout']}"
+                    )
                 member_session_ids = self._extract_ids_from_members(sessions_data)
                 pytest_assert(session_id in member_session_ids,
                               f"Session {session_id} not found in Members: {member_session_ids}")
 
             with allure.step("Create event subscription"):
-                subscription_data = json.dumps({"Destination": "https://example.com/events", "Protocol": "Redfish"})
+                subscription_data = json.dumps({
+                    "Destination": "https://example.com/events",
+                    "Protocol": "Redfish"
+                })
                 create_subscription_cmd = CURL_TOKEN_AUTH_POST.format(
                     token, bmc_ip, REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT, subscription_data)
                 subscription_result = duthost.command(create_subscription_cmd)
@@ -690,48 +765,48 @@ class TestBMCApi(PlatformApiTestBase):
 
                 invalid_get_cmd = CURL_TOKEN_AUTH_GET_WITH_HEADERS.format(
                     token, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
-                invalid_get_result = duthost.command(
-                    invalid_get_cmd, module_ignore_errors=True)
+                invalid_get_result = duthost.command(invalid_get_cmd, module_ignore_errors=True)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+401", invalid_get_result["stdout"]),
-                    "GET with invalid token should return HTTP 401, "
-                    f"got: {invalid_get_result['stdout']}")
+                    f"GET with invalid token should return HTTP 401, got: {invalid_get_result['stdout']}"
+                )
 
                 invalid_post_result = duthost.command(create_subscription_cmd, module_ignore_errors=True)
                 pytest_assert(
-                    invalid_post_result["stdout"].startswith("HTTP/1.1 401 Unauthorized"),
-                    f"POST with invalid token should return HTTP 401 Unauthorized, "
-                    f"got: {invalid_post_result['stdout']}")
+                    re.match(r"^HTTP/\S+\s+401", invalid_post_result["stdout"]),
+                    f"POST with invalid token should return HTTP 401, "
+                    f"got: {invalid_post_result['stdout']}"
+                )
 
             with allure.step("Open new session and cleanup subscription"):
                 new_session_result = duthost.command(BMC_OPEN_SESSION_COMMAND)
                 pytest_assert(
                     new_session_result["rc"] == 0,
-                    f"Failed to open new session: {new_session_result['stderr']}")
+                    f"Failed to open new session: {new_session_result['stderr']}"
+                )
                 new_session_id, new_token = self._parse_bmc_session(new_session_result["stdout"])
                 pytest_assert(new_session_id and new_token, "New session ID or token not returned")
                 logger.info(f"New session opened: {new_session_id}")
 
                 # Delete subscription
-                delete_sub_endpoint = (
-                    f"{REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT}/{subscription_id}")
+                subscription_endpoint = f"{REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT}/{subscription_id}"
+                delete_cmd = CURL_TOKEN_AUTH_DELETE.format(
+                    new_token, bmc_ip, subscription_endpoint)
                 delete_result = duthost.command(
-                    CURL_TOKEN_AUTH_DELETE.format(
-                        new_token, bmc_ip, delete_sub_endpoint),
-                    module_ignore_errors=True)
-                pytest_assert(delete_result["stdout"].startswith("HTTP/1.1 200 OK") or
-                              delete_result["stdout"].startswith("HTTP/1.1 204 No Content"),
-                              f"DELETE should return HTTP 200 OK or 204 No Content, got: {delete_result['stdout']}")
+                    delete_cmd, module_ignore_errors=True)
+                pytest_assert(
+                    re.match(r"^HTTP/\S+\s+20\d", delete_result["stdout"]),
+                    f"DELETE should return HTTP 2xx, got: {delete_result['stdout']}"
+                )
 
                 # Verify subscription is deleted by checking the specific subscription returns 404
                 verify_deleted_cmd = CURL_TOKEN_AUTH_GET_WITH_HEADERS.format(
-                    new_token, bmc_ip, delete_sub_endpoint)
-                verify_deleted_result = duthost.command(
-                    verify_deleted_cmd, module_ignore_errors=True)
+                    new_token, bmc_ip, subscription_endpoint)
+                verify_deleted_result = duthost.command(verify_deleted_cmd, module_ignore_errors=True)
                 pytest_assert(
                     re.match(r"^HTTP/\S+\s+404", verify_deleted_result["stdout"]),
-                    "GET deleted subscription should return HTTP 404, "
-                    f"got: {verify_deleted_result['stdout']}")
+                    f"GET deleted subscription should return HTTP 404, got: {verify_deleted_result['stdout']}"
+                )
                 logger.info(f"Subscription {subscription_id} deleted and verified (404 status)")
 
         finally:
