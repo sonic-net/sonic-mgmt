@@ -182,7 +182,7 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
-                                    prober_type=dict(require=False, type='str', default=None),
+                                    prober_type=dict(required=False, type='str', default=None),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
@@ -1133,6 +1133,7 @@ class GenerateGoldenConfigDBModule(object):
         # Preserve DEVICE_METADATA
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         # Add prober_type to MUX_CABLE if it exists and prober_type is specified
         if ("MUX_CABLE" in ori_config_db and "PORT" in ori_config_db
