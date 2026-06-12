@@ -5,6 +5,7 @@ import time
 import re
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert                               # noqa: F401
+from tests.common.helpers.parallel import parallel_run
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -47,8 +48,9 @@ def save_restore_config(tgen_port_info):          # noqa: F811
     for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
         duthost.shell(f"sudo cp {dest}/config_db*json /etc/sonic/")
 
-    for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-        config_reload(duthost)
+    def my_config_reload(node, results):
+        config_reload(node, safe_reload=True)
+    parallel_run(my_config_reload, [], {}, list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])))
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True, False])
