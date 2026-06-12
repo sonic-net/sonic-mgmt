@@ -39,7 +39,8 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    RELAXED_BALANCING_RANGE = 0.80
+    RELAXED_BALANCING_RANGE = 0.8
+    RELAXED_BALANCING_RANGE_MAXTOPO = 1.5
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
@@ -543,8 +544,10 @@ class HashTest(BaseTest):
                 return (percentage, actual >= expected * 0.2)
             elif 't2' in self.topo_name:
                 # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
-                # a large number of ecmp paths so relax the hashing requirements
-                balancing_range = self.RELAXED_BALANCING_RANGE
+                # a large number of ecmp paths so relax the hashing requirements. For max port count topologies,
+                # relax the hashing requirements further
+                balancing_range = self.RELAXED_BALANCING_RANGE_MAXTOPO if "max" in self.topo_name \
+                    else self.RELAXED_BALANCING_RANGE
         return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
