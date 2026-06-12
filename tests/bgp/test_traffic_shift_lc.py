@@ -222,6 +222,8 @@ def test_tsa_b_c_with_no_neighbors(request, duthosts, nbrhosts, core_dump_and_co
             # Get all routes on neighbors before doing TSA
             orig_v4_routes[duthost] = parse_routes_on_neighbors(duthost, dut_nbrhosts[duthost], 4)
             orig_v6_routes[duthost] = parse_routes_on_neighbors(duthost, dut_nbrhosts[duthost], 6)
+
+        for duthost in frontend_nodes_per_hwsku:
             # Remove the Neighbors for the particular BGP instance
             bgp_neighbors[duthost] = remove_bgp_neighbors(duthost, asic_index)
 
