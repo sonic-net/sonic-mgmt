@@ -139,10 +139,10 @@ The test does not impose a fixed pass/fail threshold on the measured durations, 
 
 During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
-| Metric Name                       | Metric Name in DB  | Example Value |
-|-----------------------------------|--------------------|---------------|
-| `METRIC_NAME_ECN_ENTER_TIME_NS`   | ecn.enter_time.ns  | 1250000       |
-| `METRIC_NAME_ECN_EXIT_TIME_NS`    | ecn.exit_time.ns   | 8730000       |
+| Metric Name                       | Metric Name in DB  | Description                                                                                                           | Example Value |
+|-----------------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------|---------------|
+| `METRIC_NAME_ECN_ENTER_TIME_NS`   | ecn.enter_time.ns  | The time from the first packet of the congestion stream being sent to the first CE-marked packet being received, in ns. | 1250000       |
+| `METRIC_NAME_ECN_EXIT_TIME_NS`    | ecn.exit_time.ns   | The time from the last packet of the congestion stream being sent to the last CE-marked packet being received, in ns.   | 8730000       |
 
 The metrics needs to be reported with the following labels:
 

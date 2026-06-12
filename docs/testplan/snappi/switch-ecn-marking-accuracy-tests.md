@@ -129,13 +129,13 @@ The test groups the captured packets into buckets by their enqueue-time queue de
 
 During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
-| Metric Name                                 | Metric Name in DB           | Example Value |
-|---------------------------------------------|-----------------------------|---------------|
-| `METRIC_NAME_TG_TX_FRAMES`                  | tg.tx.frames                | 100000        |
-| `METRIC_NAME_TG_RX_FRAMES`                  | tg.rx.frames                | 100000        |
-| `METRIC_NAME_TG_RX_ECN_CE_FRAMES`           | tg.rx.ecn_ce.frames         | 23117         |
-| `METRIC_NAME_TG_RX_ECN_CE_RATIO`            | tg.rx.ecn_ce.ratio          | 23.12         |
-| `METRIC_NAME_TG_RX_ECN_CE_RATIO_EXPECTED`   | tg.rx.ecn_ce.ratio.expected | 25.00         |
+| Metric Name                                 | Metric Name in DB           | Description                                                                            | Example Value |
+|---------------------------------------------|-----------------------------|----------------------------------------------------------------------------------------|---------------|
+| `METRIC_NAME_TG_TX_FRAMES`                  | tg.tx.frames                | The number of frames sent from the TX ports in the burst.                              | 100000        |
+| `METRIC_NAME_TG_RX_FRAMES`                  | tg.rx.frames                | The number of frames received on the RX ports after the egress ports are re-enabled.   | 100000        |
+| `METRIC_NAME_TG_RX_ECN_CE_FRAMES`           | tg.rx.ecn_ce.frames         | The number of received frames that are marked with ECN CE.                             | 23117         |
+| `METRIC_NAME_TG_RX_ECN_CE_RATIO`            | tg.rx.ecn_ce.ratio          | The observed CE marking probability in percent: CE-marked frames / received frames.    | 23.12         |
+| `METRIC_NAME_TG_RX_ECN_CE_RATIO_EXPECTED`   | tg.rx.ecn_ce.ratio.expected | The expected CE marking probability in percent, calculated from the WRED profile config. | 25.00         |
 
 The metrics needs to be reported with the following labels:
 
