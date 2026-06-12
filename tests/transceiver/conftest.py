@@ -6,7 +6,10 @@ from pathlib import Path
 
 from .inventory.parser import TransceiverInventory
 
-from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.platform.interface_utils import (
+    get_physical_port_indices,
+    get_lport_to_first_subport_mapping,
+)
 
 # Import attribute parser components
 from tests.transceiver.attribute_parser.dut_info_loader import DutInfoLoader
@@ -258,6 +261,17 @@ def _skip_transceiver_suite_on_vs(duthost):
     """Skip every transceiver test when the DUT is a virtual switch."""
     if duthost.facts.get("asic_type") == "vs":
         pytest.skip("Transceiver tests are not supported on virtual switch testbed")
+
+
+@pytest.fixture(scope="session")
+def lport_to_first_subport_mapping(duthost):
+    """Map each logical port to its breakout group's first (stem) sub-port.
+
+    Resolved once per session (it hits the DUT via ansible facts / sonic-db-cli)
+    and shared by every test that needs stem-port filtering, so the mapping is
+    not re-queried per test.  Pair with ``eeprom_decode.is_stem_port``.
+    """
+    return get_lport_to_first_subport_mapping(duthost)
 
 
 # ──────────────────────────────────────────────────────────────────────
