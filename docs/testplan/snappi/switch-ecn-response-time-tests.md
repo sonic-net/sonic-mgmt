@@ -64,7 +64,7 @@ The test needs to support the following parameters:
 
 - `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
 - `rx_port_count`: The number of RX ports to use. The number of TX ports will be 2 times this value. The rest of the available ports will not be used.
-- `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
+- `frame_bytes`: The sizes of the packets to be sent in the traffic. This is a list parameter, which currently only needs 64 bytes.
 - `congestion_duration`: How long traffic stream 2 keeps running to hold the congestion, which supports 60 seconds by default.
 - `traffic_rate`: The rate of the traffic for each traffic stream, which is set to 70% of the line rate by default.
 - `num_iterations`: The number of times to repeat the measurement for each queue, which supports 5 by default. The measured durations can vary from run to run, so the test repeats the measurement and reports the aggregated results (average, minimum and maximum) across all iterations.

@@ -58,7 +58,7 @@ During the pretest phase, the test will leverage the traffic generator or the de
 The test needs to support the following parameters:
 
 - `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
-- `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
+- `frame_bytes`: The sizes of the packets to be sent in the traffic. This is a list parameter, which currently only needs 64 bytes.
 - `packet_count`: The number of packets to send from each TX port. It should be large enough to build the queue depth beyond the max threshold of the WRED profile under test.
 - `marking_accuracy_tolerance`: The allowed deviation between the observed marking probability and the configured marking probability, which supports 10% by default.
 
