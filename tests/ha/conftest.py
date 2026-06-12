@@ -473,17 +473,13 @@ def vxlan_udp_dport(request, duthost):
     config_vxlan_udp_dport(duthost, 4789)
 
 
-@pytest.fixture(scope="module")
-def set_vxlan_udp_sport_range(dpuhosts):
-    """
-    Configure VXLAN UDP source port range in dpu configuration.
-
-    """
+def _apply_vxlan_udp_sport_range(dpuhosts):
     vxlan_sport_config = [
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_port": "4789"
             },
             "OP": "SET"
         }
@@ -494,14 +490,34 @@ def set_vxlan_udp_sport_range(dpuhosts):
     for dpuhost in dpuhosts:
         dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
         apply_swssconfig_file(dpuhost, config_path)
-        if 'pensando' in dpuhost.facts['asic_type']:
-            logger.warning("Applying Pensando DPU VXLAN sport workaround")
-            dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+
+
+@pytest.fixture(scope="module")
+def set_vxlan_udp_sport_range(dpuhosts):
+    """
+    Configure VXLAN UDP source port range in dpu configuration.
+
+    """
+    _apply_vxlan_udp_sport_range(dpuhosts)
     yield
     for dpuhost in dpuhosts:
         if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0"
                                                          " hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
             config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="function")
+def ensure_vxlan_udp_sport_range(set_vxlan_udp_sport_range, dpuhosts):
+    dpuhosts_to_configure = []
+    for dpuhost in dpuhosts:
+        vxlan_sport = dpuhost.shell("redis-cli -n 0"
+                                    " hget SWITCH_TABLE:switch vxlan_sport")['stdout']
+        if str(VXLAN_UDP_BASE_SRC_PORT) not in vxlan_sport:
+            dpuhosts_to_configure.append(dpuhost)
+
+    if dpuhosts_to_configure:
+        logger.info("Re-applying VXLAN source port config after per-test cleanup reset")
+        _apply_vxlan_udp_sport_range(dpuhosts_to_configure)
 
 
 @pytest.fixture(scope="module")
@@ -904,8 +920,8 @@ def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
 
 @pytest.fixture(scope="function")
 def setup_dash_pl_pipeline(
-     localhost, duthosts, ptfhost, dpu_index, skip_config,
-     dpuhosts, setup_npu_dpu, set_vxlan_udp_sport_range
+    localhost, duthosts, ptfhost, dpu_index, skip_config,
+    dpuhosts, setup_npu_dpu, ensure_vxlan_udp_sport_range
 ):
     if skip_config:
         yield
