@@ -65,7 +65,7 @@ The test needs to support the following parameters:
 - `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
 - `congestion_duration`: How long traffic stream 2 keeps running to hold the congestion, which supports 60 seconds by default.
 - `traffic_rate`: The rate of the traffic for each traffic stream, which is set to 70% of the line rate by default.
-- `num_iterations`: The number of times to repeat the measurement for each queue, which supports 1 by default. More iterations give more stable results, since the measured durations can vary from run to run.
+- `num_iterations`: The number of times to repeat the measurement for each queue, which supports 5 by default. The measured durations can vary from run to run, so the test repeats the measurement and reports the aggregated results (average, minimum and maximum) across all iterations.
 
 ## 4. Test Cases
 
@@ -132,6 +132,7 @@ For each ECN-enabled queue learned in the QoS config discovery step, the test ru
 7. Watch the captured packets on the RX ports for the last CE-marked packet, and calculate the ECN exit time.
 8. Assert that CE-marked packets are observed during the congestion, and no CE-marked packets are observed after the ECN exit, otherwise the measurement is invalid.
 9. Stop all traffic streams and captures, clear the counters, then repeat for `num_iterations` times before moving on to the next queue.
+10. After all iterations are done, calculate the average, minimum and maximum of the measured ECN enter time and ECN exit time across all iterations, and report them as metrics.
 
 The test does not impose a fixed pass/fail threshold on the measured durations, since they are platform and config dependent. Instead, the measured durations are reported as metrics to the database for further analysis and regression tracking.
 
@@ -139,10 +140,14 @@ The test does not impose a fixed pass/fail threshold on the measured durations, 
 
 During this test, we are going to collect the following metrics from the traffic generator, using [FinalMetricsReporter interface](../../../test_reporting/telemetry/README.md). The metrics will be reported to a database for further analysis.
 
-| Metric Name                       | Metric Name in DB  | Description                                                                                                           | Example Value |
-|-----------------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------|---------------|
-| `METRIC_NAME_ECN_ENTER_TIME_NS`   | ecn.enter_time.ns  | The time from the first packet of the congestion stream being sent to the first CE-marked packet being received, in ns. | 1250000       |
-| `METRIC_NAME_ECN_EXIT_TIME_NS`    | ecn.exit_time.ns   | The time from the last packet of the congestion stream being sent to the last CE-marked packet being received, in ns.   | 8730000       |
+| Metric Name                           | Metric Name in DB      | Description                                                | Example Value |
+|---------------------------------------|------------------------|------------------------------------------------------------|---------------|
+| `METRIC_NAME_ECN_ENTER_TIME_AVG_NS`   | ecn.enter_time.avg.ns  | The average ECN enter time across all iterations, in ns.   | 1250000       |
+| `METRIC_NAME_ECN_ENTER_TIME_MIN_NS`   | ecn.enter_time.min.ns  | The minimum ECN enter time across all iterations, in ns.   | 1080000       |
+| `METRIC_NAME_ECN_ENTER_TIME_MAX_NS`   | ecn.enter_time.max.ns  | The maximum ECN enter time across all iterations, in ns.   | 1370000       |
+| `METRIC_NAME_ECN_EXIT_TIME_AVG_NS`    | ecn.exit_time.avg.ns   | The average ECN exit time across all iterations, in ns.    | 8730000       |
+| `METRIC_NAME_ECN_EXIT_TIME_MIN_NS`    | ecn.exit_time.min.ns   | The minimum ECN exit time across all iterations, in ns.    | 8170000       |
+| `METRIC_NAME_ECN_EXIT_TIME_MAX_NS`    | ecn.exit_time.max.ns   | The maximum ECN exit time across all iterations, in ns.    | 9590000       |
 
 The metrics needs to be reported with the following labels:
 
