@@ -1139,15 +1139,6 @@ platform_tests/mellanox/test_check_sfp_eeprom.py::test_check_sfp_eeprom_with_opt
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-platform_tests/mellanox/test_check_sfp_using_ethtool.py:
-  skip:
-    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher / Mellanox platform tests only supported on Mellanox devices"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['mellanox']"
-      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
-      - "'bmc' in topo_type"
-
 platform_tests/mellanox/test_hw_management_service.py:
   skip:
     reason: "Not available on BMC"
