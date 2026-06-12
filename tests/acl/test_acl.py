@@ -518,6 +518,25 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # Add RIF for upstream links
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
+    elif topo in ("urh", "lrh"):
+        # For URH/LRH, ports may be in portchannels — raw PC member interfaces
+        # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
+        ports_in_pc = set()
+        for pc_name, pc_info in list(port_channels.items()):
+            pc_namespace = pc_info.get('namespace', '')
+            acl_table_ports[pc_namespace].append(pc_name)
+            if pc_namespace:
+                acl_table_ports[''].append(pc_name)
+            ports_in_pc.update(pc_info.get('members', []))
+
+        # Add any standalone interfaces not in a portchannel
+        for namespace, ports in list(upstream_ports.items()) + list(downstream_ports.items()):
+            for port in ports:
+                if port in ports_in_pc:
+                    continue
+                acl_table_ports[namespace].append(port)
+                if namespace:
+                    acl_table_ports[''].append(port)
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
