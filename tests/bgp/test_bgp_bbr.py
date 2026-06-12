@@ -19,6 +19,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import get_neighbor_exabgp_vm_offset
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -179,7 +180,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
             other_vms.append(neigh['name'])
 
     # Announce route to one of the T0 VM
-    tor1_offset = tbinfo['topo']['properties']['topology']['VMs'][tor1]['vm_offset']
+    tor1_offset = get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, tor1)
     tor1_exabgp_port = EXABGP_BASE_PORT + tor1_offset
     tor1_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + tor1_offset
 

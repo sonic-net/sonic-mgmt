@@ -12,6 +12,7 @@ import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
+DEFAULT_MAX_FP_NUM = 4
 
 
 class ListIndentDumper(yaml.Dumper):
@@ -226,10 +227,13 @@ class SonicTopoConverger:
 
         # We don't need to change the host_interfaces portion of the passed topo, so
         # copy
-        # it over as is.
-        key = "host_interfaces"
-        if key in old_topo:
-            new_topo[key] = old_topo[key].copy()
+        # it over as is.  The same applies to disabled_host_interfaces, which must be
+        # preserved so the DUT minigraph keeps those ports admin-down; dropping it
+        # turns previously-disabled host interfaces into active ports and breaks
+        # buffer/qos deployment checks (e.g. qos/test_buffer.py).
+        for key in ("host_interfaces", "disabled_host_interfaces"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key].copy()
 
         key = "VMs"
         # Save off which vm had which interface index as we will need this later
@@ -247,6 +251,18 @@ class SonicTopoConverger:
         if key in old_topo:
             new_topo[key] = old_topo[key].copy()
 
+        # Preserve top-level topology metadata that minigraph generation reads
+        # directly off the topology dict (ansible/library/topo_facts.py).
+        # dut_num in particular sizes the per-DUT interface_indexes lists:
+        # multi-linecard chassis topologies (t2 variants carry dut_num 3-6)
+        # have VM vlans with dut_index > 0, so dropping dut_num makes
+        # topo_facts default it to 1 and raise "IndexError: list index out of
+        # range" during deploy-mg. Single-DUT topos omit dut_num (defaults to
+        # 1), so this is a no-op for them.
+        for key in ("dut_num", "topo_type"):
+            if key in old_topo:
+                new_topo[key] = old_topo[key]
+
         new_topo = self.converged_topo
         old_topo = self.topo
         key = "configuration_properties"
@@ -256,6 +272,31 @@ class SonicTopoConverger:
         key = "configuration"
         new_topo[key] = old_topo[key].copy()
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
+
+        # After convergence, each prime cEOSLab peer needs one front-panel
+        # interface per merged sub-peer (each connects to one DUT FP port via
+        # one ``br-<vmname>-N`` OVS bridge). The default ``max_fp_num`` of 4
+        # works for stock topologies, but converged primes routinely hold many
+        # more (e.g. 16 on a t1-lag spine prime, 32 on a t2 T3 prime). Without
+        # bumping max_fp_num, ``create_bridges`` / ``ceos_network`` create only
+        # 4 br-VM-N bridges + 4 veth pairs into the cEOS container, and the
+        # subsequent ``vm_topology bind`` fails with "Too many vlans".
+        #
+        # Surface the required count as ``max_fp_num_provided`` at the topo
+        # root so the vm_set role bumps max_fp_num for the whole vm_set. The
+        # override is applied in ``roles/vm_set/tasks/main.yml`` (common to
+        # every action, including ``add_topo`` which actually creates the
+        # br-VM-N bridges) and ``roles/vm_set/tasks/start.yml``. Cap at
+        # CEOSLAB_INTF_LIMIT to stay within cEOSLab's per-container interface
+        # ceiling, and never go below the default so single-vlan converged
+        # topologies (e.g. dpu) keep the existing minimum.
+        max_prime_vlans = max(
+            (len(vm.get("vlans", [])) for vm in new_topo["topology"]["VMs"].values()),
+            default=0,
+        )
+        required_fp_num = max(DEFAULT_MAX_FP_NUM, min(max_prime_vlans, CEOSLAB_INTF_LIMIT))
+        if required_fp_num > DEFAULT_MAX_FP_NUM:
+            self.converged_topo["max_fp_num_provided"] = required_fp_num
 
     def run(self) -> None:
         self.parse_properties()

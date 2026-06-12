@@ -1787,3 +1787,25 @@ def testbed_is_multi_vrf(tbinfo):
     if val:
         return str(val).lower() == 'true'
     return False
+
+
+def get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, neighbor_name):
+    """Return the vm_offset used to derive a neighbor's exabgp API port.
+
+    The per-neighbor exabgp instances are created from the ORIGINAL topology
+    offsets. On a converged (multi-VRF) topology those original offsets are
+    preserved per logical neighbor in ``multi_vrf_data['vm_offset_mapping']``
+    (sourced from ``convergence_data['vm_offset_mapping']``), while
+    ``tbinfo['topo']['properties']['topology']['VMs']`` only carries the
+    collapsed *prime* offsets. Route-injection helpers that compute
+    ``EXABGP_BASE_PORT + offset`` must therefore use the per-neighbor original
+    offset, otherwise they post the announce to the wrong exabgp instance (a
+    different VRF) and the route never reaches the intended neighbor.
+
+    On stock topologies the neighbor is its own VM and this simply returns the
+    VM's ``vm_offset``, so behavior is unchanged there.
+    """
+    neighbor = nbrhosts.get(neighbor_name, {})
+    if neighbor.get('is_multi_vrf_peer', False):
+        return neighbor['multi_vrf_data']['vm_offset_mapping']
+    return tbinfo['topo']['properties']['topology']['VMs'][neighbor_name]['vm_offset']

@@ -13,6 +13,7 @@
     - vlab-01
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual switch vm
 
 - conf-name: vms-kvm-t0-csonic
@@ -27,6 +28,7 @@
   dut:
     - vlab-01
   inv_name: veos_vtb
+  use_converged_peers: True
   auto_recover: 'False'
   comment: Tests cSONiC virtual switch VMs without PortChannels
 
@@ -58,6 +60,7 @@
     - vlab-02
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual switch vm
 
 - conf-name: vms-kvm-t1-lag
@@ -73,6 +76,7 @@
     - vlab-03
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual switch vm
 
 - conf-name: vms-kvm-t0-2
@@ -104,6 +108,7 @@
     - vlab-06
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Dual-TOR testbed
 
 - conf-name: vms-kvm-multi-asic-t1-lag
@@ -134,6 +139,7 @@
     - vlab-08
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests multi-asic virtual switch vm
 
 - conf-name: vms-kvm-t2
@@ -151,6 +157,7 @@
     - vlab-t2-1-sup
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: T2 Virtual chassis with Multi-ASIC LCs
 
 - conf-name: vms-kvm-t0-3
@@ -350,6 +357,7 @@
     - vlab-01
   inv_name: veos_vtb
   auto_recover: False
+  use_converged_peers: True
   comment: Tests virtual switch vm as DPU
 
 - conf-name: vms-kvm-t1
@@ -524,6 +532,7 @@
     - vlab-vpp-01
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual vpp switch vm
 
 - conf-name: vms-kvm-vpp-t1
@@ -554,6 +563,7 @@
     - vlab-vpp-02
   inv_name: veos_vtb
   auto_recover: 'False'
+  use_converged_peers: True
   comment: Tests virtual vpp switch vm
 
 - conf-name: vms-kvm-dual-vpp-t0-1
