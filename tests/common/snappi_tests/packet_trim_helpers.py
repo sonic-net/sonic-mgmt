@@ -87,7 +87,8 @@ def get_max_supported_trim_ratio(duthost):
     if not hwsku:
         return None
     hwsku_upper = hwsku.upper()
-    sn5640_hwskus = {"MELLANOX-SN5640-C512S2", "MELLANOX-SN5640-C448O16"}
+    sn5640_hwskus = {"MELLANOX-SN5640-C512S2", "MELLANOX-SN5640-C448O16", "MELLANOX-SN5640-C508O1X2",
+                     "MELLANOX-SN5640-C512X2", "MELLANOX-SN5640-O128X2"}
     if hwsku_upper in sn5640_hwskus:
         return 8
     return None
