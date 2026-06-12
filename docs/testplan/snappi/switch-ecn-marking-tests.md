@@ -58,7 +58,7 @@ The test needs to support the following parameters:
 
 - `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
 - `rx_port_count`: The number of RX ports to use. The number of TX ports will be 2 times this value. The rest of the available ports will not be used.
-- `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
+- `frame_bytes`: The sizes of the packets to be sent in the traffic. This is a list parameter, which currently only needs 64 bytes.
 - `test_duration`: The duration of each traffic run in seconds, which supports 60 seconds by default.
 - `traffic_rate`: The rate of the traffic for each traffic stream, which is set to 70% of the line rate by default. With both streams running, the RX ports will receive 140% of the line rate, which guarantees congestion.
 - `ecn_codepoint`: The ECN codepoint to set on the packets of the traffic streams, which supports `non-ect` (00), `ect0` (10), `ect1` (01) and `ce` (11). The switch behaves differently for each codepoint, so each codepoint runs as a sub test.
@@ -83,9 +83,9 @@ The test walks through the QoS configuration on the SONiC switch to learn the qu
 
 1. Read the `DSCP_TO_TC_MAP` table to get the DSCP to traffic class mappings.
 2. Read the `TC_TO_QUEUE_MAP` table to get the traffic class to queue mappings.
-3. Read the `QUEUE` and `WRED_PROFILE` tables to learn which queues have ECN marking enabled (`ecn` set to `ecn_all` or alike in the WRED profile) and their min/max thresholds.
+3. Read the `QUEUE` and `WRED_PROFILE` tables to learn the WRED profile of each queue: whether ECN marking is enabled (`ecn` set to `ecn_all` or alike), the congestion action for the packets (drop, ECN marking or trim), and the min/max thresholds.
 
-After this step, the test builds a list of `(dscp, tc, queue, ecn_enabled)` tuples. For each queue, one representative DSCP value is selected to drive the traffic into that queue. The test will run the test case below for every queue in this list.
+After this step, the test builds a list of `(dscp, tc, queue, wred_config)` tuples, where the `wred_config` tells the expected behavior of the queue under congestion. For each queue, one representative DSCP value is selected to drive the traffic into that queue. The test will run the test case below for every queue in this list.
 
 #### 4.1.3. Traffic stream setup
 
@@ -107,14 +107,16 @@ Both traffic streams are configured as below:
 
 This test case runs as sub tests for each ECN codepoint defined in RFC 3168, controlled by the `ecn_codepoint` test parameter. The expected behavior of an ECN-enabled queue under congestion is different for each codepoint:
 
-| ECN Codepoint | Bits | Expected behavior under congestion                                                                        |
-|---------------|------|-----------------------------------------------------------------------------------------------------------|
-| Non-ECT       | 00   | Packets are never marked with CE. Depending on the WRED profile config, the packets can be dropped instead. |
-| ECT(0)        | 10   | Packets are marked with CE.                                                                                 |
-| ECT(1)        | 01   | Packets are marked with CE.                                                                                 |
-| CE            | 11   | Packets pass through with the CE codepoint unchanged.                                                       |
+| ECN Codepoint | Bits | Expected behavior under congestion                                                                                          |
+|---------------|------|------------------------------------------------------------------------------------------------------------------------------|
+| Non-ECT       | 00   | Packets are never marked with CE. They are dropped or trimmed, following the congestion action configured in the WRED profile. |
+| ECT(0)        | 10   | Packets are marked with CE.                                                                                                    |
+| ECT(1)        | 01   | Packets are marked with CE.                                                                                                    |
+| CE            | 11   | Packets pass through with the CE codepoint unchanged.                                                                          |
 
-> NOTE: Since the RX ports are oversubscribed when both traffic streams are running, packet loss is expected on every queue, no matter how the WRED profile is configured. Hence, the test does not check the TX frame count against the RX frame count. It only checks the ECN field of the received packets and whether it follows the WRED profile config on the switch.
+For queues without ECN marking enabled, the packets of all codepoints are never marked with CE, and are dropped or trimmed under congestion, following the congestion action configured in the WRED profile.
+
+> NOTE: Since the RX ports are oversubscribed when both traffic streams are running, packet loss is expected on every queue, no matter how the WRED profile is configured. Hence, the test does not check the TX frame count against the RX frame count. It only checks the received packets: the ECN field follows the WRED profile config, and when the congestion action is set to trim, the trimmed packets are expected on the RX ports instead of pure packet drops.
 
 For each queue learned in the QoS config discovery step and each ECN codepoint, the test runs the following steps:
 
@@ -126,7 +128,7 @@ For each queue learned in the QoS config discovery step and each ECN codepoint, 
    1. Since each RX port now receives traffic from 2 times the number of TX ports at 140% of the line rate, congestion will happen on the egress queue of all RX ports.
    2. Capture the received packets on the RX ports and check the ECN field.
    3. If ECN is enabled on the queue, assert that the received packets follow the expected behavior in the table above.
-   4. If ECN is not enabled on the queue, assert that the ECN field of all received packets stays unchanged.
+   4. If ECN is not enabled on the queue, assert that the ECN field of all received packets stays unchanged, and the packets are dropped or trimmed following the congestion action in the WRED config.
 3. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
 
 ### 4.3. Test case 2: Long duration soak test

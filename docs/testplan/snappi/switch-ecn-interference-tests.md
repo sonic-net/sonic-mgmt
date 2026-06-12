@@ -40,7 +40,7 @@ The test needs to support the following parameters:
 
 - `ip_version`: IPv4 or IPv6, which supports `ipv4` and `ipv6`.
 - `rx_port_count`: The number of RX ports to use. The number of TX ports will be 2 times this value. The rest of the available ports will not be used.
-- `frame_bytes`: The size of the packets to be sent in the traffic, which supports 64, 128, 256, 512, 1024, 4096 and 8192 bytes.
+- `frame_bytes`: The sizes of the packets to be sent in the traffic. This is a list parameter, which currently only needs 64 bytes.
 - `test_duration`: The duration of each traffic run in seconds, which supports 60 seconds by default.
 - `traffic_rate`: The rate of the traffic for each traffic stream, which is set to 70% of the line rate by default.
 
@@ -79,7 +79,7 @@ This test case verifies that ECN marking on one queue does not affect the packet
 3. Start traffic stream 2, so both streams are running and congestion happens on both queues of every RX port, and run them for `test_duration` seconds.
 4. Check the received packets on the RX ports:
    1. Assert that the packets of queue A are marked with CE.
-   2. Assert that the packets of queue B are never marked with CE, even though queue A on the same port is actively marking. The packets of queue B should be handled by its own config only (e.g. dropped on queue overflow).
+   2. Assert that the packets of queue B are never marked with CE, even though queue A on the same port is actively marking. The packets of queue B should be handled by its own WRED config only, e.g. dropped or trimmed following its configured congestion action.
 5. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue pair.
 
 ### 4.3. Test case 2: Mixed ECN codepoint test
@@ -92,7 +92,7 @@ This test case verifies that within the same queue, the ECN marking on the ECT p
 4. Check the received packets on the RX ports:
    1. Assert that the ECT(0) and ECT(1) packets are marked with CE.
    2. Assert that the CE packets pass through with the CE codepoint unchanged.
-   3. Assert that the Non-ECT packets are never marked with CE. They should keep the codepoint 00 and be handled by the WRED profile config only (e.g. dropped), not affected by the ECN marking happening on the ECT packets in the same queue.
+   3. Assert that the Non-ECT packets are never marked with CE. They should keep the codepoint 00 and be handled by the congestion action in the WRED config only (dropped or trimmed), not affected by the ECN marking happening on the ECT packets in the same queue.
 5. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
 
 > NOTE: Since the RX ports are oversubscribed when both traffic streams are running, packet loss is expected, no matter how the WRED profile is configured. Hence, the test does not check the TX frame count against the RX frame count. It only checks the ECN field of the received packets and whether it follows the WRED profile config on the switch.
