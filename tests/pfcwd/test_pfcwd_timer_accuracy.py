@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 import re
+import json
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
@@ -172,6 +173,29 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     return storm_handle
 
 
+def save_test_results_to_file(test_func_name, test_data):
+    """
+    Save test results to JSON file.
+
+    Args:
+        test_func_name (str): test function name
+        test_data (dict): metrics to persist
+    """
+    try:
+        formatted_data = {}
+        for key, value in test_data.items():
+            if isinstance(value, float):
+                formatted_data[key] = round(value, 2)
+            else:
+                formatted_data[key] = value
+        report_filename = f'/tmp/test_pfcwd_timer_accuracy_{test_func_name}.json'
+        with open(report_filename, 'w') as f:
+            json.dump(formatted_data, f, indent=2)
+        logger.info("Saved test results to: %s", report_filename)
+    except Exception as err:
+        logger.error("Failed to save test results to file. Error: %s", err)
+
+
 @pytest.mark.usefixtures('pfcwd_timer_setup_restore', 'start_background_traffic')
 class TestPfcwdAllTimer(object):
     """ PFCwd timer test class """
@@ -299,6 +323,20 @@ class TestPfcwdAllTimer(object):
                     restore_count, ITERATION_NUM, restore_failures,
                     required_samples))
 
+        if self.save_timer_results:
+            data = {
+                'detect_time_min': self.all_detect_time[0],
+                'detect_time_max': self.all_detect_time[-1],
+                'detect_time_check': self.all_detect_time[check_point],
+                'restore_time_min': self.all_restore_time[0],
+                'restore_time_max': self.all_restore_time[-1],
+                'restore_time_check': self.all_restore_time[check_point],
+            }
+            logger.info("Saving timer results to file")
+            save_test_results_to_file('test_pfcwd_timer_accuracy', data)
+        else:
+            logger.info("Timer results will not be saved to file due to --save-timer-results not set")
+
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
                                                                          config_detect_time))
@@ -377,7 +415,7 @@ class TestPfcwdAllTimer(object):
             return int(0)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,
-                                  pfcwd_timer_setup_restore, fanouthosts, set_pfc_time_cisco_8000):
+                                  pfcwd_timer_setup_restore, fanouthosts, set_pfc_time_cisco_8000, save_timer_results):
         """
         Tests PFCwd timer accuracy
 
@@ -392,6 +430,7 @@ class TestPfcwdAllTimer(object):
         self.dut = duthost
         self.ptf = ptfhost
         self.fanout = fanouthosts
+        self.save_timer_results = save_timer_results
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
