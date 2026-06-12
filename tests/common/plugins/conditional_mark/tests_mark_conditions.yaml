@@ -921,6 +921,12 @@ dash/test_dash_privatelink_redirect.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_scale.py:
+  skip:
+    reason: "Dash scale tests should not be running on non-smartswitch"
+    conditions:
+      - "is_smartswitch == False"
+
 dash/test_dash_smartswitch_vnet.py:
   skip:
     conditions_logical_operator: or
