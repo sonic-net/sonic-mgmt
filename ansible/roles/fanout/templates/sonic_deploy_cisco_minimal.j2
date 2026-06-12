@@ -51,12 +51,26 @@
             {% if port_conf.speed == '100000' and lanes_list|length == 8 -%}
             "lanes": "{{ lanes_list[:4] | join(',') }}",
             "fec": "rs",
+            {# Logic: If 40G is requested on an 8-lane port, slice to 4 lanes and set no FEC #}
+            {% elif port_conf.speed == '40000' and lanes_list|length == 8 -%}
+            "lanes": "{{ lanes_list[:4] | join(',') }}",
+            {# Logic: If 10G is requested on a 4-lane port, slice to 1 lane (e.g. QSFP+ with 10G NIC) #}
+            {% elif port_conf.speed == '10000' and lanes_list|length == 4 -%}
+            "lanes": "{{ lanes_list[:1] | join(',') }}",
             {% else -%}
             "lanes": "{{ port_conf.lanes }}",
             {% endif -%}
             {% if 'peerdevice' in port_conf -%}
             "admin_status": "up",
             "description": "{{ port_conf.peerdevice }}{% if 'peerport' in port_conf %}:{{ port_conf.peerport }}{% endif %}",
+            {# TPID Configuration:
+               - Controlled by tpid_enabled (HwSKU and topology filtering from task)
+               - Only enabled for Access mode ports (DUT-facing connections)
+               - Disabled for Trunk mode ports (UCS/Server-facing connections)
+            #}
+            {% if tpid_enabled | default(true) and port_name in device_port_vlans and device_port_vlans[port_name].mode | lower == 'access' -%}
+            "tpid": "0x9100",
+            {% endif -%}
             {% else -%}
             "admin_status": "down",
             {% endif -%}
