@@ -822,23 +822,34 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Try to send remaining packets if there are any and we haven't already given up
     if remaining_packets > 0 and batch_index >= num_batches:
-        try:
-            logger.info(f"Sending remaining {remaining_packets} packets")
-            for interface in interfaces:
-                fill_packet = interface_packets[interface]
-                testutils.send(
-                    ptfadapter,
-                    port_id=port_id,
-                    pkt=fill_packet,
-                    count=remaining_packets
-                )
-                logger.info(f"Sent {remaining_packets} remaining packets for {interface}")
-            total_sent_packets += remaining_packets * len(interfaces)
-        except Exception as e:
-            logger.warning(f"Failed to send remaining packets: {e}")
-            # Not critical if we've already sent most packets
+        retries = 0
+        remaining_success = False
+        while not remaining_success and retries < SEND_MAX_RETRIES:
+            try:
+                logger.info(f"Sending remaining {remaining_packets} packets")
+                for interface in interfaces:
+                    fill_packet = interface_packets[interface]
+                    testutils.send(
+                        ptfadapter,
+                        port_id=port_id,
+                        pkt=fill_packet,
+                        count=remaining_packets
+                    )
+                    logger.info(f"Sent {remaining_packets} remaining packets for {interface}")
+                total_sent_packets += remaining_packets * len(interfaces)
+                remaining_success = True
+            except Exception as e:
+                retries += 1
+                logger.warning(f"Remaining packets failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
+                # Wait before retry
+                time.sleep(2)
+                ptfadapter.dataplane.flush()
 
     logger.info(f"Buffer filling completed, sent {total_sent_packets} packets")
+
+    # Fail fast when nothing was sent so the buffer never gets filled
+    if total_sent_packets == 0:
+        raise RuntimeError("Buffer fill failed: 0 packets sent")
 
     # Check queue counters after filling
     for interface in interfaces:
