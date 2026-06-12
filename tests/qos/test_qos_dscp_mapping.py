@@ -16,9 +16,10 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link, \
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown  # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue, \
-    get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
+    get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port, \
+    get_day_of_week_distributed_ports_from_buckets
 from tests.common.helpers.assertions import pytest_assert
-from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route
+from tests.qos.qos_helpers import get_upstream_exabgp_port, get_downstream_exabgp_port, announce_route
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 500
 BASE_EXABGP_PORT = 5000
+MAX_DOWNSTREAM_REMOTE_RECEIVERS = 4
 WITHDRAW = 'withdraw'
 ANNOUNCE = 'announce'
 DUMMY_OUTER_SRC_IP = '8.8.8.8'
@@ -56,25 +58,48 @@ def completeness_level(pytestconfig):
 @pytest.fixture(scope='module')
 def route_config(nbrhosts, tbinfo):
     ptf_ip = tbinfo['ptf_ip']
-    upstream_exabgp_port_list = get_upstream_exabgp_port(nbrhosts=nbrhosts,
-                                                         tbinfo=tbinfo,
-                                                         exabgp_base_port=BASE_EXABGP_PORT)
-    upstream_vm_num = len(upstream_exabgp_port_list)
-    inner_dst_ip_list = [INNER_DST_IP_PREFIX + str(i + 1) for i in range(upstream_vm_num)]
+    remote_side = "upstream"
+    remote_vm_names = []
+    exabgp_port_list = get_upstream_exabgp_port(
+        nbrhosts=nbrhosts, tbinfo=tbinfo, exabgp_base_port=BASE_EXABGP_PORT)
+    # When the DUT has no upstream tier fall back to using the downstream neighbors as the remote side.
+    if not exabgp_port_list:
+        remote_side = "downstream"
+        exabgp_port_list = get_downstream_exabgp_port(nbrhosts=nbrhosts,
+                                                      tbinfo=tbinfo,
+                                                      exabgp_base_port=BASE_EXABGP_PORT)
+        # downstream_vm_names[i] corresponds to exabgp_port_list[i].
+        downstream_vm_names = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
+        # Select a fixed number of downstream neighbors as the remote side
+        paired_ports = list(zip(exabgp_port_list, downstream_vm_names))
+        selected_pairs = get_day_of_week_distributed_ports_from_buckets(
+            paired_ports, MAX_DOWNSTREAM_REMOTE_RECEIVERS)
+        exabgp_port_list = [port for port, _ in selected_pairs]
+        remote_vm_names = [name for _, name in selected_pairs]
 
-    for i in range(upstream_vm_num):
-        logger.info(f"{ANNOUNCE} {inner_dst_ip_list[i] + '/32'} from upstream VMs")
+    if not exabgp_port_list:
+        pytest.skip("No BGP-speaking remote neighbors available to announce inner routes from")
+
+    remote_vm_num = len(exabgp_port_list)
+    inner_dst_ip_list = [INNER_DST_IP_PREFIX + str(i + 1) for i in range(remote_vm_num)]
+
+    for i in range(remote_vm_num):
+        logger.info(f"{ANNOUNCE} {inner_dst_ip_list[i] + '/32'} from {remote_side} VMs")
         announce_route(ptfip=ptf_ip,
                        route=inner_dst_ip_list[i] + '/32',
-                       port=upstream_exabgp_port_list[i])
+                       port=exabgp_port_list[i])
 
-    yield inner_dst_ip_list
+    yield {
+        "inner_dst_ip_list": inner_dst_ip_list,
+        "remote_side": remote_side,
+        "remote_vm_names": remote_vm_names,
+    }
 
-    for i in range(upstream_vm_num):
-        logger.info(f"{WITHDRAW} {inner_dst_ip_list[i] + '/32'} from upstream VMs")
+    for i in range(remote_vm_num):
+        logger.info(f"{WITHDRAW} {inner_dst_ip_list[i] + '/32'} from {remote_side} VMs")
         announce_route(ptfip=ptf_ip,
                        route=inner_dst_ip_list[i] + '/32',
-                       port=upstream_exabgp_port_list[i],
+                       port=exabgp_port_list[i],
                        action=WITHDRAW)
 
 
@@ -141,8 +166,8 @@ def dscp_config_pipe(rand_selected_dut, loganalyzer):
     if asic_type != 'broadcom':
         # TODO: Remove this skip for other vendors/platforms that want to validate
         # pipe mode DSCP preservation without queue mapping verification.
-        pytest.skip(f"{asic_type} pipe mode DSCP-only check not needed:"
-                    " covered by test_dscp_to_queue_mapping[pipe]")
+        pytest.skip(f"{asic_type} pipe mode DSCP-only check not needed: "
+                    "covered by test_dscp_to_queue_mapping[pipe]")
 
     apply_dscp_cfg_setup(duthost, "pipe", loganalyzer)
     yield
@@ -279,6 +304,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                            tbinfo,
                            downstream_links,  # noqa F811
                            upstream_links,  # noqa F811
+                           remote_side="upstream",
+                           remote_vm_names=None
                            ):
         """
         Set up test parameters for the DSCP to Queue mapping test for IP-IP packets.
@@ -290,13 +317,30 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             duthost (fixture): DUT fixture
             downstream_links (fixture): Dictionary of downstream links info for DUT
             upstream_links (fixture): Dictionary of upstream links info for DUT
+            remote_side (str): "upstream" (canonical) or "downstream" (isolated T1 fallback).
+                Selects which neighbor tier provides the egress ports to verify.
+            remote_vm_names (list): For the downstream fallback, the names of the downstream
+                neighbors that announced the inner routes (used as egress, kept disjoint from
+                the injection source).
         """
-        links = {**downstream_links, **upstream_links}
+        remote_vm_names = remote_vm_names or []
 
         loopback_ip = get_ipv4_loopback_ip(duthost)
         pytest_assert(loopback_ip is not None, "No loopback IP found")
 
-        src_link = select_random_link(links)
+        if remote_side == "downstream":
+            egress_links = {intf: link for intf, link in downstream_links.items()
+                            if link.get("name") in remote_vm_names}
+            source_links = {intf: link for intf, link in downstream_links.items()
+                            if link.get("name") not in remote_vm_names}
+            pytest_assert(egress_links,
+                          "No downstream egress links found for remote VMs {}".format(remote_vm_names))
+            pytest_assert(source_links,
+                          "No downstream link available as an injection source disjoint from egress")
+            src_link = select_random_link(source_links)
+        else:
+            egress_links = {**downstream_links, **upstream_links}
+            src_link = select_random_link(egress_links)
         pytest_assert(src_link is not None, "src_link is None")
 
         ptf_src_port_id = src_link.get("ptf_port_id")
@@ -317,7 +361,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(dst_mac is not None, "No router/vlan MAC found")
 
-        ptf_dst_port_ids = get_stream_ptf_ports(links)
+        ptf_dst_port_ids = get_stream_ptf_ports(egress_links)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
         if ptf_src_port_id in ptf_dst_port_ids:
@@ -381,7 +425,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
         def check_ip_route(duthost, step):
-            ip_route_list = [f"{INNER_DST_IP_PREFIX}{i}/32" for i in range(1, step)]
+            ip_route_list = [f"{INNER_DST_IP_PREFIX}{i}/32" for i in range(1, step + 1)]
             for route in ip_route_list:
                 output = duthost.shell(f"show ip route {route}")["stdout"]
                 if route not in output:
@@ -538,10 +582,13 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """
         duthost = rand_selected_dut
-        inner_dst_ip_list = route_config
+        inner_dst_ip_list = route_config["inner_dst_ip_list"]
+        remote_side = route_config["remote_side"]
+        remote_vm_names = route_config["remote_vm_names"]
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links,
+                                                  remote_side=remote_side, remote_vm_names=remote_vm_names)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
@@ -586,11 +633,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         if asic_type == 'vs':
             pytest.skip("Skipping DSCP preservation check for VS platform")
 
-        inner_dst_ip_list = route_config
+        inner_dst_ip_list = route_config["inner_dst_ip_list"]
+        remote_side = route_config["remote_side"]
+        remote_vm_names = route_config["remote_vm_names"]
         step = len(inner_dst_ip_list)
 
         with allure.step("Prepare test parameters"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links,
+                                                  remote_side=remote_side, remote_vm_names=remote_vm_names)
 
         dst_mac = test_params['dst_mac']
         ptf_src_port_id = test_params['ptf_src_port_id']
@@ -661,7 +711,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                         logger.info(f"SUCCESS: Inner DSCP {cur_dscp} preserved in decapsulated packet")
                         output_table.append([cur_dscp, "SUCCESS - DSCP PRESERVED"])
                     else:
-                        logger.info(f"FAILURE: Inner DSCP {cur_dscp} not found in decapsulated packet")
+                        logger.info(f"FAILURE: Inner DSCP {cur_dscp} missing from decapsulated packet")
                         output_table.append([cur_dscp, "FAILURE - DSCP NOT PRESERVED"])
                         failed_once = True
 
