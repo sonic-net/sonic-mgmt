@@ -151,7 +151,6 @@ The metrics needs to be reported with the following labels:
 | `METRIC_LABEL_TG_IP_VERSION`            | tg.ip_version            | 4             |
 | `METRIC_LABEL_TG_TRAFFIC_RATE`          | tg.traffic_rate          | 70            |
 | `METRIC_LABEL_TG_FRAME_BYTES`           | tg.frame_bytes           | 1024          |
-| `METRIC_LABEL_TG_DSCP`                  | tg.dscp                  | 3             |
 | `METRIC_LABEL_TG_RX_PORT_ID`            | tg.rx_port.id            | Port 5        |
 | `METRIC_LABEL_DEVICE_QUEUE_ID`          | device.queue.id          | 3             |
 | `METRIC_LABEL_TEST_PARAMS_DURATION_SEC` | test.params.duration.sec | 60            |
