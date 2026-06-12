@@ -449,45 +449,42 @@ def _check_vnet2_all_dynamic_peers_established(duthost):
         return False
 
 
-def get_ptf_port_index(interface_name):
+def get_expected_unexpected_ptf_ports(cfg_facts, mg_facts, vnet_expected, vnet_unexpected):
     """
-    Convert Ethernet interface name to PTF port index (Ethernet112 → 28).
-    """
-    return int(interface_name.replace("Ethernet", "")) // 4
-
-
-def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected):
-    """
-    Return two lists of unique PTF port indices:
+    Return two sorted lists of unique PTF port indices:
     - expected_ptf_ports: ports belonging to vnet_expected
     - unexpected_ptf_ports: ports belonging to vnet_unexpected
     """
     portchannel_interfaces = cfg_facts.get("PORTCHANNEL_INTERFACE", {})
     portchannel_members = cfg_facts.get("PORTCHANNEL_MEMBER", {})
+    ptf_index_map = mg_facts.get("minigraph_port_indices", {})
 
     expected_portchannels = set()
     unexpected_portchannels = set()
 
     # Identify portchannels per vnet
-    for pc, attrs in portchannel_interfaces.items():
-        if "|" in pc:
-            continue  # skip sub-entries with IPs
-        vnet_name = attrs.get("vnet_name")
+    for key, value in portchannel_interfaces.items():
+        if "|" in key:
+            continue  # Skip sub-entries with IPs
+        vnet_name = value.get("vnet_name")
         if vnet_name == vnet_expected:
-            expected_portchannels.add(pc)
+            expected_portchannels.add(key)
         elif vnet_name == vnet_unexpected:
-            unexpected_portchannels.add(pc)
+            unexpected_portchannels.add(key)
 
+    # Map portchannels to their member interfaces
     def collect_ptf_ports(portchannels):
         ptf_ports = set()
         for key in portchannel_members:
             try:
                 pc, iface = key.split("|")
             except ValueError:
-                # Malformed key (should be pc|member)
                 continue
             if pc in portchannels:
-                ptf_ports.add(get_ptf_port_index(iface))
+                if iface not in ptf_index_map:
+                    logger.warning("Interface %s not found in minigraph_port_indices; skipping", iface)
+                    continue
+                ptf_ports.add(ptf_index_map[iface])
         return sorted(ptf_ports)
 
     expected_ptf_ports = collect_ptf_ports(expected_portchannels)
@@ -558,7 +555,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         pytest.fail("Vnet testing setup failed: {}".format(repr(e)))
 
 
-def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts):
+def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts, mg_facts):
     '''
     Verify that the traffic to the peer in Vnet1 is forwarded correctly.
     Send a UDP packet to with the destination as one of the routes learned via bgp in Vnet1
@@ -584,7 +581,7 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
         # Discover the destination IP from the live FIB so the test is not
         # tied to a topology-specific hardcoded address.
         dst_ip = _get_vnet1_bgp_dst_ip(duthost)
-        expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, "Vnet1", "Vnet2")
+        expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, mg_facts, "Vnet1", "Vnet2")
         assert expected_ports, \
             "No PTF ports found for Vnet1; check PORTCHANNEL_INTERFACE vnet_name in cfg_facts"
         assert unexpected_ports, \
@@ -607,6 +604,7 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
         expected_pkt.set_do_not_care_scapy(IP, "ttl")
         expected_pkt.set_do_not_care_scapy(IP, "chksum")
 
+        ptfadapter.dataplane.flush()
         logger.info(f"Sending UDP packet on port {send_port}")
         testutils.send(ptfadapter, send_port, inner_pkt)
 
