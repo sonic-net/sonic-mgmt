@@ -1,1 +1,0 @@
-# Advanced DOM test package
