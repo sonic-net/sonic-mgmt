@@ -290,7 +290,7 @@ def gold_fw_verified(duthost, port_attributes_dict):
     """Gate: every CMIS active-optical transceiver runs its gold firmware.
 
     A port is in scope iff its ``EEPROM_ATTRIBUTES.cmis_active_optical`` is
-    True; for those ports ``CDB_FW_UPGRADE_ATTRIBUTES.gold_firmware_version``
+    True; for those ports ``CDB_FIRMWARE_UPGRADE_ATTRIBUTES.gold_firmware_version``
     MUST be configured AND must match the active firmware reported by the CLI.
     Other ports are out of scope (no expectation to compare against).
 
