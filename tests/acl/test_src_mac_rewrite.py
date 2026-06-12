@@ -87,9 +87,9 @@ def _check_acl_counter_updated(dut, tbl, rule, prev):
     return False
 
 
-def _check_vnet_route(duthost):
+def _check_vnet_route(duthost, vnet="Vnet-0", prefix="150.0.3.1/32"):
     result = duthost.shell(
-        "redis-cli -n 6 HGET 'VNET_ROUTE_TUNNEL_TABLE|Vnet-0|150.0.3.1/32' 'state'",
+        "redis-cli -n 6 HGET 'VNET_ROUTE_TUNNEL_TABLE|{}|{}' 'state'".format(vnet, prefix),
         module_ignore_errors=True
     )["stdout"]
     return result.strip().lower() == "active"
@@ -437,7 +437,9 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     logger.info("Creating VXLAN tunnel:\n%s", json.dumps(tunnel_config, indent=4))
     apply_config_chunk(duthost, tunnel_config, "vxlan_tunnel")
 
-    time.sleep(5)  # Wait for tunnel creation
+    # Wait for VXLAN tunnel to appear in CONFIG_DB before ecmp_utils consumes it
+    pytest_assert(wait_until(30, 2, 2, _check_vxlan_tunnel_config, duthost, tunnel_name),
+                  f"VXLAN tunnel {tunnel_name} not found in CONFIG_DB after apply")
 
     def _check_vxlan_tunnel_config(duthost, tunnel_name):
         result = duthost.shell(f'redis-cli -n 0 KEYS "VXLAN_TUNNEL_TABLE:{tunnel_name}"')["stdout"]
@@ -521,8 +523,11 @@ def create_additional_vnets(duthost, tunnel_name):
 
     apply_config_chunk(duthost, combined_config, "additional_vnets")
 
-    logger.info("Waiting for additional VNET configurations to be fully applied...")
-    time.sleep(10)
+    logger.info("Waiting for additional VNET routes to become active in STATE_DB...")
+    pytest_assert(wait_until(60, 5, 5, _check_vnet_route, duthost, "Vnet2-0", "151.0.3.1/32"),
+                  "VNET route for Vnet2-0|151.0.3.1/32 is not active in STATE_DB")
+    pytest_assert(wait_until(60, 5, 5, _check_vnet_route, duthost, "Vnet3-0", "152.0.3.1/32"),
+                  "VNET route for Vnet3-0|152.0.3.1/32 is not active in STATE_DB")
 
     logger.info(f"Created additional VNETs: Vnet2-0 (VNI {VXLAN_VNI_2}), Vnet3-0 (VNI {VXLAN_VNI_3})")
 
@@ -868,7 +873,6 @@ def test_partial_match(setUp):
 
     try:
         create_additional_vnets(duthost=duthost, tunnel_name=setUp['vxlan_tunnel_name'])
-        time.sleep(10)
 
         setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
         setup_acl_table(duthost, bind_ports)
