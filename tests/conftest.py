@@ -2474,18 +2474,27 @@ def generate_skeleton_port_info(request):
     matrix = {}
     for index, linecard in enumerate(dut_info):
         interface_to_asic = {}
-        for asic in dut_info[linecard]["asic_to_interface"]:
-            for interface in dut_info[linecard]["asic_to_interface"][asic]:
+        for asic in dut_info[linecard].get("asic_to_interface", {}):
+            for interface in dut_info[linecard].get("asic_to_interface", {})[asic]:
                 interface_to_asic[interface] = asic
 
-        available_interfaces[linecard] = [dut_info[linecard]['intf_status'][interface]
-                                          for interface in dut_info[linecard]['intf_status']
-                                          if dut_info[linecard]['intf_status'][interface]["admin_state"] == "up"]
+        asic_to_interface = dut_info[linecard].get("asic_to_interface", {})
+        intf_status = dut_info[linecard].get('intf_status', {})
+
+        available_interfaces[linecard] = [intf_status[interface]
+                                          for interface in intf_status
+                                          if intf_status[interface].get("admin_state") == "up"]
 
         for interface in available_interfaces[linecard]:
-            for key, value in dut_info[linecard]["asic_to_interface"].items():
-                if interface['name'] in value:
-                    interface['asic'] = key
+            if asic_to_interface:
+                for key, value in asic_to_interface.items():
+                    if interface['name'] in value:
+                        interface['asic'] = key
+                        break
+
+            # Fall back to a default asic when legacy metadata lacks asic_to_interface.
+            if 'asic' not in interface:
+                interface['asic'] = 'asic0'
 
         for interface in available_interfaces[linecard]:
             speed = float(re.match(r"([\d.]+)", interface['speed']).group(0))
