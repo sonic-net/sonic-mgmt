@@ -40,6 +40,9 @@ pytestmark = [
 
 logger = logging.getLogger(__file__)
 
+MUX_STATUS_CHECK_INTERVAL = 10
+MUX_STATUS_CHECK_TIMEOUT = 120
+
 
 @pytest.fixture(params=['ipv4', 'ipv6'])
 def ip_version(request):
@@ -125,6 +128,40 @@ def startup_bgp_session(dut, bgp_to_up):
     if bgp_to_up:
         logger.info("Bring back bgp session with {}".format(bgp_to_up))
         dut.shell("config bgp startup neighbor {}".format(bgp_to_up))
+
+
+def check_mux_status(duthost, state):
+    """
+    Check if all interfaces are in expected state in mux status output
+    """
+    result = duthost.shell("python3 /usr/local/bin/dualtor_neighbor_check.py", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return False
+    output = result["stdout_lines"]
+    if len(output) <= 2:
+        logger.info(f"dualtor_neighbor_check output too short: {output}")
+        return False
+
+    headers = output[0].split()
+    try:
+        state_idx = headers.index("State")
+        type_idx = headers.index("Type")
+    except (IndexError, ValueError) as e:
+        logger.warning(f"Failed to find column headers in dualtor_neighbor_check output: {headers}, error: {e}")
+        return False
+
+    for intf_state in output[2:]:
+        intf = intf_state.split()
+        if len(intf) <= max(state_idx, type_idx):
+            logger.warning(f"Interface state line too short: {intf}")
+            return False
+        if intf[state_idx] == state and intf[type_idx] == "consistent":
+            continue
+        state_str = intf[state_idx] if state_idx < len(intf) else "N/A"
+        type_str = intf[type_idx] if type_idx < len(intf) else "N/A"
+        logger.info(f"Neighbor check failed for line: {intf_state} (state={state_str}, type={type_str})")
+        return False
+    return True
 
 
 @pytest.fixture
@@ -362,7 +399,10 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Step 1.1: Add route to a nexthop which is a standby Neighbor")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[target_server])
-    time.sleep(30)
+    pt_assert(
+        wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
+                   lambda: check_mux_status(rand_selected_dut, "standby")),
+        "Mux status did not reach 'standby' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
@@ -371,7 +411,10 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 2: Verify Active Forwarding")
     logger.info("Step 2.1: Simulate Mux state change to active")
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
+    pt_assert(
+        wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
+                   lambda: check_mux_status(rand_selected_dut, "active")),
+        "Mux status did not reach 'active' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
     logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=True,
                                       expect_tunnel_traffic=False)
@@ -379,9 +422,12 @@ def test_downstream_standby_mux_toggle_active(
     logger.info("Stage 3: Verify Standby Forwarding Again")
     logger.info("Step 3.1: Simulate Mux state change to standby")
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
-    time.sleep(30)
-    logger.info("Step 3.2: Verify traffic to this route dst \
-                is now redirected back to Active ToR and equally distributed")
+    pt_assert(
+        wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
+                   lambda: check_mux_status(rand_selected_dut, "standby")),
+        "Mux status did not reach 'standby' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
+    logger.info("Step 3.2: Verify traffic to this route dst "
+                "is now redirected back to Active ToR and equally distributed")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=False,
                                       expect_tunnel_traffic=True)
     check_tunnel_balance(**test_params)
