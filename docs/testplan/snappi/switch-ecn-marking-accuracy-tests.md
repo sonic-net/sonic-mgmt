@@ -69,7 +69,13 @@ The test needs to support the following parameters:
 
 To control the port egress precisely, this test needs to call the SAI APIs directly on the switch. To achieve this, the test replaces the `syncd` container with the `syncd-rpc` container during the test setup phase, which runs the SAI thrift server. The test then uses the py-thrift bindings (`sai_thrift`) to call the SAI APIs from the test host.
 
-After the test is done, the test restores the original `syncd` container, no matter whether the test passes or fails.
+Replacing `syncd` is a risky operation: if the test crashes in the middle (e.g. network disconnection, python exception or test run timeout) and `syncd-rpc` is left running, all subsequent tests will run on the wrong `syncd`. To avoid leaving the testbed in a bad state, the test follows the rules below:
+
+- The `syncd` replacement and restore is implemented as a pytest fixture, with the restore placed in the fixture cleanup path (try/finally), so the original `syncd` container is restored no matter whether the test passes, fails or crashes in the middle.
+- Before running any test traffic, the test runs a preflight check to verify that the `syncd-rpc` container can be started, the SAI thrift server is reachable, and the restore path works.
+- If the restore fails, the testbed is in an unknown state and manual recovery is required. In this case, the test must fail loudly with a clear error message, instead of letting the subsequent tests run on the wrong `syncd`.
+
+> NOTE: As an alternative, blocking the egress with regular SAI config without replacing `syncd`, such as setting the scheduler weight of the queue to 0, is worth investigating. If it works reliably across platforms, it can remove the `syncd` replacement risk completely.
 
 #### 4.1.2. Port allocation
 
