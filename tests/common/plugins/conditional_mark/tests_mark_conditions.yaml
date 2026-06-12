@@ -3411,6 +3411,12 @@ high_frequency_telemetry:
       - "'t2' in topo_type"
       - "topo_type in ['lrh', 'urh']"
 
+high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_config_deletion_stream:
+  skip:
+    reason: "Skip due to https://github.com/sonic-net/sonic-mgmt/issues/24907 on sn6600_ld platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/24907 and platform in ['x86_64-nvidia_sn6600_ld-r0']"
+
 high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
   skip:
     reason: "In SN5640 platform, it doesn't support multiple types in one session. In 7060X6 platform, it hasn't supported any HFT tests yet."
