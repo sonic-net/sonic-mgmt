@@ -10,6 +10,7 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
+from tests.cisco.common.utils import CheckEnvironment
 from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -33,6 +34,10 @@ CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 600
+
+# Host rsyslog redirects stp container messages (including supervisor-proc-exit-listener
+# alerts) to /var/log/stpd.log; see files/image_config/rsyslog/rsyslog.d/00-sonic.conf.j2.
+STP_LOG_FILE = '/var/log/stpd.log'
 
 # Critical processes that are listed in the image's per-container critical_processes
 # file but are not actually runnable on BMC topology (BMC image runs a reduced set
@@ -494,7 +499,7 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
-    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+    if critical_process in ["dhcp4relay", "dhcp6relay", "dhcprelayd"]:
         # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
         critical_process = "dhcp-relay" + ":" + critical_process
 
@@ -572,6 +577,13 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
         skip_containers.append("gnmi")
     skip_containers = skip_containers + skip_vendor_specific_container
     return skip_containers
+
+def get_loganalyzer_additional_files(containers_in_namespaces):
+    """Return extra log files LogAnalyzer must scan besides /var/log/syslog."""
+    additional_files = {}
+    if "stp" in containers_in_namespaces:
+        additional_files[STP_LOG_FILE] = ''
+    return additional_files
 
 
 @pytest.fixture(scope='function')
@@ -696,12 +708,17 @@ def test_monitoring_critical_processes(
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
-    loganalyzer.expect_regex = []
-
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    additional_log_files = get_loganalyzer_additional_files(containers_in_namespaces)
+
+    loganalyzer = LogAnalyzer(
+        ansible_host=duthost,
+        marker_prefix="monitoring_critical_processes",
+        additional_files=additional_log_files)
+    loganalyzer.expect_regex = []
 
     if "20191130" in duthost.os_version:
         expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
@@ -716,16 +733,17 @@ def test_monitoring_critical_processes(
 
     wait_time = 70
     # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
-    if duthost.facts['platform'] == KVM_PLATFORM:
+    if duthost.facts['platform'] == KVM_PLATFORM or CheckEnvironment.is_sim(duthost):
         wait_time = 90
 
     # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
     logger.info("Sleep {} seconds to wait for the alerting messages in syslog...".format(wait_time))
     time.sleep(wait_time)
 
-    logger.info("Checking the alerting messages from syslog...")
+    extra_logs = " and {}".format(",".join(additional_log_files)) if additional_log_files else ""
+    logger.info("Checking the alerting messages from syslog{}...".format(extra_logs))
     loganalyzer.analyze(marker)
-    logger.info("Found all the expected alerting messages from syslog!")
+    logger.info("Found all the expected alerting messages!")
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
