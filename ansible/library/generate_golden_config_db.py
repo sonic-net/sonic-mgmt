@@ -717,6 +717,13 @@ class GenerateGoldenConfigDBModule(object):
                 ori_config_db["DPUS"][dpu_key] = {}
             ori_config_db["DPUS"][dpu_key]["midplane_interface"] = dpu_key
 
+            if "DPU" not in ori_config_db:
+                ori_config_db["DPU"] = {}
+            if self.topo_name != "t1-smartswitch-ha":
+                if dpu_key not in ori_config_db["DPU"]:
+                    ori_config_db["DPU"][dpu_key] = {}
+                ori_config_db["DPU"][dpu_key]["gnmi_port"] = "50052"
+
             key = "bridge-midplane|dpu{}".format(i)
             if key not in ori_config_db["DHCP_SERVER_IPV4_PORT"]:
                 ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
@@ -752,26 +759,28 @@ class GenerateGoldenConfigDBModule(object):
             "VLAN_MEMBER": copy.deepcopy(ori_config_db["VLAN_MEMBER"]),
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
+            "DPU": copy.deepcopy(ori_config_db["DPU"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
         gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
-        if self.topo_name == "t1-smartswitch-ha":
-            gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
-            gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
-            ha_config = self._generate_ha_config(dpu_num, enabled_dpu_set)
-            # Merge FEATURE dict so we don't overwrite existing features
-            if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
-                gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
-            gold_config_db.update(ha_config)
 
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
             self.module.fail_json(msg="Failed to get smartswitch config: {}".format(err))
         smartswitch_config_obj = json.loads(out)
         gold_config_db.update(smartswitch_config_obj)
+
+        if self.topo_name == "t1-smartswitch-ha":
+            gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
+            gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
+            ha_config = self._generate_ha_config(dpu_num, enabled_dpu_set)
+            for key in list(ha_config.keys() & gold_config_db.keys()):
+                gold_config_db[key].update(ha_config.pop(key))
+            gold_config_db.update(ha_config)
+
         return json.dumps(gold_config_db, indent=4)
 
     def _generate_ha_config(self, dpu_num, enabled_dpu_set):
@@ -793,12 +802,6 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
         """
         switch_id = self.npu_index
-        if not self.duts_list or len(self.duts_list) != 2:
-            logger.warning(
-                "HA config generation skipped: duts_list must have "
-                "exactly 2 entries, got %d",
-                len(self.duts_list) if self.duts_list else 0)
-            return {}
 
         if switch_id not in (0, 1):
             logger.warning(
