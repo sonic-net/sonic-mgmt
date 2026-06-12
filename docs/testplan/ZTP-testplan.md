@@ -66,7 +66,7 @@ ZTP - Zero Touch Provisioning
 # Revision
 | Rev |     Date    |                Author                | Change Description |
 |:---:|:-----------:|:------------------------------------:|--------------------|
-| 0.1 | 12/06/2026  | Saifuddin Beighlary                  | Initial version    |
+| 0.1 | 12/06/2026  | Saifullah Beigh                 | Initial version    |
 
 # About this Manual
 This document describes the approach taken to add automated Zero Touch Provisioning (ZTP) validation to the sonic-mgmt test suite. The suite lives under `tests/ztp/` and consists of two files: `test_ztp.py` (test logic) and `conftest.py` (shared fixtures). It contains 36 test cases (TC1-TC36) and is restricted to single-DUT t0 topologies via the module-level marker `pytest.mark.topology("t0")`.
