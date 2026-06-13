@@ -1,11 +1,130 @@
+import logging
 import time
 import re
+import threading
+from contextlib import contextmanager
 from .base_console_conn import CONSOLE_SSH_DIGI_CONFIG, BaseConsoleConn, CONSOLE_SSH
 try:
     from netmiko.ssh_exception import NetMikoAuthenticationException
 except ImportError:
     from netmiko.exceptions import NetMikoAuthenticationException
 from paramiko.ssh_exception import SSHException
+
+
+logger = logging.getLogger(__name__)
+
+# Serialize the temporary global Transport._preferred_kex mutation so concurrent
+# non-console SSH sessions in the same process are not exposed to the legacy
+# preference list while a console connection is being established.
+_CONSOLE_KEX_OVERRIDE_LOCK = threading.Lock()
+
+# Console SSH legacy KEX configuration. Populated by pytest_configure via
+# configure_console_ssh_legacy_kex() based on --use-console-ssh-legacy-kex
+# and --console-ssh-kex-algos. Default state is "disabled".
+_LEGACY_KEX_DEFAULTS = (
+    "diffie-hellman-group14-sha1",
+    "diffie-hellman-group1-sha1",
+)
+_legacy_kex_enabled = False
+_legacy_kex_algos = ()
+
+
+def configure_console_ssh_legacy_kex(enabled, algos=None):
+    """
+    Configure the legacy KEX override applied to console SSH connections.
+
+    Intended to be called once from pytest_configure with values from the
+    --use-console-ssh-legacy-kex and --console-ssh-kex-algos CLI options.
+
+    Args:
+        enabled: Bool. When False (default) no KEX override is applied.
+        algos: Optional iterable or comma-separated string of KEX algorithm
+            names. When None/empty, a built-in legacy default list is used.
+    """
+    global _legacy_kex_enabled, _legacy_kex_algos
+    _legacy_kex_enabled = bool(enabled)
+
+    parsed = ()
+    if algos:
+        if isinstance(algos, str):
+            parsed = tuple(a.strip() for a in algos.split(",") if a.strip())
+        else:
+            parsed = tuple(s for s in (str(a).strip() for a in algos) if s)
+    _legacy_kex_algos = parsed
+
+
+def get_console_ssh_legacy_kex_status():
+    """Return (enabled, effective_algos_tuple) snapshot for diagnostics/logging."""
+    override = _get_console_kex_override()
+    return _legacy_kex_enabled, tuple(override) if override else ()
+
+
+def _get_console_kex_override():
+    """
+    Build an optional KEX preference override for Paramiko console SSH sessions.
+
+    Disabled by default. Enabled via --use-console-ssh-legacy-kex (with
+    optional --console-ssh-kex-algos="algo1,algo2,..."), wired in by
+    pytest_configure -> configure_console_ssh_legacy_kex().
+    """
+    if not _legacy_kex_enabled:
+        return None
+    if _legacy_kex_algos:
+        return _legacy_kex_algos
+    return _LEGACY_KEX_DEFAULTS
+
+
+@contextmanager
+def _console_kex_override():
+    """
+    Temporarily prepend the configured legacy KEX algorithms to
+    paramiko.Transport._preferred_kex for the duration of the with-block,
+    then restore the original value.
+
+    Paramiko does not expose a per-connection KEX preference hook on
+    SSHClient, so we mutate the class attribute. The mutation is scoped to
+    this context manager (covering only the netmiko/paramiko connect call
+    for a single console session) and serialized via a module-level lock to
+    prevent multiple console connection attempts from interleaving overrides.
+    Note: other Paramiko sessions created in other threads during this
+    window may still observe the overridden list.
+    """
+    kex_override = _get_console_kex_override()
+    if not kex_override:
+        yield
+        return
+
+    try:
+        from paramiko.transport import Transport
+    except Exception as e:
+        logger.warning("Failed to import paramiko Transport for KEX override: %s", e)
+        yield
+        return
+
+    _CONSOLE_KEX_OVERRIDE_LOCK.acquire()
+    # Use __dict__ to distinguish a class-level override we previously set
+    # from the default class attribute, so restoration is exact.
+    had_attr = "_preferred_kex" in Transport.__dict__
+    original = Transport.__dict__.get("_preferred_kex")
+    try:
+        current = tuple(getattr(Transport, "_preferred_kex", ()))
+        # Preserve current order but move requested KEX algos to the front.
+        merged = tuple(dict.fromkeys(kex_override + current))
+        Transport._preferred_kex = merged
+        logger.info("Console SSH legacy/custom KEX override enabled (scoped): %s", merged)
+        yield
+    finally:
+        try:
+            if had_attr:
+                Transport._preferred_kex = original
+            else:
+                # Should not normally happen (Transport defines it), but be safe.
+                try:
+                    del Transport._preferred_kex
+                except AttributeError:
+                    pass
+        finally:
+            _CONSOLE_KEX_OVERRIDE_LOCK.release()
 
 
 class SSHConsoleConn(BaseConsoleConn):
@@ -35,7 +154,12 @@ class SSHConsoleConn(BaseConsoleConn):
         kwargs['password'] = kwargs['console_password']
         kwargs['host'] = kwargs['console_host']
         kwargs['device_type'] = "_ssh"
-        super(SSHConsoleConn, self).__init__(**kwargs)
+
+        # Optional, opt-in compatibility path for legacy console servers.
+        # Scope the global Transport._preferred_kex mutation to only the
+        # connection establishment of this console session.
+        with _console_kex_override():
+            super(SSHConsoleConn, self).__init__(**kwargs)
 
     def session_preparation(self):
         session_init_msg = self._test_channel_read()
