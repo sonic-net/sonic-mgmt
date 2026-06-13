@@ -1193,6 +1193,18 @@ dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_o
     conditions:
       - "True"
 
+dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_different_non_default_vrf:
+  xfail:
+    reason: "xfail due to community issue: https://github.com/sonic-net/sonic-buildimage/issues/27608"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27608"
+
+dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_with_non_default_vrf:
+  xfail:
+    reason: "xfail due to community issue: https://github.com/sonic-net/sonic-buildimage/issues/27608"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27608"
+
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
