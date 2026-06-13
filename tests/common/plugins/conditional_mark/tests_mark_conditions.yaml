@@ -1140,6 +1140,10 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enab
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
+  xfail:
+    reason: "xfail due to GitHub issues: https://github.com/sonic-net/sonic-buildimage/issues/27586"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27586"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enabled[sonic-relay-agent]:
   skip:
@@ -1152,6 +1156,10 @@ dhcp_relay/test_dhcp_relay.py::test_interface_binding:
     reason: "Skip test_interface_binding in old release version"
     conditions:
       - "release in ['201811', '201911', '202106']"
+  xfail:
+    reason: "xfail due to GitHub issues: https://github.com/sonic-net/sonic-buildimage/issues/27586"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27586"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
@@ -1222,6 +1230,10 @@ dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
     reason: "Skip test_dhcp_relay_default in old release version"
     conditions:
       - "release in ['201811', '201911', '202106']"
+  xfail:
+    reason: "xfail due to GitHub issues: https://github.com/sonic-net/sonic-buildimage/issues/27586"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27586"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down:
   skip:
