@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 'bmc-shared-mgmt', 'bmc-dual-mgmt')
 ]
 
 
@@ -518,8 +518,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
-            if k == "dhcp_server":
+            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
+            if k in ("dhcp_server", "redfish"):
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
