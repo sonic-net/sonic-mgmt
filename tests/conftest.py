@@ -725,6 +725,54 @@ def pytest_sessionfinish(session, exitstatus):
             logger.error(f"Failed to restore topo file: {e}")
 
 
+@pytest.hookimpl(trylast=True)
+def pytest_exception_interact(node, call, report):
+    """Detect host unreachable errors in any fixture/test and flag for testbed removal.
+
+    When a DUT or PTF host is unreachable, the exception may occur in any
+    fixture (not just duthosts or add_mgmt_test_mark). Without this hook,
+    such failures produce exit code 1, which ElasticTest does not treat as
+    a reason to remove the testbed. This hook catches the 'unreachable'
+    pattern globally and sets duthosts_fixture_failed so
+    pytest_sessionfinish sets exit code 15 (HOST_FIXTURE_FAILED_RC).
+    """
+    if call.excinfo is None:
+        return
+
+    exc = call.excinfo.value
+    exc_str = str(exc).lower()
+
+    # Only catch actual host unreachable - not auth failures, timeouts, etc.
+    if "unreachable" not in exc_str:
+        return
+
+    # Already flagged by another handler (e.g. add_mgmt_test_mark)
+    if node.config.cache.get("duthosts_fixture_failed", None):
+        return
+
+    # Extract which host(s) are unreachable from the dark attribute
+    unreachable_hosts = []
+    if hasattr(exc, "dark") and exc.dark:
+        unreachable_hosts = list(exc.dark.keys())
+
+    if unreachable_hosts:
+        logger.error(
+            "Host(s) unreachable detected in %s phase of %s: %s",
+            call.when,
+            getattr(node, "name", "unknown"),
+            ", ".join(unreachable_hosts),
+        )
+    else:
+        logger.error(
+            "Host unreachable detected in %s phase of %s: %s",
+            call.when,
+            getattr(node, "name", "unknown"),
+            repr(exc),
+        )
+
+    node.config.cache.set("duthosts_fixture_failed", True)
+
+
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
     """
