@@ -38,6 +38,14 @@
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
+    ignore_errors: yes
+
+  - name: Set default duts port maps when get_dut_port failed
+    set_fact:
+      duts_fp_ports: "{{ duts_fp_ports | default({}) }}"
+      duts_midplane_ports: "{{ duts_midplane_ports | default({}) }}"
+      duts_inband_ports: "{{ duts_inband_ports | default({}) }}"
+      duts_mgmt_port: "{{ duts_mgmt_port | default([]) }}"
 
   - name: Set default empty port lists for portless topo
     set_fact:
@@ -66,6 +74,7 @@
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
     become: yes
+    ignore_errors: yes
     when: not enable_async and "bmc" not in topo
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
@@ -95,6 +104,7 @@
     poll: 0
     throttle: 50
     register: async_unbind_vm
+    ignore_errors: yes
     when: enable_async and "bmc" not in topo
 
   - name: Wait for unbind tasks to complete
@@ -183,6 +193,14 @@
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
+    ignore_errors: yes
+
+  - name: Set default duts port maps when get_dut_port failed (IxANVL)
+    set_fact:
+      duts_fp_ports: "{{ duts_fp_ports | default({}) }}"
+      duts_midplane_ports: "{{ duts_midplane_ports | default({}) }}"
+      duts_inband_ports: "{{ duts_inband_ports | default({}) }}"
+      duts_mgmt_port: "{{ duts_mgmt_port | default([]) }}"
 
   - name: Unbind topology {{ topo }} for Keysight IxANVL.
     vm_topology:
@@ -197,6 +215,7 @@
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
     become: yes
+    ignore_errors: yes
 
   - name: Remove duts ports
     include_tasks: remove_dut_port.yml
