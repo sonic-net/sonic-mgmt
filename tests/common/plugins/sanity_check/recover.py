@@ -92,6 +92,25 @@ def _recover_services(dut, result):
     return 'reboot' if 'database' in services else 'config_reload'
 
 
+def _recover_monit(dut, wait_time):
+    """Lightweight recovery for monit-only sanity failures.
+    This helper reloads Monit's config and forces a fresh poll of every
+    supervised entity. The framework's post-recover sanity check then
+    re-evaluates and will escalate further if the failure is persistent.
+    """
+    effective_wait = max(wait_time, 60)
+    logging.warning("Restoring monit on {} (wait {}s for one poll cycle)"
+                    .format(dut.hostname, effective_wait))
+    dut.shell(
+        "sudo monit reload; sleep 5; sudo monit restart all",
+        module_ignore_errors=True,
+    )
+    wait(
+        effective_wait,
+        msg="Wait {} seconds for monit to re-poll all services after restart.".format(effective_wait),
+    )
+
+
 @reset_ansible_local_tmp
 def _neighbor_vm_recover_bgpd(node=None, results=None):
     """Function for restoring BGP on neighbor VMs using the parallel_run tool.
@@ -232,6 +251,15 @@ def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, che
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
             elif result['check_item'] in ['processes', 'mux_simulator']:
                 action = 'config_reload'
+            elif result['check_item'] == 'monit' and 'services_status' in result:
+                _recover_monit(dut, wait_time)
+                action = 'monit_restart'
+                logging.warning(
+                    "Restoring {} with proposed action: {}, performed inline "
+                    "(does not change outstanding_action: {})"
+                    .format(result, action, outstanding_action)
+                )
+                continue
             else:
                 action = 'reboot'
 
