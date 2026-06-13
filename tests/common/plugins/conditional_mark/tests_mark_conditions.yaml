@@ -655,10 +655,6 @@ bgp/test_bgpmon.py::test_bgpmon:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
-bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
-  skip:
-    reason: "Not applicable for passive bgpmon_v6"
-
 bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
   skip:
     reason: "Not supported on T2 single node topology"
