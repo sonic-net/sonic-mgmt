@@ -168,6 +168,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
     }
     """
     get_autoneg_fec(duthosts, get_snappi_ports)
+
     for duthost in duthosts:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         bgp_neighbors = config_facts['BGP_NEIGHBOR']
@@ -734,6 +735,48 @@ def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
         wait_for(lambda: is_traffic_running(snappi_api), "Traffic to Start", interval_seconds=5, timeout_seconds=180)
     else:
         wait(waittime, f"For {op_type} To {operation}")
+
+
+def boundary_check(snappi_api, snappi_config, frame_bytes, line_rate, rfc2889_enabled):
+    """Run one traffic iteration and return per-flow stats plus a no_loss verdict.
+
+    Returns a dict with the test_results columns and an extra `no_loss` boolean key.
+    Callers can append the dict to a DataFrame for reporting and key off `no_loss`
+    to drive a binary search.
+    """
+    logger.info(f"Framesize: {frame_bytes} and percentLineRate: {line_rate}")
+
+    # Ixia-specific: kick off stateless traffic via RestPy because SNAPPI's
+    # control_state path does not block until traffic is fully started.
+    ixnet = getattr(snappi_api, "_ixnetwork", None)
+    if ixnet is None:
+        pytest_assert(False, "boundary_check requires an Ixia/IxNetwork backend (snappi_api._ixnetwork)")
+    # ixnet.Traffic.StartStatelessTrafficBlocking()
+    wait_with_message("Running traffic for", 30)
+    # start_stop(snappi_api, operation="stop", op_type="traffic")
+    df = get_stats(snappi_api, "Traffic Item Statistics", columns=None, return_type="df")
+
+    df = df[["name", "frames_tx", "frames_rx", "loss"]]
+    df[["loss"]] = pd.to_numeric(df["loss"], errors="coerce")
+
+    df["Status"] = (df["loss"] == 0).map({True: "PASS", False: "FAIL"})
+    logger.info(
+        f"Dumping Frame Size/Rate: {frame_bytes}/{line_rate} RFC2889 Enabled: {rfc2889_enabled} Traffic Item Stats: \n"
+        f"{tabulate(df, headers='keys', tablefmt='psql', showindex=False)}"
+    )
+    loss = df["loss"].max()
+
+    return {
+        "Frame Ordering": rfc2889_enabled,
+        "Frame Size": frame_bytes,
+        "Line Rate (%)": line_rate,
+        "Tx Frames": df["frames_tx"].sum(),
+        "Rx Frames": df["frames_rx"].sum(),
+        "Loss %": loss,
+        "Status": df["Status"].iloc[0],
+        "Duration (s)": 30,
+        "no_loss": loss == 0,
+    }
 
 
 def check_bgp_state(snappi_api, subnet_type):
