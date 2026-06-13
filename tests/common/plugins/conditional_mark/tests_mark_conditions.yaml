@@ -3415,6 +3415,12 @@ high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counter
   skip:
     reason: "In SN5640 platform, it doesn't support multiple types in one session. In 7060X6 platform, it hasn't supported any HFT tests yet."
 
+high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_queue_counters:
+  xfail:
+    reason: "xfail due to github issue https://github.com/sonic-net/sonic-buildimage/issues/27372"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27372 and asic_type in ['mellanox', 'nvidia']"
+
 #######################################
 #####          http              #####
 #######################################
