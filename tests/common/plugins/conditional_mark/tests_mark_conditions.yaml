@@ -4417,6 +4417,12 @@ qos/test_qos_probe.py:
       # Mellanox SPC3 (Spectrum 3)
       - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
 
+qos/test_qos_probe.py::TestQosProbe::testQosHeadroomPoolProbe:
+  xfail:
+    reason: "HeadroomPool probe fails on Mellanox SPC1 and SPC3 starting at iteration #2: all packets sent to pg=4 (immediately after a successful pg=3 probe on the same src port) are ingress-dropped, so the probe algorithm cannot find a PFC threshold for pg=4. Tracked by #24558 (SPC1+SPC3) and #24215 (SPC1)."
+    conditions:
+      - "asic_gen in ['spc1', 'spc3'] and https://github.com/sonic-net/sonic-mgmt/issues/24558"
+
 qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo / M* topo does not support qos and It is skipped for '202412' for now"
