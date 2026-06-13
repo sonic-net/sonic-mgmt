@@ -14,9 +14,17 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
+
+try:
+    from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_user,\
+        ixia_api_serv_passwd, ixia_api_serv_port, ixia_api_serv_session_id, ixia_api_server_session  # noqa: F401
+    from tests.common.ixia.ixia_helpers import clean_configuration
+except (ImportError, Exception):
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +39,13 @@ pytestmark = [
 
 FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
+
+
+def _is_ixia_testbed(request, tbinfo):
+    """Check if the current testbed is an Ixia/tgen testbed."""
+    return "tgen" in (request.config.getoption("--topology") or "") \
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"] \
+        or "nut" in tbinfo["topo"]["name"]
 
 
 def test_features_state(duthosts, localhost):
@@ -221,11 +236,7 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     """
     Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
     """
-    is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
-        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"] \
-        or "nut" in tbinfo["topo"]["name"]
-
-    pytest_require(is_ixia_testbed,
+    pytest_require(_is_ixia_testbed(request, tbinfo),
                    "Skip snappi metadata generation for non-tgen testbed")
 
     metadata = {}
@@ -254,6 +265,112 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
             json.dump(info, yf, indent=4)
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
+def test_reset_ixia_port(tbinfo, request, conn_graph_facts, fanout_graph_facts,  # noqa: F401
+                         duthosts, ixia_api_server_session):  # noqa: F401
+    """Reset Ixia ports for Ixia testbeds to recover from DOD/ownership issues.
+
+    Steps:
+        1. Clear ownership of each port
+        2. Reboot the ports
+        3. Reset ports to factory defaults
+    """
+    pytest_require(_is_ixia_testbed(request, tbinfo),
+                   "Skip Ixia port reset for non-Ixia testbed")
+
+    ixia_session = ixia_api_server_session
+    clean_configuration(ixia_session)
+
+    tgs = tbinfo.get('tgs', [])
+    pytest_require(tgs, "No tgs (traffic generators) defined in testbed")
+
+    ixia_ports = []
+    seen_ports = set()
+    for ixia_fanout in tgs:
+        fanout = fanout_graph_facts.get(ixia_fanout, {})
+        fanout_ip = str(fanout.get('device_info', {}).get('mgmtip', ''))
+        if not fanout_ip:
+            logger.warning("Missing mgmtip in fanout_graph_facts for TGen '%s', skipping", ixia_fanout)
+            continue
+
+        for duthost in duthosts:
+            dut_conn = conn_graph_facts.get('device_conn', {}).get(duthost.hostname, {})
+            for dut_port, details in dut_conn.items():
+                if str(details.get('peerdevice')) != ixia_fanout:
+                    continue
+
+                peerport = str(details.get('peerport', ''))
+                match = re.match(r'^Card(\d+)/Port([\d.]+)$', peerport)
+                if not match:
+                    continue
+
+                card_id, port_id = match.groups()
+                # For sub-ports (e.g., "1.1"), use the parent port ID (e.g., "1")
+                parent_port_id = port_id.split('.')[0]
+                port_key = (fanout_ip, card_id, parent_port_id)
+                if port_key in seen_ports:
+                    continue
+                seen_ports.add(port_key)
+
+                ixia_ports.append({
+                    'ip': fanout_ip,
+                    'card_id': card_id,
+                    'port_id': parent_port_id,
+                })
+
+    pytest_require(ixia_ports, "No Ixia ports found for selected DUT")
+
+    ixnetwork = ixia_session.Ixnetwork
+    chassis_map = {}
+    for port in ixia_ports:
+        if port['ip'] not in chassis_map:
+            chassis_map[port['ip']] = ixnetwork.AvailableHardware.Chassis.add(Hostname=port['ip'])
+
+    for port in ixia_ports:
+        chassis = chassis_map[port['ip']]
+        card = chassis.Card.find(CardId=int(port['card_id']))
+        hw_port = card.Port.find(PortId=int(port['port_id']))
+        port_loc = '{};{};{}'.format(port['ip'], port['card_id'], port['port_id'])
+
+        # Step 1: Clear ownership
+        try:
+            hw_port.ClearOwnership()
+            logger.info('Cleared ownership on %s', port_loc)
+        except Exception as e:
+            logger.warning('ClearOwnership failed on %s: %s', port_loc, e)
+
+    time.sleep(2)
+
+    for port in ixia_ports:
+        chassis = chassis_map[port['ip']]
+        card = chassis.Card.find(CardId=int(port['card_id']))
+        hw_port = card.Port.find(PortId=int(port['port_id']))
+        port_loc = '{};{};{}'.format(port['ip'], port['card_id'], port['port_id'])
+
+        # Step 2: Reboot port
+        try:
+            hw_port.Reboot()
+            logger.info('Rebooted port %s', port_loc)
+        except Exception as e:
+            logger.warning('Reboot failed on %s: %s', port_loc, e)
+
+    time.sleep(5)
+
+    for port in ixia_ports:
+        chassis = chassis_map[port['ip']]
+        card = chassis.Card.find(CardId=int(port['card_id']))
+        hw_port = card.Port.find(PortId=int(port['port_id']))
+        port_loc = '{};{};{}'.format(port['ip'], port['card_id'], port['port_id'])
+
+        # Step 3: Reset to factory defaults
+        try:
+            hw_port.ResetToFactoryDefaults()
+            logger.info('Reset to factory defaults on %s', port_loc)
+        except Exception as e:
+            logger.warning('ResetToFactoryDefaults failed on %s: %s', port_loc, e)
+
+    time.sleep(2)
 
 
 def collect_dut_lossless_prio(dut):
