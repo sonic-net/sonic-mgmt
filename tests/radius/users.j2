@@ -1,0 +1,8 @@
+{{ radius_rw_user }}	Cleartext-Password := {{ radius_rw_user_passwd }}
+			Service-Type = NAS-Prompt-User,
+                        Management-Privilege-Level = 15
+
+
+{{ radius_ro_user }}   Cleartext-Password := {{ radius_ro_user_passwd }}
+                        Service-Type = NAS-Prompt-User,
+                        Management-Privilege-Level = 1
