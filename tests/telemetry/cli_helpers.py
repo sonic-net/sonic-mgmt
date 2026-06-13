@@ -2,6 +2,24 @@ import json
 from tests.common.reboot import reboot
 
 
+def get_simple_path_with_ports(duthost, path, num=1):
+    interfaces = duthost.get_interfaces_status()
+    pattern = re.compile(r'^Ethernet\d+$')
+    up = [name for name, st in interfaces.items()
+          if pattern.match(name) and st.get("oper") == "up" and st.get("admin") == "up"]
+
+    if num <= 0 or not up:
+        return path
+
+    selected = up[:num]
+    key = "interface" if len(selected) == 1 else "interfaces"
+    return f'{path}[{key}=' + ",".join(selected) + ']'
+
+
+def get_simple_path(path):
+    return path
+
+
 def get_json_from_gnmi_output(stdout):
     marker_pos = stdout.find("The GetResponse is below")
     start_pos = stdout.find("{", marker_pos)
