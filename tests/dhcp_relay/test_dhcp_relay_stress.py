@@ -66,7 +66,7 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                    log_file="/tmp/dhcp_relay_stress_test.DHCPContinuousStressTest.log", is_python3=True,
                    async_mode=True)
 
-        restart_dhcp_service(duthost)
+        restart_dhcp_service(duthost, ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc'])
 
         # Wait packets send during and after dhcrelay starting
         time.sleep(10)
