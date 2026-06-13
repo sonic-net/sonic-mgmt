@@ -322,6 +322,10 @@ def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu
 
     duthost = duthosts[rand_one_dut_hostname]
 
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        pytest.skip("Test is only for DPU")
+
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
         wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
@@ -358,6 +362,10 @@ def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_suppor
         pytest.skip("No PSU support, skip the case")
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        pytest.skip("Test is only for DPU")
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
