@@ -10,7 +10,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
+from tests.transceiver.utils.cli_parser_helper import parse_eeprom, parse_presence
 
 logger = logging.getLogger(__name__)
 
@@ -116,28 +116,9 @@ def check_presence_sfputil(duthost, port_attributes_dict):
             "details": f"sfputil command failed: {output.get('stderr', '')}",
         }
 
-    presence_map = _parse_sfputil_presence(output.get("stdout_lines", []))
+    presence_map = parse_presence(output.get("stdout_lines", []))
 
     return _check_presence_common(presence_map, expected_ports, "sfputil")
-
-
-def _parse_sfputil_presence(stdout_lines):
-    """Parse the fixed-width table output of ``sfputil show presence``.
-
-    Returns:
-        dict: {port_name: presence_status}
-    """
-    presence = {}
-    for line in stdout_lines:
-        stripped = line.strip()
-        # Skip header/separator lines
-        if not stripped or stripped.startswith("Port") or stripped.startswith("---"):
-            continue
-        parts = stripped.split()
-        if len(parts) >= 2:
-            # presence value can be multi-word (e.g. "Not present")
-            presence[parts[0]] = " ".join(parts[1:])
-    return presence
 
 
 # ──────────────────────────────────────────────────────────────────────
