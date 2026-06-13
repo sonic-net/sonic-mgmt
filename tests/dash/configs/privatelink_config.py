@@ -15,6 +15,7 @@ VM1_CA = "10.0.0.11"  # VM customer address
 VM_CA_SUBNET = "10.0.0.0/16"
 PE_PA = "101.1.2.3"  # private endpoint physical address
 PE_CA = "10.2.0.100"  # private endpoint customer address
+PE_CA2 = "10.2.0.101"  # private endpoint customer address-2
 PE_CA_SUBNET = "10.2.0.0/16"
 PL_ENCODING_IP = "::d107:64:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
@@ -22,22 +23,28 @@ PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
-PL_REDIRECT_OVERLAY_DIP = "2603:10e1:100:2::0"
-PL_REDIRECT_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
-PL_REDIRECT_BACKEND_PORT_BASE = 42001
-PL_REDIRECT_BACKEND_IP = "60.60.60.1"
 PORT_MAP_1 = "portmap_1"
 PORT_MAP_1_RANGE_START = 8001
 PORT_MAP_1_RANGE_END = 9000
+
+PL_REDIRECT_DSTPORT_START = 50501
+PL_REDIRECT_DSTPORT_END = 50700
+PL_REDIRECT_BACKEND_PORT_BASE = 60501
+PL_REDIRECT_BACKEND_IP = "99.99.99.99"
+PL_REDIRECT_OVERLAY_DIP = "2603:10e1:100:2::"
+PL_REDIRECT_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
 
 APPLIANCE_ID = "100"
 LOCAL_REGION_ID = "100"
 VM_VNI = 2001
 ENCAP_VNI = 100
 NSG_OUTBOUND_VNI = 100
+TRUSTED_VNI_START = 100
+TRUSTED_VNI_END = 511
 VNET1 = "Vnet1"
 VNET2 = "Vnet2"
 VNET1_VNI = "2001"
+VNET2_VNI = "2002"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
 VNET2_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b3"
 PORTMAP_GUID = "600c6ce8-26ab-4193-b946-ccc6e8f93001"
@@ -78,13 +85,23 @@ METERCLASSAND_RESULT = "2560"
 METERCLASSANDOR_RESULT = "3584"
 ENI_METERPOLICY_CLASS = "520"
 
+# Fastpath flowfixup redirected DIP and DMAC
+FASTPATH_FLOW1_REDIRECTED_DIP = "97.97.97.97"
+FASTPATH_FLOW1_REDIRECTED_DIP_HEX = "61616161"
+FASTPATH_FLOW2_REDIRECTED_DIP = "98.98.98.98"
+FASTPATH_FLOW2_REDIRECTED_DIP_HEX = "62626262"
+FASTPATH_FLOW1_REDIRECTED_DMAC = "00:00:61:61:61:61"
+FASTPATH_FLOW2_REDIRECTED_DMAC = "00:00:62:62:62:62"
+FASTPATH_PL_FLOW_TCP_PORT = 50001
+FASTPATH_PLREDIRECT_FLOW_TCP_PORT = 50501
+
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis_list": [ENCAP_VNI, NSG_OUTBOUND_VNI],
+        "trusted_vnis_list": [TRUSTED_VNI_START, TRUSTED_VNI_END]
     }
 }
 
@@ -94,7 +111,7 @@ APPLIANCE_FNIC_CONFIG = {
         "vm_vni": VM_VNI,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis_list": [ENCAP_VNI]
+        "trusted_vnis_list": [TRUSTED_VNI_START, TRUSTED_VNI_END]
     }
 }
 
@@ -107,7 +124,7 @@ VNET_CONFIG = {
 
 VNET2_CONFIG = {
     f"DASH_VNET_TABLE:{VNET2}": {
-        "vni": VM_VNI,
+        "vni": VNET2_VNI,
         "guid": VNET2_GUID
     }
 }
@@ -164,11 +181,13 @@ PE_VNET_MAPPING_CONFIG = {
     }
 }
 
-VM_VNET_MAPPING_CONFIG = {
-    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
-        "routing_type": RoutingType.ROUTING_TYPE_VNET,
-        "underlay_ip": VM1_PA,
-        "mac_address": VM_MAC,
+PE_VNET_MAPPING_WITH_PORTMAP_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "port_map": "portmap_1"
     }
 }
 
@@ -177,6 +196,31 @@ VM_VNET_MAPPING_CONFIG = {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "underlay_ip": VM1_PA,
         "mac_address": VM_MAC,
+    }
+}
+
+FP_RD_PORTMAP_CONFIG = {
+        "DASH_OUTBOUND_PORT_MAP_TABLE:portmap_1": {
+              "guid": f"{PORTMAP_GUID}"
+        }
+}
+
+FP_RD_PORTMAP_RANGE_CONFIG = {
+     f"DASH_OUTBOUND_PORT_MAP_RANGE_TABLE:portmap_1:{PL_REDIRECT_DSTPORT_START}-{PL_REDIRECT_DSTPORT_END}": {
+         "action": PortMapRangeAction.ACTION_MAP_PRIVATE_LINK_SERVICE,
+         "backend_ip": PL_REDIRECT_BACKEND_IP,
+         "backend_port_base": PL_REDIRECT_BACKEND_PORT_BASE
+     }
+}
+
+PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_WITH_PORTMAP_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "tunnel": TUNNEL3,
+        "port_map": "portmap_1"
     }
 }
 
@@ -197,6 +241,17 @@ PE_PLNSG_MULTI_ENDPOINT_VNET_MAPPING_CONFIG = {
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
         "tunnel": TUNNEL4,
+    }
+}
+
+PLNSG_ENDPOINT_VNET_MAPPING_2_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA2}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "tunnel": TUNNEL3,
+        "port_map": "portmap_1"
     }
 }
 
