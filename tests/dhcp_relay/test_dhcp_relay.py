@@ -2,9 +2,8 @@ import pytest
 import random
 import time
 import logging
-import re
 
-from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
+from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -164,35 +163,6 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                 assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 
-def restart_dhcpmon_in_debug(duthost):
-    program_name = "dhcpmon"
-    program_pid_list = []
-    program_list = duthost.shell("ps aux | grep {}".format(program_name))
-    matches = re.findall(r'/usr/sbin/dhcpmon.*', program_list["stdout"])
-
-    for program_info in program_list["stdout_lines"]:
-        if program_name in program_info:
-            program_pid = int(program_info.split()[1])
-            program_pid_list.append(program_pid)
-
-    for program_pid in program_pid_list:
-        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
-        # Get the exit code of 'kill' command
-        exit_code = kill_cmd_result["rc"]
-        if exit_code != 0:
-            stderr = kill_cmd_result.get("stderr", "")
-            if "No such process" not in stderr:
-                pytest.fail("Failed to stop program '{}' before test. Error: {}".format(program_name, stderr))
-
-    if matches:
-        for dhcpmon_cmd in matches:
-            if "-D" not in dhcpmon_cmd:
-                dhcpmon_cmd += " -D"
-            duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
-    else:
-        assert False, "Failed to start dhcpmon in debug counter mode\n"
-
-
 def get_acl_count_by_mark(rand_unselected_dut, mark):
     output = rand_unselected_dut.shell("iptables -nvL DHCP | grep 'DROP' | grep '{}' | awk '{{print $1}}'"
                                        .format(mark))
@@ -305,7 +275,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -426,7 +396,7 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(
                        is_python3=True)
 
             if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+                time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 dhcp_relay_request_times = 2
@@ -699,7 +669,7 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                        log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
-            time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+            time.sleep(36)      # dhcpmon: health check every 18s, DB write every 20s
             if testing_mode == DUAL_TOR_MODE:
                 # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
                 validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})
