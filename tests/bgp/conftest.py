@@ -782,6 +782,54 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def ensure_tsb(duthosts, rand_one_dut_hostname):
+    """Ensure the DUT is in TSB (normal) mode before running BGP tests.
+
+    startup_tsa_tsb.service puts the switch into TSA on boot/config_reload
+    to prevent attracting traffic before it's ready, then transitions to TSB
+    after a delay. This fixture ensures TSB is complete and routes are being
+    advertised before tests run.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    tsa_enabled = duthost.shell(
+        'sonic-db-cli CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "tsa_enabled"',
+        module_ignore_errors=True
+    )["stdout"].strip()
+
+    if tsa_enabled == "true":
+        result = duthost.shell("TSB", module_ignore_errors=True)
+        if result["rc"] != 0:
+            logger.warning("TSB command failed with rc=%d: %s", result["rc"], result.get("stderr", ""))
+
+        def _bgp_advertising():
+            try:
+                result = duthost.shell(
+                    "vtysh -c 'show bgp summary json'",
+                    module_ignore_errors=True
+                )
+                summary = json.loads(result["stdout"])
+                peers = (
+                    summary.get("ipv4Unicast", {}).get("peers", {}) or
+                    summary.get("ipv6Unicast", {}).get("peers", {})
+                )
+                # pfxSnt == 1 means only the loopback is advertised, which indicates TSA is still active
+                return any(
+                    p.get("pfxSnt", 0) > 1
+                    for p in peers.values()
+                    if p.get("state") == "Established"
+                )
+            except Exception:
+                return False
+
+        pt_assert(
+            wait_until(300, 10, 0, _bgp_advertising),
+            "BGP is not advertising routes after TSB within 300 seconds"
+        )
+
+    yield
+
+
 def pytest_addoption(parser):
     """
     Adds options to pytest that are used by bgp suppress fib pending test
