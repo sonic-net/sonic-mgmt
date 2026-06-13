@@ -314,6 +314,7 @@ jobs:
           SPECIFIC_PARAM: '[
               {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
               {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
+              {"name": "upgrade_path/test_upgrade_path.py", "param": "--upgrade_type=warm --base_image_list=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/20241110.33/vs/143621666/target/sonic-vs.img.gz --target_image_list=http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/20250510.35/vs/155522193/target/sonic-vs.img.gz -k \"not test_cancelled_upgrade_path and not test_upgrade_path_t2 and not test_double_upgrade_path and not test_warm_upgrade_sad_path\"}
             ]'
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
