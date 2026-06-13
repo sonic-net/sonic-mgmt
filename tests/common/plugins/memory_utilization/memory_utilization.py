@@ -217,7 +217,7 @@ class MemoryMonitor:
                         # If threshold type is percentage,
                         # Express increase value in percentage instead of MB
                         if increase_threshold_raw['type'] == 'percentage':
-                            increase = (increase * 100)/current_value
+                            increase = (increase * 100)/previous_value
                         self._handle_memory_threshold_exceeded(
                             name, mem_item, increase, increase_fail_threshold_raw,
                             previous_values, current_values, is_increase=True
