@@ -696,6 +696,12 @@ bgp/test_traffic_shift_sup.py:
     conditions:
       - "'t2_single_node' in topo_name"
 
+bgp/test_traffic_shift_lc.py:
+  skip:
+    reason: "test_traffic_shift_lc is only applicable to modular chassis platforms"
+    conditions:
+      - "is_chassis==False"
+
 bmp/:
   skip:
     reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
