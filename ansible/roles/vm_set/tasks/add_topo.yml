@@ -270,7 +270,15 @@
       topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: not enable_async and "bmc" not in topo
+    # For VM topos this single bind call binds all VMs and attaches the PTF mgmt port.
+    # For portless (BMC) topos there are no VMs, but this bind call is still required to
+    # attach the PTF mgmt port to the Linux mgmt bridge (vm_topology handles 0-VM gracefully).
+    # Skip it only when the PTF is attached to the bridge via a Docker network instead.
+    # Note: the async bind below loops over VM_targets (empty for BMC), so it can never
+    # attach the mgmt port; BMC must therefore always use this non-async bind.
+    when: >-
+      (not enable_async and 'bmc' not in topo)
+      or ('bmc' in topo and not (ptf_use_docker_network | default(false)))
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_targets|flatten(levels=1) }}"

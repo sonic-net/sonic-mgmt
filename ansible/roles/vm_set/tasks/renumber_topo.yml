@@ -197,7 +197,10 @@
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: "'bmc' not in topo"
+    # Portless (BMC) topos have no VMs, but renumber must still re-attach the PTF mgmt port
+    # to the Linux mgmt bridge after the container is recreated (vm_topology handles 0-VM
+    # gracefully). Skip only when the PTF is attached to the bridge via a Docker network.
+    when: "'bmc' not in topo or not (ptf_use_docker_network | default(false))"
 
   - name: Don't accept ipv6 router advertisements on PTF mgmt interface if it exists
     command: >
