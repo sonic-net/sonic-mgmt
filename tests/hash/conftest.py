@@ -1,6 +1,33 @@
 """
-    Pytest configuration used by the read generic hash tests.
+    Pytest configuration used by the generic hash tests.
 """
+
+from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory
+
+# Import fixtures for pytest discovery (pytest_plugins in a nested conftest is not
+# supported in pytest 9+; see https://docs.pytest.org/en/stable/deprecations.html).
+from generic_hash_helper import (  # noqa: F401
+    get_supported_hash_algorithms,
+    global_hash_capabilities,
+    global_packet_type_capabilities,
+    mg_facts,
+    reload,
+    restore_configuration,
+    restore_init_hash_config,
+    restore_interfaces,
+    restore_vxlan_port,
+    skip_lag_tests_on_no_lag_topos,
+    skip_tests_on_isolated_topos,
+    skip_vs_setups,
+    toggle_all_simulator_ports_to_upper_tor,
+)
+
+# Referenced so pytest discovers these fixtures from other modules.
+_FIXTURES = (
+    toggle_all_aa_ports_to_rand_selected_tor,
+    copy_ptftests_directory,
+)
 
 
 def pytest_addoption(parser):

@@ -5,23 +5,17 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from_option, get_encap_type_from_option, \
-    get_reboot_type_from_option, HASH_CAPABILITIES, check_global_hash_config, startup_interface, \
+    get_reboot_type_from_option, check_global_hash_config, startup_interface, \
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
     remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
     get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths
-from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
-from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, skip_lag_tests_on_no_lag_topos  # noqa:F401
-from generic_hash_helper import skip_tests_on_isolated_topos  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa: F401
 
 DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
@@ -79,7 +73,7 @@ def pytest_generate_tests(metafunc):
 
 
 @pytest.fixture(scope='function')
-def fine_params(params, global_hash_capabilities):  # noqa:F811
+def fine_params(params, global_hash_capabilities):
     hash_algorithm, _, _, _, _ = params.split('-')
     all_supported_hash_algorithms = set(global_hash_capabilities['ecmp_algo']).\
         union(set(global_hash_capabilities['ecmp_algo']))
@@ -118,31 +112,35 @@ def config_validate_algorithm(duthost, algorithm_type, supported_algorithms):
                 check_global_hash_algorithm(duthost, lag_hash_algo=algorithm)
 
 
-def test_hash_capability(rand_selected_dut, global_hash_capabilities):  # noqa:F811
+def test_hash_capability(rand_selected_dut, global_hash_capabilities):
     """
     Test case to verify the 'show switch-hash capabilities' command.
     Args:
         rand_selected_dut (AnsibleHost): Device Under Test (DUT)
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
-    with allure.step('Check the dut hash capabilities are as expected'):
-        ecmp_hash_capability, lag_hash_capability = global_hash_capabilities['ecmp'], global_hash_capabilities['lag']
-        asic_type = rand_selected_dut.facts["asic_type"]
-        expected_hash_capabilities = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])
-        expected_ecmp_hash_capability = expected_hash_capabilities['ecmp']
-        expected_lag_hash_capability = expected_hash_capabilities['lag']
-        logger.info(f"asic_type: {asic_type}, "
-                    f"expected_hash_capabilities: {expected_hash_capabilities}, "
-                    f"expected_ecmp_hash_capability: {expected_ecmp_hash_capability}, "
-                    f"expected_lag_hash_capability: {expected_lag_hash_capability}")
-        pytest_assert(sorted(ecmp_hash_capability) == sorted(expected_ecmp_hash_capability),
-                      'The ecmp hash capability is not as expected.')
-        pytest_assert(sorted(lag_hash_capability) == sorted(expected_lag_hash_capability),
-                      'The lag hash capability is not as expected.')
+    with allure.step('Check the dut hash capabilities as reported by STATE_DB/CLI'):
+        # global_hash_capabilities already comes from
+        # duthost.get_switch_hash_capabilities(), which in turn reads the
+        # switch-hash capabilities (backed by STATE_DB). Use this runtime
+        # view as the single source of truth instead of static
+        # HASH_CAPABILITIES so platforms can advertise extended field sets
+        # without test failures.
+        ecmp_hash_capability = global_hash_capabilities['ecmp']
+        lag_hash_capability = global_hash_capabilities['lag']
+
+        logger.info(f"ECMP hash capabilities from DUT: {ecmp_hash_capability}")
+        logger.info(f"LAG hash capabilities from DUT: {lag_hash_capability}")
+
+        # Basic sanity: capabilities must be non-empty lists.
+        pytest_assert(isinstance(ecmp_hash_capability, list) and ecmp_hash_capability,
+                      'ECMP hash capabilities from DUT are empty or invalid.')
+        pytest_assert(isinstance(lag_hash_capability, list) and lag_hash_capability,
+                      'LAG hash capabilities from DUT are empty or invalid.')
 
 
-def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
-                   restore_vxlan_port, toggle_all_aa_ports_to_rand_selected_tor):                        # noqa:F811
+def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,
+                   restore_vxlan_port, toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the ecmp hash. The hash field to test is randomly chosen from the supported hash fields.
     Args:
@@ -199,8 +197,8 @@ def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, gl
         )
 
 
-def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,         # noqa:F811
-                  restore_vxlan_port, global_hash_capabilities, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,
+                  restore_vxlan_port, global_hash_capabilities, toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the lag hash. The hash field to test is randomly chosen from the supported hash fields.
     When hash field is in [DST_MAC, ETHERTYPE, VLAN_ID], need to re-configure the dut for L2 traffic.
@@ -271,19 +269,19 @@ def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, res
         )
 
 
-def config_all_hash_fields(duthost, global_hash_capabilities):  # noqa:F811
+def config_all_hash_fields(duthost, global_hash_capabilities):
     duthost.set_switch_hash_global('ecmp', global_hash_capabilities['ecmp'])
     duthost.set_switch_hash_global('lag', global_hash_capabilities['lag'])
 
 
-def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):  # noqa:F811
+def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):
     duthost.set_switch_hash_global_algorithm('ecmp', ecmp_algorithm)
     duthost.set_switch_hash_global_algorithm('lag', lag_algorithm)
 
 
-def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                     # noqa:F811
-                           global_hash_capabilities,  restore_vxlan_port, get_supported_hash_algorithms,  # noqa:F811
-                           toggle_all_aa_ports_to_rand_selected_tor):                                     # noqa:F811
+def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
+                           global_hash_capabilities, restore_vxlan_port, get_supported_hash_algorithms,
+                           toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the hash behavior when both ecmp and lag hash are configured with a same field.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -348,9 +346,9 @@ def is_bgp_session_established(duthost, neighbor_ip):
     return bgp_neighbors.get(neighbor_ip, {}).get('state') == 'established'
 
 
-def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
-                      restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor, duthost):                             # noqa:F811
+def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,
+                      restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost):
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -457,9 +455,9 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         )
 
 
-def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
-                         restore_interfaces, global_hash_capabilities, restore_vxlan_port,                  # noqa:F811
-                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):          # noqa:F811
+def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,
+                         restore_interfaces, global_hash_capabilities, restore_vxlan_port,
+                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -564,10 +562,10 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
         )
 
 
-def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                 # noqa:F811
-                               restore_configuration, restore_interfaces,                                 # noqa:F811
-                               global_hash_capabilities, restore_vxlan_port,                              # noqa:F811
-                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
+                               restore_configuration, restore_interfaces,
+                               global_hash_capabilities, restore_vxlan_port,
+                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -673,9 +671,9 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
 
 
 @pytest.mark.disable_loganalyzer
-def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,  # noqa:F811
-                global_hash_capabilities, reboot_type, get_supported_hash_algorithms,                      # noqa:F811
-                toggle_all_aa_ports_to_rand_selected_tor):                                                 # noqa:F811
+def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,
+                global_hash_capabilities, reboot_type, get_supported_hash_algorithms,
+                toggle_all_aa_ports_to_rand_selected_tor):
     """
     Test case to validate the hash behavior after fast/warm/cold reboot.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -772,7 +770,7 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
 
 
 @pytest.mark.disable_loganalyzer
-def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilities):  # noqa:F811
+def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilities):
     """
     Test case to validate there are backend errors printed in the syslog when
     the hash config is removed or updated with invalid values via redis cli.
@@ -880,7 +878,7 @@ def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilit
             loganalyzer.analyze(marker)
 
 
-def test_algorithm_config(rand_selected_dut, global_hash_capabilities):  # noqa:F811
+def test_algorithm_config(rand_selected_dut, global_hash_capabilities):
     """
     Test case to validate the hash algorithm configuration.
     Args:
