@@ -15,7 +15,7 @@ from utilities.parallel import ExecAllFunc, exec_all, exec_foreach
 from utilities.utils import segregate_intf_list_type, is_a_single_intf
 from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
 from utilities.utils import get_random_space_string
-from utilities.utils import add_zero_or_more_spaces_to_intf
+# from utilities.utils import add_zero_or_more_spaces_to_intf
 
 try:
     import apis.yang.codegen.messages.spanning_tree.SpanningTree as umf_stp
@@ -29,7 +29,7 @@ def force_cli_type_to_klish(cli_type):
 
 
 debug_log_path = r"/var/log/stplog"
-SHOW_STP_VLAN = "show spanning_tree Vlan {}"
+SHOW_STP_VLAN = "show spanning-tree Vlan {}"
 SHOW_STP_VLAN_KLISH = "show spanning-tree Vlan {}"
 BLOCKING_STATE = "BLOCKING"
 CONFIGURED_STP_PROTOCOL = dict()
@@ -81,9 +81,9 @@ def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type
         return True
     elif cli_type == 'click':
         if vlan:
-            command = "config spanning_tree vlan {} {}".format(mode, vlan)
+            command = "config spanning-tree vlan {} {}".format(mode, vlan)
         else:
-            command = "config spanning_tree {} {}".format(mode, feature)
+            command = "config spanning-tree {} {}".format(mode, feature)
         st.config(dut, command, type=cli_type)
     elif cli_type == 'klish':
         if mode == 'disable':
@@ -165,7 +165,7 @@ def config_stp_parameters(dut, no_form='', **kwargs):
             return False
     elif cli_type == 'click':
         for each_key in kwargs.keys():
-            command = "config spanning_tree {} {}".format(each_key, int(kwargs[each_key]))
+            command = "config spanning-tree {} {}".format(each_key, int(kwargs[each_key]))
             st.config(dut, command, type=cli_type)
     elif cli_type == 'klish':
         for each_key in kwargs.keys():
@@ -268,7 +268,7 @@ def config_stp_vlan_parameters(dut, vlan, **kwargs):
         return True
     elif cli_type == 'click':
         for each_key, value in kwargs.items():
-            command = "config spanning_tree vlan {} {} {}".format(each_key, vlan, value)
+            command = "config spanning-tree vlan {} {} {}".format(each_key, vlan, value)
             st.config(dut, command, type=cli_type)
     elif cli_type == 'klish':
         for each_key, value in kwargs.items():
@@ -408,7 +408,7 @@ def config_stp_vlan_interface(dut, vlan, iface, value, mode='cost', **kwargs):
             port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
             interface_list = port_hash_list['intf_list_all']
             for intf in interface_list:
-                command.append("config spanning_tree vlan interface {} {} {} {} ".format(mode, vlan, intf, value))
+                command.append("config spanning-tree vlan interface {} {} {} {} ".format(mode, vlan, intf, value))
             st.config(dut, command, type=cli_type)
         elif cli_type == 'klish':
             mode = "port-priority" if mode == "priority" else mode
@@ -511,7 +511,7 @@ def config_stp_enable_interface(dut, iface, mode="enable", cli_type="", **kwargs
         return True
     elif cli_type == "click":
         for intf in interface_list:
-            command.append("config spanning_tree interface {} {}".format(mode, intf))
+            command.append("config spanning-tree interface {} {}".format(mode, intf))
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
         for intf in interface_list:
@@ -616,11 +616,11 @@ def config_stp_interface_params(dut, iface, **kwargs):
         for intf in interface_list:
             for each_key in kwargs.keys():
                 if each_key == "priority" or each_key == "cost":
-                    command.append("config spanning_tree interface {} {} {}".format(each_key, intf, kwargs[each_key]))
+                    command.append("config spanning-tree interface {} {} {}".format(each_key, intf, kwargs[each_key]))
                 elif each_key == "bpdu_guard_action":
-                    command.append("config spanning_tree interface bpdu_guard enable {} {}".format(intf, kwargs[each_key]))
+                    command.append("config spanning-tree interface bpdu_guard enable {} {}".format(intf, kwargs[each_key]))
                 else:
-                    command.append("config spanning_tree interface {} {} {}".format(each_key, kwargs[each_key], intf))
+                    command.append("config spanning-tree interface {} {} {}".format(each_key, kwargs[each_key], intf))
             if not st.config(dut, command):
                 return False
         return True
@@ -782,12 +782,12 @@ def show_stp(dut, **kwargs):
     # There is no rest URI equivalent to "show spanning-tree inconsistent ports". Multiple times URI needs to be called for all STP enabled interfaces and framed to match the o/p equivalent to "show spanning-tree inconsistent ports". But the URI is already covered in other API. Hence not implementing this for REST as its redundant and not required. Also this API is used just at one place to display the o/p.
     cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type == "click":
-        command = "show spanning_tree"
+        command = "show spanning-tree"
     else:
         command = "show spanning-tree"
     if 'sub_cmd' in kwargs:
         if cli_type == "click":
-            command = "show spanning_tree {}".format(kwargs['sub_cmd'])
+            command = "show spanning-tree {}".format(kwargs['sub_cmd'])
         else:
             if kwargs['sub_cmd'] == "root_guard":
                 command = "show spanning-tree inconsistentports"
@@ -808,7 +808,7 @@ def show_stp_vlan(dut, vlan, cli_type="", **kwargs):
     :return:
     """
     output = ""
-    st.log("show spanning_tree vlan <id>")
+    st.log("show spanning-tree vlan <id>")
     if cli_type == "click":
         command = SHOW_STP_VLAN.format(vlan)
         output = st.show(dut, command, type=cli_type)
@@ -886,7 +886,7 @@ def show_stp_vlan_iface(dut, vlan, iface, cli_type=""):
     :return:
     """
     if cli_type == "click":
-        command = "show spanning_tree vlan interface {} {}".format(vlan, iface)
+        command = "show spanning-tree vlan {} interface {}".format(vlan, iface)
     elif cli_type == "klish":
         command = "show spanning-tree Vlan {} interface {}".format(vlan, iface)
     else:
@@ -902,7 +902,7 @@ def show_stp_stats(dut, cli_type=""):
     :return:
     """
     # cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    command = "show spanning_tree statistics"
+    command = "show spanning-tree statistics"
     return st.show(dut, command)
 
 
@@ -916,7 +916,7 @@ def show_stp_stats_vlan(dut, vlan, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
-        command = "show spanning_tree statistics vlan {} ".format(vlan)
+        command = "show spanning-tree statistics vlan {} ".format(vlan)
         return st.show(dut, command, type=cli_type)
     elif cli_type == "klish":
         command = "show spanning-tree counters vlan {}".format(vlan)
@@ -967,7 +967,7 @@ def debug_stp(dut, *argv):
     debug_stp(dut, "vlan 100", "interface Ethernet0")
     debug_stp(dut, "vlan 100 -d", "interface Ethernet0 -d")
     """
-    command = 'debug spanning_tree'
+    command = 'debug spanning-tree'
     if not argv:
         st.config(dut, command)
     for each in argv:
@@ -1339,7 +1339,7 @@ def get_root_guard_details(dut, vlan=None, ifname=None, rg_param="rg_timeout", c
     """
     rg_value = ""
     if cli_type == "click":
-        cmd = "show spanning_tree root_guard"
+        cmd = "show spanning-tree root_guard"
         output = st.show(dut, cmd, type=cli_type)
     elif cli_type == "klish":
         cmd = "show spanning-tree inconsistentports"
@@ -1399,7 +1399,7 @@ def check_bpdu_guard_action(dut, ifname, **kwargs):
     :return:
     """
     if cli_type == "click":
-        cmd = "show spanning_tree bpdu_guard"
+        cmd = "show spanning-tree bpdu_guard"
         show_out = st.show(dut, cmd, type=cli_type)
     elif cli_type == "klish":
         cmd = "show spanning-tree bpdu-guard"
@@ -1452,7 +1452,7 @@ def stp_clear_stats(dut, **kwargs):
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
     cli_type = 'klish' if cli_type in ["rest-put", "rest-patch"] else cli_type
     if cli_type == "click":
-        cmd = "sonic-clear spanning_tree statistics"
+        cmd = "sonic-clear spanning-tree statistics"
     elif cli_type == "klish":
         cmd = "clear spanning-tree counters"
     if 'vlan' in kwargs and 'interface' not in kwargs:
@@ -1461,7 +1461,7 @@ def stp_clear_stats(dut, **kwargs):
     if 'vlan' in kwargs and 'interface' in kwargs:
         cmd += ' vlan-interface {} {}'.format(kwargs['vlan'], kwargs['interface'])
     if 'vlan' not in kwargs and 'interface' in kwargs:
-        kwargs['interface'] = add_zero_or_more_spaces_to_intf(kwargs['interface'])
+        # kwargs['interface'] = add_zero_or_more_spaces_to_intf(kwargs['interface'])
         cmd += ' interface {}'.format(kwargs['interface'])
     st.config(dut, cmd, type=cli_type)
 
