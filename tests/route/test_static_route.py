@@ -33,6 +33,17 @@ from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_int
 # packet count for traffic test
 COUNT = 10
 
+# Wait for static route / FIB to converge (orchagent → kernel → ASIC) instead of fixed sleep.
+STATIC_ROUTE_KERNEL_TIMEOUT_S = 90
+STATIC_ROUTE_KERNEL_POLL_S = 3
+ROUTE_GET_READY_TIMEOUT_S = 60
+ROUTE_GET_READY_POLL_S = 2
+# PTF verify default is often ~2s; allow slower dataplane on loaded setups.
+VERIFY_PACKET_TIMEOUT_S = 10
+
+# IPv4 source must not equal ip_dst nor sit inside the under-test prefix (avoids odd local/hairpin behavior).
+IPV4_TRAFFIC_SRC = "20.0.0.2"
+
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
@@ -110,7 +121,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
             eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
-            ip_src='1.1.1.1',
+            ip_src=IPV4_TRAFFIC_SRC,
             ip_dst=ip_dst,
             ip_ttl=64,
             tcp_sport=1234,
@@ -132,7 +143,8 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=COUNT)
-    testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
+    testutils.verify_packet_any_port(
+        ptfadapter, exp_pkt, ports=expected_ports, timeout=VERIFY_PACKET_TIMEOUT_S)
 
 
 def wait_all_bgp_up(duthost):
@@ -191,27 +203,27 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 #        nexthop via fc00::26 dev PortChannel102 weight 1
 #        nexthop via fc00::2a dev PortChannel103 weight 1
 #        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
-def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
+def _kernel_static_route_has_all_nexthops(duthost, prefix, nexthop_addrs, ipv6):
+    """True when `ip route show <prefix>` lists every expected nexthop (orchagent applied route)."""
     if ipv6:
-        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
+        cmd = "ip -6 route show {}".format(prefix)
     else:
-        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
-    output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
+        cmd = "ip route show {}".format(prefix)
+    output = duthost.shell(cmd, module_ignore_errors=True).get("stdout", "")
+    return all(nh in output for nh in nexthop_addrs)
 
-    def _check_nh_in_output(nexthop):
-        for line in output:
-            if nexthop in line:
-                return True
+
+def _route_get_resolves_via_expected_nexthop(duthost, ip_dst, nexthop_addrs, ipv6):
+    """True when kernel forwarding decision for ip_dst uses one of the static nexthops."""
+    if ipv6:
+        cmd = "ip -6 route get {}".format(ip_dst)
+    else:
+        cmd = "ip route get {}".format(ip_dst)
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    if res.get("rc") != 0:
         return False
-
-    check_result = True
-    for nh in nexthop_addrs:
-        if not _check_nh_in_output(nh):
-            check_result = False
-
-    assert check_result, "config static route: {} nexthop {}\nreal:\n{}".format(
-        prefix, ",".join(nexthop_addrs), output
-    )
+    out = res.get("stdout", "")
+    return any(nh in out for nh in nexthop_addrs)
 
 
 def check_mux_status(duthost, expected_status):
@@ -279,18 +291,55 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
                                   prefix, nexthop_addrs, op="add")
 
-        time.sleep(5)
-
-        # Verify static route in kernel
-        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+        pytest_assert(
+            wait_until(
+                STATIC_ROUTE_KERNEL_TIMEOUT_S,
+                STATIC_ROUTE_KERNEL_POLL_S,
+                0,
+                _kernel_static_route_has_all_nexthops,
+                duthost,
+                prefix,
+                nexthop_addrs,
+                ipv6,
+            ),
+            "Static route {} via {} did not appear in kernel within {}s".format(
+                prefix, ",".join(nexthop_addrs), STATIC_ROUTE_KERNEL_TIMEOUT_S
+            ),
+        )
 
         # Verify traffic forwarding
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-        ping_cmd = "timeout 1 ping{} -c 1 -w 1 {}".format(
-            " -6" if ipv6 else "", "{}"
-        )
+
+        # try to refresh neighbor cache before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
-            duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
+            ping_cmd = (
+                "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                if ipv6
+                else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+            )
+            duthost.shell(ping_cmd, module_ignore_errors=True)
+
+        # No mandatory ICMP success: nexthop readiness covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while dataplane is fine).
+
+        pytest_assert(
+            wait_until(
+                ROUTE_GET_READY_TIMEOUT_S,
+                ROUTE_GET_READY_POLL_S,
+                0,
+                _route_get_resolves_via_expected_nexthop,
+                duthost,
+                ip_dst,
+                nexthop_addrs,
+                ipv6,
+            ),
+            "ip {}route get {} did not resolve via {} within {}s".format(
+                "-6 " if ipv6 else "",
+                ip_dst,
+                ",".join(nexthop_addrs),
+                ROUTE_GET_READY_TIMEOUT_S,
+            ),
+        )
 
         with RouteFlowCounterTestContext(
             is_route_flow_counter_supported_flag,
@@ -312,14 +361,26 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
         }
 
         # Post-operation verification: Check route persistence
-        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+        pytest_assert(
+            wait_until(
+                STATIC_ROUTE_KERNEL_TIMEOUT_S,
+                STATIC_ROUTE_KERNEL_POLL_S,
+                0,
+                _kernel_static_route_has_all_nexthops,
+                duthost,
+                prefix,
+                nexthop_addrs,
+                ipv6,
+            ),
+            "Static route {} via {} did not appear in kernel within {}s (post-op)".format(
+                prefix, ",".join(nexthop_addrs), STATIC_ROUTE_KERNEL_TIMEOUT_S
+            ),
+        )
 
         # Wait for BGP convergence
         wait_all_bgp_up(duthost)
 
-        # Refresh ARP/NDP entries
-        for nexthop_addr in nexthop_addrs:
-            duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
+        # No mandatory ICMP for neighbor refresh; dataplane verify below is authoritative.
 
         # Verify traffic forwarding after operation
         with RouteFlowCounterTestContext(
@@ -374,16 +435,55 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
                                   prefix, nexthop_addrs, op="add")
 
-        time.sleep(5)
-
-        # check if the static route in kernel is what we expect
-        check_static_route(duthost, prefix, nexthop_addrs, ipv6=ipv6)
+        pytest_assert(
+            wait_until(
+                STATIC_ROUTE_KERNEL_TIMEOUT_S,
+                STATIC_ROUTE_KERNEL_POLL_S,
+                0,
+                _kernel_static_route_has_all_nexthops,
+                duthost,
+                prefix,
+                nexthop_addrs,
+                ipv6,
+            ),
+            "Static route {} via {} did not appear in kernel within {}s".format(
+                prefix, ",".join(nexthop_addrs), STATIC_ROUTE_KERNEL_TIMEOUT_S
+            ),
+        )
 
         # Check traffic get forwarded to the nexthop
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
-        # try to refresh arp entry before traffic testing to improve stability
+
+        # try to refresh neighbor cache before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
-            duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+            ping_cmd = (
+                "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                if ipv6
+                else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+            )
+            duthost.shell(ping_cmd, module_ignore_errors=True)
+
+        # No mandatory ICMP success: nexthop validity covered by `ip route get` below and
+        # `generate_and_verify_traffic` (echo to PTF may fail while dataplane is fine).
+
+        pytest_assert(
+            wait_until(
+                ROUTE_GET_READY_TIMEOUT_S,
+                ROUTE_GET_READY_POLL_S,
+                0,
+                _route_get_resolves_via_expected_nexthop,
+                duthost,
+                ip_dst,
+                nexthop_addrs,
+                ipv6,
+            ),
+            "ip {}route get {} did not resolve via {} within {}s".format(
+                "-6 " if ipv6 else "",
+                ip_dst,
+                ",".join(nexthop_addrs),
+                ROUTE_GET_READY_TIMEOUT_S,
+            ),
+        )
 
         # show neighbor and check neighbor consistency on dualtor
         duthost.shell("show arp" if not ipv6 else "show ndp")
@@ -418,7 +518,12 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
             for nexthop_addr in nexthop_addrs:
-                duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+                ping_cmd = (
+                    "timeout 1 ping6 -c 1 -W 1 {}".format(nexthop_addr)
+                    if ipv6
+                    else "timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr)
+                )
+                duthost.shell(ping_cmd, module_ignore_errors=True)
             with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
                                              [prefix], {prefix: {'packets': COUNT}}):
                 generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
