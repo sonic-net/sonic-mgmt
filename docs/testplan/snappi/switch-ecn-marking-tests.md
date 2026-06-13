@@ -129,6 +129,7 @@ For each queue learned in the QoS config discovery step and each ECN codepoint, 
    2. Capture the received packets on the RX ports and check the ECN field.
    3. If ECN is enabled on the queue, assert that the received packets follow the expected behavior in the table above.
    4. If ECN is not enabled on the queue, assert that the ECN field of all received packets stays unchanged, and the packets are dropped or trimmed following the congestion action in the WRED config.
+   5. Cross-check the switch-side counters against the traffic generator: read the WRED ECN marked packet counter (e.g. `SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS`, also available via `show queue counters`) for the queue under test. For ECT(0) and ECT(1) on an ECN-enabled queue, assert that the counter increases and roughly matches the CE-marked packet count observed on the RX ports. For Non-ECT, CE and queues without ECN, assert that the counter does not increase. This catches the case where the traffic generator and the switch disagree on the marking.
 3. Stop all traffic streams, clear the counters on the traffic generator and the switch, then move on to the next queue.
 
 ### 4.3. Test case 2: Long duration soak test
