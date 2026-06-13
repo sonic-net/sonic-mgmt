@@ -6222,6 +6222,15 @@ wol:
       - *lossyTopos
 
 #######################################
+#####            wred             #####
+#######################################
+wred/test_wred_counters.py:
+  skip:
+    reason: "WRED/ECN is not supported on KVM switches."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####             zmq             #####
 #######################################
 
