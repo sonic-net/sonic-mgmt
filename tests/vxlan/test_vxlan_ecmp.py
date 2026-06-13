@@ -113,6 +113,7 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*api SAI_COMMON_API_CREATE failed in syncd mode.*",
                 ".*ERR syncd.*SAI_BFD_SESSION_ATTR_.*",
                 ".*ERR swss.*SAI_STATUS_FAILURE.*",
+                ".*ERR syncd.*hwif_to_tap_name: failed to find hostif info entry for hwif device.*",
             ])
     return
 
@@ -351,6 +352,9 @@ def fixture_setUp(duthosts,
         data['duthost'].shell(
             "for i in `redis-cli -n 4 --scan --pattern \"NEIGH|{}|*\" `; "
             "do redis-cli -n 4 del $i ; done".format(intf))
+        # Restore interface to operational state after removing VNET association
+        data['duthost'].shell(
+            "sudo config interface startup {}".format(intf))
 
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
