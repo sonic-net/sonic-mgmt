@@ -93,16 +93,19 @@ Same as the [Basic ECN marking tests](switch-ecn-marking-tests.md), the test wal
 
 1. Read the `DSCP_TO_TC_MAP` table to get the DSCP to traffic class mappings.
 2. Read the `TC_TO_QUEUE_MAP` table to get the traffic class to queue mappings.
-3. Read the `QUEUE` and `WRED_PROFILE` tables to learn which queues have ECN marking enabled, and their WRED profile config: min threshold (kMin), max threshold (kMax) and max marking probability (probability).
+3. Read the `QUEUE` and `WRED_PROFILE` tables to learn which queues have ECN marking enabled, and their WRED profile config.
 
-After this step, the test builds a list of `(dscp, queue, kMin, kMax, probability)` tuples for all the ECN-enabled queues. For each queue, one representative DSCP value is selected to drive the traffic into that queue. The test will run the test case below for every queue in this list.
+The SONiC `WRED_PROFILE` is color-aware: it can configure separate min threshold (kMin), max threshold (kMax) and max marking probability (probability) for each packet color (green, yellow and red). The test reads the curve for every color that has ECN marking enabled in the profile.
+
+After this step, the test builds a list of `(dscp, queue, color, kMin, kMax, probability)` tuples for all the ECN-enabled queues and colors. For each queue, one representative DSCP value is selected to drive the traffic into that queue, and the packet color is driven as described in the traffic stream setup below. The test will run the test case below for every tuple in this list.
 
 #### 4.1.4. Traffic stream setup
 
-For each queue under test, the test creates 1 traffic stream from each TX port to its paired RX port, configured as below:
+For each tuple under test, the test creates 1 traffic stream from each TX port to its paired RX port, configured as below:
 
 - The DSCP field is set to the representative DSCP value of the queue under test, so the traffic lands on the specified queue.
 - The ECN field is set to ECT(1) (ECN-capable transport), so the switch can mark the packets with CE instead of dropping them when congestion happens.
+- The packet color is set to the color of the tuple under test, so the corresponding WRED curve is exercised. The color is driven by the switch config that assigns the packet color, such as the `DSCP_TO_FC_MAP` / policer config; the test sets up the traffic so the packets land on the intended color.
 - The number of packets is set to `packet_count`, sent as a fixed-count burst instead of continuous traffic.
 - The frame size is set to `frame_bytes`.
 
@@ -110,19 +113,23 @@ For each queue under test, the test creates 1 traffic stream from each TX port t
 
 #### 4.2.1. Test steps
 
-For each ECN-enabled queue learned in the QoS config discovery step, the test runs the following steps:
+For each tuple (queue and color) learned in the QoS config discovery step, the test runs the following steps:
 
-1. Call `sai_thrift_port_tx_enable` to disable the TX side of the egress ports on the switch that connect to the RX ports of the traffic generator.
-2. Start the traffic streams from the TX ports. Since the egress ports are disabled, all packets will be buffered in the egress queue, which builds up the queue depth.
-3. Stop the traffic after all `packet_count` packets are sent.
-4. Start the packet capture on the RX ports of the traffic generator.
-5. Call `sai_thrift_port_tx_enable` to re-enable the egress ports on the switch. The buffered packets will be drained from the queue and captured by the traffic generator.
-6. Walk through the captured packets, count the CE-marked and non-marked packets, and validate the marking probability against the WRED profile config (see below).
-7. Clear the counters and captures, then move on to the next queue.
+1. Read and record the switch-side WRED ECN marked packet counter (e.g. `SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS`) for the queue under test, as the baseline.
+2. Call `sai_thrift_port_tx_enable` to disable the TX side of the egress ports on the switch that connect to the RX ports of the traffic generator.
+3. Start the traffic streams from the TX ports. Since the egress ports are disabled, all packets will be buffered in the egress queue, which builds up the queue depth.
+4. Stop the traffic after all `packet_count` packets are sent.
+5. Start the packet capture on the RX ports of the traffic generator.
+6. Call `sai_thrift_port_tx_enable` to re-enable the egress ports on the switch. The buffered packets will be drained from the queue and captured by the traffic generator.
+7. Walk through the captured packets, count the CE-marked and non-marked packets, and validate the marking probability against the WRED profile config (see below).
+8. Read the switch-side WRED ECN marked packet counter again, and assert that its increase from the baseline roughly matches the number of CE-marked packets observed on the RX ports, so the switch and the traffic generator agree on the marking.
+9. Clear the counters and captures, then move on to the next tuple.
 
 #### 4.2.2. ECN marking validation
 
 When the egress port is disabled, the queue builds up as the packets arrive, so each packet is enqueued at a known queue depth: the i-th packet sent from a TX port is enqueued when the queue already holds roughly `(i - 1) * frame_bytes` of data. This allows the test to reconstruct the expected marking probability of each captured packet from its position:
+
+The kMin, kMax and max marking probability used below are the ones of the color under test, read from the color-aware WRED profile:
 
 - Packets enqueued when the queue depth is below kMin: expected to have no CE marking.
 - Packets enqueued when the queue depth is between kMin and kMax: expected to be CE-marked with a probability that increases linearly from 0 to the configured max marking probability.
@@ -143,13 +150,14 @@ During this test, we are going to collect the following metrics from the traffic
 | `METRIC_NAME_TG_RX_ECN_CE_FRAMES`           | tg.rx.ecn_ce.frames         | The number of received frames that are marked with ECN CE.                             | 23117         |
 | `METRIC_NAME_TG_RX_ECN_CE_RATIO`            | tg.rx.ecn_ce.ratio          | The observed CE marking probability in percent: CE-marked frames / received frames.    | 23.12         |
 | `METRIC_NAME_TG_RX_ECN_CE_RATIO_EXPECTED`   | tg.rx.ecn_ce.ratio.expected | The expected CE marking probability in percent, calculated from the WRED profile config. | 25.00         |
+| `METRIC_NAME_QUEUE_ECN_MARKED_PKTS`         | device.queue.ecn_marked     | The switch-side WRED ECN marked packet counter increase for the queue under test.        | 23150         |
 
 The metrics needs to be reported with the following labels:
 
 | User Interface Label                       | Label Key in DB         | Example Value |
 |--------------------------------------------|-------------------------|---------------|
 | `METRIC_LABEL_TG_IP_VERSION`               | tg.ip_version           | 4             |
-| `METRIC_LABEL_TG_FRAME_BYTES`              | tg.frame_bytes          | 1024          |
+| `METRIC_LABEL_TG_FRAME_BYTES`              | tg.frame_bytes          | 64            |
 | `METRIC_LABEL_TG_DSCP`                     | tg.dscp                 | 3             |
 | `METRIC_LABEL_DEVICE_QUEUE_ID`             | device.queue.id         | 3             |
-| `METRIC_LABEL_DEVICE_QUEUE_DEPTH_BYTES`    | device.queue.depth.bytes| 2097152       |
+| `METRIC_LABEL_DEVICE_QUEUE_COLOR`          | device.queue.color      | green         |
