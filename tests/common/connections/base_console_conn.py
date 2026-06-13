@@ -48,6 +48,11 @@ class BaseConsoleConn(CiscoBaseConnection):
             if key in kwargs:
                 del kwargs[key]
 
+        # Allow legacy SSH KEX algorithms for older console servers (e.g. Digi)
+        # that may not support modern key exchange methods.
+        if 'disabled_algorithms' not in kwargs:
+            kwargs['disabled_algorithms'] = {"kex": []}
+
         for i in range(0, len(all_passwords)):
             kwargs['password'] = all_passwords[i]
             try:
