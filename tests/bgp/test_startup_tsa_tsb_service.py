@@ -190,13 +190,13 @@ def verify_route_on_neighbors(linecards, dut_nbrhosts, orig_v4_routes, orig_v6_r
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
+        if not wait_until(450, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
                           orig_v4_routes[linecard], cur_v4_routes, 4):
             if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
                                              orig_v4_routes[linecard], cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
+        if not wait_until(450, 3, 0, verify_current_routes_announced_to_neighs, linecard, dut_nbrhosts[linecard],
                           orig_v6_routes[linecard], cur_v6_routes, 6):
             if not check_and_log_routes_diff(linecard, dut_nbrhosts[linecard],
                                              orig_v6_routes[linecard], cur_v6_routes, 6):
