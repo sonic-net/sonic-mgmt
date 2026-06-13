@@ -86,7 +86,15 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     # in the commit below:
     #
     # https://github.com/linux-pam/linux-pam/commit/f5db2603d2ce80a610a247e06bdd49c4eb091a7d#diff-f454153035e14468d4263c7bc9b85ec0e192be1d16080b65ae4974a74846de25R282-R288
-    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("sonic_os_version") >= 13:
+    debian_ver_str = duthost.shell(
+        "cat /etc/debian_version | cut -d. -f1")["stdout"].strip()
+    try:
+        debian_version = int(debian_ver_str)
+    except ValueError:
+        # On testing/unstable images, debian_version may be non-numeric (e.g. "trixie/sid")
+        # Default to latest behavior
+        debian_version = 13
+    if debian_version >= 13:
         additional_content = "{0}  hard  maxlogins  2".format(user)
     else:
         additional_content = "{0}  hard  maxlogins  1".format(user)
