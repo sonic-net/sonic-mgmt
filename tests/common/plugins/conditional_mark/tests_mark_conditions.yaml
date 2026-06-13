@@ -2876,80 +2876,6 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
-gnmi/test_gnmi_configdb.py:
-  skip:
-    reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
-    conditions_logical_operator: or
-    conditions:
-      - "topo_type in ['t2', 'lrh', 'urh']"
-      - "is_multi_asic==True"
-      - "release in ['202412']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
-    conditions_logical_operator: or
-    conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
-    conditions_logical_operator: or
-    conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
-  skip:
-    reason: "Test relies on DEVICE_METADATA bgp_asn; not configured on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no DEVICE_METADATA bgp_asn)"
-    conditions_logical_operator: or
-    conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-      - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
 gnmi/test_gnmi_countersdb.py:
   xfail:
     reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
@@ -3037,6 +2963,80 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py:
+  skip:
+    reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type in ['t2', 'lrh', 'urh']"
+      - "is_multi_asic==True"
+      - "release in ['202412']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
+    conditions:
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
+    conditions_logical_operator: or
+    conditions:
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
+  skip:
+    reason: "Test relies on DEVICE_METADATA bgp_asn; not configured on BMC"
+    conditions:
+      - "'bmc' in topo_type"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no DEVICE_METADATA bgp_asn)"
+    conditions_logical_operator: or
+    conditions:
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+      - "'bmc' in topo_type"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 ###############################################
 #####       golden_config_infra           #####

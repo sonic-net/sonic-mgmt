@@ -223,11 +223,6 @@ generic_config_updater/test_static_route.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-gnmi/test_gnmi_configdb.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't1-8-lag' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnmi_countersdb.py:
   skip:
     conditions:
@@ -239,6 +234,11 @@ gnmi/test_gnoi_killprocess.py:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnoi_system_reboot.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't1-8-lag' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/vrf_aware_tests/test_gnmi_configdb.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
