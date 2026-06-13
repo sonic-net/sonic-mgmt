@@ -45,6 +45,59 @@ speed_type = {
     '800000': 'speed_800_gbps',
 }
 
+_DOD_PATTERNS = ("not DOD ready", "DataSeq_IMPlugin", "Download of package(s)")
+_CPU_READY_PATTERNS = ("not CPU ready", "State: NotSpecified")
+_PROTO_START_PATTERNS = ("StartAllProtocols", "config_ixnetwork")
+_TRAFFIC_GEN_REQUIRED_PATTERNS = ("Traffic Generate required", "associated traffic Flow Groups")
+_IXIA_PRECHECK_ATTEMPTS = 4
+_IXIA_PRECHECK_RETRY_DELAY_SEC = 20
+_IXIA_PRECHECK_WARMUP_SEC = 20
+
+
+def is_ixia_readiness_failure(exc):
+    """Return True for retryable Ixia warm-up issues around port/protocol readiness."""
+    msg = str(exc)
+    return any(pat in msg for pat in (
+        *_DOD_PATTERNS,
+        *_CPU_READY_PATTERNS,
+        *_PROTO_START_PATTERNS,
+        *_TRAFFIC_GEN_REQUIRED_PATTERNS,
+    ))
+
+
+@pytest.fixture(autouse=True)
+def ixia_port_readiness_precheck(snappi_api, tgen_port_info):  # noqa: F811
+    """
+    Skip the current test if tgen ports are not ready on IxNetwork.
+    After successful port reservation, sleep briefly so the chassis can finish
+    staging plugins before the test's full set_config runs.
+    """
+    testbed_config, _, _ = tgen_port_info
+    precheck_cfg = snappi_api.config()
+    for port in testbed_config.ports:
+        precheck_cfg.ports.port(name=port.name, location=port.location)
+
+    last_error = None
+    for attempt in range(1, _IXIA_PRECHECK_ATTEMPTS + 1):
+        try:
+            snappi_api.set_config(precheck_cfg)
+            # Give the chassis time to finish plugin staging after port reservation.
+            time.sleep(_IXIA_PRECHECK_WARMUP_SEC)
+            return
+        except Exception as e:
+            if not is_ixia_readiness_failure(e):
+                raise
+            last_error = e
+            if attempt < _IXIA_PRECHECK_ATTEMPTS:
+                time.sleep(_IXIA_PRECHECK_RETRY_DELAY_SEC)
+
+    pytest.skip(
+        "Ixia readiness precheck failed for module ports {} after {} attempts ({}s wait): {}".format(
+            [port.location for port in testbed_config.ports], _IXIA_PRECHECK_ATTEMPTS,
+            _IXIA_PRECHECK_RETRY_DELAY_SEC, last_error
+        )
+    )
+
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
