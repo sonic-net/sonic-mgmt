@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Fixture params
 PEER_COUNT = 16
-WAIT_TIMEOUT = 120
+WAIT_TIMEOUT = 60
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
@@ -235,16 +235,13 @@ def setup_bgp_peers(
 '''
 
 
-def _check_rib_routes_received(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count reaches min_expected_rib."""
+def _check_rib_stable(duthost, is_ipv6, prev_rib, target):
+    """Return True when RIB count stabilises or reaches the target."""
     stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) >= min_expected_rib
-
-
-def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count drops to or below min_expected_rib."""
-    stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) <= min_expected_rib
+    curr = int(stats["num_rib"])
+    stable = curr == prev_rib[0]
+    prev_rib[0] = curr
+    return stable or curr == target
 
 
 '''
@@ -297,8 +294,9 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
+            prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
+                       _check_rib_stable, duthost, is_ipv6, prev_rib, max_expected_rib)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -321,8 +319,9 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
+            prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
+                        _check_rib_stable, duthost, is_ipv6, prev_rib, base_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
