@@ -717,6 +717,9 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
 
     # Verify each port
     ports_in_expected_state = 0
+    # Track per-port result so the duplicate-neighbor grouping below can recompute
+    # both the numerator and denominator consistently.
+    port_results = {}
     for test_port, queue_idx in ports_to_check:
         port_stats = pfcwd_stats_dict.get((test_port, queue_idx))
 
@@ -743,6 +746,8 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             if ("storm" not in current_status) and (current_detect_count == current_restored_count):
                 is_in_expected_state = True
 
+        port_results[test_port] = port_results.get(test_port, False) or is_in_expected_state
+
         if is_in_expected_state:
             ports_in_expected_state += 1
             if expected_state == "storm" and stormed_ports_list is not None and test_port not in stormed_ports_list:
@@ -755,33 +760,48 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
         logger.warning("No ports found to verify")
         return False
 
-    # When multiple test ports share the same test_neighbor_addr (e.g. VLAN sub-ports
-    # on non-dualtor t0 topologies, where setup_pfc_test currently assigns a single
-    # VLAN neighbor IP to every VLAN port), at most one of those ports can actually
-    # receive PTF background traffic -- the DUT does one ND/ARP lookup and routes
-    # all traffic out a single port. Counting every duplicate against the
-    # storm-state threshold therefore inflates the denominator and causes false
-    # failures. Subtract the duplicate count so the percentage is computed against
-    # ports that are realistically reachable by background traffic.
-    if test_ports_info:
-        seen_ips = set()
-        duplicate_count = 0
+    # On non-dualtor t0 topologies, setup_pfc_test assigns a single VLAN neighbor IP
+    # (self.vlan_nw) to every VLAN port, so at most one of those ports can actually
+    # receive PTF background traffic -- the DUT does one ND/ARP lookup and routes all
+    # traffic out a single port. Counting every such VLAN port individually against the
+    # storm threshold inflates the denominator and causes false failures.
+    #
+    # To keep the numerator and denominator consistent, group VLAN ports that share a
+    # test_neighbor_addr and treat each group as one "effective" port (success = any
+    # member reached the expected state). Non-VLAN ports (routed interfaces and
+    # PortChannel members, which also share a neighbor IP by design in parse_pc_list)
+    # are always counted individually. This adjustment only applies to the storm phase.
+    if expected_state == "storm" and test_ports_info:
+        vlan_ip_groups = {}
+        standalone_ports = []
+        seen_ports = set()
         for port, _queue_idx in ports_to_check:
+            if port in seen_ports:
+                continue
+            seen_ports.add(port)
             info = test_ports_info.get(port, {}) or {}
             ip = info.get('test_neighbor_addr')
-            if not ip:
-                continue
-            if ip in seen_ips:
-                duplicate_count += 1
+            if info.get('test_port_type') == 'vlan' and ip:
+                vlan_ip_groups.setdefault(ip, []).append(port)
             else:
-                seen_ips.add(ip)
-        if duplicate_count > 0:
-            adjusted = total_ports - duplicate_count
+                standalone_ports.append(port)
+
+        # Only adjust when VLAN ports actually share an IP (the non-dualtor case).
+        if any(len(ports) > 1 for ports in vlan_ip_groups.values()):
+            effective_total = len(vlan_ip_groups) + len(standalone_ports)
+            effective_success = 0
+            for ip, ports in vlan_ip_groups.items():
+                if any(port_results.get(p, False) for p in ports):
+                    effective_success += 1
+            for port in standalone_ports:
+                if port_results.get(port, False):
+                    effective_success += 1
             logger.info(
-                "Adjusting total_ports from %d to %d (excluded %d ports that share "
-                "test_neighbor_addr with another port)",
-                total_ports, adjusted, duplicate_count)
-            total_ports = adjusted
+                "Adjusting for duplicate VLAN neighbor IPs: ports_in_expected_state %d->%d, "
+                "total_ports %d->%d",
+                ports_in_expected_state, effective_success, total_ports, effective_total)
+            ports_in_expected_state = effective_success
+            total_ports = effective_total
 
     success_percentage = (ports_in_expected_state / total_ports) * 100
     logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
