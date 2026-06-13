@@ -16,7 +16,9 @@ def craft_pause_frame(opcode=0x0001, quanta=0):
     """
     payload = struct.pack("!H", opcode) + struct.pack("!H", quanta) + b"\x00" * 42
     eth = scapy.Ether(
-        dst="01:80:C2:00:00:01", src="02:02:02:02:02:02", type=0x8808
+        dst="01:80:C2:00:00:01",
+        src="02:02:02:02:02:02",
+        type=0x8808,
     )
     return eth / scapy.Raw(payload)
 
@@ -32,6 +34,7 @@ def read_rx_drops(duthost, iface):
     )
     res = duthost.shell(cmd, module_ignore_errors=True)
     out = res.get("stdout", "").strip()
+
     try:
         return int(out) if out else 0
     except ValueError:
@@ -47,54 +50,44 @@ def test_xon_xoff_does_not_increase_rx_drop(
     tbinfo,
 ):
     """
-    Verify that sending XOFF/XON (802.3x PAUSE) frames from peer does NOT
-    increase RX_DROPS on DUT port.
-
-    Steps:
-      - Pick a random operational front-panel port (fixture)
-      - Map it to the PTF port index via tbinfo["topo"]["ptf_map"]
-      - Send XOFF then XON frames
-      - Assert RX_DROPS delta == 0
+    Verify sending XOFF/XON PAUSE frames from the peer DOES NOT increase RX_DROPS.
     """
     duthost = duthosts[rand_one_dut_hostname]
     dut_port = rand_one_dut_portname_oper_up
 
-    # Map DUT port to PTF index (topology must provide ptf_map)
+    # Normalize: remove "switchname|" prefix -> keep actual interface
+    port_name = dut_port.split("|")[-1]
+
+    # Extract PTF mapping
     ptf_map = tbinfo.get("topo", {}).get("ptf_map", {})
-    if dut_port not in ptf_map:
+
+    if port_name not in ptf_map:
         pytest.skip(
-            f"no ptf mapping for DUT port {dut_port} in tbinfo; can't run traffic"
+            f"no ptf mapping for DUT port {port_name} in tbinfo; can't run traffic"
         )
 
-    ptf_port_idx = int(ptf_map[dut_port])
+    ptf_port_idx = int(ptf_map[port_name])
 
-    # Baseline
-    before = read_rx_drops(duthost, dut_port)
+    # Baseline counters
+    before = read_rx_drops(duthost, port_name)
 
     # Send XOFF (pause_time > 0)
     xoff = craft_pause_frame(quanta=0xFFFF)
-
-    xoff_frames = 300
-
-    for _ in range(xoff_frames):
+    for _ in range(300):
         ptfadapter.dataplane.send(ptf_port_idx, bytes(xoff))
         time.sleep(0.005)
 
     # Send XON (pause_time == 0)
-
     xon = craft_pause_frame(quanta=0x0000)
-
-    xon_frames = 300
-
-    for _ in range(xon_frames):
+    for _ in range(300):
         ptfadapter.dataplane.send(ptf_port_idx, bytes(xon))
         time.sleep(0.005)
 
-    # Allow counters to settle
+    # Allow counters to update
     time.sleep(2)
 
-    after = read_rx_drops(duthost, dut_port)
+    after = read_rx_drops(duthost, port_name)
 
     assert (after - before) <= 10, (
-        f"RX_DROP increased on {dut_port}: before={before} after={after}"
+        f"RX_DROP increased on {port_name}: before={before} after={after}"
     )
