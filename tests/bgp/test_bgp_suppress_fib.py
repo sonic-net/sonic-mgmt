@@ -1,4 +1,3 @@
-import requests
 import json
 import logging
 import random
@@ -27,6 +26,7 @@ from tests.bgp.bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_
     get_bgp_neighbor_ip, check_route_install_status, validate_route_propagate_status, operate_orchagent, \
     get_upstream_ptf_intfs, get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
+from tests.common2.routing.bgp.bgp_route_control import install_route_from_exabgp
 
 pytestmark = [
     pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
@@ -456,28 +456,6 @@ def setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer):
 
     cfg_t1 = get_cfg_facts(duthost)
     setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo, loganalyzer)
-
-
-def install_route_from_exabgp(operation, ptfip, route_list, port):
-    """
-    Install or withdraw ipv4 or ipv6 route by exabgp
-    """
-    route_data = []
-    url = "http://{}:{}".format(ptfip, port)
-    for route in route_list:
-        route_data.append(route)
-    command = "{} attributes next-hop self nlri {}".format(operation, ' '.join(route_data))
-    data = {"command": command}
-    logger.info("url: {}".format(url))
-    logger.info("command: {}".format(data))
-    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
-    assert r.status_code == 200, (
-        "HTTP request to ExaBGP API failed with status code {}. URL: {}. Data: {}"
-    ).format(
-        r.status_code,
-        url,
-        data
-    )
 
 
 def announce_route(ptfip, route_list, port, action=ANNOUNCE):
