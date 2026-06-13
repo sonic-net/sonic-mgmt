@@ -1621,6 +1621,15 @@ ecmp/:
     conditions:
       - "'bmc' in topo_type"
 
+ecmp/ars/test_ars.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "The test case runs on Marvell-teralynx."
+    conditions:
+      - "platform not in ['x86_64-marvell_dbmvtx9180-r0', 'x86_64-marvell_d64p512t-r0']"
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['marvell-teralynx']"
+
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
     conditions_logical_operator: or
@@ -1701,7 +1710,6 @@ ecmp/test_fgnhg.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/7755"
       - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and 'msn2' in platform"
 
-#######################################
 #####         everflow            #####
 #######################################
 
