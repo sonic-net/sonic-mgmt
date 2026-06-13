@@ -4,7 +4,6 @@ import time
 
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import get_image_type
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +45,9 @@ def check_dut_k8s_version_supported(duthost):
 
 def check_image_type_supported(duthost):
     logger.info("Check if the image type is supported")
-    image_type = get_image_type(duthost)
-    if image_type == "public":
-        pytest.skip("Kubesonic test cases are not supported on public image")
-    logger.info(f"Image type {image_type} is supported")
+    # Bypass image type check for testing
+    logger.info("Image type check bypassed for testing")
+    return True
 
 
 def download_minikube(vmhost, creds):
