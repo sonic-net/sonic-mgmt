@@ -3017,6 +3017,12 @@ gnmi/test_gnmic.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/24328"
 
+gnmi/test_gnmi_countersdb.py:
+  skip:
+    reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
+    conditions:
+      - "is_multi_asic==True"
+
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
