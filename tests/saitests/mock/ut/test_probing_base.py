@@ -662,6 +662,34 @@ class TestProbingBaseSetUp:
         assert pb.probe_cells_per_packet == 4
         print("[OK] testParams values preserved: 1350B, 4 cells/pkt")
 
+    @pytest.mark.order(9373)
+    def test_setUp_applies_ingress_drop_pg_counter_false_env(self):
+        """Test real setUp() applies INGRESS_DROP_USE_PG_COUNTER=false"""
+        print("\n=== Testing setUp() - Real INGRESS_DROP_USE_PG_COUNTER=false Env ===")
+
+        class MockThriftInterfaceDataPlane:
+            @staticmethod
+            def setUp(_test):
+                return None
+
+        pb = ConcreteProbingBase()
+        pb.clients = Mock()
+
+        with patch('probing_base.sai_base_test.ThriftInterfaceDataPlane',
+                   MockThriftInterfaceDataPlane):
+            with patch('probing_base.switch_init') as mock_switch_init:
+                with patch('probing_base.time.sleep') as mock_sleep:
+                    with patch('probing_observer.ProbingObserver.trace') as mock_trace:
+                        with patch.dict(os.environ, {'INGRESS_DROP_USE_PG_COUNTER': 'false'}, clear=True):
+                            pb.setUp()
+
+        assert pb.use_pg_drop_counter is False
+        assert pb.POINT_PROBING_STEP_SIZE == 1
+        mock_switch_init.assert_called_once_with(pb.clients)
+        mock_sleep.assert_called_once_with(5)
+        mock_trace.assert_called()
+        print("[OK] real setUp() applies INGRESS_DROP_USE_PG_COUNTER=false")
+
 
 class TestProbingBaseTearDown:
     """Test tearDown() method (simplified - no parent call needed in UT)"""
