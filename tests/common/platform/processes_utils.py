@@ -97,5 +97,14 @@ def wait_critical_processes(dut, timeout=None):
             timeout = 900
     logging.info("Wait until all critical processes are healthy in {} sec"
                  .format(timeout))
-    pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
-                  "Not all critical processes are healthy")
+    passed = wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut)
+    if not passed:
+        _, details = get_critical_processes_status(dut)
+        failed = [
+            "{}: status={}, exited_critical_process={}".format(
+                name, info.get("status"), info.get("exited_critical_process", [])
+            )
+            for name, info in details.items()
+            if not info.get("status") or info.get("exited_critical_process")
+        ]
+        pytest_assert(False, "Not all critical processes are healthy: {}".format(failed))
