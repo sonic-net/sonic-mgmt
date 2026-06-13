@@ -1,4 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
+from typing import Any, Dict
+from tabulate import tabulate
 logger = logging.getLogger(__name__)
 
 
@@ -307,6 +309,76 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa 
             else:
                 continue
     return port_list
+
+
+def _normalize_stat_rows(rows: Any) -> list:
+    """Normalize StatViewAssistant.Rows into list[dict].
+
+    Handles cases where each row element is:
+    - a dict-like (already usable)
+    - a string with lines like "Key: value"
+    - an object whose str() contains the key/value lines
+    """
+    norm = []
+    if rows is None:
+        return norm
+    for r in rows:
+        # If it's already a dict-like
+        if isinstance(r, dict):
+            norm.append(r)
+            continue
+        # Try to get a mapping attribute
+        try:
+            items = getattr(r, 'items', None)
+            if callable(items):
+                norm.append(dict(r.items()))
+                continue
+        except Exception:
+            pass
+
+        # Fallback: string parse
+        s = str(r)
+        # Split into lines, parse 'key: value' pairs
+        entry: Dict[str, str] = {}
+        for line in s.splitlines():
+            if ':' in line:
+                key, val = line.split(':', 1)
+                entry[key.strip()] = val.strip()
+        if entry:
+            norm.append(entry)
+        else:
+            # last resort: store full string under 'value'
+            norm.append({'value': s})
+    return norm
+
+
+def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
+    """Print selected columns from a User Defined Statistics StatViewAssistant.
+
+    Args:
+        stat_obj: a StatViewAssistant instance (already created).
+
+    Returns:
+        pandas.DataFrame or None
+    """
+    try:
+        rows = _normalize_stat_rows(stat_obj.Rows)
+        if not rows:
+            logger.info("User Defined Statistics: empty rows")
+            return None
+        df = pd.DataFrame(rows)
+        df = df.reindex(columns=selected_cols)
+        numeric_cols = ["Tx Frames", "Rx Frames", "Frames Delta", "Loss %", "Tx Frame Rate", "Rx Frame Rate"]
+        try:
+            df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        except Exception:
+            pass
+        df = df.fillna("")
+        logger.info("\n%s", tabulate(df, headers="keys", tablefmt="psql"))
+        return df
+    except Exception as e:
+        logger.warning("Failed to tabulate UD_Statistics: %s", e)
+        return None
 
 
 def get_snappi_stats(ixnet, view_name, columns=None):
