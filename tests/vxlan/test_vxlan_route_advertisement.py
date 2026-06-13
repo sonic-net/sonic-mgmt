@@ -250,6 +250,16 @@ class Test_VxLAN_route_Advertisement():
                                      bfd=False,
                                      mask=prefix_mask)
 
+    @staticmethod
+    def _get_vrf_for_device(device):
+        """Return the VRF name to query on a neighbor device.
+
+        For multi-VRF peers the routes live in a per-peer VRF, not 'default'.
+        """
+        if device.get('is_multi_vrf_peer'):
+            return device['multi_vrf_data']['vrf']
+        return 'default'
+
     def verify_nighbor_has_routes(self, routes, community=""):
         if self.prefix_type == 'v4':
             prefix_mask = 24
@@ -259,8 +269,9 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route in result['vrfs']['default']['bgpRouteEntries'],
+                    vrf = self._get_vrf_for_device(t2device)
+                    result = t2device['host'].get_route(route, vrf=vrf if vrf != 'default' else None)
+                    py_assert(route in result['vrfs'][vrf]['bgpRouteEntries'],
                               "Route not propogated to the T2")
                     if community != "":
                         py_assert(community in str(result), "community not propogated.")
@@ -275,8 +286,9 @@ class Test_VxLAN_route_Advertisement():
             for prefix in routes[vnet]:
                 route = f'{prefix}/{prefix_mask}'
                 for t2device in self.vxlan_test_setup['t2']:
-                    result = t2device['host'].get_route(route)
-                    py_assert(route not in result['vrfs']['default']['bgpRouteEntries'],
+                    vrf = self._get_vrf_for_device(t2device)
+                    result = t2device['host'].get_route(route, vrf=vrf if vrf != 'default' else None)
+                    py_assert(route not in result['vrfs'][vrf]['bgpRouteEntries'],
                               "Route not propogated to the T2")
                     if community != "":
                         py_assert(community not in str(result), "community is still getting propogated.")
@@ -300,7 +312,7 @@ class Test_VxLAN_route_Advertisement():
             result = t2device['host'].run_command(cmd)
             while len(result['stdout'][0]) == 0 and retry_count > 0:
                 time.sleep(10)
-                result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+                result = t2device['host'].run_command(cmd)
                 retry_count = retry_count - 1
             if len(result['stdout'][0]) == 0:
                 py_assert(False, "Routes not propogated to the T2.")

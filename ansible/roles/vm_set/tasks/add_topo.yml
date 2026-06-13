@@ -233,6 +233,11 @@
   - debug: msg="{{ duts_fp_ports }}"
   - debug: msg="{{ duts_mgmt_port }}"
 
+  - name: Override max_fp_num from topology when using converged (multi_vrf) topo
+    set_fact:
+      max_fp_num: "{{ topology.max_fp_num }}"
+    when: topo_is_multi_vrf | default(false) | bool and topology.max_fp_num is defined
+
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
@@ -265,7 +270,7 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
-      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf: "{{ topo_is_multi_vrf | default(false) }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
       topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
@@ -302,7 +307,7 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
-      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf: "{{ topo_is_multi_vrf | default(false) }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
       topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"

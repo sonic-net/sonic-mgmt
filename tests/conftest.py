@@ -503,9 +503,12 @@ def converge_topo_if_needed(config):
         ceos_module.converge_testbed(backup_file, topo_file)
         logger.info(f"Topology '{topo_name}' converged successfully")
 
-        os.chmod(topo_file, original_mode)
-        os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        try:
+            os.chmod(topo_file, original_mode)
+            os.chown(topo_file, original_uid, original_gid)
+            logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        except OSError as perm_err:
+            logger.warning(f"Could not restore file permissions: {perm_err}")
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)

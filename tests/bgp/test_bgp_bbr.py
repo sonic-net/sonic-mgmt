@@ -19,6 +19,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import testbed_is_multi_vrf as _testbed_is_multi_vrf
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -139,6 +140,17 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
+
+    # On multi-VRF (converged) topologies each peer role runs in its own
+    # VRF on a shared cEOS prime VM. The BBR cross-peer path verification
+    # below depends on specific BGP path-selection behavior (the direct
+    # exabgp path winning over BBR-bounced paths) that does not hold when
+    # all peer roles share a single physical BGP instance, so skip the
+    # whole module rather than report spurious aspath mismatches.
+    if _testbed_is_multi_vrf(tbinfo):
+        pytest.skip("BGP BBR aspath tests are not supported on multi-VRF "
+                    "(converged) topologies — cross-peer aspath checks "
+                    "rely on per-peer EOS instances.")
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
@@ -268,19 +280,42 @@ def prepare_routes(setup, ptfhost):
             update_routes('withdraw', ptfhost.mgmt_ip, tor1_exabgp_port_v6, route)
 
 
+def _get_eos_vrf(route_data):
+    """Get VRF name from EOS route response. Handles both default and multi-VRF."""
+    vrfs = list(route_data.get('vrfs', {}).keys())
+    return vrfs[0] if vrfs else 'default'
+
+
+def _get_route_with_vrf(nbrhost_entry, prefix):
+    """Get a BGP route from a neighbor host, using the per-peer VRF when the
+    neighbor is part of a multi-VRF converged peer.
+
+    On converged topologies a single cEOS prime VM hosts multiple peer roles,
+    each in its own VRF. The default VRF has no BGP, so we must explicitly
+    query the role's VRF; otherwise EOS returns an empty result.
+    """
+    host = nbrhost_entry['host']
+    if isinstance(host, EosHost) and nbrhost_entry.get('is_multi_vrf_peer', False):
+        vrf = nbrhost_entry.get('multi_vrf_data', {}).get('vrf')
+        if vrf and vrf != 'default':
+            return host.get_route(prefix, vrf=vrf)
+    return host.get_route(prefix)
+
+
 def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
     def check_tor1(nbrhosts, setup, route):
         tor1 = setup['tor1']
         # Check route on tor1
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
-        tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
+        tor1_route = _get_route_with_vrf(nbrhosts[tor1], route.prefix)
 
         if isinstance(nbrhosts[tor1]['host'], EosHost):
-            if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
+            vrf = _get_eos_vrf(tor1_route)
+            if route.prefix not in list(tor1_route['vrfs'][vrf]['bgpRouteEntries'].keys()):
                 logging.warn('No route for {} found on {}'.format(route.prefix, tor1))
                 return False
-            tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
+            tor1_route_aspath = tor1_route['vrfs'][vrf]['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
                 ['asPathEntry']['asPath']   # noqa E211
             if not tor1_route_aspath == route.aspath:
                 logging.warn('On {} expected aspath: {}, actual aspath: {}'.format(
@@ -350,7 +385,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
 
         def _check_route():
             nonlocal vm_route
-            vm_route = nbrhosts[node]['host'].get_route(route.prefix)
+            vm_route = _get_route_with_vrf(nbrhosts[node], route.prefix)
             if not isinstance(vm_route, dict):
                 logging.warning("DEBUG: unexpected vm_route type {}, {}".format(type(vm_route), vm_route))
             vm_route['failed'] = False
@@ -358,12 +393,13 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             if accepted:
                 tor_route_aspath = None
                 if isinstance(nbrhosts[node]['host'], EosHost):
-                    if route.prefix not in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                    vrf = _get_eos_vrf(vm_route)
+                    if route.prefix not in list(vm_route['vrfs'][vrf]['bgpRouteEntries'].keys()):
                         vm_route['failed'] = True
                         vm_route['message'] = 'No route for {} found on {}'.format(route.prefix, node)
                         return False
                     else:
-                        tor_route_aspath = vm_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
+                        tor_route_aspath = vm_route['vrfs'][vrf]['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
                         ['asPathEntry']['asPath']   # noqa E211
                 elif isinstance(nbrhosts[node]['host'], SonicHost):
                     if vm_route and 'paths' in vm_route:
@@ -386,7 +422,8 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                     return False
             else:
                 if isinstance(nbrhosts[node]['host'], EosHost):
-                    if route.prefix in list(vm_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                    vrf = _get_eos_vrf(vm_route)
+                    if route.prefix in list(vm_route['vrfs'][vrf]['bgpRouteEntries'].keys()):
                         vm_route['failed'] = True
                         vm_route['message'] = 'No route {} expected on {}'.format(route.prefix, node)
                         return False

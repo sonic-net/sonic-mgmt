@@ -1784,7 +1784,8 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
 
 
 def testbed_is_multi_vrf(tbinfo):
-    val = tbinfo.get('use_converged_peers')
-    if val:
-        return str(val).lower() == 'true'
-    return False
+    # Use the topology's own topo_is_multi_vrf flag (set by the converger)
+    # as the single source of truth, instead of the testbed-level
+    # use_converged_peers deployment hint.
+    topo_props = tbinfo.get('topo', {}).get('properties', {})
+    return bool(topo_props.get('topo_is_multi_vrf', False))

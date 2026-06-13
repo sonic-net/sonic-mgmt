@@ -23,6 +23,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.utilities import testbed_is_multi_vrf as _testbed_is_multi_vrf
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,17 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     if neighbor_type.lower() not in ('eos', 'ceos'):
         pytest.skip("BGP link-local test requires EOS neighbors; "
                     "current neighbor_type is '{}'".format(neighbor_type))
+
+    # On a multi-VRF (converged) testbed each cEOS prime VM runs BGP
+    # inside per-peer VRFs and the default VRF has no router-id, so
+    # configuring `router bgp <asn>` (default VRF) on the peer leaves
+    # BGP disabled. The unnumbered link-local peering this test
+    # configures relies on the default VRF and is not meaningful on
+    # converged topologies.
+    if _testbed_is_multi_vrf(tbinfo):
+        pytest.skip("BGP link-local unnumbered peering is not supported "
+                    "on multi-VRF (converged) topologies — the cEOS peer "
+                    "runs BGP per-VRF, not in the default VRF.")
 
     duthost = duthosts[rand_one_dut_hostname]
     dut_asn = common_props.get('dut_asn')

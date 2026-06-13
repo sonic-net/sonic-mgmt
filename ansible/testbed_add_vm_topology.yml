@@ -112,6 +112,44 @@
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
+  - name: Read use_converged_peers from vtestbed.yaml if not passed via -e
+    set_fact:
+      use_converged_peers: >-
+        {{ (lookup('file', 'vtestbed.yaml', errors='ignore') | default('[]', true) | from_yaml | default([], true))
+        | selectattr('conf-name', 'defined')
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | selectattr('use_converged_peers', 'defined')
+        | map(attribute='use_converged_peers')
+        | list | first | default(false) }}
+    when: use_converged_peers is not defined
+
+  - name: Backup original topo file before convergence
+    copy:
+      src: "{{ playbook_dir }}/vars/topo_{{ topo }}.yml"
+      dest: "{{ playbook_dir }}/vars/topo_{{ topo }}.yml.bak"
+      remote_src: yes
+    delegate_to: localhost
+    when:
+      - use_converged_peers | default(false) | bool
+      - not (topo_is_multi_vrf | default(false) | bool)
+
+  - name: Pre-converge topology on disk when use_converged_peers is enabled
+    command: python3 -m ceos_topo_converger "vars/topo_{{ topo }}.yml.bak" "vars/topo_{{ topo }}.yml"
+    args:
+      chdir: "{{ playbook_dir }}"
+    delegate_to: localhost
+    when:
+      - use_converged_peers | default(false) | bool
+      - not (topo_is_multi_vrf | default(false) | bool)
+    register: converge_result
+
+  - name: Reload topo variables after convergence
+    include_vars: "vars/topo_{{ topo }}.yml"
+    when:
+      - converge_result is defined
+      - converge_result is not skipped
+      - converge_result.rc == 0
+
   - name: Read duts minigraph
     conn_graph_facts:
       host: "{{ duts_name }}"

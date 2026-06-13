@@ -8,6 +8,7 @@ import ipaddr as ipaddress
 import json
 import os
 import re
+import sys
 import yaml
 import logging
 
@@ -377,6 +378,27 @@ class TestbedInfo(object):
                 map[str(ptf_port_index)][dut_index] = int(dut_port_index)
         return map
 
+    @staticmethod
+    def _converge_topology(topo_definition):
+        """Converge topology in-memory when use_converged_peers is enabled.
+
+        This runs the ceos_topo_converger to consolidate multiple VMs of the
+        same role into fewer prime devices using multi-VRF.  It is needed so
+        that the test fixtures see the converged topology even when the
+        on-disk YAML file has not been pre-converged (e.g. fresh git checkout
+        used only for the test run).
+        """
+        # Lazy import: ceos_topo_converger is in ansible/ dir, not on test PYTHONPATH
+        ansible_dir = os.path.normpath(
+            os.path.join(os.path.dirname(__file__), "../../ansible"))
+        if ansible_dir not in sys.path:
+            sys.path.insert(0, ansible_dir)
+        from ceos_topo_converger import SonicTopoConverger
+        converger = SonicTopoConverger(topo_definition, os.devnull)
+        converger.parse_properties()
+        converger.converge_topo()
+        return converger.converged_topo
+
     def parse_topo(self):
         for tb_name, tb in list(self.testbed_topo.items()):
             topo = tb.pop("topo")
@@ -393,7 +415,34 @@ class TestbedInfo(object):
                 topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
                 topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
                 with open(topo_file, 'r') as fh:
-                    tb['topo']['properties'] = yaml.safe_load(fh)
+                    topo_definition = yaml.safe_load(fh)
+
+                use_converged = tb.get('use_converged_peers', False)
+                already_converged = topo_definition.get('topo_is_multi_vrf', False)
+                if use_converged and not already_converged:
+                    try:
+                        topo_definition = self._converge_topology(topo_definition)
+                        logger.info("Converged topology for testbed %s", tb_name)
+                    except Exception as e:
+                        logger.warning("Failed to converge topology for %s: %s", tb_name, e)
+                elif not use_converged and already_converged:
+                    # Topo file was converged on disk by another tool/testbed,
+                    # but this entry does not use convergence. Read from backup.
+                    bak_file = topo_file + ".bak"
+                    if os.path.exists(bak_file):
+                        with open(bak_file, "r") as bak_fh:
+                            bak_def = yaml.safe_load(bak_fh)
+                        if not bak_def.get("topo_is_multi_vrf", False):
+                            topo_definition = bak_def
+                            logger.info("Using unconverged backup topo for %s", tb_name)
+                        else:
+                            logger.warning("Backup also converged for %s, using as-is", tb_name)
+                    else:
+                        logger.warning(
+                            "Topo %s is converged on disk but no backup found; "
+                            "testbed %s may have incorrect topology data", topo, tb_name)
+
+                tb['topo']['properties'] = topo_definition
                 tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
                 tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
                 tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
