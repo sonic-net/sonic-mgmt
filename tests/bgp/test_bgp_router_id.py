@@ -112,12 +112,43 @@ def loopback_ipv6(duthosts, enum_frontend_dut_hostname):
     yield loopback_ip
 
 
+def _check_default_route_via_frr(duthost, ipv4=True, ipv6=True):
+    """Check default route existence using FRR vtysh instead of kernel 'ip route'.
+
+    On full-scale topologies, the kernel 'ip route show' command may return empty
+    output due to a known issue (sonic-net/sonic-buildimage#24537). Using FRR's
+    'show ip route' avoids this limitation.
+    """
+    if ipv4:
+        result = duthost.shell(
+            "vtysh -c 'show ip route 0.0.0.0/0'",
+            module_ignore_errors=True
+        )
+        if result['rc'] != 0 or 'Network not in table' in result['stdout']:
+            return False
+        # A valid route entry should contain a nexthop via line
+        if 'via' not in result['stdout']:
+            return False
+    if ipv6:
+        result = duthost.shell(
+            "vtysh -c 'show ipv6 route ::/0'",
+            module_ignore_errors=True
+        )
+        if result['rc'] != 0 or 'Network not in table' in result['stdout']:
+            return False
+        if 'via' not in result['stdout']:
+            return False
+    return True
+
+
 def restart_bgp(duthost, tbinfo):
     duthost.reset_service("bgp")
     duthost.restart_service("bgp")
     pytest_assert(wait_until(100, 10, 10, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
-    pytest_assert(wait_until(100, 10, 10, duthost.check_default_route,
-                             ipv4=not is_ipv6_only_topology(tbinfo)), "Default route not ready")
+    is_v6_only = is_ipv6_only_topology(tbinfo)
+    pytest_assert(wait_until(100, 10, 10, _check_default_route_via_frr,
+                             duthost, ipv4=not is_v6_only, ipv6=is_v6_only),
+                  "Default route not ready")
     # After restarting bgp, add time wait for bgp_facts to fetch latest status
     time.sleep(20)
 
