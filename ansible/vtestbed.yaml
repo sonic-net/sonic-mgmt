@@ -524,7 +524,8 @@
     - vlab-vpp-01
   inv_name: veos_vtb
   auto_recover: 'False'
-  comment: Tests virtual vpp switch vm
+  use_converged_peers: 'True'
+  comment: Tests virtual vpp switch vm (converged, single cEOS)
 
 - conf-name: vms-kvm-vpp-t1
   group-name: vms6-2
