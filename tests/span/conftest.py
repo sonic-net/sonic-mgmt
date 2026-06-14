@@ -8,6 +8,18 @@ import logging
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import skip_release, wait_until
 from tests.common.helpers.assertions import pytest_assert as _pytest_assert
+from erspan_helpers import (   # noqa F401
+    ERSPAN_SESSION_NAME,
+    ERSPAN_SRC_IP,
+    ERSPAN_DST_IP,
+    ERSPAN_DST_PREFIX,
+    ERSPAN_DSCP,
+    ERSPAN_TTL,
+    ERSPAN_GRE_TYPE,
+    ERSPAN_DEFAULT_DIRECTION,
+    remove_mirror_session,
+    create_erspan_session_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -173,15 +185,7 @@ def setup_session(duthosts, rand_one_dut_hostname, session_info):
 # ERSPAN sampling/truncation fixtures
 # ---------------------------------------------------------------------------
 
-ERSPAN_SESSION_NAME = "erspan_sample_trunc"
-ERSPAN_SRC_IP = "10.1.0.32"
-ERSPAN_DST_IP = "10.20.0.33"
-ERSPAN_DST_PREFIX = "10.20.0.33/32"
-ERSPAN_DSCP = "8"
-ERSPAN_TTL = "64"
-ERSPAN_GRE_TYPE = "0x8949"
-ERSPAN_QUEUE = "0"
-ERSPAN_DEFAULT_DIRECTION = "rx"
+# ERSPAN_* endpoint constants are imported from erspan_helpers (see imports above).
 
 
 @pytest.fixture(scope="module")
@@ -200,12 +204,53 @@ def erspan_capabilities(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def skip_if_sampling_unsupported(erspan_capabilities):
-    '''Skip test if the platform does not support sampled port mirroring.'''
+def skip_if_any_sampling_unsupported(erspan_capabilities):
+    '''Skip if the platform supports neither ingress nor egress sampled mirroring.
+
+    OR-gate for config-only tests (which have no dataplane direction). Direction-aware
+    dataplane tests must use skip_if_ingress_sampling_unsupported /
+    skip_if_egress_sampling_unsupported instead, so they do not run on a platform that
+    only supports the other direction and then fail spuriously.
+    '''
     ingress = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false")
     egress = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false")
     if ingress.lower() != 'true' and egress.lower() != 'true':
-        pytest.skip("Platform does not support sampled port mirroring")
+        pytest.skip("Skip: platform does not support sampled port mirroring (PORT_*_SAMPLE_MIRROR_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def skip_if_ingress_sampling_unsupported(erspan_capabilities):
+    '''Skip if the platform does not support RX (ingress) sampled port mirroring.
+
+    Use for direction=rx dataplane tests, which require ingress sampling specifically.
+    '''
+    capable = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip("Skip: platform does not support ingress (RX) sampled port mirroring "
+                    "(PORT_INGRESS_SAMPLE_MIRROR_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def skip_if_egress_sampling_unsupported(erspan_capabilities):
+    '''Skip if the platform does not support TX (egress) sampled port mirroring.
+
+    Use for direction=tx dataplane tests, which require egress sampling specifically.
+    '''
+    capable = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false")
+    if capable.lower() != 'true':
+        pytest.skip("Skip: platform does not support egress (TX) sampled port mirroring "
+                    "(PORT_EGRESS_SAMPLE_MIRROR_CAPABLE != true)")
+
+
+@pytest.fixture(scope="module")
+def skip_if_no_tx_ingress(erspan_ports):
+    '''Skip direction=tx/both dataplane tests when no peer VLAN-member injection port
+    is available (needs >=4 non-PortChannel VLAN members; see erspan_ports). Depends on
+    erspan_ports only (no PTF), so it short-circuits before any PTF setup.
+    '''
+    if erspan_ports['tx_ingress'] is None:
+        pytest.skip("Skip: TX/BOTH dataplane needs >=4 non-PortChannel VLAN member ports "
+                    "(a peer injection port distinct from source, gre_egress and monitor)")
 
 
 @pytest.fixture(scope="module")
@@ -213,7 +258,9 @@ def skip_if_truncation_unsupported(erspan_capabilities):
     '''Skip test if the platform does not support sample packet truncation.'''
     capable = erspan_capabilities.get("SAMPLEPACKET_TRUNCATION_CAPABLE", "false")
     if capable.lower() != 'true':
-        pytest.skip("Platform does not support sample packet truncation")
+        pytest.skip(
+            "Skip: platform does not support sample packet truncation "
+            "(SAMPLEPACKET_TRUNCATION_CAPABLE != true)")
 
 
 @pytest.fixture(scope="module")
@@ -222,6 +269,9 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
     Select ports for ERSPAN tests:
       - source: VLAN member port where test traffic is injected
       - gre_egress: different VLAN member port used as next-hop for ERSPAN dst IP
+      - tx_ingress: peer VLAN member used to inject broadcast traffic that floods
+        out the source port (egress) for direction=tx/both tests; None unless the
+        VLAN has >=4 non-PortChannel members (see note below).
     '''
     duthost = duthosts[rand_one_dut_hostname]
     vlans = cfg_facts['VLAN']
@@ -235,6 +285,19 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
 
     assert len(port_names) >= 3, "Need at least 3 non-PortChannel VLAN member ports"
 
+    # TX (egress) dataplane tests need a peer VLAN-member injection port, distinct from
+    # the mirror source and from the gre_egress/monitor ports. gre_egress (port_names[1])
+    # is moved to L3 by setup_erspan_route, and the monitor port (port_names[-1]) is
+    # removed from the VLAN by setup_monitor_port, so at least 4 members are required for
+    # port_names[2] to remain a usable VLAN member. When unavailable, tx_ingress is None
+    # and direction=tx/both tests skip (see skip_if_no_tx_ingress).
+    tx_ingress = None
+    if len(port_names) >= 4:
+        tx_ingress = {
+            'name': port_names[2],
+            'index': cfg_facts['port_index_map'][port_names[2]],
+        }
+
     router_mac = duthost.facts['router_mac']
     return {
         'source': {
@@ -246,6 +309,7 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
             'index': cfg_facts['port_index_map'][port_names[1]],
             'tagging_mode': ports[port_names[1]]['tagging_mode'],
         },
+        'tx_ingress': tx_ingress,
         'vlan': vlan,
         'router_mac': router_mac,
     }
@@ -325,38 +389,37 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
     src_port = erspan_ports['source']['name']
     direction = params.get('direction', ERSPAN_DEFAULT_DIRECTION)
 
-    cmd = 'config mirror_session erspan add {} {} {} {} {} {} {} {} {}'.format(
-        ERSPAN_SESSION_NAME, ERSPAN_SRC_IP, ERSPAN_DST_IP,
-        ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE,
-        src_port, direction
-    )
-    if sample_rate is not None:
-        cmd += ' --sample_rate {}'.format(sample_rate)
-    if truncate_size is not None:
-        cmd += ' --truncate_size {}'.format(truncate_size)
-
-    # Pre-cleanup: idempotent removal of any leftover mirror session from a previous crashed run.
-    duthost.command('config mirror_session remove {}'.format(ERSPAN_SESSION_NAME),
-                    module_ignore_errors=True)
-
-    logger.info("Creating ERSPAN session: %s", cmd)
-    duthost.command(cmd)
+    # create_erspan_session_config pre-cleans any leftover same-named session, then
+    # creates it with the requested direction / sampling / truncation parameters.
+    logger.info(
+        "Creating ERSPAN session %s on %s (direction=%s, sample_rate=%s, truncate_size=%s)",
+        ERSPAN_SESSION_NAME, src_port, direction, sample_rate, truncate_size)
+    create_erspan_session_config(
+        duthost, ERSPAN_SESSION_NAME,
+        sample_rate=sample_rate, truncate_size=truncate_size,
+        source_port=src_port, direction=direction)
 
     # CONFIG_DB sanity
     output = duthost.shell("show mirror_session")
     logger.info("show mirror_session \n%s", output['stdout'])
-    assert ERSPAN_SESSION_NAME in output['stdout'], \
-        "Mirror session {} not found after creation".format(ERSPAN_SESSION_NAME)
+    _pytest_assert(
+        ERSPAN_SESSION_NAME in output['stdout'],
+        "Mirror session {} not found after creation".format(ERSPAN_SESSION_NAME),
+    )
 
     # Wait for STATE_DB to converge: status=active AND monitor_port matches gre_egress
     expected_monitor = erspan_ports['gre_egress']['name']
 
     def _session_ready():
-        out = duthost.shell(
-            "sonic-db-cli STATE_DB HGETALL 'MIRROR_SESSION_TABLE|{}'".format(ERSPAN_SESSION_NAME),
+        status = duthost.shell(
+            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' status".format(ERSPAN_SESSION_NAME),
             module_ignore_errors=True
-        )['stdout']
-        return 'active' in out and expected_monitor in out
+        )['stdout'].strip()
+        monitor = duthost.shell(
+            "sonic-db-cli STATE_DB HGET 'MIRROR_SESSION_TABLE|{}' monitor_port".format(ERSPAN_SESSION_NAME),
+            module_ignore_errors=True
+        )['stdout'].strip()
+        return status == 'active' and monitor == expected_monitor
 
     ready = wait_until(30, 2, 0, _session_ready)
     state_dump = duthost.shell(
@@ -379,6 +442,8 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         'session_name': ERSPAN_SESSION_NAME,
         'source_index': erspan_ports['source']['index'],
         'gre_egress_index': erspan_ports['gre_egress']['index'],
+        'tx_ingress_index': (erspan_ports['tx_ingress']['index']
+                             if erspan_ports['tx_ingress'] else None),
         'source_port': src_port,
         'gre_egress_port': erspan_ports['gre_egress']['name'],
         'router_mac': erspan_ports['router_mac'],
@@ -394,5 +459,4 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         },
     }
 
-    duthost.command('config mirror_session remove {}'.format(ERSPAN_SESSION_NAME),
-                    module_ignore_errors=True)
+    remove_mirror_session(duthost, ERSPAN_SESSION_NAME)

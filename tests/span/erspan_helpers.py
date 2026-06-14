@@ -4,7 +4,6 @@ Helper functions for ERSPAN sampled port mirroring with truncation tests.
 
 import time
 import logging
-import ptf.packet as packet
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +11,28 @@ logger = logging.getLogger(__name__)
 # We send NUM_SAMPLES * sample_rate packets so that the expected mirrored
 # packets are within the expected range.
 NUM_SAMPLES = 100
-MIN_EXPECTED_SAMPLES = int(0.75 * NUM_SAMPLES)
-MAX_EXPECTED_SAMPLES = int(1.25 * NUM_SAMPLES)
+MIN_EXPECTED_SAMPLES = int(0.95 * NUM_SAMPLES)
+MAX_EXPECTED_SAMPLES = int(1.05 * NUM_SAMPLES)
 
-# ERSPAN outer header size: Ether + IP + GRE (same as everflow)
-OUTER_HEADER_SIZE = len(packet.Ether()) + len(packet.IP()) + len(packet.GRE())
+# ERSPAN encapsulation overhead, measured on hardware (see the test plan section
+# "ERSPAN Packet Structure"). A mirrored frame prepends:
+#   Outer Ethernet (14B) + Outer IP (20B) + GRE + vendor/ERSPAN shim (28B) = 62B.
+# So a mirrored frame length = ENCAP_OVERHEAD + min(original_len, truncate_size)
+ENCAP_OVERHEAD = 62
+
+# Allowance (bytes) for trailing padding / alignment some platforms add.
+MIRROR_LEN_TOLERANCE = 8
+
+
+def expected_mirror_len(original_len, truncate_size=0):
+    '''
+    Expected length of a mirrored ERSPAN frame as seen on the collector.
+
+    The inner (mirrored) payload is the original packet capped at truncate_size
+    when truncation is enabled (truncate_size > 0); otherwise the full original.
+    '''
+    inner = original_len if truncate_size <= 0 else min(original_len, truncate_size)
+    return ENCAP_OVERHEAD + inner
 
 
 def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, timeout=15):
@@ -91,3 +107,58 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
         len(matched), gre_egress_ports, total_seen, skipped_reasons
     )
     return matched
+
+
+# ---------------------------------------------------------------------------
+# ERSPAN endpoint constants
+# ---------------------------------------------------------------------------
+ERSPAN_SESSION_NAME = "erspan_sample_trunc"
+ERSPAN_SRC_IP = "10.1.0.32"
+ERSPAN_DST_IP = "10.20.0.33"
+ERSPAN_DST_PREFIX = "10.20.0.33/32"
+ERSPAN_DSCP = "8"
+ERSPAN_TTL = "64"
+ERSPAN_GRE_TYPE = "0x8949"
+ERSPAN_QUEUE = "0"
+ERSPAN_DEFAULT_DIRECTION = "rx"
+
+
+def remove_mirror_session(duthost, session_name):
+    '''Remove a mirror session, ignoring errors if it does not exist.'''
+    duthost.command(
+        'config mirror_session remove {}'.format(session_name),
+        module_ignore_errors=True)
+
+
+def create_erspan_session_config(duthost, session_name, sample_rate=None,
+                                 truncate_size=None, source_port=None,
+                                 direction=None, module_ignore_errors=False):
+    '''
+    Create an ERSPAN mirror session via the config CLI using the shared ERSPAN_*
+    endpoint constants.
+
+    A leftover session with the same name (e.g. from a previously crashed run) is
+    removed first so the create always starts from a clean slate.
+
+    source_port / direction are appended as positional CLI args when provided
+    (direction is only appended together with source_port, matching the CLI's
+    positional order). sample_rate / truncate_size are appended as --flags only
+    when not None (note that 0 IS appended, since the CLI accepts 0 to mean
+    "disabled"). When module_ignore_errors is True the non-zero rc is returned
+    instead of raising, so negative tests can inspect it.
+
+    Returns the duthost.command result dict.
+    '''
+    remove_mirror_session(duthost, session_name)
+    cmd = 'config mirror_session erspan add {} {} {} {} {} {} {}'.format(
+        session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
+        ERSPAN_DSCP, ERSPAN_TTL, ERSPAN_GRE_TYPE, ERSPAN_QUEUE)
+    if source_port is not None:
+        cmd += ' {}'.format(source_port)
+        if direction is not None:
+            cmd += ' {}'.format(direction)
+    if sample_rate is not None:
+        cmd += ' --sample_rate {}'.format(sample_rate)
+    if truncate_size is not None:
+        cmd += ' --truncate_size {}'.format(truncate_size)
+    return duthost.command(cmd, module_ignore_errors=module_ignore_errors)
