@@ -40,7 +40,7 @@ def check_results(results):
     """
     failed_results = {}
     for node_name, node_results in list(results.items()):
-        failed_node_results = [res for res in node_results if res['failed']]
+        failed_node_results = [res for res in node_results if res.get('failed', False)]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
     if failed_results:
