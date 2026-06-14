@@ -1,1 +1,1 @@
-# Vendor utility docker (SONiC application extension) install and validation tests
+# Live-addon docker install and validation tests (vendor-specific JSON under files/)
