@@ -22,14 +22,14 @@ live in per-ASIC JSON files under `tests/live_addon_docker/files/`.
 | In scope | Out of scope |
 |----------|--------------|
 | `docker pull` / `docker load` / `docker run` on the DUT | `sonic-package-manager` install paths |
-| HTTP health endpoint probe from the DUT | Building or publishing images (CI owns that) |
+| HTTP health endpoint probe from the DUT | Building or publishing docker images |
 | Post-start checks via `verify_live_addon_post_start` (logs and/or supervisord) | Shared tarball distribution between vendors |
 | Optional `version_matrix` skip for image vs SONiC compatibility | |
 | Registry override per test run (`--live_addon_docker_registry`) | |
 
 **Platform filter:** `asic_type=cisco-8000` only (see
 `tests/common/plugins/conditional_mark/tests_mark_conditions_live_addon_docker.yaml`). VS/KVM is
-skipped.
+skipped. Additional asic types can be added when supported.
 
 ## 3. Repository layout
 
@@ -90,27 +90,30 @@ falls back to tarballs or an image already on the DUT.
 
 ```mermaid
 flowchart TD
-    A[Test start] --> B{Registry host set?}
-    B -->|Ansible docker_registry_host or --live_addon_docker_registry| C[docker pull on DUT]
-    C -->|success| D[docker tag to docker_run.image_ref]
-    C -->|fail| E{Tarball on DUT ~/tarball_filename?}
+    A[Test start] --> B{Registry host configured?}
+    B -->|yes| C[docker pull on DUT]
+    C -->|success| D[docker tag to image_ref]
+    C -->|fail| E{Tarball on DUT admin home?}
     B -->|no| E
-    E -->|yes| F[docker load -i]
+    E -->|yes| F[docker load from tarball]
     E -->|no| G{Tarball on test runner?}
-    G -->|yes| H[copy to /tmp on DUT, docker load]
-    G -->|no| I{docker image inspect image_ref?}
+    G -->|yes| H[copy to DUT tmp and docker load]
+    G -->|no| I{Image already on DUT?}
     I -->|yes| J[use existing image]
-    I -->|no| K[pytest.skip]
+    I -->|no| K[skip test]
     D --> L[version_matrix check]
     F --> L
     H --> L
     J --> L
     L -->|compatible| M[docker run]
-    L -->|incompatible| N[pytest.skip]
+    L -->|incompatible| N[skip test]
     M --> O[verify_live_addon_post_start]
     O --> P[Run tests]
-    P --> Q[Teardown: stop/rm container, post checks]
+    P --> Q[Teardown and post checks]
 ```
+
+Registry host comes from Ansible `docker_registry_host` or pytest `live_addon_docker_registry`
+(see §6). Tarball path on the DUT is `dut_tarball_home` plus `tarball_filename` from JSON.
 
 **Pull tag selection:**
 
@@ -284,6 +287,4 @@ up to **900s** when needed.
 ## 11. Assumptions and constraints
 
 - DUT has Docker and network access to the chosen registry (or a pre-staged image/tarball).
-- Live-addon uses `--net=host` health probe from the DUT shell (`curl` to `bind_host:port`).
 - Registry credentials come from Ansible `docker_registry_*` in testbed creds unless overridden by CLI.
-- Cisco 8000 health port default: `50200` (see `cisco-8000_live_addon_docker.json`).
