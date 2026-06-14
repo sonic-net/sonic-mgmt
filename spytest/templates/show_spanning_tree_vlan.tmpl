@@ -1,0 +1,56 @@
+Value Spanning_tree_mode (\S+)
+Value VLAN (\d+)
+Value STP_instance (\d+)
+Value Bridge_Identifier (\S+)
+Value Bridge_MaxAge (\d+)
+Value Bridge_HelloTime (\d+)
+Value Bridge_FwdDly (\d+)
+Value Bridge_HoldTime (\d+)
+Value LastTopology_Change_sec (\d+)
+Value Topology_Change_cnt (\d+)
+Value RootBridge_Identifier (\S+)
+Value RootPath_Cost (\d+)
+Value DesignatedBridge_Identifier (\S+)
+Value RootPort (\S+)
+Value RootBridge_MaxAge (\d+)
+Value RootBridge_HelloTime (\d+)
+Value RootBridge_FwdDly (\d+)
+Value Iface (\S+)
+Value PortPriority (\d+)
+Value PortPathCost (\d+)
+Value PortFast (\S+)
+Value PortUplinkFast (\S+)
+Value PortState (\S+)
+Value DesignatedPortCost (\d+)
+Value DesignatedRoot (\S+)
+Value DesignatedBridge (\S+)
+
+Start
+  ^Spanning-tree Mode: ${Spanning_tree_mode} -> VLAN
+
+VLAN
+  ^VLAN ${VLAN} - STP instance ${STP_instance} -> Bridge_Parameters
+
+Bridge_Parameters
+  ^\s*Bridge\s+Identifier\s+hex\s+:\s+${Bridge_Identifier}
+  ^\s*Bridge\s+MaxAge\s+sec\s+:\s+${Bridge_MaxAge}
+  ^\s*Bridge\s+Hello\s+sec\s+:\s+${Bridge_HelloTime}
+  ^\s*Bridge\s+FwdDly\s+sec\s+:\s+${Bridge_FwdDly}
+  ^\s*Hold\s+Time\s+sec\s+:\s+${Bridge_HoldTime}
+  ^\s*LastTopology\s+Change\s+sec\s+:\s+${LastTopology_Change_sec}
+  ^\s*Topology\s+Change\s+cnt\s+:\s+${Topology_Change_cnt} -> Root_Bridge_Parameters
+
+Root_Bridge_Parameters
+  ^\s*RootBridge\s+Identifier\s+hex\s+:\s+${RootBridge_Identifier}
+  ^\s*RootPath\s+cost\s+:\s+${RootPath_Cost}
+  ^\s*DesignatedBridge\s+Identifier\s+hex\s+:\s+${DesignatedBridge_Identifier}
+  ^\s*RootPort\s+:\s+${RootPort}
+  ^\s*Max\s+Age\s+sec\s+:\s+${RootBridge_MaxAge}
+  ^\s*Hello\s+sec\s+:\s+${RootBridge_HelloTime}
+  ^\s*FwdDly\s+sec\s+:\s+${RootBridge_FwdDly} -> Port_Parameters
+
+Port_Parameters
+  ^\s*Port_Name\s+Priority\s+Path_Cost\s+Port_Fast\s+Uplink_Fast\s+State\s+Designated_Cost\s+Designated_Root\s+Designated_Bridge
+  ^\s*${Iface}\s+${PortPriority}\s+${PortPathCost}\s+${PortFast}\s+${PortUplinkFast}\s+${PortState}\s+${DesignatedPortCost}\s+${DesignatedRoot}\s+${DesignatedBridge} -> Record
+
+EOF
