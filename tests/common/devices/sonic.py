@@ -22,7 +22,7 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
-from typing import TypedDict
+from typing import Dict, Optional, TypedDict
 
 
 class ShellResult(TypedDict):
@@ -36,12 +36,32 @@ class ShellResult(TypedDict):
     changed: bool
 
 
+class ConsoleLineStatus(TypedDict):
+    """Type definition for console line status."""
+    oper_state: str
+    state_duration: str
+
+
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
 }
 UNKNOWN_ASIC = "unknown"
+COUNTER_TYPE_CLI_MAP = {
+    'QUEUE_STAT': 'queue',
+    'PORT_STAT': 'port',
+    'SWITCH_STAT': 'switch',
+    'PORT_BUFFER_DROP': 'port-buffer-drop',
+    'RIF_STAT': 'rif',
+    'QUEUE_WATERMARK_STAT': 'watermark',
+    'PG_WATERMARK_STAT': 'watermark',
+    'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+    'ACL': 'acl',
+    'TUNNEL_STAT': 'tunnel',
+    'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+    'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -285,7 +305,7 @@ class SonicHost(AnsibleHostBase):
             True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
-        return not self.is_supervisor_node()
+        return not self.is_supervisor_node() and not self.is_bmc()
 
     def is_console_switch(self):
         """
@@ -607,7 +627,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -1828,20 +1874,22 @@ Totals               6450                 6449
         """
         config = self.get_running_config_facts()
         vlan_brief = {}
-        for vlan_name, members in config["VLAN_MEMBER"].items():
-            vlan_brief[vlan_name] = {
-                "interface_ipv4": [],
-                "interface_ipv6": [],
-                "members": list(members.keys())
-            }
-        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
-            if vlan_name not in vlan_brief:
-                continue
-            for prefix in vlan_info.keys():
-                if '.' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
-                elif ':' in prefix:
-                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        if config.get('VLAN_MEMBER'):
+            for vlan_name, members in config["VLAN_MEMBER"].items():
+                vlan_brief[vlan_name] = {
+                    "interface_ipv4": [],
+                    "interface_ipv6": [],
+                    "members": list(members.keys())
+                }
+        if config.get('VLAN_INTERFACE'):
+            for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+                if vlan_name not in vlan_brief:
+                    continue
+                for prefix in vlan_info.keys():
+                    if '.' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                    elif ':' in prefix:
+                        vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
     def get_interfaces_status(self, namespace=None):
@@ -2724,27 +2772,20 @@ Totals               6450                 6449
             result_dict[counter_type]['status'] = status
         return result_dict
 
+    def set_counter_poll_status(self, counter_type, status):
+        """
+        A function to config the status of counterpoll.
+        """
+        cmd = 'counterpoll {} {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], status)
+        self.shell(cmd)
+
     def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
         """
         A function to config the interval of counterpoll. The counter type should be a key of
         the 'counterpoll show' cli output.
         """
-        counter_type_cli_map = {
-            'QUEUE_STAT': 'queue',
-            'PORT_STAT': 'port',
-            'SWITCH_STAT': 'switch',
-            'PORT_BUFFER_DROP': 'port-buffer-drop',
-            'RIF_STAT': 'rif',
-            'QUEUE_WATERMARK_STAT': 'watermark',
-            'PG_WATERMARK_STAT': 'watermark',
-            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
-            'ACL': 'acl',
-            'TUNNEL_STAT': 'tunnel',
-            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
-            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
-        }
         origin_interval = self.get_counter_poll_status()[counter_type]['interval']
-        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        cmd = 'counterpoll {} interval {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], interval)
         self.shell(cmd)
         # Sleep for the old interval for the new interval to take effect
         if wait_for_new_interval:
@@ -2962,8 +3003,7 @@ print(device_prefix)
         # Execute loopback command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"EXEC:'/bin/cat' "
             f"& echo $! "
         )
@@ -3044,10 +3084,8 @@ print(device_prefix)
         # Execute bridge command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
-            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"& echo $! "
         )
 
@@ -3140,8 +3178,7 @@ print(device_prefix)
         # Execute bridge command to remote host
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,b{baud_rate},crtscts={crtscts_val} "
             f"TCP:{remote_host}:{remote_port} "
             f"& echo $! "
         )
@@ -3176,9 +3213,8 @@ print(device_prefix)
         pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
 
         if not pids or pids == ['']:
-            error_msg = f"No remote bridge found for port {port}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            logging.info(f"No remote bridge found for port {port}, nothing to do")
+            return
 
         # Kill all related socat processes
         for pid in pids:
@@ -3226,6 +3262,96 @@ print(device_prefix)
             raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
+
+    @staticmethod
+    def parse_show_line_output(output: str) -> Dict[str, ConsoleLineStatus]:
+        """
+        Parse the output of 'show line -b' command.
+
+        Example output:
+          Line    Baud    Flow Control    PID    Start Time      Device    Oper State    State Duration
+        ------  ------  --------------  -----  ------------  ----------  ------------  ----------------
+             1    9600        Disabled      -             -   Terminal1       Unknown          3h20m26s
+             2    9600        Disabled      -             -   Terminal2       Unknown          3h32m59s
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        result: Dict[str, ConsoleLineStatus] = {}
+        lines = output.strip().split('\n')
+
+        # Find the header line to determine column positions
+        header_line = None
+        data_start = 0
+        for i, line in enumerate(lines):
+            if 'Line' in line and 'Oper State' in line:
+                header_line = line
+                data_start = i + 2  # Skip header and separator line
+                break
+
+        if header_line is None:
+            return result
+
+        # Parse data lines
+        for line in lines[data_start:]:
+            if not line.strip():
+                continue
+
+            # Split by multiple spaces to handle the tabular format
+            parts = line.split()
+            if len(parts) >= 8:
+                # Line ID is the first column, Oper State is the 7th column (index 6)
+                # State Duration is the 8th column (index 7)
+                # Format: Line, Baud, Flow Control (2 words), PID, Start Time, Device, Oper State, State Duration
+                line_id = parts[0]
+                oper_state = parts[6]
+                state_duration = parts[7]
+                result[line_id] = ConsoleLineStatus(
+                    oper_state=oper_state,
+                    state_duration=state_duration
+                )
+
+        return result
+
+    def get_console_line_statuses(self) -> Dict[str, ConsoleLineStatus]:
+        """
+        Get status of all configured console lines using 'show line -b' command.
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        output = self.shell("show line -b")['stdout']
+        return self.parse_show_line_output(output)
+
+    def get_console_line_status(self, line_id: int) -> Optional[str]:
+        """
+        Get the oper_state of a specific console line.
+
+        Args:
+            line_id: Console line ID (e.g., 1, 2)
+
+        Returns:
+            str: Line status ('Up', 'Unknown') or None if not found
+        """
+        all_statuses = self.get_console_line_statuses()
+        line_info = all_statuses.get(str(line_id))
+        return line_info['oper_state'] if line_info else None
+
+    def enable_console_heartbeat(self) -> None:
+        """
+        Enable console heartbeat on the DTE side.
+        Starts console-monitor-dte service and enables heartbeat sending.
+        """
+        self.shell("sudo systemctl start console-monitor-dte")
+        self.shell("sudo config console heartbeat enable")
+        logging.info("console-monitor-dte service started and heartbeat enabled")
+
+    def disable_console_heartbeat(self) -> None:
+        """
+        Disable console heartbeat on the DTE side.
+        """
+        self.shell("sudo config console heartbeat disable")
+        logging.info("console heartbeat disabled")
 
     def get_mgmt_ip(self):
         """

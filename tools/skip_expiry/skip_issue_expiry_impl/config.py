@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import yaml
 
@@ -17,6 +17,8 @@ class SkipExpiryConfig:
     expiry_days: int
     release_includes: List[str] = field(default_factory=list)
     release_excludes: List[str] = field(default_factory=list)
+    warning_days: int = 30
+    maintainer_map: Dict[str, str] = field(default_factory=dict)
 
 
 def load_skip_expiry_config(config_path: Path) -> SkipExpiryConfig:
@@ -73,16 +75,47 @@ def load_skip_expiry_config(config_path: Path) -> SkipExpiryConfig:
 
     normalized_release_excludes = [str(item).strip() for item in release_excludes if str(item).strip()]
 
+    report_config = content.get("report") or {}
+    warning_days_raw = report_config.get("warning_days", [30])
+    warning_days_values: List[int] = []
+    if isinstance(warning_days_raw, list):
+        for raw in warning_days_raw:
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                warning_days_values.append(value)
+
+    if not warning_days_values:
+        warning_days_values = [30]
+
+    warning_days = max(warning_days_values)
+
+    maintainer_map_raw = report_config.get("maintainer_map") or {}
+    maintainer_map: Dict[str, str] = {}
+    if isinstance(maintainer_map_raw, dict):
+        for key, value in maintainer_map_raw.items():
+            normalized_key = str(key).strip().lower()
+            normalized_value = str(value).strip().lstrip("@")
+            if normalized_key and normalized_value:
+                maintainer_map[normalized_key] = normalized_value
+
     logger.info(
-        "Loaded skip-expiry config: %d maintainers, expiry.default_days=%d, includes=%d, excludes=%d",
+        "Loaded skip-expiry config: %d maintainers, expiry.default_days=%d, includes=%d, "
+        "excludes=%d, warning_days=%d, maintainer_map=%d",
         len(normalized_maintainers),
         expiry_days,
         len(normalized_release_includes),
         len(normalized_release_excludes),
-    )
+        warning_days,
+        len(maintainer_map))
+
     return SkipExpiryConfig(
         maintainers=normalized_maintainers,
         expiry_days=expiry_days,
         release_includes=normalized_release_includes,
         release_excludes=normalized_release_excludes,
+        warning_days=warning_days,
+        maintainer_map=maintainer_map,
     )

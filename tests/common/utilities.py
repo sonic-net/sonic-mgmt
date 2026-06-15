@@ -874,6 +874,35 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def get_plt_wait_time(duthost, tc_name):
+    """
+    @summary: utility function returns platform specific wait dict for each
+    test case that contains tc_name in it
+    @return a dict containing wait time and timeout for each test case
+
+        plt_wait_time:
+          acl/test_acl.py:
+            timeout: 300
+            wait: 300
+          everflow:
+            timeout: 300
+            wait: 60
+    """
+
+    wait_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_wait_time' in dut_vars:
+        for key in list(dut_vars['plt_wait_time'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_wait_time'][key].keys()):
+                    wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
+
+    return wait_dict
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
@@ -1312,7 +1341,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=4096
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1342,6 +1371,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1708,11 +1738,11 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
     # Get DoW
     day_of_week = datetime.now().weekday()
     logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+    day_index = datetime.now().toordinal()
+    rng = random.Random(day_index)  # Local RNG: reproducible per day, no global side effects
 
     bucket_size = len(ports) // num_buckets
     remainder = len(ports) % num_buckets
-    shuffled_ports = list(ports)
-    random.shuffle(shuffled_ports)
     selected_ports = []
     start_idx = 0
 
@@ -1722,7 +1752,8 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
         if current_bucket_size == 0:
             break
         end_idx = start_idx + current_bucket_size
-        bucket_ports = shuffled_ports[start_idx:end_idx]
+        bucket_ports = ports[start_idx:end_idx]
+        rng.shuffle(bucket_ports)
         # Select port based on DoW index (wrapping if bucket is smaller than 7)
         port_index = day_of_week % len(bucket_ports)
         selected_ports.append(bucket_ports[port_index])

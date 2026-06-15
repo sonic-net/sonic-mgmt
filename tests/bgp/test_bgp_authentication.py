@@ -6,6 +6,7 @@ import logging
 import pytest
 import time
 
+from tests.bgp.bgp_helpers import eos_bgp_neighbor_config_parents
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.config_reload import config_reload
@@ -14,7 +15,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 BGP_PASS = "sonic.123"
@@ -25,11 +26,11 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/bgp_auth_eos_backup_config_{}"
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
-    if neighbor_type not in ["sonic", "eos"]:
+    if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))
 
     is_sonic_neigh = True
-    if neighbor_type != "sonic":
+    if neighbor_type not in ("sonic", "csonic"):
         is_sonic_neigh = False
 
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -76,6 +77,12 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
             peer_group_v6 is None or neigh_asn is None):
         pytest.skip("Failed to get neighbor info")
 
+    # EOS/cEOS: converged (multi-VRF) uses "router bgp <primary_asn> vrf <hostname>", not default vrf.
+    if is_sonic_neigh:
+        neigh_eos_bgp_parents = None
+    else:
+        neigh_eos_bgp_parents = eos_bgp_neighbor_config_parents(tbinfo, nbrhosts, tor1, neigh_asn)
+
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
 
@@ -112,6 +119,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'asic_index': asic_index,
         'neigh_asic_index': neigh_asic_index,
         'is_sonic_neigh': is_sonic_neigh,
+        'neigh_eos_bgp_parents': neigh_eos_bgp_parents,
     }
 
     logger.debug("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)))
@@ -261,7 +269,7 @@ def configure_password_on_neighbor(setup):
 
         logger.debug(setup['neighhost'].eos_config(
             lines=cmd,
-            parents=['router bgp {}'.format(setup['neigh_asn'])],
+            parents=setup['neigh_eos_bgp_parents'],
         ))
 
         logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
@@ -291,7 +299,7 @@ def remove_password_on_neighbor(setup):
 
         logger.debug(setup['neighhost'].eos_config(
             lines=cmd,
-            parents=['router bgp {}'.format(setup['neigh_asn'])],
+            parents=setup['neigh_eos_bgp_parents'],
         ))
 
         logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))

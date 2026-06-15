@@ -10,20 +10,27 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
+from tests.common.helpers.pfcwd_helper import manage_lag_config        # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
-from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state
+from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, \
+    verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled
 from tests.common.utilities import wait_until
-
+from tests.common.cisco_data import is_cisco_device
+from tests.common.mellanox_data import is_mellanox_device
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
+
+# Wait long enough for at least one pfcwd polling cycle to update counters
+# between snapshots in run_pfcwd_storm_with_active_traffic.
+PFCWD_POLL_WINDOW_SEC = 12
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 WD_ACTION_MSG_PFX = {"dontcare": "Verify PFCWD detection when queue buffer is not empty "
@@ -442,8 +449,8 @@ class SetupPfcwdFunc(object):
             ptf_port = 'eth%s' % self.pfc_wd['test_port_id']
             if self.pfc_wd['test_port_vlan_id'] is not None:
                 ptf_port += (constants.VLAN_SUB_INTERFACE_SEPARATOR + self.pfc_wd['test_port_vlan_id'])
-            self.ptf.command("ip neigh flush all")
-            self.ptf.command("ip -6 neigh flush all")
+            self.ptf.command("ip neigh flush all", module_ignore_errors=True)
+            self.ptf.command("ip -6 neigh flush all", module_ignore_errors=True)
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
             if ip_version == "IPv4":
@@ -884,6 +891,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             request,
             fake_storm,
             setup_pfc_test,
+            manage_lag_config,  # noqa: F811
             setup_dut_test_params,
             enum_fanout_graph_facts,  # noqa: F811
             ptfhost,
@@ -975,7 +983,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self,
             request,
             fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
@@ -1068,7 +1077,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self,
             request,
             fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             fanouthosts, dualtor_ports,  # noqa: F811
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
@@ -1170,7 +1180,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_port_toggle(
             self, request, fake_storm,
-            setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            setup_pfc_test, manage_lag_config,                          # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,             # noqa: F811
             tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,   # noqa: F811
@@ -1279,8 +1290,145 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop PFCWD ---")
                 self.dut.command("pfcwd stop")
 
+    def run_pfcwd_storm_with_active_traffic(self, dut, port, action):
+        restore_time = self.timers['pfc_wd_restore_time_large']
+        # Hardware PFCwd platforms (e.g., Broadcom DNX) cap pfcwd
+        # restoration-time at 100-1000 ms; clamp to keep the CLI happy.
+        if is_pfcwd_hw_recovery_enabled(dut):
+            restore_time = min(restore_time, 1000)
+        detect_time = self.timers['pfc_wd_detect_time']
+        queue = self.pfc_wd['queue_index']
+
+        start_wd_on_ports(dut, port, restore_time, detect_time, action)
+        send_tx_egress(self.traffic_inst, action, False, async_mode=True, pkt_count=5000000)
+
+        try:
+            time.sleep(2)
+            self.storm_hndle.start_storm()
+            # Wait for storm detection
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                           dut, port, queue, "storm"),
+                "PFC storm was not detected on port {} queue {}".format(port, queue))
+            # Ensure storm is active → wait full polling window → snap
+            time.sleep(PFCWD_POLL_WINDOW_SEC)
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                       dut, port, queue, "storm")
+            snap1 = parser_show_pfcwd_stat(dut, port, queue)
+
+            # Again: confirm storm → wait poll window → snap
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                       dut, port, queue, "storm")
+            time.sleep(PFCWD_POLL_WINDOW_SEC)
+            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                       dut, port, queue, "storm")
+            snap2 = parser_show_pfcwd_stat(dut, port, queue)
+
+            if dut.facts['asic_type'] != 'vs':
+                # On hardware-recovery PFCwd platforms (e.g., Broadcom DNX), the per-queue
+                # TX OK/DROP cells in 'show pfcwd stats' are sourced from the software-
+                # recovery code path and stay at 0 even when silicon is dropping. Storm
+                # detection is reported in both modes, so use storm_detect_count as the
+                # hardware-side signal.
+                if is_pfcwd_hw_recovery_enabled(dut):
+                    counter = 'storm_detect_count'
+                else:
+                    counter = 'tx_drop_count' if action == 'drop' else 'tx_ok_count'
+                val1 = int(snap1[0][counter])
+                val2 = int(snap2[0][counter])
+                logger.info("PFCWD storm traffic check: port={} queue={} counter={} snap1={} snap2={}".format(
+                            port, queue, counter, val1, val2))
+                pytest_assert(val1 > 0, "{} not incrementing after storm on port {} queue {}".format(
+                    counter, port, queue))
+                pytest_assert(val2 >= val1, "{} regressed during storm on port {} queue {}".format(
+                    counter, port, queue))
+
+        finally:
+            self.ptf.shell("pkill -f 'pfc_wd.PfcWdTest'", module_ignore_errors=True)
+            self.storm_hndle.stop_storm()
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state,
+                           dut, port, queue, "restored"),
+                "PFC storm was not restored on port {} queue {}".format(port, queue))
+
+    def test_pfcwd_storm_during_traffic(self, request, setup_pfc_test, manage_lag_config,    # noqa: F811
+                                        setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
+                                        duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+        """
+        Test pfcwd action when PFC storm is induced while traffic is already
+        flowing through the queue. Verifies via PTF dataplane checks that:
+        - Drop action: packets are dropped during storm
+        - Forward action: packets continue forwarding during storm
+        - Traffic resumes after storm restoration
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        # 'show pfcwd stats' on Mellanox does not populate per-queue TX OK/DROP
+        # during storm even though RECOVERY_MECHANISM reports SOFTWARE; aligns
+        # with the legacy 'Pfcwd tests skipped on M* testbed' guard.
+        if is_mellanox_device(duthost):
+            pytest.skip("test_pfcwd_storm_during_traffic skipped on Mellanox")
+        setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
+        self.fanout_info = enum_fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
+        if self.dut.topo_type == 't2':
+            key, value = list(self.ports.items())[0]
+            self.ports = {key: value}
+        self.neighbors = setup_info['neighbors']
+        self.peer_dev_list = dict()
+        self.fake_storm = False
+        self.storm_hndle = None
+        self.rx_action = None
+        self.tx_action = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+        self._bg_traffic_log_file = None
+
+        if not has_neighbor_device(setup_pfc_test):
+            pytest.skip("Test skipped: No neighbors detected")
+
+        port = list(self.ports.keys())[0]
+
+        logger.info("--- Testing pfcwd storm during traffic on {} ---".format(port))
+        self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
+        self.traffic_inst = SendVerifyTraffic(
+            self.ptf,
+            duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+            duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
+            self.pfc_wd,
+            self.is_dualtor,
+            ip_version)
+
+        if is_cisco_device(duthost):
+            actions = ['drop']
+        else:
+            actions = ['drop', 'forward']
+
+        failures = []
+        for action in actions:
+            logger.info("########## Pfcwd storm during traffic: port={} action={} ##########".format(
+                port, action))
+            try:
+                self.set_traffic_action(duthost, action)
+                self.run_pfcwd_storm_with_active_traffic(self.dut, port, action)
+            except Exception as e:
+                logger.error("Action '{}' failed: {}".format(action, e))
+                failures.append((action, str(e)))
+            finally:
+                if self.storm_hndle:
+                    self.storm_hndle.stop_storm()
+                self.dut.command("pfcwd stop")
+        if failures:
+            pytest_assert(False, "Actions failed: {}".format(failures))
+
     def test_pfcwd_no_traffic(
-            self, request, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa: F811
+            self, request, setup_pfc_test, manage_lag_config,                                           # noqa: F811
+            setup_dut_test_params, enum_fanout_graph_facts,                                             # noqa: F811
             ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                      # noqa: F811

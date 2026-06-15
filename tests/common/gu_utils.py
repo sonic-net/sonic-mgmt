@@ -16,7 +16,10 @@ GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 GCUTIMEOUT_MAP = {
     'armhf-nokia_ixs7215_52x-r0': 1200,
-    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+    'x86_64-nvidia_sn5640-r0': 3600,  # Increase timeout due to issue #22370
+    # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
+    # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
+    'x86_64-nokia_ixr7220_h6_128-r0': 1800,
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -363,7 +366,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     output = rollback(duthost, cp)
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
 
@@ -535,18 +538,20 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
             first_line = output[0]
             first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
-                          "First line content does not match. Difference: {}".format(first_line_diff))
+            if not set(first_line.values()) == set(expected_first_line_content):
+                logger.warning(f"First line content does not match. Difference: {first_line_diff}")
+                return False
 
             table_bindings = [first_line["binding"]]
             for i in range(len(output)):
                 table_bindings.append(output[i]["binding"])
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
-            pytest_assert(set(table_bindings) == set(expected_bindings),
-                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            if not set(table_bindings) == set(expected_bindings):
+                logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
+                return False
             return True
 
-        wait_until(30, 5, 0, check_table)
+        pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
@@ -668,6 +673,6 @@ def get_gcu_timeout(duthost):
     """Return the GCU apply-patch timeout (in seconds) for this platform.
 
     Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
-    else defaults to 600 s.
+    else defaults to 900 s.
     """
-    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)

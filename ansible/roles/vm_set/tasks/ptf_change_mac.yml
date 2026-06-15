@@ -15,6 +15,13 @@
   become: yes
   ignore_errors: yes
 
+# If container is restarted, the upstream ARP entry may become stale. Send ARP request to flush the stale entry.
+- name: Send ARP request to mgmt gateway to flush stale upstream ARP
+  command: docker exec -i ptf_{{ vm_set_name }} arping -c 2 {{ mgmt_gw }}
+  become: yes
+  ignore_errors: yes
+  when: mgmt_gw is defined
+
 - name: wait until ptf is reachable
   wait_for:
     port: 22

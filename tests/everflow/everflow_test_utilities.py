@@ -20,14 +20,14 @@ from scapy.packet import Raw
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_wait_time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
-from tests.common.fixtures.duthost_utils import shutdown_ebgp          # noqa: F401
+from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, duthost_startup_ebgp
 import json
 
 logger = logging.getLogger(__name__)
@@ -473,8 +473,7 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
-               shutdown_ebgp):  # noqa: F811
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     Gather all required test information.
 
@@ -488,30 +487,38 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
     """
     duthost = None
     topo = tbinfo['topo']['name']
-    if 't2' in topo:
-        if len(duthosts) == 1:
-            downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
-        else:
-            pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
-            downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+    if 't2' in topo and len(duthosts) > 1:
+        pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
+        downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
     else:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
+    # Disable BGP so that we don't keep on bouncing back mirror packets
+    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
+
+    ebgp_shutdown_duthosts = []
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
+            ebgp_shutdown_duthosts.append(dut_host)
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
+        ebgp_shutdown_duthosts.append(duthost)
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+
+    v4ebgps = {}
+    v6ebgps = {}
+    for dut_host in ebgp_shutdown_duthosts:
+        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
+        v4ebgps[dut_host.hostname] = v4_routes_count
+        v6ebgps[dut_host.hostname] = v6_routes_count
 
     yield setup_information
 
-    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
-        for dut_host in duthosts.frontend_nodes:
-            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
-    else:
-        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
+    for dut_host in ebgp_shutdown_duthosts:
+        duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
+        dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -620,13 +627,31 @@ def validate_acl_rules_in_asic_db(duthost):
         asic_rules = asic.shell(asic_cmd)['stdout_lines']
 
         if len(config_rules) != len(asic_rules):
-            logging.error("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
+            logging.warning("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
                 asic.asic_index if duthost.is_multi_asic else "single",
                 len(config_rules), len(asic_rules)))
             return False
 
     # Validate ACL rule RIDs across all ASICs
     return validate_acl_rule_rids(duthost)
+
+
+def wait_for_acl_rules_in_asic_db(duthost):
+    """
+    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
+
+    Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
+    defaulting to 120 seconds if not configured.
+
+    Args:
+        duthost: DUT host object
+    """
+    acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
+    pytest_assert(
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
+        "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
+    )
+    logging.info("Successfully validated ACL rules")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -1337,7 +1362,8 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+        if (('t2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo'])
+                or duthost.facts.get('switch_type') == 'voq'):
             src_port_set.add(src_port)
             src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
                                                setup[direction]['everflow_namespace'])
@@ -1426,9 +1452,8 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.IPv6].hlim -= 1
 
-                    if 't2' in setup['topo']:
-                        if duthost.facts['switch_type'] == "voq":
-                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    if duthost.facts['switch_type'] == "voq":
+                        mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
