@@ -485,14 +485,24 @@ neighbor {dut_ip.split('/')[0]} {{
     ptfhost.copy(src='/tmp/exabgp_update.conf', dest=EXABGP_CONFIG_PATH)
     ptfhost.shell(f"nohup exabgp {EXABGP_CONFIG_PATH} > /var/log/exabgp_all_vnets.log 2>&1 &")
 
-    # Check vrf bgp session is up
-    time.sleep(40)
-    for vni in vnet_vnis:
-        vnet_bgps = duthost.show_and_parse(f"show ip bgp vrf Vnet{vni} summary")
-        pytest_assert(len(vnet_bgps) > 0, f"No BGP sessions found for vnet Vnet{vni}.")
-        for val in vnet_bgps:
-            pytest_assert(val["neighborname"] == "WLPARTNER_PASSIVE_V4" and val["state/pfxrcd"].isdigit()
-                          and int(val["state/pfxrcd"]) > 0, f"BGP neighbor not found for vnet Vnet{vni}.")
+    def _vnet_bgp_sessions_established():
+        for vni in vnet_vnis:
+            vnet_bgps = duthost.show_and_parse(f"show ip bgp vrf Vnet{vni} summary")
+            matching_sessions = [
+                val for val in vnet_bgps
+                if val["neighborname"] == "WLPARTNER_PASSIVE_V4"
+                and val["state/pfxrcd"].isdigit()
+                and int(val["state/pfxrcd"]) > 0
+            ]
+            if not matching_sessions:
+                logger.info("BGP sessions for Vnet%s not established yet: %s", vni, vnet_bgps)
+                return False
+        return True
+
+    # Check vrf bgp session is up. Avoid a fixed sleep: physical Cisco-8000
+    # testbeds may need longer to program VNET/subinterface BGP sessions.
+    pytest_assert(wait_until(300, 10, 0, _vnet_bgp_sessions_established),
+                  "BGP sessions for test VNETs did not establish within 300 seconds.")
 
 
 def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info, vnet_vnis, base_vlan, dut_ips, ptf_ips):
@@ -767,7 +777,7 @@ def test_vnet_with_bgp_intf_smacrewrite(common_setup_and_teardown):
 
     # Test datapath again after config reload
     duthost.shell("config save -y")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, yang_validate=False)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True, yang_validate=False)
     time.sleep(10)
 
     # Configure vxlan port
