@@ -3,6 +3,7 @@ import logging
 import ptf.testutils as testutils
 import pytest
 import concurrent.futures
+from configs.privatelink_config import APPLIANCE_VIP
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from packets import outbound_pl_packets, inbound_pl_packets
@@ -89,4 +90,4 @@ def test_privatelink_basic_transform(
     testutils.send(ptfadapter, dash_pl_config[1][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
 
-    check_vip_advertised_to_t2(duthosts, pl.APPLIANCE_VIP)
+    check_vip_advertised_to_t2(duthosts, APPLIANCE_VIP)
