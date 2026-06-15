@@ -5,7 +5,6 @@ import logging
 import time
 import pytest
 from jinja2 import Template
-from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import delete_running_config
@@ -117,7 +116,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
         if neigh['name'] in nbrhosts:
             tor1 = neigh['name']
-            tor1_namespace = neigh.get('namespace',DEFAULT_NAMESPACE)
+            tor1_namespace = neigh.get('namespace', DEFAULT_NAMESPACE)
             break
 
     pytest_assert(tor1 is not None, "Could not find a valid BGP neighbor in the minigraph")
