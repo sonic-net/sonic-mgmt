@@ -41,7 +41,7 @@ def _verify_one_line(duthost, console_fanout, creds, target_line, same_host):
     packet_size = 64
     delay_factor = 3.2
     if duthost.facts['platform'].startswith("arm64-c8220tg_48a"):
-        delay_factor *= 25.0
+        delay_factor *= 2
 
     # Estimate a reasonable data transfer time based on configured baud rate
     timeout_sec = (packet_size * 10) * delay_factor / int(baud_rate)
