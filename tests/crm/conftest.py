@@ -50,7 +50,7 @@ def pytest_runtest_teardown(item, nextitem):
             logger.info("Restore CRM thresholds on {}. Execute: {}".format(hostname, cmd))
             # Restore default CRM thresholds
             dut.command(cmd)
-            
+
         logger.info("Execute test cleanup: dut {} {}".format(hostname, json.dumps(RESTORE_CMDS, indent=4)))
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
@@ -247,7 +247,7 @@ def get_vlan_prefix_len_per_ip_ver(asichost, tbinfo, ip_ver):
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
     for vlan_port_data in mg_facts["minigraph_vlan_interfaces"]:
         if ipaddress.ip_interface(vlan_port_data['addr']).version == int(ip_ver):
-            logger.info(f"vlan interface {ip_ver} prefix is :{vlan_port_data['prefixlen']}")
+            logger.info(f"vlan interface {ip_ver} prefix is: {vlan_port_data['prefixlen']}")
             return vlan_port_data['prefixlen']
     assert False, f"Not find {ip_ver} prefix for vlan interface config"
 
