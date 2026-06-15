@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # Sampling verification constants.
 # We send NUM_SAMPLES * sample_rate packets so that the expected mirrored
 # packets are within the expected range.
-NUM_SAMPLES = 100
+NUM_SAMPLES = 1000
 MIN_EXPECTED_SAMPLES = int(0.95 * NUM_SAMPLES)
 MAX_EXPECTED_SAMPLES = int(1.05 * NUM_SAMPLES)
 

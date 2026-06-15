@@ -113,7 +113,7 @@ ERSPAN II/III header bytes between GRE and the inner frame).
 
 Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 100` and `N = sample_rate`) so
 the expected mirrored count is `~NUM_SAMPLES = 100` regardless of `N`, and assert the observed count
-is within `[95, 105]` (`NUM_SAMPLES +- 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
+is within `[950, 1050]` (`NUM_SAMPLES +- 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
 This is a deliberately tight tolerance: under a binomial approximation
 (`sigma = sqrt(NUM_SAMPLES) = 10`), +-5% is only ~0.5 sigma, so the single-run pass rate is modest
 and the tests rely on reruns (or a larger `NUM_SAMPLES`) for CI stability, in exchange for detecting
@@ -245,7 +245,7 @@ frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pkt
 - Send `NUM_SAMPLES * N` packets on the source port.
 - Collect GRE-encapsulated packets on the collector port using the 3-tuple match.
 
-**Pass criteria:** Observed mirror count is within `[95, 105]` (`NUM_SAMPLES +- 5%`).
+**Pass criteria:** Observed mirror count is within `[950, 1050]` (`NUM_SAMPLES +- 5%`).
 
 #### Test case test_erspan_sampling_config_high_rate
 **Objective:** A sample rate (`1:50000`) is accepted by CLI and stored in
@@ -262,7 +262,7 @@ millions of packets and is left to scale testing.
 **Steps:** Configure `sample_rate=256` + `truncate_size=128`; send `NUM_SAMPLES * 256` large
 (1500B) packets on the source port.
 
-**Pass criteria:** Observed mirror count within `[95, 105]` AND each captured mirror is truncated
+**Pass criteria:** Observed mirror count within `[950, 1050]` AND each captured mirror is truncated
 to `~62B encap overhead + 128`.
 
 ### Dataplane: direction (RX / TX / BOTH)
@@ -283,7 +283,7 @@ broadcast frames on the `tx_ingress` peer port so the DUT floods them out the so
   the source port (egress), triggering the egress mirror.
 - Collect ERSPAN GRE packets on the collector port.
 
-**Pass criteria:** Observed mirror count within `[95, 105]` (`NUM_SAMPLES +- 5%`).
+**Pass criteria:** Observed mirror count within `[950, 1050]` (`NUM_SAMPLES +- 5%`).
 
 #### Test case test_erspan_sampling_tx_with_truncation
 **Objective:** TX (egress) sampling and truncation work together.
@@ -291,7 +291,7 @@ broadcast frames on the `tx_ingress` peer port so the DUT floods them out the so
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=tx`; inject `NUM_SAMPLES * 256`
 large (1500B) broadcast frames on the `tx_ingress` peer port.
 
-**Pass criteria:** Observed mirror count within `[95, 105]` AND each mirrored frame is truncated to
+**Pass criteria:** Observed mirror count within `[950, 1050]` AND each mirrored frame is truncated to
 `~62B encap overhead + 128`.
 
 #### Test case test_erspan_sampling_both_direction
@@ -306,7 +306,7 @@ large (1500B) broadcast frames on the `tx_ingress` peer port.
   them out the source port (egress mirror).
 - Collect ERSPAN GRE packets on the collector port for each leg.
 
-**Pass criteria:** Each leg's observed mirror count is within `[95, 105]` (`NUM_SAMPLES +- 5%`),
+**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` (`NUM_SAMPLES +- 5%`),
 proving both the ingress and egress bindings are active.
 
 #### Test case test_erspan_sampling_both_with_truncation
@@ -315,7 +315,7 @@ proving both the ingress and egress bindings are active.
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=both`; run the RX leg
 (inject on source port) and TX leg (inject broadcast on the peer port) with large (1500B) frames.
 
-**Pass criteria:** Each leg's observed mirror count is within `[95, 105]` AND every mirrored frame
+**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` AND every mirrored frame
 on each leg is truncated to `~62B encap overhead + 128`.
 
 ### Session lifecycle

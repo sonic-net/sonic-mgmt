@@ -410,10 +410,10 @@ def test_erspan_truncation_packet_size(
 def test_erspan_sampling_rx_direction(skip_if_ingress_sampling_unsupported, ptfadapter, erspan_session):
     '''
     Verify RX (ingress) sampling yields ~1 in N frames: mirrored count within
-    [95, 105] (NUM_SAMPLES +-5%).
+    [950, 1050] (NUM_SAMPLES +-5%).
 
     Steps: configure sample_rate=N; send NUM_SAMPLES x N frames from the source port;
-    assert the mirrored count is within [95, 105].
+    assert the mirrored count is within [950, 1050].
     '''
     sample_rate = erspan_session['sample_rate']
     packets = _send_sampled_traffic_and_collect(
@@ -433,7 +433,7 @@ def test_erspan_sampling_rx_with_truncation(
         ptfadapter,
         erspan_session):
     '''
-    Verify RX sampling and truncation together: mirrored count within [95, 105]
+    Verify RX sampling and truncation together: mirrored count within [950, 1050]
     AND each mirrored frame truncated to ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256 + truncate_size=128; send NUM_SAMPLES x 256
@@ -466,14 +466,14 @@ def test_erspan_sampling_tx_direction(
         erspan_session):
     '''
     Verify TX (egress) sampling emits ERSPAN at the configured 1:N ratio (mirrored
-    count within [95, 105]).
+    count within [950, 1050]).
 
     direction=tx binds the egress mirror to the source port, so only traffic *leaving*
     it is mirrored. We inject broadcast on a peer VLAN member; the DUT floods it out the
     source port (egress), triggering the mirror (same pattern as span test_mirroring_tx).
 
     Steps: configure sample_rate=N, direction=tx; inject NUM_SAMPLES x N broadcast frames
-    on the peer (tx_ingress) port; assert the mirrored count is within [95, 105].
+    on the peer (tx_ingress) port; assert the mirrored count is within [950, 1050].
     '''
     sample_rate = erspan_session['sample_rate']
     packets = _send_sampled_traffic_and_collect(
@@ -496,7 +496,7 @@ def test_erspan_sampling_tx_with_truncation(
     '''
     Verify TX (egress) sampling and truncation together: same flooding setup as
     test_erspan_sampling_tx_direction but with truncate_size and 1500B frames.
-    Mirrored count within [95, 105] AND each frame truncated to
+    Mirrored count within [950, 1050] AND each frame truncated to
     ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=tx; inject
@@ -533,10 +533,10 @@ def test_erspan_sampling_both_direction(
 
     RX leg: inject on the source port       -> ingress mirror.
     TX leg: inject broadcast on a peer port -> floods out the source port -> egress mirror.
-    Pass: each leg's mirrored count within [95, 105] (NUM_SAMPLES +-5%).
+    Pass: each leg's mirrored count within [950, 1050] (NUM_SAMPLES +-5%).
 
     Steps: configure sample_rate=N, direction=both; run the RX leg then the TX leg;
-    assert each leg's mirrored count is within [95, 105].
+    assert each leg's mirrored count is within [950, 1050].
     '''
     sample_rate = erspan_session['sample_rate']
 
@@ -564,7 +564,7 @@ def test_erspan_sampling_both_with_truncation(
     '''
     Verify direction=both sampling and truncation on both legs: same two-leg setup as
     test_erspan_sampling_both_direction but with truncate_size and 1500B frames.
-    Pass: each leg's count within [95, 105] AND every frame truncated to
+    Pass: each leg's count within [950, 1050] AND every frame truncated to
     ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=both; run RX and TX
