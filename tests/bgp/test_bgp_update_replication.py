@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Fixture params
 PEER_COUNT = 16
 WAIT_TIMEOUT = 120
+STATS_COLLECT_TIMEOUT = 30
+STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
@@ -50,6 +52,31 @@ def generate_routes(num_routes, nexthop, is_ipv6=False):
             }
 
 
+def _read_parsed_stats(dut, cmd, template_path):
+    '''
+    Run a stats command on the DUT and TextFSM-parse its output, retrying while the DUT
+    returns empty/unparseable output. Under the heavy route churn this test drives, the DUT
+    management plane can momentarily return empty output for "show ip bgp summary", which
+    would otherwise crash the caller with an IndexError when indexing the empty parse.
+    '''
+    parsed = []
+
+    def _parsed_ready():
+        nonlocal parsed
+        output = dut.shell(cmd, module_ignore_errors=True)['stdout']
+        with open(template_path) as template:
+            parsed = textfsm.TextFSM(template).ParseTextToDicts(output)
+        if not parsed:
+            logger.warning("Empty parse for '%s', retrying; output=%r", cmd, output)
+        return bool(parsed)
+
+    pytest_assert(
+        wait_until(STATS_COLLECT_TIMEOUT, STATS_COLLECT_INTERVAL, 0, _parsed_ready),
+        f"DUT did not return parseable output for '{cmd}' within {STATS_COLLECT_TIMEOUT} sec"
+    )
+    return parsed
+
+
 def measure_stats(dut, is_ipv6=False):
     '''
     Validates that the provided DUT is responsive during test, and that device stats do not
@@ -64,11 +91,11 @@ def measure_stats(dut, is_ipv6=False):
 
     time_before_cmd = time.process_time()
 
-    proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
+    parsed_proc = _read_parsed_stats(dut, "show processes cpu | head -n 10", PROC_TEMPLATE)
     time_first_cmd = time.process_time()
 
     bgp_cmd = f"show ip{'v6' if is_ipv6 else ''} bgp summary | grep memory"
-    bgp_sum = dut.shell(bgp_cmd, module_ignore_errors=True)['stdout']
+    parsed_bgp_sum = _read_parsed_stats(dut, bgp_cmd, BGP_SUM_TEMPLATE)
     time_second_cmd = time.process_time()
 
     num_cores = dut.shell('cat /proc/cpuinfo | grep "cpu cores" | uniq', module_ignore_errors=True)['stdout']
@@ -86,14 +113,6 @@ def measure_stats(dut, is_ipv6=False):
         responsive_threshold > average_response_time,
         f"SSH session took longer than average of {responsive_threshold} sec to respond"
     )
-
-    with open(PROC_TEMPLATE) as template:
-        fsm = textfsm.TextFSM(template)
-        parsed_proc = fsm.ParseTextToDicts(proc_cpu)
-
-    with open(BGP_SUM_TEMPLATE) as template:
-        fsm = textfsm.TextFSM(template)
-        parsed_bgp_sum = fsm.ParseTextToDicts(bgp_sum)
 
     stats: dict[str, Any] = {"timestamp": datetime.datetime.now().time()}
     stats.update(parsed_proc[0])
