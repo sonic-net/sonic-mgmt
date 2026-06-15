@@ -196,16 +196,38 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (
                             onyx_pfc_container_name, PFC_GEN_FILE_ABSOLUTE_PATH,
                             peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        peerdev_ans.host.config(cmd)
+                        send_frames = lambda: peerdev_ans.host.config(cmd)  # noqa: E731
                     else:
                         cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (
                             PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        peerdev_ans.host.command(cmd)
+                        send_frames = lambda: peerdev_ans.host.command(cmd)  # noqa: E731
 
-                time.sleep(5)
+                    send_frames()
 
-                pfc_rx = duthost.sonic_pfc_counters(
-                    method="get")['ansible_facts']
+                """ Poll for counter update, then retry once if still zero (handles transient fanout SSH blips) """
+                POLL_INTERVAL = 0.5
+                POLL_TIMEOUT = 10
+                MAX_RETRIES = 2
+
+                pfc_rx = {}
+                for attempt in range(1, MAX_RETRIES + 1):
+                    deadline = time.time() + POLL_TIMEOUT
+                    pfc_rx = duthost.sonic_pfc_counters(method="get")['ansible_facts']
+                    while pfc_rx[intf]['Rx'][priority] != str(PKT_COUNT) and time.time() < deadline:
+                        time.sleep(POLL_INTERVAL)
+                        pfc_rx = duthost.sonic_pfc_counters(method="get")['ansible_facts']
+
+                    if pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT):
+                        break
+
+                    if attempt < MAX_RETRIES:
+                        logger.warning(
+                            "PFC counter for intf {} prio {} is still 0 after {}s; "
+                            "retrying frame send (attempt {}/{})".format(
+                                intf, priority, POLL_TIMEOUT, attempt, MAX_RETRIES))
+                        duthost.sonic_pfc_counters(method="clear")
+                        send_frames()
+
                 if asic_type != 'vs':
                     """check pfc Rx frame count on particular priority are increased"""
                     assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT), (

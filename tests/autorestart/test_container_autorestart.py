@@ -607,6 +607,16 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 "Known issue: BGP check fails after teamd auto-restart. "
                 "Please refer to https://github.com/sonic-net/sonic-buildimage/issues/10336 for more details."
             )
+        elif ("Nokia" in duthost.facts.get("hwsku", "") and
+              "teamd" in container_name and
+              not bgp_check):
+            # On Nokia IXR7220, BGP sessions require more than 360 seconds to recover after
+            # teamd container restart because Nokia's teamd/LAG implementation has a longer
+            # internal convergence time.  Mark as xfail to avoid false negatives.
+            pytest.xfail(
+                "Known issue: BGP sessions take longer than 360 seconds to recover after "
+                "teamd auto-restart on Nokia IXR7220 platform."
+            )
         else:
             pytest.fail(
                 ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"

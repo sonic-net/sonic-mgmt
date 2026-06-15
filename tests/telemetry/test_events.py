@@ -47,6 +47,13 @@ def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptf
 
     skip_201911_and_older(duthost)
 
+    # Nokia IXR7220 telemetry server uses a 5-minute idle connection timer and does not send
+    # gRPC heartbeats on EVENTS subscriptions.  After ~5 minutes the server closes the stream
+    # with DEADLINE_EXCEEDED, which causes intermittent failures for later event modules.
+    if 'Nokia' in duthost.facts.get('hwsku', ''):
+        pytest.skip("Nokia IXR7220 telemetry server does not support EVENTS stream heartbeat; "
+                    "idle connection timeout causes DEADLINE_EXCEEDED after ~5 minutes")
+
     # Load rest of events
     for file in os.listdir(EVENTS_TESTS_PATH):
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):

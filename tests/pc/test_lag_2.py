@@ -288,6 +288,12 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
     if testcase == "lacp_rate":
         if request.config.getoption("--neighbor_type") == 'sonic':
             pytest.skip("lacp_rate is not supported in vsonic")
+        # Nokia IXR7220 does not support dynamic LACP rate negotiation: the DUT always
+        # transmits slow PDUs (30 s) regardless of the partner's Short_Timeout preference,
+        # and the SONiC CLI has no 'config portchannel lacp-rate' command on this platform.
+        for duthost in duthosts:
+            if 'Nokia' in duthost.facts.get('hwsku', ''):
+                pytest.skip("lacp_rate is not supported on Nokia IXR7220 platform")
 
     ptfhost = common_setup_teardown
 
