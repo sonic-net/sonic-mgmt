@@ -8,6 +8,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
+from ha_bgp_utils import check_vip_advertised_to_t2
 from ha_dash_flow_utils import compare_flow_tables
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,9 @@ def common_setup_teardown(
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
     ptfadapter,
+    duthosts,
     dpuhosts,
+    nbrhosts,
     activate_dash_ha_from_json,
     ha_owner,
     dash_pl_config,
@@ -85,3 +88,5 @@ def test_privatelink_basic_transform(
     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
     testutils.send(ptfadapter, dash_pl_config[1][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
+
+    check_vip_advertised_to_t2(duthosts, pl.APPLIANCE_VIP)
