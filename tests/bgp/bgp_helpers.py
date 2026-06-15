@@ -24,6 +24,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from natsort import natsorted
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -263,12 +264,29 @@ def is_neighbor_sessions_established(duthost, neighbors):
     return is_established
 
 
+def find_downstream_namespace(duthost, tbinfo, downstream):
+    """Return the frontend ASIC namespace connected to the downstream neighbor."""
+    if duthost.is_multi_asic:
+        for inst in duthost.get_sonic_host_and_frontend_asic_instance():
+            namespace = inst.namespace if hasattr(inst, "namespace") else DEFAULT_NAMESPACE
+            if namespace == DEFAULT_NAMESPACE:
+                continue
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo, namespace)
+            for neigh in mg_facts["minigraph_neighbors"].values():
+                if neigh["name"] == downstream:
+                    return namespace
+        return None
+
+    return DEFAULT_NAMESPACE
+
+
 @pytest.fixture(scope='module')
 def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     """
     Get bgp_allow_list related information
     """
     duthost = duthosts[rand_one_dut_hostname]
+    topo_type = tbinfo["topo"]["type"]
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     pytest_require(constants_stat['stat']['exists'] is not None,
                    "No file {} on DUT, BGP Allow List is not supported".format(CONSTANTS_FILE))
@@ -290,37 +308,26 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
 
     setup_info = {}
 
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
+    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
     downstream_type = tuple(t.upper() for t in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]])
-
-    asic_neighbors = {}
-    for port, neigh in mg_facts['minigraph_neighbors'].items():
-        ns = neigh.get('namespace', DEFAULT_NAMESPACE)
-        if ns not in asic_neighbors:
-            asic_neighbors[ns] = []
-        asic_neighbors[ns].append(neigh['name'])
-
-    target_namespace = None
-    downstream = None
-    other_neighbors = []
-
-    for ns, neighbors in asic_neighbors.items():
-        possible_announcers = [n for n in neighbors if n.endswith(downstream_type)]
-        if possible_announcers and len(neighbors) >= 2:
-            target_namespace = ns
-            downstream = possible_announcers[0]
-            other_neighbors = [n for n in neighbors if n != downstream][:2]
-            break
-
-    pytest_require(target_namespace is not None,
-                   "Could not find an ASIC with both an announcer and verifier neighbors.")
+    downstream_neighbors = natsorted(
+        [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
+    pytest_require(downstream_neighbors, "No downstream neighbor found for BGP allow list test")
+    downstream = downstream_neighbors[0]
+    upstream_neighbors = natsorted(
+        [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
+    other_neighbors = downstream_neighbors[1:3]
+    if upstream_neighbors:
+        other_neighbors += upstream_neighbors[0:2]
 
     downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
 
-    downstream_namespace = target_namespace
+    downstream_namespace = find_downstream_namespace(duthost, tbinfo, downstream)
+    pytest_require(downstream_namespace is not None,
+                   "Could not find ASIC namespace for downstream neighbor {}".format(downstream))
+    
 
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
