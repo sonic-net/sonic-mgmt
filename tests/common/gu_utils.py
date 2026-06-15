@@ -546,7 +546,8 @@ def expect_acl_table_match_multiple_bindings(duthost,
                           "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
             return True
 
-        wait_until(30, 5, 0, check_table)
+        pytest_assert(wait_until(30, 5, 0, check_table),
+                      "ACL table content or bindings did not match expected values")
 
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
