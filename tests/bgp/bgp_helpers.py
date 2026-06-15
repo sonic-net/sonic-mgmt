@@ -319,7 +319,6 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     other_neighbors = downstream_neighbors[1:3]
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]
-
     downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
@@ -328,7 +327,6 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     pytest_require(downstream_namespace is not None,
                    "Could not find ASIC namespace for downstream neighbor {}".format(downstream))
     
-
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     setup_info = {
