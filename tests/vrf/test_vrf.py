@@ -1730,6 +1730,18 @@ class TestVrfDeletion:
                 for ip in ips:
                     duthost.shell("config interface ip add {} {}".format(intf, ip))
 
+        time.sleep(5)
+
+        for intf, ip_facts in list(g_vars["vrf_intfs"]["Vrf1"].items()):
+            if 'Vlan' not in intf:
+                continue
+            for ver, ips in list(ip_facts.items()):
+                for ip in ips:
+                    neigh_ip = ip.ip + 1
+                    ping_cmd = 'ping' if ip.version == 4 else 'ping6'
+                    duthost.shell("{} -I Vrf1 {} -c 1 -f -W1".format(ping_cmd,
+                                  neigh_ip), module_ignore_errors=True)
+
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_deletion(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
