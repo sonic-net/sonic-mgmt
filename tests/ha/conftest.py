@@ -23,7 +23,7 @@ from constants import LOCAL_CA_IP, \
     LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
     REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
-from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
+from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file, apply_dash_configs
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file, apply_messages
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
@@ -875,10 +875,12 @@ def activate_dash_ha_from_json(duthosts, dpuhosts, localhost, ptfhost, setup_gnm
     deactivate_dash_ha_from_json_util(duthosts, dpuhosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
-def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
+def apply_dash_pl_pipeline_config(
+    localhost, duthosts, dpuhosts, ptfhost, floating_nic=False, set_db=True, wait_after_apply=5
+):
     """
     Apply DASH Private Link pipeline config (appliance, routing type, VNET,
-    ENI, routes, meters) on all DPUs. Required by any test that sends PL
+    ENI/FNIC, routes, meters) on all DPUs. Required by any test that sends PL
     traffic and does not already pull in the steady-state common_setup_teardown.
     """
 
@@ -886,36 +888,61 @@ def apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost):
         duthost = duthosts[i]
         dpuhost = dpuhosts[i]
 
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG,
-        }
         logger.info(
-            f"setup_dash_pl_pipeline: applying base config on "
+            f"setup_dash_pl_pipeline: applying DASH PL config on "
             f"{duthost.hostname} dpu {dpuhost.dpu_index}"
         )
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG,
-        }
-        if "bluefield" in dpuhost.facts["asic_type"]:
-            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+        if floating_nic:
+            apply_dash_configs(
+                localhost,
+                duthost,
+                ptfhost,
+                dpuhost.dpu_index,
+                pl.APPLIANCE_FNIC_CONFIG,
+                pl.ROUTING_TYPE_PL_CONFIG,
+                pl.ROUTING_TYPE_VNET_CONFIG,
+                pl.VNET_CONFIG,
+                pl.METER_POLICY_V4_CONFIG,
+                pl.TUNNEL1_CONFIG,
+                pl.METER_RULE1_V4_CONFIG,
+                pl.METER_RULE2_V4_CONFIG,
+                pl.ROUTE_GROUP1_CONFIG,
+                pl.PE_VNET_MAPPING_CONFIG,
+                pl.PE_SUBNET_ROUTE_CONFIG,
+                pl.VM_VNET_MAPPING_CONFIG,
+                pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT,
+                pl.VM_VNI_ROUTE_RULE_CONFIG if "pensando" not in dpuhost.facts["asic_type"] else None,
+                pl.INBOUND_VNI_ROUTE_RULE_CONFIG if "pensando" not in dpuhost.facts["asic_type"] else None,
+                pl.TRUSTED_VNI_ROUTE_RULE_CONFIG if "pensando" not in dpuhost.facts["asic_type"] else None,
+                pl.ENI_FNIC_CONFIG,
+                pl.ENI_ROUTE_GROUP1_CONFIG,
+                set_db=set_db,
+                wait_after_apply=wait_after_apply,
+                apply_fn=apply_messages,
+            )
+        else:
+            apply_dash_configs(
+                localhost,
+                duthost,
+                ptfhost,
+                dpuhost.dpu_index,
+                pl.APPLIANCE_CONFIG,
+                pl.ROUTING_TYPE_PL_CONFIG,
+                pl.VNET_CONFIG,
+                pl.METER_POLICY_V4_CONFIG,
+                pl.METER_RULE1_V4_CONFIG,
+                pl.METER_RULE2_V4_CONFIG,
+                pl.ROUTE_GROUP1_CONFIG,
+                pl.PE_VNET_MAPPING_CONFIG,
+                pl.PE_SUBNET_ROUTE_CONFIG,
+                pl.VM_SUBNET_ROUTE_CONFIG,
+                pl.INBOUND_VNI_ROUTE_RULE_CONFIG if "bluefield" in dpuhost.facts["asic_type"] else None,
+                pl.ENI_CONFIG,
+                pl.ENI_ROUTE_GROUP1_CONFIG,
+                set_db=set_db,
+                wait_after_apply=wait_after_apply,
+                apply_fn=apply_messages,
+            )
 
 
 @pytest.fixture(scope="function")
