@@ -1002,6 +1002,7 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
+      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
   xfail:
@@ -1015,6 +1016,7 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
+      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
@@ -1154,8 +1156,10 @@ platform_tests/mellanox/test_hw_management_service.py:
 
 platform_tests/mellanox/test_psu_power_threshold.py:
   skip:
-    reason: "Not available on BMC"
+    reason: "Test is skipped on Mellanox LD platform for it doesn't have PSU Power Threshold, or not available for BMC"
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
       - "'bmc' in topo_type"
 
 platform_tests/mellanox/test_reboot_cause.py:
@@ -1194,8 +1198,10 @@ platform_tests/sfp/:
 platform_tests/sfp/test_sfputil.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "asic_type in ['vs']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
   xfail:
@@ -1285,15 +1291,27 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "is_smartswitch==True"
 
 #######################################
-#####   test_cont_warm_reboot.py  #####
+#####   test_auto_negotiation.py  #####
 #######################################
-
 
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: 'Auto negotiation tests require physical port interfaces, not available on BMC'
     conditions:
       - "'bmc' in topo_type"
+
+#######################################
+#####   test_chassis_reboot.py  #####
+#######################################
+platform_tests/test_chassis_reboot.py:
+  skip:
+    reason: "Chassis reboot test is not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+#######################################
+#####   test_cont_warm_reboot.py  #####
+#######################################
 
 platform_tests/test_cont_warm_reboot.py:
   skip:
@@ -1426,9 +1444,11 @@ platform_tests/test_port_toggle.py:
 
 platform_tests/test_power_off_reboot.py:
   skip:
-    reason: "Skip power off reboot test for Wistron/Nokia-7215"
+    reason: "Skip power off reboot test for Wistron/Nokia-7215, or no PSU for BMC"
+    conditions_logical_operator: or
     conditions:
       - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
+      - "'bmc' in topo_type"
 
 platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
@@ -1551,6 +1571,12 @@ platform_tests/test_sensors.py::test_sensors:
 #######################################
 ##### test_sequential_restart.py  #####
 #######################################
+platform_tests/test_sequential_restart.py::test_restart_swss:
+  skip:
+    reason: "BMC does not support swss daemon"
+    conditions:
+      - "'bmc' in topo_type"
+
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"

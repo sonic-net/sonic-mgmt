@@ -439,8 +439,8 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     logging.info("Starting switch reboot...")
     logging.info("Recording DPU boot times before switch cold reboot")
     pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
-
-    perform_reboot(duthost, REBOOT_TYPE_COLD, None)
+    reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
+           wait_for_ssh=False)
 
     logging.info("Executing post test check")
     post_test_switch_check(duthost, localhost,
