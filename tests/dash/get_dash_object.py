@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
 import argparse
 import os
 import re
@@ -22,6 +21,11 @@ def main():
         "-k",
         type=str
     )
+    parser.add_argument(
+        "--statedb",
+        "-s",
+        action="store_true"
+    )
     args = parser.parse_args()
 
     table_name = args.table_name.replace("|", ":").split(":")[0]
@@ -32,10 +36,20 @@ def main():
         cmdout = fp.read()
 
     if args.key is None:
+        print(cmdout)
         return cmdout
 
     if not re.search(f'{args.table_name}:{args.key}', cmdout):
         return ""
+
+    if args.statedb:
+        cmd = f'sonic-db-cli DPU_APPL_STATE_DB HGETALL \"{args.table_name}|{args.key}\" 2> /dev/null'
+        cmdout = ''
+        with os.popen(cmd) as fp:
+            cmdout = fp.buffer.read()
+            cmdout = cmdout.decode('utf-8').strip()
+        print(cmdout)
+        return cmdout
 
     cmd = f'sonic-db-cli DPU_APPL_DB HGET {args.table_name}:{args.key} \"pb\" 2> /dev/null'
     cmdout = ''
