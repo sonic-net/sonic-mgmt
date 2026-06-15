@@ -537,7 +537,7 @@ def test_lldp_entry_table_after_all_batched_flap(
 
 # Test case 5: Verify LLDP_ENTRY_TABLE after system reboot
 def test_lldp_entry_table_after_lldp_restart(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance, ignore_expected_loganalyzer_exceptions,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
