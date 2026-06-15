@@ -4138,6 +4138,14 @@ def yang_validation_check(request, duthosts):
         logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
 
+    for m in request.node.iter_markers():
+        if m.name == "skip_check_dut_health":
+            logger.info(
+                "Skipping YANG validation: module marked skip_check_dut_health"
+            )
+            yield
+            return
+
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
         validation_results = {}
