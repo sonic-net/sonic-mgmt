@@ -54,7 +54,8 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
-from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
+    is_pfcwd_hw_recovery_enabled
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -123,7 +124,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils',
-                  'tests.common.plugins.parallel_fixture')
+                  'tests.common.plugins.parallel_fixture',
+                  'tests.common.plugins.erspan_mirror')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -256,6 +258,11 @@ def pytest_addoption(parser):
                      help="collect show techsupport since <date>. <date> should be a string which can "
                           "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
                           "To collect all time spans, please use '@0' as the value.")
+    ############################
+    #   weak server options    #
+    ############################
+    parser.addoption("--weak_server", action="store_true", default=False,
+                     help="Treat testbed as a weak server (reduces packet counts and adds delays in relevant tests)")
 
     ############################
     #  keysight ixanvl options #
@@ -1106,6 +1113,19 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+        elif neighbor_type == "csonic":
+            # cSONiC neighbors are docker-sonic-vs containers accessed via
+            # "docker exec" (CsonicHost), not over SSH. Handle them before the
+            # generic "sonic in neighbor_type" branch below, which routes the
+            # SSH-based SONiC family (sonic, vsonic) to SonicHost.
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
@@ -1127,15 +1147,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "csonic":
-            vm_set_name = tbinfo.get('group-name', '')
-            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
@@ -2908,7 +2919,7 @@ def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
     yield rtn_dict
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def duts_minigraph_facts(duthosts, tbinfo):
     """Return minigraph facts for all DUT hosts
 
@@ -3744,8 +3755,13 @@ def setup_pfc_test(
     logger.info("--- Stopping Pfcwd ---")
     duthost.command("pfcwd stop")
 
-    # set poll interval
-    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+    # set poll interval (only for software recovery mechanism; HW PFCwd doesn't
+    # support 'pfcwd interval' since the poll runs in silicon)
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        logger.info("--- Hardware recovery mechanism detected - poll interval not supported ---")
+    else:
+        logger.info("--- Setting poll interval for software recovery mechanism ---")
+        duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
 
     # set bulk counter chunk size
     logger.info("--- Setting bulk counter polling chunk size ---")
@@ -3873,6 +3889,17 @@ def restore_golden_config_db(duthost):
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
     yield connection
+
+
+@pytest.fixture(scope="session")
+def weak_server(request, duthosts):
+    """
+    Returns True if the testbed should be treated as a weak server.
+    Can be forced via --weak_server CLI flag.
+    """
+    if request.config.getoption("--weak_server"):
+        return True
+    return False
 
 
 class DualtorMuxPortSetupConfig(enum.Flag):
@@ -4110,6 +4137,14 @@ def yang_validation_check(request, duthosts):
         yield
         logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
+
+    for m in request.node.iter_markers():
+        if m.name == "skip_check_dut_health":
+            logger.info(
+                "Skipping YANG validation: module marked skip_check_dut_health"
+            )
+            yield
+            return
 
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
