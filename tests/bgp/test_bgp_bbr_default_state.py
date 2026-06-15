@@ -111,13 +111,16 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         pytest.skip('No file {} on DUT, BBR is not supported')
     bbr_default_state = 'disabled'
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
-    tor1 = tor_neighbors[0]
+
+    tor1 = None
     tor1_namespace = DEFAULT_NAMESPACE
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
-        if tor1 == neigh['name']:
-            tor1_namespace = neigh['namespace']
+        if neigh['name'] in nbrhosts:
+            tor1 = neigh['name']
+            tor1_namespace = neigh.get('namespace',DEFAULT_NAMESPACE)
             break
+
+    pytest_assert(tor1 is not None, "Could not find a valid BGP neighbor in the minigraph")
     setup_info = {
         'bbr_default_state': bbr_default_state,
         'tor1_namespace': tor1_namespace,
