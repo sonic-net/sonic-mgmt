@@ -15,6 +15,17 @@
     vm_set_action: "{{ action }}"
   when: vm_set_action is not defined and action is defined
 
+# Per-topology override of max_fp_num. The topo yaml may set
+# max_fp_num_provided to raise the per-VM front-panel port count above the
+# host default (group_vars/vm_host/main.yml). This override needs to apply
+# to every vm_set_action (add_topo, remove_topo, connect_vms, ...), not only
+# to 'start' (which used to be the only consumer), because add_topo.yml also
+# passes max_fp_num to vm_topology.bind for the "Too many vlans" check.
+- name: Pick provided max num of fp from topo
+  set_fact:
+    max_fp_num: "{{ max_fp_num_provided }}"
+  when: max_fp_num_provided is defined
+
 # Variables used by the role are mostly defined in files under ansible/group_vars/vm_host directory.
 # Supported neighbor types are: veos, sonic, cisco, ubuntu, k8s
 # For each of the supported neighbor types, there is a file in ansible/group_vars/vm_host directory which defines the
