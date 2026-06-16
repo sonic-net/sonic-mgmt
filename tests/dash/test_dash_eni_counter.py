@@ -16,7 +16,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.dash_utils import apply_dash_configs, apply_swssconfig_file
 from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, verify_eni_counter, \
-    eni_counter_setup, partition_supported_counters, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
+    eni_counter_setup, partition_supported_counters, ENI_COUNTER_READY_MAX_TIME, \
+    CT_AGING_TEST_INTERVAL, get_ct_aging_interval, set_ct_aging_interval  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -128,45 +129,65 @@ def common_setup_teardown(
         return
     dpuhost = dpuhosts[dpu_index]
 
-    # ``INBOUND_VNI_ROUTE_RULE_CONFIG`` is only programmed on Bluefield DPUs;
-    # on other platforms ROUTE_RULE entries are skipped at the source.
-    bluefield_route_rule_configs = []
-    if 'bluefield' in dpuhost.facts['asic_type']:
-        bluefield_route_rule_configs = [pl.INBOUND_VNI_ROUTE_RULE_CONFIG]
+    try:
+        is_nvidia_dpu = 'bluefield' in dpuhost.facts['asic_type']
+        if is_nvidia_dpu:
+            original_tcp_aging = get_ct_aging_interval(dpuhost, use_udp=False)
+            original_udp_aging = get_ct_aging_interval(dpuhost, use_udp=True)
+            logger.info(f"Original CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
 
-    config_dicts = [
-        pl.APPLIANCE_CONFIG,
-        pl.ROUTING_TYPE_PL_CONFIG,
-        pl.VNET_CONFIG,
-        pl.ROUTE_GROUP1_CONFIG,
-        pl.METER_POLICY_V4_CONFIG,
-        pl.PE_VNET_MAPPING_CONFIG,
-        pl.PE_SUBNET_ROUTE_CONFIG,
-        pl.VM_SUBNET_ROUTE_CONFIG,
-        *bluefield_route_rule_configs,
-        pl.METER_RULE1_V4_CONFIG,
-        pl.METER_RULE2_V4_CONFIG,
-        pl.ENI_CONFIG,
-        pl.ENI_ROUTE_GROUP1_CONFIG,
-    ]
+            set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=False)
+            set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=True)
+            logger.info(f"Set CT aging intervals to {CT_AGING_TEST_INTERVAL}s, config reloadto apply")
 
-    # ``apply_dash_configs`` buckets entries by DASH table name and applies them in
-    # dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
-    # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/VNET) ->
-    # GROUP_3 (METER_RULE) -> GROUP_4 (ENI/ROUTE_GROUP) ->
-    # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
-    #
-    # This fixture is module-scoped: the DASH config is programmed once and shared by every
-    # test. Tests must not leak flow state between each other -- each is assigned a unique
-    # inner 5-tuple (see ``flow_port_offset``) so flows never collide.
-    apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts)
+            config_reload(dpuhost, safe_reload=True)
 
-    yield
+        # ``INBOUND_VNI_ROUTE_RULE_CONFIG`` is only programmed on Bluefield DPUs;
+        # on other platforms ROUTE_RULE entries are skipped at the source.
+        bluefield_route_rule_configs = []
+        if 'bluefield' in dpuhost.facts['asic_type']:
+            bluefield_route_rule_configs = [pl.INBOUND_VNI_ROUTE_RULE_CONFIG]
 
-    # Explicit delete (rather than ``config_reload``) preserves the runtime
-    # ``counterpoll eni`` enable/interval configured by ``eni_counter_setup``.
-    if not skip_cleanup:
-        apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts, set_db=False)
+        config_dicts = [
+            pl.APPLIANCE_CONFIG,
+            pl.ROUTING_TYPE_PL_CONFIG,
+            pl.VNET_CONFIG,
+            pl.ROUTE_GROUP1_CONFIG,
+            pl.METER_POLICY_V4_CONFIG,
+            pl.PE_VNET_MAPPING_CONFIG,
+            pl.PE_SUBNET_ROUTE_CONFIG,
+            pl.VM_SUBNET_ROUTE_CONFIG,
+            *bluefield_route_rule_configs,
+            pl.METER_RULE1_V4_CONFIG,
+            pl.METER_RULE2_V4_CONFIG,
+            pl.ENI_CONFIG,
+            pl.ENI_ROUTE_GROUP1_CONFIG,
+        ]
+
+        # ``apply_dash_configs`` buckets entries by DASH table name and applies them in
+        # dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
+        # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/VNET) ->
+        # GROUP_3 (METER_RULE) -> GROUP_4 (ENI/ROUTE_GROUP) ->
+        # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+        #
+        # This fixture is module-scoped: the DASH config is programmed once and shared by every
+        # test. Tests must not leak flow state between each other -- each is assigned a unique
+        # inner 5-tuple (see ``flow_port_offset``) so flows never collide.
+        apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts)
+
+        yield
+    finally:
+        if is_nvidia_dpu:
+            logger.info(f"Restoring CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
+            set_ct_aging_interval(dpuhost, original_tcp_aging, use_udp=False)
+            set_ct_aging_interval(dpuhost, original_udp_aging, use_udp=True)
+            config_reload(dpuhost, safe_reload=True)
+            skip_cleanup = True
+
+        # Explicit delete (rather than ``config_reload``) preserves the runtime
+        # ``counterpoll eni`` enable/interval configured by ``eni_counter_setup``.
+        if not skip_cleanup:
+            apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts, set_db=False)
 
 
 @pytest.fixture(scope="function", params=["vxlan", "gre"])
