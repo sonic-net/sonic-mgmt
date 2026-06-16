@@ -962,14 +962,14 @@ def validate_enabled_stream_output(
             f"Successfully verified {len(counter_matches)} counter values "
             f"are > {min_counter_value}")
 
-    # Validate Msg/s if poll_interval is provided
+    # Always parse Msg/s so callers that only need to detect active streams can
+    # inspect the values without requesting strict rate validation.
     msg_per_sec_matches = []
     msg_validation_result = None
+    msg_pattern = r'Msg/s:\s+(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
+    msg_per_sec_matches = re.findall(msg_pattern, stable_output)
 
     if expected_poll_interval:
-        msg_pattern = r'Msg/s:\s+(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
-        msg_per_sec_matches = re.findall(msg_pattern, stable_output)
-
         if msg_per_sec_matches:
             msg_values = [float(m) for m in msg_per_sec_matches]
 
