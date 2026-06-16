@@ -479,14 +479,16 @@ for debugging (regardless of BRK mode).
 Each test below has its own **Issues** line — add notes, links, or bug
 references there as you run them.
 
+For each test, use corresponding stream in the IXNetwork config file: `TBD`.
+
 ### Test 1 — `BRK=none`, UDP low
 Start low-rate UDP traffic manually, then run the test with no breakpoints;
-verify it runs to completion without pausing.
+verify it runs successfully to completion.
 - **Issues:**
 
-### Test 2 — `BRK=none`, UDP high
+### Test 2 — `BRK=none`, UDP high (10 Mpps, 10M flows)
 Start high-rate UDP traffic manually, then run the test with no breakpoints;
-verify it runs to completion without pausing.
+verify it runs successfully to completion.
 - **Issues:**
   - https://github.com/sonic-net/sonic-mgmt/pull/25058#pullrequestreview-4492341205
 
@@ -496,29 +498,30 @@ continue. At breakpoint #2: verify RX count matches TX count. Ensure test
 passes.
 - **Issues:**
 
-### Test 4 — `BRK=ends`, UDP high
+### Test 4 — `BRK=ends`, UDP high (10 Mpps, 10M flows)
 Same as (3) but with high-rate UDP traffic.
 - **Issues:**
 
-### Test 5 — `BRK=ends`, TCP SYN + ACK
-At breakpoint #1: send TCP SYN stream at 1Mpps (simulating 1Mcps) to establish sessions;
+### Test 5 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + ACK (10 Mpps, 10M flows)
+At breakpoint #1: send TCP SYN stream to establish sessions at 1Mcps;
 verify `flows -summary` shows 10M flows on each primary and secondary. Start TCP
 ACK stream, clear stats, continue. At breakpoint #2: verify RX matches TX.
 Ensure test passes.
 - **Issues:**
-  - Some sessions are not created. Requires lower rate or sending the same stream twice to get full 10M flows.
+  - Some sessions are not created after SYN stream.
+    Requires lower rate or sending the same stream twice to get full 10M flows.
 
-### Test 6 — `BRK=ends`, TCP SYN + FIN-ACK
+### Test 6 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
 Same as (5), but after ACK stream, send TCP FIN-ACK stream; verify sessions
 are cleared.
 - **Issues:**
   - Does not work to clear sessions
 
-### Test 7 — `BRK=ends`, TCP SYN + RST
+### Test 7 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + RST (1 Mpps, 10M flows)
 Same as (6), but use TCP RST to clear sessions instead of FIN-ACK.
 - **Issues:**
 
-### Test 8 — `BRK=mid`, TCP SYN + ACK (20M)
+### Test 8 — `BRK=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
 Same as (5) for initial 10M flows. During first mid breakpoint (primary
 down): add another 10M flows on secondary for 20M total. Continue test;
 verify all 20M flows sync to primary with no drops.
@@ -539,4 +542,5 @@ chosen DUT, clear stats, continue. Run HA cycles; verify flows stay on
 (and sync from) the active DUT with no drops. At breakpoint #2: verify RX
 matches TX, then restore the ECMP route.
 - **Issues:**
-  - TBD (not executed yet)
+
+### TBD additional tests
