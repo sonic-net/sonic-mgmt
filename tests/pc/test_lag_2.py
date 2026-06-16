@@ -213,8 +213,20 @@ class LagTest:
         # Figure out remote VM and interface info for the lag member and run minlink test
         peer_device = self.vm_neighbors[intf]['name']
         neighbor_intf = self.vm_neighbors[intf]['port']
+        # teamd supports a retry_count extension: when enable_retry_count_feature is True,
+        # the LACP Long Timeout (90 s) is retried retry_count times before a member is
+        # deselected.  This feature is enabled on some platforms (e.g. Nokia) by their
+        # custom teamd wrapper.  Read both fields from the teamd state (available via
+        # `teamdctl state dump` in lag_facts) and extend deselect_time accordingly.
+        try:
+            runner_state = lag_facts['lags'][lag_name]['po_stats'].get('runner', {})
+            retry_feature = runner_state.get('enable_retry_count_feature', False)
+            retry_count = int(runner_state.get('retry_count', 0)) if retry_feature else 0
+        except (KeyError, ValueError, TypeError):
+            retry_count = 0
+        deselect_time = (max(retry_count, 1) * 90) + 10
         self.__verify_lag_minlink(self.nbrhosts[peer_device]['host'], lag_name,
-                                  lag_facts, neighbor_intf, deselect_time=95)
+                                  lag_facts, neighbor_intf, deselect_time=deselect_time)
 
     def run_lag_fallback_test(self, lag_name, lag_facts):
         logger.info("Start checking lag fall back for: %s" % lag_name)
