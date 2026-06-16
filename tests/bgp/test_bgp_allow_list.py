@@ -65,7 +65,7 @@ def check_routes_on_dut(duthost, setup_info):
 
 
 def check_bgpmon_received_test_routes(ptfhost, setup_info, timeout=120):
-    deadline = time.time() + timeout
+    deadline = timeout + time.time()
     while time.time() < deadline:
         if ptfhost.stat(path=DUMP_FILE).get('stat', {}).get('exists', False):
             break
