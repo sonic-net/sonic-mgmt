@@ -501,7 +501,7 @@ Same as (3) but with high-rate UDP traffic.
 - **Issues:**
 
 ### Test 5 — `BRK=ends`, TCP SYN + ACK
-At breakpoint #1: send TCP SYN stream at 1Mpps (simulating 1Mcps) to establish sessions; 
+At breakpoint #1: send TCP SYN stream at 1Mpps (simulating 1Mcps) to establish sessions;
 verify `flows -summary` shows 10M flows on each primary and secondary. Start TCP
 ACK stream, clear stats, continue. At breakpoint #2: verify RX matches TX.
 Ensure test passes.
