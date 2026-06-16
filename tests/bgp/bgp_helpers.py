@@ -21,6 +21,7 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.utilities import testbed_is_multi_vrf
+from tests.common.utilities import get_neighbor_exabgp_vm_offset
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
@@ -303,7 +304,13 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]
 
-    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    # On converged (multi-VRF) topologies ``VMs[downstream]['vm_offset']`` is the
+    # collapsed *prime* offset, which maps to a different neighbor's exabgp
+    # instance. The per-neighbor exabgp instances are keyed by the ORIGINAL
+    # offset, so use that (via get_neighbor_exabgp_vm_offset) to post the
+    # announce to the intended downstream's exabgp. On stock topologies this
+    # returns the neighbor's own vm_offset, so behavior is unchanged.
+    downstream_offset = get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, downstream)
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
 
