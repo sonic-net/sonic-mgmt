@@ -300,7 +300,7 @@ class Test_VxLAN_route_Advertisement():
             result = t2device['host'].run_command(cmd)
             while len(result['stdout'][0]) == 0 and retry_count > 0:
                 time.sleep(10)
-                result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+                result = t2device['host'].run_command(cmd)
                 retry_count = retry_count - 1
             if len(result['stdout'][0]) == 0:
                 py_assert(False, "Routes not propogated to the T2.")
