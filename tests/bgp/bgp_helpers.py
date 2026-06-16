@@ -195,21 +195,15 @@ def parse_rib(host, ip_ver, asic_namespace=None):
     return routes
 
 
-def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None, expected_routes=None):
+def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
     """
     Get the routes that are not announced to bgpmon by checking dump of bgpmon on PTF.
-
-    If expected_routes is provided, only those routes are validated against the bgpmon dump.
-    Otherwise, all routes from DUT BGP RIB (ipv4+ipv6) are validated.
     """
     def _dump_fie_exists(host):
         return host.stat(path=DUMP_FILE).get('stat', {}).get('exists', False)
     pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost))
     time.sleep(20)  # Wait until all routes announced to bgpmon
     bgpmon_routes = parse_exabgp_dump(ptfhost)
-    if expected_routes is not None:
-        return [route for route in expected_routes if route not in bgpmon_routes]
-
     rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
     rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
     routes_dut = dict(list(rib_v4.items()) + list(rib_v6.items()))
@@ -613,27 +607,9 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
     check_results(results)
 
 
-def checkout_bgp_mon_routes(duthost, ptfhost, setup_info):
-    """
-    Verify the allow-list test routes are announced to bgpmon.
-
-    On T1/T2 topologies the DUT has many additional BGP routes in its RIB which are not part of
-    this test. Validating "all DUT routes" against bgpmon is therefore too strict; we only
-    validate the prefixes that this test announces from the downstream neighbor.
-    """
-    expected = []
-    for list_name, prefixes in list(PREFIX_LISTS.items()):
-        if setup_info.get('is_v6_topo') and "v6" not in list_name.lower():
-            continue
-        expected.extend(prefixes)
-
-    routes_not_announced = get_routes_not_announced_to_bgpmon(
-        duthost,
-        ptfhost,
-        asic_namespace=setup_info.get('downstream_namespace'),
-        expected_routes=expected
-    )
-    pytest_assert(routes_not_announced == [], "Not all test routes are announced to bgpmon: {}".format(routes_not_announced))
+def checkout_bgp_mon_routes(duthost, ptfhost):
+    routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+    pytest_assert(routes_not_announced == [], "Not all routes are announced to bgpmon: {}".format(routes_not_announced))
 
 
 def get_default_action():
