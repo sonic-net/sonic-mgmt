@@ -2726,6 +2726,12 @@ generic_config_updater/test_incremental_qos.py:
     conditions:
       - "'dualtor' in topo_name"
 
+generic_config_updater/test_incremental_qos.py::test_buffer_profile_create_remove_rollback:
+  skip:
+    reason: "Skipped due to test issue: https://github.com/sonic-net/sonic-mgmt/issues/25395"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25395 and asic_type in ['mellanox']"
+
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type or version or topology currently"
