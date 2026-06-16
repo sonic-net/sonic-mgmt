@@ -102,11 +102,12 @@ class TestPerInterfaceProfile():
                               lambda: duthost.iface_macsec_ok(target_port) and
                               target_nbr["host"].iface_macsec_ok(target_nbr["port"])), \
                 "MACsec did not recover on {}".format(target_port)
-    
-            target_ctrl_links = {target_port: ctrl_links.get(target_port), surviving_port: ctrl_links.get(surviving_port)}
+
+            target_ctrl_links = {target_port: ctrl_links.get(target_port),
+                                 surviving_port: ctrl_links.get(surviving_port)}
             assert wait_until(300, 3, 0,
                               check_appl_db, duthost, target_ctrl_links, policy, cipher_suite, send_sci),\
-                    "appl_db didnt recover"
+                "appl_db didnt recover"
 
         load_all_macsec_info(duthost, ctrl_links, tbinfo)
 
