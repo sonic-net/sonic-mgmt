@@ -20,6 +20,7 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.utilities import testbed_is_multi_vrf
+from tests.common.utilities import get_neighbor_exabgp_vm_offset
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
