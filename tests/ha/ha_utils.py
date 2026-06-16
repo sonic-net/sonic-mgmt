@@ -370,14 +370,13 @@ def get_ha_scope_pmon_state(duthost, scope_key):
         empty string if missing).
     """
     db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
-    states = {}
-    for field in HA_SCOPE_PMON_STATE_FIELDS:
-        res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" {field}',
-            module_ignore_errors=True,
-        )
-        states[field] = res.get("stdout", "").strip()
-    return states
+    res = duthost.shell(
+        f'sonic-db-cli STATE_DB HMGET "{db_key}" '
+        f'{" ".join(HA_SCOPE_PMON_STATE_FIELDS)}',
+        module_ignore_errors=True,
+    )
+    values = res.get("stdout", "").splitlines()
+    return dict(zip(HA_SCOPE_PMON_STATE_FIELDS, [v.strip() for v in values]))
 
 
 def wait_for_ha_scope_pmon_state(duthost, scope_key, expected_state,
