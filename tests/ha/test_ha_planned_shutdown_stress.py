@@ -1,5 +1,6 @@
 """HA planned-shutdown stress test driven by external Ixia traffic."""
 import logging
+import os
 import time
 
 import paramiko
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 STRESS_ITERATIONS = 5
 
-# See test_ha_stress.md ("Topology") for the full connection map
+# See test_ha_planned_shutdown_stress.md ("Topology") for the full connection map
 
 IXIA_DUT_INTF = "Ethernet96"
 PE_PA_PREFIX = "101.1.2.3/32"           # GRE return outer dst — pl.PE_PA
@@ -86,7 +87,7 @@ FANOUT_ROUTES = {
 # (inner src 10.0.0.11 VM1_CA -> dst 10.2.0.100 PE_CA; outer dst 3.2.1.0
 # APPLIANCE_VIP). Inner L4 may be UDP or TCP; vary inner L4 ports via a UDF
 # to scale DPU flows. The DPU returns NVGRE (VSID 100) toward PE_PA
-# (101.1.2.3), routed back to the Ixia RX port. See test_ha_stress.md
+# (101.1.2.3), routed back to the Ixia RX port. See test_ha_planned_shutdown_stress.md
 # (section 5) for the full frame layout, UDF, and send rates.
 # ---------------------------------------------------------------------------
 
@@ -107,15 +108,14 @@ PRE_ACTION_SETTLE_S = 5     # let Ixia traffic flow before triggering shutdown
 POST_ACTION_SETTLE_S = 10   # let traffic stabilize after each HA state change
 
 # --- Breakpoint modes (BRK env var) ---
-#   none:  No breakpoints; fully automated.
-#   ends:  Break before Ixia start + after all iterations (default).
+#   none:  No breakpoints; the test never pauses (default).
+#   ends:  Break before Ixia start + after all iterations.
 #   mid:   ends + once after primary-dead and once after secondary-dead
 #          (first iteration only, not every iteration).
 #
-# Usage: BRK=mid ./run_tests.sh ...
-#        BRK=none ./run_tests.sh ...
-import os
-BRK_MODE = os.environ.get("BRK", "ends")
+# Usage: BRK=ends ./run_tests.sh ...
+#        BRK=mid  ./run_tests.sh ...
+BRK_MODE = os.environ.get("BRK", "none")
 
 pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
@@ -478,8 +478,9 @@ def test_ha_planned_shutdown_stress_ixia(
          fanout L3 config.
 
     Breakpoint mode (BRK env var):
-      none:  No breakpoints; fully automated (steps 5/7 skipped).
-      ends:  Break before Ixia start + after iterations (default).
+      none:  No breakpoints; the test never pauses (default; steps 5/7
+             skipped).
+      ends:  Break before Ixia start + after iterations.
       mid:   ends + once after primary-dead and once after secondary-dead
              (first iteration only).
     """

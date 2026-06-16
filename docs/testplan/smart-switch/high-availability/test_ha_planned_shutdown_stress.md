@@ -438,7 +438,7 @@ payload sent in.
 ## Running the test
 
 ```bash
-# BRK env var controls breakpoints: ends (default), mid, none
+# BRK env var controls breakpoints: none (default), ends, mid
 BRK=mid pytest test_ha_planned_shutdown_stress.py \
     --inventory ../ansible/veos_vtb \
     --host-pattern all \
@@ -453,9 +453,9 @@ BRK=mid pytest test_ha_planned_shutdown_stress.py \
 
 | Mode   | Behavior                                                                 |
 | ------ | ------------------------------------------------------------------------ |
-| `ends` | Break before Ixia start + after all iterations (default)                 |
+| `none` | No breakpoints; test never pauses (default).                             |
+| `ends` | Break before Ixia start + after all iterations                           |
 | `mid`  | `ends` + once after primary-dead and once after secondary-dead (iter 1)  |
-| `none` | Fully automated, no breakpoints                                          |
 
 Breakpoints (when `BRK != none`):
 1. **Breakpoint #1** — after all DUT/DPU programming and steering is
@@ -480,11 +480,13 @@ Each test below has its own **Issues** line — add notes, links, or bug
 references there as you run them.
 
 ### Test 1 — `BRK=none`, UDP low
-Run low-rate UDP traffic; verify test runs to completion automatically.
+Start low-rate UDP traffic manually, then run the test with no breakpoints;
+verify it runs to completion without pausing.
 - **Issues:**
 
 ### Test 2 — `BRK=none`, UDP high
-Run high-rate UDP traffic; verify test runs to completion automatically.
+Start high-rate UDP traffic manually, then run the test with no breakpoints;
+verify it runs to completion without pausing.
 - **Issues:**
   - https://github.com/sonic-net/sonic-mgmt/pull/25058#pullrequestreview-4492341205
 
