@@ -1,6 +1,7 @@
 import pytest
 import logging
 import time
+import random
 
 from tests.common.utilities import wait_until
 from tests.common.macsec.macsec_helper import get_appl_db, get_ipnetns_prefix, load_all_macsec_info, check_appl_db
@@ -52,8 +53,9 @@ class TestPerInterfaceProfile():
         if not port_profiles:
             pytest.skip("Requires --per_interface_macsec")
         ports = list(ctrl_links.keys())
-        target_port = ports[0]
-        surviving_port = ports[1]
+        target_port = random.choice(ports)
+        ports.remove(target_port)
+        surviving_port = random.choice(ports)
         target_nbr = ctrl_links[target_port]
         target_profile = port_profiles[target_port]
 
@@ -116,8 +118,9 @@ class TestPerInterfaceProfile():
         if not port_profiles:
             pytest.skip("Requires --per_interface_macsec")
         ports = list(ctrl_links.keys())
-        target_port = ports[0]
-        other_port = ports[1]
+        target_port = random.choice(ports)
+        ports.remove(target_port)
+        other_port = random.choice(ports)
         target_nbr = ctrl_links[target_port]
         other_nbr = ctrl_links[other_port]
 
