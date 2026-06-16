@@ -1,0 +1,6 @@
+{
+    "firmware_versions": ["2.0.1", "2.0.5", "2.1.0"],
+    "gold_firmware_version": "2.1.0",
+    "inactive_firmware_version": "2.0.5",
+    "dual_bank_supported": false
+}

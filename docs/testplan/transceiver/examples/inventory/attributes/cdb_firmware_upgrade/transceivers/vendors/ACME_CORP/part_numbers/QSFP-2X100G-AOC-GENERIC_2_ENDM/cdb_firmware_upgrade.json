@@ -1,0 +1,6 @@
+{
+    "firmware_versions": ["1.2.3", "1.2.4", "1.2.5"],
+    "gold_firmware_version": "1.2.5",
+    "inactive_firmware_version": "1.2.4",
+    "firmware_download_timeout_minutes": 45
+}
