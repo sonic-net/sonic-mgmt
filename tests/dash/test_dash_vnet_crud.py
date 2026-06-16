@@ -458,8 +458,6 @@ def test_vnet_update_vni(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_
 
     # Update VNET with new VNI
     # Verify VNET was updated
-    vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, TEST_VNET_VNI_1)
-
     vnet_config = create_vnet_config(TEST_VNET_NAME_1, 5001, TEST_VNET_GUID_1)
 
 
@@ -673,7 +671,7 @@ def test_vnet_duplicate_vni_different_name(localhost, duthost, dpuhosts, dpu_ind
     apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
 
     # Check if second VNET was created
-    vnet2_exists = verify_vnet_exists(dpuhost, vnet_name_2, duplicate_vni)
+    verify_vnet_exists(dpuhost, vnet_name_2, duplicate_vni)
 
     # Verify VNET state in STATE_DB 
     vnet2_state = get_vnet_state(dpuhost, vnet_name_2)
@@ -749,7 +747,8 @@ def test_vnet_vni_uniqueness_across_operations(localhost, duthost, dpuhosts, dpu
     apply_dash_config(localhost, duthost, ptfhost, vnet_config_a_dup, dpuhost.dpu_index)
 
     # Check result - vnet_a should NOT have vni_b (should still have vni_a or update rejected)
-    vnet_a_has_dup_vni = verify_vnet_exists(dpuhost, vnet_a, vni_b)
+    verify_vnet_exists(dpuhost, vnet_a, vni_b)
+
     # Verify VNET state in STATE_DB 
     vnet_a_state = get_vnet_state(dpuhost, vnet_a)
 
