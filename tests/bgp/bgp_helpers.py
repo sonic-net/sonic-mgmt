@@ -326,7 +326,7 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     downstream_namespace = find_downstream_namespace(duthost, tbinfo, downstream)
     pytest_require(downstream_namespace is not None,
                    "Could not find ASIC namespace for downstream neighbor {}".format(downstream))
-    
+
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     setup_info = {
