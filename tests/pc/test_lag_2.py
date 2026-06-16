@@ -213,8 +213,18 @@ class LagTest:
         # Figure out remote VM and interface info for the lag member and run minlink test
         peer_device = self.vm_neighbors[intf]['name']
         neighbor_intf = self.vm_neighbors[intf]['port']
+        # Nokia IXR7220 teamd uses retry_count > 1: each LACP Long Timeout (90 s) is retried
+        # before the member is deselected.  Read retry_count from the teamd state and compute
+        # the deselect_time accordingly so we wait long enough before checking member state.
+        try:
+            retry_count = int(lag_facts['lags'][lag_name]['po_stats']
+                              .get('runner', {}).get('retry_count', 0))
+        except (KeyError, ValueError, TypeError):
+            retry_count = 0
+        lacp_long_timeout_secs = 90
+        deselect_time = (max(retry_count, 1) * lacp_long_timeout_secs) + 10
         self.__verify_lag_minlink(self.nbrhosts[peer_device]['host'], lag_name,
-                                  lag_facts, neighbor_intf, deselect_time=95)
+                                  lag_facts, neighbor_intf, deselect_time=deselect_time)
 
     def run_lag_fallback_test(self, lag_name, lag_facts):
         logger.info("Start checking lag fall back for: %s" % lag_name)
@@ -288,6 +298,12 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
     if testcase == "lacp_rate":
         if request.config.getoption("--neighbor_type") == 'sonic':
             pytest.skip("lacp_rate is not supported in vsonic")
+        # Nokia IXR7220 does not support dynamic LACP rate negotiation: the DUT always
+        # transmits slow PDUs (30 s) regardless of the partner's Short_Timeout preference,
+        # and the SONiC CLI has no 'config portchannel lacp-rate' command on this platform.
+        for duthost in duthosts:
+            if 'Nokia' in duthost.facts.get('hwsku', ''):
+                pytest.skip("lacp_rate is not supported on Nokia IXR7220 platform")
 
     ptfhost = common_setup_teardown
 
