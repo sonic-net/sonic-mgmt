@@ -235,6 +235,14 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
     Returns:
         Returns True or False based on status of given DPU module
     """
+    # checking state_transition still  in progress for DPU, before checking DPU state
+    cmd = f'redis-cli -n 6 HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
+    output_dpu_state = duthost.shell(cmd)
+    logging.info(output_dpu_state['stdout'])
+
+    if 'true' in output_dpu_state['stdout'].lower():
+        logging.info("{} state transition is in progress...".format(dpu_name))
+        return False
 
     output_dpu_status = duthost.shell(
             'show chassis module status | grep %s' % (dpu_name))

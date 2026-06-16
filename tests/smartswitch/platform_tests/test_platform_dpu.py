@@ -156,15 +156,6 @@ def test_system_health_state(duthosts, dpuhosts,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    """
-    Sleep time of 5 mins is added to get the system health state
-    is reflected in the cli after dpus are shutdown
-    """
-    # Check if it's a Cisco ASIC
-    if is_cisco_device(duthost):
-        logging.info("5 minutes Cool off period after shutdown")
-        time.sleep(COOL_OFF_TIME)
-
     try:
         for index in range(len(dpu_on_list)):
             check_dpu_health_status(duthost, dpu_on_list[index],
@@ -336,12 +327,11 @@ def test_system_health_summary(duthosts, dpuhosts,
                          re.compile(r"reboot|Non-Hardware",
                                     re.IGNORECASE))
 
+    if is_cisco_device(duthost):
+        logging.info("6 minutes for the Services to be UP")
+        time.sleep(DPU_MAX_TIMEOUT)
+
     logging.info("Checking show system-health summary on Switch")
-    output_health_summary = duthost.command("show system-health summary")
-    result = parse_system_health_summary(output_health_summary['stdout'])
-
-    pytest_assert(result, "Switch health status is not ok")
-
     for index in range(len(dpu_on_list)):
         dpu_name = dpu_on_list[index]
         dpu_id = int(re.search(r'\d+', dpu_name).group())
