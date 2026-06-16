@@ -317,6 +317,7 @@ class VMTopology(object):
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
+        self._is_smartswitch_ha = self.topo.get('topo_type') == 't1-smartswitch-ha'
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
         if self.dut_interfaces:
@@ -1306,8 +1307,12 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=6,udp6,in_port=%s,udp_dst=4784,action=output:%s" %
                         (br_name, dut_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
-                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            if self._is_smartswitch_ha:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
+                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            else:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
+                            (br_name, dut_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %
