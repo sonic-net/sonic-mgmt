@@ -1,0 +1,21 @@
+{
+    "mandatory": ["firmware_versions", "gold_firmware_version"],
+    "defaults": {
+        "firmware_download_timeout_minutes": 30,
+        "firmware_download_stress_iterations": 5,
+        "firmware_activation_stress_iterations": 5,
+        "firmware_read_stress_iterations": 5,
+        "firmware_download_interrupt_method": "ctrl_c",
+        "firmware_download_interrupt_percentage": [10, 30, 50, 90],
+        "sleep_after_dom_disable_sec": 5,
+        "monitor_kernel_errors": false,
+        "thermalctld_disabling_required": false,
+        "dual_bank_supported": true
+    },
+    "dut": {
+        "lab-dut-01": {
+            "port_under_test": ["Ethernet0", "Ethernet8"],
+            "restore_initial_inactive_firmware": true
+        }
+    }
+}
