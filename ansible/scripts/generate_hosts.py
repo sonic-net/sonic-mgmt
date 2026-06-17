@@ -67,6 +67,19 @@ from collections import defaultdict
 import re
 
 
+def parse_hosts_line(line):
+    """Parse a hosts file line into an IP and all hostnames on that line."""
+    stripped_line = line.split('#', 1)[0].strip()
+    if not stripped_line:
+        return None, []
+
+    parts = stripped_line.split()
+    if len(parts) < 2:
+        return None, []
+
+    return parts[0], parts[1:]
+
+
 def load_existing_hosts(file_path):
     """Load existing hosts from the base hosts file, preserving comments and empty lines."""
     hosts_map = defaultdict(list)
@@ -75,12 +88,10 @@ def load_existing_hosts(file_path):
     if file_path and os.path.exists(file_path):
         with open(file_path, 'r') as f:
             for line in f:
-                stripped_line = line.strip()
                 original_lines.append(line)
-                if stripped_line and not stripped_line.startswith('#'):
-                    parts = stripped_line.split()
-                    if len(parts) == 2:
-                        ip, hostname = parts
+                ip, hostnames = parse_hosts_line(line)
+                if ip:
+                    for hostname in hostnames:
                         hosts_map[ip].append(hostname)
 
     return hosts_map, original_lines
@@ -94,9 +105,15 @@ def load_csv_devices(csv_pattern):
     for csv_file in glob.glob(csv_pattern):
         with open(csv_file, 'r') as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                ip = row['ManagementIp'].split('/')[0]  # Extract IP without CIDR
-                hostname = row['Hostname']
+            for line_num, row in enumerate(reader, start=2):
+                management_ip = row.get('ManagementIp')
+                hostname = row.get('Hostname')
+                if not management_ip or not hostname:
+                    warnings.append(f"Warning: Skipping {csv_file} line {line_num}, "
+                                    f"missing ManagementIp or Hostname.")
+                    continue
+
+                ip = management_ip.split('/')[0]  # Extract IP without CIDR
                 if hostname in devices and devices[hostname] != ip:
                     warnings.append(f"Warning: Hostname "
                                     f"{hostname} is mapped to multiple IPs: "
@@ -119,12 +136,9 @@ def write_hosts_file(file_path, hosts_map, original_lines):
     # First, extract all existing IP-hostname pairs from original lines
     existing_pairs = set()
     for line in original_lines:
-        stripped_line = line.strip()
-        if stripped_line and not stripped_line.startswith('#'):
-            parts = stripped_line.split()
-            if len(parts) >= 2:
-                ip = parts[0]
-                hostname = parts[1]
+        ip, hostnames = parse_hosts_line(line)
+        if ip:
+            for hostname in hostnames:
                 existing_pairs.add((ip, hostname))
 
     with open(file_path, 'w') as f:
@@ -142,14 +156,16 @@ def write_hosts_file(file_path, hosts_map, original_lines):
         max_ip_length = max(len(ip) for ip, _ in sorted_entries) if sorted_entries else 0
 
         # Write only new entries (not already in original_lines)
+        warned_ips = set()
         for ip, hostname in sorted_entries:
             # Check if this IP-hostname pair already exists in the original file
             if (ip, hostname) in existing_pairs:
                 continue
 
             entry = f"{ip.ljust(max_ip_length)} {hostname}"
-            if len(hosts_map[ip]) > 1:
+            if len(hosts_map[ip]) > 1 and ip not in warned_ips:
                 f.write(f"# Warning: IP {ip} is mapped to multiple hostnames: {', '.join(hosts_map[ip])}\n")
+                warned_ips.add(ip)
             f.write(f"{entry}\n")
 
 
@@ -159,6 +175,7 @@ def main(base_hosts, output_file, csv_pattern, override):
 
     # Load devices from CSV files
     devices = load_csv_devices(csv_pattern)
+    existing_hostnames = {hostname: ip for ip, hostnames in existing_hosts.items() for hostname in hostnames}
 
     # Merge devices into existing hosts
     for hostname, ip in devices.items():
@@ -166,21 +183,25 @@ def main(base_hosts, output_file, csv_pattern, override):
         if ip in existing_hosts and hostname in existing_hosts[ip]:
             continue
 
-        if hostname in [h for hosts in existing_hosts.values() for h in hosts]:
-            print(f"Hostname {hostname} already exists and is mapped to an IP.")
+        if hostname in existing_hostnames:
+            print(f"Warning: Hostname {hostname} already exists with IP {existing_hostnames[hostname]}, "
+                  f"skipping new IP {ip}.")
             continue
 
         if ip in existing_hosts:
             if override:
                 print(f"Adding hostname {hostname} to existing IP {ip}.")
                 existing_hosts[ip].append(hostname)
+                existing_hostnames[hostname] = ip
             else:
                 print(f"IP {ip} already exists with hostnames {existing_hosts[ip]}.")
                 choice = input(f"Do you want to add hostname {hostname} to this IP? (y/n): ").strip().lower()
                 if choice == 'y':
                     existing_hosts[ip].append(hostname)
+                    existing_hostnames[hostname] = ip
         else:
             existing_hosts[ip].append(hostname)
+            existing_hostnames[hostname] = ip
 
     # Write the updated hosts to the output file
     write_hosts_file(output_file, existing_hosts, original_lines)
