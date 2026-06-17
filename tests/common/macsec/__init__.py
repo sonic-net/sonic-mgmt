@@ -170,10 +170,11 @@ class MacsecPlugin(object):
                         enable_macsec_port(macsec_duthost, dut_port, orig_name)
                         enable_macsec_port(nbr["host"], nbr["port"], orig_name)
                 for dut_port, nbr in list(ctrl_links.items()):
-                    wait_until(300, 3, 0,
-                               lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
-                               n["host"].iface_macsec_ok(n["port"]))
-                # load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+                    # only check the port if it was actually put back to an old macsec configuration
+                    if orig.get(dut_port):
+                        wait_until(300, 3, 0,
+                                lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
+                                n["host"].iface_macsec_ok(n["port"]))
             else:
                 cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
