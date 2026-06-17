@@ -10,6 +10,8 @@ from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, restart_dhcpmon_in_debug
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa F401
+from tests.common.fixtures.ptfhost_utils import setup_ptf_ip_responder, teardown_ptf_ip_responder
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
@@ -35,6 +37,27 @@ NEW_COUNTER_VALUE_FORMAT = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+DHCPV6_RELAY_ARP_RESPONDER_CONF = "/tmp/dhcpv6_downstream_relay_arp_responder.json"
+
+
+def get_downstream_relay_ip(dhcp_relay):
+    return str(ipaddress.ip_address(str(dhcp_relay['downlink_vlan_iface']['addr'])) + 1)
+
+
+def setup_downstream_relay_responder(ptfhost, duthost, dhcp_relay, downstream_relay_ip):
+    # For the nested Relay-Reply case, the DUT forwards the inner Relay-Reply to
+    # the outer peer-address. That peer is a simulated downstream Relay A GUA on
+    # the PTF client-facing port, so configure arp_responder to answer IPv6 NDP
+    # for that GUA using the common PTF reachability helper.
+    setup_ptf_ip_responder(
+        duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF,
+        [(downstream_relay_ip, dhcp_relay['downlink_vlan_iface']['name'], dhcp_relay['client_iface']['port_idx'])])
+
+
+def teardown_downstream_relay_responder(ptfhost, duthost):
+    teardown_ptf_ip_responder(duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF)
 
 
 def wait_all_bgp_up(duthost):
@@ -273,8 +296,9 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
 
 def get_dhcptest_expected_counters(dhcp_server_num):
     """Expected dhcpmon counters for DHCPTest PTF class.
-    DHCPTest sends 2 client messages (Solicit, Request)
-    and 3 server messages (Relay-Reply with Advertise, Reply, Relay-Reply).
+    DHCPTest sends 2 client messages (Solicit, Request) and 3 server
+    Relay-Replies (Advertise, Reply, nested Relay-Reply for the RFC 8415
+    multi-relay return path).
     """
     expected_downlink = {
         "RX": {"Solicit": 1, "Request": 1},
@@ -496,24 +520,31 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
             time.sleep(5)  # wait for dhcpmon to initialize
             init_dhcpmon_counters(duthost, is_v6=True)
 
+            downstream_relay_ip = get_downstream_relay_ip(dhcp_relay)
+            setup_downstream_relay_responder(ptfhost, duthost, dhcp_relay, downstream_relay_ip)
+
             # Run the DHCP relay test on the PTF host
-            ptf_runner(ptfhost,
-                       "ptftests",
-                       "dhcpv6_relay_test.DHCPTest",
-                       platform_dir="ptftests",
-                       params={"hostname": duthost.hostname,
-                               "client_port_index": dhcp_relay['client_iface']['port_idx'],
-                               "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
-                               "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
-                               "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
-                               "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                               "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                               "relay_link_local": str(dhcp_relay['down_interface_link_local']),
-                               "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                               "uplink_mac": str(dhcp_relay['uplink_mac']),
-                               "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
-                               "is_dualtor": str(dhcp_relay['is_dualtor'])},
-                       log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+            try:
+                ptf_runner(ptfhost,
+                           "ptftests",
+                           "dhcpv6_relay_test.DHCPTest",
+                           platform_dir="ptftests",
+                           params={"hostname": duthost.hostname,
+                                   "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                                   "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                                   "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs']),
+                                   "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
+                                   "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                                   "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                                   "relay_link_local": str(dhcp_relay['down_interface_link_local']),
+                                   "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                                   "uplink_mac": str(dhcp_relay['uplink_mac']),
+                                   "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                                   "downstream_relay_ip": downstream_relay_ip,
+                                   "is_dualtor": str(dhcp_relay['is_dualtor'])},
+                           log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+            finally:
+                teardown_downstream_relay_responder(ptfhost, duthost)
 
             expected_downlink_counter, expected_uplink_counter = \
                 get_dhcptest_expected_counters(dhcp_server_num)

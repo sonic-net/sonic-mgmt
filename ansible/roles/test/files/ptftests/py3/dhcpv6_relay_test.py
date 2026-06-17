@@ -126,6 +126,7 @@ class DHCPTest(DataplaneBaseTest):
         self.relay_link_local = self.test_params['relay_link_local']
         self.relay_linkaddr = '::'
         self.vlan_ip = self.test_params['vlan_ip']
+        self.downstream_relay_ip = self.test_params['downstream_relay_ip']
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
         self.loopback_ipv6 = self.test_params['loopback_ipv6']
@@ -273,8 +274,8 @@ class DHCPTest(DataplaneBaseTest):
                                          dst=dst_ip)
         relay_relay_reply_packet /= packet.UDP(
             sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
-        relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.vlan_ip,
-                                                     peeraddr=self.client_link_local)
+        relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.relay_linkaddr,
+                                                     peeraddr=self.downstream_relay_ip)
         packet_inside = DHCP6_RelayReply(
             msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         packet_inside /= DHCP6OptRelayMsg(message=[DHCP6_Reply(trid=12345)])
@@ -286,10 +287,10 @@ class DHCPTest(DataplaneBaseTest):
     def create_dhcp_relay_reply_packet(self):
         relay_reply_packet = packet.Ether(
             src=self.relay_iface_mac, dst=self.client_mac)
-        relay_reply_packet /= IPv6(src=self.relay_link_local,
-                                   dst=self.client_link_local)
+        relay_reply_packet /= IPv6(src=self.relay_iface_ip,
+                                   dst=self.downstream_relay_ip)
         relay_reply_packet /= packet.UDP(sport=self.DHCP_SERVER_PORT,
-                                         dport=self.DHCP_CLIENT_PORT)
+                                         dport=self.DHCP_SERVER_PORT)
         relay_reply_packet /= DHCP6_RelayReply(
             msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         relay_reply_packet /= DHCP6OptRelayMsg(
@@ -448,18 +449,16 @@ class DHCPTest(DataplaneBaseTest):
         self.server_send_reply_relay_reply()
         self.verify_relayed_reply()
 
-        # NOTE: There was a client_send_relayed_relay_forward() step here, but it was
-        # removed. On t0/m0/mx topologies, the DUT is the first-hop relay and all
-        # downstream devices are end hosts (servers), not other relays. Clients in
-        # these topologies will never send Relay-Forward messages, so testing it here
-        # does not reflect any real-world scenario.
-        #
-        # For context, dhcp6relay and dhcpmon handle downstream Relay-Forward
-        # differently -- dhcp6relay is designed with the first-hop relay in mind,
-        # while dhcpmon supports a broader relay role. Neither is wrong; they serve
-        # different purposes.
-        #
-        # Server Relay-Reply wrapping Relay-Reply is still tested below, as servers do
-        # legitimately send nested Relay-Reply messages.
+        # This step explicitly tests the RFC 8415 section 19.3 relay-to-relay
+        # return path. It is not the normal t0/m0/mx first-hop client/server
+        # exchange; the regular path above uses an end-client link-local peer.
+        # For the nested case, PTF simulates a downstream Relay A with a GUA on
+        # the VLAN subnet. The outer Relay-Reply therefore uses linkaddr=:: and
+        # peeraddr=<Relay A GUA>, matching the relay-to-relay model implemented
+        # by dhcp6relay and validated by dhcpmon. The mgmt test configures PTF's
+        # arp_responder for that GUA before invoking this PTF test so DUT Relay B
+        # can resolve and forward to the simulated Relay A. A link-local
+        # relay-to-relay hop is theoretically allowed by RFC8415, but our current
+        # SONiC topologies and dhcpmon/dhcp6relay profiles assume the GUA path.
         self.server_send_relay_relay_reply()
         self.verify_relay_relay_reply()

@@ -1,4 +1,5 @@
 import json
+import time
 import os
 import pytest
 import logging
@@ -162,6 +163,43 @@ def remove_ip_addresses(ptfhost):
     if icmp_responder_status["rc"] == 0 and "RUNNING" in icmp_responder_status["stdout"]:
         logger.debug("restart icmp_responder after restart ptf ports")
         ptfhost.shell("supervisorctl restart icmp_responder", module_ignore_errors=True)
+
+
+def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs,
+                           clear_neighbor=True, probe=True, probe_wait=20):
+    arp_responder_conf = {}
+    ping_commands = []
+    for ip, dut_intf, ptf_index in ip_intf_pairs:
+        ip_addr = ip_interface(str(ip)).ip
+        arp_responder_conf["eth{}".format(ptf_index)] = [str(ip_addr)]
+        ping = "ping6" if ip_addr.version == 6 else "ping"
+        ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip_addr))
+
+    ptfhost.copy(content=json.dumps(arp_responder_conf), dest=responder_conf_path)
+    ptfhost.host.options["variable_manager"].extra_vars.update(
+        {"arp_responder_args": "--conf {}".format(responder_conf_path)})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+    ptfhost.shell("supervisorctl reread && supervisorctl update && supervisorctl restart arp_responder")
+
+    if clear_neighbor:
+        duthost.command("sonic-clear fdb all")
+        duthost.command("sonic-clear arp")
+        duthost.command("sonic-clear ndp")
+    if probe:
+        time.sleep(probe_wait)
+        for cmd in ping_commands:
+            duthost.shell(cmd, module_ignore_errors=True)
+
+
+def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, clear_neighbor=True):
+    ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    ptfhost.file(path=responder_conf_path, state="absent")
+    ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
+    ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
+    if clear_neighbor:
+        duthost.command("sonic-clear fdb all")
+        duthost.command("sonic-clear arp")
+        duthost.command("sonic-clear ndp")
 
 
 @pytest.fixture(scope="session", autouse=True)

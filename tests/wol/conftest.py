@@ -2,9 +2,8 @@ import pytest
 import random
 import ipaddress
 import logging
-import json
-import time
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import setup_ptf_ip_responder, teardown_ptf_ip_responder
 
 
 ARP_RESPONDER_PATH = "/tmp/new_arp_responder_conf.json"
@@ -73,41 +72,13 @@ def random_intf_pair_to_remove_under_vlan(duthost, random_vlan, random_intf_pair
 
 def setup_ip_on_ptf(duthost, ptfhost, ip, intf_pairs):
     ptfhost.remove_ip_addresses()
-    ip = ipaddress.ip_address(ip)
-    if isinstance(ip, ipaddress.IPv4Address):
-        ping = "ping"
-    if isinstance(ip, ipaddress.IPv6Address):
-        ping = "ping6"
-    arp_responder_conf = {}
-    ping_commands = []
-    for dut_intf, ptf_index in intf_pairs:
-        arp_responder_conf["eth{}".format(ptf_index)] = [ip.__str__()]
-        ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip))
-    with open(ARP_RESPONDER_PATH, "w") as f:
-        json.dump(arp_responder_conf, f)
-    ptfhost.copy(src=ARP_RESPONDER_PATH, dest=ARP_RESPONDER_PATH)
-    ptfhost.host.options["variable_manager"].extra_vars.update(
-            {"arp_responder_args": "--conf " + ARP_RESPONDER_PATH})
-    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
-    ptfhost.shell("supervisorctl reread && supervisorctl update")
-    ptfhost.shell("supervisorctl restart arp_responder")
-
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
-    time.sleep(20)
-    for cmd in ping_commands:
-        duthost.shell(cmd, module_ignore_errors=True)
+    setup_ptf_ip_responder(
+        duthost, ptfhost, ARP_RESPONDER_PATH,
+        [(ip, dut_intf, ptf_index) for dut_intf, ptf_index in intf_pairs])
 
 
 def remove_ip_on_ptf(duthost, ptfhost):
-    ptfhost.shell("supervisorctl stop arp_responder")
-    ptfhost.shell("rm -f {}".format(ARP_RESPONDER_PATH))
-    ptfhost.shell("rm -f /etc/supervisor/conf.d/arp_responder.conf")
-    ptfhost.shell("supervisorctl reread && supervisorctl update")
-    duthost.command("sonic-clear fdb all")
-    duthost.command("sonic-clear arp")
-    duthost.command("sonic-clear ndp")
+    teardown_ptf_ip_responder(duthost, ptfhost, ARP_RESPONDER_PATH)
 
 
 @pytest.fixture(scope="class")
