@@ -69,6 +69,7 @@ def ensure_dpus_up_after_test(duthosts,
         logging.warning("DPU recovery in teardown failed (non-fatal): %s", e)
 
 
+@pytest.mark.disable_loganalyzer
 def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
