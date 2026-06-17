@@ -2552,12 +2552,16 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         speed, category = flatten_skeleton_parameter.split("-")
 
         if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+            pytest.skip(
+                f"Unsupported combination for {speed} & {category}. "
+                f"Got:snappi_port_selection:{snappi_port_selection}")
 
         snappi_ports = snappi_port_selection[float(speed)][category]
 
         if not snappi_ports:
-            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+            pytest.skip(
+                f"Unsupported combination for {speed} & {category}. "
+                f"Got:snappi_port_selection:{snappi_port_selection}")
 
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)

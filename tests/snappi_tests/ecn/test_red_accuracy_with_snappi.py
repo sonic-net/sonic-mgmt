@@ -2,21 +2,13 @@ import pytest
 import collections
 import random
 import logging
-from tabulate import tabulate  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
-    fanout_graph_facts_multidut     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    get_snappi_ports_single_dut, snappi_testbed_config, \
-    get_snappi_ports_multi_dut, is_snappi_multidut, \
-    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config,  \
-    tgen_port_info, snappi_port_selection   # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list   # noqa: F401
+from tabulate import tabulate
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.ecn.files.helper import run_ecn_test
-from tests.common.snappi_tests.common_helpers import packet_capture  # noqa: F401
+from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.snappi_fixtures import cleanup_config
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
@@ -27,14 +19,14 @@ def number_of_tx_rx_ports():
 
 
 def test_red_accuracy(request,
-                      snappi_api,                       # noqa: F811
-                      conn_graph_facts,                 # noqa: F811
-                      fanout_graph_facts_multidut,               # noqa: F811
+                      snappi_api,
+                      conn_graph_facts,
+                      fanout_graph_facts_multidut,
                       duthosts,
-                      lossless_prio_list,     # noqa: F811
-                      tgen_port_info,     # noqa: F811
-                      tbinfo,      # noqa: F811
-                      prio_dscp_map):                    # noqa: F811
+                      lossless_prio_list,
+                      tgen_port_info,
+                      tbinfo,
+                      prio_dscp_map):
     """
     Measure RED/ECN marking accuracy of the device under test (DUT).
     Dump queue length vs. ECN marking probability results into a file.

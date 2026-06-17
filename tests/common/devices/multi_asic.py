@@ -178,14 +178,16 @@ class MultiAsicSonicHost(object):
 
         On supervisor, 'show interface status' triggers 'rexec -c ... all' which
         prompts for LC passwords and hangs. Return empty ModuleResult instead.
+        Exception: cisco-8000 supervisor has its own interfaces.
         """
-        if self.sonichost.is_supervisor_node():
-            logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
-            return ModuleResult(ansible_facts={
-                "int_status": {},
-                "int_counter": {},
-                "ansible_interface_link_down_ports": [],
-            }, changed=False)
+        if self.sonichost.facts['asic_type'] != "cisco-8000":
+            if self.sonichost.is_supervisor_node():
+                logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
+                return ModuleResult(ansible_facts={
+                    "int_status": {},
+                    "int_counter": {},
+                    "ansible_interface_link_down_ports": [],
+                }, changed=False)
         return self._run_on_asics("show_interface", *module_args, **complex_args)
 
     def get_dut_iface_mac(self, iface_name):
