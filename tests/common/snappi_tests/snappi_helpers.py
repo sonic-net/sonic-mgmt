@@ -140,7 +140,6 @@ class SnappiFanoutManager():
             self.fanout_list[self.last_fanout_assessed]['device_linked_ports']
 
         # Chassis ip details
-        #changed by harshit
         chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['ManagementIp']
         self.ip_address = ansible_stdout_to_str(chassis_ip)
 
