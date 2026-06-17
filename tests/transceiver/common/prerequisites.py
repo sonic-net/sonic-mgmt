@@ -7,7 +7,7 @@ import logging
 
 from tests.common.platform.interface_utils import get_dut_interfaces_status
 from tests.transceiver.attribute_parser.attribute_keys import (
-    CDB_FW_UPGRADE_ATTRIBUTES_KEY,
+    CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.utils.cli_parser_helper import parse_eeprom
@@ -154,7 +154,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
     A port is in scope iff ``EEPROM_ATTRIBUTES.cmis_active_optical`` is True.
     For every in-scope port:
 
-      * ``CDB_FW_UPGRADE_ATTRIBUTES.gold_firmware_version`` MUST be defined -
+      * ``CDB_FIRMWARE_UPGRADE_ATTRIBUTES.gold_firmware_version`` MUST be defined -
         a missing value is a failure (inventory gap).
       * the active firmware reported by the CLI MUST equal that value -
         otherwise the port is a failure (FW mismatch).
@@ -207,8 +207,8 @@ def check_gold_firmware(duthost, port_attributes_dict):
     matched = []
     failures = []
     for port in in_scope:
-        cdb_fw_attrs = port_attributes_dict[port].get(CDB_FW_UPGRADE_ATTRIBUTES_KEY, {})
-        expected_fw = cdb_fw_attrs.get("gold_firmware_version")
+        cdb_firmware_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+        expected_fw = cdb_firmware_attrs.get("gold_firmware_version")
         if not expected_fw:
             failures.append(f"{port}: gold_firmware_version not configured")
             logger.warning("Port %s: cmis_active_optical=True but gold_firmware_version missing", port)

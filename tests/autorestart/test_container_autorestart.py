@@ -29,6 +29,7 @@ DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
+POST_CHECK_THRESHOLD_SECS_TH6_128 = 600
 PROGRAM_STATUS = "RUNNING"
 
 
@@ -461,8 +462,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
-        else POST_CHECK_THRESHOLD_SECS
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS
+    if duthost.get_facts().get("modular_chassis"):
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2
+    if duthost.sonichost.facts['platform'] == 'x86_64-nokia_ixr7220_h6_128-r0':
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_TH6_128
 
     critical_proceses = wait_until(
         post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
