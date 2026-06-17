@@ -157,6 +157,46 @@ class FanoutPfcStorm():
             for prio in range(8):
                 self._cliCmd(f"en\nconf\n\nint {intf}\nno priority-flow-control priority {prio} no-drop")
 
+    def preBulkEnablePfcTxSonic(self, interfaces):
+        """Pre-enable PFC TX on all target interfaces on a SONiC fanout.
+
+        'config interface pfc priority' requires PORT_QOS_MAP entries to exist.
+        On fanouts without QoS map config (e.g. pure L2 TH5 fanouts), that command
+        silently exits 0 but prints "Cannot find interface" and does nothing.  In
+        that case we fall back to writing pfc_enable directly to the ConfigDB
+        PORT_QOS_MAP table (comma-separated priority list format).  qosorch reads
+        PORT_QOS_MAP and calls SAI to enable PFC TX; writing to PORT.pfc_enable is
+        not sufficient because orchagent skips it with "asymmetric PFC not supported"
+        on some fanout ASIC versions.  After the direct-write path is used, we wait
+        for the portmgrd → qosorch → SAI → hardware chain to propagate before any
+        storm starts.
+
+        On subsequent storms endAllPfcStorm() deliberately leaves pfc_enable intact,
+        so this wait is only incurred once per script invocation.
+        """
+        needs_orchagent_wait = False
+        for intf in interfaces:
+            # Probe with the lowest set priority bit to detect CLI failures cheaply.
+            probe_prio = next(p for p in range(8) if (1 << p) & self.priority)
+            result = self._shellCmd(f"config interface pfc priority {intf} {probe_prio} on")
+            if 'Cannot find interface' in result:
+                # PORT_QOS_MAP not configured; write pfc_enable directly.  qosorch reads the
+                # PORT_QOS_MAP table and calls SAI to enable PFC TX with the given priority list.
+                # Writing to PORT.pfc_enable instead is not sufficient on fanouts where orchagent
+                # logs "asymmetric PFC configuration is not supported: skipping".
+                prio_list = ",".join(str(p) for p in range(8) if (1 << p) & self.priority)
+                self._shellCmd(
+                    f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" pfc_enable \"{prio_list}\"")
+                needs_orchagent_wait = True
+            else:
+                # CLI succeeded for the probe priority; enable the remaining ones.
+                for prio in range(8):
+                    if prio != probe_prio and (1 << prio) & self.priority:
+                        self._shellCmd(f"config interface pfc priority {intf} {prio} on")
+        if needs_orchagent_wait:
+            # Allow portmgrd → APPL_DB → orchagent → SAI → hardware propagation.
+            time.sleep(5)
+
     def startPfcStorm(self, intf):
         if intf in self.intfsEnabled:
             return
@@ -229,6 +269,11 @@ def main():
     SignalCleanup(fs, 'PFC_STORM_END')
 
     logger.debug('PFC_STORM_DEBUG')
+    if options.os == 'sonic':
+        # Pre-enable PFC TX on all target interfaces; waits for orchagent to propagate
+        # when the SONiC 'config interface pfc priority' CLI is unavailable (e.g. no
+        # PORT_QOS_MAP entries on L2-only fanouts).
+        fs.preBulkEnablePfcTxSonic(interfaces)
     for intf in interfaces:
         if options.os == 'eos':
             intf = frontPanelIntfFromKernelIntfName(intf)
