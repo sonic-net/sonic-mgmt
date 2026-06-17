@@ -3,9 +3,13 @@ Test the auto-restart feature of containers
 """
 import logging
 import re
+import signal
+import time
 from collections import defaultdict
+from contextlib import contextmanager
 
 import pytest
+from _pytest.outcomes import OutcomeException
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -31,6 +35,85 @@ POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
 POST_CHECK_THRESHOLD_SECS_TH6_128 = 600
 PROGRAM_STATUS = "RUNNING"
+
+# Per-container watchdog budget for a single parametrized autorestart case.
+# Each test_containers_autorestart[<feature>] exercises exactly one container; the
+# slowest legitimate container (telemetry) finishes in ~22 min, so 40 min gives a
+# comfortable ~1.8x margin for healthy runs. A container that hangs during
+# stop/restart or post-check is interrupted here and fails with a junit entry,
+# instead of blocking until the framework's module-level timeout (~155 min) kills
+# the run and discards all results as phantom "no xml file" failures.
+SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
+
+# Upper bound for the best-effort config_reload that recovers the DUT after a
+# per-container hang. A healthy `config_reload(safe_reload, wait_for_bgp)` -- even
+# on a slow/modular topology -- completes well within this; if recovery itself
+# exceeds it, something is badly wrong and we just log and fail the case anyway.
+RECOVERY_RELOAD_TIMEOUT_SECS = 600
+
+
+class ContainerAutorestartTimeout(BaseException):
+    """Raised when a single container's autorestart sub-test exceeds its watchdog budget.
+
+    Inherits from BaseException (not Exception) on purpose. The autorestart sub-test
+    polls DUT state through common.utilities.wait_until, whose retry loop catches
+    ``except Exception`` and treats any error as "condition not met yet, keep polling".
+    A plain Exception raised from the SIGALRM handler would be swallowed there, the
+    one-shot alarm consumed, and the case would then run unbounded -- defeating the
+    watchdog. As a BaseException (like KeyboardInterrupt/SystemExit and pytest's own
+    OutcomeException) it bypasses those ``except Exception`` loops and propagates up to
+    the per-case handler in test_containers_autorestart.
+    """
+
+
+@contextmanager
+def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_TIMEOUT_SECS):
+    """Interrupt a single container's autorestart sub-test if it hangs.
+
+    Uses SIGALRM so a blocked SSH/docker call is actually interrupted -- a thread
+    based timer cannot break out of a blocking C-level read. The signal interrupts
+    the blocking syscall and, because the handler raises, the exception propagates
+    out instead of the call being retried. Only effective on the main thread on
+    POSIX; on platforms without SIGALRM, or when not running on the main thread, it
+    is a no-op and execution falls back to the framework's module-level timeout.
+    """
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    def _on_timeout(signum, frame):
+        raise ContainerAutorestartTimeout(
+            "Autorestart test for container '{}' exceeded {} seconds and was interrupted. "
+            "The container most likely hung during stop/restart or post-check.".format(
+                container_name, timeout_secs)
+        )
+
+    try:
+        previous_handler = signal.signal(signal.SIGALRM, _on_timeout)
+    except ValueError:
+        # signal handlers can only be installed on the main thread.
+        logger.warning("single_container_timeout disabled for '%s': not on main thread", container_name)
+        yield
+        return
+
+    # signal.alarm() returns the seconds left on any previously scheduled alarm
+    # (0 if none). Save it so the watchdog restores -- rather than silently cancels
+    # -- a SIGALRM that pytest, the framework, or another fixture may have armed,
+    # instead of clobbering process-global timer state. Arming inside the try also
+    # keeps the handler restoration in finally even if signal.alarm() ever raised.
+    previous_alarm_remaining = 0
+    armed_at = time.monotonic()
+    try:
+        previous_alarm_remaining = signal.alarm(timeout_secs)
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_alarm_remaining > 0:
+            # Re-arm the pre-existing alarm, debited by the time we held it
+            # (at least 1s -- alarm(0) would cancel it instead).
+            elapsed = int(time.monotonic() - armed_at)
+            signal.alarm(max(1, previous_alarm_remaining - elapsed))
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -632,4 +715,32 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    try:
+        with single_container_timeout(container_name):
+            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    except ContainerAutorestartTimeout as timeout_err:
+        # Recover the DUT before failing so the remaining per-container cases in this
+        # module are not poisoned by a half-restarted container, then surface the hang
+        # as a normal failure (with junit) instead of a phantom run. The recovery is
+        # itself bounded so it cannot hang the module either.
+        logger.error(str(timeout_err))
+        try:
+            with single_container_timeout(container_name, timeout_secs=RECOVERY_RELOAD_TIMEOUT_SECS):
+                config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+                enable_autorestart(duthost)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except ContainerAutorestartTimeout as recovery_timeout_err:
+            # Recovery itself exceeded RECOVERY_RELOAD_TIMEOUT_SECS. ContainerAutorestartTimeout
+            # is a BaseException (so wait_until cannot swallow it) and is therefore not caught by
+            # the (Exception, OutcomeException) handler below; catch it explicitly here, log it,
+            # and still fail with the original hang reason rather than letting it propagate raw.
+            logger.error("Recovery after hang on container '%s' itself timed out: %s",
+                         container_name, recovery_timeout_err)
+        except (Exception, OutcomeException) as recovery_err:
+            # Recovery itself failed -- e.g. a config_reload assertion such as BGP-not-converged,
+            # which pytest raises as Failed (an OutcomeException, not a plain Exception). Log it
+            # with the traceback but still fail with the original hang reason so triage sees which
+            # container hung rather than a masked recovery error.
+            logger.exception("Recovery after hang on container '%s' failed: %s", container_name, recovery_err)
+        pytest.fail(str(timeout_err))
