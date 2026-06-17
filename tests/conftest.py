@@ -2405,7 +2405,7 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                                                      one_dut_only=True))
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
-    
+
     if 'topo_scenario' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')
