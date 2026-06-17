@@ -21,11 +21,7 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-<<<<<<< HEAD
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
-=======
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2', 'bmc'),
->>>>>>> a06d23496 (NOS-9020: Add testcases to cover Redfish CACL (#1822))
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'bmc'),
 ]
 
 logger = logging.getLogger(__name__)
