@@ -375,51 +375,62 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
 
 @pytest.fixture(scope="module")
 def hash_keys(duthost, tbinfo):
-    asic_type = duthost.facts['asic_type']
-    platform = duthost.facts['platform']
-    topo_name = tbinfo['topo']['name']
-
-    # Keys to drop from the global list for this platform/topology combination
-    keys_to_remove = {'dst-mac'}
+    # Copy from global var to avoid side effects of multiple iterations
+    hash_keys = HASH_KEYS[:]
+    if 'dst-mac' in hash_keys:
+        hash_keys.remove('dst-mac')
 
     # do not test load balancing on L4 port on vs platform as kernel 4.9
     # can only do load balance base on L3
-    if asic_type == "vs":
-        keys_to_remove.update(['src-port', 'dst-port'])
-
-    # ASICs/platforms that don't support ip-proto as a hash key
-    # (removing ip-proto from hash_keys not supported by Marvell SAI for nokia ixs7215)
-    if asic_type in ["vpp", "mellanox", "barefoot", "marvell-teralynx", "cisco-8000"] \
-            or platform == 'armhf-nokia_ixs7215_52x-r0':
-        keys_to_remove.add('ip-proto')
-
-    # ASICs/platforms that don't support ingress-port as a hash key
-    if asic_type in ["vpp", "barefoot"] or platform == 'armhf-nokia_ixs7215_52x-r0':
-        keys_to_remove.add('ingress-port')
-
-    # ft2 fabric topos don't have enough entropy in the 8-bit ip-proto field
-    # to evenly distribute packets across all egress ports
-    if 'ft2' in topo_name:
-        keys_to_remove.add('ip-proto')
-
-    # Single-node VoQ topologies (ut2) also lack enough ip-proto entropy to hit
-    # all egress ports. These are identified by an "Upper" dut_type
-    # (UpperSpineRouter, UpperRegionalHub) in the topology definition.
+    if duthost.facts['asic_type'] in ["vs"]:
+        if 'src-port' in hash_keys:
+            hash_keys.remove('src-port')
+        if 'dst-port' in hash_keys:
+            hash_keys.remove('dst-port')
+    if duthost.facts['asic_type'] in ["vpp"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
+    if duthost.facts['asic_type'] in ["mellanox"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if duthost.facts['asic_type'] in ["barefoot"]:
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    # removing ingress-port and ip-proto from hash_keys not supported by Marvell SAI
+    if duthost.facts['platform'] in ['armhf-nokia_ixs7215_52x-r0']:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
+    if duthost.facts['asic_type'] in ["marvell-teralynx", "cisco-8000"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if 'ft2' in tbinfo['topo']['name']:
+        #  Remove ip-proto from hash_keys for FT2 as there is not enough entropy in ip-proto
+        #  to ensure packets are evenly distributed to all 64 egress ports
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    # Single-node VoQ (ut2) topologies don't have enough entropy in the 8-bit
+    # ip-proto field to get a good distribution across all egress ports. These
+    # are identified by an "Upper" dut_type (UpperSpineRouter, UpperRegionalHub).
     dut_type = tbinfo['topo'].get('properties', {}) \
         .get('configuration_properties', {}).get('common', {}).get('dut_type', '')
     if dut_type.startswith('Upper'):
-        keys_to_remove.add('ip-proto')
-
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
     # In multi asic platform each asic has different hash seed,
     # the same packet coming in different asic
     # could egress out of different port
     # the hash_test condition for hash_key == ingress_port will fail
     if duthost.sonichost.is_multi_asic:
-        keys_to_remove.add('ingress-port')
+        hash_keys.remove('ingress-port')
 
-    # Copy from global var to avoid side effects of multiple iterations
-    return [key for key in HASH_KEYS if key not in keys_to_remove]
+    return hash_keys
 
 
 def configure_vlan(duthost, ports):
