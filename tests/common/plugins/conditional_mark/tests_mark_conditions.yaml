@@ -5307,22 +5307,18 @@ span/test_port_mirroring.py:
 #######################################
 srv6/test_srv6_basic_sanity.py:
   skip:
-    reason: "It's a new test case, skip it for other topologies except cisco vs nodes and force nodes. Skip for non Arista-7060X6-64PE-B-*, Arista-7060X6-16PE-384C-* TH5 SKUs. Skip for t1-isolated-d32/128"
+    reason: "It's a new test case, skip it for other topologies except cisco vs nodes and force nodes. Skip for t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes", "force10-7nodes"]
-      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "'Arista-7060X6-16PE-384C' in hwsku"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
   skip:
-    reason: "It's a new test case, skip it for other topologies except cisco vs nodes (SRv6 data plane required). Skip for non Arista-7060X6-64PE-B-*, Arista-7060X6-16PE-384C-* TH5 SKUs. Skip for t1-isolated-d32/128"
+    reason: "It's a new test case, skip it for other topologies except cisco vs nodes (SRv6 data plane required). Skip for t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
       - topo_name not in ["ciscovs-7nodes", "ciscovs-5nodes"]
-      - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "'Arista-7060X6-16PE-384C' in hwsku"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_dataplane.py:
@@ -5354,7 +5350,6 @@ srv6/test_srv6_static_config.py:
       - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp']"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "'Arista-7060X6-16PE-384C' in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
 
@@ -5372,7 +5367,6 @@ srv6/test_srv6_vlan_forwarding.py:
       - "asic_type not in ['mellanox', 'broadcom'] or (release != 'master' and release != '202412' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "'Arista-7060X6-16PE-384C' in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
 
