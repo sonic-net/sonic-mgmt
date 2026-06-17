@@ -1,4 +1,4 @@
-# Optics Insertion and Removal Test Plan
+# Online Insertion and Removal Test Plan
 
 ## Scope
 
@@ -22,7 +22,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
 | ports_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
-| oir_method | String | simulated | No | dut | The method used for OIR ("manual", "simulated" or "automated"). |
+| oir_method | String | manual | No | dut | The method used for OIR ("manual", "pseudo" or "automated"). |
 | physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
 | physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
@@ -42,7 +42,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 4. `port_startup_wait_sec` attribute of the [transceiver system testplan](./system_test_plan.md#attributes) is to be used to get the wait time before checking the interface operational status after the optics insertion or remote reseat.
 
-#### 1.1 Optics Insertion and Removal Testing
+#### 1.1 Online Insertion and Removal Testing
 
 This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal. The tests cover both physical OIR and remote reseat scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
 
@@ -64,6 +64,18 @@ Remote reseat involves simulating the insertion and removal of optical modules b
 |------|------|------|------------------|
 | 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up after `port_startup_wait_sec` seconds.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the local and the peer port.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>9. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
 | 2 | Remote reseat stress test| 1. Perform the remote reseat process `remote_reseat_stress_iteration` times.| 1. All the expected results from TC#1 after the last remote reseat.|
+
+To perform remote reseat on a module, following steps are taken in a sequential order:
+| Step No. | Step | Expected Result |
+|------|------|------------------|
+|1 | Issue CLI command to disable DOM monitoring | Ensure that the DOM monitoring is disabled for the port |
+|2 | Issue CLI command to shutdown the port | Ensure that the port is linked down |
+|3 | Reset the transceiver followed by a sleep for 5s | Ensure reset command executes successfully |
+|4 | Put transceiver in low power mode (if LPM supported) | Ensure that the port is in low power mode |
+|5 | Put transceiver in high power mode (if LPM supported) | Ensure that the port is in high power mode |
+|6 | Issue CLI command to startup the port | Ensure that the port is linked up and is seen in the LLDP table |
+|7 | Issue CLI command to enable DOM monitoring for the port | Ensure that the DOM monitoring is enabled for the port |
+
 
 ##### Transceiver info tables
 This table lists the transceiver related DB tables with the attributes that should be monitored during the physical OIR and remote reseat tests to ensure they are not deleted or corrupted.
@@ -102,15 +114,14 @@ A class named `PhysicalOir` is defined under `tests.common.physical_oir` module.
 1. **Constructor Method**
    - Description: Initializes the PhysicalOir class.
    - Parameters:
-        - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
+        - `duthost` : AnsibleHost object of the dut.
+        - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
+        - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.  Following attributes are fetched from the `port_attributes_dict` object for further processing:
             - `ports_under_test`: List of ports to be tested.
-            - `tbinfo`: Testbed information
             - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
-            - `oir_method`: The method used for OIR ("manual" or "automated").
+            - `oir_method`: The method used for OIR ("manual", "pseudo" or "automated").
             - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
 
-        - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
-        - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.
 2. **is_available**
     - Description: Checks if the testbed supports physical OIR.
     - Parameters: None
