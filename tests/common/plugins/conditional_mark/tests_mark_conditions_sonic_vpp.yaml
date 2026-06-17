@@ -156,14 +156,6 @@ copp:
 #######################################
 #####           Decap             #####
 #######################################
-decap/test_decap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 decap/test_subnet_decap.py:
   skip:
     reason: >
