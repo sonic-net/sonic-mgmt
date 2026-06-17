@@ -15,7 +15,7 @@ from tests.snappi_tests.pfcwd.files.pfcwd_actions_helper import run_pfc_test
 from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000              # noqa: F401
-from tests.snappi_tests.files.helper import setup_ports_and_dut    # noqa: F401
+from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info     # noqa: F401
 from tests.common.helpers.parallel import parallel_run
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 
@@ -245,6 +245,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
         port_map(list): list for port-speed combination.
+        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
 
     Returns:
         N/A
