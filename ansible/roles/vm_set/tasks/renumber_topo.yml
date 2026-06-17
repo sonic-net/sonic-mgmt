@@ -32,6 +32,7 @@
     vars:
       ptf_portchannel_action: stop
     when: "'bmc' not in topo"
+    ignore_errors: yes
 
   - name: Kill exabgp and ptf_nn_agent processes in PTF container
     ptf_control:
