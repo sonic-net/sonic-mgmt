@@ -369,6 +369,27 @@ def parse_system_health_summary(output_health_summary):
     return result
 
 
+def check_dpu_system_health_summary(dpuhosts, index, dpu_name):
+    """
+    Check dpu system health summary
+    Args:
+        dpuhosts: Host handle
+        index   : DPU index
+        dpu_name: DPU name
+    Return:
+       True : Health summary is ok
+       False: Health summary is not ok
+    """
+    logging.info(f"Check DPU {dpu_name} system health summary")
+    output_health_summary = dpuhosts[index].command(
+                                "sudo show system-health summary")['stdout']
+
+    logging.info(output_health_summary)
+
+    result = parse_system_health_summary(output_health_summary)
+    return result
+
+
 def check_dpu_link_and_status(duthost, dpu_on_list,
                               dpu_off_list, ip_address_list):
     """
