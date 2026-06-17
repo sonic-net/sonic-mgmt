@@ -416,6 +416,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                          pre_boot_times=pre_boot_times)
 
 
+@pytest.mark.disable_loganalyzer
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                             platform_api_conn, num_dpu_modules, localhost):  # noqa: F811, E501
     """
