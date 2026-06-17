@@ -1,6 +1,6 @@
 # Max Throughput Minimum Packet Size Test Configuration
 
-min_ports: 32
+min_ports: 30
 traffic_duration_sec: 60
 line_rate_pct: 100
 tolerance_pkt_size_offset: 10
@@ -118,6 +118,14 @@ platform_thresholds:
     no_features: 400
 
   "Cisco-8102-28FH-DPU-O":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7060X6-64PE-B-C512S2":
     all_features: 500
     dataacl_usid: 450
     dataacl_ipinip_usid: 500

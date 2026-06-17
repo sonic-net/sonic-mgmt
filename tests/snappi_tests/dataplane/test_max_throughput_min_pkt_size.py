@@ -32,7 +32,6 @@ def test_max_throughput_min_pkt_size(
     snappi_api,
     get_snappi_ports,
     fanout_graph_facts_multidut,
-    set_primary_chassis,
     create_snappi_config,
     scenario_name,
 ):
