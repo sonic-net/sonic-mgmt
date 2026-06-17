@@ -194,18 +194,37 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
                         (subnet_type == 'ipv6' and ip_obj.version == 6)):
                     peer_to_gateway[port] = (str(ip_obj.ip), ip_obj.network.prefixlen)
         mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+        valid_ports = []
         for index, port in enumerate(get_snappi_ports):
             if port['duthost'] == duthost:
                 # Get the IP address of the peer port
                 port['router_mac_address'] = port['duthost'].facts['router_mac']
                 port['src_mac_address'] = mac_address_generator[index]
-                port['ipGateway'] = peer_to_gateway.get(port['peer_port'])[0]
-                port['ipAddress'] = gateway_to_bgp.get(port['ipGateway'])['ipAddress']
-                port['asn'] = gateway_to_bgp.get(port['ipGateway'])['asn']
-                port['prefix'] = peer_to_gateway.get(port['peer_port'])[1]
-                port['subnet'] = str(peer_to_gateway.get(port['peer_port'])[0]) \
-                                    + "/" + str(peer_to_gateway.get(port['peer_port'])[1])  # noqa: E127
-    return get_snappi_ports
+                peer_info = peer_to_gateway.get(port['peer_port'])
+                if peer_info is None:
+                    logger.warning(
+                        "Port %s not found in peer_to_gateway mapping, skipping",
+                        port['peer_port']
+                    )
+                    continue
+                port['ipGateway'] = peer_info[0]
+                bgp_info = gateway_to_bgp.get(port['ipGateway'])
+                if bgp_info is None:
+                    logger.warning(
+                        "No BGP neighbor found for gateway %s on port %s, skipping",
+                        port['ipGateway'], port['peer_port']
+                    )
+                    continue
+                port['ipAddress'] = bgp_info['ipAddress']
+                port['asn'] = bgp_info['asn']
+                port['prefix'] = peer_info[1]
+                port['subnet'] = str(peer_info[0]) + "/" + str(peer_info[1])
+                valid_ports.append(port)
+            else:
+                # Port belongs to different dut, keep it if it was already processed
+                if 'ipAddress' in port:
+                    valid_ports.append(port)
+    return valid_ports
 
 
 def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa F811
