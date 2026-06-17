@@ -1375,8 +1375,8 @@ class BaseEverflowTest(object):
         """
         if ip_version == 4:
             pytest.skip("IP_TYPE Matching test has not been written for IPv4")
-        else:
-            rule_file = IP_TYPE_RULE_V6
+            return
+        rule_file = IP_TYPE_RULE_V6
         table_name = "EVERFLOWV6" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESSV6"
         action = "MIRROR_INGRESS_ACTION" if self.acl_stage() == "ingress" else "MIRROR_EGRESS_ACTION"
         extra_vars = {
