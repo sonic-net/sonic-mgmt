@@ -7,7 +7,7 @@ parameters:
 - name: PRE_TEST_AGENT_POOL
   type: object
   default:
-    name: sonic-ubuntu-1c-2
+    name: sonic-ubuntu-1c
 
 - name: BUILD_REASON
   type: string
@@ -69,7 +69,7 @@ parameters:
 
 - name: INCLUDE_JOBS
   type: string
-  default: "t0_job,t1_job,t2_job,t0_2vlans_job,t0_sonic_job,dpu_job,t1_multi_asic_job,t1_lag_vpp_job"
+  default: "all"
 
 jobs:
   - job: get_impacted_area
