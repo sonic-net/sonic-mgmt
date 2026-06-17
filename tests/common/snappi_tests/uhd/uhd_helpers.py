@@ -90,9 +90,9 @@ class NetworkConfigSettings:
 
 
 def build_node_ips(count, vpc, config, nodetype="client"):
-    if nodetype in "client":
+    if nodetype == "client":
         ip = config.ipp(int(config.IP_R_START) + (config.IP_STEP_NSG * count) + int(config.IP_STEP_ENI) * (vpc - 1))
-    if nodetype in "server":
+    if nodetype == "server":
         ip = config.ipp(int(config.IP_L_START) + int(config.IP_STEP_ENI) * (vpc - 1))
 
     return str(ip)
@@ -339,11 +339,8 @@ def create_arp_bypass_pl(fp_ports_list, ip_list, config, cards_dict, subnet_mask
 
     connections_list = []
     ethpass_ports = cards_dict['ethpass_ports']
-    num_cps_cards = cards_dict['num_cps_cards']
-    first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
-
-    vrange_count = config.ENI_COUNT//num_cps_cards
-    vlan_start = (config.ENI_L2R_STEP + 1) - vrange_count  # noqa: F841
+    # num_cps_cards = cards_dict['num_cps_cards']
+    # first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
 
     # eth_bypass set here
     connections_list.append(_get_eth_bypass_dict(config, ethpass_ports))
@@ -358,7 +355,6 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
     num_cps_cards = cards_dict['num_cps_cards']
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
 
-    # ip6 = int(config.NVGRE_IP)  # noqa: F841
     ip6_step = int(config.NVGRE_IP_STEP)
     nvgre_count = config.NVGRE_COUNT
     nvgre_eni = config.ENI_START
@@ -368,8 +364,6 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
     underlay_ip_tmp = 0
     vlan_endpoint_ip = config.PAR_PL
     vlanEP_ip_tmp = 0
-    # ip_start = config.IP_L_START  # noqa: F841
-    # ip_tmp = 0
     client_vlan_start = config.ENI_L2R_STEP + 1
     client_vlan_tmp = 0
     # vxlan_vni_start = config.ENI_L2R_STEP * 2
@@ -413,13 +407,7 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
         # else:
         #    lb_ip = 2
 
-        # client_role, server_role = find_testrole(test_role, server_vlan)
-
-        production = True  # turn ON for now
-        if production is True:
-            vni_index = 1000
-        else:
-            vni_index = 0  # noqa: F841
+        # vni_index = 1000
 
         nvgre_ip_tmp = str(ipaddress.ip_address(nvgre_ip) + (ip6_step * (port * nvgre_count)))
         vtep_ip_tmp = vtep_ip + (1 * port)
@@ -595,7 +583,7 @@ def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
         server_vlan = build_node_vlan(eni, config, nodetype="server")
 
         client_card, test_role = find_card_slot(config, cards_dict, first_cps_card, first_tcpbg_card, server_vlan)
-        client_port = find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)  # noqa: F841
+        find_port(num_cps_cards, first_cps_card, first_tcpbg_card, server_vlan, test_role)
         # server_card, test_role = find_card_slot(first_cps_card, first_tcpbg_card, server_vlan)
 
         if cards_dict['num_tcpbg_cards'] > 0:
@@ -667,11 +655,7 @@ def create_connections(fp_ports_list, ip_list, subnet_mask, config, cards_dict, 
 
         client_role, server_role = find_testrole(test_role, server_vlan)
 
-        production = True  # turn ON for now
-        if production is True:
-            vni_index = 1000
-        else:
-            vni_index = 0
+        vni_index = 1000
 
         server_conn_tmp = {"choice": "connect_vlan_vxlan", "connect_vlan_vxlan": {
             "vlan_endpoint_settings": {

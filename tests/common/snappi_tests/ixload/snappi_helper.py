@@ -43,7 +43,7 @@ def patch_dutnetwork_range(api, base_url, session_id, test_id, dut_id, network_r
     }
 
     try:
-        res = api.ixload_configure("patch", url, payload)  # noqa: F841
+        res = api.ixload_configure("patch", url, payload)
         if res.status_code == 204:
             logger.info("PATCH request successful: 204 No Content")
         else:
@@ -235,8 +235,8 @@ def set_ha_admin_up(duthosts, duthost, tbinfo):
             logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
 
             time.sleep(2)
-            output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
-            output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
+            duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)
         except Exception as e:
             logger.error(f"{duthost.hostname} Error setting HA admin up active side: {str(e)}")
     else:
@@ -251,8 +251,8 @@ def set_ha_admin_up(duthosts, duthost, tbinfo):
             logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
 
             time.sleep(2)
-            output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa: F841
-            output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')
+            duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
         except Exception as e:
             logger.error(f"{duthost.hostname} Error setting HA admin up standby side: {str(e)}")
 
@@ -471,7 +471,7 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     logger.info(
                         f'Pinging standby side loopback intf from {duthost.hostname}: '
                         f'ping -c 3 {active_ethpass_ip}')  # noqa:  E231
-                    output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
+                    duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
                     logger.info(f'Correcting route on {duthost.hostname}: '
                                 f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 nexthop 20.0.201.{dpu_index+1}')
                     output = duthost.command(f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 '
@@ -503,8 +503,7 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
                     logger.info(
                         f'Pinging active side loopback intf from {duthost.hostname}: sudo ping -c 3 {standby_ethpass_ip}')  # noqa:  E231
-                    output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}",  # noqa: F841
-                                                  module_ignore_errors=True)
+                    duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)
     except Exception as e:
         logger.error(f"{duthost.hostname} Error during DPU configuration: {str(e)}")
         raise
@@ -998,10 +997,8 @@ def assignPorts(api, ports_list):
             chassisId, cardId, portId = portTuple
             paramDict = {"chassisId": chassisId, "cardId": cardId, "portId": portId}
             try:
-                # Code that may raise an exception
-                res = api.ixload_configure("post", portListUrl, paramDict)  # noqa: F841
+                api.ixload_configure("post", portListUrl, paramDict)
             except Exception as e:
-                # Handle any exception
                 logger.info(f"An error occurred: {e}")
 
     return
@@ -1036,19 +1033,19 @@ def checkPorts(api, ports_list):
 def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
 
     if service_type == 'vnet2vnet':
-        if nodetype in "client":
+        if nodetype == "client":
             ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
                                + int(nw_config.IP_STEP_ENI) * (vpc - 1))
-        if nodetype in "server":
+        if nodetype == "server":
             ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
     else:
         # service_type == 'privatelink'
-        if nodetype in "dut_client":
+        if nodetype == "dut_client":
             ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count) +
                                int(nw_config.IP_STEP_ENI) * (vpc - 1))
-        if nodetype in "client":
+        if nodetype == "client":
             ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
-        if nodetype in "server":
+        if nodetype == "server":
             ip = nw_config.ipp((int(nw_config.IPv6_R_START) + (int(nw_config.IPv6_Range_Increment) * (vpc - 1))))
 
     return str(ip)
@@ -1057,22 +1054,22 @@ def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="cl
 def build_node_macs(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
 
     if service_type == 'vnet2vnet':
-        if nodetype in "client":
+        if nodetype == "client":
             m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
                                + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
-        if nodetype in "server":
+        if nodetype == "server":
             m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
     else:
         # service_type == private_link
-        if nodetype in "staticarp_client":
+        if nodetype == "staticarp_client":
             m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca('00:00:00:00:00:80')) * (vpc - 1)
                                + (int(nw_config.maca(nw_config.ENI_MAC_STEP)) * count))
-        if nodetype in "dut_client":
+        if nodetype == "dut_client":
             m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
                                (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
-        if nodetype in "client":
+        if nodetype == "client":
             m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
-        if nodetype in "server":
+        if nodetype == "server":
             m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
                                (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
 
@@ -1184,10 +1181,8 @@ def edit_l1_settings(api):
     for i in range(2):
         portl1_url = "ixload/test/activeTest/communityList/{}/network/portL1Settings".format(i)
         try:
-            # Code that may raise an exception
-            res = api.ixload_configure("patch", portl1_url, params)  # noqa: F841
+            api.ixload_configure("patch", portl1_url, params)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     return
@@ -1244,21 +1239,17 @@ def set_rangeList(api, service_type):
 
     for i, cid in enumerate(client_objectIDs):
         try:
-            # Code that may raise an exception
             if service_type != 'privatelink':
-                res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
-                res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
-            res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)  # noqa: F841
+                api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)
+                api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)
+            api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     for i, sid in enumerate(server_objectIDs):
         try:
-            # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)  # noqa: F841
+            api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     return
@@ -1275,10 +1266,8 @@ def set_trafficMapProfile(api, service_type):
         destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/1"
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", destination_url, portMapPolicy_json)
+        api.ixload_configure("patch", destination_url, portMapPolicy_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     # meshType
@@ -1290,10 +1279,8 @@ def set_trafficMapProfile(api, service_type):
         submapsIpv4_url = ("ixload/test/activeTest/communityList/0/activityList/0/destinations/1/customPortMap/"
                            "submapsIPv4/0")
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)  # noqa: F841
+        api.ixload_configure("patch", submapsIpv4_url, meshType_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
@@ -1307,10 +1294,8 @@ def set_tcpCustom(api):
     param_json = {'maxPersistentRequests': 1}
     # response = requests.patch(url, json=param_json)
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", tcp_agent_url, param_json)  # noqa: F841
+        api.ixload_configure("patch", tcp_agent_url, param_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
@@ -1318,10 +1303,10 @@ def set_tcpCustom(api):
 
 def set_timelineCustom(api, initial_cps_value):
 
-    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"  # noqa: F841
+    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
     timelineObjectives_url = "ixload/test/activeTest/communityList/0/activityList/0/timeline"
 
-    activityList_json = {  # noqa: F841
+    activityList_json = {
         'constraintType': 'ConnectionRateConstraint',
         'constraintValue': initial_cps_value,
         'enableConstraint': False,
@@ -1333,11 +1318,9 @@ def set_timelineCustom(api, initial_cps_value):
     }
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
-        res = api.ixload_configure("patch", activityList_url, activityList_json)  # noqa: F841
+        api.ixload_configure("patch", timelineObjectives_url, timeline_json)
+        api.ixload_configure("patch", activityList_url, activityList_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
@@ -1351,11 +1334,9 @@ def create_dut_config(api):
 
     url = 'ixload/test/activeTest/dutList'
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("post", url, param)  # noqa: F841
+        api.ixload_configure("post", url, param)
     except Exception as e:
-        # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
 
     return
 
@@ -1368,11 +1349,9 @@ def add_dut_ranges(api, nw_config):
     url_networkRangeList = 'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList'
     for i in range((nw_config.ENI_COUNT * 10) - 1):
         try:
-            # Code that may raise an exception
-            res = api.ixload_configure("post", url_networkRangeList, data)  # noqa: F841
+            api.ixload_configure("post", url_networkRangeList, data)
         except Exception as e:
-            # Handle any exception
-            print(f"An error occurred: {e}")
+            logger.info(f"An error occurred: {e}")
             return None
 
     return
@@ -1387,11 +1366,9 @@ def patch_dut_config(api, nw_config, eni_per_dpu):
     url_attributes = 'ixload/test/activeTest/dutList/0'
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url_attributes, param_comment)  # noqa: F841
+        api.ixload_configure("patch", url_attributes, param_comment)
     except Exception as e:
-        # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
         return None
 
     count = 0
@@ -1422,11 +1399,9 @@ def patch_dut_config(api, nw_config, eni_per_dpu):
             url_networkRangeList_index = f'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList/{count}'
 
             try:
-                # Code that may raise an exception
-                res = api.ixload_configure("patch", url_networkRangeList_index, payload)  # noqa: F841
+                api.ixload_configure("patch", url_networkRangeList_index, payload)
             except Exception as e:
-                # Handle any exception
-                print(f"An error occurred: {e}")
+                logger.info(f"An error occurred: {e}")
                 return None
 
             count += 1
@@ -1445,11 +1420,9 @@ def patch_destination_actionList(api):
     url_actionList2 = '/ixload/test/activeTest/communityList/0/activityList/0/agent/actionList/2'
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url_actionList2, param_comment)  # noqa: F841
+        api.ixload_configure("patch", url_actionList2, param_comment)
     except Exception as e:
-        # Handle any exception
-        print(f"An error occurred: {e}")
+        logger.info(f"An error occurred: {e}")
         return None
 
     return
@@ -1459,13 +1432,6 @@ def patch_communityList2(api, nw_config):
 
     url = "ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList"
     objectIDs = get_objectIDs(api, url)
-
-    """
-    param_ipv6 = {
-        'ipType': 'IPv6',
-        'prefix': 128,
-    }
-    """
 
     param_doubleIncrement = {
         'doubleIncrement': True,
@@ -1487,13 +1453,10 @@ def patch_communityList2(api, nw_config):
     for id in objectIDs:
         url = f"ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList/{id}"
         try:
-            # Code that may raise an exception
-            # res1 = api.ixload_configure("patch", url, param_ipv6)  # noqa: F841
-            res2 = api.ixload_configure("patch", url, param_doubleIncrement)  # noqa: F841
-            res3 = api.ixload_configure("patch", url, param_doubleIncrement2)  # noqa: F841
+            api.ixload_configure("patch", url, param_doubleIncrement)
+            api.ixload_configure("patch", url, param_doubleIncrement2)
         except Exception as e:
-            # Handle any exception
-            print(f"An error occurred: {e}")
+            logger.info(f"An error occurred: {e}")
             return None
 
     return
@@ -1556,10 +1519,8 @@ def set_userIPMappings(api):
     }
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url, param_userIpMapping)  # noqa: F841
+        api.ixload_configure("patch", url, param_userIpMapping)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
         return None
 
@@ -1575,10 +1536,8 @@ def set_test_preferences(api):
     }
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url, param_allowRouteConflicts)  # noqa: F841
+        api.ixload_configure("patch", url, param_allowRouteConflicts)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
         return None
 
@@ -1691,8 +1650,8 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version=ixl_version)
     config = api.config()
 
-    port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]  # noqa: F841
-    port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]  # noqa: F841
+    config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))
+    config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))
 
     # client/server IP ranges created here
     ip_list = create_ip_list(nw_config, service_type)
@@ -1926,7 +1885,7 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     # Set config
     logger.info("Configuring custom settings")
     time_custom_time = time.time()
-    response = api.set_config(config)  # noqa: F841
+    api.set_config(config)
     port = connection_dict['port']
 
     time_custom_finish = time.time()
@@ -1994,11 +1953,6 @@ def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_
     logger.info("Setting test preferences to allow route conflicts to enabled")
     set_test_preferences(api)
 
-    # save file
-    # logger.info("Saving Test File")
-    test_save_time = time.time()  # noqa: F841
-    test_save_finish_time = time.time()  # noqa: F841
-    # logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
     main_finish_time = time.time()
     logger.info("Ixload configuration app finished in {}".format(main_finish_time - main_start_time))
 
@@ -2016,10 +1970,8 @@ def saveAs(api, test_filename):
 
     # response = requests.post(url, data=json.dumps(paramDict), headers=headers)
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("post", saveAs_operation, paramDict)  # noqa: F841
+        api.ixload_configure("post", saveAs_operation, paramDict)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
