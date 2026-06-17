@@ -21,7 +21,11 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
+<<<<<<< HEAD
     pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
+=======
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2', 'bmc'),
+>>>>>>> a06d23496 (NOS-9020: Add testcases to cover Redfish CACL (#1822))
 ]
 
 logger = logging.getLogger(__name__)
@@ -417,6 +421,10 @@ def cacl_tc2_add_init_rule(duthost, protocol, ip_netns_namespace_prefix, namespa
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
+    elif protocol == 'REDFISH':
+        params_dict["table"] = "REDFISH_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "443"
 
     json_patch = [
         {
@@ -451,6 +459,8 @@ def cacl_tc2_add_init_rule(duthost, protocol, ip_netns_namespace_prefix, namespa
                                      "-A INPUT -s 9.9.9.9/32 -p udp -m udp --dport 161 -j DROP"]
         elif protocol == 'EXTERNAL_CLIENT':
             expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        elif protocol == 'REDFISH':
+            expected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"]
         expect_res_success_acl_rule(duthost, expected_content_list, [], ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -477,6 +487,10 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol, namespace=None):
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
+    elif protocol == 'REDFISH':
+        params_dict["table"] = "REDFISH_ACL"
+        params_dict["IP_PROTOCOL"] = "6"
+        params_dict["L4_DST_PORT"] = "443"
 
     json_patch = [
         {
@@ -528,6 +542,8 @@ def cacl_tc2_replace_rule(duthost, protocol, ip_netns_namespace_prefix, namespac
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
 
     json_patch = [
         {
@@ -558,6 +574,9 @@ def cacl_tc2_replace_rule(duthost, protocol, ip_netns_namespace_prefix, namespac
         elif protocol == 'EXTERNAL_CLIENT':
             expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
             unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 8081 -j DROP"]
+        elif protocol == 'REDFISH':
+            expected_content_list = ["-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 443 -j DROP"]
+            unexpected_content_list = ["-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"]
         expect_res_success_acl_rule(duthost, expected_content_list, unexpected_content_list,
                                     ip_netns_namespace_prefix)
     finally:
@@ -606,6 +625,8 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol, namespace=None):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
 
     json_patch = [
         {
@@ -637,6 +658,8 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol, namespace=None):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
+    elif protocol == 'REDFISH':
+        table = 'REDFISH_ACL'
 
     json_patch = [
         {
@@ -679,7 +702,8 @@ def cacl_tc2_remove_rule(duthost, ip_netns_namespace_prefix, namespace=None):
                                    "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 161 -j DROP",
                                    "-A INPUT -s 8.8.8.8/32 -p udp -m udp --dport 161 -j DROP",
                                    "-A INPUT -s 8.8.8.8/32 -p tcp -m udp --dport 123 -j DROP",
-                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP"]
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 8081 -j DROP",
+                                   "-A INPUT -s 8.8.8.8/32 -p tcp -m tcp --dport 443 -j DROP"]
         expect_res_success_acl_rule(duthost, [], unexpected_content_list, ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -721,6 +745,51 @@ def cacl_external_client_add_new_table(duthost, ip_netns_namespace_prefix, names
         expected_content_list = ["EXTERNAL_CLIENT_ACL", "CTRLPLANE", "EXTERNAL_CLIENT",
                                  "EXTERNAL_CLIENT_ACL", "ingress"]
         expect_acl_table_match(duthost, "EXTERNAL_CLIENT_ACL", expected_content_list,
+                               ip_netns_namespace_prefix)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def cacl_redfish_add_new_table(duthost, ip_netns_namespace_prefix, namespace=None):
+    """ Add REDFISH_ACL acl table for test.
+
+    REDFISH_ACL is not present in CONFIG_DB by default, so the rule-suite
+    must create it before exercising rule operations.
+
+    Sample output
+    admin@vlab-01:~$ show acl table
+    Name         Type       Binding   Description    Stage    Status
+    -----------  ---------  --------  -------------  -------  --------
+    REDFISH_ACL  CTRLPLANE  REDFISH   REDFISH_ACL    ingress  Active
+    """
+
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_TABLE/REDFISH_ACL",
+            "value": {
+                "policy_desc": "REDFISH_ACL",
+                "services": [
+                    "REDFISH"
+                ],
+                "stage": "ingress",
+                "type": "CTRLPLANE"
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        expected_content_list = ["REDFISH_ACL", "CTRLPLANE", "REDFISH",
+                                 "REDFISH_ACL", "ingress"]
+        expect_acl_table_match(duthost, "REDFISH_ACL", expected_content_list,
                                ip_netns_namespace_prefix)
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -778,12 +847,48 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
         delete_tmpfile(duthost, tmpfile)
 
 
-@pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
+def _get_redfish_feature_state(duthost):
+    return duthost.shell('sonic-db-cli CONFIG_DB hget "FEATURE|redfish" state',
+                         module_ignore_errors=True)['stdout'].strip()
+
+
+@pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT", "REDFISH"])
 def cacl_protocol(request):       # noqa: F811
     """
-    Return the protocol to be tested
+    Return the protocol to be tested.
+
+    REDFISH ACL only applies on BMC DUTs, so the REDFISH parameterization is
+    skipped on non-BMC DUTs. In addition, caclmgrd only programs the REDFISH
+    (tcp/443) iptables rules when FEATURE.redfish state is "enabled" - air-cooled
+    BMCs default to "disabled". Enable the feature for the duration of the REDFISH
+    tests so caclmgrd emits the rules, and restore the original state on teardown.
     """
-    return request.param
+    protocol = request.param
+    if protocol != "REDFISH":
+        yield protocol
+        return
+
+    duthost = request.getfixturevalue('rand_selected_front_end_dut')
+    if not duthost.is_bmc():
+        pytest.skip("REDFISH ACL test skipped: not a BMC DUT")
+
+    original_state = _get_redfish_feature_state(duthost)
+    pytest_assert(
+        original_state in ("enabled", "disabled"),
+        "Could not read a valid FEATURE.redfish state (got {!r}); DUT may be in a bad state".format(original_state))
+    if original_state != "enabled":
+        duthost.shell("config feature state redfish enabled")
+        pytest_assert(
+            wait_until(30, 2, 0, lambda: _get_redfish_feature_state(duthost) == "enabled"),
+            "FEATURE.redfish did not transition to 'enabled'")
+        # Let caclmgrd process the FEATURE change and converge before tests run.
+        time.sleep(5)
+
+    yield protocol
+
+    # Restore the original feature state.
+    if original_state != "enabled":
+        duthost.shell("config feature state redfish {}".format(original_state or "disabled"))
 
 
 def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
@@ -806,6 +911,8 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_front_end_dut, enum
     logger.info("Test acl table for protocol {}".format(cacl_protocol))
     if cacl_protocol == 'EXTERNAL_CLIENT':
         cacl_external_client_add_new_table(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+    elif cacl_protocol == 'REDFISH':
+        cacl_redfish_add_new_table(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
     cacl_tc2_add_init_rule(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
     cacl_tc2_add_duplicate_rule(rand_selected_front_end_dut, cacl_protocol, namespace)
     cacl_tc2_replace_rule(rand_selected_front_end_dut, cacl_protocol, ip_netns_namespace_prefix, namespace)
@@ -818,3 +925,92 @@ def test_cacl_tc2_acl_rule_test(cacl_protocol, rand_selected_front_end_dut, enum
 def test_cacl_tc3_acl_all(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index, ip_netns_namespace_prefix):
     namespace = rand_selected_front_end_dut.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     cacl_tc3_acl_table_and_acl_rule(rand_selected_front_end_dut, ip_netns_namespace_prefix, namespace)
+
+
+def cacl_redfish_add_drop_rule(duthost, namespace=None):
+    """ Add a REDFISH_ACL DROP rule (caclmgrd applies the fixed tcp/443 dst_port). """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "REDFISH_ACL|TEST_DROP": {
+                    "IP_PROTOCOL": "6",
+                    "L4_DST_PORT": "443",
+                    "IP_TYPE": "IP",
+                    "PACKET_ACTION": "DROP",
+                    "PRIORITY": "9998",
+                    "SRC_IP": "9.9.9.9/32"
+                }
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_cacl_redfish_feature_gating(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
+                                     ip_netns_namespace_prefix, loganalyzer):
+    """ Verify caclmgrd gates REDFISH iptables rules on the FEATURE.redfish state.
+
+    With a REDFISH ACL rule configured:
+      - FEATURE.redfish disabled -> caclmgrd does NOT program the tcp/443 rule.
+      - runtime enable           -> the tcp/443 rule appears (subscription path).
+      - runtime disable          -> the tcp/443 rule is removed again.
+
+    This exercises the RedfishAllowed gate and the FEATURE-table subscription
+    handler against real iptables. The autouse setup_env fixture
+    checkpoints/rolls back CONFIG_DB (ACL + FEATURE),
+    and the original feature state is restored explicitly on teardown.
+    """
+    duthost = rand_selected_front_end_dut
+    if not duthost.is_bmc():
+        pytest.skip("REDFISH CACL gating test requires a BMC DUT")
+
+    cacl_ignore_regex(duthost, loganalyzer)
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+    redfish_rule = "-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"
+
+    def redfish_rule_present():
+        return redfish_rule in get_iptable_rules(duthost, ip_netns_namespace_prefix)
+
+    original_state = _get_redfish_feature_state(duthost)
+    pytest_assert(
+        original_state in ("enabled", "disabled"),
+        "Could not read a valid FEATURE.redfish state (got {!r}); DUT may be in a bad state".format(original_state))
+    try:
+        # Start from a known-disabled feature state.
+        if original_state != "disabled":
+            duthost.shell("config feature state redfish disabled")
+            pytest_assert(
+                wait_until(10, 2, 0, lambda: _get_redfish_feature_state(duthost) == "disabled"),
+                "FEATURE.redfish did not transition to 'disabled'")
+
+        # Configure a REDFISH ACL table + rule while the feature is disabled.
+        cacl_redfish_add_new_table(duthost, ip_netns_namespace_prefix, namespace)
+        cacl_redfish_add_drop_rule(duthost, namespace)
+
+        # caclmgrd must not program the tcp/443 rule.
+        pytest_assert(not wait_until(10, 2, 0, redfish_rule_present),
+                      "REDFISH tcp/443 rule was programmed while FEATURE.redfish is disabled")
+
+        # Runtime enable: the rule should appear once caclmgrd processes the FEATURE event.
+        duthost.shell("config feature state redfish enabled")
+        pytest_assert(wait_until(30, 5, 0, redfish_rule_present),
+                      "REDFISH tcp/443 rule was not programmed after enabling FEATURE.redfish")
+
+        # Runtime disable: the rule should be removed again.
+        duthost.shell("config feature state redfish disabled")
+        pytest_assert(wait_until(30, 5, 0, lambda: not redfish_rule_present()),
+                      "REDFISH tcp/443 rule was not removed after disabling FEATURE.redfish")
+    finally:
+        # Restore the original feature state (setup_env rolls back the ACL config).
+        if original_state != "disabled":
+            duthost.shell("config feature state redfish {}".format(original_state or "disabled"))

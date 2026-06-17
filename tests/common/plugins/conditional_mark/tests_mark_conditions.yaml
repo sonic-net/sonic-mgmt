@@ -705,6 +705,15 @@ bmp/:
 #######################################
 #####            cacl             #####
 #######################################
+<<<<<<< HEAD
+=======
+cacl/test_cacl_application.py:
+  skip:
+    reason: "skip test_cacl_application in PR test temporarily"
+    conditions:
+      - "asic_type in ['vs']"
+
+>>>>>>> a06d23496 (NOS-9020: Add testcases to cover Redfish CACL (#1822))
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
     reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
