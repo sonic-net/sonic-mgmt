@@ -1264,6 +1264,10 @@ def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): 
     return npu_host
 
 
+# Default gNMI port for SmartSwitch DPUs.
+DEFAULT_DPU_GNMI_PORT = "8080"
+
+
 def get_dpu_ip(duthost, dpu_index):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not config_facts:
@@ -1299,26 +1303,18 @@ def get_dpu_ip(duthost, dpu_index):
 def get_dpu_port(duthost, dpu_index):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not config_facts:
-        logger.error("Failed to retrieve config_facts from DUT")
-        return None
+        logger.warning("Failed to retrieve config_facts from DUT; using default DPU gNMI port %s",
+                       DEFAULT_DPU_GNMI_PORT)
+        return DEFAULT_DPU_GNMI_PORT
 
     dpu_section = config_facts.get('DPU', {})
-    if not dpu_section:
-        logger.error("DPU section not found in config_facts")
-        return None
-
     dpu_key = 'dpu{}'.format(dpu_index)
-    # Check if the DPU exists in the configuration
-    if dpu_key not in dpu_section:
-        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
-            dpu_key, list(dpu_section.keys())))
-        return None
-
-    dpu_config = dpu_section[dpu_key]
-    port = dpu_config.get('gnmi_port', None)
+    dpu_config = dpu_section.get(dpu_key, {}) if dpu_section else {}
+    port = dpu_config.get('gnmi_port')
     if port is None:
-        logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
-        return None
+        logger.info("gnmi_port not set in CONFIG_DB for %s; using default %s",
+                    dpu_key, DEFAULT_DPU_GNMI_PORT)
+        return DEFAULT_DPU_GNMI_PORT
     return port
 
 
