@@ -97,7 +97,7 @@ class FanoutPfcStorm():
         intfTolPort = {}
         lPortToIntf = {}
 
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4", "Tomahawk6")):
             output = self._bcmltshellCmd('knet netif info')
             for info in output.split("Network interface Info:"):
                 mo = re.search(r"Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)", info)
@@ -143,7 +143,7 @@ class FanoutPfcStorm():
         '''
         mmuPort = self.intfToMmuPort[intf]
         port = self.intfToPort[intf]
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4", "Tomahawk6")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
         else:
@@ -165,7 +165,6 @@ class FanoutPfcStorm():
         mmuPort = self.intfToMmuPort[intf]
         port = self.intfToPort[intf]
         if self.os == 'sonic':
-            self._shellCmd(f"redis-cli -n 4 HSET \"PORT_QOS_MAP|{intf}\" \"pfc_enable\" \"\"")
             for prio in range(8):
                 if (1 << prio) & self.priority:
                     self._shellCmd(f"config interface pfc priority {intf} {prio} on")
@@ -175,15 +174,44 @@ class FanoutPfcStorm():
                 if (1 << prio) & self.priority:
                     self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
 
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4", "Tomahawk6")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
         else:
             self._bcmshellCmd(f"setreg CHFC2PFC_STATE.{port} PRI_BKP={self.priority}")
 
     def endAllPfcStorm(self):
-        for intf in self.intfsEnabled:
-            self._endPfcStorm(intf)
+        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4", "Tomahawk6")) and self.intfsEnabled:
+            # bcmcmd truncates input at 1023 chars, so batch register clears into groups of
+            # 10 ports per call to stay safely within the limit (~80 chars/command).
+            # All DIS clears run first, then all BKP clears, so storms stop near-simultaneously.
+            BATCH_SIZE = 10
+            hw_cmds_dis = []
+            hw_cmds_bkp = []
+            for intf in self.intfsEnabled:
+                mmuPort = self.intfToMmuPort[intf]
+                hw_cmds_dis.append(
+                    f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
+                hw_cmds_bkp.append(
+                    f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
+
+            def _run_clear_passes():
+                for i in range(0, len(hw_cmds_dis), BATCH_SIZE):
+                    self._bcmltshellCmd("; ".join(hw_cmds_dis[i:i + BATCH_SIZE]))
+                for i in range(0, len(hw_cmds_bkp), BATCH_SIZE):
+                    self._bcmltshellCmd("; ".join(hw_cmds_bkp[i:i + BATCH_SIZE]))
+            _run_clear_passes()
+            # Second pass: if SIGTERM interrupted an in-flight startPfcStorm bcmcmd subprocess,
+            # that orphan process may finish after our first pass and re-set registers.
+            # Wait 1s for any such orphans to complete, then clear again.
+            time.sleep(1)
+            _run_clear_passes()
+            # Only clear hardware MMU registers; leave PFC software config (pfc_enable) intact
+            # so the next startPfcStorm() can set hw registers immediately without waiting
+            # for orchagent to re-enable PFC TX from scratch.
+        else:
+            for intf in self.intfsEnabled:
+                self._endPfcStorm(intf)
 
 
 def main():
