@@ -1079,6 +1079,24 @@ def k8scluster(k8smasters):
     return k8s_master_cluster
 
 
+def _neighbor_type_option_provided(args):
+    """Return True if pytest was invoked with --neighbor_type."""
+    return any(arg == "--neighbor_type" or arg.startswith("--neighbor_type=") for arg in args)
+
+
+def _resolve_neighbor_type_for_testbed(neighbor_type, tbinfo, neighbor_type_provided=False):
+    """Return the neighbor type that matches the testbed metadata.
+
+    Keep the historical pytest default (eos) for regular testbeds, but avoid
+    silently constructing EosHost objects for cSONiC testbeds when callers omit
+    --neighbor_type. Explicit --neighbor_type values still win.
+    """
+    testbed_name = tbinfo.get('conf-name', '')
+    if not neighbor_type_provided and neighbor_type == "eos" and "csonic" in testbed_name:
+        return "csonic"
+    return neighbor_type
+
+
 @pytest.fixture(scope="session")
 def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
@@ -1092,7 +1110,19 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
-    neighbor_type = request.config.getoption("--neighbor_type")
+    requested_neighbor_type = request.config.getoption("--neighbor_type")
+    neighbor_type = _resolve_neighbor_type_for_testbed(
+        requested_neighbor_type,
+        tbinfo,
+        _neighbor_type_option_provided(request.config.invocation_params.args)
+    )
+    if neighbor_type != requested_neighbor_type:
+        logger.info(
+            "Auto-selecting %s neighbor type for testbed %s; "
+            "pass --neighbor_type explicitly to override",
+            neighbor_type,
+            tbinfo.get('conf-name', '')
+        )
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
         logger.info("No VMs exist for this topology: {}".format(
             tbinfo['topo']['properties']['topology']))
