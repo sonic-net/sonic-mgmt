@@ -109,7 +109,7 @@ class LagTest:
         neighbor_intf = self.__resolve_vm_neighbor_intf(peer_device, neighbor_intf)
         return vm_host, neighbor_intf, peer_device
 
-    def __verify_lag_lacp_timing(self, lacp_timer, exp_iface):
+    def __verify_lag_lacp_timing(self, lacp_timer, exp_iface, tolerance=0.1):
         if exp_iface is None:
             return
 
@@ -120,10 +120,106 @@ class LagTest:
             'packet_timing': lacp_timer,
             'ether_type': 0x8809,
             'interval_count': 3,
-            'kvm_support': True
+            'kvm_support': True,
+            'tolerance': tolerance
         }
         ptf_runner(self.ptfhost, 'acstests', "lag_test.LacpTimingTest",
                    '/root/ptftests', params=params, is_python3=True)
+
+    def __check_portchannel_up(self, lag_name):
+        lag_facts = self.__get_lag_facts()
+        return lag_facts['lags'].get(lag_name, {}).get('po_intf_stat') == 'Up'
+
+    def run_single_lag_lacp_rate_dut_test(self, lag_name, lag_facts):
+        logger.info("Start checking DUT-side lacp fast rate config for: %s" % lag_name)
+
+        intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
+        peer_device = self.vm_neighbors[intf]['name']
+        namespace_id = self.__get_lag_intf_namespace_id(lag_facts, lag_name)
+        if namespace_id and str(namespace_id).isdigit():
+            namespace_id = 'asic{}'.format(namespace_id)
+        ns_opt = '-n {}'.format(namespace_id) if namespace_id else ''
+
+        # Collect PTF interfaces and neighbor LAG interfaces for this LAG
+        iface_behind_lag_member = []
+        for neighbor_intf in list(self.vm_neighbors.keys()):
+            if peer_device == self.vm_neighbors[neighbor_intf]['name']:
+                iface_behind_lag_member.append(self.mg_facts['minigraph_ptf_indices'][neighbor_intf])
+
+        neighbor_lag_intfs = [
+            self.__resolve_vm_neighbor_intf(peer_device, self.vm_neighbors[po_intf]['port'])
+            for po_intf in po_interfaces
+        ]
+        vm_host = self.nbrhosts[peer_device]['host']
+
+        # Snapshot PortChannel config for full restoration
+        runner_cfg = lag_facts['lags'][lag_name]['po_config']['runner']
+        min_links = runner_cfg.get('min_ports', 1)
+        fallback = runner_cfg.get('fallback', False)
+        pc_ips = [n['subnet'] for n in self.mg_facts['minigraph_portchannel_interfaces']
+                  if n['attachto'] == lag_name]
+
+        portchannel_mutated = False
+        neighbor_rate_mutated = False
+        try:
+            # Remove members before deleting PortChannel
+            for po_intf in list(po_interfaces.keys()):
+                self.duthost.shell("sudo config portchannel {} member del {} {}"
+                                   .format(ns_opt, lag_name, po_intf))
+            self.duthost.shell("sudo config portchannel {} del {}".format(ns_opt, lag_name))
+            portchannel_mutated = True
+
+            # Recreate with --fast-rate=true, preserving min-links and fallback
+            self.duthost.shell(
+                "sudo config portchannel {} add {} --fast-rate=true --min-links={} {}"
+                .format(ns_opt, lag_name, min_links, '--fallback=true' if fallback else ''))
+            for po_intf in list(po_interfaces.keys()):
+                self.duthost.shell("sudo config portchannel {} member add {} {}"
+                                   .format(ns_opt, lag_name, po_intf))
+            for ip in pc_ips:
+                self.duthost.shell("sudo config interface {} ip add {} {}".format(ns_opt, lag_name, ip))
+
+            # Wait for LAG to re-establish before verifying timing
+            pytest_assert(wait_until(30, 1, 5, self.__check_portchannel_up, lag_name),
+                          "PortChannel {} did not come up after fast-rate reconfiguration".format(lag_name))
+
+            # Also set neighbor to fast mode so DUT's teamd switches TX to 1s.
+            # In KVM/vs, teamd only switches TX interval to 1s when the partner
+            # also sends Short_Timeout=1, even though DUT has fast_rate=true configured.
+            # This verifies: DUT fast_rate config causes the neighbor to auto-adapt
+            # (Short_Timeout=1 propagated via LACP PDU), and with both sides in fast
+            # mode the session operates at 1s end-to-end.
+            for neighbor_lag_intf in neighbor_lag_intfs:
+                logger.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_intf, peer_device))
+                vm_host.set_interface_lacp_rate_mode(neighbor_lag_intf, 'fast')
+            neighbor_rate_mutated = True
+            time.sleep(5)
+
+            # Verify LACP PDUs at 1-second intervals (0.5s tolerance for post-reconvergence transient)
+            for iface_behind_lag in iface_behind_lag_member:
+                self.__verify_lag_lacp_timing(1, iface_behind_lag, tolerance=0.5)
+
+        finally:
+            # Restore neighbor rate first, then DUT portchannel config
+            if neighbor_rate_mutated:
+                for neighbor_lag_intf in neighbor_lag_intfs:
+                    logger.info("Changing lacp rate to normal for %s in %s" % (neighbor_lag_intf, peer_device))
+                    vm_host.set_interface_lacp_rate_mode(neighbor_lag_intf, 'normal')
+            if portchannel_mutated:
+                for po_intf in list(po_interfaces.keys()):
+                    self.duthost.shell("sudo config portchannel {} member del {} {}"
+                                       .format(ns_opt, lag_name, po_intf),
+                                       module_ignore_errors=True)
+                self.duthost.shell("sudo config portchannel {} del {}"
+                                   .format(ns_opt, lag_name), module_ignore_errors=True)
+                self.duthost.shell(
+                    "sudo config portchannel {} add {} --min-links={} {}"
+                    .format(ns_opt, lag_name, min_links, '--fallback=true' if fallback else ''))
+                for po_intf in list(po_interfaces.keys()):
+                    self.duthost.shell("sudo config portchannel {} member add {} {}"
+                                       .format(ns_opt, lag_name, po_intf))
+                for ip in pc_ips:
+                    self.duthost.shell("sudo config interface {} ip add {} {}".format(ns_opt, lag_name, ip))
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
@@ -296,9 +392,11 @@ def skip_if_no_lags(duthosts):
 
 @pytest.mark.parametrize("testcase", ["single_lag",
                                       "lacp_rate",
+                                      "lacp_rate_dut",
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
-             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa: F811
+             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request,  # noqa: F811
+             ignore_expected_loganalyzer_exceptions_lag):
     if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
         pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
 
@@ -306,6 +404,11 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
     if testcase == "lacp_rate":
         if request.config.getoption("--neighbor_type") == 'sonic':
             pytest.skip("lacp_rate is not supported in vsonic")
+
+    # Skip lacp_rate_dut on vsonic neighbors — PTF timing verification requires EOS
+    if testcase == "lacp_rate_dut":
+        if request.config.getoption("--neighbor_type") == 'sonic':
+            pytest.skip("lacp_rate_dut is not supported in vsonic")
 
     ptfhost = common_setup_teardown
 
@@ -330,7 +433,7 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
                 # specific LAG interface from t0-56-po2vlan topo, which can't be tested
                 if lag_name == 'PortChannel201':
                     continue
-                if testcase in ["single_lag",  "lacp_rate"]:
+                if testcase in ["single_lag", "lacp_rate", "lacp_rate_dut"]:
                     try:
                         lag_facts['lags'][lag_name]['po_config']['runner']['min_ports']
                     except KeyError:
@@ -342,6 +445,8 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
                         some_test_ran = True
                         if testcase == "single_lag":
                             test_instance.run_single_lag_test(lag_name, lag_facts)
+                        elif testcase == "lacp_rate_dut":
+                            test_instance.run_single_lag_lacp_rate_dut_test(lag_name, lag_facts)
                         else:
                             test_instance.run_single_lag_lacp_rate_test(lag_name, lag_facts)
                 else:   # fallback testcase
