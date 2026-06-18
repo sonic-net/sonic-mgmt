@@ -51,6 +51,41 @@ from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    Wait until the specified condition is True or timeout.
+
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True.
+             If the condition function raises an exception, print the error and keep waiting and polling.
+    """
+    if delay > 0:
+        time.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            print("Exception caught while checking {}: {}".format(
+                condition.__name__, str(e)), file=sys.stderr)
+            check_result = False
+
+        if check_result:
+            return True
+        else:
+            time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    return False
+
+
 # Counters
 # The index number comes from the append order in sai_thrift_read_port_counters
 EGRESS_DROP = 0
@@ -1364,8 +1399,68 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id,
                     src_port_id, exp_ttl, ip_ttl)
 
-            # Read Counters
-            time.sleep(3)
+            start_time = time.time()
+            check_iteration = [0]  # Use list to allow modification in nested function
+
+            def check_all_expected_counters_updated():
+                """Check if all expected queue counters have been updated with correct packet counts"""
+                check_iteration[0] += 1
+                current_elapsed = time.time() - start_time
+
+                try:
+                    _, queue_results_current = sai_thrift_read_port_counters(
+                        self.dst_client, asic_type, sai_dst_port_id)
+
+                    # If tc_to_dscp_count_map is provided, check all expected TCs
+                    if tc_to_dscp_count_map:
+                        missing_tcs = []
+                        for tc, expected_count in tc_to_dscp_count_map.items():
+                            actual_count = queue_results_current[tc] - queue_results_base[tc]
+                            # For TC 7, allow >= due to LACP packets
+                            if tc == 7:
+                                if actual_count < expected_count:
+                                    missing_tcs.append(
+                                        "TC{}(expected>={}, got={})".format(
+                                            tc, expected_count, actual_count))
+                            else:
+                                if actual_count != expected_count:
+                                    missing_tcs.append(
+                                        "TC{}(expected={}, got={})".format(
+                                            tc, expected_count, actual_count))
+
+                        if missing_tcs:
+                            print("Check iteration {}: {:.2f}s elapsed - Missing: {}".format(
+                                check_iteration[0], current_elapsed, ", ".join(missing_tcs)), file=sys.stderr)
+                            return False
+                        else:
+                            print("Check iteration {}: {:.2f}s elapsed - All counters matched!".format(
+                                check_iteration[0], current_elapsed), file=sys.stderr)
+                            return True
+                    else:
+                        # Fallback: check if any queue counter has changed from baseline
+                        result = any(curr != base for curr, base in zip(queue_results_current, queue_results_base))
+                        print("Check iteration {}: {:.2f}s elapsed - Fallback check: {}".format(
+                            check_iteration[0], current_elapsed, "PASS" if result else "FAIL"), file=sys.stderr)
+                        return result
+                except Exception as e:
+                    print("Check iteration {}: {:.2f}s elapsed - Exception: {}".format(
+                        check_iteration[0], current_elapsed, str(e)), file=sys.stderr)
+                    return False
+
+            # Wait up to 10 seconds for all expected counters to update, checking every 1 second
+            counters_updated = wait_until(10, 1, 0, check_all_expected_counters_updated)
+            elapsed_time = time.time() - start_time
+
+            if counters_updated:
+                print("FINAL RESULT: Queue counters updated successfully after {:.2f} seconds ({} iterations)".format(
+                    elapsed_time, check_iteration[0]), file=sys.stderr)
+            else:
+                print(
+                    "FINAL RESULT: Not all expected queue counters were "
+                    "updated within timeout ({:.2f} seconds, {} iterations)".format(
+                        elapsed_time, check_iteration[0]), file=sys.stderr)
+
+            # Do a fresh read of counters
             port_results, queue_results = sai_thrift_read_port_counters(self.dst_client, asic_type, sai_dst_port_id)
 
             print(list(map(operator.sub, queue_results,
@@ -2168,6 +2263,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
         src_dst_asic_diff = self.test_params['src_dst_asic_diff']
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -2191,7 +2287,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
         if 'cell_size' in self.test_params:
             cell_size = self.test_params['cell_size']
-            cell_occupancy = (packet_length + cell_size - 1) // cell_size
+            cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
         else:
             cell_occupancy = 1
 
@@ -2713,6 +2809,7 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_port_id = int(self.test_params['dst_port_id'])
         self.dst_port_ip = self.test_params['dst_port_ip']
         self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
+        self.descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         self.ttl = 64
         if 'packet_size' in self.test_params:
@@ -2723,7 +2820,7 @@ class PfcStormTestWithSharedHeadroom(sai_base_test.ThriftInterfaceDataPlane):
         if 'cell_size' in self.test_params:
             cell_size = self.test_params['cell_size']
             self.cell_occupancy = (
-                self.default_packet_length + cell_size - 1) // cell_size
+                self.default_packet_length + cell_size + self.descriptor_size - 1) // cell_size
         else:
             self.cell_occupancy = 1
         #  Margin used to while crossing the shared headrooom boundary
@@ -2915,6 +3012,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
         pkts_num_dismiss_pfc = int(self.test_params['pkts_num_dismiss_pfc'])
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
         if 'pkts_num_hysteresis' in list(self.test_params.keys()):
             hysteresis = int(self.test_params['pkts_num_hysteresis'])
         else:
@@ -2958,7 +3056,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
         if 'cell_size' in self.test_params:
             cell_size = self.test_params['cell_size']
-            cell_occupancy = (packet_length + cell_size - 1) // cell_size
+            cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
         else:
             cell_occupancy = 1
 
@@ -3459,13 +3557,14 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
         self.pkts_num_trig_pfc_multi = self.test_params.get('pkts_num_trig_pfc_multi', None)
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
+        self.descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         packet_size = self.test_params.get('packet_size')
 
         if packet_size:
             self.pkt_size = packet_size
             cell_size = self.test_params.get('cell_size')
-            self.pkt_size_factor = int(math.ceil(float(packet_size) / cell_size))
+            self.pkt_size_factor = int(math.ceil(float(packet_size + self.descriptor_size) / cell_size))
         else:
             self.pkt_size = 64
             self.pkt_size_factor = 1
@@ -4878,6 +4977,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         dut_asic = self.test_params["dut_asic"]
 
         update_COUNTER_MARGIN(dut_asic)
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
@@ -4891,7 +4991,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
-                cell_occupancy = (packet_length + cell_size - 1) // cell_size
+                cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
                 pkts_num_trig_egr_drp //= cell_occupancy
                 # It is possible that pkts_num_trig_egr_drp * cell_occupancy < original pkts_num_trig_egr_drp,
                 # which probably can fail the assert (xmit_counters[EGRESS_DROP] > xmit_counters_base[EGRESS_DROP])
@@ -5440,13 +5540,14 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         platform_asic = self.test_params['platform_asic']
         margin_lower_bound = self.test_params.get('pkts_num_margin_lower_bound', 0)
         ip_type = self.test_params.get('ip_type', 'ipv4')
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
         else:
             packet_length = 64
 
-        cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl = 64
@@ -5732,6 +5833,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = int(self.test_params['cell_size'])
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         # Prepare TCP packet data
         ttl = 64
@@ -5740,7 +5842,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             default_packet_length = 64
 
-        cell_occupancy = (default_packet_length + cell_size - 1) // cell_size
+        cell_occupancy = (default_packet_length + cell_size + descriptor_size - 1) // cell_size
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         is_dualtor = self.test_params.get('is_dualtor', False)
         def_vlan_mac = self.test_params.get('def_vlan_mac', None)
@@ -6095,13 +6197,14 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         platform_asic = self.test_params['platform_asic']
         dut_asic = self.test_params['dut_asic']
         ip_type = self.test_params.get('ip_type', 'ipv4')
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
         else:
             packet_length = 64
 
-        cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
 
         # Prepare TCP packet data
         ttl = 64
