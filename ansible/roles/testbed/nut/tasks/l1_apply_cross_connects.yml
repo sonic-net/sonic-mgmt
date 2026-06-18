@@ -1,0 +1,203 @@
+---
+# Reconcile OCS cross-connects on an L1 (FanoutL1Sonic) switch using live CLI,
+# instead of building a JSON patch and reloading the config.
+#
+# Steps:
+#   1. Read the current configured cross-connects ("show ocs cross-connect config")
+#      and the live hardware status ("show ocs cross-connect status").
+#   2. Compute the desired cross-connects from device_l1_cross_connects.
+#   3. Clear "stale" cross-connects that exist in hardware status but not in config
+#      and that block a desired port. A status-only entry cannot be deleted directly,
+#      so it is cleared by an add-then-delete sequence.
+#   4. Remove current cross-connects that conflict on the A side (same a_side but a
+#      different pairing) so the new ones can be added.
+#   5. Add the desired cross-connects that are not already present.
+#   6. Optionally verify the operational status ("show ocs cross-connect status").
+#
+# Tunables (override with -e):
+#   l1_xconnect_dry_run     (default false): only print the planned changes, do not apply.
+#   l1_xconnect_clear_stale (default true):  clear status-only entries that block a
+#                                            desired port via add-then-delete.
+#   l1_xconnect_verify      (default true):  verify status is "tuned" after applying.
+#   l1_xconnect_verify_retries / l1_xconnect_verify_delay: status polling controls.
+#   ocs_xconn_show_config_cmd / ocs_xconn_show_status_cmd: show command overrides.
+#   ocs_xconn_add_cmd       template with {id} placeholder.
+#   ocs_xconn_del_cmd       template with {id} placeholder.
+
+- name: set OCS cross-connect reconcile defaults
+  set_fact:
+    _l1_ocs_cli_dry_run: "{{ l1_xconnect_dry_run | default(false) | bool }}"
+    _l1_ocs_cli_clear_stale: "{{ l1_xconnect_clear_stale | default(true) | bool }}"
+    _l1_ocs_cli_verify: "{{ l1_xconnect_verify | default(true) | bool }}"
+    _ocs_xconn_show_config_cmd: "{{ ocs_xconn_show_config_cmd | default('show ocs cross-connect config') }}"
+    _ocs_xconn_show_status_cmd: "{{ ocs_xconn_show_status_cmd | default('show ocs cross-connect status') }}"
+    _ocs_xconn_add_cmd: "{{ ocs_xconn_add_cmd | default('config ocs cross-connect add {id}') }}"
+    _ocs_xconn_del_cmd: "{{ ocs_xconn_del_cmd | default('config ocs cross-connect delete {id}') }}"
+
+# Each (a, b) entry in device_l1_cross_connects maps to two directed cross-connects:
+#   {a}A-{b}B  and  {b}A-{a}B   (mirrors templates/config_patch/l1/ocs_xconnect.json.j2)
+- name: build desired OCS cross-connects
+  set_fact:
+    ocs_desired_xconns: "{{ ocs_desired_xconns | default([]) + [
+        {'id': item.key ~ 'A-' ~ item.value ~ 'B', 'a_side': item.key ~ 'A', 'b_side': item.value ~ 'B'},
+        {'id': item.value ~ 'A-' ~ item.key ~ 'B', 'a_side': item.value ~ 'A', 'b_side': item.key ~ 'B'}
+      ] }}"
+  loop: "{{ device_l1_cross_connects[inventory_hostname] | default({}) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}-{{ item.value }}"
+
+- name: get current OCS cross-connect config
+  shell: "{{ _ocs_xconn_show_config_cmd }}"
+  register: ocs_xconn_config_raw
+  changed_when: false
+
+# Table format: "id  a_side  b_side". Skip the header ("a_side") and separator ("---") rows.
+- name: parse current OCS cross-connect config
+  set_fact:
+    ocs_current_xconns: "{{ ocs_current_xconns | default([]) + [
+        {'id': (item | split)[0], 'a_side': (item | split)[1], 'b_side': (item | split)[2]}
+      ] }}"
+  loop: "{{ ocs_xconn_config_raw.stdout_lines }}"
+  loop_control:
+    label: "{{ item | trim }}"
+  when:
+    - (item | trim) | length > 0
+    - "'a_side' not in item"
+    - "'---' not in item"
+    - (item | split | length) >= 3
+
+# Live hardware status. Entries here that are not in config are "stale": they cannot be
+# deleted directly and require an add-then-delete to clear.
+- name: get current OCS cross-connect status
+  shell: "{{ _ocs_xconn_show_status_cmd }}"
+  register: ocs_xconn_status_config_raw
+  changed_when: false
+
+# Status table format: "id  a_side  b_side  a_side_status  b_side_status".
+# Capture only the cross-connect id (first column), skipping header and separator rows.
+- name: parse current OCS cross-connect status ids
+  set_fact:
+    ocs_status_ids: "{{ ocs_status_ids | default([]) + [(item | split)[0]] }}"
+  loop: "{{ ocs_xconn_status_config_raw.stdout_lines }}"
+  loop_control:
+    label: "{{ item | trim }}"
+  when:
+    - (item | trim) | length > 0
+    - "'a_side' not in item"
+    - "'---' not in item"
+    - (item | split | first) is match('^[0-9]+[AB]-[0-9]+[AB]$')
+
+- name: compute desired and current cross-connect lookups
+  set_fact:
+    ocs_desired_ids: "{{ ocs_desired_xconns | default([]) | map(attribute='id') | list }}"
+    ocs_current_ids: "{{ ocs_current_xconns | default([]) | map(attribute='id') | list }}"
+
+# Add = desired cross-connects not already present in config. Computed up front so that
+# stale/conflict removals only target ports an add actually needs. When every desired
+# A-B connection already exists this list is empty and nothing is deleted (idempotent).
+- name: compute OCS cross-connects to add
+  set_fact:
+    ocs_xconns_to_add: "{{ ocs_desired_xconns | default([])
+      | rejectattr('id', 'in', ocs_current_ids)
+      | list }}"
+
+- name: compute ports required by cross-connects to add
+  set_fact:
+    ocs_add_ports: "{{ (ocs_xconns_to_add | map(attribute='a_side') | list)
+      + (ocs_xconns_to_add | map(attribute='b_side') | list) }}"
+
+# Stale = id present in hardware status but absent from config. Keep only those whose
+# A or B port (id split on "-") blocks a port a still-missing desired connect needs.
+- name: compute stale OCS cross-connects to clear
+  set_fact:
+    ocs_stale_to_clear: "{{ (_ocs_stale_blocking_a + _ocs_stale_blocking_b) | unique | list }}"
+  vars:
+    _ocs_stale_candidates: "{{ ocs_status_ids | default([])
+      | difference(ocs_current_ids)
+      | select('search', '^[0-9]+[AB]-[0-9]+[AB]$')
+      | list }}"
+    _ocs_stale_blocking_a: "{{ _ocs_stale_candidates
+      | map('split', '-')
+      | selectattr('0', 'in', ocs_add_ports)
+      | map('join', '-')
+      | list }}"
+    _ocs_stale_blocking_b: "{{ _ocs_stale_candidates
+      | map('split', '-')
+      | selectattr('1', 'in', ocs_add_ports)
+      | map('join', '-')
+      | list }}"
+
+# Conflict = a currently configured cross-connect that is not a desired pairing but
+# occupies a port (A side or B side) that a still-missing desired cross-connect needs.
+# Gating on ocs_add_ports keeps this idempotent: nothing is removed for an A-B pair that
+# already exists. Matching both sides clears stale reverse entries (e.g. 41A-1B blocking
+# 29A-1B).
+- name: compute conflicting OCS cross-connects to remove
+  set_fact:
+    ocs_xconns_to_remove: "{{ ocs_current_xconns | default([])
+      | rejectattr('id', 'in', ocs_desired_ids)
+      | selectattr('a_side', 'in', ocs_add_ports)
+      | list
+      + (ocs_current_xconns | default([])
+      | rejectattr('id', 'in', ocs_desired_ids)
+      | selectattr('b_side', 'in', ocs_add_ports)
+      | list)
+      | unique | list }}"
+
+- name: show planned OCS cross-connect changes
+  debug:
+    msg:
+      - "clear stale: {{ ocs_stale_to_clear | default([]) }}"
+      - "remove: {{ ocs_xconns_to_remove | map(attribute='id') | list }}"
+      - "add: {{ ocs_xconns_to_add | map(attribute='id') | list }}"
+
+# A status-only ("stale") entry cannot be deleted directly; adding it to config first
+# lets the subsequent delete clear it from hardware status. Run before removing config
+# conflicts and adding the desired connects so the blocked ports are freed first.
+- name: clear stale OCS cross-connects (add then delete)
+  become: true
+  shell: "{{ _ocs_xconn_add_cmd | replace('{id}', item) }} && {{ _ocs_xconn_del_cmd | replace('{id}', item) }}"
+  loop: "{{ ocs_stale_to_clear | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when:
+    - not _l1_ocs_cli_dry_run
+    - _l1_ocs_cli_clear_stale
+
+- name: remove conflicting OCS cross-connects
+  become: true
+  shell: "{{ _ocs_xconn_del_cmd | replace('{id}', item.id) }}"
+  loop: "{{ ocs_xconns_to_remove }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: not _l1_ocs_cli_dry_run
+
+- name: add desired OCS cross-connects
+  become: true
+  shell: "{{ _ocs_xconn_add_cmd | replace('{id}', item.id) }}"
+  loop: "{{ ocs_xconns_to_add }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: not _l1_ocs_cli_dry_run
+
+# Operational status table: "id  a_side  b_side  a_side_status  b_side_status".
+# A healthy cross-connect reports "tuned" for both status columns. Poll until every
+# desired cross-connect is tuned on both sides.
+- name: verify OCS cross-connect status is tuned
+  shell: "{{ _ocs_xconn_show_status_cmd }}"
+  register: ocs_xconn_status_raw
+  changed_when: false
+  retries: "{{ l1_xconnect_verify_retries | default(12) | int }}"
+  delay: "{{ l1_xconnect_verify_delay | default(5) | int }}"
+  until: "{{ ocs_desired_ids | difference(
+      ocs_xconn_status_raw.stdout_lines
+      | map('regex_replace', '\\s+', ' ')
+      | map('trim')
+      | select('search', 'tuned tuned$')
+      | map('regex_replace', ' .*$', '')
+      | list
+    ) | length == 0 }}"
+  when:
+    - _l1_ocs_cli_verify
+    - not _l1_ocs_cli_dry_run
+    - ocs_desired_ids | length > 0
