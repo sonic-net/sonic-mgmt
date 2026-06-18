@@ -36,10 +36,6 @@ PORT_PHY_SERDES_ATTRIBUTES = [
    'SAI_PORT_SERDES_ATTR_TX_FIR_TAPS_LIST'
 ]
 
-# Global cache for port configuration and OID mapping
-_port_config_cache = None
-_port_oid_map_cache = None
-
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
