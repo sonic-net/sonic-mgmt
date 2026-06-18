@@ -2,15 +2,14 @@ import logging
 
 import ptf.testutils as testutils
 import pytest
-import concurrent.futures
 from configs.privatelink_config import APPLIANCE_VIP
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from packets import outbound_pl_packets, inbound_pl_packets
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_bgp_utils import check_vip_advertised_to_t2
 from ha_dash_flow_utils import compare_flow_tables
+from ha_utils import parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +22,6 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -50,9 +44,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])

@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 import queue
 import random
@@ -8,7 +7,6 @@ import time
 import ptf.testutils as testutils
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from constants import (
     LOCAL_PTF_INTF,
@@ -18,7 +16,7 @@ from constants import (
 )
 from packets import outbound_pl_packets
 from ha_dash_flow_utils import compare_flow_tables
-from ha_utils import verify_ha_state, set_dash_ha_scope
+from ha_utils import verify_ha_state, set_dash_ha_scope, parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +51,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-
-    def _reload(host):
-        logger.info(f"config reload on {host.hostname}")
-        config_reload(host, safe_reload=True, yang_validate=False)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        list(executor.map(_reload, dpuhosts))
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 def _planned_swo_phase(

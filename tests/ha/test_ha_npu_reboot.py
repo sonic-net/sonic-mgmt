@@ -1,6 +1,5 @@
 import logging
 from multiprocessing.pool import ThreadPool
-import concurrent.futures
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
@@ -20,7 +19,6 @@ from gnmi_utils import (
 )
 from packets import outbound_pl_packets
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert, pytest_require as pt_require
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -28,6 +26,7 @@ from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
 from tests.ha.conftest import get_interface_ip
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
+from ha_utils import parallel_config_reload_dpuhosts
 
 
 logger = logging.getLogger(__name__)
@@ -41,11 +40,6 @@ pytestmark = [
 THRESHOLD_LOSS_PERCENT = 2.0
 RATE_PPS = 20
 INITIAL_SEND_COUNT = 100
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="function")
@@ -127,9 +121,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """

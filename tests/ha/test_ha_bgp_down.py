@@ -10,11 +10,11 @@ from constants import (
     REMOTE_PTF_RECV_INTF
 )
 from packets import outbound_pl_packets
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
 from ha_bgp_utils import ha_bgp_shutdown, ha_bgp_start
+from ha_utils import parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +46,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    for dpuhost in dpuhosts:
-        logger.info(f"config reload on {dpuhost.hostname}")
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """
