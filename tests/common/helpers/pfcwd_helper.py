@@ -9,7 +9,9 @@ import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
+from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
+from tests.common.devices.eos import EosHost
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -431,6 +433,31 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
 
 
+def is_pfcwd_hw_recovery_enabled(duthost):
+    """
+    Check if PFC watchdog is using hardware-based recovery mechanism.
+
+    Hardware-based recovery uses ASIC-level PFC DLR which controls egress/TX
+    traffic by ignoring PFC XOFF. The per-queue TX OK/DROP cells surfaced by
+    'show pfcwd stats' are sourced from the software-recovery code path and
+    stay at 0 on HW-recovery platforms even when silicon is dropping.
+
+    Returns:
+        bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
+    """
+    try:
+        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+        result = duthost.shell(cmd, module_ignore_errors=True)
+        output = result.get('stdout', '').strip().strip('"').strip("'").lower()
+        is_hardware = (output == "hardware")
+        logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
+            output or "not set", is_hardware))
+        return is_hardware
+    except Exception as e:
+        logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
+        return False
+
+
 @pytest.fixture(scope='class', autouse=False)
 def start_background_traffic(
         duthosts,
@@ -658,7 +685,7 @@ def _parse_pfcwd_stats(dut):
     Returns:
         dict: {(port, queue): {'status': str, 'storm_detect_count': int, 'restored_count': int}}
     """
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
     stats_dict = {}
 
     for item in pfcwd_stat_output:
@@ -789,7 +816,7 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
     admin@bjw-can-7060-1:~$
     """
     logger.info("port {} queue {}".format(select_port, select_queue))
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
 
     pfcwd_stat = []
     for item in pfcwd_stat_output:
@@ -852,3 +879,140 @@ def pfcwd_show_status(duthost, output_string):
     logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
 
     return
+
+
+def send_tx_egress(traffic_inst, action, verify, async_mode=False, pkt_count=None):
+    """Send traffic from the Rx port toward the Tx (egress) port and optionally verify
+    that the expected PFC watchdog action (forward/drop) is observed on egress."""
+    logger.info("Check for egress {} on Tx port {} (verify={})".format(action, traffic_inst.pfc_wd_test_port, verify))
+    dst_port = "[" + str(traffic_inst.pfc_wd_test_port_id) + "]"
+    if action == "forward" and type(traffic_inst.pfc_wd_test_port_ids) == list:
+        dst_port = "".join(str(traffic_inst.pfc_wd_test_port_ids)).replace(',', '')
+    ptf_params = {'router_mac': traffic_inst.router_mac,
+                  'vlan_mac': traffic_inst.vlan_mac,
+                  'queue_index': traffic_inst.pfc_queue_index,
+                  'pkt_count': pkt_count or traffic_inst.pfc_wd_test_pkt_count,
+                  'port_src': traffic_inst.pfc_wd_rx_port_id[0],
+                  'port_dst': dst_port,
+                  'ip_dst': traffic_inst.pfc_wd_test_neighbor_addr,
+                  'port_type': traffic_inst.port_id_to_type_map[traffic_inst.pfc_wd_rx_port_id[0]],
+                  'wd_action': action if verify else "dontcare",
+                  'ip_version': traffic_inst.ip_version}
+    if traffic_inst.pfc_wd_rx_port_vlan_id is not None:
+        ptf_params['port_src_vlan_id'] = traffic_inst.pfc_wd_rx_port_vlan_id
+    if traffic_inst.pfc_wd_test_port_vlan_id is not None:
+        ptf_params['port_dst_vlan_id'] = traffic_inst.pfc_wd_test_port_vlan_id
+    log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
+    ptf_runner(traffic_inst.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
+               log_file=log_file, is_python3=True, async_mode=async_mode)
+
+
+def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
+    """Shut down all LAG members except the selected port so that PFC watchdog
+    testing runs over a single link while keeping the port-channel up
+    (min-links=1).
+
+    Multi-asic-aware: uses minigraph_portchannels (frontend port names on both
+    single-asic and multi-asic) instead of config_facts['PORTCHANNEL_MEMBER']
+    (which on multi-asic is keyed by asic-internal names like Ethernet1/1
+    that don't match the frontend names in test_ports/vm_neighbors). All DUT
+    config edits go through namespace-aware CLI/sonic-db-cli; no on-disk
+    config_db.json edits, so restore can revert via config_reload.
+    """
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return None, None, None
+
+    dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
+    portChannel = None
+    portChannelMembers = []
+    for pc_name, pc_meta in dst_mgfacts['minigraph_portchannels'].items():
+        if selected_port in pc_meta.get('members', []):
+            portChannel = pc_name
+            portChannelMembers = list(pc_meta['members'])
+            break
+    if portChannel is None:
+        return None, None, None
+
+    vm_neighbors = dst_mgfacts['minigraph_neighbors']
+    peer_device = vm_neighbors[portChannelMembers[0]]['name']
+    peer_port = vm_neighbors[portChannelMembers[0]]['port']
+    vm_host = nbrhosts[peer_device]['host']
+
+    neigh_port_channel = None
+    min_links = None
+    if isinstance(vm_host, EosHost):
+        neigh_port_channels = vm_host.eos_command(
+            commands=['show port-channel | json'])['stdout'][0]["portChannels"]
+        for po_name, po_config in neigh_port_channels.items():
+            for member in po_config['activePorts']:
+                if member == peer_port:
+                    neigh_port_channel = po_name
+                    min_links = len(po_config['activePorts'])
+                    break
+        vm_host.eos_config(lines=['port-channel min-links 1'],
+                           parents=[f'int {neigh_port_channel}'])
+
+    # Namespace-aware CLI option: '' on single-asic, '-n asicN' on multi-asic.
+    ns = duthost.get_port_asic_instance(selected_port).cli_ns_option
+    # Drop min-links to 1 so the LAG stays up while N-1 members are shut.
+    duthost.shell(
+        f"sonic-db-cli {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
+    for port in portChannelMembers:
+        if port == selected_port:
+            continue
+        duthost.shell(f"sudo config interface {ns} shutdown {port}")
+
+    return vm_host, neigh_port_channel, min_links
+
+
+def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports):
+    """Revert LAG/min-links edits made by shutdown_lag_members.
+
+    Since shutdown_lag_members modifies running CONFIG_DB only (no on-disk
+    edits), config_reload from the on-disk config_db is sufficient to bring
+    members back up and restore the original min_links.
+    """
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return
+
+    if isinstance(vm_host, EosHost):
+        vm_host.eos_config(lines=[f'port-channel min-links {min_links}'],
+                           parents=[f'int {neigh_port_channel}'])
+
+    config_reload(duthost, config_source='config_db', safe_reload=True,
+                  check_intf_up_ports=True, wait_for_bgp=True)
+
+
+def _is_multi_member_lag(duthost, port, ports):
+    if ports[port]['test_port_type'] != 'portchannel':
+        return False
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="persistent"
+    )['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return any(port in members and len(members) > 1 for members in pc_members.values())
+
+
+@pytest.fixture(scope='module')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """LAG config resource manager for PFCwd tests.
+
+    Setup: shuts down extra LAG members so only the selected port remains active.
+    Teardown: restores the original config_db; runs even on test failure.
+    Yields (vm_host, neigh_port_channel, min_links). Skips setup/teardown when
+    the selected port is not in a multi-member portchannel.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+
+    if not _is_multi_member_lag(duthost, port, ports):
+        yield None, None, None
+        return
+
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
+    try:
+        yield vm_host, neigh_port_channel, min_links
+    finally:
+        restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)

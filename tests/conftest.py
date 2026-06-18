@@ -54,7 +54,8 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
-from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
+    is_pfcwd_hw_recovery_enabled
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -465,6 +466,22 @@ def converge_topo_if_needed(config):
         if not use_converged_peers:
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
             return
+
+        # The converged (multi-VRF) peer model is implemented for cEOS neighbors
+        # only (see ansible/testbed-cli.sh::converge_topo_if_needed and the
+        # cEOS startup-config templates). For SONiC-VS / cisco / csonic
+        # neighbors there is no converged render path, so reshaping the in-memory
+        # topology here would make tbinfo disagree with the actually-deployed
+        # (unconverged) testbed. Gate on neighbor_type so non-cEOS runs keep the
+        # historical, byte-identical behavior.
+        neighbor_type = config.getoption("--neighbor_type")
+        if neighbor_type not in ("eos", "ceos"):
+            logger.info(
+                f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
+                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
+                f"model is cEOS-only)")
+            return
+
         logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
 
         topo_name = tb_config.get('topo', '').strip()
@@ -1112,6 +1129,23 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
+            if multi_vrf_peer:
+                device['host'].bgp_vrf = multi_vrf_data['vrf']
+                device['host'].bgp_prime_asn = multi_vrf_data['primary_host_asn']
+                device['host'].intf_map = multi_vrf_data['orig_intf_map']
+        elif neighbor_type == "csonic":
+            # cSONiC neighbors are docker-sonic-vs containers accessed via
+            # "docker exec" (CsonicHost), not over SSH. Handle them before the
+            # generic "sonic in neighbor_type" branch below, which routes the
+            # SSH-based SONiC family (sonic, vsonic) to SonicHost.
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
@@ -1133,15 +1167,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "csonic":
-            vm_set_name = tbinfo.get('group-name', '')
-            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
@@ -3750,8 +3775,13 @@ def setup_pfc_test(
     logger.info("--- Stopping Pfcwd ---")
     duthost.command("pfcwd stop")
 
-    # set poll interval
-    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+    # set poll interval (only for software recovery mechanism; HW PFCwd doesn't
+    # support 'pfcwd interval' since the poll runs in silicon)
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        logger.info("--- Hardware recovery mechanism detected - poll interval not supported ---")
+    else:
+        logger.info("--- Setting poll interval for software recovery mechanism ---")
+        duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
 
     # set bulk counter chunk size
     logger.info("--- Setting bulk counter polling chunk size ---")
@@ -4127,6 +4157,14 @@ def yang_validation_check(request, duthosts):
         yield
         logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
+
+    for m in request.node.iter_markers():
+        if m.name == "skip_check_dut_health":
+            logger.info(
+                "Skipping YANG validation: module marked skip_check_dut_health"
+            )
+            yield
+            return
 
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
