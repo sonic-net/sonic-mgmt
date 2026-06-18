@@ -1446,6 +1446,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         setup_info = setup_pfc_test
         setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
         self.fanout_info = enum_fanout_graph_facts
         self.ptf = ptfhost
         self.dut = duthost
@@ -1473,7 +1474,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         for idx, port in enumerate(self.ports):
             logger.info("")
             logger.info("--- Testing non-Trafific Pfcwd actions on {} ---".format(port))
-            self.setup_test_params(port, setup_info['vlan'], init=not idx)
+            self.setup_test_params(port, setup_info['vlan'], init=not idx, ip_version=ip_version)
 
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
