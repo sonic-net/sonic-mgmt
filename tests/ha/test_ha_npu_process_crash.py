@@ -237,7 +237,7 @@ class TestNpuProcessCrash:
         )
         logger.info("Initial HA states confirmed")
 
-        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan")
+        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan", tcp_flag_syn=True)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pl_config[LOCAL_PTF_INTF], send_pkt, count=1)
         testutils.verify_packet_any_port(

@@ -36,9 +36,12 @@ def _build_fnic_pkt_set(config, encap_proto, ptfadapter):
     for _ in range(NUM_PACKETS):
         sport = random.randint(49152, 65535)
         dport = random.randint(49152, 65535)
+        # Each iteration is a unique 5-tuple; outbound SYN creates a new TCP flow on the DPU,
+        # then the inbound packet matches the established flow's reverse direction as an ACK.
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
             config, encap_proto, floating_nic=True,
-            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+            tcp_flag_syn=True,
         )
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
             config, floating_nic=True, inner_sport=dport, inner_dport=sport

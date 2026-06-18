@@ -152,7 +152,8 @@ def activate_dash_ha(duthost, dpuhost, localhost, ptfhost, setup_gnmi_server,
 
 def verify_primary_standalone_traffic(ptfadapter, dash_pl_config):
     primary_config = dash_pl_config[0]
-    send_pkt, exp_pkt = outbound_pl_packets(primary_config, "vxlan")
+    # Single-shot packet: send SYN so the DPU creates the stateful TCP flow on the spot.
+    send_pkt, exp_pkt = outbound_pl_packets(primary_config, "vxlan", tcp_flag_syn=True)
 
     logger.info("HA: verify PL traffic sent to primary NPU while primary is standalone")
     ptfadapter.dataplane.flush()

@@ -9,7 +9,7 @@ from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from packets import outbound_pl_packets
+from packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
@@ -103,6 +103,12 @@ def test_ha_dpu_failure(
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
 
     send_count = 0
     failed_count = 0

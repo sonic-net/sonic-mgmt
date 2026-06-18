@@ -210,7 +210,9 @@ def _send_continuous_pl_traffic(ptfadapter, send_config, recv_ports, stop_event,
 
 
 def _verify_baseline_pl_traffic(ptfadapter, send_config, recv_ports):
-    send_pkt, exp_pkt = outbound_pl_packets(send_config, "vxlan")
+    # Send SYN so the DPU creates the stateful TCP flow; subsequent ACK traffic in the
+    # continuous-traffic thread then matches the established flow.
+    send_pkt, exp_pkt = outbound_pl_packets(send_config, "vxlan", tcp_flag_syn=True)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, send_config[LOCAL_PTF_INTF], send_pkt, count=1)
     testutils.verify_packet_any_port(
