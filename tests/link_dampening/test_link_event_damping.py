@@ -5,7 +5,7 @@ from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.link_dampening.link_event_damping_utils import (
-    get_dut_fronface_ports,
+    # get_dut_fronface_ports,
     configure_link_damping,
     verify_configuration,
     get_link_damping_stats,
@@ -16,12 +16,12 @@ from tests.link_dampening.link_event_damping_utils import (
     get_redis_db_entries,
     validate_redis_persistence,
     get_dampening_penalties,
-    verify_counter_values,
-    calculate_expected_suppression_time,
+    # verify_counter_values,
+    # calculate_expected_suppression_time,
     check_suppression_active,
-    inject_traffic_and_verify,
+    # inject_traffic_and_verify,
     restart_docker_container,
-    wait_for_condition
+    # wait_for_condition
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,8 @@ class TestLinkEventDampingBasics:
         # Cleanup: clear damping config after each test
         # clear_link_damping_stats(duthost)
 
-    def test_tc01_1_normal_link_flap_event_propagation(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc01_1_normal_link_flap_event_propagation(self, duthost, duthosts,
+                                                       enum_rand_one_per_hwsku_frontend_hostname):
         """TC01.1 - Normal Link Flap Event Propagation
 
         Verify that link up/down events propagate normally when damping is inactive.
@@ -131,7 +132,7 @@ class TestLinkEventDampingBasics:
 
         time.sleep(10)
 
-        #get stats before the link flap
+        # get stats before the link flap
         stats1 = get_link_damping_stats(dut, test_intf)
         pre_damping_downs1 = int(stats1.get('pre_damping_down_events', 0))
         pre_damping_ups1 = int(stats1.get('pre_damping_up_events', 0))
@@ -152,11 +153,12 @@ class TestLinkEventDampingBasics:
         logger.warning(f"Pre-damping UP events: {pre_damping_ups}")
 
         pytest_assert(pre_damping_downs >= pre_damping_downs1,
-                     "Expected DOWN events to be recorded")
+                      "Expected DOWN events to be recorded")
         pytest_assert(pre_damping_ups >= pre_damping_ups1,
-                     "Expected UP events to be recorded")
+                      "Expected UP events to be recorded")
 
-    def test_tc01_3_simultaneous_flaps_on_multiple_ports(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc01_3_simultaneous_flaps_on_multiple_ports(self, duthost, duthosts,
+                                                         enum_rand_one_per_hwsku_frontend_hostname):
         """TC01.3 - Simultaneous Flaps on Multiple Ports
 
         Verify simultaneous link flaps on multiple ports are handled correctly.
@@ -187,13 +189,14 @@ class TestLinkEventDampingBasics:
             pre_damping_transitions = int(stats.get('pre_damping_link_transitions', 0))
             logger.warning(f"Pre-damping DOWN events: {pre_damping_transitions}")
             pytest_assert(pre_damping_transitions > 0,
-                         f"Expected transitions on {intf}")
+                          f"Expected transitions on {intf}")
 
 
 class TestLinkEventDampingConfiguration:
     """Test cases for damping configuration validation (TC02-TC03)"""
 
-    def test_tc02_1_basic_link_damping_configuration(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc02_1_basic_link_damping_configuration(self, duthost, duthosts,
+                                                     enum_rand_one_per_hwsku_frontend_hostname):
         """TC02.1 - Basic Link Damping Configuration
 
         Verify that damping configuration is applied correctly.
@@ -205,11 +208,11 @@ class TestLinkEventDampingConfiguration:
 
         # Configure damping with all parameters
         configure_link_damping(dut, test_intf,
-                             suppress_threshold=DAMPING_CONFIG_PARAMS["suppress_threshold"],
-                             reuse_threshold=DAMPING_CONFIG_PARAMS["reuse_threshold"],
-                             decay_half_life=DAMPING_CONFIG_PARAMS["decay_half_life"],
-                             max_suppress_time=DAMPING_CONFIG_PARAMS["max_suppress_time"],
-                             flap_penalty=DAMPING_CONFIG_PARAMS["flap_penalty"])
+                               suppress_threshold=DAMPING_CONFIG_PARAMS["suppress_threshold"],
+                               reuse_threshold=DAMPING_CONFIG_PARAMS["reuse_threshold"],
+                               decay_half_life=DAMPING_CONFIG_PARAMS["decay_half_life"],
+                               max_suppress_time=DAMPING_CONFIG_PARAMS["max_suppress_time"],
+                               flap_penalty=DAMPING_CONFIG_PARAMS["flap_penalty"])
 
         time.sleep(5)
         # Verify configuration in CONFIG_DB
@@ -232,7 +235,7 @@ class TestLinkEventDampingConfiguration:
 
         time.sleep(5)
         # Query CONFIG_DB
-        config_entries = get_redis_db_entries(dut, "CONFIG_DB", f"*LINK_EVENT_DAMPING*")
+        config_entries = get_redis_db_entries(dut, "CONFIG_DB", "*LINK_EVENT_DAMPING*")
         pytest_assert(config_entries, f"No CONFIG_DB entries found for {test_intf}")
 
         logger.info(f"CONFIG_DB entries: {config_entries}")
@@ -333,7 +336,8 @@ class TestLinkEventDampingConfiguration:
 class TestLinkEventDampingUnsupported:
     """Test cases for unsupported configuration handling (TC03)"""
 
-    def test_tc03_1_decay_exceeds_max_suppress_time(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc03_1_decay_exceeds_max_suppress_time(self, duthost, duthosts,
+                                                    enum_rand_one_per_hwsku_frontend_hostname):
         """TC03.1 - Decay Exceeds Max Suppress Time
 
         Verify damping is disabled when decay-half-life > max-suppress-time.
@@ -361,8 +365,9 @@ class TestLinkEventDampingUnsupported:
         logger.warning(f"Post-damping propagated: {post_damping_propagated}")
 
         # All events should be propagated (damping disabled)
-        pytest_assert(post_damping_propagated == pre_damping_transitions or post_damping_propagated >= pre_damping_transitions - 1,
-                     "Unsupported config should disable damping")
+        pytest_assert(post_damping_propagated == pre_damping_transitions or
+                      post_damping_propagated >= pre_damping_transitions - 1,
+                      "Unsupported config should disable damping")
 
     def test_tc03_2_zero_flap_penalty(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC03.2 - Zero Flap Penalty
@@ -487,7 +492,8 @@ class TestLinkEventDampingMixedConfig:
 
         logger.info("Mixed configuration applied successfully")
 
-    def test_tc04_2_simultaneous_flaps_damped_vs_undamped(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc04_2_simultaneous_flaps_damped_vs_undamped(self, duthost, duthosts,
+                                                          enum_rand_one_per_hwsku_frontend_hostname):
         """TC04.2 - Simultaneous Flaps (Damped vs Undamped)
 
         Compare behavior of damped and undamped ports.
@@ -522,7 +528,7 @@ class TestLinkEventDampingMixedConfig:
 
         # Undamped should propagate more events
         pytest_assert(undamped_propagated >= damped_propagated,
-                     "Undamped interface should propagate more events")
+                      "Undamped interface should propagate more events")
 
     def test_tc04_3_different_damping_profiles(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC04.3 - Different Damping Profiles
@@ -603,7 +609,8 @@ class TestLinkEventDampingMixedConfig:
 class TestLinkEventDampingOperationalState:
     """Test cases for operational state accuracy (TC05)"""
 
-    def test_tc05_1_operational_state_frozen_during_suppression(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc05_1_operational_state_frozen_during_suppression(self, duthost, duthosts,
+                                                                enum_rand_one_per_hwsku_frontend_hostname):
         """TC05.1 - Operational State Frozen During Suppression
 
         Verify operational state remains frozen while damping is active.
@@ -624,9 +631,10 @@ class TestLinkEventDampingOperationalState:
 
             logger.info(f"During suppression - Op state: {op_state_during}, Phys state: {phys_state}")
             pytest_assert(op_state_during != phys_state or op_state_during == "down",
-                         "Operational state should be frozen during suppression")
+                          "Operational state should be frozen during suppression")
 
-    def test_tc05_2_operational_state_updates_after_suppression_ends(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc05_2_operational_state_updates_after_suppression_ends(self, duthost, duthosts,
+                                                                     enum_rand_one_per_hwsku_frontend_hostname):
         """TC05.2 - Operational State Updates After Suppression Ends
 
         Verify operational state updates after suppression ends.
@@ -652,9 +660,10 @@ class TestLinkEventDampingOperationalState:
 
         logger.info(f"After suppression - Op state: {op_state}, Phys state: {phys_state}")
         pytest_assert(op_state == phys_state,
-                     "Operational state should match physical state after suppression ends")
+                      "Operational state should match physical state after suppression ends")
 
-    def test_tc05_3_physical_vs_operational_state_divergence(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc05_3_physical_vs_operational_state_divergence(self, duthost, duthosts,
+                                                             enum_rand_one_per_hwsku_frontend_hostname):
         """TC05.3 - Physical vs Operational State Divergence During Suppression
 
         Verify physical and operational states diverge during suppression.
@@ -681,7 +690,8 @@ class TestLinkEventDampingOperationalState:
             logger.info(f"Physical state: {phys_state}, Operational state: {op_state}")
             # States should diverge if suppression is active
 
-    def test_tc05_4_penalty_decay_and_state_recovery(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc05_4_penalty_decay_and_state_recovery(self, duthost, duthosts,
+                                                     enum_rand_one_per_hwsku_frontend_hostname):
         """TC05.4 - Penalty Decay and State Recovery
 
         Verify state recovers as penalty decays.
@@ -706,7 +716,7 @@ class TestLinkEventDampingOperationalState:
 
         # Penalty should decay
         pytest_assert(current_penalty < initial_penalty or current_penalty == 0,
-                     "Penalty should decay over time")
+                      "Penalty should decay over time")
 
     def test_tc05_5_multiple_suppression_cycles(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC05.5 - Multiple Suppression Cycles
@@ -729,10 +739,12 @@ class TestLinkEventDampingOperationalState:
 
         logger.info("Multiple suppression cycles completed")
 
+
 class TestLinkEventDampingFrequency:
     """Test cases for flap frequency effects (TC06)"""
 
-    def test_tc06_1_frequent_flaps_longer_suppression(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc06_1_frequent_flaps_longer_suppression(self, duthost, duthosts,
+                                                      enum_rand_one_per_hwsku_frontend_hostname):
         """TC06.1 - Frequent Flaps Longer Suppression
 
         Verify frequent flaps result in longer suppression.
@@ -759,7 +771,8 @@ class TestLinkEventDampingFrequency:
         # Should be longer than minimal
         pytest_assert(suppression_duration > 5, "Suppression should last a reasonable time")
 
-    def test_tc06_2_infrequent_flaps_shorter_suppression(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc06_2_infrequent_flaps_shorter_suppression(self, duthost, duthosts,
+                                                         enum_rand_one_per_hwsku_frontend_hostname):
         """TC06.2 - Infrequent Flaps Shorter Suppression
 
         Verify infrequent flaps result in shorter suppression.
@@ -818,7 +831,8 @@ class TestLinkEventDampingFrequency:
 
         logger.info(f"Penalty at t=0: {penalty_t0}, t=5: {penalty_t5}, t=10: {penalty_t10}")
 
-    def test_tc06_5_recovery_time_proportional_to_frequency(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc06_5_recovery_time_proportional_to_frequency(self, duthost, duthosts,
+                                                            enum_rand_one_per_hwsku_frontend_hostname):
         """TC06.5 - Recovery Time Proportional to Frequency
 
         Verify recovery time varies with flap frequency.
@@ -852,7 +866,8 @@ class TestLinkEventDampingFrequency:
 
         logger.info("Mixed pattern suppression tested")
 
-    def test_tc06_7_threshold_crossing_different_timing(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc06_7_threshold_crossing_different_timing(self, duthost, duthosts,
+                                                        enum_rand_one_per_hwsku_frontend_hostname):
         """TC06.7 - Threshold Crossing Different Timing
 
         Verify different timing for threshold crossing.
@@ -875,7 +890,8 @@ class TestLinkEventDampingFrequency:
 class TestLinkEventDampingCounters:
     """Test cases for counter verification (TC07)"""
 
-    def test_tc07_1_pre_damping_link_transitions_counter(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_1_pre_damping_link_transitions_counter(self, duthost, duthosts,
+                                                         enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.1 - Pre-Damping Link Transitions Counter
 
         Verify pre-damping link transitions counter.
@@ -899,7 +915,8 @@ class TestLinkEventDampingCounters:
         logger.info(f"Pre-damping link transitions: {transitions}")
         pytest_assert(transitions > 0, "Pre-damping transitions should be recorded")
 
-    def test_tc07_2_post_damping_propagated_transitions_counter(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_2_post_damping_propagated_transitions_counter(self, duthost, duthosts,
+                                                                enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.2 - Post-Damping Propagated Transitions Counter
 
         Verify post-damping propagated transitions counter.
@@ -967,7 +984,8 @@ class TestLinkEventDampingCounters:
         logger.info(f"Pre-damping DOWN events: {down_events}")
         pytest_assert(down_events > 0, "DOWN events should be recorded")
 
-    def test_tc07_5_post_damping_up_advertised_counter(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_5_post_damping_up_advertised_counter(self, duthost, duthosts,
+                                                       enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.5 - Post-Damping UP Advertised Counter
 
         Verify post-damping UP advertised counter.
@@ -989,7 +1007,8 @@ class TestLinkEventDampingCounters:
 
         logger.info(f"Post-damping UP advertised: {up_advertised}")
 
-    def test_tc07_6_post_damping_down_advertised_counter(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_6_post_damping_down_advertised_counter(self, duthost, duthosts,
+                                                         enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.6 - Post-Damping DOWN Advertised Counter
 
         Verify post-damping DOWN advertised counter.
@@ -1011,7 +1030,8 @@ class TestLinkEventDampingCounters:
 
         logger.info(f"Post-damping DOWN advertised: {down_advertised}")
 
-    def test_tc07_7_counter_consistency_across_cycles(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_7_counter_consistency_across_cycles(self, duthost, duthosts,
+                                                      enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.7 - Counter Consistency Across Cycles
 
         Verify counters remain consistent across multiple cycles.
@@ -1037,7 +1057,8 @@ class TestLinkEventDampingCounters:
         logger.info(f"Cycle 1 transitions: {count1}, Cycle 2 transitions: {count2}")
         pytest_assert(count2 >= count1, "Counter should monotonically increase")
 
-    def test_tc07_8_counter_increments_proportional_to_events(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_8_counter_increments_proportional_to_events(self, duthost, duthosts,
+                                                              enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.8 - Counter Increments Proportional to Events
 
         Verify counter increments are proportional to events.
@@ -1059,7 +1080,8 @@ class TestLinkEventDampingCounters:
         logger.info(f"Transitions for 10 flaps: {transitions}")
         pytest_assert(transitions >= 10, "Counter should reflect number of events")
 
-    def test_tc07_9_suppressed_events_not_in_post_damping(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc07_9_suppressed_events_not_in_post_damping(self, duthost, duthosts,
+                                                          enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.9 - Suppressed Events Not in Post-Damping
 
         Verify suppressed events are not counted in post-damping.
@@ -1081,7 +1103,7 @@ class TestLinkEventDampingCounters:
 
         logger.info(f"Pre-damping: {pre_transitions}, Post-damping: {post_transitions}")
         pytest_assert(post_transitions <= pre_transitions,
-                     "Post-damping should not include suppressed events")
+                      "Post-damping should not include suppressed events")
 
     def test_tc07_10_counter_reset_and_recovery(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC07.10 - Counter Reset and Recovery
@@ -1110,7 +1132,8 @@ class TestLinkEventDampingCounters:
 class TestLinkEventDampingTimeline:
     """Test cases for timeline validation (TC09)"""
 
-    def test_tc09_1_timeline_event_sequence_execution(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc09_1_timeline_event_sequence_execution(self, duthost, duthosts,
+                                                      enum_rand_one_per_hwsku_frontend_hostname):
         """TC09.1 - Timeline Event Sequence Execution
 
         Execute deterministic timeline of events.
@@ -1150,11 +1173,11 @@ class TestLinkEventDampingTimeline:
                 })
 
 
-
 class TestLinkEventDampingPersistence:
     """Test cases for persistence across reboots and docker restarts (TC10)"""
 
-    def test_tc10_1_damping_config_persists_after_reboot(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc10_1_damping_config_persists_after_reboot(self, duthost, duthosts,
+                                                         enum_rand_one_per_hwsku_frontend_hostname):
         """TC10.1 - Damping Config Persists After Reboot
 
         Verify damping configuration persists after device reboot.
@@ -1181,7 +1204,8 @@ class TestLinkEventDampingPersistence:
 
         logger.info("Configuration persisted after reboot")
 
-    def test_tc10_2_damping_functionality_after_reboot(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc10_2_damping_functionality_after_reboot(self, duthost, duthosts,
+                                                       enum_rand_one_per_hwsku_frontend_hostname):
         """TC10.2 - Damping Functionality After Reboot
 
         Verify damping functionality works correctly after reboot.
@@ -1266,8 +1290,8 @@ class TestLinkEventDampingPersistence:
 
         logger.info("Multiple reboot cycles completed successfully")
 
-
-    def test_tc10_5_concurrent_damping_multiple_ports(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_tc10_5_concurrent_damping_multiple_ports(self, duthost, duthosts,
+                                                      enum_rand_one_per_hwsku_frontend_hostname):
         """TC10.5 - Concurrent Damping Multiple Ports
 
         Verify concurrent damping on multiple ports survives reboot.

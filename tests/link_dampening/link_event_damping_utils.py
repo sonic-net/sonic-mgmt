@@ -39,8 +39,8 @@ def get_dut_fronface_ports(duthost, tbinfo):
 
 
 def configure_link_damping(dut, interface, suppress_threshold=None, reuse_threshold=None,
-                          decay_half_life=None, max_suppress_time=None, flap_penalty=None,
-                          algorithm="aied", disabled=False):
+                           decay_half_life=None, max_suppress_time=None, flap_penalty=None,
+                           algorithm="aied", disabled=False):
     """
     Configure link damping parameters on a specific interface using AIED algorithm.
 
@@ -98,8 +98,8 @@ def configure_link_damping(dut, interface, suppress_threshold=None, reuse_thresh
 
             if result["rc"] == 0:
                 logger.info(f"Link damping parameters configured on {interface}: "
-                           f"threshold={suppress_threshold}, reuse={reuse_threshold}, "
-                           f"decay={decay_half_life}ms, max_suppress={max_suppress_time}ms, penalty={flap_penalty}")
+                            f"threshold={suppress_threshold}, reuse={reuse_threshold}, "
+                            f"decay={decay_half_life}ms, max_suppress={max_suppress_time}ms, penalty={flap_penalty}")
                 return True
             else:
                 logger.warning(f"Failed to configure damping parameters on {interface}: {result.get('stderr', '')}")
@@ -172,7 +172,7 @@ def generate_link_flap(dut, dut_interface, fanout=None, fanout_interface=None, n
             logger.info(f"Generating {num_flaps} link flaps on {dut_interface} with {interval}s interval")
 
             for flap_num in range(num_flaps):
-                # Admin down
+                # Admin dow Exception as en
                 logger.debug(f"Flap {flap_num + 1}/{num_flaps}: Admin down on {dut_interface}")
                 dut.shell(f"config interface shutdown {dut_interface}", module_ignore_errors=True)
                 time.sleep(interval / 2)
@@ -187,19 +187,19 @@ def generate_link_flap(dut, dut_interface, fanout=None, fanout_interface=None, n
         else:
             # Use fanout switch interface (preferred method)
             logger.info(f"Generating {num_flaps} link flaps on {dut_interface} "
-                       f"(fanout {fanout_interface}) with {interval}s interval")
+                        f"(fanout {fanout_interface}) with {interval}s interval")
 
             for flap_num in range(num_flaps):
                 # Shut down fanout interface (causes link DOWN on DUT)
                 logger.debug(f"Flap {flap_num + 1}/{num_flaps}: Shutting down {fanout_interface}")
                 try:
                     fanout.shutdown([fanout_interface])
-                except:
+                except Exception as e:
                     # Fallback to shell command
-                    fanout.shell(f"configure terminal", module_ignore_errors=True)
+                    fanout.shell("configure terminal", module_ignore_errors=True)
                     fanout.shell(f"interface {fanout_interface}", module_ignore_errors=True)
-                    fanout.shell(f"shutdown", module_ignore_errors=True)
-                    fanout.shell(f"end", module_ignore_errors=True)
+                    fanout.shell("shutdown", module_ignore_errors=True)
+                    fanout.shell("end", module_ignore_errors=True)
 
                 time.sleep(interval / 2)
 
@@ -207,12 +207,12 @@ def generate_link_flap(dut, dut_interface, fanout=None, fanout_interface=None, n
                 logger.debug(f"Flap {flap_num + 1}/{num_flaps}: Bringing up {fanout_interface}")
                 try:
                     fanout.no_shutdown([fanout_interface])
-                except:
+                except Exception as e:
                     # Fallback to shell command
-                    fanout.shell(f"configure terminal", module_ignore_errors=True)
+                    fanout.shell("configure terminal", module_ignore_errors=True)
                     fanout.shell(f"interface {fanout_interface}", module_ignore_errors=True)
-                    fanout.shell(f"no shutdown", module_ignore_errors=True)
-                    fanout.shell(f"end", module_ignore_errors=True)
+                    fanout.shell("no shutdown", module_ignore_errors=True)
+                    fanout.shell("end", module_ignore_errors=True)
 
                 time.sleep(interval / 2)
 
@@ -564,7 +564,7 @@ def calculate_expected_suppression_time(suppress_threshold, reuse_threshold, dec
             decay_half_life_sec = decay_half_life / 1000.0
             time_to_reuse = decay_half_life_sec * math.log2(ratio)
             logger.info(f"Expected suppression time: {time_to_reuse:.2f}s "
-                       f"(penalty {penalty} -> {reuse_threshold}, half_life={decay_half_life}ms)")
+                        f"(penalty {penalty} -> {reuse_threshold}, half_life={decay_half_life}ms)")
             return time_to_reuse
         else:
             return 0
