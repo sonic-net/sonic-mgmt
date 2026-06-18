@@ -1,6 +1,11 @@
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
 from typing import Any, Dict
 from tabulate import tabulate
+from tests.common.gu_utils import (
+    create_checkpoint,
+    delete_checkpoint,
+    rollback_or_reload,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -522,11 +527,12 @@ def create_traffic_items(config, snappi_extra_params):
         test_flow.size.fixed = traffic["frame_size"]
         test_flow.rate.percentage = traffic["line_rate"]
         if traffic.get("is_rdma", False):
-            _, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = traffic["prio"]
             ipv4.priority.dscp.phb.values = [
                 ipv4.priority.dscp.phb.DEFAULT,
             ]
-            ipv4.priority.dscp.phb.value = 4
+            ipv4.priority.dscp.phb.value = traffic["dscp_value"]
             ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
         if traffic.get("latency", False):
             # Latency Config
@@ -839,3 +845,19 @@ def check_bgp_state(snappi_api, subnet_type):
         bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
         assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
         logger.info("BGP v6 Session State is UP")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def dutconfig_checkpoint(duthosts):
+    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
+
+    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
+    rollback_or_reload() falls back to config_reload if the rollback fails, so
+    the DUT always returns to a clean state -- no try/finally needed in the tests.
+    """
+    for duthost in duthosts:
+        create_checkpoint(duthost)
+    yield
+    for duthost in duthosts:
+        rollback_or_reload(duthost)
+        delete_checkpoint(duthost)
