@@ -65,14 +65,14 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
             duthost.shell('sudo losetup -P  /dev/loop2 log-new-partition')
             duthost.shell('sudo mkfs.ext4 /dev/loop2')
             duthost.shell('sudo mount /dev/loop2 /var/log')
-            duthost.shell('sudo cp -f {} /var/log/syslog'.format(SYSLOG_BACKUP_FILE), module_ignore_errors=True)
+            duthost.shell('sudo cp -f {} /var/log/syslog'.format(SYSLOG_BACKUP_FILE))
             duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
 
             config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-            setup_finished = True
 
             logger.info('Start logrotate-config service')
             duthost.shell('sudo service logrotate-config restart')
+            setup_finished = True
 
         yield
     finally:
@@ -187,6 +187,16 @@ def run_logrotate(duthost, force=False):
     return result
 
 
+def assert_logrotate_success(duthost, result):
+    if result.get('rc') != 0:
+        state = collect_syslog_rotate_state(duthost)
+        pytest.fail(
+            'Logrotate command failed unexpectedly. rc={}, stdout={}, stderr={}, state={}'.format(
+                result.get('rc'), result.get('stdout', ''), result.get('stderr', ''), state
+            )
+        )
+
+
 def multiply_with_unit(logrotate_threshold, num):
     """
     Multiply logrotate_threshold with number, and return the value
@@ -205,7 +215,8 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
     :param logrotate_threshold: logrotate threshold, such as 16M or 1024K
     """
     with allure.step('Run logrotate with force option to prepare clean syslog environment'):
-        run_logrotate(duthost, force=True)
+        logrotate_result = run_logrotate(duthost, force=True)
+        assert_logrotate_success(duthost, logrotate_result)
 
     with allure.step('There should be no logrotate process when rsyslog size is smaller than threshold {}'.format(
             logrotate_threshold)):
@@ -218,6 +229,7 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
 
         oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         logrotate_result = run_logrotate(duthost)
+        assert_logrotate_success(duthost, logrotate_result)
         syslog_number_no_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
         # For no rotation happen, both two conditions has to be satisfied
@@ -241,6 +253,7 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
         oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         logrotate_result = run_logrotate(duthost)
+        assert_logrotate_success(duthost, logrotate_result)
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
         oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
@@ -248,17 +261,17 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
         # 1. If the number of syslog file the same, the oldest log file checksum has to be different
         #    This is the corner case that number of log files reach the rotate limit.
         # 2. Otherwise, number of log file has to increase by 1
-        if (syslog_number_origin == syslog_number_with_rotate and
-                oldest_checksum_before_rotate == oldest_checksum_after_rotate):
-            state = collect_syslog_rotate_state(duthost)
-            pytest.fail(
-                'No logrotate happens, both syslog file number and timestamp are the same. '
-                'origin={}, after={}, checksum_before={}, checksum_after={}, rc={}, state={}'.format(
-                    syslog_number_origin, syslog_number_with_rotate,
-                    oldest_checksum_before_rotate, oldest_checksum_after_rotate,
-                    logrotate_result.get('rc'), state
+        if syslog_number_origin == syslog_number_with_rotate:
+            if oldest_checksum_before_rotate == oldest_checksum_after_rotate:
+                state = collect_syslog_rotate_state(duthost)
+                pytest.fail(
+                    'No logrotate happens, both syslog file number and timestamp are the same. '
+                    'origin={}, after={}, checksum_before={}, checksum_after={}, rc={}, state={}'.format(
+                        syslog_number_origin, syslog_number_with_rotate,
+                        oldest_checksum_before_rotate, oldest_checksum_after_rotate,
+                        logrotate_result.get('rc'), state
+                    )
                 )
-            )
         elif syslog_number_origin + 1 != syslog_number_with_rotate:
             state = collect_syslog_rotate_state(duthost)
             pytest.fail(
