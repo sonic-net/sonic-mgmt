@@ -2,12 +2,11 @@
 Test bgp no-export community in SONiC.
 """
 
-import random
 import pytest
-import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import is_ipv6_only_topology
+from tests.common.helpers.constants import DOWNSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.utilities import is_ipv6_only_topology, wait_until
 from bgp_helpers import apply_bgp_config
 from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
@@ -15,6 +14,27 @@ from bgp_helpers import BGP_ANNOUNCE_TIME
 pytestmark = [
     pytest.mark.topology('t1')
 ]
+
+
+def get_downstream_vm(duthost, nbrhosts, tbinfo):
+    downstream_type = [t.upper() for t in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]]]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    connected_neighbors = set(neigh['name'] for neigh in list(mg_facts['minigraph_neighbors'].values()))
+    downstream_neighbors = sorted(
+        [vm_name for vm_name in list(nbrhosts.keys())
+         if vm_name in connected_neighbors and vm_name.upper().endswith(tuple(downstream_type))]
+    )
+    pytest_assert(downstream_neighbors, "No downstream BGP neighbor found for topology {}".format(tbinfo["topo"]["type"]))
+    return nbrhosts[downstream_neighbors[0]]['host']
+
+
+def check_no_export_routes(vm_host, is_v6_topo, expected):
+    def _no_export_state_matches():
+        routes = get_no_export_output(vm_host, ipv6=is_v6_topo)
+        return bool(routes) == expected
+
+    pytest_assert(wait_until(BGP_ANNOUNCE_TIME, 5, 0, _no_export_state_matches),
+                  "No-export route state did not become {}".format("present" if expected else "absent"))
 
 
 def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config,
@@ -39,9 +59,8 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     # Check if this is an IPv6-only topology
     is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    # Get random ToR VM
-    vm_name = random.choice([vm_name for vm_name in list(nbrhosts.keys()) if vm_name.endswith('T0')])
-    vm_host = nbrhosts[vm_name]['host']
+    # Get downstream VM
+    vm_host = get_downstream_vm(duthost, nbrhosts, tbinfo)
 
     # Start all bgp sessions
     duthost.shell('config bgp startup all')
@@ -49,19 +68,11 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     # Apply bgp plain config
     apply_bgp_config(duthost, bgp_plain_config)
 
-    # Give additional delay for routes to be propagated
-    time.sleep(BGP_ANNOUNCE_TIME)
-
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host, ipv6=is_v6_topo)
-    pytest_assert(not no_export_route_num, "Routes has no_export attribute")
+    check_no_export_routes(vm_host, is_v6_topo, expected=False)
 
     # Apply bgp no export config
     apply_bgp_config(duthost, bgp_no_export_config)
 
-    # Give additional delay for routes to be propagated
-    time.sleep(BGP_ANNOUNCE_TIME)
-
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host, ipv6=is_v6_topo)
-    pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
+    check_no_export_routes(vm_host, is_v6_topo, expected=True)
