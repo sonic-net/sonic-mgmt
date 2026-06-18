@@ -16,7 +16,7 @@
 - name: Remove the minikube VIP from the DUT hosts file
   lineinfile:
     path: "{{ dut_hosts_file }}"
-    line: "{{ minikube_apiserver_ip }} {{ minikube_vip }}"
+    regexp: " {{ minikube_vip }}$"
     state: absent
   become: true
 

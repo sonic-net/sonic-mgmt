@@ -7,7 +7,7 @@
 #   dut    : DUT inventory name (worker to join)
 
 - name: Bring up minikube control plane on the testbed server
-  hosts: "{{ server }}"
+  hosts: "{{ server }}:&vm_host"
   gather_facts: false
   roles:
     - role: minikube

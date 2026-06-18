@@ -16,7 +16,7 @@
       minikube_role_target: dut
 
 - name: Tear down minikube control plane on the testbed server
-  hosts: "{{ server }}"
+  hosts: "{{ server }}:&vm_host"
   gather_facts: false
   roles:
     - role: minikube

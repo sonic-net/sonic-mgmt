@@ -7,6 +7,20 @@
 # minikube uses the docker driver and must run as the (non-root) ansible_user;
 # only the binary install and the sysctl tweak use become.
 
+- name: Resolve the management bridge IPv4 (apiserver bind / DUT gateway)
+  shell: "ip -4 -o addr show {{ mgmt_bridge }} | awk '{print $4}' | cut -d/ -f1"
+  register: mgmt_bridge_addr
+  changed_when: false
+
+- name: Set the apiserver IP fact
+  set_fact:
+    minikube_apiserver_ip: "{{ mgmt_bridge_addr.stdout | trim }}"
+
+- name: Assert the apiserver IP was resolved
+  assert:
+    that: minikube_apiserver_ip | length > 0
+    fail_msg: "Could not resolve an IPv4 address on bridge {{ mgmt_bridge }} on the testbed server."
+
 - name: Check installed minikube version
   command: "{{ minikube_path }} version --short"
   register: minikube_installed_version

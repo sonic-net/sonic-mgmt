@@ -10,6 +10,14 @@
   register: dut_kubeadm_version
   changed_when: false
 
+- name: Resolve the control-plane (vm_host) within the server group
+  set_fact:
+    minikube_server_host: "{{ groups[server] | intersect(groups['vm_host']) | first }}"
+
+- name: Set the apiserver IP from the control-plane (server) play
+  set_fact:
+    minikube_apiserver_ip: "{{ hostvars[minikube_server_host].minikube_apiserver_ip }}"
+
 - name: Assert the DUT image is kubesonic-compatible
   assert:
     that: dut_kubeadm_version.stdout == kubernetes_version
@@ -94,7 +102,7 @@
       replace:
         path: "{{ kubelet_default_config }}"
         regexp: '--node-ip=::'
-        replace: "--node-ip={{ mgmt_gw }}"
+        replace: "--node-ip={{ ansible_host }}"
       become: true
 
     - name: Reload systemd after kubelet config change
@@ -122,7 +130,7 @@
     - dut_node_status.rc == 0
     - "'NotReady' not in dut_node_status.stdout"
     - "' Ready' in dut_node_status.stdout"
-  delegate_to: "{{ server }}"
+  delegate_to: "{{ minikube_server_host }}"
   environment: "{{ minikube_proxy_env }}"
 
 - name: Assert the DUT joined the cluster

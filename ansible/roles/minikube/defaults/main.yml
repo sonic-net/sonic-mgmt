@@ -22,9 +22,11 @@ minikube_vip: control-plane.minikube.internal
 # test_k8s_join_disjoin.py: MINIKUBE_DOWNLOAD_TIMEOUT_SECOND
 minikube_download_timeout_second: 360
 
-# Control-plane apiserver bind IP. The DUT reaches the testbed server over its
-# management gateway, so default to the DUT's mgmt_gw rather than hardcoding.
-minikube_apiserver_ip: "{{ hostvars[dut].mgmt_gw }}"
+# Control-plane apiserver bind IP. This is the testbed server's management
+# bridge address, which is also the DUT's management gateway. It is resolved at
+# runtime from the bridge on the server (see host_create.yml) rather than
+# hardcoded or read from inventory, then passed to the DUT play via hostvars.
+mgmt_bridge: br1
 minikube_apiserver_port: 6443
 
 # DaemonSet smoke workload. test_k8s_join_disjoin.py: DAEMONSET_*.
