@@ -455,7 +455,7 @@ def get_dampening_penalties(dut, interface):
 
         oid_result = dut.shell(get_oid_cmd, module_ignore_errors=True)
         oid = oid_result['stdout'].strip()
-        
+
         cmd = f"redis-cli -n 6 HGET 'LINK_EVENT_DAMPING_STATS|{oid}' 'current_penalty'"
         result = dut.shell(cmd, module_ignore_errors=True)
 
@@ -489,7 +489,7 @@ def check_suppression_active(dut, interface):
 
         oid_result = dut.shell(get_oid_cmd, module_ignore_errors=True)
         oid = oid_result['stdout'].strip()
-        
+
         cmd = f"redis-cli -n 6 HGET 'LINK_EVENT_DAMPING_STATS|{oid}' 'is_damping_active'"
         result = dut.shell(cmd, module_ignore_errors=True)
 
