@@ -1,0 +1,17 @@
+{
+    "defaults":
+    {
+        "port_under_test": [],
+        "remote_reseat_timeout_min": 10,
+        "remote_reseat_stress_iteration": 5,
+        "simultaneous_oir": false,
+        "monitor_kernel_errors": false,
+        "link_flap_monitor_timeout_sec": 10
+    },
+    "dut": {
+        "<dut-name>":{
+            "port_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
+            "remote_reseat_stress_iteration": 10
+        }
+    }
+}
