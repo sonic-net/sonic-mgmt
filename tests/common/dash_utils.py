@@ -132,8 +132,9 @@ def bucket_dash_configs(*config_dicts):
         for k, v in d.items():
             if k in seen and seen[k] != v:
                 logger.warning(
-                    "Duplicate DASH key %s with conflicting values across input dicts; "
-                    "later value wins", k,
+                    "Duplicate DASH key %r with conflicting values across "
+                    "input dicts; later value wins",
+                    k,
                 )
             seen[k] = v
             tbl = dash_table_name(k)
@@ -141,7 +142,8 @@ def bucket_dash_configs(*config_dicts):
             if phase is None:
                 logger.warning(
                     "Unknown DASH table %r in key %r; defaulting to phase %s. "
-                    "Add an entry to DASH_TABLE_PHASE to silence this warning.",
+                    "Add an entry to DASH_TABLE_PHASE to silence this "
+                    "warning.",
                     tbl, k, DEFAULT_DASH_PHASE.name,
                 )
                 phase = DEFAULT_DASH_PHASE
