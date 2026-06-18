@@ -99,10 +99,14 @@ def _apply_outbound_route_filter(duthost, dut_asn, neighbor_ips, is_v6, namespac
     cmd = "vtysh {} {}".format(ns_option, " ".join("-c '{}'".format(c) for c in vtysh_cmds))
     duthost.shell(cmd)
 
-    # Soft-reset outbound so the filter takes effect immediately
+    # Soft-reset outbound so the filter takes effect immediately.
+    # Note: FRR vtysh syntax differs between v4 and v6:
+    #   v4: clear ip bgp <neighbor> soft out
+    #   v6: clear bgp ipv6 <neighbor> soft out  (word order is 'bgp ipv6', not 'ipv6 bgp')
+    clear_af = "bgp ipv6" if is_v6 else "ip bgp"
     for ip in neighbor_ips:
-        duthost.shell("vtysh {} -c 'clear {} bgp {} soft out'".format(
-            ns_option, "ipv6" if is_v6 else "ip", ip
+        duthost.shell("vtysh {} -c 'clear {} {} soft out'".format(
+            ns_option, clear_af, ip
         ))
 
 
@@ -170,6 +174,7 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
 
@@ -184,6 +189,14 @@ def common_setup_teardown(
         neigh_type = "LowerSpineRouter"
         if dut_type == "FabricSpineRouter" and confed_asn is not None:
             # For FT2, we need to use vtysh to configure an external BGP neighbor
+            use_vtysh = True
+    elif dut_type in ["LowerRegionalHub"]:
+        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        if confed_asn is not None:
+            use_vtysh = True
+    elif dut_type in ["UpperRegionalHub"]:
+        neigh_type = "LowerRegionalHub"
+        if confed_asn is not None:
             use_vtysh = True
     else:
         neigh_type = "ToRRouter"
@@ -220,6 +233,7 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
@@ -236,6 +250,7 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         ),
