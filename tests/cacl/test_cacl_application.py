@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any', 'bmc-shared-mgmt', 'bmc-dual-mgmt')
+    pytest.mark.topology('any', 'bmc')
 ]
 
 
