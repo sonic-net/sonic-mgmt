@@ -1,0 +1,33 @@
+---
+# Host-side (testbed server) teardown tasks.
+# Mirrors test_k8s_join_disjoin.py: remove_k8s_master, remove_minikube,
+# restore_vmhost_param. Idempotent: deleting an absent cluster is a no-op.
+
+- name: Delete the minikube cluster
+  command: "{{ minikube_path }} delete --all --purge"
+  failed_when: false
+  changed_when: true
+
+- name: Remove minikube temp artifacts
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/minikube-linux-amd64
+    - /tmp/kubelet-config.yaml
+    - /tmp/daemonset.yaml
+
+- name: Remove staged apiserver certs from the controller
+  file:
+    path: "{{ minikube_local_cert_dir }}"
+    state: absent
+  delegate_to: localhost
+
+# Restore the kernel default relaxed for kubelet pod-log writes during create.
+- name: Restore fs.protected_regular to the kernel default
+  sysctl:
+    name: fs.protected_regular
+    value: "1"
+    sysctl_set: true
+    reload: false
+  become: true

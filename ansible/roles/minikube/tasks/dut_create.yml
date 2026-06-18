@@ -1,0 +1,133 @@
+---
+# DUT-side (worker) join tasks. Runs on the SONiC DUT.
+# Mirrors test_k8s_join_disjoin.py: check_dut_k8s_version_supported,
+# check_k8s_state_db, prepare_cert, prepare_minikube_vip_dns,
+# remove_node_ip_param, and trigger_join_and_check. The minikube control plane
+# must already be up (host_create on the server play).
+
+- name: Get DUT kubeadm version
+  command: kubeadm version -o short
+  register: dut_kubeadm_version
+  changed_when: false
+
+- name: Assert the DUT image is kubesonic-compatible
+  assert:
+    that: dut_kubeadm_version.stdout == kubernetes_version
+    fail_msg: >-
+      DUT kubeadm version {{ dut_kubeadm_version.stdout }} != {{ kubernetes_version }};
+      this DUT image is not compatible with the minikube role.
+
+# ctrmgrd only acts when STATE_DB has a server update_time; seed it on a freshly
+# booted DUT so the join is processed.
+- name: Read k8s server update_time from STATE_DB
+  command: sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time
+  register: k8s_update_time
+  changed_when: false
+
+- name: Seed STATE_DB update_time and restart ctrmgrd
+  shell: |
+    sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' update_time '2024-12-24 01:01:01'
+    systemctl restart ctrmgrd
+  become: true
+  when: k8s_update_time.stdout | trim | length == 0
+
+# The DUT joins using the apiserver cert/key (staged on the controller by the
+# server play). Preserve any pre-existing credentials dir once.
+- name: Back up existing DUT credentials dir
+  shell: "if [ -d {{ dut_cert_dir }} ] && [ ! -d {{ dut_cert_bak }} ]; then mv {{ dut_cert_dir }} {{ dut_cert_bak }}; fi"
+  become: true
+
+- name: Ensure DUT credentials dir exists
+  file:
+    path: "{{ dut_cert_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Push apiserver cert/key to the DUT
+  copy:
+    src: "{{ minikube_local_cert_dir }}/{{ item }}"
+    dest: "{{ dut_cert_dir }}/{{ item }}"
+    mode: "0644"
+  become: true
+  loop:
+    - restapiserver.crt
+    - restapiserver.key
+
+- name: Add the minikube VIP to the DUT hosts file
+  lineinfile:
+    path: "{{ dut_hosts_file }}"
+    line: "{{ minikube_apiserver_ip }} {{ minikube_vip }}"
+    state: present
+  become: true
+
+# Ensure the smoke DaemonSet's pause image is locally resolvable. An offline DUT
+# cannot reach k8s.gcr.io; retag the shipped mirror image to the expected name.
+- name: Check whether the expected pause image is present on the DUT
+  command: "docker image inspect {{ dut_pause_image }}"
+  register: dut_pause_present
+  failed_when: false
+  changed_when: false
+
+- name: Retag the mirror pause image to the expected name
+  command: "docker tag {{ dut_pause_image_mirror }} {{ dut_pause_image }}"
+  become: true
+  when: dut_pause_present.rc != 0
+
+# Some SKUs ship kubelet with '--node-ip=::'; rewrite to the DUT mgmt IP.
+- name: Get DUT hwsku
+  command: sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku
+  register: dut_hwsku
+  changed_when: false
+
+- name: Rewrite kubelet --node-ip param for affected SKUs
+  block:
+    - name: Back up kubelet default config
+      copy:
+        src: "{{ kubelet_default_config }}"
+        dest: "{{ kubelet_default_config_bak }}"
+        remote_src: true
+        force: false
+      become: true
+
+    - name: "Replace --node-ip=:: with the DUT mgmt IP"
+      replace:
+        path: "{{ kubelet_default_config }}"
+        regexp: '--node-ip=::'
+        replace: "--node-ip={{ mgmt_gw }}"
+      become: true
+
+    - name: Reload systemd after kubelet config change
+      systemd:
+        daemon_reload: true
+      become: true
+  when: dut_hwsku.stdout | trim in node_ip_param_skus
+
+- name: Point the DUT kube server at the control plane
+  command: "config kube server ip {{ minikube_apiserver_ip }}"
+  become: true
+
+- name: Enable the DUT kube server connection
+  command: config kube server disable off
+  become: true
+
+- name: Wait for the DUT node to register and become Ready
+  command: "{{ minikube_path }} kubectl -- get nodes {{ inventory_hostname }} --no-headers"
+  register: dut_node_status
+  changed_when: false
+  failed_when: false
+  retries: "{{ join_retries }}"
+  delay: "{{ join_delay_seconds }}"
+  until:
+    - dut_node_status.rc == 0
+    - "'NotReady' not in dut_node_status.stdout"
+    - "' Ready' in dut_node_status.stdout"
+  delegate_to: "{{ server }}"
+  environment: "{{ minikube_proxy_env }}"
+
+- name: Assert the DUT joined the cluster
+  assert:
+    that:
+      - dut_node_status.rc == 0
+      - "'NotReady' not in dut_node_status.stdout"
+    fail_msg: "DUT {{ inventory_hostname }} failed to join the minikube cluster."

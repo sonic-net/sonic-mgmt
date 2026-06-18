@@ -1,0 +1,76 @@
+---
+# Defaults for the minikube role.
+#
+# These values are the single source of truth for the testbed-level minikube
+# k8s cluster. They mirror the constants in
+# tests/kubesonic/test_k8s_join_disjoin.py (lines 16-35); keep the two in sync
+# when bumping versions. The k8s version, minikube version and kubelet ConfigMap
+# name are interlocked: SONiC's kubeadm is pinned to k8s v1.22.2, the ConfigMap
+# name is derived from that version, and minikube v1.34.0 is pinned because other
+# releases drift on the CoreDNS skip-phase flags used below.
+
+# test_k8s_join_disjoin.py: MINIKUBE_VERSION
+minikube_version: v1.34.0
+# test_k8s_join_disjoin.py: MINIKUBE_PATH
+minikube_path: /usr/local/bin/minikube
+# test_k8s_join_disjoin.py: KUBERNETES_VERSION (must equal DUT kubeadm version)
+kubernetes_version: v1.22.2
+# test_k8s_join_disjoin.py: KUBELET_CONFIGMAP (derived from kubernetes_version)
+kubelet_configmap: kubelet-config-1.22
+# test_k8s_join_disjoin.py: MINIKUBE_VIP
+minikube_vip: control-plane.minikube.internal
+# test_k8s_join_disjoin.py: MINIKUBE_DOWNLOAD_TIMEOUT_SECOND
+minikube_download_timeout_second: 360
+
+# Control-plane apiserver bind IP. The DUT reaches the testbed server over its
+# management gateway, so default to the DUT's mgmt_gw rather than hardcoding.
+minikube_apiserver_ip: "{{ hostvars[dut].mgmt_gw }}"
+minikube_apiserver_port: 6443
+
+# DaemonSet smoke workload. test_k8s_join_disjoin.py: DAEMONSET_*.
+daemonset_name: test-daemonset
+daemonset_node_label: deployDaemonset
+daemonset_pod_label: test-ds-pod
+daemonset_container_name: mock-ds-container
+
+# Pause image used by the smoke DaemonSet. test_k8s_join_disjoin.py:
+# DUT_PAUSE_IMAGE is "k8s.gcr.io/pause:3.5", which is unreachable from an offline
+# DUT. The DUT ships a mirror copy; retag it to the expected name before the
+# smoke step so kubelet (imagePullPolicy IfNotPresent) finds it locally.
+dut_pause_image: k8s.gcr.io/pause:3.5
+dut_pause_image_mirror: publicmirror.azurecr.io/pause:3.5
+
+# DUT paths. test_k8s_join_disjoin.py: DUT_CERT_DIR / DUT_HOSTS_FILE /
+# KUBELET_DEFAULT_CONFIG.
+dut_cert_dir: /etc/sonic/credentials
+dut_cert_bak: /etc/sonic/credentials.bak
+dut_hosts_file: /etc/hosts
+kubelet_default_config: /etc/default/kubelet
+kubelet_default_config_bak: /etc/default/kubelet.bak
+
+# Local (controller) staging dir for the apiserver cert/key handed from the
+# server play to the DUT play.
+minikube_local_cert_dir: /tmp/minikube_certs
+
+# Join polling.
+join_retries: 12
+join_delay_seconds: 10
+
+# Proxy environment for minikube / kubectl. Empty by default (local KVM testbed);
+# physical/nightly hosts behind a proxy can override the proxy vars. no_proxy
+# includes minikube's default node IP (test_k8s_join_disjoin.py: NO_PROXY) and
+# the apiserver IP so kubectl talks to the control plane directly.
+minikube_http_proxy: ""
+minikube_https_proxy: ""
+minikube_default_ip: 192.168.49.2
+minikube_proxy_env:
+  http_proxy: "{{ minikube_http_proxy }}"
+  https_proxy: "{{ minikube_https_proxy }}"
+  no_proxy: "{{ minikube_default_ip }},{{ minikube_apiserver_ip }}"
+
+# SKUs whose kubelet config carries '--node-ip=::', which must be rewritten to
+# the DUT mgmt IP before join. test_k8s_join_disjoin.py:
+# is_the_sku_need_to_remove_node_ip_param.
+node_ip_param_skus:
+  - Arista-7060X6-16PE-384C-B-O128S2
+  - Arista-7060CX-32S-C32

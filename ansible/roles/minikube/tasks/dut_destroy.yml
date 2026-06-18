@@ -1,0 +1,42 @@
+---
+# DUT-side disjoin / restore tasks. Runs on the SONiC DUT.
+# Mirrors the teardown half of test_k8s_join_disjoin.py setup_and_teardown:
+# disable kube server, clean CONFIG_DB, restore /etc/hosts, certs and kubelet
+# node-ip param. Each step is idempotent so destroy is safe to re-run.
+
+- name: Disable the DUT kube server connection (disjoin)
+  command: config kube server disable on
+  become: true
+  failed_when: false
+
+- name: Clean the k8s table in CONFIG_DB
+  command: sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'
+  changed_when: false
+
+- name: Remove the minikube VIP from the DUT hosts file
+  lineinfile:
+    path: "{{ dut_hosts_file }}"
+    line: "{{ minikube_apiserver_ip }} {{ minikube_vip }}"
+    state: absent
+  become: true
+
+- name: Restore the original DUT credentials dir if backed up
+  shell: "if [ -d {{ dut_cert_bak }} ]; then rm -rf {{ dut_cert_dir }} && mv {{ dut_cert_bak }} {{ dut_cert_dir }}; fi"
+  become: true
+
+- name: Get DUT hwsku
+  command: sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku
+  register: dut_hwsku
+  changed_when: false
+
+- name: Restore kubelet config for affected SKUs
+  block:
+    - name: Restore kubelet default config from backup
+      shell: "if [ -f {{ kubelet_default_config_bak }} ]; then mv {{ kubelet_default_config_bak }} {{ kubelet_default_config }}; fi"
+      become: true
+
+    - name: Reload systemd after kubelet config restore
+      systemd:
+        daemon_reload: true
+      become: true
+  when: dut_hwsku.stdout | trim in node_ip_param_skus

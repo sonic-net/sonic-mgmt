@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ daemonset_name }}
+spec:
+  selector:
+    matchLabels:
+      group: {{ daemonset_pod_label }}
+  template:
+    metadata:
+      labels:
+        group: {{ daemonset_pod_label }}
+    spec:
+      nodeSelector:
+        {{ daemonset_node_label }}: "true"
+      hostNetwork: true
+      containers:
+        - image: {{ dut_pause_image }}
+          name: {{ daemonset_container_name }}

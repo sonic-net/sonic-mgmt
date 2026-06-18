@@ -30,6 +30,7 @@ function usage
   echo "    $0 [options] (gen-mg | deploy-mg | test-mg) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (config-y-cable) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (create-master | destroy-master) <k8s-server-name> <vault-password-file>"
+  echo "    $0 [options] (create-k8s | destroy-k8s) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] restart-ptf <testbed-name> <vault-password-file>"
   echo "    $0 [options] set-l2 <testbed-name> <vault-password-file>"
   echo "    $0 [options] install-image <testbed-name> <inventory> <image-url>"
@@ -93,6 +94,8 @@ function usage
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
+  echo "To create a minikube k8s cluster and join the DUT: $0 -t vtestbed.yaml -m veos_vtb create-k8s 'testbed-name' 'inventory' ~/.password"
+  echo "To destroy the minikube k8s cluster and disjoin the DUT: $0 -t vtestbed.yaml -m veos_vtb destroy-k8s 'testbed-name' 'inventory' ~/.password"
   echo "To restart ptf of specified testbed: $0 restart-ptf 'testbed-name' ~/.password"
   echo "To set DUT of specified testbed to l2 switch mode: $0 set-l2 'testbed-name' ~/.password"
   echo "To install an image on all DUTs in a testbed: $0 install-image 'testbed-name' 'inventory' 'image-url'"
@@ -1335,6 +1338,52 @@ function remove_vnut_topo
   echo Done
 }
 
+function create_k8s
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Creating minikube k8s cluster for testbed '${testbed_name}'"
+
+  read_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_create_k8s.yml \
+      --vault-password-file="${passwd}" \
+      -e server="${server}" \
+      -e dut="${duts}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e vm_file="${vmfile}" \
+      "$@"
+
+  echo Done
+}
+
+function destroy_k8s
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Destroying minikube k8s cluster for testbed '${testbed_name}'"
+
+  read_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_destroy_k8s.yml \
+      --vault-password-file="${passwd}" \
+      -e server="${server}" \
+      -e dut="${duts}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e vm_file="${vmfile}" \
+      "$@"
+
+  echo Done
+}
+
 subcmd=$1
 shift
 case "${subcmd}" in
@@ -1390,6 +1439,10 @@ case "${subcmd}" in
                  setup_k8s_vms $@
                ;;
   destroy-master) stop_k8s_vms $@
+               ;;
+  create-k8s)  create_k8s $@
+               ;;
+  destroy-k8s) destroy_k8s $@
                ;;
   restart-ptf) restart_ptf $@
                ;;
