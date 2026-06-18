@@ -347,9 +347,16 @@ def sample_flow_rates(api, n=3, gap=2):
 
 
 def run_rocev2_step(api, base_config, port_config_list, topology, *, traffic_duration,
-                    duthosts=None, sample_rates=False, sample_start=3, sample_count=3, sample_gap=2):
+                    duthosts=None, sample_rates=False, sample_start=3, sample_count=3, sample_gap=2,
+                    config_name=None):
     config = configure_rocev2_topology(base_config, port_config_list, topology)
     api.set_config(config)
+    if config_name:
+        # Save the IxNetwork config under the (sanitized) test name + parameters
+        # for later replay/debug, e.g. test_rocev2_pfc_congestion_ai[q3_single].ixncfg
+        safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in config_name)
+        api._ixnetwork.SaveConfig(Arg1=f"{safe}.ixncfg")
+        logger.info(f"Saved IxNetwork config: {safe}.ixncfg")
     start_stop(api, operation="start", op_type="protocols")
     for duthost in duthosts:
         duthost.command("sonic-clear queuecounters")
@@ -667,19 +674,27 @@ def derive_priority_to_dscp(prio_dscp_map):
     return {tc: (tc if tc in dscps else min(dscps)) for tc, dscps in prio_dscp_map.items()}
 
 
-def build_pairwise_topology(port_ids, common_cfg, last_pair_qp_configs=None):
+def build_pairwise_topology(port_ids, common_cfg, last_pair_qp_configs=None, last_pair_cfg=None):
     """
     Bidirectional topology pairing the first half of port_ids with the second.
-    Every port gets common_cfg; if last_pair_qp_configs is given, only the last
-    pair (both directions) overrides qp_configs with it.
+    Every port gets common_cfg. The last pair (both directions) can be customised:
+      - last_pair_cfg:        full per-port cfg dict used verbatim for the last
+                              pair, letting it differ from common_cfg in
+                              connection_type, cnp, mtu, dcqcn_settings, etc.
+      - last_pair_qp_configs: shorthand to override ONLY qp_configs on the last
+                              pair (all other fields inherited from common_cfg).
+    last_pair_cfg takes precedence when both are given.
     """
     pairs = list(zip(port_ids[:len(port_ids) // 2], port_ids[len(port_ids) // 2:]))
     last_pair = pairs[-1]
     topology = {}
     for tx, rx in pairs:
-        cfg = ({**common_cfg, "qp_configs": last_pair_qp_configs}
-               if last_pair_qp_configs is not None and (tx, rx) == last_pair
-               else common_cfg)
+        if (tx, rx) == last_pair and last_pair_cfg is not None:
+            cfg = last_pair_cfg
+        elif (tx, rx) == last_pair and last_pair_qp_configs is not None:
+            cfg = {**common_cfg, "qp_configs": last_pair_qp_configs}
+        else:
+            cfg = common_cfg
         for port, peer in ((tx, rx), (rx, tx)):
             topology[port] = {"peers": [peer], **cfg}
     return topology
@@ -877,7 +892,8 @@ class Rocev2DpStats:
 def collect_flow_queue_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut_port_map,
                              topology, prio_dscp_map, queue_ids, traffic_duration,
                              queue_cols=("totalpacket",), sample_rates=True,
-                             sample_start=3, sample_count=3, sample_gap=2, log=True):
+                             sample_start=3, sample_count=3, sample_gap=2, log=True,
+                             config_name=None):
     """
     Universal collector for ANY topology: run one traffic step and merge live
     queue counters + per-flow scheduler weight onto the flow stats. Unlike
@@ -894,7 +910,8 @@ def collect_flow_queue_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut
     flow_df, port_stats_df = run_rocev2_step(
         api=snappi_api, base_config=tconfig, port_config_list=plist, topology=topology,
         traffic_duration=traffic_duration, duthosts=duthosts, sample_rates=sample_rates,
-        sample_start=sample_start, sample_count=sample_count, sample_gap=sample_gap)
+        sample_start=sample_start, sample_count=sample_count, sample_gap=sample_gap,
+        config_name=config_name)
     merged_df, dut_queue_df, sched_df = queue_stats(
         flow_df, snappi_dut_port_map, prio_dscp_map=prio_dscp_map,
         queue_ids=list(queue_ids), queue_cols=list(queue_cols))
@@ -910,7 +927,8 @@ def collect_flow_queue_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut
 def collect_rocev2_dp_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut_port_map,
                             topology, prio_dscp_map, lossless_queue, lossy_queues,
                             lossy_queue_ack_nak, traffic_duration, sample_rates=True,
-                            queue_cols=("totalpacket",), rate_by_queue=False, log=True):
+                            queue_cols=("totalpacket",), rate_by_queue=False, log=True,
+                            config_name=None):
     """
     Run one RoCEv2 data-plane step and build every analysis DataFrame a check
     needs. The test supplies topology + queue/priority intent; this returns a
@@ -927,7 +945,8 @@ def collect_rocev2_dp_stats(*, snappi_api, duthosts, plist, tconfig, snappi_dut_
 
     flow_df, port_stats_df = run_rocev2_step(
         api=snappi_api, base_config=tconfig, port_config_list=plist, topology=topology,
-        traffic_duration=traffic_duration, duthosts=duthosts, sample_rates=sample_rates)
+        traffic_duration=traffic_duration, duthosts=duthosts, sample_rates=sample_rates,
+        config_name=config_name)
 
     merged_df, dut_queue_df, sched_df = queue_stats(
         flow_df, snappi_dut_port_map, prio_dscp_map=prio_dscp_map,

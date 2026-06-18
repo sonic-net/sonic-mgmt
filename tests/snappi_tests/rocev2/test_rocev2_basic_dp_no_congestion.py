@@ -12,8 +12,11 @@ TRAFFIC_DURATION = 60      # seconds
 
 # ---- queue / priority intent (tune here) ----
 LOSSLESS_QUEUES = [3, 4]        # one is picked at random per run
-LOSSY_QUEUE_ACK_NAK = 5         # queue carrying ACK/NAK
-LOSSY_QUEUES = [0, 1, 6]        # lossy data queues driven from the last rank pair
+ACK_NAK_QUEUE = 5               # queue carrying ACK/NAK
+LOSSY_QUEUES = [0, 1]           # lossy data queues driven from the last rank pair
+CNP_QUEUE = 6                   # CNP control queue - kept out of LOSSY_QUEUES so lossy
+#                                 data does not share a queue/DSCP with CNP
+
 
 
 def test_rocev2_basic_dp_traffic_no_congestion(
@@ -40,6 +43,7 @@ def test_rocev2_basic_dp_traffic_no_congestion(
       mapped queue. No DWRR rate-fairness check - the egress is never
       oversubscribed, so DWRR weights don't arbitrate (that lives in the PFC test).
     """
+
     snappi_port_list = get_snappi_ports
     pytest_require(len(snappi_port_list) >= 4, "Need minimum of 4 ports")
 
@@ -49,30 +53,43 @@ def test_rocev2_basic_dp_traffic_no_congestion(
 
     # ---- queue / priority intent (constants at top of file) ---------------
     lossless_queue = random.choice(LOSSLESS_QUEUES)   # randomized per run
-    lossy_queue_ack_nak = LOSSY_QUEUE_ACK_NAK
+    queue_ack_nak = ACK_NAK_QUEUE
     lossy_queues = LOSSY_QUEUES
+    cnp_queue = CNP_QUEUE
     priority_to_dscp = derive_priority_to_dscp(prio_dscp_map)
 
     # ---- traffic config (tune per test) -----------------------------------
+    # Reusable ACK/NAK connection settings so lossless and lossy flows can use
+    # the same or different values (ACK/NAK queue, ECN).
+    def conn(ack_nak_q, ecn="non_ect"):
+        return {
+            "choice": "reliable_connection",
+            "reliable_connection": {
+                "ack": {"ip_dscp": priority_to_dscp[ack_nak_q], "ecn_value": ecn},
+                "nak": {"ip_dscp": priority_to_dscp[ack_nak_q], "ecn_value": ecn},
+                "enable_retransmission_timeout": True,
+                "retransmission_timeout_value": 5000,
+                "retransmission_retry_count": 254,
+            },
+        }
+
     COMMON_CFG = {
         "mtu": 9100,
         "qp_configs": [{"message_size_unit": "mb", "message_size": 1,
                         "dscp": priority_to_dscp[lossless_queue]}],
-        "cnp": {"ip_dscp": 48, "ecn_value": "non_ect"},
+        "cnp": {"ip_dscp": priority_to_dscp[cnp_queue], "ecn_value": "non_ect"},
         "dcqcn_settings": {"enable_dcqcn": False},
-        "connection_type": {
-            "choice": "reliable_connection",
-            "reliable_connection": {
-                "ack": {"ip_dscp": priority_to_dscp[lossy_queue_ack_nak], "ecn_value": "non_ect"},
-                "nak": {"ip_dscp": priority_to_dscp[lossy_queue_ack_nak], "ecn_value": "non_ect"},
-                "enable_retransmission_timeout": True,
-                "retransmission_timeout_value": 40,
-            },
-        },
+        "connection_type": conn(queue_ack_nak),
     }
     lossy_qp_configs = [{"message_size_unit": "mb", "message_size": 1, "dscp": priority_to_dscp[q]}
                         for q in lossy_queues]
-    topology = build_pairwise_topology(port_ids, COMMON_CFG, last_pair_qp_configs=lossy_qp_configs)
+    # Lossy pair: same plumbing as COMMON_CFG but its own qp_configs and its own
+    # ACK/NAK connection_type. Change the conn(...) args below to give the lossy
+    # flows a different ACK/NAK queue or ECN (kept identical here so checks 11/12,
+    # which match ACKs to the DUT ACK-queue counter, stay valid).
+    LOSSY_CFG = {**COMMON_CFG, "qp_configs": lossy_qp_configs,
+                 "connection_type": conn(queue_ack_nak)}
+    topology = build_pairwise_topology(port_ids, COMMON_CFG, last_pair_cfg=LOSSY_CFG)
     logger.info(f"Test Topology: {topology}")
 
     # ---- run + collect every analysis frame (all plumbing in the lib) -----
@@ -80,8 +97,8 @@ def test_rocev2_basic_dp_traffic_no_congestion(
         snappi_api=snappi_api, duthosts=duthosts, plist=plist, tconfig=tconfig,
         snappi_dut_port_map=snappi_dut_port_map, topology=topology,
         prio_dscp_map=prio_dscp_map, lossless_queue=lossless_queue,
-        lossy_queues=lossy_queues, lossy_queue_ack_nak=lossy_queue_ack_nak,
-        traffic_duration=TRAFFIC_DURATION)
+        lossy_queues=lossy_queues, lossy_queue_ack_nak=queue_ack_nak,
+        traffic_duration=TRAFFIC_DURATION, config_name=request.node.name)
 
     dsps = stats.dsps
     lossy_dsps = stats.lossy_dsps
@@ -90,7 +107,7 @@ def test_rocev2_basic_dp_traffic_no_congestion(
     # No-congestion: the DUT must generate NO PFC on the lossless queues (3,4).
     # Measured from the DUT Tx PFC counter (authoritative); the snappi Rx-pause
     # port stat is unreliable. One-row total across the DUT interfaces.
-    lossless_pfc_qs = [3, 4]
+    lossless_pfc_qs = LOSSLESS_QUEUES
     pfc_df = pfc_counters(snappi_dut_port_map, direction="Tx")
     logger.info(f"DUT Tx PFC counters:\n{tabulate(pfc_df, headers='keys', tablefmt='psql')}")
     pfc_chk_cols = [f"PFC{q}" for q in lossless_pfc_qs if f"PFC{q}" in pfc_df.columns]
