@@ -195,6 +195,7 @@ def generate_link_flap(dut, dut_interface, fanout=None, fanout_interface=None, n
                 try:
                     fanout.shutdown([fanout_interface])
                 except Exception as e:
+                    logger.warning(f"Native shutdown failed, falling back to shell. Error: {e}")
                     # Fallback to shell command
                     fanout.shell("configure terminal", module_ignore_errors=True)
                     fanout.shell(f"interface {fanout_interface}", module_ignore_errors=True)
@@ -208,6 +209,7 @@ def generate_link_flap(dut, dut_interface, fanout=None, fanout_interface=None, n
                 try:
                     fanout.no_shutdown([fanout_interface])
                 except Exception as e:
+                    logger.warning(f"Native shutdown failed, falling back to shell. Error: {e}")
                     # Fallback to shell command
                     fanout.shell("configure terminal", module_ignore_errors=True)
                     fanout.shell(f"interface {fanout_interface}", module_ignore_errors=True)

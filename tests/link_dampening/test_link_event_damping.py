@@ -115,7 +115,7 @@ class TestLinkEventDampingBasics:
         op_state = get_interface_operational_state(dut, test_intf)
         phys_state = get_interface_physical_state(dut, test_intf)
         pytest_assert(op_state == phys_state,
-                     f"Operational state {op_state} should match physical state {phys_state}")
+                      f"Operational state {op_state} should match physical state {phys_state}")
 
     def test_tc01_2_multiple_sequential_flaps(self, duthost, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """TC01.2 - Multiple Sequential Flaps
@@ -332,6 +332,7 @@ class TestLinkEventDampingConfiguration:
         pytest_assert(config_db_ok and redis_ok, "Configuration not synchronized")
 
         logger.info("Configuration synchronisation with CONFIG DB verified")
+
 
 class TestLinkEventDampingUnsupported:
     """Test cases for unsupported configuration handling (TC03)"""

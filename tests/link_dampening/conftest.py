@@ -6,9 +6,6 @@ import logging
 import pytest
 
 # from tests.common.helpers.assertions import pytest_assert as pt_assert
-# from tests.link_dampening.link_event_damping_utils import get_dut_fronface_ports
-
-from tests.common.helpers.assertions import pytest_assert
 from tests.link_dampening.link_event_damping_utils import get_dut_fronface_ports
 
 logger = logging.getLogger(__name__)
@@ -62,7 +59,7 @@ def cleanup_link_damping(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         # Clear link damping stats
         dut.shell("redis-cli -n 0 --scan --match 'LINK_DAMPING_STATS:*' | xargs redis-cli -n 0 DEL",
-                   module_ignore_errors=True)
+                  module_ignore_errors=True)
         logger.info("Cleaned up link damping statistics")
     except Exception as e:
         logger.warning(f"Could not cleanup link damping stats: {e}")
