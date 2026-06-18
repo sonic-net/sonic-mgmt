@@ -253,6 +253,17 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
             return False
 
 
+def _wait_for_dpu_status(duthost, dpu_name, expected_status, action):
+    """
+    Poll until the DPU module reaches *expected_status* ('on' or 'off').
+    """
+    pytest_assert(
+        wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                   check_dpu_module_status, duthost, expected_status, dpu_name),
+        f"DPU {dpu_name} is not {expected_status} after '{action}'"
+    )
+
+
 def check_dpus_module_status(duthost, dpu_list, power_status, wait_timeout=30):
     """
     Check module status of given DPU list
@@ -789,34 +800,28 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 duthost.shell,
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
-            executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_module_status, duthost, "off", dpu_name
-            )
+            executor.submit(_wait_for_dpu_status, duthost, dpu_name, "off", "shutdown")
 
 
 def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
     """
-    Parallely Execute DPU startup for given DPU list
+    Serialize DPU startup for given DPU list
     Waits and checks parallely whether DPU is actually UP
     Args:
        duthost: Host handle
        dpu_list: List of DPUs to be startup
-
+       num_dpu_modules: number of dpu modules
     Returns:
        Returns Nothing
     """
+    logging.info("Dispatching startup commands for DPUs serially")
+    for dpu_name in dpu_list:
+        duthost.shell(f"sudo config chassis modules startup {dpu_name}")
+
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Check startup of DPUs in parallel")
         for dpu_name in dpu_list:
-            executor.submit(
-                duthost.shell,
-                f"sudo config chassis modules startup {dpu_name}"
-            )
-            executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_module_status, duthost, "on", dpu_name
-            )
+            executor.submit(_wait_for_dpu_status, duthost, dpu_name, "on", "startup")
 
 
 def check_midplane_status(duthost, dpu_ip, expected_status):
