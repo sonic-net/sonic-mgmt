@@ -4,9 +4,9 @@ PFC congestion (incast) - all scenarios in one parametrized test.
 
 Unidirectional N:1 incast: every Tx port sends to a single Rx port at 100% line
 rate (no compute_tx_rates_single_rx), oversubscribing the Rx egress to trigger
-PFC on the lossless queues. The LAST Tx port drives the lossy queues (0/1/2);
+PFC on the lossless queues. The LAST Tx port drives the lossy queues (0/1);
 the other Tx ports drive the lossless queue(s) defined by the scenario. ACK/NAK
-ride the lossless queue for lossless flows and queue 5 for lossy flows; CNP -> Q6.
+ride the common ACK queue (Q5) for all flows; CNP -> Q6.
 
 The three original cases are folded into one parametrized test:
     q3_single  - lossless Tx all on Q3 (128KB)            [TC2 Step 4]
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 TRAFFIC_DURATION = 20      # seconds
-LOSSY_QUEUES = [0, 1, 5]
-ACK_QUEUE = 5              # lossy queue carrying ACK/NAK for the lossy flows
+LOSSY_QUEUES = [0, 1]
+ACK_QUEUE = 5              # common queue carrying ACK/NAK for all (lossless + lossy) flows
 CNP_QUEUE = 6
 LINE_RATE = 100           # % - each Tx sends at full rate to create the incast
 RATE_TOLERANCE_PCT = 5
@@ -90,7 +90,7 @@ def test_rocev2_pfc_congestion_ai(
                             "dscp": priority_to_dscp[q]}],
             "cnp": cnp_cfg,
             "dcqcn_settings": {"enable_dcqcn": False},
-            "connection_type": _conn(q, priority_to_dscp),   # ACK on the lossless queue
+            "connection_type": _conn(ACK_QUEUE, priority_to_dscp),   # ACK/NAK on the common ACK queue
             "rocev2_port_config": port_cfg,
         }
 
@@ -100,7 +100,7 @@ def test_rocev2_pfc_congestion_ai(
                         "dscp": priority_to_dscp[q]} for q in LOSSY_QUEUES],
         "cnp": cnp_cfg,
         "dcqcn_settings": {"enable_dcqcn": False},
-        "connection_type": _conn(ACK_QUEUE, priority_to_dscp),   # ACK on queue 5
+        "connection_type": _conn(ACK_QUEUE, priority_to_dscp),   # ACK/NAK on the common ACK queue
         "rocev2_port_config": port_cfg,
     }
 
@@ -121,7 +121,8 @@ def test_rocev2_pfc_congestion_ai(
         merged_df, flow_df, dut_queue_df, sched_df, port_stats_df = collect_flow_queue_stats(
             snappi_api=snappi_api, duthosts=duthosts, plist=plist, tconfig=tconfig,
             snappi_dut_port_map=snappi_dut_port_map, topology=topology,
-            prio_dscp_map=prio_dscp_map, queue_ids=qids, traffic_duration=TRAFFIC_DURATION)
+            prio_dscp_map=prio_dscp_map, queue_ids=qids, traffic_duration=TRAFFIC_DURATION,
+            config_name=request.node.name)
 
         # DWRR fairness per QUEUE (several Tx may share a lossless queue in incast).
         rate_check_df = build_rate_fairness_by_queue(merged_df)
