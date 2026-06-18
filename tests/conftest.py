@@ -1093,6 +1093,25 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     neighbor_type = request.config.getoption("--neighbor_type")
+    # Auto-derive the neighbor type from the testbed's ``vm_type`` field when the
+    # ``--neighbor_type`` flag was left at its default ("eos"). This lets non-EOS
+    # testbeds (e.g. cSONiC, vsonic) resolve the correct neighbor host class
+    # (CsonicHost/SonicHost) without every caller (run_tests.sh, CI, ad-hoc pytest)
+    # having to remember to pass ``--neighbor_type``. An explicitly-provided flag
+    # always wins over the testbed default.
+    if neighbor_type == "eos":
+        tb_vm_type = tbinfo.get("vm_type")
+        valid_vm_types = ("eos", "sonic", "cisco", "csonic", "vsonic", "ceos")
+        if tb_vm_type and tb_vm_type in valid_vm_types:
+            if tb_vm_type != neighbor_type:
+                logger.info(
+                    "nbrhosts: deriving neighbor_type='%s' from testbed vm_type "
+                    "(--neighbor_type was left at default)", tb_vm_type)
+            neighbor_type = tb_vm_type
+        elif tb_vm_type:
+            logger.warning(
+                "nbrhosts: testbed vm_type='%s' is not a recognized neighbor type; "
+                "falling back to neighbor_type='%s'", tb_vm_type, neighbor_type)
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
         logger.info("No VMs exist for this topology: {}".format(
             tbinfo['topo']['properties']['topology']))
