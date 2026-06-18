@@ -517,7 +517,7 @@ def _apply_pl_sip(sip_params):
                 entry["overlay_sip_prefix"] = overlay_sip_prefix
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def configure_pl_sip_for_platform(request):
     if "dpuhosts" not in request.fixturenames:
         return
