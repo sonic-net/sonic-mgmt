@@ -5730,6 +5730,18 @@ test_vs_chassis_setup.py:
       - "asic_type not in ['vs']"
       - *lossyTopos
 
+tests/ha/test_ha_bfd_pin.py:
+  xfail:
+    reason: "BFD pin test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
+    conditions:
+      - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_repairing_dpu.py:
+  xfail:
+    reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
+    conditions:
+      - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
 #######################################
 #####         upgrade_path        #####
 #######################################
