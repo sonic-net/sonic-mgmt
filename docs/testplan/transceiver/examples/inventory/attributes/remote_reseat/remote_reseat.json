@@ -4,7 +4,6 @@
         "port_under_test": [],
         "remote_reseat_timeout_min": 10,
         "remote_reseat_stress_iteration": 5,
-        "simultaneous_oir": false,
         "monitor_kernel_errors": false,
         "link_flap_monitor_timeout_sec": 10
     },
