@@ -25,6 +25,7 @@
   ptf_ipv6: fec0::ffff:afa:2/64
   server: server_1
   vm_base: VM0100
+  vm_type: csonic
   dut:
     - vlab-01
   inv_name: veos_vtb
