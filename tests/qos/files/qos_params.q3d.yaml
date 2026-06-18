@@ -1,6 +1,75 @@
 qos_params:
     q3d:
         topo-t2_single_node_min: &topo-t2_single_node_min
+            # WRED gradient is in bytes; ECN-test bursts use packet_size=3950
+            # so each packet fits in one 4096-byte DRAM buffer cell (≤ ~46 B
+            # overhead for Ethernet + FCS). At 3950 B per packet, the
+            # thresholds below map to:
+            #   green_min 1 MB ≈ 253 pkts
+            #   green_max 8 MB ≈ 2025 pkts
+            lowered_wred_thresholds:
+                green_min_threshold: 1000000   # 1 MB ≈ 253 pkts @ 3950 B
+                green_max_threshold: 8000000   # 8 MB ≈ 2025 pkts @ 3950 B
+                drop_probability: 5
+            # ecn_1: non-ECT drop sanity on the lossless queue.
+            ecn_1:
+                dscp: 3
+                ecn: 0
+                num_of_pkts: 1500
+                limit: 1500
+                min_limit: 1400
+                cell_size: 4096
+                packet_size: 3950
+            # ecn_2: ECT below green_min ⇒ no marking expected.
+            ecn_2:
+                dscp: 3
+                ecn: 1
+                num_of_pkts: 1000
+                limit: 1000
+                min_limit: 5000
+                cell_size: 4096
+                packet_size: 3950
+            # ecn_3, ecn_4: ECN-capable bursts that exercise WRED marking
+            # without overflowing PTF.
+            ecn_3:
+                dscp: 3
+                ecn: 2
+                num_of_pkts: 2400
+                limit: 600
+                min_limit: 500
+                marked_pkts_min: 8
+                marked_pkts_max: 50
+                cell_size: 4096
+                packet_size: 3950
+            ecn_4:
+                dscp: 3
+                ecn: 1
+                num_of_pkts: 2400
+                limit: 600
+                min_limit: 500
+                marked_pkts_min: 8
+                marked_pkts_max: 50
+                cell_size: 4096
+                packet_size: 3950
+            # ecn_5: dscp=0 → lossy queue (q0) on Q3D, no WRED/ECN profile
+            # attached.
+            ecn_5:
+                dscp: 0
+                ecn: 1
+                num_of_pkts: 2400
+                limit: 2400
+                min_limit: 5000
+                cell_size: 4096
+                packet_size: 3950
+            # wred_drop: non-ECT WRED-drop test on the lossless queue.
+            wred_drop:
+                dscp: 3
+                ecn: 0
+                num_of_pkts: 2600
+                limit: 2600
+                min_limit: 2400
+                cell_size: 4096
+                packet_size: 3950
             400000_2000m:
                 hdrm_pool_size:
                     dscps:

@@ -48,6 +48,10 @@ from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_li
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.gu_utils import (
+    apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile,
+    format_json_patch_for_multiasic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +239,79 @@ class TestQosSai(QosSaiBase):
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, disable_voq_watchdog_class_scope):
         return
+
+    @pytest.fixture(scope='function')
+    def lowerWredThresholdsForBurstConstrained(
+            self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig):
+        """
+        Temporarily tighten the WRED profile thresholds so the DscpEcn
+        test bursts fit within PTF's receive capacity while still
+        exercising the mark/drop regions. Driven by a per-platform
+        `lowered_wred_thresholds` block in qos_params.<asic>.yaml — fixture
+        is a no-op when that block is absent. Snapshots and restores the
+        original values around the test, even on failure.
+        """
+        lowered = (dutQosConfig.get("param") or {}).get("lowered_wred_thresholds")
+        if not lowered:
+            yield
+            return
+        try:
+            by_suffix = {
+                "min_threshold": int(lowered["green_min_threshold"]),
+                "max_threshold": int(lowered["green_max_threshold"]),
+                "drop_probability": int(lowered["drop_probability"]),
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning("lowered_wred_thresholds malformed (%s), skipping: %s", lowered, exc)
+            yield
+            return
+
+        duthost = dutConfig["dstDutInstance"]
+        dut_asic = get_src_dst_asic_and_duts['dst_asic']
+        profile_keys = dut_asic.run_redis_cmd(argv=["redis-cli", "-n", "4", "KEYS", "WRED_PROFILE|*"])
+        if not profile_keys:
+            logger.warning("%s: no WRED_PROFILE found, skipping WRED threshold lowering", duthost.hostname)
+            yield
+            return
+        profile_name = profile_keys[0].split("|", 1)[1]
+        asic_ns = dut_asic.namespace or ""
+        fields = ["{}_{}".format(c, k) for c in ('green', 'yellow', 'red')
+                  for k in ('min_threshold', 'max_threshold', 'drop_probability')]
+
+        def read(field):
+            val = dut_asic.run_redis_cmd(
+                argv=["redis-cli", "-n", "4", "HGET", "WRED_PROFILE|" + profile_name, field])
+            return val[0] if val and val[0] else None
+
+        def apply(values):
+            patch = [{"op": "replace", "path": "/WRED_PROFILE/{}/{}".format(profile_name, f),
+                      "value": str(v)} for f, v in values.items()]
+            if duthost.is_multi_asic and asic_ns:
+                patch = format_json_patch_for_multiasic(
+                    duthost=duthost, json_data=patch, is_asic_specific=True, asic_namespaces=[asic_ns])
+            tmpfile = generate_tmpfile(duthost)
+            try:
+                expect_op_success(duthost, apply_patch(duthost, json_data=patch, dest_file=tmpfile))
+            finally:
+                delete_tmpfile(duthost, tmpfile)
+
+        original = {f: read(f) for f in fields}
+        logger.info("%s: lowering WRED %s (min=%d max=%d drop=%d)", duthost.hostname, profile_name,
+                    by_suffix["min_threshold"], by_suffix["max_threshold"], by_suffix["drop_probability"])
+        apply({f: by_suffix[f.split("_", 1)[1]] for f in fields})
+        try:
+            yield
+        finally:
+            if all(v is not None for v in original.values()):
+                try:
+                    apply(original)
+                    logger.info("%s: restored WRED %s thresholds", duthost.hostname, profile_name)
+                except Exception as exc:
+                    logger.error("%s: failed to restore WRED %s thresholds: %s (manual restore required)",
+                                 duthost.hostname, profile_name, exc)
+            else:
+                logger.warning("%s: original WRED %s values incomplete (%s), cannot auto-restore",
+                               duthost.hostname, profile_name, original)
 
     @pytest.fixture(scope='function')
     def change_port_speed(
@@ -2684,11 +2761,11 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
 
-    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5", "wred_drop"])
     def testQosSaiDscpEcn(
         self, ecn, duthosts, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile, enableECN,
-        change_lag_lacp_timer
+        change_lag_lacp_timer, lowerWredThresholdsForBurstConstrained
     ):
         """
             Test QoS SAI ECN CONFIG
@@ -2714,6 +2791,11 @@ class TestQosSai(QosSaiBase):
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
+            # Some ECN variants (e.g. wred_drop) are only defined for certain
+            # platforms; skip the variant when this platform's params omit it
+            # instead of failing with a KeyError.
+            if ecn not in dutQosConfig["param"]:
+                pytest.skip("'{}' params not defined for this platform".format(ecn))
             qosConfig = dutQosConfig["param"][ecn]
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
@@ -2733,8 +2815,15 @@ class TestQosSai(QosSaiBase):
             "limit": qosConfig["limit"],
             "min_limit": qosConfig["min_limit"],
             "cell_size": qosConfig["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
         })
+        if "packet_size" in qosConfig:
+            testParams["packet_size"] = qosConfig["packet_size"]
+        for opt in ("marked_pkts_min", "marked_pkts_max"):
+            if opt in qosConfig:
+                testParams[opt] = qosConfig[opt]
+        if ecn == "wred_drop":
+            testParams["verify_wred_drops"] = True
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]

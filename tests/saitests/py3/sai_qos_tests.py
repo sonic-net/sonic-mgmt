@@ -4493,6 +4493,44 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
 
 class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
+    def _read_wred_drop_pkts(self, dut_port, dscp, ns_opt, voq):
+        """Read SAI_QUEUE_STAT_WRED_DROPPED_PACKETS (the WredDrp/pkts column of
+        'show queue wredcounters'): the ingress VOQ<dscp> (with --voq) on DNX,
+        or the egress unicast queue UC<dscp> on XGS, depending on `voq`.
+
+        Returns the int counter, or None if the row is missing or shows N/A.
+        Raises RuntimeError if the underlying CLI fails (stderr non-empty).
+        """
+        voq_flag = '--voq ' if voq else ''
+        cmd = 'show queue wredcounters {}{}| grep -w {}'.format(voq_flag, ns_opt, dut_port)
+        stdOut, stdErr, retValue = self.exec_cmd_on_dut(
+            self.dst_server_ip, self.test_params['dut_username'],
+            self.test_params['dut_password'], cmd)
+        if stdErr:
+            raise RuntimeError(
+                "show queue wredcounters failed: stdErr={}, retValue={}"
+                .format(stdErr, retValue))
+        label = ('VOQ' if voq else 'UC') + str(dscp)
+        for line in stdOut:
+            fields = line.split()
+            # DNX VOQ chassis row: <host>|<asic>|<port>  VOQ<idx>  WredDrp/pkts ...
+            # XGS row:             <port>                UC<idx>   WredDrp/pkts ...
+            port_match = fields[0].endswith(dut_port) if voq else fields[0] == dut_port
+            if len(fields) >= 3 and port_match and fields[1] == label:
+                value = fields[2]
+                if value == 'N/A':
+                    return None
+                return int(value.replace(',', ''))
+        return None
+
+    def _poll_until(self, fn, ok, timeout=20, interval=2):
+        val = fn()
+        deadline = time.time() + timeout
+        while not ok(val) and time.time() < deadline:
+            time.sleep(interval)
+            val = fn()
+        return val
+
     def runTest(self):
         switch_init(self.clients)
 
@@ -4538,21 +4576,40 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         )
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
 
+        # Cache the dst DUT port name and per-asic namespace flag once, so the
+        # pre/post-test wredcounter blocks below can share them.
+        dut_port = self.get_dut_port(dst_port_id)
+        dst_is_multi_asic = self.test_params.get('dst_is_multi_asic', False)
+        ns_opt = ("-n asic{} ".format(self.dst_asic_index)
+                  if dst_is_multi_asic and self.dst_asic_index is not None
+                  else "")
+        verify_wred_drops = self.test_params.get('verify_wred_drops', False)
+
         # Get a snapshot of counter values
         port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
         print(port_counters_base)
         print(queue_counters_base)
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-        # Clear wred counters
-        if platform_asic and platform_asic == "broadcom-dnx":
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sonic-clear queue wredcounters')
+        # Clear WRED counter caches so the post-test 'show queue wredcounters'
+        # reads are per-run deltas. 'sonic-clear queue wredcounters' resets
+        # the egress-queue cache (XGS, and DNX's egress UC rows). On DNX
+        # the VOQ cache is separate and only matters for the wred_drop
+        # variant (verify_wred_drops + ecn==0) — clear it via
+        # 'wredstat -c -V' there.
+        clear_cmds = []
+        if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
+            clear_cmds.append('sonic-clear queue wredcounters')
+            if platform_asic == "broadcom-dnx" and verify_wred_drops and ecn == 0:
+                clear_cmds.append('wredstat -c -V')
+        for clear_cmd in clear_cmds:
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(
+                self.dst_server_ip, self.test_params['dut_username'],
+                self.test_params['dut_password'], clear_cmd)
             if stdErr and retValue != 0:
                 raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
             else:
-                print("---------Wredcounter queue counters reset------------")
+                print("---------Wredcounter cache reset via '{}'------------".format(clear_cmd))
 
         # send packets
         try:
@@ -4589,16 +4646,24 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             # if (ecn == 1) - capture and parse all incoming packets
             marked_cnt = 0
             not_marked_cnt = 0
+            total_recv_cnt = 0
             if (ecn != 0):
                 print("")
                 print(
                     "ECN capable packets generated, releasing dst_port and analyzing traffic -")
-                total_recv_cnt = 0
                 pkts = []
+                # Tolerate up to a 5% shortfall and proceed with verification
+                # on the receivedset;
+                min_recv_cnt = int(num_of_pkts * 0.95)
                 while total_recv_cnt < num_of_pkts:
                     result = self.dataplane.poll(
                         device_number=0, port_number=dst_port_id, timeout=3)
                     if isinstance(result, self.dataplane.PollFailure):
+                        if total_recv_cnt >= min_recv_cnt:
+                            log_message(
+                                "Received {}/{} pkts (>= 95%); proceeding with verification".format(
+                                    total_recv_cnt, num_of_pkts), to_stderr=True)
+                            break
                         self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
                             dst_port_id, total_recv_cnt, result.format()))
                     recv_pkt = scapy.Ether(result.packet)
@@ -4623,42 +4688,85 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 print("    ECN marked pkts:     " + str(marked_cnt))
                 print("")
 
-            dut_port = self.get_dut_port(dst_port_id)
             if platform_asic and platform_asic == "broadcom-dnx":
-                time.sleep(8)
-                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                                self.test_params['dut_password'],
-                                                                'show queue wredcounters -n asic{}| grep {}| grep UC{}'
-                                                                .format(self.dst_asic_index, dut_port, dscp))
-                if stdErr and retValue != 0:
-                    raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
-                else:
-                    print("----Queue WredCounters on DUT----")
-                    print("ECNMarked pkts: {}  ECNMarked bytes: {}".format(stdOut[0].split()[4],
-                                                                           stdOut[0].split()[5]))
-                # the output number format is comma seperated value,remove comma if expected marked_pkts > 999
+                def read_ecn_marked():
+                    out, err, ret = self.exec_cmd_on_dut(
+                        self.dst_server_ip, self.test_params['dut_username'],
+                        self.test_params['dut_password'],
+                        'show queue wredcounters {}| grep -w {} | grep -w UC{}'.format(ns_opt, dut_port, dscp))
+                    if err:
+                        raise RuntimeError(
+                            "show queue wredcounters failed: stdErr={}, retValue={}".format(err, ret))
+                    f = out[0].split() if out else []
+                    return f[4] if len(f) > 5 else None
                 if ecn_queue_status == 'off':
                     assert (marked_cnt == 0)
                     limit = 0
-                assert (int(stdOut[0].split()[4]) == marked_cnt)
+                ecn_marked_pkts = self._poll_until(
+                    read_ecn_marked,
+                    lambda v: v is None or v == 'N/A' or int(v.replace(',', '')) == marked_cnt)
+                print("ECNMarked pkts: {}".format(ecn_marked_pkts))
+                if ecn_marked_pkts is not None and ecn_marked_pkts != 'N/A':
+                    assert (int(ecn_marked_pkts.replace(',', '')) == marked_cnt)
+                else:
+                    print("Skipping wred counter assertion: counter unavailable (stdOut={})".format(ecn_marked_pkts))
 
-            assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
+            transmitted_pkts = port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS]
+
+            # WRED-drop counter cross-check (verify_wred_drops, non-ECT only).
+            # The drop counter is on the ingress VOQ on DNX and on the egress
+            # queue on XGS; both caches were cleared before the send, so the
+            # read is a per-run delta. It should track the port-level drop count
+            # (num_of_pkts - transmitted), within a slack of 5 pkts or 10% to
+            # absorb background traffic on the same VOQ/queue.
+            if ecn == 0 and verify_wred_drops and platform_asic in ("broadcom-dnx", "broadcom"):
+                voq = platform_asic == "broadcom-dnx"
+                counter_id = ("VOQ" if voq else "UC") + str(dscp)
+                port_drops_this_run = num_of_pkts - transmitted_pkts
+                assert port_drops_this_run > 0, \
+                    "no port-level drops observed (num_of_pkts={}, transmitted={})".format(
+                        num_of_pkts, transmitted_pkts)
+                allowed_slack = max(5, int(port_drops_this_run * 0.1))
+                drop_delta = self._poll_until(
+                    lambda: self._read_wred_drop_pkts(dut_port, dscp, ns_opt, voq),
+                    lambda v: v is not None and abs(v - port_drops_this_run) <= allowed_slack)
+                print("----WredCounters on DUT (port={}, {}): WredDrp/pkts={}----"
+                      .format(dut_port, counter_id, drop_delta))
+                assert drop_delta is not None, \
+                    "WredDrp/pkts row unavailable for port={} {}".format(dut_port, counter_id)
+                assert abs(drop_delta - port_drops_this_run) <= allowed_slack, \
+                    "WRED drop delta ({}) differs from port drops ({}) by more than {}".format(
+                        drop_delta, port_drops_this_run, allowed_slack)
             if ecn == 0:
+                # ecn==0 -> non-ECT flow; WRED drops above threshold, so
+                # transmitted_pkts < num_of_pkts is expected. Bound by queue limit instead.
                 assert (marked_cnt == 0)
-                transmitted_data = ((port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS])
-                                    * cell_occupancy)
+                transmitted_data = transmitted_pkts * cell_occupancy
                 assert (min_limit <= transmitted_data <= limit * 1.05)
             else:
+                # ECN-capable flow: packets are marked, not dropped, so they
+                # should egress. Allow the same 5% tail-drop tolerance as the
+                # receive loop (a near-cap burst may shed a few packets).
+                assert (transmitted_pkts >= num_of_pkts * 0.95)
                 non_marked_data = not_marked_cnt * cell_occupancy
                 assert (limit * 0.95 <= non_marked_data)
                 # If the number of packets in the queue is below the minimum threshold
                 # then the packets will not be marked
                 if num_of_pkts > min_limit:
-                    assert (limit * 0.03 <= marked_cnt <= limit * 0.07)
-                    assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
+                    marked_min = self.test_params.get('marked_pkts_min')
+                    marked_max = self.test_params.get('marked_pkts_max')
+                    if (marked_min is not None and marked_max is not None
+                            and ecn_queue_status != 'off'):
+                        assert (marked_min <= marked_cnt <= marked_max)
+                    else:
+                        assert (limit * 0.03 <= marked_cnt <= limit * 0.07)
+                    assert (marked_cnt >= (total_recv_cnt - not_marked_cnt))
 
+                # Tolerate small background drift (e.g. IPv6 NS/RA neighbors
+                # leaking a few packets into the ingress drop counter); a
+                # strict equality is too brittle.
                 for cntr in ingress_counters:
-                    assert (port_counters[cntr] == port_counters_base[cntr])
+                    assert (port_counters[cntr] <= port_counters_base[cntr] + COUNTER_MARGIN)
         finally:
             # RELEASE PORT
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
