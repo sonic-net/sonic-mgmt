@@ -3,8 +3,11 @@ from tests.common.helpers.assertions import pytest_assert  # noqa F401
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from netmiko import ConnectHandler
+from scp import SCPClient
 from pathlib import Path
+import paramiko
 import snappi
+import stat
 import time
 import os
 import glob
@@ -14,6 +17,42 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def patch_dutnetwork_range(api, base_url, session_id, test_id, dut_id, network_range_id, first_ip, username, password):
+    """
+    Sends a PATCH request to update the first IP in the network range.
+
+    Args:
+        base_url (str): The base URL of the API (e.g., "https://10.3.8.23:8443").
+        session_id (int): The session ID (e.g., 0).
+        test_id (str): The test ID (e.g., "activeTest").
+        dut_id (int): The DUT ID (e.g., 0).
+        network_range_id (int): The network range ID (e.g., 0).
+        first_ip (str): The new first IP to set (e.g., "1.2.3.4").
+        username (str): The username for authentication.
+        password (str): The password for authentication.
+
+    Returns:
+        Response: The response object from the PATCH request.
+    """
+    url = (f"{base_url}/api/v1/sessions/{session_id}/ixload/test/{test_id}/dutList/{dut_id}/dutConfig/networkRangeList/"
+           f"{network_range_id}")
+    payload = {
+        "firstIp": first_ip
+    }
+
+    try:
+        res = api.ixload_configure("patch", url, payload)
+        if res.status_code == 204:
+            logger.info("PATCH request successful: 204 No Content")
+        else:
+            logger.info(f"PATCH request failed: {res.status_code} {res.reason}")
+            logger.info(res.text)
+        return res
+    except res.RequestException as e:
+        logger.info(f"An error occurred: {e}")
+        return None
 
 
 def set_static_routes(duthost, static_ipmacs_dict):
@@ -196,8 +235,8 @@ def set_ha_admin_up(duthosts, duthost, tbinfo):
             logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
 
             time.sleep(2)
-            output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
-            output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
+            duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)
         except Exception as e:
             logger.error(f"{duthost.hostname} Error setting HA admin up active side: {str(e)}")
     else:
@@ -212,8 +251,8 @@ def set_ha_admin_up(duthosts, duthost, tbinfo):
             logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
 
             time.sleep(2)
-            output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa: F841
-            output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')
+            duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
         except Exception as e:
             logger.error(f"{duthost.hostname} Error setting HA admin up standby side: {str(e)}")
 
@@ -307,13 +346,13 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
             if duthost == duthosts[1]:
                 target_ip = f'169.254.200.{dpu_index + 1}'
             else:
-                target_ip = f'18.{dpu_index}.202.1'
+                target_ip = f'20.0.200.{dpu_index+1}'
         else:
-            target_ip = f'18.{dpu_index}.202.1'
+            target_ip = f'20.0.200.{dpu_index+1}'
     else:
-        target_ip = f'18.{dpu_index}.202.1'
-    target_username = 'admin'
-    target_password = 'YourPaSsWoRd'
+        target_ip = f'20.0.200.{dpu_index+1}'
+    target_username = tbinfo.get('dpu_target_username', 'admin')
+    target_password = tbinfo.get('dpu_target_passwd', 'YourPaSsWoRd')
 
     # Connect to jump host
     net_connect_jump = ConnectHandler(**jump_host)
@@ -361,9 +400,9 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     'sudo config route del prefix 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                 logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
                 time.sleep(1)
-                logger.info(f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
+                logger.info(f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.200.{dpu_index+1}')
                 output = net_connect_jump.send_command_timing(
-                    f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0', delay_factor=2)
+                    f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.200.{dpu_index+1}', delay_factor=2)
                 logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
                 output = net_connect_jump.send_command_timing('show ip route', delay_factor=2)
                 logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
@@ -409,10 +448,10 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     logger.info(f'Restarting hamgrd on {duthost.hostname}: docker restart dash-hadpu0')
                     duthost.shell("docker restart dash-hadpu0")
                     logger.info(f'Removing interface from {duthost.hostname}: '
-                                f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31')
+                                f'sudo config interface ip rem Ethernet0 20.0.200.{dpu_index+1}/31')
                     time.sleep(2)
                     output = net_connect_jump.send_command_timing(
-                        f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31', delay_factor=2)
+                        f'sudo config interface ip rem Ethernet0 20.0.200.{dpu_index+1}/31', delay_factor=2)
                     logger.info(
                         f'Deleting route on {duthost.hostname}: sudo ip route del 0.0.0.0/0 via 169.254.200.254')
                     time.sleep(2)
@@ -420,10 +459,10 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(
                         f'Adding route on {duthost.hostname}: '
-                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0')
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.201.{dpu_index+1}')
                     time.sleep(2)
                     output = net_connect_jump.send_command_timing(
-                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0', delay_factor=2)
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.201.{dpu_index+1}', delay_factor=2)
                     active_ethpass_ip = tbinfo['active_ethpass_ip']
                     active_mac = tbinfo['active_mac']
                     logger.info(
@@ -432,11 +471,11 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     logger.info(
                         f'Pinging standby side loopback intf from {duthost.hostname}: '
                         f'ping -c 3 {active_ethpass_ip}')  # noqa:  E231
-                    output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
+                    duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
                     logger.info(f'Correcting route on {duthost.hostname}: '
-                                f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 nexthop 20.{dpu_index}.202.1')
+                                f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 nexthop 20.0.201.{dpu_index+1}')
                     output = duthost.command(f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 '
-                                             f'nexthop 20.{dpu_index}.202.1', module_ignore_errors=True)
+                                             f'nexthop 20.0.201.{dpu_index+1}', module_ignore_errors=True)
                     logger.info(f'Adding correct route on {duthost.hostname}: '
                                 f'sudo config route add prefix 221.0.0.{dpu_index+1}/32 nexthop 220.0.4.1')
                     output = duthost.command(f'sudo config route add prefix 221.0.0.{dpu_index+1}/32 '
@@ -452,10 +491,10 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     output = net_connect_jump.send_command_timing(
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(f'Adding route on {duthost.hostname}: '
-                                f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
+                                f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.200.{dpu_index+1}')
                     time.sleep(2)
                     output = net_connect_jump.send_command_timing(
-                        f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0', delay_factor=2)
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.200.{dpu_index+1}', delay_factor=2)
 
                     standby_ethpass_ip = tbinfo['standby_ethpass_ip']
                     standby_mac = tbinfo['standby_mac']
@@ -464,8 +503,7 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
                     logger.info(
                         f'Pinging active side loopback intf from {duthost.hostname}: sudo ping -c 3 {standby_ethpass_ip}')  # noqa:  E231
-                    output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}",  # noqa: F841
-                                                  module_ignore_errors=True)
+                    duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)
     except Exception as e:
         logger.error(f"{duthost.hostname} Error during DPU configuration: {str(e)}")
         raise
@@ -536,7 +574,7 @@ def load_dpu_configs_on_dut(
                                                 ha_test_case)
     remote_dir = f"{remote_dir}/dpu{dpu_index}"
     _ensure_remote_dir_on_dut(duthost, remote_dir)
-    _telemetry_run_on_dut(duthost)
+    # _telemetry_run_on_dut(duthost)
     _copy_files_to_dut(duthost, local_files, remote_dir)
 
     delay = initial_delay_sec
@@ -551,7 +589,7 @@ def load_dpu_configs_on_dut(
                 logger.info(f"RPC unavailable for {rb}; retrying after telemetry restart")  # noqa: E702
                 duthost.shell("docker ps --format '{{.Names}}' | grep -w gnmi || true", module_ignore_errors=True)
                 time.sleep(120)
-                _telemetry_run_on_dut(duthost)
+                # _telemetry_run_on_dut(duthost)
                 time.sleep(retry_delay_sec)
                 _docker_run_config_on_dut(duthost, remote_dir, dpu_index, rb)
 
@@ -564,14 +602,11 @@ def load_dpu_configs_on_dut(
 def duthost_port_config(duthost):
 
     # copy HA config
-    # duthost.command("sudo cp {} {}".format(
-    #    "/etc/sonic/0HA_BACKUP/config_db.json", "/etc/sonic/config_db.json"))
     logger.info(f"{duthost.hostname} Loading custom HA config_db.json")
     duthost.shell("sudo sonic-cfggen -j /etc/sonic/0HA_BACKUP/config_db.json --write-to-db")
     duthost.shell("sudo cp /etc/sonic/0HA_BACKUP/config_db.json  /etc/sonic/config_db.json")
 
     # logger.info(f"{duthost.hostname} Reloading config_db.json")
-    # duthost.shell("sudo config reload -y \n")
 
     logger.info(f"{duthost.hostname} Saving config_db.json")
     duthost.shell("sudo config save -y")
@@ -582,14 +617,6 @@ def duthost_port_config(duthost):
 def duthost_ha_config(duthost, nw_config):
 
     # Smartswitch configure
-    """
-    logger.info('Cleaning up config')
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1,
-                             duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-
-    """
 
     static_ipsmacs_dict = {}
 
@@ -856,6 +883,7 @@ def npu_startup(duthosts, duthost, localhost):
             logger.info(f"DPU boot successful on {duthost.hostname}")
             break
 
+    '''
     if duthost == duthosts[1]:  # standby device
         logger.info(f"Removing unwanted IPs from standby device: {duthost.hostname}")
         remove_dpu_ip_addresses_from_npu(
@@ -863,6 +891,7 @@ def npu_startup(duthosts, duthost, localhost):
             ip_prefixes_to_remove=["18"],  # Removes 18.X.202.0/31 addresses
             additional_filters=["220.0.1.1/", "220.0.2.1/", "220.0.3.1/", "220.0.4.1/"]
         )
+    '''
 
     return True
 
@@ -870,33 +899,18 @@ def npu_startup(duthosts, duthost, localhost):
 def dpu_startup(duthosts, duthost, tbinfo, static_ipmacs_dict, ha_test_case):
 
     logger.info(f"Pinging each DPU on {duthost.hostname}")
-    """
-    dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
-    passing_dpus = []
-
-    for x, ipKey in enumerate(dpuIFKeys):
-        logger.info(f"On {duthost.hostname} pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
-        output_ping = duthost.command(f"ping -c 3 {static_ipmacs_dict['static_ips'][ipKey]}", module_ignore_errors=True)
-        if output_ping.get("rc", 1) == 0 and "0% packet loss" in output_ping.get("stdout", ""):
-            logger.info(f"Ping success on {duthost.hostname}")
-            passing_dpus.append(x)
-            pass
-        else:
-            logger.info(f"Ping failure on {duthost.hostname}")
-            pass
-    """
     remote_dir = "/tmp/dpu_configs"
     initial_delay_sec = 20
     retry_delay_sec = 10
 
     # Determine which IPs to ping based on duthost
     if len(duthosts) > 1 and duthost == duthosts[1]:
-        # For duthosts[1], ping 20.0.202.1, 20.1.202.1, ..., 20.7.202.1
+        # For duthosts[1], ping 20.0.201.1...20.0.201.8
         ip_list_to_ping = [f"169.254.200.{i+1}" for i in range(8)]
         logger.info(f"Using standby side midplane IPs for {duthost.hostname}: {ip_list_to_ping}")
     elif len(duthosts) > 1 and duthost == duthosts[0]:
-        # For duthosts[0], ping 18.0.202.1, ..., 18.7.202.1
-        ip_list_to_ping = [f"18.{i}.202.1" for i in range(8)]
+        # For duthosts[0], ping 20.0.200.1, ..., 20.0.200.8
+        ip_list_to_ping = [f"20.0.200.{i+1}" for i in range(8)]
         logger.info(f"Using active side IPs for {duthost.hostname}: {ip_list_to_ping}")
     else:
         # Fallback to original logic for single DUT setup
@@ -918,19 +932,6 @@ def dpu_startup(duthosts, duthost, tbinfo, static_ipmacs_dict, ha_test_case):
             pass
 
     errors = {}
-
-    """
-    if ha_test_case != "cps":
-        max_workers = 2
-        required_dpus = [0, 2]
-        if all(dpu in passing_dpus for dpu in required_dpus):
-            passing_dpus = required_dpus
-        else:
-            passing_dpus = []
-            return passing_dpus
-    else:
-        max_workers = min(8, max(1, len(passing_dpus)))
-    """
 
     # max_workers = min(8, max(1, len(passing_dpus)))
     max_workers = min(8, max(1, len(passing_dpus)))
@@ -996,32 +997,81 @@ def assignPorts(api, ports_list):
             chassisId, cardId, portId = portTuple
             paramDict = {"chassisId": chassisId, "cardId": cardId, "portId": portId}
             try:
-                # Code that may raise an exception
-                res = api.ixload_configure("post", portListUrl, paramDict)  # noqa: F841
+                api.ixload_configure("post", portListUrl, paramDict)
             except Exception as e:
-                # Handle any exception
                 logger.info(f"An error occurred: {e}")
 
     return
 
 
-def build_node_ips(count, vpc, nw_config, nodetype="client"):
-    if nodetype in "client":
-        ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
-                           + int(nw_config.IP_STEP_ENI) * (vpc - 1))
-    if nodetype in "server":
-        ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+def checkPorts(api, ports_list):
+
+    # Expected port tuples
+    expected_ports = [port for ports in ports_list.values() for port in ports]
+    logger.info(f"Expected ports: {expected_ports}")
+
+    # Check both client and server
+    for objectID, url in [(0, "ixload/test/activeTest/communityList/0/network/portList"),
+                          (1, "ixload/test/activeTest/communityList/1/network/portList")]:
+        port_ids = get_objectIDs(api, url)
+        logger.info(f"Community {objectID} portListIDs: {port_ids}")
+
+        for port_id in port_ids:
+            payload = {}
+            port_details = api.ixload_configure("get", f"{url}/{port_id}", payload)
+            port_tuple = (port_details.chassisId,
+                          port_details.cardId,
+                          port_details.portId)
+
+            if port_tuple not in expected_ports:
+                logger.info(f"Removing port {port_tuple} (objectID: {port_id})")
+                api.ixload_configure("delete", f"{url}/{port_id}", {})
+
+    return
+
+
+def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
+
+    if service_type == 'vnet2vnet':
+        if nodetype == "client":
+            ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
+                               + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype == "server":
+            ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+    else:
+        # service_type == 'privatelink'
+        if nodetype == "dut_client":
+            ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count) +
+                               int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype == "client":
+            ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype == "server":
+            ip = nw_config.ipp((int(nw_config.IPv6_R_START) + (int(nw_config.IPv6_Range_Increment) * (vpc - 1))))
 
     return str(ip)
 
 
-def build_node_macs(count, vpc, nw_config, nodetype="client"):
+def build_node_macs(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
 
-    if nodetype in "client":
-        m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
-                           + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
-    if nodetype in "server":
-        m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+    if service_type == 'vnet2vnet':
+        if nodetype == "client":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
+                               + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
+        if nodetype == "server":
+            m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+    else:
+        # service_type == private_link
+        if nodetype == "staticarp_client":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca('00:00:00:00:00:80')) * (vpc - 1)
+                               + (int(nw_config.maca(nw_config.ENI_MAC_STEP)) * count))
+        if nodetype == "dut_client":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
+                               (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
+        if nodetype == "client":
+            m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+        if nodetype == "server":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
+                               (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
 
     return str(m).replace('-', ':')
 
@@ -1041,24 +1091,73 @@ def build_node_vlan(index, nw_config, nodetype="client"):
     return vlan
 
 
-def create_ip_list(nw_config):
+def create_staticarp_ranges(nw_config, ip_list):
+
+    staticarp_ranges = {'client': [], 'server': []}
+
+    # client side
+    count = 0
+    NETWORK_RANGE_ID = 0
+    VLAN_ID = 1
+    CLIENT_BASE_IP = int(nw_config.ipp("1.4.0.1"))
+    INCREMENT_ENI = int(nw_config.ipp("0.64.0.0"))
+    INCREMENT_NSG = int(nw_config.ipp("0.2.0.0"))
+
+    for eni in range(0, nw_config.ENI_COUNT):
+        for eni_j in range(0, 10):
+            FIRST_IP = str(nw_config.ipp(CLIENT_BASE_IP + eni * INCREMENT_ENI + eni_j * INCREMENT_NSG))
+            mac_client = build_node_macs(eni, eni_j+1, nw_config, 'privatelink', nodetype="staticarp_client")
+            payload = {
+                "firstIp": FIRST_IP,
+                "mac": mac_client,
+                "vlanId": VLAN_ID + 1000,
+            }
+
+            staticarp_ranges['client'].append(payload)
+            count += 1
+            NETWORK_RANGE_ID += 1
+            # logger.info(f"Creating staticarp range for eni {eni} eni_j {eni_j} mac {mac_client} firstIp {FIRST_IP}")
+        VLAN_ID += 1
+
+    # server side
+    for eni in ip_list:
+        payload = {
+            "firstIp": eni['ip_client'],
+            "mac": eni['mac_client'],
+            "vlanId": eni['vlan_server'],
+        }
+        staticarp_ranges['server'].append(payload)
+
+    return staticarp_ranges
+
+
+def create_ip_list(nw_config, service_type):
 
     ip_list = []
 
+    ENI_START = nw_config.ENI_START
     ENI_COUNT = nw_config.ENI_COUNT
     logger.info("Creating an ENI_COUNT = {} for l47 trafficgen".format(ENI_COUNT))
 
-    for eni in range(nw_config.ENI_START, ENI_COUNT + 1):
+    for eni in range(ENI_START, ENI_COUNT + 1):
         ip_dict_temp = {}
-        ip_client = build_node_ips(0, eni, nw_config, nodetype="client")
-        mac_client = build_node_macs(0, eni, nw_config, nodetype="client")
+
+        if service_type == 'privatelink':
+            dut_ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="dut_client")
+            dut_vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="dut_client")
+
+        ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="client")
+        mac_client = build_node_macs(0, eni, nw_config, service_type, nodetype="client")
         vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="client")
 
-        ip_server = build_node_ips(0, eni, nw_config, nodetype="server")
-        mac_server = build_node_macs(0, eni, nw_config, nodetype="server")
+        ip_server = build_node_ips(0, eni, nw_config, service_type, nodetype="server")
+        mac_server = build_node_macs(0, eni, nw_config, service_type, nodetype="server")
         vlan_server = build_node_vlan(eni - 1, nw_config, nodetype="server")
 
         ip_dict_temp['eni'] = eni
+        if service_type == 'privatelink':
+            ip_dict_temp['dut_ip_client'] = dut_ip_client
+            ip_dict_temp['dut_vlan_client'] = dut_vlan_client
         ip_dict_temp['ip_client'] = ip_client
         ip_dict_temp['mac_client'] = mac_client
         ip_dict_temp['vlan_client'] = vlan_client
@@ -1082,10 +1181,8 @@ def edit_l1_settings(api):
     for i in range(2):
         portl1_url = "ixload/test/activeTest/communityList/{}/network/portL1Settings".format(i)
         try:
-            # Code that may raise an exception
-            res = api.ixload_configure("patch", portl1_url, params)  # noqa: F841
+            api.ixload_configure("patch", portl1_url, params)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     return
@@ -1118,7 +1215,7 @@ def get_objectIDs(api, url):
     return objectIDs
 
 
-def set_rangeList(api):
+def set_rangeList(api, service_type):
     """
     Adjust both rangeList, macRange, and vlanRange as needed
     """
@@ -1142,45 +1239,48 @@ def set_rangeList(api):
 
     for i, cid in enumerate(client_objectIDs):
         try:
-            # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
-            res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
-            res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)  # noqa: F841
+            if service_type != 'privatelink':
+                api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)
+                api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)
+            api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     for i, sid in enumerate(server_objectIDs):
         try:
-            # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)  # noqa: F841
+            api.ixload_configure("patch", "{}/{}/vlanRange".format(serverList_url, sid), vlan_dict)
         except Exception as e:
-            # Handle any exception
             logger.info(f"An error occurred: {e}")
 
     return
 
 
-def set_trafficMapProfile(api):
+def set_trafficMapProfile(api, service_type):
 
     # Make Traffic Map Settings
     portMapPolicy_json = {'portMapPolicy': 'customMesh'}
-    destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
+
+    if service_type == 'vnet2vnet':
+        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
+    else:
+        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/1"
+
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", destination_url, portMapPolicy_json)
+        api.ixload_configure("patch", destination_url, portMapPolicy_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     # meshType
     meshType_json = {'meshType': 'vlanRangePairs'}
-    submapsIpv4_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0/customPortMap/submapsIPv4/0"
+    if service_type == 'vnet2vnet':
+        submapsIpv4_url = ("ixload/test/activeTest/communityList/0/activityList/0/destinations/0/"
+                           "customPortMap/submapsIPv4/0")
+    else:
+        submapsIpv4_url = ("ixload/test/activeTest/communityList/0/activityList/0/destinations/1/customPortMap/"
+                           "submapsIPv4/0")
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)  # noqa: F841
+        api.ixload_configure("patch", submapsIpv4_url, meshType_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
@@ -1194,10 +1294,8 @@ def set_tcpCustom(api):
     param_json = {'maxPersistentRequests': 1}
     # response = requests.patch(url, json=param_json)
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", tcp_agent_url, param_json)  # noqa: F841
+        api.ixload_configure("patch", tcp_agent_url, param_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
@@ -1205,10 +1303,10 @@ def set_tcpCustom(api):
 
 def set_timelineCustom(api, initial_cps_value):
 
-    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"  # noqa: F841
+    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
     timelineObjectives_url = "ixload/test/activeTest/communityList/0/activityList/0/timeline"
 
-    activityList_json = {  # noqa: F841
+    activityList_json = {
         'constraintType': 'ConnectionRateConstraint',
         'constraintValue': initial_cps_value,
         'enableConstraint': False,
@@ -1220,11 +1318,194 @@ def set_timelineCustom(api, initial_cps_value):
     }
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
+        api.ixload_configure("patch", timelineObjectives_url, timeline_json)
+        api.ixload_configure("patch", activityList_url, activityList_json)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
+
+    return
+
+
+def create_dut_config(api):
+
+    param = {
+        "type": "VirtualDut"
+    }
+
+    url = 'ixload/test/activeTest/dutList'
+    try:
+        api.ixload_configure("post", url, param)
+    except Exception as e:
+        logger.info(f"An error occurred: {e}")
+
+    return
+
+
+def add_dut_ranges(api, nw_config):
+
+    data = {}
+
+    # Here Create Ranges
+    url_networkRangeList = 'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList'
+    for i in range((nw_config.ENI_COUNT * 10) - 1):
+        try:
+            api.ixload_configure("post", url_networkRangeList, data)
+        except Exception as e:
+            logger.info(f"An error occurred: {e}")
+            return None
+
+    return
+
+
+def patch_dut_config(api, nw_config, eni_per_dpu):
+
+    param_comment = {
+        "comment": "DASH Private Link"
+    }
+
+    url_attributes = 'ixload/test/activeTest/dutList/0'
+
+    try:
+        api.ixload_configure("patch", url_attributes, param_comment)
+    except Exception as e:
+        logger.info(f"An error occurred: {e}")
+        return None
+
+    count = 0
+    NETWORK_RANGE_ID = 0
+    VLAN_ID = 1
+    BASE_IP = int(nw_config.ipp("1.4.0.1"))
+    INCREMENT_ENI = int(nw_config.ipp("0.64.0.0"))
+    INCREMENT_NSG = int(nw_config.ipp("0.2.0.0"))
+
+    if eni_per_dpu == 64:
+        ipCount = 64
+    else:
+        ipCount = nw_config.ENI_COUNT * 2
+
+    for i in range(0, nw_config.ENI_COUNT):
+        for j in range(0, 10):
+            FIRST_IP = str(nw_config.ipp(BASE_IP + i * INCREMENT_ENI + j * INCREMENT_NSG))
+            payload = {
+                "firstIp": FIRST_IP,
+                "ipCount": ipCount,
+                "ipIncrStep": "0.0.0.2",
+                "networkMask": "255.192.0.0",
+                "vlanCount": 1,
+                'vlanEnable': True,
+                "vlanId": VLAN_ID,
+                "vlanUniqueCount": 1
+            }
+            url_networkRangeList_index = f'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList/{count}'
+
+            try:
+                api.ixload_configure("patch", url_networkRangeList_index, payload)
+            except Exception as e:
+                logger.info(f"An error occurred: {e}")
+                return None
+
+            count += 1
+            NETWORK_RANGE_ID += 1
+        VLAN_ID += 1
+
+    return
+
+
+def patch_destination_actionList(api):
+
+    param_comment = {
+        "destination": "DUT1:80"
+    }
+
+    url_actionList2 = '/ixload/test/activeTest/communityList/0/activityList/0/agent/actionList/2'
+
+    try:
+        api.ixload_configure("patch", url_actionList2, param_comment)
+    except Exception as e:
+        logger.info(f"An error occurred: {e}")
+        return None
+
+    return
+
+
+def patch_communityList2(api, nw_config):
+
+    url = "ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList"
+    objectIDs = get_objectIDs(api, url)
+
+    param_doubleIncrement = {
+        'doubleIncrement': True,
+    }
+
+    # secondCount is based on # VNET mapping per ENI 64K requirement.  Adjust scale to set.
+    scale = 0.01
+    first_count = nw_config.ACL_TABLE_COUNT * 2
+    second_count = int((64000 * scale)/first_count)
+    param_doubleIncrement2 = {
+        'firstIncrementBy': '::002:0',
+        'firstCount': first_count,
+        'gatewayAddress': '::0',
+        'gatewayIncrement': '::0',
+        'secondCount': second_count,
+        'secondIncrementBy': '::2'
+    }
+
+    for id in objectIDs:
+        url = f"ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList/{id}"
+        try:
+            api.ixload_configure("patch", url, param_doubleIncrement)
+            api.ixload_configure("patch", url, param_doubleIncrement2)
+        except Exception as e:
+            logger.info(f"An error occurred: {e}")
+            return None
+
+    return
+
+
+def delete_staticarp_files(chassis_ip, tbinfo, ixos_version):
+    def delete_files(ssh_client, remote_path, logger=None):
+        """
+        Delete a remote file using SFTP. If it doesn't exist, do nothing.
+        """
+        sftp = None
+        try:
+            sftp = ssh_client.open_sftp()
+            try:
+                attrs = sftp.stat(remote_path)
+                if stat.S_ISDIR(attrs.st_mode):
+                    msg = f"Refusing to delete directory: {remote_path}"
+
+                    logger.warning(msg)
+                    return
+            except FileNotFoundError:
+                msg = f"File not found (nothing to delete): {remote_path}"
+                logger.info(msg)
+                return
+
+            sftp.remove(remote_path)
+            msg = f"Deleted: {remote_path}"
+            logger.info(msg)
+        except Exception as e:
+            msg = f"Failed to delete {remote_path}: {e}"
+            logger.exception(msg)
+        finally:
+            if sftp:
+                sftp.close()
+
+    # Connect to remote host
+    logger.info(f"Connecting to {chassis_ip}...")
+    ssh_client = set_chassis_connect(chassis_ip, tbinfo)
+
+    card = 1  # Update this to use card number as an index
+    # client
+    client_path = os.path.join(f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp')
+    delete_files(ssh_client, client_path, logger)
+
+    # server
+    server_path = os.path.join(f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp')
+    delete_files(ssh_client, server_path, logger)
+
+    close_chassis_connect(ssh_client)
 
     return
 
@@ -1238,33 +1519,145 @@ def set_userIPMappings(api):
     }
 
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url, param_userIpMapping)  # noqa: F841
+        api.ixload_configure("patch", url, param_userIpMapping)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
         return None
 
     return
 
 
-def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_filename, initial_cps_value):
+def set_test_preferences(api):
+
+    url = "ixload/preferences"
+
+    param_allowRouteConflicts = {
+        'allowRouteConflicts': True
+    }
+
+    try:
+        api.ixload_configure("patch", url, param_allowRouteConflicts)
+    except Exception as e:
+        logger.info(f"An error occurred: {e}")
+        return None
+
+    return
+
+
+def set_chassis_connect(chassis_ip, tbinfo):
+
+    chassis_user_login = tbinfo.get('chassis_user_login')
+    chassis_user_passwd = tbinfo.get('chassis_user_passwd')
+
+    # setting up ssh connection
+    try:
+        logger.info("Setting up an SSH client to connect to chassis")
+        ssh_client = paramiko.SSHClient()
+        logger.info("Loading host keys for SSH client")
+        ssh_client.load_system_host_keys()
+        logger.info(f"Connecting to {chassis_ip}...")
+        ssh_client.connect(hostname=f'{chassis_ip}', username=f'{chassis_user_login}',
+                           password=f'{chassis_user_passwd}')
+    except Exception as e:
+        logger.error(f"Failed to connect to {chassis_ip}, make sure credentials are correct and network is "
+                     f"reachable and chassis is part of known_hosts: {e}")
+        return None
+
+    return ssh_client
+
+
+def close_chassis_connect(ssh_client):
+    # Close the SSH connection
+    ssh_client.close()
+
+
+def set_trafficgen_staticarps(staticarp_ranges, chassis_ip, tbinfo,
+                              ixos_version, nw_config):
+    def build_arp_payload(ssh_client, staticarp_ranges, ENI_TOTAL, filename, is_server, remote_path):
+        lines = []
+        if is_server:
+            count = 1
+            for i in range(ENI_TOTAL):
+                mac_addr = staticarp_ranges['server'][i]['mac']
+                ip_addr = staticarp_ranges['server'][i]['firstIp']
+                vlan_id = staticarp_ranges['server'][i]['vlanId']
+                lines.append(
+                    f"RemoteMAC={mac_addr}, RemoteMACIncr=00:00:00:00:00:02, "  # noqa: E231
+                    f"RemoteIPv4={ip_addr}, RemoteIPv4Incr=0.0.0.2, "
+                    f"Count={count}, VlanID={vlan_id}\n")
+        else:
+            count = ENI_TOTAL * 2
+            for i in range(ENI_TOTAL*10):
+                mac_addr = staticarp_ranges['client'][i]['mac']
+                ip_addr = staticarp_ranges['client'][i]['firstIp']
+                vlan_id = staticarp_ranges['client'][i]['vlanId']
+                lines.append(
+                    f"RemoteMAC={mac_addr}, RemoteMACIncr=00:00:00:00:00:02, "  # noqa: E231
+                    f"RemoteIPv4={ip_addr}, RemoteIPv4Incr=0.0.0.2, "
+                    f"Count={count}, VlanID={vlan_id}\n")
+
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as f:
+            f.writelines(lines)
+
+        with SCPClient(ssh_client.get_transport()) as scp_client:
+            try:
+                scp_client.put(filename, remote_path)
+            except Exception as e:
+                logger.error(f"SCP failed arp payload upload to trafficgen server: {e}")
+
+        os.remove(filename)
+        return
+
+    ENI_TOTAL = nw_config.ENI_COUNT
+    card = 1  # Make this an index
+
+    # Connect to remote host
+    logger.info(f"Connecting to {chassis_ip}...")
+    ssh_client = set_chassis_connect(chassis_ip, tbinfo)
+
+    # Create client files
+    client_path = os.path.join(f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp')
+    build_arp_payload(
+        ssh_client, staticarp_ranges, ENI_TOTAL, f"ixtcp_{card}.arp", False, client_path
+    )
+
+    # Create server files
+    server_path = os.path.join(f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp')
+    build_arp_payload(
+        ssh_client, staticarp_ranges, ENI_TOTAL, f"ixtcp_{card}_1.arp", True, server_path
+    )
+
+    close_chassis_connect(ssh_client)
+
+    logger.info("ARP files created successfully!")
+
+    return
+
+
+def l47_trafficgen_main(ports_list, tbinfo, connection_dict, nw_config, service_type,
+                        test_type, test_filename, initial_cps_value):
 
     # Start Here ######
     main_start_time = time.time()
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
-    chassis_ip = connection_dict['chassis_ip']
+    chassis_ip = tbinfo.get('chassis_ip')
+    eni_per_dpu = int(tbinfo.get('eni_per_dpu', 32))
     ixl_version = connection_dict['version']
+    ixos_version = connection_dict['ixos_version']
 
     api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version=ixl_version)
     config = api.config()
 
-    port_1 = config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))[-1]  # noqa: F841
-    port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]  # noqa: F841
+    config.ports.port(name="p1", location="{}/1/1".format(chassis_ip))
+    config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))
 
     # client/server IP ranges created here
-    ip_list = create_ip_list(nw_config)
+    ip_list = create_ip_list(nw_config, service_type)
+    if service_type == 'privatelink':
+        staticarp_ranges = create_staticarp_ranges(nw_config, ip_list)
+        set_trafficgen_staticarps(staticarp_ranges, chassis_ip, tbinfo, ixos_version, nw_config)
 
     logger.info("Setting devices")
     time_device_time = time.time()
@@ -1319,12 +1712,20 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
             eth2.step = "00:00:00:00:00:02"
 
             # ip section
-            ip2 = eth2.ipv4_addresses.ipv4()[-1]
-            ip2.name = "{}.ipv4".format(eth2.name)
-            ip2.address = eni_info['ip_server']
-            ip2.prefix = 10
-            ip2.gateway = "0.0.0.0"
-            ip2.count = 1
+            if service_type == 'privatelink':
+                ip2 = eth2.ipv6_addresses.ipv6()[-1]
+                ip2.name = "{}.ipv6".format(eth2.name)
+                ip2.address = eni_info['ip_server']
+                ip2.prefix = 128
+                ip2.gateway = "::0"
+                # ip2.count = 1
+            else:
+                ip2 = eth2.ipv4_addresses.ipv4()[-1]
+                ip2.name = "{}.ipv4".format(eth2.name)
+                ip2.address = eni_info['ip_server']
+                ip2.prefix = 10
+                ip2.gateway = "0.0.0.0"
+                ip2.count = 1
 
             # vlan section
             vlan2 = eth2.vlans.vlan()[-1]
@@ -1484,7 +1885,7 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     # Set config
     logger.info("Configuring custom settings")
     time_custom_time = time.time()
-    response = api.set_config(config)  # noqa: F841
+    api.set_config(config)
     port = connection_dict['port']
 
     time_custom_finish = time.time()
@@ -1495,9 +1896,23 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     set_userIPMappings(api)
     logger.info("userIpMapping completed")
 
+    # Create DUTLIST
+    if service_type == 'privatelink':
+        logger.info("Configuring DUT list settings")
+        create_dut_config(api)
+        add_dut_ranges(api, nw_config)
+        patch_dut_config(api, nw_config, eni_per_dpu)
+
+        # Patch Traffic between Network1 and DUT
+        patch_destination_actionList(api)
+
+        # Patch Network 2 IPv6
+        patch_communityList2(api, nw_config)
+
     logger.info("Configuring custom port settings")
     time_assignPort_time = time.time()
     assignPorts(api, ports_list)
+    checkPorts(api, ports_list)
     time_assignPort_finish = time.time()
     logger.info("Custom port settings completed: {}".format(time_assignPort_finish - time_assignPort_time))
 
@@ -1510,14 +1925,14 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     # Here adjust Double Increment and vlanRange unique number
     logger.info("Configuring rangeList settings for client and server")
     test_rangeList_time = time.time()
-    set_rangeList(api)
+    set_rangeList(api, service_type)
     test_rangeList_finish_time = time.time()
     logger.info("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
 
     # Adjust Traffic Profile
     logger.info("Custom trafficmaps")
     test_trafficmaps_time = time.time()
-    set_trafficMapProfile(api)
+    set_trafficMapProfile(api, service_type)
     test_trafficmaps_finish = time.time()
     logger.info("Finished traffic maps configuration {}".format(test_trafficmaps_finish - test_trafficmaps_time))
 
@@ -1534,11 +1949,10 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     test_timeline_finish = time.time()
     logger.info("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
 
-    # save file
-    # logger.info("Saving Test File")
-    test_save_time = time.time()  # noqa: F841
-    test_save_finish_time = time.time()  # noqa: F841
-    # logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
+    # allow route conflicts
+    logger.info("Setting test preferences to allow route conflicts to enabled")
+    set_test_preferences(api)
+
     main_finish_time = time.time()
     logger.info("Ixload configuration app finished in {}".format(main_finish_time - main_start_time))
 
@@ -1556,10 +1970,8 @@ def saveAs(api, test_filename):
 
     # response = requests.post(url, data=json.dumps(paramDict), headers=headers)
     try:
-        # Code that may raise an exception
-        res = api.ixload_configure("post", saveAs_operation, paramDict)  # noqa: F841
+        api.ixload_configure("post", saveAs_operation, paramDict)
     except Exception as e:
-        # Handle any exception
         logger.info(f"An error occurred: {e}")
 
     return
