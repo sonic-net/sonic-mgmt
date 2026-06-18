@@ -317,6 +317,7 @@ class VMTopology(object):
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
+        self._is_smartswitch_ha = self.topo.get('topo_type') == 't1-smartswitch-ha'
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
         if self.dut_interfaces:
@@ -610,7 +611,8 @@ class VMTopology(object):
         self.add_ip_to_docker_if(BP_PORT_NAME, mgmt_ip, mgmt_ipv6)
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
-    def add_bp_port_with_vlans_to_docker(self, vlan_data, vrf_map, multi_vrf_config):
+    def add_bp_port_with_vlans_to_docker(self, vlan_data, vrf_map, multi_vrf_config,
+                                         ptf_bp_ip_addr=None, ptf_bp_ipv6_addr=None):
         rev_vrf_map = {}
         for peer, vrfs in vrf_map.items():
             for vrf in vrfs:
@@ -618,6 +620,13 @@ class VMTopology(object):
 
         self.add_br_if_to_docker(
             self.bp_bridge, PTF_BP_IF_TEMPLATE % self.vm_set_name, BP_PORT_NAME)
+
+        # Stock-compat: also give the parent backplane the legacy
+        # ptf_bp_ip address (e.g. 10.10.246.254/22, fc0a::ff/64) so untagged
+        # backplane-based tests (e.g. bgp_stress_link_flap monitor) keep working
+        # on converged VRF topologies. Per-VRF VLAN sub-interfaces are added below.
+        if ptf_bp_ip_addr or ptf_bp_ipv6_addr:
+            self.add_ip_to_docker_if(BP_PORT_NAME, ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
         for vrf, data in vlan_data.items():
             vlan_id = data.get("vlan")
@@ -649,7 +658,8 @@ class VMTopology(object):
             vlan_id = data.get("vlan")
             if vlan_id:
                 vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
-                VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
+                if VMTopology.intf_exists(vlan_intf_name, pid=self.pid):
+                    VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
@@ -1297,8 +1307,12 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=6,udp6,in_port=%s,udp_dst=4784,action=output:%s" %
                         (br_name, dut_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
-                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            if self._is_smartswitch_ha:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
+                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            else:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
+                            (br_name, dut_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %
@@ -1630,7 +1644,13 @@ class VMTopology(object):
         Remove veth interface from docker
         """
         logging.info("=== Cleanup port, int_if: %s, ext_if: %s, tmp_name: %s ===" % (ext_if, int_if, tmp_name))
-        if VMTopology.intf_exists(int_if, pid=self.pid):
+        # When the PTF container is absent, self.pid is None and the interface that used to live
+        # inside the container (e.g. eth0/mgmt/backplane) is already gone with the container. The
+        # in-container manipulation below must be skipped in that case: intf_exists()/iface_down()
+        # with pid=None fall back to the host root namespace and would operate on a same-named host
+        # interface (e.g. eth0), knocking the host off the network. Only the host-side peer (ext_if,
+        # which is uniquely named per vm_set) still needs to be cleaned up.
+        if self.pid is not None and VMTopology.intf_exists(int_if, pid=self.pid):
             # Name it back to temp name in PTF container to avoid potential conflicts
             VMTopology.iface_down(int_if, pid=self.pid)
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, int_if, tmp_name))
@@ -2408,7 +2428,11 @@ def main():
                     vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
                     vrf_map = multi_vrf_data.get("convergence_mapping", {})
                     multi_vrf_config = multi_vrf_data.get("converged_peers", {})
-                    net.add_bp_port_with_vlans_to_docker(vlan_data, vrf_map, multi_vrf_config)
+                    net.add_bp_port_with_vlans_to_docker(
+                        vlan_data, vrf_map, multi_vrf_config,
+                        ptf_bp_ip_addr=ptf_bp_ip_addr,
+                        ptf_bp_ipv6_addr=ptf_bp_ipv6_addr,
+                    )
                 else:
                     net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
                 if is_vs_chassis:
@@ -2570,6 +2594,13 @@ def main():
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
 
+            if module.params['duts_mgmt_port']:
+                for dut_mgmt_port in module.params['duts_mgmt_port']:
+                    if dut_mgmt_port != "":
+                        # For VS setup: rebind the DUT mgmt tap that the prior
+                        # unbind step detached from the mgmt bridge.
+                        net.bind_mgmt_port(mgmt_bridge, dut_mgmt_port)
+
             if net.netns:
                 net.unbind_mgmt_port(NETNS_MGMT_IF_TEMPLATE % net.vm_set_name)
                 net.delete_network_namespace()
@@ -2587,7 +2618,11 @@ def main():
                     vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
                     vrf_map = multi_vrf_data.get("convergence_mapping", {})
                     multi_vrf_config = multi_vrf_data.get("converged_peers", {})
-                    net.add_bp_port_with_vlans_to_docker(vlan_data, vrf_map, multi_vrf_config)
+                    net.add_bp_port_with_vlans_to_docker(
+                        vlan_data, vrf_map, multi_vrf_config,
+                        ptf_bp_ip_addr=ptf_bp_ip_addr,
+                        ptf_bp_ipv6_addr=ptf_bp_ipv6_addr,
+                    )
                 else:
                     net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 

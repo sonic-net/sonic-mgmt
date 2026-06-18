@@ -193,7 +193,7 @@ def startmonitor_gnmi_event(duthost, ptfhost):
     timeout = WAIT_GNMI_LD_EVENT_TIMEOUT
     gnmi_subscribe_cmd = f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {dut_mgmt_ip} -p 50052 -m subscribe \
     -x all[heartbeat=2] -xt EVENTS -o ndastreamingservertest --subscribe_mode 0 --submode 1 --interval 0 \
-    --update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout}"
+    --update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout} -n"
     result = ptfhost.shell(gnmi_subscribe_cmd, module_ignore_errors=True)['stdout']
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
     return result
@@ -241,7 +241,7 @@ def get_liquid_cooling_update_interval(dut):
 @pytest.fixture(scope="function")
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
-    Setup GNMI server with client certificates
+    Setup GNMI server with client without authentication
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -250,14 +250,6 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true")
-
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' ca_crt /etc/sonic/telemetry/dsmsroot.cer")
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer")
-    duthost.shell(
-        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_key /etc/sonic/telemetry/streamingtelemetryserver.key")
     duthost.shell('sonic-db-cli CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
     duthost.shell('sudo systemctl reset-failed gnmi')
     duthost.shell('sudo service gnmi restart')
