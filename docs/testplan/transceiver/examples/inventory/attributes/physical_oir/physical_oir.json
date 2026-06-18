@@ -1,0 +1,18 @@
+{
+    "defaults":
+    {
+        "port_under_test": [],
+        "oir_method": "manual",
+        "physical_oir_timeout_min": 30,
+        "simultaneous_oir": false,
+        "physical_oir_stress_iteration": 5,
+        "monitor_kernel_errors": false,
+        "link_flap_monitor_timeout_sec": 10
+    },
+    "dut": {
+        "<dut-name>":{
+            "port_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
+            "physical_oir_timeout_min": 5
+        }
+    }
+}

@@ -17,11 +17,11 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases) must be met.
 
-2. `physical_oir.json` located in `ansible/files/transceiver/inventory/attributes` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases). Following attributes are applicable here:
+2. `physical_oir.json` files under `ansible/files/transceiver/inventory/attributes/physical_oir` directory is used to define the attributes for the physical OIR tests. Per-PN body contains transceiver specific defaults, while DUT specific overrides are defined in the category-level shard; see [File Organization](test_plan.md#file-organization) for the shard contract. Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| ports_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
+| port_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
 | oir_method | String | manual | No | dut | The method used for OIR ("manual", "pseudo" or "automated"). |
 | physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
@@ -29,12 +29,13 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
+>**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method`. 
 
-3. `remote_reseat.json` located in `ansible/files/transceiver/inventory/attributes` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases).
+3. `remote_reseat.json` files under `ansible/files/transceiver/inventory/attributes/remote_reseat` directory is used to define the attributes for the remote reseat tests. Per-PN body contains transceiver specific defaults, while DUT specific overrides are defined in the category-level shard; see [File Organization](test_plan.md#file-organization) for the shard contract. Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| ports_under_test | List | [] | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
+| port_under_test | List | [] | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
 | remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in minutes to wait for the remote reseat process to complete. |
 | remote_reseat_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the remote reseat process. |
 | monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
@@ -107,7 +108,7 @@ This table lists the transceiver flag change count DB tables that should be moni
 
 ## Physical OIR API
 
-The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources.
+The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources. This API is needed to abstract the physical OIR operations for all OIR methods (manual, pseudo and automated) and provide a consistent interface for the test cases to interact with the underlying OIR mechanisms, regardless of the specific hardware or platform being tested.
 
 A class named `PhysicalOir` is defined under `tests.common.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
 
@@ -117,7 +118,7 @@ A class named `PhysicalOir` is defined under `tests.common.physical_oir` module.
         - `duthost` : AnsibleHost object of the dut.
         - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
         - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.  Following attributes are fetched from the `port_attributes_dict` object for further processing:
-            - `ports_under_test`: List of ports to be tested.
+            - `port_under_test`: List of ports to be tested.
             - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
             - `oir_method`: The method used for OIR ("manual", "pseudo" or "automated").
             - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
@@ -128,12 +129,12 @@ A class named `PhysicalOir` is defined under `tests.common.physical_oir` module.
     - Returns: Boolean indicating availability.
 
 3. **insert_sfps**
-    - Description: Inserts SFPs on the ports specified by the ports_under_test attribute.
+    - Description: Inserts SFPs on the ports specified by the port_under_test attribute.
     - Parameters: None
     - Returns: None when the operation is complete.
 
 4. **remove_sfps**
-    - Description: Removes SFPs from the ports specified by the ports_under_test attribute.
+    - Description: Removes SFPs from the ports specified by the port_under_test attribute.
     - Parameters: None
     - Returns: None when the operation is complete.
 
@@ -154,10 +155,10 @@ class PhysicalOir:
         # Check if physical OIR is supported in the testbed
 
     def insert_sfps(self) -> None:
-        # Insert SFPs on the ports specified by ports_under_test attribute
+        # Insert SFPs on the ports specified by the port_under_test attribute
 
     def remove_sfps(self) -> None:
-        # Remove SFPs from the ports specified by ports_under_test attribute
+        # Remove SFPs from the ports specified by the port_under_test attribute
 
     def cleanup(self) -> None:
         # Cleanup resources used by the PhysicalOir class
