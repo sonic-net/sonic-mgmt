@@ -39,6 +39,6 @@ def test_console_driver(duthost, conn_graph_facts):  # noqa: F811
     missing_ttys = sorted(expected_ttys - existing_ttys)
     pytest_assert(
         not missing_ttys,
-        "Console driver did not expose tty devices for wired serial-link inventory entries on DUT '{}': missing={}".format(
-            duthost.hostname, missing_ttys),
+        "Console driver did not expose tty devices for wired serial-link inventory entries on DUT '{}': "
+        "missing={}".format(duthost.hostname, missing_ttys),
     )
