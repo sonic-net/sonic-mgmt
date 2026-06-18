@@ -37,7 +37,7 @@
     asic_type: "{{ hostvars[dut_name].asic_type | default('') }}"
 
 - set_fact:
-    src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}.img"
+    src_disk_image: "{{ lookup('env', 'SONIC_MGMT_SONIC_KVM_IMAGE') | default(sonic_vm_storage_location ~ '/images/sonic-' ~ ('vpp' if 'vpp' == asic_type else 'vs') ~ '.img', true) }}"
 
 - name: Remove arp entry for {{ dut_name }}
   shell: arp -d {{ mgmt_ip_address }}

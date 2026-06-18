@@ -1,4 +1,4 @@
-csonic_image: docker-sonic-vs
+csonic_image: "{{ lookup('env', 'SONIC_MGMT_CSONIC_DOCKER_IMAGE') | default('docker-sonic-vs', true) }}"
 csonic_image_pull: false
 
 # Net base container holds the network namespace that the cSONiC container
