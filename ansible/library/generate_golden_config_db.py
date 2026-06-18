@@ -754,6 +754,7 @@ class GenerateGoldenConfigDBModule(object):
             "VLAN_MEMBER": copy.deepcopy(ori_config_db["VLAN_MEMBER"]),
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
+            "DPU": self._generate_dpu_config(dpu_num, enabled_dpu_set),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
@@ -763,7 +764,7 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "t1-smartswitch-ha":
             gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
             gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
-            ha_config = self._generate_ha_config(dpu_num, enabled_dpu_set)
+            ha_config = self._generate_ha_config(dpu_num)
             # Merge FEATURE dict so we don't overwrite existing features
             if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
                 gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
@@ -776,20 +777,47 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
-    def _generate_ha_config(self, dpu_num, enabled_dpu_set):
+    def _generate_dpu_config(self, dpu_num, enabled_dpu_set):
+        switch_id = self.npu_index
+        hostname = self.duts_list[switch_id] if self.duts_list and switch_id < len(self.duts_list) else "dpu"
+
+        pa_prefix = "20.0.20{}.".format(switch_id)
+        vip_prefix = "3.2.1."
+        midplane_prefix = "169.254.200."
+        swbus_start = 23606
+
+        dpu_table = {}
+        for idx in range(dpu_num):
+            dpu_key = self._format_dpu_key(hostname, idx)
+            dpu_table[dpu_key] = {
+                "dpu_id": str(idx),
+                "gnmi_port": "50052",
+                "local_port": "8080",
+                "orchagent_zmq_port": "8100",
+                "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
+                "state": "up" if idx in enabled_dpu_set else "down",
+                "swbus_port": str(swbus_start + idx),
+                "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
+                "vip_ipv4": "{}{}".format(vip_prefix, idx),
+                "midplane_ipv4": "{}{}".format(midplane_prefix, idx + 1),
+            }
+
+        return dpu_table
+
+    def _format_dpu_key(self, hostname, dpu_index):
+        return "{}-dpu{}".format(hostname, dpu_index)
+
+    def _generate_ha_config(self, dpu_num):
         """
-        Generate DASH-HA configuration tables (DPU, REMOTE_DPU, VDPU,
+        Generate DASH-HA configuration tables (REMOTE_DPU, VDPU,
         DASH_HA_GLOBAL_CONFIG, FEATURE, VNET, VXLAN_TUNNEL) for the
         t1-smartswitch-ha topology.
 
         Entries are emitted for every DPU supported by the hwsku
-        (0..dpu_num-1). Only the DPU table's `state` field reflects whether
-        the DPU is enabled for this testbed; disabled DPUs are recorded with
-        state="down" so the config schema stays consistent across NPUs.
+        (0..dpu_num-1) so the config schema stays consistent across NPUs.
 
         Args:
             dpu_num: Total number of DPUs supported by the hwsku.
-            enabled_dpu_set: Set of DPU indices that should be admin-up.
 
         Requires self.duts_list (ordered list of DUT hostnames) and
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
@@ -820,33 +848,13 @@ class GenerateGoldenConfigDBModule(object):
         vxlan_src_ip = loopback_ip.split("/")[0]
         peer_npu_ip = peer_loopback_ip.split("/")[0]
 
-        # --- Local DPU table ---
-        pa_prefix = "20.0.20{}.".format(switch_id)
-        vip_prefix = "3.2.1."
-        midplane_prefix = "169.254.200."
         swbus_start = 23606
-
-        dpu_table = {}
-        for idx in range(dpu_num):
-            dpu_key = "{}-dpu-{}".format(hostname, idx)
-            dpu_table[dpu_key] = {
-                "dpu_id": str(idx),
-                "gnmi_port": "50052",
-                "local_port": "8080",
-                "orchagent_zmq_port": "8100",
-                "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
-                "state": "up" if idx in enabled_dpu_set else "down",
-                "swbus_port": str(swbus_start + idx),
-                "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
-                "vip_ipv4": "{}{}".format(vip_prefix, idx),
-                "midplane_ipv4": "{}{}".format(midplane_prefix, idx + 1),
-            }
 
         # --- Remote DPU table ---
         remote_pa_prefix = "20.0.20{}.".format(peer_switch_id)
         remote_dpu_table = {}
         for idx in range(dpu_num):
-            dpu_key = "{}-dpu-{}".format(peer_hostname, idx)
+            dpu_key = self._format_dpu_key(peer_hostname, idx)
             remote_dpu_table[dpu_key] = {
                 "dpu_id": str(idx),
                 "npu_ipv4": peer_npu_ip,
@@ -867,15 +875,14 @@ class GenerateGoldenConfigDBModule(object):
         '''
         for idx in range(dpu_num):
             vdpu_table["vdpu0_{}".format(idx)] = {
-                "main_dpu_ids": "{}-dpu-{}".format(hostname_0, idx)
+                "main_dpu_ids": self._format_dpu_key(hostname_0, idx)
             }
         for idx in range(dpu_num):
             vdpu_table["vdpu1_{}".format(idx)] = {
-                "main_dpu_ids": "{}-dpu-{}".format(hostname_1, idx)
+                "main_dpu_ids": self._format_dpu_key(hostname_1, idx)
             }
 
         ha_config = {
-            "DPU": dpu_table,
             "REMOTE_DPU": remote_dpu_table,
             "VDPU": vdpu_table,
             "DASH_HA_GLOBAL_CONFIG": {
