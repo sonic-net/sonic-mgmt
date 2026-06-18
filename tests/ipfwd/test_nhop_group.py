@@ -393,7 +393,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     max_nhop = nhop_group_limit if max_nhop is None else int(max_nhop)
 
     # find out an active IP port
-    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
+    ip_ifaces = asic.get_up_ip_ports()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
@@ -507,7 +507,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
         pytest.skip("Order ECMP is not configured so skipping the test-case")
 
     # Check Gather facts IP Interface is active one
-    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
+    ip_ifaces = asic.get_up_ip_ports()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
 
@@ -760,6 +760,32 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          46: 'c0:ff:ee:00:00:10', 47: 'c0:ff:ee:00:00:0d',
                          48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:10'}
 
+    th6_asic_flow_map = {0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:0d',
+                         2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:10',
+                         4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:0e',
+                         6: 'c0:ff:ee:00:00:0d', 7: 'c0:ff:ee:00:00:0f',
+                         8: 'c0:ff:ee:00:00:0f', 9: 'c0:ff:ee:00:00:0d',
+                         10: 'c0:ff:ee:00:00:0e', 11: 'c0:ff:ee:00:00:10',
+                         12: 'c0:ff:ee:00:00:0f', 13: 'c0:ff:ee:00:00:0d',
+                         14: 'c0:ff:ee:00:00:0e', 15: 'c0:ff:ee:00:00:10',
+                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0b',
+                         18: 'c0:ff:ee:00:00:0c', 19: 'c0:ff:ee:00:00:12',
+                         20: 'c0:ff:ee:00:00:12', 21: 'c0:ff:ee:00:00:0c',
+                         22: 'c0:ff:ee:00:00:0b', 23: 'c0:ff:ee:00:00:11',
+                         24: 'c0:ff:ee:00:00:0b', 25: 'c0:ff:ee:00:00:11',
+                         26: 'c0:ff:ee:00:00:12', 27: 'c0:ff:ee:00:00:0c',
+                         28: 'c0:ff:ee:00:00:0c', 29: 'c0:ff:ee:00:00:12',
+                         30: 'c0:ff:ee:00:00:11', 31: 'c0:ff:ee:00:00:0b',
+                         32: 'c0:ff:ee:00:00:0e', 33: 'c0:ff:ee:00:00:10',
+                         34: 'c0:ff:ee:00:00:0f', 35: 'c0:ff:ee:00:00:0d',
+                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:0f',
+                         38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:0e',
+                         40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:10',
+                         42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:0d',
+                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:10',
+                         46: 'c0:ff:ee:00:00:0f', 47: 'c0:ff:ee:00:00:0d',
+                         48: 'c0:ff:ee:00:00:0c', 49: 'c0:ff:ee:00:00:12'}
+
     gr_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:0c',
                         2: 'c0:ff:ee:00:00:0d',
                         3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:12',
@@ -846,7 +872,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
                                               "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
-                                              "th5": th5_asic_flow_map,
+                                              "th5": th5_asic_flow_map, "th6": th6_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
@@ -891,7 +917,7 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     # Check Gather facts IP Interface is active one
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = asic.get_up_ip_ports()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
 
