@@ -6222,6 +6222,15 @@ wol:
       - *lossyTopos
 
 #######################################
+#####           watermark         #####
+#######################################
+watermark:
+  skip:
+    reason: "Watermark tests are only supported on physical testbeds."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####             zmq             #####
 #######################################
 
