@@ -174,14 +174,16 @@ def verify_ha_state(
     expected_state,
     timeout=120,
     interval=5,
+    ack=True
 ):
     """
     Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
         db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+        var = "local_acked_asic_ha_state" if ack else "local_ha_state"
         res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+            f'sonic-db-cli STATE_DB HGET "{db_key}" {var}'
         )
         state = res["stdout"].strip()
         return state == expected_state
