@@ -764,26 +764,26 @@ telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
 #######################################
 #####          Vxlan              #####
 #######################################
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+#vxlan/test_vxlan_ecmp.py::Test_VxLAN_ecmp_random_hash:
+#  skip:
+#    reason: >
+#            Failed/Errored: To be included
+#    conditions_logical_operator: or
+#    conditions:
+#      - "asic_type in ['vpp']"
+#
+#vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
+#  skip:
+#    reason: >
+#            Failed/Errored: To be included
+#    conditions_logical_operator: or
+#    conditions:
+#      - "asic_type in ['vpp']"
+#
+#vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
+#  skip:
+#    reason: >
+#            Failed/Errored: To be included
+#    conditions_logical_operator: or
+#    conditions:
+#      - "asic_type in ['vpp']"
