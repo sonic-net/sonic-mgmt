@@ -948,8 +948,12 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
 
         platform = duthost.facts["platform"]
 
-        if platform in ["armhf-nokia_ixs7215_52x-r0"]:
-            # For this platform, techsupport takes more time, so increase waiting time
+        slow_techsupport_platforms = [
+            "armhf-nokia_ixs7215_52x-r0",
+            "x86_64-arista_720dt_48s",
+        ]
+        if platform in slow_techsupport_platforms:
+            # These platforms need more time to finish techsupport collection and publish the tarball.
             wait = 900
         else:
             # For other platforms, fall back to default 600 seconds
