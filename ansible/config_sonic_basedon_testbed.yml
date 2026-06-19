@@ -1352,10 +1352,10 @@
 
         when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
 
-      - name: execute "TSB" on T2 DUTs
+      - name: execute "TSB" on T2/RH DUTs
         become: True
         shell: "TSB"
-        when: "'t2' in topo"
+        when: "'t2' in topo or 'rh' in topo"
 
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
