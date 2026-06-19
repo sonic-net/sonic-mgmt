@@ -43,7 +43,8 @@ PKTGEN_CMDS = [
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    return list(mg_facts["minigraph_ports"].keys())
+    int_counters = duthost.show_interface(command="counter")['ansible_facts']['int_counter']
+    return [port for port in mg_facts["minigraph_ports"] if port in int_counters]
 
 
 @pytest.fixture(scope='function', autouse='True')
