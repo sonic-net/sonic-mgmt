@@ -47,6 +47,7 @@ MAX_TRAFFIC_LOSS_PCT = 5.0
 DPU_CRITICAL_PROCESSES = [
     pytest.param("syncd", "syncd", id="syncd"),
     pytest.param("bgpd", "bgp", id="bgp"),
+    pytest.param("orchagent", "swss", id="swss"),
 ]
 
 
@@ -77,6 +78,7 @@ def verify_ha_state_converged(duthost, scope_key, expected_state):
         expected_state=expected_state,
         timeout=HA_CONVERGENCE_TIMEOUT,
         interval=HA_CHECK_INTERVAL,
+        ack=False
     ), (
         f"{duthost.hostname}: HA scope '{scope_key}' did not reach "
         f"'{expected_state}' within {HA_CONVERGENCE_TIMEOUT}s"
@@ -143,6 +145,11 @@ def standby_dpuhost(dpuhosts):
 
 
 class TestDpuProcessCrash:
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, ha_owner):
+        self.expected_ha_state_after_crash = "active" if ha_owner == "dpu" else "HA_STATE_STANDBY"
+        self.expected_ha_state_verify = "active" if ha_owner == "dpu" else "HA_STATE_STANDALONE"
 
     def _run(
         self, process_name, container,
@@ -225,10 +232,10 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
             crash_scope_key=primary_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify=self.expected_ha_state_verify,
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0,
         )
@@ -245,10 +252,10 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
             crash_scope_key=primary_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify=self.expected_ha_state_verify,
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1,
         )
@@ -265,10 +272,10 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify=self.expected_ha_state_verify,
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=0,
         )
@@ -285,10 +292,10 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
-            expected_ha_state_after_crash="active",
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
-            expected_ha_state_verify="active",
+            expected_ha_state_verify=self.expected_ha_state_verify,
             ptfadapter=ptfadapter, dash_pl_config=dash_pl_config,
             traffic_dut_index=1,
         )
