@@ -247,6 +247,12 @@ class AnsibleHostBase(object):
         if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
 
+        # Ensure 'failed' key is always present for compatibility with code that checks rc['failed'].
+        # The _IGNORE hack above is no longer effective in ansible-core >= 2.21 which changed
+        # how task results are post-processed. Normalizing here is a robust fallback.
+        if 'failed' not in hostname_res:
+            hostname_res['failed'] = hostname_res.is_failed
+
         return hostname_res
 
 
