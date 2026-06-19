@@ -953,7 +953,7 @@ def cacl_redfish_add_drop_rule(duthost, namespace=None):
 
 
 def test_cacl_redfish_feature_gating(rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
-                                     ip_netns_namespace_prefix, loganalyzer):
+                                     ip_netns_namespace_prefix):
     """ Verify caclmgrd gates REDFISH iptables rules on the FEATURE.redfish state.
 
     With a REDFISH ACL rule configured:
@@ -970,7 +970,6 @@ def test_cacl_redfish_feature_gating(rand_selected_front_end_dut, enum_rand_one_
     if not duthost.is_bmc():
         pytest.skip("REDFISH CACL gating test requires a BMC DUT")
 
-    cacl_ignore_regex(duthost, loganalyzer)
     namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
     redfish_rule = "-A INPUT -s 9.9.9.9/32 -p tcp -m tcp --dport 443 -j DROP"
 
