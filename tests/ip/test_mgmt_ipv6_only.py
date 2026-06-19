@@ -109,7 +109,7 @@ def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only):  # noqa: F411, F811
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
 
     def verify_bgp_facts(dut):
-        if duthost.is_multi_asic:
+        if dut.is_multi_asic:
             for asic in dut.asics:
                 run_bgp_facts(dut, asic.asic_index)
         else:
