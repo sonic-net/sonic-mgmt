@@ -1101,15 +1101,29 @@ class TestShowVlan():
 @pytest.mark.topology('t1', 'lt2', 'ft2')
 class TestConfigInterface():
     def check_speed_change(self, duthost, asic_index, interface, change_speed):
-        db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
-            .format(duthost.asic_instance(asic_index).sonic_db_cli,
-                    interface)
-        speed = duthost.shell('SONIC_CLI_IFACE_MODE={}'.format(db_cmd))['stdout']
+        sonic_db_cli = duthost.asic_instance(asic_index).sonic_db_cli
+
+        def _port_field(field):
+            db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" {}'.format(sonic_db_cli, interface, field)
+            return duthost.shell('SONIC_CLI_IFACE_MODE={}'.format(db_cmd))['stdout'].strip()
+
+        speed = _port_field('speed')
         hwsku = duthost.facts['hwsku']
         if hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
             if (
                 (int(speed) == 400000 and int(change_speed) <= 100000) or
                 (int(speed) == 100000 and int(change_speed) > 200000)
+            ):
+                return False
+            return True
+
+        if "NH-4210" in hwsku:
+            # TH6-P: on a 4-lane port 100G is NRZ while >=200G is PAM4, and the port
+            # macro's shared VCO cannot cross that boundary at runtime.
+            num_lanes = len(_port_field('lanes').split(','))
+            if num_lanes == 4 and (
+                (int(speed) >= 200000 and int(change_speed) == 100000) or
+                (int(speed) == 100000 and int(change_speed) >= 200000)
             ):
                 return False
         return True
@@ -1286,9 +1300,9 @@ class TestConfigInterface():
 
         if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
             pytest.skip(
-                "Cisco-88-LC0-36FH-M-O36 and Cisco-88-LC0-36FH-O36 \
+                "{} \
                     currently does not support\
-                    speed change from 100G to 400G and vice versa on runtime"
+                    speed change from 100G to 400G and vice versa on runtime".format(duthost.facts['hwsku'])
             )
 
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
