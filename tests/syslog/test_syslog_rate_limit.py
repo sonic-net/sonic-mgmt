@@ -24,8 +24,12 @@ DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 STP_LOG_FILE = '/var/log/stpd.log'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
-# rsyslogd emits this when container rate-limit starts dropping messages.
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
+# rsyslogd emits one of two messages depending on version when rate-limiting kicks in:
+#   - "begin to drop messages due to rate-limiting"  (logged when drops start)
+#   - "N messages lost due to rate-limiting (M allowed within K seconds)"  (logged as summary)
+# Both indicate that rate limiting is working. The exact form and frequency are
+# rsyslogd-version-dependent, so only a presence check is performed (not an exact count).
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = r'.*(?:begin to drop messages|messages lost) due to rate-limiting.*'
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -161,24 +165,25 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
             'docker cp {} {}:{}'.format(REMOTE_LOG_GENERATOR_FILE, container_name, DOCKER_LOG_GENERATOR_FILE))
         additional_files = get_loganalyzer_additional_files(service_name)
 
-        # When logs are routed to an additional file (e.g. stpd.log for STP):
-        # 1. The rsyslog transition message "begin to drop messages due to rate-limiting"
-        #    may land outside the LogAnalyzer marker window, so it cannot be asserted.
-        # 2. rsyslog rate-limiting uses a sliding time window (RATE_LIMIT_INTERVAL seconds).
-        #    After config_reload the window may not be fully reset, so the number of messages
-        #    dropped (and thus the count reaching the log) is non-deterministic — it can be
-        #    anywhere from RATE_LIMIT_BURST to LOG_MESSAGE_GENERATE_COUNT.
-        # For both reasons, set expected_matches_target=0 which tells LogAnalyzer to skip
-        # the exact count check and only verify the pattern appeared at least once.
-        # For containers that log directly to syslog, the window is fresh and the exact
-        # drop count is deterministic, so assert RATE_LIMIT_BURST + 1 matches.
+        # When logs are routed to an additional file (e.g. stpd.log for STP),
+        # rsyslog rate-limiting uses a sliding time window (RATE_LIMIT_INTERVAL seconds).
+        # After config_reload the window may not be fully reset, so the number of messages
+        # that reach the log is non-deterministic — anywhere from RATE_LIMIT_BURST to
+        # LOG_MESSAGE_GENERATE_COUNT.  In that case skip the exact count check.
+        # For containers that log directly to syslog, assert exactly RATE_LIMIT_BURST test
+        # messages reached the log — one fewer than LOG_MESSAGE_GENERATE_COUNT — which
+        # proves the burst limit is enforced.
+        # The rate-limit notification is checked separately via presence_log_regex: its
+        # exact count is non-deterministic across rsyslogd versions, so it is excluded from
+        # the per-message tally and only verified to appear at least once.
         if additional_files:
             expect_log_regex = [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
             expect_log_matches = 0
+            presence_log_regex = None
         else:
-            expect_log_regex = [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
-                                LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
-            expect_log_matches = RATE_LIMIT_BURST + 1
+            expect_log_regex = [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')]
+            expect_log_matches = RATE_LIMIT_BURST
+            presence_log_regex = [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED]
 
         verify_rate_limit_with_log_generator(rand_selected_dut,
                                              container_name,
@@ -187,6 +192,7 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
                                                                                                 RATE_LIMIT_BURST),
                                              expect_log_regex,
                                              expect_log_matches,
+                                             presence_log_regex=presence_log_regex,
                                              additional_files=additional_files)
 
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
@@ -240,6 +246,7 @@ def verify_host_rate_limit(rand_selected_dut):
                                                                                               RATE_LIMIT_BURST),
                                          [LOG_EXPECT_LAST_MESSAGE.format('')],
                                          RATE_LIMIT_BURST,
+                                         presence_log_regex=[LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED],
                                          is_host=True)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
@@ -272,15 +279,20 @@ def verify_config_rate_limit_fail(duthost, service_name):
 
 
 def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expect_log_regex, expect_log_matches,
-                                         is_host=False, additional_files=None):
+                                         presence_log_regex=None, is_host=False, additional_files=None):
     """Generator syslog with a script and verify that syslog rate limit reached
 
     Args:
         duthost (object): DUT host object
         service_name (str): Service name
         log_marker (str): Log start marker
-        expect_log_regex (list): A list of expected log message regular expression
-        expect_log_matches (int): Number of log lines matches the expect_log_regex
+        expect_log_regex (list): A list of expected log message regular expressions; the total
+            number of matching lines must equal expect_log_matches.
+        expect_log_matches (int): Exact number of log lines expected to match expect_log_regex.
+            Set to 0 to skip the exact count check (only verifies at least one match).
+        presence_log_regex (list, optional): Patterns that must appear at least once in the
+            log window.  Verified via a separate LogAnalyzer pass so their (variable) count
+            does not skew the expect_log_matches tally.  Defaults to None.
         is_host (bool, optional): Verify on host side or container side. Defaults to False.
         additional_files (dict, optional): Additional log files for log analyzer. Defaults to None.
     """
@@ -288,6 +300,15 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
                               additional_files=additional_files or {})
     loganalyzer.expect_regex = expect_log_regex
     loganalyzer.expected_matches_target = expect_log_matches
+
+    # Initialise the presence-check analyzer before entering the window so both
+    # analyzers capture the same log section.
+    if presence_log_regex:
+        presence_analyzer = LogAnalyzer(ansible_host=duthost,
+                                        marker_prefix=log_marker + '_presence',
+                                        additional_files=additional_files or {})
+        presence_analyzer.expect_regex = presence_log_regex
+        presence_marker = presence_analyzer.init()
 
     if is_host:
         run_generator_cmd = "python3 {}".format(REMOTE_LOG_GENERATOR_FILE)
@@ -300,6 +321,9 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
         # to the host syslog. Without this, the notification may arrive after the
         # LogAnalyzer end marker, causing intermittent test failures.
         time.sleep(5)
+
+    if presence_log_regex:
+        presence_analyzer.analyze(presence_marker)
 
 
 def get_loganalyzer_additional_files(service_name):
