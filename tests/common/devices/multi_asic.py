@@ -972,7 +972,12 @@ class MultiAsicSonicHost(object):
         """
         Validate yang over running config
         """
-        output = self.shell("echo '[]' | sudo config apply-patch /dev/stdin", module_ignore_errors=True)
+        empty_patch_file = self.shell("mktemp")["stdout"]
+        try:
+            self.copy(content="[]", dest=empty_patch_file)
+            output = self.shell(f"sudo config apply-patch {empty_patch_file}", module_ignore_errors=True)
+        finally:
+            self.file(path=empty_patch_file, state="absent")
         if output['rc'] != 0:
             return False
         if strict_yang_validation:

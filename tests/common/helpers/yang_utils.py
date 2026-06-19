@@ -16,10 +16,15 @@ def run_yang_validation(duthost, stage="validation"):
     """
     logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
     try:
-        result = duthost.shell(
-            'echo "[]" | sudo config apply-patch /dev/stdin',
-            module_ignore_errors=True
-        )
+        empty_patch_file = duthost.shell("mktemp")["stdout"]
+        try:
+            duthost.copy(content="[]", dest=empty_patch_file)
+            result = duthost.shell(
+                f"sudo config apply-patch {empty_patch_file}",
+                module_ignore_errors=True
+            )
+        finally:
+            duthost.file(path=empty_patch_file, state="absent")
 
         if result['rc'] != 0:
             error = result.get('stderr', result.get('stdout', 'Unknown error'))
