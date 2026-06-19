@@ -24,7 +24,7 @@ def get_downstream_vm(duthost, nbrhosts, tbinfo):
         [vm_name for vm_name in list(nbrhosts.keys())
          if vm_name in connected_neighbors and vm_name.upper().endswith(tuple(downstream_type))]
     )
-    pytest_assert(downstream_neighbors, "No downstream BGP neighbor found for topology {}".format(tbinfo["topo"]["type"]))
+    pytest_assert(downstream_neighbors, "No downstream neighbor found for topology {}".format(tbinfo["topo"]["type"]))
     return nbrhosts[downstream_neighbors[0]]['host']
 
 
