@@ -4,6 +4,8 @@
 
 - [Intent](#intent)
 - [Bring-up overview](#bring-up-overview)
+- [Testbed-agnostic design](#testbed-agnostic-design)
+- [Configuration (make it your own)](#configuration-make-it-your-own)
 - [Prerequisites](#prerequisites)
 - [Topology](#topology)
 - [1. Fanout: L3 routing](#1-fanout-l3-routing)
@@ -47,7 +49,38 @@ router with ECMP: TX traffic from Ixia is routed to either DUT via ECMP,
 processed by the DPU, and the GRE return is routed back through the fanout
 to the Ixia RX port. IxNetwork L3 emulation handles ARP on both Ixia ports.
 
+## Testbed-agnostic design
+
+This test is testbed-agnostic. Every testbed-specific value — the SONiC L3
+fanout connection and port wiring, the per-DUT direct-link addressing, the
+Ixia emulation IPs, the steered underlay prefixes and the stress-loop pacing —
+is read from a YAML config file rather than hardcoded.
+
+The default config is
+[`tests/ha/configs/ha_stress_ixia.yaml`](../../../../tests/ha/configs/ha_stress_ixia.yaml)
+(which doubles as a template). Point the test at your own testbed with:
+
+```bash
+./run_tests.sh -n <testbed> -d <duts> -H <dpus> -t t1-smartswitch-ha \
+    -c ha/test_ha_planned_shutdown_stress.py \
+    -e "--ha_stress_config=/abs/path/to/your_testbed.yaml"
+```
+
+Values that can be inferred from the DUTs (each DUT's Loopback0 and DPU PA
+subnet) are derived automatically, so most testbeds only need to edit the
+fanout/direct-link/Ixia sections. See
+[Configuration (make it your own)](#configuration-make-it-your-own) for the
+full key-by-key reference.
+
 ## Prerequisites
+
+> **All the IPs, interfaces, and credentials below are the values for the
+> MtFuji *reference* testbed and double as the defaults in
+> [`tests/ha/configs/ha_stress_ixia.yaml`](../../../../tests/ha/configs/ha_stress_ixia.yaml).
+> They are **not** hardcoded in the test — see
+> [Configuration](#configuration-make-it-your-own) to adapt them to your own
+> testbed. The only hard requirements are the *roles*: an L3 fanout reachable
+> over SSH, one direct DUT↔fanout link per DUT, and two Ixia ports.**
 
 **Infrastructure:**
 - Two SmartSwitch DUTs (MtFuji-dut01, MtFuji-dut02) with DPUs, deployed in
@@ -73,11 +106,44 @@ to the Ixia RX port. IxNetwork L3 emulation handles ARP on both Ixia ports.
 - Route steering: PE_PA (101.1.2.3/32) via fanout gateway on each DUT
 - HA steering: peer DPU PA /24 + peer NPU Loopback0 /32 via fanout gateway
 
-**IxNetwork (manual — configure before pressing `c` at breakpoint #1):**
+**IxNetwork (manual — configure before pressing `c` at pause #1):**
 - Topology on port 3.1 (TX): IP 10.99.1.2/30, gateway 10.99.1.1
 - Topology on port 3.2 (RX): IP 10.99.4.2/30, gateway 10.99.4.1
 - Traffic item: VxLAN(VNI=2001) wrapping inner IPv4/UDP|TCP, with the inner
   L4 ports varied by a UDF to scale DPU flows (see section 5)
+
+## Configuration (make it your own)
+
+The test reads **all** testbed-specific values from a YAML config file, so no
+source edits are needed to run it elsewhere. The default/template config is
+[`tests/ha/configs/ha_stress_ixia.yaml`](../../../../tests/ha/configs/ha_stress_ixia.yaml).
+Copy it, edit it for your testbed, and point the test at it:
+
+```bash
+./run_tests.sh -n <testbed> -d <duts> -H <dpus> -t t1-smartswitch-ha \
+    -c ha/test_ha_planned_shutdown_stress.py \
+    -e "--ha_stress_config=/abs/path/to/my_testbed.yaml"
+```
+
+What you set vs. what is derived:
+
+| Section | Key | Meaning |
+| ------- | --- | ------- |
+| `direct_link` | `dut_interface` | DUT port cabled to the fanout (same name on each DUT) |
+| `direct_link` | `dut_ips` / `dut_gateways` | device side / fanout side of each per-DUT /30 (ordered to match the `-d` DUT list) |
+| `fanout` | `ip` / `user` / `password` | SONiC fanout reached over SSH (paramiko) |
+| `fanout` | `interfaces` | each fanout port, its /30, and what it `connects_to` (`dut0`, `dut1`, `ixia_tx`, `ixia_rx`) |
+| `ixia` | `tx_ip` / `rx_ip` | Ixia L3-emulation IPs (used to bootstrap ARP on the fanout) |
+| `addressing` | `appliance_vip` / `pe_pa` | optional overrides; default to `pl.APPLIANCE_VIP` / `pl.PE_PA` |
+| `addressing` | `peer_dpu_pa_prefixes` | explicit per-DUT list of each DUT's peer DPU PA /24 (golden-config convention: `20.0.<200+dut_idx>.0/24`) |
+| `addressing` | `peer_npu_loopbacks` | `auto` → each DUT's `Loopback0` read from CONFIG_DB, or list to override |
+| `stress` | `iterations` / `pre_action_settle_s` / `post_action_settle_s` | HA cycle count and pacing |
+
+Everything else (the fanout routing table, the Eth96 steering routes, the
+inter-DUT HA steering) is **derived** from the keys above, so a typical new
+testbed only edits the `direct_link`, `fanout`, `ixia`, and `addressing`
+sections. Each DUT's `Loopback0` is auto-discovered, so you do not have to look
+it up by hand.
 
 ## Topology
 
@@ -254,7 +320,7 @@ from the topology (dst MAC = fanout Eth224 MAC, src MAC = Ixia 3.1 MAC).
 
 | Layer         | Field    | Value                            |
 | ------------- | -------- | -------------------------------- |
-| Outer IPv4    | src      | 1.9.1.1 (VM1_PA)                |
+| Outer IPv4    | src      | 25.1.1.1 (VM1_PA)               |
 | Outer IPv4    | dst      | 3.2.1.0 (APPLIANCE_VIP)         |
 | Outer IPv4    | proto    | 17 (UDP)                         |
 | Outer IPv4    | TTL      | 64                               |
@@ -294,7 +360,7 @@ Field breakdown:
 | 0x0C   | EtherType            | `0800`         | IPv4                        |
 | 0x0E   | Outer IPv4           | `45000088…`    | len 136, TTL 64, proto UDP  |
 | 0x18   | Outer IP checksum    | `5C61`         | valid                       |
-| 0x1A   | Outer src IP         | `19010101`     | 25.1.1.1 (underlay src)     |
+| 0x1A   | Outer src IP         | `19010101`     | 25.1.1.1 (VM1_PA)           |
 | 0x1E   | Outer dst IP         | `03020100`     | 3.2.1.0 (APPLIANCE_VIP)     |
 | 0x22   | Outer UDP sport      | `1423`         | 5155 (VxLAN entropy)        |
 | 0x24   | Outer UDP dport      | `12B5`         | 4789 (VxLAN)                |
@@ -328,7 +394,7 @@ Outer IPv4
   total len    136
   TTL / proto  64 / 17 (UDP)
   checksum     0x5C61              valid
-  src          25.1.1.1            underlay src
+  src          25.1.1.1            VM1_PA
   dst          3.2.1.0             APPLIANCE_VIP
 Outer UDP
   sport        5155                VxLAN entropy
@@ -417,33 +483,37 @@ payload sent in.
 ## Running the test
 
 ```bash
-# BRK env var controls breakpoints: none (default), ends, mid
-BRK=mid pytest test_ha_planned_shutdown_stress.py \
-    --inventory ../ansible/veos_vtb \
-    --host-pattern all \
-    --testbed_file testbed.yaml \
-    --testbed vms-kvm-t1-smartswitch-ha \
+# --ha_pause_mode controls interactive pauses: none (default), ends, mid
+# --ha_stress_config is optional; omit it to use the bundled default
+# (tests/ha/configs/ha_stress_ixia.yaml).
+# Extra pytest args (incl. -s for the pause debugger TTY) go in -e.
+./run_tests.sh \
+    -n vms-kvm-t1-smartswitch-ha \
     -d MtFuji-dut01,MtFuji-dut02 \
     -H MtFuji-dut01-dpu-0,MtFuji-dut02-dpu-0 \
-    -s  # required for breakpoint() to work
+    -t t1-smartswitch-ha \
+    -c ha/test_ha_planned_shutdown_stress.py \
+    -f testbed.yaml \
+    -i veos_vtb \
+    -e "--ha_stress_config configs/ha_stress_ixia.yaml --ha_pause_mode mid -s"
 ```
 
-**Breakpoint modes (`BRK` env var):**
+**Pause modes (`--ha_pause_mode` option):**
 
 | Mode   | Behavior                                                                 |
 | ------ | ------------------------------------------------------------------------ |
-| `none` | No breakpoints; test never pauses (default).                             |
-| `ends` | Break before Ixia start + after all iterations                           |
+| `none` | No pauses; test never blocks (default).                                  |
+| `ends` | Pause before Ixia start + after all iterations                           |
 | `mid`  | `ends` + once after primary-dead and once after secondary-dead (iter 1)  |
 
-Breakpoints (when `BRK != none`):
-1. **Breakpoint #1** — after all DUT/DPU programming and steering is
+Pauses (when `--ha_pause_mode != none`):
+1. **Pause #1** — after all DUT/DPU programming and steering is
    complete. Start IxNetwork traffic (TX on 3.1, capture on 3.2), then `c`.
-2. **Breakpoint #2** — after all HA iterations complete (HA still active).
+2. **Pause #2** — after all HA iterations complete (HA still active).
    Stop traffic, record TX/RX counts, then `c` to proceed to cleanup.
 
-If an iteration fails, a breakpoint fires with live state preserved
-for debugging (regardless of BRK mode).
+If an iteration fails, the debugger fires with live state preserved
+for debugging (only when `--ha_pause_mode != none`).
 
 > **Note on Ixia vs PTF:** the route steering exists because Ixia only sees
 > ports 3.1/3.2, so the NVGRE return must be routed through the fanout to the
@@ -460,53 +530,56 @@ references there as you run them.
 
 For each test, use corresponding stream in the IXNetwork config file: `TBD`.
 
-### Test 1 — `BRK=none`, UDP low
-Start low-rate UDP traffic manually, then run the test with no breakpoints;
+### Test 1 — `--ha_pause_mode=none`, UDP low
+Start low-rate UDP traffic manually, then run the test with no pauses;
 verify it runs successfully to completion.
 - **Issues:**
 
-### Test 2 — `BRK=none`, UDP high (10 Mpps, 10M flows)
-Start high-rate UDP traffic manually, then run the test with no breakpoints;
+### Test 2 — `--ha_pause_mode=none`, UDP high (10 Mpps, 10M flows)
+Start high-rate UDP traffic manually, then run the test with no pauses;
 verify it runs successfully to completion.
 - **Issues:**
   - https://github.com/sonic-net/sonic-mgmt/pull/25058#pullrequestreview-4492341205
 
-### Test 3 — `BRK=ends`, UDP low
-At breakpoint #1 (HA established): start UDP low stream, clear stats,
-continue. At breakpoint #2: verify RX count matches TX count. Ensure test
+### Test 3 — `--ha_pause_mode=ends`, UDP low
+At pause #1 (HA established): start UDP low stream, clear stats,
+continue. At pause #2: verify RX count matches TX count. Ensure test
 passes.
 - **Issues:**
 
-### Test 4 — `BRK=ends`, UDP high (10 Mpps, 10M flows)
+### Test 4 — `--ha_pause_mode=ends`, UDP high (10 Mpps, 10M flows)
 Same as (3) but with high-rate UDP traffic.
 - **Issues:**
 
-### Test 5 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + ACK (10 Mpps, 10M flows)
-At breakpoint #1: send TCP SYN stream to establish sessions at 1Mcps;
+### Test 5 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + ACK (10 Mpps, 10M flows)
+At pause #1: send TCP SYN stream to establish sessions at 1Mcps;
 verify `flows -summary` shows 10M flows on each primary and secondary. Start TCP
-ACK stream, clear stats, continue. At breakpoint #2: verify RX matches TX.
+ACK stream, clear stats, continue. At pause #2: verify RX matches TX.
 Ensure test passes.
 - **Issues:**
-  - Some sessions are not created after SYN stream.
+  - Occasionally, some sessions are not created after SYN stream.
     Requires lower rate or sending the same stream twice to get full 10M flows.
+  - Occasionally, some sessions are not synced to the secondary.
 
-### Test 6 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
+### Test 6 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
 Same as (5), but after ACK stream, send TCP FIN-ACK stream; verify sessions
 are cleared.
 - **Issues:**
-  - Does not work to clear sessions
+  - Does not work to clear sessions.
+    TBD how to properly clear TCP sessions (we are only sending one side of traffic).
 
-### Test 7 — `BRK=ends`, TCP SYN (1 Mpps, 10M flows) + RST (1 Mpps, 10M flows)
+### Test 7 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + RST (1 Mpps, 10M flows)
 Same as (6), but use TCP RST to clear sessions instead of FIN-ACK.
 - **Issues:**
 
-### Test 8 — `BRK=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
-Same as (5) for initial 10M flows. During first mid breakpoint (primary
+### Test 8 — `--ha_pause_mode=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
+Same as (5) for initial 10M flows. During first mid pause (primary
 down): add another 10M flows on secondary for 20M total. Continue test;
 verify all 20M flows sync to primary with no drops.
 - **Issues:**
+  - Same issues as in Test (5)
 
-### Test 9 — `BRK=ends`, uplink-down (single-DUT path)
+### Test 9 — `--ha_pause_mode=ends`, uplink-down (single-DUT path)
 Simulate an uplink failure by collapsing the APPLIANCE_VIP ECMP route into
 a single next-hop so all ingress traffic lands on one DUT. On the fanout,
 replace the ECMP route with a single path to DUT1 (or DUT2):
@@ -516,9 +589,9 @@ sudo ip route replace 3.2.1.0/32 via 10.99.2.2     # all traffic → DUT1 only
 # restore ECMP afterwards:
 sudo ip route replace 3.2.1.0/32 nexthop via 10.99.2.2 nexthop via 10.99.3.2
 ```
-At breakpoint #1: start traffic, confirm all flows land on the single
+At pause #1: start traffic, confirm all flows land on the single
 chosen DUT, clear stats, continue. Run HA cycles; verify flows stay on
-(and sync from) the active DUT with no drops. At breakpoint #2: verify RX
+(and sync from) the active DUT with no drops. At pause #2: verify RX
 matches TX, then restore the ECMP route.
 - **Issues:**
 

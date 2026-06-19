@@ -39,6 +39,32 @@ ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
 
+def pytest_addoption(parser):
+    """HA-specific command-line options."""
+    ha_group = parser.getgroup("HA test suite options")
+    ha_group.addoption(
+        "--ha_stress_config",
+        action="store",
+        default=None,
+        help="Path to the YAML config for test_ha_planned_shutdown_stress.py "
+             "(fanout, direct-link, Ixia and addressing settings). Relative "
+             "paths are resolved against tests/ha/. Defaults to "
+             "configs/ha_stress_ixia.yaml.",
+    )
+    ha_group.addoption(
+        "--ha_pause_mode",
+        action="store",
+        default="none",
+        choices=["none", "ends", "mid"],
+        help="Interactive pause mode for test_ha_planned_shutdown_stress.py, "
+             "used to manually drive the external traffic generator: "
+             "'none' never pauses (default; for unattended/CI runs); "
+             "'ends' pauses before traffic start and after all iterations; "
+             "'mid' adds pauses after primary-dead and secondary-dead on the "
+             "first iteration. Pausing requires pytest -s.",
+    )
+
+
 @pytest.fixture(scope="session")
 def dpuhosts(dpuhosts):
     """Limit to the first 2 DPU hosts for all HA tests."""
