@@ -10,7 +10,7 @@ from constants import (
     REMOTE_PTF_SEND_INTF,
     NPU_DATAPLANE_PORT
 )
-from packets import outbound_pl_packets, inbound_pl_packets, bootstrap_pl_tcp_flow_outbound
+from ha_packets import outbound_pl_packets, inbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.helpers.assertions import pytest_assert
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables

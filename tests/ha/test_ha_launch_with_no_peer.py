@@ -14,7 +14,7 @@ from conftest import (
     remove_setup_dash_ha_from_json_util,
     wait_for_dpu_neighbor_resolution,
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from ha_utils import verify_ha_state, wait_for_pending_operation_id, ha_scope_config, ha_set_config, apply_ha_messages
 from tests.common.helpers.assertions import pytest_assert
 

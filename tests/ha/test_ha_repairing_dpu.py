@@ -13,7 +13,7 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.common.devices.duthosts import DutHosts
 from tests.common.config_reload import config_reload
 from tests.common.dash_utils import apply_swssconfig_file

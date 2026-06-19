@@ -18,7 +18,7 @@ from gnmi_utils import (
     generate_gnmi_cert,
     recover_gnmi_cert
 )
-from packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config

@@ -25,7 +25,7 @@ import ptf.testutils as testutils
 import pytest
 
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.common.utilities import wait_until, InterruptableThread
 from tests.ha.ha_utils import verify_ha_state
 

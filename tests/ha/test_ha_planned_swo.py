@@ -16,7 +16,7 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from ha_dash_flow_utils import compare_flow_tables
 from ha_utils import verify_ha_state, set_dash_ha_scope
 
