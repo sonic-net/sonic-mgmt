@@ -1,7 +1,7 @@
-# PFC Lossless Priority Test Plan
+# PFC Lossless Test Plan
 
 > Companion to [PFC_common.md](PFC_common.md) and [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md).
-> This plan covers **lossless** priority behavior. For lossy isolation, see the lossy plan.
+> This plan covers **lossless** behavior.
 
 - [PFC Lossless Priority Test Plan](#pfc-lossless-priority-test-plan)
   - [1. Test Objective](#1-test-objective)
@@ -33,8 +33,8 @@
 ## 1. Test Objective
 
 Verify that SONiC switch ports correctly honor PFC pause frames on **lossless**
-priority queues — fully halting the targeted priority while leaving all other
-priorities untouched, and correctly resuming when the pause is released — so that
+priority queues - fully halting the targeted priority while leaving all other
+priorities untouched, and correctly resuming when the pause is released - so that
 RoCEv2 RDMA traffic in AI/ML GPU fabrics remains lossless under congestion.
 
 ## 2. Scope & Limitations
@@ -125,11 +125,6 @@ All cases are parametrized:
 Verify that a PFC storm targeting a single lossless priority (e.g., 3) completely
 stops traffic egress for that priority while all other priorities remain unaffected.
 
-#### AI Workload Relevance
-RDMA traffic typically uses priority 3 (or 4). A single congested downstream port
-must pause only the RDMA class, allowing management and monitoring traffic to keep
-flowing.
-
 #### Prerequisites
 - DUT with `pfc_enable: "3,4"` in `PORT_QOS_MAP`.
 - Snappi generator with at least 2 ports connected to the DUT.
@@ -174,10 +169,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify that a PFC storm targeting all lossless priorities (3 AND 4) simultaneously
 pauses both queues, while lossy priorities remain unaffected.
 
-#### AI Workload Relevance
-Some fabrics carry two lossless classes (e.g., RoCEv2 data on 3, congestion-control
-or storage on 4). Both must pause independently under combined congestion.
-
 #### Test Configuration
 - Priorities under test: {3, 4}; class-enable vector has bits 3 and 4 set.
 - Data traffic: 8 flows, one per priority, each line_rate / 8.
@@ -207,10 +198,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify that after a queue has been paused, sending a PFC frame with duration = 0 for
 that priority causes traffic to resume promptly.
 
-#### AI Workload Relevance
-Congestion is transient. When a downstream buffer drains, the resume signal must
-restart RDMA traffic quickly so GPUs do not idle longer than necessary.
-
 #### Test Configuration
 - Priority under test: 3.
 - Phase A: PFC storm pausing priority 3 for 3 seconds.
@@ -238,10 +225,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify that the actual pause duration the DUT honors matches the quanta value carried
 in the PFC frame.
 
-#### AI Workload Relevance
-Over-pausing wastes link time; under-pausing risks loss. Accurate honoring of the
-requested quanta keeps the fabric efficient and lossless.
-
 #### Test Configuration
 - Priority under test: 3.
 - Send a single PFC frame with a known quanta value (e.g., 65535) and do NOT refresh.
@@ -266,10 +249,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 Verify that a PFC storm applied to ALL DUT ports simultaneously pauses each port's
 lossless queues independently, with no cross-port leakage and no DUT instability.
-
-#### AI Workload Relevance
-In a GPU fabric every port carries RDMA. A correct switch must handle PFC on all
-ports at once — a single-port test is insufficient evidence for fleet deployment.
 
 #### Test Configuration
 - Every DUT port under test has a paired generator port.
@@ -298,10 +277,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 Verify PFC pause behavior is independent of data packet size.
 
-#### AI Workload Relevance
-RDMA and storage traffic span small control messages to large payloads. PFC must hold
-regardless of frame size.
-
 #### Test Configuration
 - Repeat L01 with data frame sizes parametrized: 64, 512, 1518, 9216 (jumbo) bytes.
 
@@ -321,9 +296,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 
 #### Objective
 Verify PFC holds under a realistic IMIX (mixed packet-size) traffic profile.
-
-#### AI Workload Relevance
-Production traffic is never single-size. IMIX approximates real fabric load.
 
 #### Test Configuration
 - Data flows use a standard IMIX size distribution; PFC storm on priority 3.
@@ -345,10 +317,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 Verify that when ingress lossless buffers approach exhaustion, the DUT **generates**
 PFC pause frames upstream **before** dropping any packet.
-
-#### AI Workload Relevance
-This is the DUT acting as a PFC source — the upstream-facing half of lossless
-behavior. If the DUT drops instead of pausing, RDMA breaks.
 
 #### Test Configuration
 - Oversubscribe a lossless priority into the DUT (ingress burst exceeding drain rate).
@@ -375,10 +343,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify that ECN marking engages at a **lower** congestion threshold than PFC, so the
 DUT marks ECN before it ever asserts PFC, and the two mechanisms coexist correctly.
 
-#### AI Workload Relevance
-ECN is the first line of congestion control for RoCEv2; PFC is the last resort. If
-PFC triggers before ECN, the fabric loses the chance for graceful end-to-end slowdown.
-
 #### Test Configuration
 - Gradually ramp priority-3 congestion from below ECN threshold up toward PFC
   threshold.
@@ -404,10 +368,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify that the DUT detects (and where supported, breaks) a circular PFC dependency
 (Port A pauses Port B, which pauses Port A).
 
-#### AI Workload Relevance
-PFC deadlock is the single most feared operational hazard in large AI fabrics — it can
-freeze an entire pod. The switch must detect and recover.
-
 #### Test Configuration
 - Construct a topology/flow pattern that induces a circular pause dependency on a
   lossless priority. Requires platform/generator support.
@@ -431,10 +391,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 Verify the DUT recovers cleanly when a link flaps while a PFC storm is active.
 
-#### AI Workload Relevance
-Optics and cables fail in real fabrics. A flap during congestion must not leave a
-queue permanently stuck paused.
-
 #### Test Configuration
 - Active PFC storm on priority 3; administratively flap a participating link mid-test.
 
@@ -457,10 +413,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 With PFC Watchdog ENABLED, verify that PFC storms **below** the watchdog detection
 threshold are honored as normal pauses and the watchdog does NOT trigger.
-
-#### AI Workload Relevance
-Production runs with PFC Watchdog ON. Normal, healthy pauses must not be mistaken for
-a stuck queue and dropped.
 
 #### Test Configuration
 - PFC Watchdog ENABLED (`start_pfcwd(duthost)` / default).
@@ -488,10 +440,6 @@ Restore watchdog to its pre-test state.
 With PFC Watchdog ENABLED, verify that a persistent PFC storm exceeding the watchdog
 detection_time triggers the configured DROP/FORWARD action.
 
-#### AI Workload Relevance
-A stuck/abusive PFC storm must be contained so one bad neighbor cannot freeze the
-fabric — the watchdog is the safety valve.
-
 #### Test Configuration
 - PFC Watchdog ENABLED with known detection/restoration thresholds.
 - Sustained PFC storm on priority 3 exceeding detection_time.
@@ -518,10 +466,6 @@ Restore watchdog to its pre-test state.
 On multi-ASIC (chassis) platforms, verify lossless traffic crossing ASIC boundaries
 still honors PFC.
 
-#### AI Workload Relevance
-Chassis and modular switches are common in large fabrics; PFC must work across the
-internal fabric, not just within one ASIC.
-
 #### Test Configuration
 - Select an ingress port and an egress port on **different** ASICs.
 - Data flow traverses the ASIC boundary; PFC storm on the egress-facing lossless
@@ -547,10 +491,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 #### Objective
 Verify that DUT PFC counters (`show pfc counters`) accurately reflect the Rx/Tx PFC
 frames per priority per port for the preceding test activity.
-
-#### AI Workload Relevance
-Operators rely on PFC counters for fabric health monitoring and incident triage.
-Inaccurate counters mask real problems.
 
 #### Test Configuration
 - Run a controlled PFC exchange (e.g., the L01 storm) with a known frame count.
@@ -593,7 +533,7 @@ at minimum:
 - `pfc.lossless.rx_rate_bps`, `pfc.counter.rx_pfc`, `pfc.counter.tx_pfc`.
 - `pfc.resume_latency_us` (L03, L04) and `pfc.headroom.utilization_pct` (L08).
 
-Every case asserts pass/fail with a detailed, context-rich failure message — the
+Every case asserts pass/fail with a detailed, context-rich failure message - the
 metric is recorded in addition to, not instead of, the hard assertion.
 
 ## 9. Known Limitations & Future Work
@@ -603,5 +543,3 @@ metric is recorded in addition to, not instead of, the hard assertion.
 - L14 applies only to multi-ASIC chassis platforms.
 - Absolute 0-bps / 0% thresholds may require a small, explicitly documented tolerance
   on specific hardware; any tolerance must be justified in the test code.
-- This document specifies **what** to verify; the pytest implementation follows in a
-  separate code change building on `tests/snappi_tests/pfc/`.
