@@ -1,0 +1,18 @@
+- name: Get duts ports
+  include_tasks: get_dut_port.yml
+  loop: "{{ duts_name.split(',') }}"
+  loop_control:
+    loop_var: dut_name
+
+- name: Disconnect VMs to {{ topo }}. base vm = {{ VM_base }}
+  vm_topology:
+    cmd: "disconnect-vms"
+    vm_set_name: "{{ vm_set_name }}"
+    topo: "{{ topology }}"
+    vm_names: "{{ VM_hosts }}"
+    vm_base: "{{ VM_base }}"
+    duts_fp_ports: "{{ duts_fp_ports }}"
+    duts_mgmt_port: "{{ duts_mgmt_port }}"
+    duts_name: "{{ duts_name.split(',') }}"
+    max_fp_num: "{{ max_fp_num }}"
+  become: yes

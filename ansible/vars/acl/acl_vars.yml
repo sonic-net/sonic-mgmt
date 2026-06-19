@@ -1,0 +1,12 @@
+---
+
+orchagent: swss
+
+run_dir: /home/admin/acl_tests
+out_dir: /home/admin/acl_tests/results
+docker_testdir: /tmp
+tests_location: roles/test/tasks/acl
+
+run_config_test: "roles/test/tasks/run_config_test.yml"
+run_config_cleanup: "roles/test/tasks/run_config_cleanup.yml"
+run_loganalyzer: "roles/test/tasks/run_loganalyzer.yml"

@@ -1,0 +1,29 @@
+{
+    "NAT_POOL": {
+        "pool_1": {
+            "nat_ip": "{{ nat.public_ip }}",
+            "nat_port": "{{ nat.port_range }}"
+        }
+    },
+    "ACL_TABLE": {
+        "acl_table_1": {
+            "stage": "INGRESS",
+            "type": "L3",
+            "policy_desc": "test_policy",
+            "ports": ["{{ nat.inner_interface }}"]
+        }
+    },
+    "ACL_RULE": {
+        "acl_table_1|1": {
+            "PRIORITY": "10",
+            "SRC_IP": "{{ nat.acl_subnet }}",
+            "PACKET_ACTION": "forward"
+        }
+    },
+    "NAT_BINDINGS": {
+        "bind_1": {
+            "access_list": "acl_table_1",
+            "nat_pool": "pool_1"
+        }
+    }
+}

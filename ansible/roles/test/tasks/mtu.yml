@@ -1,0 +1,7 @@
+#-----------------------------------------
+# Run MTU test and Perform log analysis.
+#-----------------------------------------
+- name: Run MTU relay test (pytest-ansible)
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+    test_node: ipfwd/test_mtu.py

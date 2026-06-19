@@ -1,0 +1,58 @@
+- block:
+  - name: Get Portchannel status
+    shell: show interfaces portchannel
+    register: portchannel_status
+    ignore_errors: yes
+
+  - name: Get teamd dump
+    shell: teamdctl '{{ item }}' state dump
+    with_items: "{{ minigraph_portchannels }}"
+    ignore_errors: yes
+    register: teamd_dump
+    when:
+      - minigraph_portchannels is defined
+
+  - name: Debug teamd dump
+    debug: msg={{ teamd_dump }}
+    when: teamd_dump is defined
+
+  - name: Define testbed_name when not obtained
+    set_fact:
+      testbed_name: "{{ inventory_hostname + '-' + topo }}"
+    when: testbed_name is not defined
+
+  - name: Gathering testbed information
+    test_facts: testbed_name="{{ testbed_name }}"
+    delegate_to: localhost
+    ignore_errors: yes
+
+  - name: Gather vm list from Testbed server
+    local_action: shell ansible-playbook testbed_vm_status.yml -i veos -l "{{ testbed_facts['server'] }}"
+    ignore_errors: yes
+    register: testbed_vm_list
+
+  - name: Debug VM list on Testbed
+    debug: msg={{ testbed_vm_list }}
+    when: testbed_vm_list is defined
+
+  - set_fact:
+      vms: "{{ minigraph_devices }}"
+      peer_hwsku: 'Arista-VM'
+
+  - name: Gather Port-Channel status from VMs
+    action: apswitch template=roles/vm_set/templates/show_int_portchannel_status.j2
+    args:
+      host: "{{ vms[item]['mgmt_addr'] }}"
+      login: "{{ switch_login[hwsku_map[peer_hwsku]] }}"
+    vars:
+      ansible_connection: switch
+    ignore_errors: yes
+    when: vms["{{ item }}"]['hwsku'] == 'Arista-VM'
+    with_items: "{{ vms }}"
+    register: vm_portchannel_status
+
+  - name: Debug Port-Channel on VMs
+    debug: msg={{ vm_portchannel_status }}
+    when: vm_portchannel_status is defined
+
+  when: check_vms is defined

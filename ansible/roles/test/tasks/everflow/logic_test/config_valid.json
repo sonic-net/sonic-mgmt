@@ -1,0 +1,13 @@
+[
+    {
+        "MIRROR_SESSION_TABLE:session1": {
+            "src_ip": "1.1.1.1",
+            "dst_ip": "2.2.2.2",
+            "gre_type": "25944",
+            "dscp": "50",
+            "ttl": "10",
+            "queue": "5"
+        },
+        "OP": "SET"
+    }
+]

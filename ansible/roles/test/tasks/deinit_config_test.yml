@@ -1,0 +1,9 @@
+- name: Remove all the temporary files created by the test.
+  file: path="{{ run_dir }}/{{ item }}" state=absent
+  with_items:
+      - "{{ config_files }}"
+
+- name: Remove all JSON configs from docker container filesystem.
+  command: docker exec swss rm {{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"

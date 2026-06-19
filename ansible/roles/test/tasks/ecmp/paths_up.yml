@@ -1,0 +1,22 @@
+# This is a helper playbook for ecmp.yml. ecmp.yml passes the interface
+# to this playbook, and this playbook verifies that the passed interface
+# is added back to the prefix.
+
+- block:
+    - set_fact:
+        interface: "{{item}}"
+
+    - debug: msg={{interface}}
+
+    - name: Gather facts from ip route
+      ip_route: "{{ ipv6 }}"
+
+    - debug: msg="ethernet_list {{ ethernet_list }}"
+
+    - set_fact:
+        interfaces: "{{ ethernet_list }}"
+
+    - debug: msg="Verify that {{ interface }} is added back to the prefix"
+
+    - fail: msg="{{ interface }} not found in the prefix"
+      when: interface not in interfaces

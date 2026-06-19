@@ -1,0 +1,21 @@
+# SONiC Testbed
+
+- [Overview](README.testbed.Overview.md)
+- Setup
+  - [Physical Switch Testbed Setup](README.testbed.Setup.md)
+  - [Virtual Switch Testbed Setup](README.testbed.VsSetup.md)
+  - [Virtual Switch Multiple Devices Testbed Setup](README.testbed.WANSetup.md)
+  - [Setup sonic-mgmt Docker](README.testbed.Docker.md)
+  - [cEOS](README.testbed.cEOS.md)
+  - [Routing](README.testbed.Routing.md)
+  - [Keysight](README.testbed.Keysight.md)
+- [Configuration](README.new.testbed.Configuration.md)
+- [Minigraph](README.testbed.Minigraph.md)
+- [Command Line](README.testbed.Cli.md)
+- [Example](README.testbed.Example.md)
+  - [Manual check testbed info](/docs/testbed/README.testbed.Example.Config.md)
+- [FAQ](README.testbed.FAQ.md)
+- [Internal](README.testbed.Internal.md)
+- [Kubernetes Setup](README.testbed.k8s.Setup.md)
+- [SAI Test Setup](./sai_quality/README.md)
+- [TACACS](README.testbed.TACACS.md)

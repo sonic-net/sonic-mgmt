@@ -1,0 +1,10 @@
+{
+    "VLAN_SUB_INTERFACE": {
+{% for sub_port, value in sub_ports.items() %}
+        "{{ sub_port }}": {
+            "admin_status" : "up"
+        },
+        "{{ sub_port }}|{{ value['ip'] }}": {}{% if not loop.last %},
+{% endif %}{% endfor %}
+    }
+}

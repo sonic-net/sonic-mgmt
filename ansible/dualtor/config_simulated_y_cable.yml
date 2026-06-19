@@ -1,0 +1,61 @@
+
+- fail: msg="There must be two duts in this testbed"
+  when: "testbed_facts['duts']|length != 2"
+
+- fail: msg="The type of testbed must be dualtor"
+  when: "'dualtor' not in testbed_facts['topo']"
+
+- fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+  when: inventory_hostname not in testbed_facts['duts']
+
+- name: Initialize variable restart_pmon
+  set_fact:
+    restart_pmon: yes
+  when: restart_pmon is not defined and restart_pmon|bool == true
+
+- name: Get host server address
+  script: scripts/vmhost_server_address.py --inv-file {{ vm_file }} --server-name {{ testbed_facts['server'] }}
+  args:
+    executable: python
+  delegate_to: localhost
+  register: vmhost_server_address
+
+- name: Set y cable simulator server address
+  set_fact:
+    mux_simulator_server: "{{ vmhost_server_address.stdout }}"
+
+- name: Set default y cable simulator server port
+  set_fact:
+    mux_simulator_port: "{{ mux_simulator_http_port[testbed_name] }}"
+  when: mux_simulator_port is not defined
+
+- name: Set default dut index
+  set_fact:
+    dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+
+- name: Set other variables required by y_cable driver
+  set_fact:
+    duts_map: "{{ testbed_facts['duts_map'] }}"
+    dut_name: "{{ inventory_hostname }}"
+    vm_set_name: "{{ testbed_facts['group-name'] }}"
+    dut_side: "{% if dut_index|int == 0 %}upper_tor{% else %}lower_tor{% endif %}"
+
+# Inject mux simulator config
+# Below step is required after these PRs are merged:
+# * https://github.com/sonic-net/sonic-platform-common/pull/213
+# * https://github.com/sonic-net/sonic-platform-daemons/pull/197
+# For the simulated y_cable driver to work, basic configuration information of the mux simulator is required.
+# When /etc/sonic/mux_simulator.json file is found on DUT, xcvrd will try to load simulated y_cable driver.
+# Otherwise, xcvrd will try to get cable vendor and model, then load corresponding y_cable driver based on
+# actual vendor/model of connected cable.
+- name: Generate mux simulator configuration for DUTs
+  template: src=dualtor/mux_simulator.json.j2
+            dest=/etc/sonic/mux_simulator.json
+  become: true
+
+- name: Restart the pmon service
+  service:
+    name: pmon
+    state: restarted
+  become: true
+  when: restart_pmon|bool == true

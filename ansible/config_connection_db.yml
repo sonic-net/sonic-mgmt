@@ -1,0 +1,46 @@
+# This playbook configures the connection_db
+#
+# To start connection db
+# ansible-playbook -i veos config_connection_db.yml --vault-password-file=~/password.txt -e duts_name=str-msn2700-01,str-msn2700-02 -e configure_action=start_db
+# ansible-playbook -i veos config_connection_db.yml --vault-password-file=~/password.txt -e connection_graph_filename=lab_connection_graph.xml -e configure_action=start_db
+# Parameters:
+# -e duts_name=str-msn2700-01,str-msn2700-02                        - used to located connection graph file
+# -e connection_graph_filename=lab_connection_graph.xml             - pass connection graph file directly
+# -e configure_action=start_db                                      - could be one of: start_db, provision_db or stop_db
+
+- name: Configure connection db
+  hosts: localhost
+  gather_facts: False
+
+  tasks:
+    - name: Check that variable configure_action is defined
+      fail: msg="Please pass extra variable 'configure_action'"
+      when: configure_action is not defined
+
+    - name: Check that variable connection_graph_filename or duts_name is defined
+      fail: msg="Please pass extra variable 'connection_graph_filename' or 'duts_name'"
+      when:
+        - connection_graph_filename is not defined
+        - duts_name is not defined
+
+    - name: Find connection graph file
+      set_fact:
+        connection_graph_filename: "{{ lookup('graphfile', duts_name.split(',')) }}"
+      when: connection_graph_filename is not defined
+
+    - name: Set connection db server hostname
+      set_fact:
+        connection_db_host: "{{ item.value }}"
+      loop: "{{ connection_db_host_mapping | dict2items }}"
+      when: item.key == connection_graph_filename
+
+    - name: Get connection db server ip
+      set_fact:
+        connection_db_host_ip: "{{ ansible_ssh_host }}"
+      delegate_to: "{{ connection_db_host }}"
+
+    - name: Start connection_db
+      include_role:
+        name: connection_db
+      vars:
+        action: "{{ configure_action }}"

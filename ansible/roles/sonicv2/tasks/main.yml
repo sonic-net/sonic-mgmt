@@ -1,0 +1,61 @@
+# Setup VLAN Interfaces
+- name: Copy VLAN Interfaces File.
+  become: true
+  template: src=vlan_interfaces.j2
+            dest=/etc/network/interfaces.d/vlan_interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
+
+# Setup LAG Interfaces
+- name: Copy LAG Interfaces File
+  become: true
+  template: src=lag_interfaces.j2
+            dest=/etc/network/interfaces.d/lag_interfaces
+            owner=root
+            group=root
+            mode=0644
+  register: if_copy
+  tags: network,unsafe
+
+# SSW
+- name: Copy SSW files.
+  become: true
+  copy: directory_mode=0755
+        src=ssw/{{ sonic_hwsku }}
+        dest=/etc/ssw
+        owner=root
+        group=root
+        mode=0644
+  tags: ssw
+  when: sonic_hwsku != "AS7512"
+
+# System dump script
+- name: Copy system dump script
+  become: true
+  copy: src=bin/sonic_support
+        dest=/usr/bin/sonic_support
+        owner=root
+        group=root
+        mode=0755
+
+# SONiC
+- include_tasks: sonic-brcm.yml
+  when: sonic_asic_type == 'broadcom'
+  tags: swss,unsafe
+
+- include_tasks: sonic-mlnx.yml
+  when: sonic_asic_type == 'mellanox'
+  tags: swss,unsafe
+
+- include_tasks: sonic-cavm.yml
+  when: sonic_asic_type == 'cavium'
+  tags: swss,unsafe
+
+- include_tasks: quagga.yml
+  tags: quagga,unsafe
+
+- include_tasks: teamd.yml
+  tags: teamd,unsafe

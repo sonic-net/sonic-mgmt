@@ -1,0 +1,38 @@
+# This is a helper playbook for ecmp.yml. ecmp.yml passes the interface
+# to this playbook, and this playbook brings up the neighbor interface, and
+# verifies that it is actually brought up by checking its status.
+
+- block:
+    - set_fact:
+        interface: "{{item}}"
+
+    - debug: msg={{interface}}
+
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+
+    - conn_graph_facts: host={{ peer_device }}
+      connection: local
+
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+
+    - name: Bring up neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_no_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+
+    - pause:
+        seconds: 20
+
+    - interface_facts: up_ports={{minigraph_ports | difference(intfs_to_exclude)}}
+
+    - name: Verify {{intfs_to_exclude}} is up correctly
+      assert: { that: "'{{ ansible_interface_facts[intfs_to_exclude]['active'] }}' == 'True'" }

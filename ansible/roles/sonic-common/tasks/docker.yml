@@ -1,0 +1,36 @@
+- name: Check docker base verison is correct
+  become: true
+  apt: pkg=docker-engine={{ version_docker_engine }}
+       state=present
+
+- block:
+  - name: Copy http-proxy.conf
+    become: true
+    template:
+      src="etc/systemd/system/docker.service.d/http-proxy.conf.j2"
+      dest="/etc/systemd/system/docker.service.d/http-proxy.conf"
+      owner=root
+      group=root
+      mode=0644
+    register: configfile_result
+
+  - name: Reload systemd
+    command: systemctl daemon-reload
+    become: true
+    when: configfile_result.changed
+
+  - name: Restart docker service
+    become: true
+    service: name=docker
+             state=restarted
+             enabled=yes
+    when: configfile_result.changed
+  when: docker_proxy_list is defined
+
+# Ensure docker service started and enabled
+# Note: keep it before all dockers
+- name: Ensure docker service started and enabled
+  become: true
+  service: name=docker
+           state=started
+           enabled=yes

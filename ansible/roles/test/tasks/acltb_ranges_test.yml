@@ -1,0 +1,107 @@
+# Usage example:
+#   ansible-playbook test_sonic.yml -i inventory --limit arc-switch1028 --tags acltb_ranges_test -b -e ranges_number=3 -e ptf_host=ptf-fib
+#
+# Variable "ranges_number" defines how many ACL range objects the test will attempt to create
+#
+
+# Input arguments check
+- fail: msg="ranges_number is not defined."
+  when: ranges_number is not defined
+
+# Set facts for ACL configuration
+- set_fact:
+    acltb_configs:
+      - "{{ 'acl_ranges_table' }}"
+      - "{{ 'acl_ranges_rules' }}"
+
+# Set facts for the loganalizer
+- set_fact:
+    testname: acl
+    run_dir: /tmp
+    out_dir: /tmp/ansible-loganalyzer-results
+    test_match_file: acltb_match_messages.txt
+    test_ignore_file: acltb_ignore_messages.txt
+    test_expect_file: acltb_expect_messages.txt
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+
+# Separate set_fact is required to be able to use 'testname' fact.
+- set_fact:
+    testname_unique: "{{ testname }}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}"
+
+# Separate set_fact is required to be able to use 'testname_unique' fact.
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{testname_unique}}"
+    match_file_list: "{{ run_dir }}/{{test_match_file}},{{ run_dir }}/{{match_file}}"
+    ignore_file_list: "{{ run_dir }}/{{test_ignore_file}},{{ run_dir }}/{{ignore_file}}"
+    result_file: result.loganalysis.{{testname_unique}}.log
+    summary_file: summary.loganalysis.{{testname_unique}}.log
+
+# Gather minigraph facts
+- name: Gathering minigraph facts about the device
+  minigraph_facts: host={{ inventory_hostname }}
+
+- name: Read port reverse alias mapping
+  set_fact:
+    alias_reverse_map: "{{ lookup('file', 'roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_reverse_map.json') | from_json }}"
+
+- include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+  vars:
+    tests_location: "{{ 'roles/test/tasks' }}"
+
+# Outer block to execute laganalizer in always block
+- block:
+  # Perform the test: generate and apply acl jsons
+
+  - include_tasks: add_container_to_inventory.yml
+    vars:
+      container_name: swss
+
+  - block:
+    - name: Copy JSON configs into docker filesystem
+      template: src={{ item }}.j2 dest=/tmp/{{ item }}.json
+      with_items:
+        - "{{ acltb_configs }}"
+
+    - name: Load JSON configs
+      shell: swssconfig /tmp/{{ item }}.json
+      with_items:
+        - "{{ acltb_configs }}"
+
+    - name: Change JSON configs to delete (table)
+      shell: sed 's/SET/DEL/g' /tmp/{{ item }}.json >/tmp/del_{{ item }}.json
+      with_items:
+        - "{{ acltb_configs }}"
+
+    - name: Pause 5 sec to let rules to settle down
+      pause:
+        seconds: 5
+
+    - name: Load JSON configs in reversed order
+      shell: swssconfig /tmp/del_{{ item }}.json
+      with_items:
+        - "{{ acltb_configs[::-1] }}"
+
+    delegate_to: "{{ ansible_host }}_swss"
+
+  always:
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+      vars:
+        tests_location: "{{ 'roles/test/tasks' }}"
+
+    # Output content of result files to ansible console
+    - shell: cat {{ test_out_dir }}/*
+      register: out
+    - debug: var=out.stdout_lines
+
+    - name: Get the total number of error messages.
+      shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+      register: errors_found
+
+    - name: Check the number of error messages (positive tests only).
+      fail: msg="{{ errors_found.stdout }} errors found while running {{ testname }} test. Please see {{ test_out_dir }}/{{ result_file }}"
+      when: errors_found.stdout != "0"
+
+    - include_tasks: roles/test/files/tools/loganalyzer/loganalyzer_end.yml
+      vars:
+        tests_location: "{{ 'roles/test/tasks' }}"

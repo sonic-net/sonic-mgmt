@@ -1,0 +1,45 @@
+Value Filldown years (\d+)
+Value Filldown months (\d+)
+Value Filldown weeks (\d+)
+Value Filldown days (\d+)
+Value Filldown hours (\d+)
+Value minutes (\d+)
+
+Start
+  ^up\s+${years}\s+(years|year),\s+${months}\s+(month|month),\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${years}\s+(years|year),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${years}\s+(years|year)\s*$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${weeks}\s+(weeks|week)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${days}\s+(days|day),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${days}\s+(days|day)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${months}\s+(months|month),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${months}\s+(months|month)\s*$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${days}\s+(days|day)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${weeks}\s+(weeks|week)\s*$$ -> Record
+  ^up\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${days}\s+(days|day),\s+${hours}\s+(hours|hour)$$ -> Record
+  ^up\s+${days}\s+(days|day),\s+${minutes}\s+(minutes|minute)$$ -> Record
+  ^up\s+${days}\s+(days|day)\s*$$ -> Record
+  ^up\s+${hours}\s+(hours|hour),\s+${minutes}\s+(minutes|minute)\s*$$ -> Record
+  ^up\s+${hours}\s+(hours|hour)\s*$$ -> Record
+  ^up\s+${minutes}\s+(minutes|minute)\s*$$ -> Record
+  ^$$
+
+EOF

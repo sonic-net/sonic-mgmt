@@ -1,0 +1,10 @@
+{
+    "VRF": {
+        "Vrf1": {
+            "ip_opt_action": "drop"
+        },
+        "Vrf2": {
+            "ip_opt_action": "forward"
+        }
+    }
+}

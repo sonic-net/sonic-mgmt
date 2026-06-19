@@ -1,0 +1,11 @@
+# This file controls the activity of snmpd
+
+# Don't load any MIBs by default.
+# You might comment this lines once you have the MIBs downloaded.
+export MIBS=
+
+# snmpd control (yes means start daemon).
+SNMPDRUN=yes
+
+# snmpd options (use syslog, close stdin/out/err).
+SNMPDOPTS='-LS4d -Lf /dev/null -u {{ snmp_user }} -g {{ snmp_user }} -I -smux,mteTrigger,mteTriggerConf,ifTable,ifXTable -p /run/snmpd.pid'

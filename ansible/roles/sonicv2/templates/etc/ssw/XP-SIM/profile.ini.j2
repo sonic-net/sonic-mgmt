@@ -1,0 +1,8 @@
+{% if sonic_portsku == "32x40" %}
+mode=1
+{% elif sonic_portsku == "32x100" %}
+mode=3
+{% else %}
+mode=0
+{% endif %}
+hwId=as7512

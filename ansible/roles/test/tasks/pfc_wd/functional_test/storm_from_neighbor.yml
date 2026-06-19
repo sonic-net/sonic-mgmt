@@ -1,0 +1,37 @@
+- name: Set fact for item values
+  set_fact:
+    peer_device: "{{item.value.peer_device}}"
+    pfc_wd_test_port: "{{item.key}}"
+
+- conn_graph_facts: host={{ peer_device }}
+  delegate_to: localhost
+  become: no
+
+- name: Prepare parameters required for PFC storming
+  set_fact:
+    pfc_queue_indices: [4]
+    pfc_frames_number: 100000000
+    pfc_fanout_interface: "{{neighbors[pfc_wd_test_port]['peerport']}}"
+    peer_hwsku: "{{device_info['HwSku']}}"
+    peer_mgmt: "{{device_info['mgmtip']}}"
+
+- name: Add queue index 3 to pfc_queue_indices when seed is an odd number
+  set_fact:
+    pfc_queue_indices: "{{pfc_queue_indices + [3]}}"
+  when: seed | int is odd
+
+- set_fact:
+    pfc_gen_file: pfc_gen.py
+
+- name: Deploy pfc packet generater file to fanout switch
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/deploy_pfc_pktgen.yml
+
+- set_fact:
+    peer_login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+
+
+- name: PFC storming from fanout switch per queue
+  include_tasks: roles/test/tasks/pfc_wd/functional_test/storm_from_neighbor_perq.yml
+  vars:
+    pfc_queue_index: "{{item}}"
+  with_items: "{{pfc_queue_indices}}"

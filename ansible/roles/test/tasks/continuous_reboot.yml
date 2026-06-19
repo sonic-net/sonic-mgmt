@@ -1,0 +1,14 @@
+##########################################################################
+# Repeat reboot test case <repeat_count> times                           #
+##########################################################################
+
+- name: set default value for repeat_count
+  set_fact:
+      repeat_count: 3
+  when: repeat_count is not defined
+
+- debug:
+    msg: "Execute reboot.yml {{ repeat_count }} time(s)"
+
+- include_tasks: reboot.yml
+  with_sequence: end={{repeat_count}}

@@ -1,0 +1,11 @@
+# Note
+# This test has at least 2 parameters that cannot be defined as default (image1 and image2)
+# Because of this backward compatibility currently does not work (I mean ability to run test using ansible-playbook)
+
+# ansible-playbook test_sonic.yml -i inventory --limit {DUT_NAME} -e testbed_name={TESTBED_NAME} -e testbed_type={TESTBED_TYPE} -e testcase_name=read_mac -e iterations={ITERATIONS} -e image1={IMAGE1} -e image2={IMAGE2}
+# Current implementation of ansible to pytest wrapper does not allow to pass python input params. And this may be motivation to improve it fuctionality in future
+
+- name: run test
+  include_tasks: roles/test/tasks/pytest_runner.yml
+  vars:
+      test_node: read_mac/test_read_mac_metadata.py

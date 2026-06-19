@@ -1,0 +1,35 @@
+#!/bin/sh
+
+''':'
+export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+exec $(dirname $0)/python $SPYTEST_PYTHON_ARGS "$0" "$@"
+'''
+
+import os, re, sys
+
+root = os.path.join(os.path.dirname(__file__), '..')
+root = os.path.abspath(root)
+tests = os.path.join(root, "tests")
+sys.path.append(os.path.join(root))
+sys.path.append(os.path.join(root, "apis"))
+os.environ["SPYTEST_USER_ROOT"] = os.path.abspath(".")
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+
+if __name__ == '__main__':
+  arg_list = []
+  for arg in sys.argv[1:]:
+      if " " in arg:
+          arg_list.append("'{}'".format(arg))
+      else:
+          arg_list.append(arg)
+  os.environ["SPYTEST_CMDLINE_ARGS"] = " ".join(arg_list)
+  sys.argv[0] = re.sub(r'(-script\.pyw?|\.exe)?$', '', sys.argv[0])
+  sys.argv.insert(1, "-c")
+  sys.argv.insert(2, os.path.join(root, "spytest", "pytest.ini"))
+  sys.argv.extend(["-p", "spytest.splugin"])
+  sys.argv.extend(["-W", "once::DeprecationWarning"])
+  sys.argv.extend(["--rootdir", tests])
+
+  os.chdir(tests)
+  from spytest.main import main
+  sys.exit(main())

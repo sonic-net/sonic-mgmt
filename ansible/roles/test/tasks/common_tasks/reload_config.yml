@@ -1,0 +1,36 @@
+- fail: msg="config_source is not defined"
+  when: "config_source is not defined"
+
+- fail: msg="config_source is provided with invalid value"
+  when: "config_source not in [ 'minigraph', 'config_db' ]"
+
+- name: "Reload SONiC configuration using minigraph"
+  shell: "config load_minigraph -y"
+  become: "yes"
+  when: "config_source == 'minigraph'"
+
+- name: "Parse minigraph to get zebra_nexthop for CONFIG_DB restore"
+  minigraph_facts:
+    host: "{{ inventory_hostname }}"
+  when: "config_source == 'minigraph'"
+
+- name: "Restore zebra_nexthop from minigraph into CONFIG_DB"
+  shell: 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {{ minigraph_device_metadata.zebra_nexthop }}'
+  become: "yes"
+  when:
+    - "config_source == 'minigraph'"
+    - "minigraph_device_metadata is defined"
+    - "'zebra_nexthop' in minigraph_device_metadata"
+
+- name: "Save SONiC configuration after loading minigraph"
+  shell: "config save -y"
+  become: "yes"
+  when: "config_source == 'minigraph'"
+
+- name: "Reload SONiC configuration using config_db"
+  shell: "config reload -y"
+  become: "yes"
+  when: "config_source == 'config_db'"
+
+- name: "Wait for 2 minutes for prcesses and interfaces to be stable"
+  pause: minutes=2

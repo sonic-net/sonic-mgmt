@@ -1,0 +1,5 @@
+- name: stop and remove docker container
+  docker_container:
+    name: "{{ dut_name }}"
+    state: absent
+    image: simx

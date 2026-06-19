@@ -1,0 +1,18 @@
+- set_fact:
+    run_dir: /home/admin/everflow_tests
+    out_dir: /home/admin/everflow_tests/results
+    docker_testdir: /tmp
+    tests_location: roles/test/tasks/everflow_testbed
+    testname: del_config
+
+- name: Get session info.
+  include_tasks: roles/test/tasks/everflow_testbed/get_session_info.yml
+
+- name: Copy ACL rules configuration file.
+  copy: src={{ tests_location }}/{{ testname}}/acl_rule_persistent-del.json dest={{ run_dir }}/
+
+- command: "acl-loader update full {{ run_dir }}/acl_rule_persistent-del.json"
+  become: yes
+
+- command: "config mirror_session remove {{session_name}}"
+  become: yes

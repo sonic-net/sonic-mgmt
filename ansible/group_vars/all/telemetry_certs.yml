@@ -1,0 +1,12 @@
+# Configure telemetry server and dsmsroot key,cer
+
+telemetry_certs:
+    server_key: "/etc/sonic/telemetry/streamingtelemetryserver.key"
+    server_csr: "/etc/sonic/telemetry/streamingtelemetryserver.csr"
+    server_cer: "/etc/sonic/telemetry/streamingtelemetryserver.cer"
+    dsmsroot_key: "/etc/sonic/telemetry/dsmsroot.key"
+    dsmsroot_csr: "/etc/sonic/telemetry/dsmsroot.csr"
+    dsmsroot_cer: "/etc/sonic/telemetry/dsmsroot.cer"
+    subject_client: "ndastreamingclienttest"
+    subject_server: "ndastreamingservertest"
+    dir_path: "/etc/sonic/telemetry"

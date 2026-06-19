@@ -1,0 +1,21 @@
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: teamd
+
+- block:
+    - name: Ensure /etc/teamd folder exists
+      become: true
+      file: path=/etc/teamd
+            state=directory
+
+    - debug: msg={{ item }}
+
+    - name: Copy teamd configuration file
+      become: true
+      template: src=teamd.j2
+                dest=/etc/teamd/{{ item['name'] }}.conf
+                owner=root
+                group=root
+                mode=644
+
+  delegate_to: "{{ ansible_host }}_teamd"

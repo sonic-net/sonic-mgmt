@@ -1,0 +1,45 @@
+!
+config
+{% if deploy_leaf %}
+vlan {{ dev_vlans | list | join(',') }}
+{% endif %}
+
+{% for intf in root_conn %}
+{% set peer_dev = root_conn[intf]['peerdevice'] %}
+{% set peer_port = root_conn[intf]['peerport'] %}
+{% set peer_speed = root_conn[intf]['speed'] %}
+{% if peer_dev in lab_devices and 'Fanout' not in lab_devices[peer_dev]['Type'] and not deploy_leaf %}
+interface {{ intf }}
+{% if clean_before_add == 'y' %}
+  switchport
+  switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
+{% endif %}
+{% if peer_dev == server and peer_port == server_port %}
+  switchport mode trunk
+  switchport trunk allowed vlan add {{ dev_vlans | list | join(',') }}
+  no shutdown
+{% endif %}
+{% endif %}
+{% if peer_dev in lab_devices and 'Fanout' in lab_devices[peer_dev]['Type']  and deploy_leaf %}
+interface {{ intf }}
+{% if clean_before_add == 'y' %}
+  switchport
+  switchport trunk allowed vlan remove {{ dev_vlans | list | join(',') }}
+{% endif %}
+{% if peer_dev == leaf_name %}
+  description {{ peer_dev }}-{{ peer_port }}
+  speed forced {{ peer_speed }}full
+  switchport mode trunk
+  switchport trunk allowed vlan {{ dev_vlans | list | join(',') }}
+  no shutdown
+{%     if peer_speed == "100000" %}
+  error-correction encoding reed-solomon
+{%     else %}
+  no error-correction encoding
+{%     endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
+!
+copy running-config startup-config
+end

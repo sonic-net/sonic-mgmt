@@ -1,0 +1,20 @@
+Value IFACE (\S+)
+Value STATE (\S+)
+Value RX_OK ([0-9,]+)
+Value RX_BPS (\S+(\s\S+)?)
+Value RX_UTIL (\S+)
+Value RX_ERR ([0-9,]+)
+Value RX_DRP ([0-9,]+)
+Value RX_OVR (\d+)
+Value TX_OK ([0-9,]+)
+Value TX_BPS (\S+(\s\S+)?)
+Value TX_UTIL (\S+)
+Value TX_ERR ([0-9,]+)
+Value TX_DRP ([0-9,]+)
+Value TX_OVR (\d+)
+
+Start
+  ^\s*${IFACE}\s+${STATE}\s+${RX_OK}\s+${RX_BPS}\s+${RX_UTIL}\s+${RX_ERR}\s+${RX_DRP}\s+${RX_OVR}\s+${TX_OK}\s+${TX_BPS}\s+${TX_UTIL}\s+${TX_ERR}\s+${TX_DRP}\s+${TX_OVR}\S*$$ -> Record
+  ^\s*${IFACE}\s+${STATE}\s+${RX_OK}\s+${RX_ERR}\s+${RX_DRP}\s+${RX_OVR}\s+${TX_OK}\s+${TX_ERR}\s+${TX_DRP}\s+${TX_OVR}\s*$$ -> Record
+
+EOF

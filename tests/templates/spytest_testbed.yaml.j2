@@ -1,0 +1,41 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    {% for hostname, login_info in devices %}
+    {{ hostname }}:
+        device_type: DevSonic
+        access: {{ login_info.login_access }}
+        credentials: {{ login_info.login_credentials }}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default, errors: default}
+    {% endfor %}
+    ptf-01:
+        device_type: TGEN
+        properties: {type: scapy, version: 1.0, ip: {{ tbinfo.ptf_ip }}, params: def_tg}
+
+topology:
+    ptf-01:
+        interfaces:
+            {% for ptf_conn in ptf_connections %}
+            {{ ptf_conn.start_port }}: {{ "{" }}EndDevice: {{ ptf_conn.end_device }}, EndPort: {{ ptf_conn.end_port }}, params: def_tg_link{{ "}" }}
+            {% endfor %}
+    {% for hostname in tbinfo.duts %}
+    {% if hostname in dev_connections %}
+    {{ hostname }}:
+        interfaces:
+            {% for dev_conn in dev_connections[hostname] %}
+            {{ dev_conn.start_port }}: {{ "{" }}EndDevice: {{ dev_conn.end_device }}, EndPort: {{ dev_conn.end_port }}, params: def_tg_link{{ "}" }}
+            {% endfor %}
+    {% endif %}
+    {% endfor %}

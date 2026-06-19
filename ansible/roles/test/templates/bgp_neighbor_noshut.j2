@@ -1,0 +1,11 @@
+configure
+router bgp {{ asn }}
+{% if "Arista" in hwsku %}
+default neighbor {{ peer_addr }} shutdown
+{% else %}
+neighbor {{ peer_addr }}
+no shutdown
+{% endif %}
+exit
+exit
+exit

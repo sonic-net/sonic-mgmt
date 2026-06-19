@@ -1,0 +1,24 @@
+#
+{% block mgmt_interface %}
+# The management network interface
+auto eth0
+iface eth0 inet static
+    address {{ addr }}
+    netmask {{ mask }}
+    network {{ network }}
+    broadcast {{ brd_ip }}
+    ################ management network policy routing rules
+    #### management port up rules"
+    up ip -4 route add default via {{ gwaddr }} dev eth0 table default metric 201
+    up ip -4 route add {{ mgmt_ip }} dev eth0 table default
+
+    # management port down rules
+    pre-down ip -4 route delete default via {{ gwaddr }} dev eth0 table default
+    pre-down ip -4 route delete {{ mgmt_ip }} dev eth0 table default
+
+#
+source /etc/network/interfaces.d/*
+#
+
+{% endblock mgmt_interface %}
+#

@@ -1,0 +1,115 @@
+- name: Clean up old container
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: docker-snmp
+    docker_image: "{{ image_id_snmp }}"
+    docker_privileged: yes
+    docker_state: absent
+
+- name: switch SNMP image based on SONiC version
+  set_fact:
+    image_id_snmp: "{{ image_id_snmp_sv2 }}"
+  when: sonic_version == "v2"
+
+- name: Ensure SNMP container started
+  include_tasks: sonicdocker.yml
+  vars:
+    docker_container: snmp
+    docker_image: "{{ image_id_snmp }}"
+    docker_privileged: yes
+    docker_state: reloaded
+    docker_volumes_from:
+    - database
+    docker_volumes:
+      -  /etc/sonic/:/etc/sonic/:ro
+      -  /etc/ssw/:/etc/ssw/:ro
+
+- name: Gather setup facts about system
+  setup:
+
+- name: Gather SONiC base image version
+  shell: grep -E "^menuentry [']((ACS)|(SONiC))-OS-" /host/grub/grub.cfg | awk '{print $2}' | sed 's/'\''//g'
+  become: true
+  register: result
+  changed_when: false
+
+- name: Set base image verison variable
+  set_fact:
+    sonic_baseimage_version: "{{ result.stdout }}"
+
+- name: Generate snmp.yml file (for oneimage snmp dockers)
+  become: true
+  template: src=snmp.yml.j2
+            dest=/etc/sonic/snmp.yml
+            mode=0644
+
+- name: Setup sonic_version file (for oneimage snmp dockers)
+  become: true
+  template: src=sonic_version.yml.j2
+            dest=/etc/sonic/sonic_version.yml
+            mode=0644
+
+- name: Setup sysDescription file (for legacy snmp dockers)
+  become: true
+  template: src=sysDescription.j2
+            dest=/etc/ssw/sysDescription
+            owner=root
+            group=root
+            mode=0644
+
+- name: Determine if alias mappings are required
+  stat: path="roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json"
+  become: false
+  delegate_to: localhost
+  register: snmp_remap
+
+- include_tasks: add_container_to_inventory.yml
+  vars:
+    container_name: snmp
+
+- block:
+  - name: Check version of snmpd
+    shell: dpkg-query -W --showformat='${Version}' snmpd
+    register: snmp_version
+    changed_when: false
+
+  - name: Set a fact for snmp user
+    set_fact:
+      snmp_user: Debian-snmp
+
+    # Override snmp user for older SNMPD version
+  - name: Set a fact for snmp user (Old version override)
+    set_fact:
+      snmp_user: snmp
+    when: snmp_version.stdout.find('5.7.2') != -1
+
+  - name: Setup SNMP Daemon start config file
+    become: true
+    template: src=default/snmpd.j2
+          dest=/etc/default/snmpd
+          owner=root
+          group=root
+          mode=0644
+    notify:
+      - Restart SNMP Daemon
+
+  - name: Setup SNMP Daemon Config File
+    become: true
+    template: src=snmpd.conf.j2
+              dest=/etc/snmp/snmpd.conf
+    notify:
+      - Restart SNMP Daemon
+
+  - name: Setup SNMP interface rename
+    become: true
+    template: src="roles/sonicv2/files/ssw/{{ sonic_hwsku }}/alias_map.json"
+              dest=/etc/snmp/alias_map.json
+    notify:
+      - Restart SNMP Daemon
+    when: snmp_remap.stat.exists and sonic_version == "v2"
+
+
+  # Force handler flush to trigger daemon restarts
+  - meta: flush_handlers
+
+  delegate_to: "{{ ansible_host }}_snmp"

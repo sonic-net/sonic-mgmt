@@ -1,0 +1,19 @@
+#---------------------------------------------------------
+# The following actions are to be done on DUT:
+#   1) Check LACP rate on DUT.
+#   2) Verify if it's slow and raise an error in another case.
+#---------------------------------------------------------
+
+- name: Read teamd state for {{ lag_iface }} on DUT.
+  shell: docker exec -i teamd teamdctl {{ lag_iface }} state
+  register: teamd_state
+
+- name: Verify LACP rate.
+  shell: echo {{ teamd_state.stdout_lines }} | grep "fast rate" | sed -n "s/.*fast rate. //p" | sed -n "s/]//p"
+  register: lacp_rate
+
+- debug:
+    msg="Fast-rate value is set to \'{{ lacp_rate.stdout }}\'"
+
+- fail: msg="Wrong LACP rate set for {{ lag_iface }} LAG interface; 'fast rate' is set to \'{{ lacp_rate.stdout }}\'"
+  when: lacp_rate.stdout != 'no'

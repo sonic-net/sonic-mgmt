@@ -1,0 +1,29 @@
+# Compiled Python files
+*.pyc
+**/__pycache__/
+**/.pytest_cache/
+
+# Ansible files
+.ansible
+ansible.log
+
+# Test generated files
+tests/logs
+tests/_cache
+tests/metadata
+ansible/plugins/*/*.pyc
+# Temporary trimmed inventory file
+ansible/*_tmp
+
+# Dev tools
+.vscode/
+.idea/
+**/.venv/
+
+.python-version
+
+sonic-dump/
+**/common/sai_validation/generated/
+**/common/sai_validation/github.com/
+tests/pfc_headroom_test_params/*.json
+tests/priority/*.json

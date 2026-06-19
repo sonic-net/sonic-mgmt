@@ -1,0 +1,13 @@
+Value destination (([0-9]{1,3}.){3}[0-9]{1,3})
+Value gateway (([0-9]{1,3}.){3}[0-9]{1,3})
+Value genmask (([0-9]{1,3}.){3}[0-9]{1,3})
+Value flags (\w+)
+Value metric (\d+)
+Value ref (\d+)
+Value use (\d+)
+Value iface (\w+)
+
+Start
+  ^${destination}\s+${gateway}\s+${genmask}\s+${flags}\s+${metric}\s+${ref}\s+${use}\s+${iface}$$ -> Record
+
+EOF

@@ -1,0 +1,166 @@
+---
+
+testname: acl_orchagent_logic_test
+
+# L3 - already tested, so here we check some bad cases.
+config_table_type_l3: config_table_type_l3.json
+config_table_type_invalid_1: config_table_type_invalid_1.json
+config_table_type_invalid_2: config_table_type_invalid_2.json
+config_table_type_expect: config_table_type_expect_file
+
+config_rule: config_rule.json
+
+# Syntax-test config files.
+config_port_invalid_1: config_port_invalid_1.json
+config_port_invalid_2: config_port_invalid_2.json
+config_port_expect: config_port_expect_file
+
+config_operation_invalid_1: config_operation_invalid_1.json
+config_operation_invalid_2: config_operation_invalid_2.json
+
+config_extra_field_invalid: config_extra_field_invalid.json
+config_extra_field_expect: config_extra_field_expect_file
+
+config_priority_invalid_1: config_priority_invalid_1.json
+config_priority_invalid_2: config_priority_invalid_2.json
+config_priority_valid_max: config_priority_valid_max.json
+config_priority_expect: config_priority_expect_file
+
+config_ether_type_invalid_1: config_ether_type_invalid_1.json
+config_ether_type_invalid_2: config_ether_type_invalid_2.json
+config_ether_type_valid_1: config_ether_type_valid_1.json
+config_ether_type_valid_2: config_ether_type_valid_2.json
+config_ether_type_expect: config_ether_type_expect_file
+
+config_ip_type_invalid_1: config_ip_type_invalid_1.json
+config_ip_type_invalid_2: config_ip_type_invalid_2.json
+config_ip_type_valid_1: config_ip_type_valid_1.json
+config_ip_type_valid_2: config_ip_type_valid_2.json
+config_ip_type_expect: config_ip_type_expect_file
+
+config_ip_proto_invalid_1: config_ip_proto_invalid_1.json
+config_ip_proto_invalid_2: config_ip_proto_invalid_2.json
+config_ip_proto_valid_1: config_ip_proto_valid_1.json
+config_ip_proto_valid_2: config_ip_proto_valid_2.json
+config_ip_proto_expect: config_ip_proto_expect_file
+
+config_ip_addr_invalid_1: config_ip_addr_invalid_1.json
+config_ip_addr_invalid_2: config_ip_addr_invalid_2.json
+config_ip_addr_invalid_3: config_ip_addr_invalid_3.json
+config_ip_addr_invalid_4: config_ip_addr_invalid_4.json
+config_ip_addr_invalid_5: config_ip_addr_invalid_5.json
+config_ip_addr_invalid_6: config_ip_addr_invalid_6.json
+config_ip_addr_invalid_7: config_ip_addr_invalid_7.json
+config_ip_addr_valid_1: config_ip_addr_valid_1.json
+config_ip_addr_valid_2: config_ip_addr_valid_2.json
+config_ip_addr_expect: config_ip_addr_expect_file
+
+config_tcp_flags_valid_1: config_tcp_flags_valid_1.json
+config_tcp_flags_valid_2: config_tcp_flags_valid_2.json
+config_tcp_flags_invalid_1: config_tcp_flags_invalid_1.json
+config_tcp_flags_invalid_2: config_tcp_flags_invalid_2.json
+config_tcp_flags_expect: config_tcp_flags_expect_file
+
+config_l4_port_valid: config_l4_port_valid.json
+config_l4_port_invalid_1: config_l4_port_invalid_1.json
+config_l4_port_invalid_2: config_l4_port_invalid_2.json
+config_l4_port_invalid_3: config_l4_port_invalid_3.json
+config_l4_port_expect: config_l4_port_expect_file
+
+config_packet_action_valid: config_packet_action_valid.json
+config_packet_action_invalid_1: config_packet_action_invalid_1.json
+config_packet_action_invalid_2: config_packet_action_invalid_2.json
+config_packet_action_expect: config_packet_action_expect_file
+
+config_dscp_in_l3_table: config_dscp_in_l3_table.json
+config_dscp_in_l3_table_expect: config_dscp_in_l3_table_expect_file
+
+config_rule_empty_invalid: config_rule_empty.json
+config_rule_empty_expect: config_rule_empty_expect_file
+
+config_rule_in_non_existing_table: config_rule_in_non_existing_table.json
+config_rule_in_non_existing_table_expect: config_rule_in_non_existing_table_expect_file
+
+# Deleting-test config files.
+config_del_rule_valid: config_del_rule_valid.json
+config_del_rule_non_existing: config_del_rule_non_existing.json
+config_del_rule_expect: config_del_rule_expect_file
+
+config_del_table_valid: config_del_table_valid.json
+config_del_table_non_existing: config_del_table_non_existing.json
+config_del_table_with_rules: config_del_table_with_rules.json
+config_del_table_diff_fields: config_del_table_diff_fields.json
+config_del_table_expect: config_del_table_expect_file
+
+config_empty_expect: config_empty_expect_file
+config_duplicate_rule_expect: config_duplicate_rule_expect_file
+
+config_files:
+    - "{{ config_table_type_l3 }}"
+    - "{{ config_rule }}"
+
+    - "{{ config_table_type_invalid_1 }}"
+    - "{{ config_table_type_invalid_2 }}"
+
+    - "{{ config_port_invalid_1 }}"
+    - "{{ config_port_invalid_2 }}"
+
+    - "{{ config_operation_invalid_1 }}"
+    - "{{ config_operation_invalid_2 }}"
+
+    - "{{ config_extra_field_invalid }}"
+
+    - "{{ config_priority_invalid_1 }}"
+    - "{{ config_priority_invalid_2 }}"
+    - "{{ config_priority_valid_max }}"
+
+    - "{{ config_ether_type_invalid_1 }}"
+    - "{{ config_ether_type_invalid_2 }}"
+    - "{{ config_ether_type_valid_1 }}"
+    - "{{ config_ether_type_valid_2 }}"
+
+    - "{{ config_ip_type_invalid_1 }}"
+    - "{{ config_ip_type_invalid_2 }}"
+    - "{{ config_ip_type_valid_1 }}"
+    - "{{ config_ip_type_valid_2 }}"
+
+    - "{{ config_ip_proto_invalid_1 }}"
+    - "{{ config_ip_proto_invalid_2 }}"
+    - "{{ config_ip_proto_valid_1 }}"
+    - "{{ config_ip_proto_valid_2 }}"
+
+    - "{{ config_ip_addr_invalid_1 }}"
+    - "{{ config_ip_addr_invalid_2 }}"
+    - "{{ config_ip_addr_invalid_3 }}"
+    - "{{ config_ip_addr_invalid_4 }}"
+    - "{{ config_ip_addr_invalid_5 }}"
+    - "{{ config_ip_addr_invalid_6 }}"
+    - "{{ config_ip_addr_invalid_7 }}"
+    - "{{ config_ip_addr_valid_1 }}"
+    - "{{ config_ip_addr_valid_2 }}"
+
+    - "{{ config_tcp_flags_valid_1 }}"
+    - "{{ config_tcp_flags_valid_2 }}"
+    - "{{ config_tcp_flags_invalid_1 }}"
+    - "{{ config_tcp_flags_invalid_2 }}"
+
+    - "{{ config_l4_port_valid }}"
+    - "{{ config_l4_port_invalid_1 }}"
+    - "{{ config_l4_port_invalid_2 }}"
+    - "{{ config_l4_port_invalid_3 }}"
+
+    - "{{ config_packet_action_valid }}"
+    - "{{ config_packet_action_invalid_1 }}"
+    - "{{ config_packet_action_invalid_2 }}"
+
+    - "{{ config_dscp_in_l3_table }}"
+    - "{{ config_rule_empty_invalid }}"
+    - "{{ config_rule_in_non_existing_table }}"
+
+    - "{{ config_del_rule_valid }}"
+    - "{{ config_del_rule_non_existing }}"
+
+    - "{{ config_del_table_valid }}"
+    - "{{ config_del_table_non_existing }}"
+    - "{{ config_del_table_with_rules }}"
+    - "{{ config_del_table_diff_fields }}"

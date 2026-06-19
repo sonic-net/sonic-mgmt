@@ -1,0 +1,189 @@
+# This is the helper playbook for ecmp.yml. It does the following in order.
+# 1. Gets the interface through which traffic is flowing to the destination
+# 2. Appends this interface to an array for future reference (specifically
+#    for bringing the interface back up later)
+# 3. Clears the counter on the DUT
+# 4. Starts traffic using 'ping' command
+# 5. Captures the transmitted and received bytes from 'ping' output
+# 6. Shuts down the interface through which traffic is flowing
+# 7. Verifies that the interface is shutdown correctly by checking its status
+# 8. Verifies that this interface is removed from the prefix after shutting down
+# 9. Calculates the convergence time for this interface
+
+- block:
+    - name: Get the interface through which traffic is flowing
+      get_interface:
+
+    - debug: msg="iface {{ iface }}"
+
+    - set_fact:
+        interface: "{{ iface }}"
+
+    - debug: msg={{interface}}
+
+    - name: Append interface to the list
+      set_fact:
+        iface_list: "{{iface_list}} + [ '{{interface }}' ]"
+
+    - debug: var=iface_list
+
+    - set_fact:
+        peer_device: "{{neighbors[interface]['peerdevice']}}"
+        neighbor_interface: "{{neighbors[interface]['peerport']}}"
+
+    - conn_graph_facts: host={{ peer_device }}
+      connection: local
+
+    - set_fact:
+        peer_host: "{{device_info['mgmtip']}}"
+        peer_hwsku: "{{device_info['HwSku']}}"
+
+    - set_fact:
+        intfs_to_exclude: "{{interface}}"
+
+    - set_fact:
+        config_cmd: ifconfig -a | grep -A 1 "lo0" | tail -1 | xargs | cut -d" " -f2 | cut -d":" -f2
+      when: "{{ ipv6 }} == False"
+
+    - set_fact:
+        config_cmd: ifconfig -a | grep -A 2 "lo0" | tail -1 | xargs | cut -d" " -f3 | cut -d"/" -f1
+      when: "{{ ipv6 }} == True"
+
+    - name: Ping destination VM from host VM.
+      shell: "{{ config_cmd }}"
+      delegate_to: "{{ vm_source }}"
+      register: loopback_ip
+      failed_when: loopback_ip.rc != 0
+
+    - debug: msg="loopback_ip {{ loopback_ip.stdout }}"
+
+    - name: Clear the counter on the DUT.
+      shell: portstat -c
+      delegate_to: "{{ ansible_host }}"
+      become: yes
+      become_user: admin
+      register: counter_result
+      failed_when: counter_result.rc != 0
+
+    - set_fact:
+        total_packets: 30000
+        packets_per_sec: 250
+
+    - set_fact:
+        ping_cmd: ping -n -i 0.004 {{ loopback_ip.stdout }} -c 30000 | grep "received" | cut -d"," -f2 | xargs | cut -d" " -f1
+      when: "{{ ipv6 }} == False"
+
+    - set_fact:
+        ping_cmd: ping6 {{ loopback_ip.stdout }} -i 0.004 -c 30000 | grep "received" | cut -d"," -f2 | xargs | cut -d" " -f1
+      when: "{{ ipv6 }} == True"
+
+    - name: Ping destination VM from host VM.
+      shell: "{{ ping_cmd }}"
+      delegate_to: "{{ vm_source }}"
+      async: 250
+      poll: 0
+      register: ping_result
+      failed_when: ping_result.rc != 0
+
+    - pause:
+        seconds: 10
+
+    - name: Shut down neighbor interface {{neighbor_interface}} on {{peer_host}}
+      action: apswitch template=neighbor_interface_shut_single.j2
+      args:
+        host: "{{peer_host}}"
+        login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
+      connection: switch
+
+    - name: Check ping status
+      async_status:
+        jid: "{{ ping_result.ansible_job_id }}"
+      delegate_to: "{{ vm_source }}"
+      register: job_result
+      until: job_result.finished
+      retries: 50
+
+    - debug: msg="job_result {{ job_result.stdout }}"
+
+    - set_fact:
+        received: "{{ job_result.stdout | int }}"
+
+    - debug: msg="received {{received}}"
+
+    - name: Look for "setNextHopFlag" in syslog after shutting down the interace
+      shell: tail -15 /var/log/syslog | grep -e "NOTICE orchagent.*setNextHopFlag" | wc -l
+      delegate_to: "{{ ansible_host }}"
+      register: syslog_msg1
+      failed_when: syslog_msg1.rc != 0
+      become: true
+
+    - debug: msg="syslog_msg1 {{ syslog_msg1.stdout|int }}"
+
+    - name: Look for "invalidnexthopinNextHopGroup" in syslog after shutting down the interace
+      shell: tail -15 /var/log/syslog | grep -e "NOTICE orchagent.*invalidnexthopinNextHopGroup" | wc -l
+      delegate_to: "{{ ansible_host }}"
+      register: syslog_msg2
+      failed_when: syslog_msg2.rc != 0
+      become: true
+
+    - debug: msg="syslog_msg2 {{ syslog_msg2.stdout|int }}"
+
+    - name: Look for "removeNextHopGroup" in syslog after shutting down the interace
+      shell: tail -15 /var/log/syslog | grep -e "NOTICE orchagent.*removeNextHopGroup" | wc -l
+      delegate_to: "{{ ansible_host }}"
+      register: syslog_msg3
+      failed_when: syslog_msg3.rc != 0
+      become: true
+
+    - debug: msg="syslog_msg3 {{ syslog_msg3.stdout|int }}"
+
+    - interface_facts: up_ports={{minigraph_ports | difference(intfs_to_exclude)}}
+
+    - debug: msg="Found link down ports {{ansible_interface_link_down_ports}} "
+      when: ansible_interface_link_down_ports | length > 0
+
+    - name: Verify interfaces are up correctly
+      assert: { that: "{{ ansible_interface_link_down_ports | length }} == 0" }
+
+    - name: Verify {{intfs_to_exclude}} is down correctly
+      assert: { that: "'{{ ansible_interface_facts[intfs_to_exclude]['active'] }}' == 'False'" }
+
+    - name: Gather facts from ip route
+      ip_route: "{{ ipv6 }}"
+
+    - debug: msg="ethernet_list {{ ethernet_list }}"
+
+    - set_fact:
+        interfaces: "{{ ethernet_list }}"
+
+    - debug: msg="Verify that {{ interface }} is removed from the prefix"
+
+    - fail: msg="{{ interface }} found in the prefix"
+      when: intfs_to_exclude in interfaces
+
+    - set_fact:
+        convtime: "{{(total_packets|int - received|int)*1000 / packets_per_sec|int}}"
+
+    - debug: msg="{{ interface }} - {{ convtime }} ms"
+
+    - debug: msg="iface_list {{ iface_list }}"
+
+    - name: Set the boolean if convergence is more than 1 second
+      set_fact:
+        more_convergence: true
+      when: (convtime|int > 1000)
+
+    - name: Unset the boolean if nexthopflag is not found
+      set_fact:
+        found_nexthopflag: false
+      when: (syslog_msg1.stdout|int < 2)
+
+    - name: Unset the boolean if invalidnexthop is not found
+      set_fact:
+        found_invalidnexthop: false
+      when: (syslog_msg2.stdout|int < 2)
+
+    - name: Unset the boolean if removenexthop is not found
+      set_fact:
+        found_removenexthop: false
+      when: (syslog_msg3.stdout|int < 2)

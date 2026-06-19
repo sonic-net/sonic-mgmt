@@ -1,0 +1,11 @@
+Value Filldown TABLE (\S+)
+Value TC (\d+)
+Value QUEUE (\d+)
+
+
+Start
+  ^\s*Traffic-Class-Queue-MAP\s*:\s*${TABLE}\s*$$
+  ^\s*${TC}\s+${QUEUE}\s*$$ -> Record
+  ^$$
+
+EOF

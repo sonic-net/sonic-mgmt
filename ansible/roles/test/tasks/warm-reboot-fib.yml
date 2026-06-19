@@ -1,0 +1,73 @@
+#--------------------------------------------------
+# Run FIB Warm Reboot test and Perform log analysis.
+#--------------------------------------------------
+# Perform prechecks
+- include_tasks: shared-fib.yml
+
+- debug : msg="Start FIB_WARM Test"
+
+# set ptf fact for this test
+- set_fact:
+    ptf_test_name: FIB test
+    ptf_test_dir: ptftests
+    ptf_test_path: fib_test.FibTest
+    ptf_platform: remote
+    ptf_platform_dir: ptftests
+    ptf_test_params:
+      - testbed_type='{{testbed_type}}'
+      - router_mac='{{ansible_Ethernet0['macaddress']}}'
+      - fib_info='/root/fib_info.txt'
+      - ipv4={{ipv4}}
+      - ipv6={{ipv6}}
+      - testbed_mtu={{ mtu|default(9114) }}
+    ptf_extra_options: "--relax --debug info --log-file /tmp/fib_test.FibTest.ipv4.{{ipv4}}.ipv6.{{ipv6}}.{{lookup('pipe','date +%Y-%m-%d-%H:%M:%S')}}.log --socket-recv-size 16384"
+
+- name: "Show ptf params PTF Test - {{ ptf_test_name }}"
+  debug: msg="ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t \"{{ ptf_test_params | default([]) | join(';') }}\" {% endif %} {{ ptf_extra_options | default(\"\")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1"
+
+- name: Run PTF Traffic for Fib
+  async: 1000
+  poll: 0
+  register: async_ptf
+  shell: ptf --test-dir {{ ptf_test_dir }} {{ ptf_test_path }} {% if ptf_qlen is defined %} --qlen={{ ptf_qlen }} {% endif %} {% if ptf_platform_dir is defined %} --platform-dir {{ ptf_platform_dir }} {% endif %} --platform {{ ptf_platform }} {% if ptf_test_params is defined %} -t "{{ ptf_test_params | default([]) | join(';') }}" {% endif %} {{ ptf_extra_options | default("")}} --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre 2>&1
+  args:
+    chdir: /root
+  delegate_to: "{{ ptf_host }}"
+  failed_when: False
+
+- name: set config warm_restart enable {{ warm_restart_docker }}
+  shell: config warm_restart enable {{ warm_restart_docker }}
+  become: true
+  when: warm_restart_docker is defined
+
+- name: set restart type
+  set_fact:
+    reboot_type: "warm-reboot"
+  when: warm_restart_docker is not defined
+
+- name: wait for 10 secs
+  pause:
+    seconds: 10
+
+- name: restart {{ warm_restart_docker}}
+  shell: service {{ warm_restart_docker }} restart
+  become: true
+  when: warm_restart_docker is defined
+
+- name: reboot dut
+  include_tasks: common_tasks/reboot_sonic.yml
+  when: warm_restart_docker is not defined
+
+- name: check async_ptf status
+  async_status:
+    jid: "{{ async_ptf.ansible_job_id }}"
+  register: async_poll
+  until: async_poll.finished is defined and async_poll.finished
+  retries: 40
+  delay: 30
+  delegate_to: "{{ ptf_host }}"
+
+- debug: msg="Result of Fib {{ async_poll }}"
+
+- fail: msg="Failed Test '{{ ptf_test_name }}'"
+  when: async_poll.rc != 0

@@ -1,0 +1,33 @@
+- fail:
+    msg: "Mirror stage is not defined or invalid"
+  when: mirror_stage is not defined or mirror_stage not in ['ingress', 'egress']
+
+- fail:
+    msg: "ACL stage is not defined or invalid"
+  when: acl_stage is not defined or acl_stage not in ['ingress', 'egress']
+
+- name: Set flag that recover from config_db.json is needed (default - false)
+  set_fact:
+    recover_from_cfgdb_file: False
+
+- name: Apply Everflow configuration.
+  include_tasks: "roles/test/tasks/everflow_testbed/apply_config.yml"
+
+- name: Run Everflow tests [tor].
+  include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
+  vars:
+    dst_port_type: "tor"
+
+- name: Run Everflow tests [spine].
+  include_tasks: "roles/test/tasks/everflow_testbed/run_test.yml"
+  vars:
+    dst_port_type: "spine"
+
+- name: Clear Everflow configuration.
+  include_tasks: "roles/test/tasks/everflow_testbed/del_config.yml"
+
+- name: Reload config
+  include_tasks: "roles/test/tasks/common_tasks/reload_config.yml"
+  vars:
+    config_source: "config_db"
+  when: recover_from_cfgdb_file

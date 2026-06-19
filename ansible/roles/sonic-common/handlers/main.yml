@@ -1,0 +1,62 @@
+---
+# Handlers for acs
+
+- name: Restart SNMP Daemon
+  become: true
+  service: name=snmp
+           state=restarted
+
+- name: Restart NTP Daemon
+  become: true
+  service: name=ntp
+           state=restarted
+
+- name: Restart Syslog Daemon
+  become: true
+  service: name=rsyslog
+           state=restarted
+
+- name: Restart LLDP Daemon
+  become: true
+  service: name=lldp
+           state=restarted
+
+- name: Restart Quagga Daemon
+  become: true
+  service: name=bgp
+           state=restarted
+
+- name: Restart Platform Monitor Container Service
+  become: true
+  service: name=platform-monitor
+           state=restarted
+
+- name: Update Grub
+  become: true
+  shell: /usr/sbin/update-grub
+
+- name: Restart interface
+  become: true
+  shell: ifdown {{ restart_interface }} && ifup {{ restart_interface }}; rc=$?; sleep 3; exit $rc
+
+- name: Restart smartd
+  become: true
+  service:
+    name=smartd
+    state=restarted
+
+- name: Restart vasd
+  become: true
+  service:
+    name=vas
+    state=restarted
+
+- name: Restart anything-sync-daemon
+  become: true
+  service:
+    name=asd
+    state=restarted
+
+- name: Clean up apt
+  become: true
+  shell: apt-get autoremove -y; apt-get autoclean -y; apt-get clean -y

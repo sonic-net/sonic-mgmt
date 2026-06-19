@@ -1,0 +1,24 @@
+#-----------------------------------------
+# This script is used whether to run init
+# or analyze-phase of loganalyzer.
+#-----------------------------------------
+
+- name: Initialize some variables for loganalyzer
+  set_fact:
+    testname_unique: "{{ testname }}.{{ lookup('pipe','date +%Y-%m-%d-%H:%M:%S') }}"
+- set_fact:
+    test_out_dir: "{{ out_dir }}/{{ testname_unique }}"
+    loganalyzer_init: roles/test/files/tools/loganalyzer/loganalyzer_init.yml
+    loganalyzer_analyze: roles/test/files/tools/loganalyzer/loganalyzer_analyze.yml
+    match_file: loganalyzer_common_match.txt
+    ignore_file: loganalyzer_common_ignore.txt
+    summary_file: summary.loganalysis.{{ testname_unique }}.log
+    result_file: result.loganalysis.{{ testname_unique }}.log
+
+- name: Initialize loganalizer. Put start marker to log file.
+  include_tasks: "{{ loganalyzer_init }}"
+  when: loganalyzer_run_init == true
+
+- name: Run analyze-phase and check the loganalyzer output for the errors.
+  include_tasks: "{{ run_analyze_and_check }}"
+  when: loganalyzer_run_analyze == true

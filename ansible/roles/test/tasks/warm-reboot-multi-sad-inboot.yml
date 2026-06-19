@@ -1,0 +1,22 @@
+- name: set default reboot_limit in seconds
+  set_fact:
+      reboot_limit: 1
+  when: reboot_limit is not defined
+
+# inboot list format: 'inboot_oper:route_cnt'
+- name: Set sad operation during warm boot
+  set_fact:
+      in_list: ['routing_del:50', 'routing_add:50']
+
+- name: set default values vnet variables
+  set_fact:
+      vnet: False
+      vnet_pkts: ''
+  when: (vnet is not defined) or (vnet_pkts is not defined)
+
+- name: Warm-reboot test
+  include_tasks: advanced-reboot.yml
+  vars:
+      reboot_type: warm-reboot
+      inboot_list: "{{ in_list }}"
+      preboot_files: "peer_dev_info,neigh_port_info"

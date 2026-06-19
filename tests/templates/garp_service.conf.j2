@@ -1,0 +1,10 @@
+[program:garp_service]
+command=/usr/bin/python /opt/garp_service.py {{ garp_service_args }}
+process_name=garp_service
+stdout_logfile=/tmp/garp_service.out.log
+stderr_logfile=/tmp/garp_service.err.log
+redirect_stderr=false
+autostart=false
+autorestart=false
+startsecs=1
+numprocs=1

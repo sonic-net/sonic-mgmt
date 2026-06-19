@@ -1,0 +1,10 @@
+configure
+    interface {{ interface }}
+{% if set %}
+    shape rate {{ shape_rate }}
+{% else %}
+    no shape rate {{ shape_rate }}
+{% endif %}
+    exit
+exit
+exit

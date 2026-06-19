@@ -1,0 +1,135 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "{{ acl_table_name }}": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "1": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 1
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "70c0:a800::6/128"
+                                    }
+                                }
+                            },
+                            "2": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 2
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "25c0:a800::4/128"
+                                    }
+                                }
+                            },
+                            "3": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 3
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "27c0:a800::4/128"
+                                    }
+                                }
+                            },
+                            "4": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 4
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "5621"
+                                    }
+                                }
+                            },
+                            "13": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 13
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": 17,
+                                        "source-ip-address": "70c0:a800::4/128"
+                                    }
+                                }
+                            },
+                            "14": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 14
+                                },
+                                "ip": {
+                                    "config": {
+                                        "source-ip-address": "70c0:a800::8/128"
+                                    }
+                                }
+                            },
+                            "27": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 27
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "179"
+                                    }
+                                }
+                            },
+                            "28": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 28
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "179"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

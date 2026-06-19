@@ -1,0 +1,16 @@
+Value IFACE ([\w./]+)
+Value RX_OK ([\d\.\,]+|N/A)
+Value RX_BPS (\S+(\s\S+)?|N/A)
+Value RX_ERR ([\d\.]+|N/A)
+Value RX_PPS (\S+(\s\S+)?|N/A)
+Value TX_OK ([\d\.\,]+|N/A)
+Value TX_BPS (\S+(\s\S+)?|N/A)
+Value TX_ERR ([\d\.]+|N/A)
+Value TX_PPS (\S+(\s\S+)?|N/A)
+Value Polling_interval (\d+)
+
+Start
+  ^\s*Polling\s*Rate\s*\:\s*${Polling_interval}.*\s*$$
+  ^\s*${IFACE}\s+${RX_OK}\s+${RX_BPS}\s+${RX_PPS}\s+${RX_ERR}\s+${TX_OK}\s+${TX_BPS}\s+${TX_PPS}\s+${TX_ERR}\s*$$ -> Record
+
+EOF

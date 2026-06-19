@@ -1,0 +1,84 @@
+#-----------------------------------------
+# Perform ACL traffic tests
+#-----------------------------------------
+
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- include_vars: "{{ vars_files_location }}/acl_traffic_test_vars.yml"
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  command: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Create target directory
+  file: path={{ host_testdir }}/acstests state=directory
+  delegate_to: "{{ ptf_host }}"
+
+- name: Copy PTF tests
+  copy: src="roles/test/files/acstests/{{ item }}" dest="{{ host_testdir }}/acstests/{{ item }}"
+  with_items:
+    - "acl_tcp_test.py"
+    - "acs_base_test.py"
+  delegate_to: "{{ ptf_host }}"
+
+- block:
+    - name: ACL drop traffic by ether type test
+      vars:
+        config_file: "{{ config_traffic_drop_ether_ip }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+    - name: ACL drop traffic by source ip address test
+      vars:
+        config_file: "{{ config_traffic_drop_src_ip }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+    - name: ACL drop traffic by destination ip address test
+      vars:
+        config_file: "{{ config_traffic_drop_dst_ip }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+    - name: ACL drop traffic by ip prototype test
+      vars:
+        config_file: "{{ config_traffic_drop_ip_protocol }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+    - name: ACL drop traffic by ip type test
+      vars:
+        config_file: "{{ config_traffic_drop_ip_type }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: true
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+    - name: ACL drop traffic by tcp flags test
+      vars:
+        config_file: "{{ config_traffic_drop_priority }}"
+        test_expect_file: "{{ config_empty_expect }}"
+        errors_expected: false
+        run_cleanup: true
+      include_tasks: "{{ run_ping_test }}"
+
+  always:
+    - name: Remove all the temporary created by the test.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+          - "{{ config_files }}"

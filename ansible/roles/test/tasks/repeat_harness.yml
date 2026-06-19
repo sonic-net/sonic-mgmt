@@ -1,0 +1,13 @@
+##########################################################################
+# Repeat harness is used to repeat a list of tasks, the list of the      #
+#     tasks should be defined in repeat_tasks.yml                        #
+##########################################################################
+
+- name: Default test repeat count
+  set_fact: repeat_count=3
+  when: repeat_count is not defined
+
+- debug: msg="Execute repeat_tasks.yml {{ repeat_count }} time(s)"
+
+- include_tasks: repeat_tasks.yml
+  with_sequence: end={{repeat_count}}

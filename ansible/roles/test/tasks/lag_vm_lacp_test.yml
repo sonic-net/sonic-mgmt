@@ -1,0 +1,56 @@
+#---------------------------------------------------------
+# --- Part of lagall.yml test ---
+#---------------------------------------------------------
+# This test verifies that the LACP rate is the same on DUT and VMs.
+#
+# The following actions are to be done for each VM:
+#   1) Perform show running-config on VM.
+#   2) Parse the result by bash commands and read LACP rate.
+#   3) Verify if it's slow and raise an error in another case.
+#
+# @ params: login_creds     -   credentials for Arista VM
+# @ params: lag_member_0      -    First LAG member on VM
+# @ params: lag_member_1      -    Second LAG member on VM
+# @ params: vm_ip             -    Taken from lag_link_flap_vars.yml
+# @ params: vm_name
+#---------------------------------------------------------
+
+- debug:
+    msg: "VM under test is {{ vm_name }}"
+
+- set_fact:
+    expected_rate: 'normal'
+
+        # --- TEST FIRST LAG MEMBER ---
+- name: Read first LAG member configuration to learn LACP rate.
+  include_tasks: run_cisco_script.yml
+  vars:
+    template: roles/vm_set/templates/lag_lacp.j2
+    host: "{{ vm_ip }}"
+    log_in: "{{ login_creds }}"
+    show_iface: "{{ lag_member_0 }}"
+
+- name: Get LACP rate.
+  shell: echo {{ cisco_script_res }} | grep lacp | sed -n "s/.*rate //p"
+  register: lacp_rate
+
+# "normal" is default value for LACP rate on Arista VM so it may not be shown
+- fail: msg="Wrong LACP rate for {{ lag_member_0 }} on {{ vm_name }}. The rate is \'{{ lacp_rate.stdout }}\', while the expected value is \'{{ expected_rate }}\'."
+  when: lacp_rate.stdout != "{{ expected_rate }}" and lacp_rate.stdout != ""
+
+        # --- TEST SECOND LAG MEMBER ---
+- name: Read second LAG member configuration to learn LACP rate.
+  include_tasks: run_cisco_script.yml
+  vars:
+    template: roles/vm_set/templates/lag_lacp.j2
+    host: "{{ vm_ip }}"
+    log_in: "{{ login_creds }}"
+    show_iface: "{{ lag_member_1 }}"
+
+- name: Get LACP rate.
+  shell: echo {{ cisco_script_res }} | grep lacp | sed -n "s/.*rate //p"
+  register: lacp_rate
+
+# "normal" is default value for LACP rate on Arista VM so it may not be shown
+- fail: msg="Wrong LACP rate for {{ lag_member_1 }} on {{ vm_name }}. The rate is \'{{ lacp_rate.stdout }}\', while the expected value is \'{{ expected_rate }}\'."
+  when: lacp_rate.stdout != "{{ expected_rate }}" and lacp_rate.stdout != ""

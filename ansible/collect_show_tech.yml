@@ -1,0 +1,63 @@
+# This Playbook run `show techsupport` on DUTs of a specific testbed and fetch the result.
+#
+# Parameters:
+#   -e testbed_name=vms1-1   - the testbed name specified in testbed.yaml file
+#   -e output_path           - output path for dumped files, default is ./output if not defined
+#
+# Example Usage:
+#   ansible-playbook collect_show_tech.yml -i lab -e testbed_name=vms1-1
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+    - name: Check variable testbed_name is defained
+      fail: msg="testbed_name is not defined"
+      when: testbed_name is not defined
+
+    - name: Collect DUTs defined in testbed
+      block:
+        - name: Set default testbed file
+          set_fact:
+            testbed_file: testbed.yaml
+          when: testbed_file is not defined
+
+        - name: Gather testbed information
+          test_facts:
+            testbed_name: "{{ testbed_name }}"
+            testbed_file: "{{ testbed_file }}"
+
+        - name: Create group for target DUTs
+          add_host:
+            name: "{{ item }}"
+            groups: target_duts
+          loop: "{{ testbed_facts['duts'] }}"
+      delegate_to: localhost
+      run_once: True
+
+- hosts: target_duts
+  gather_facts: no
+  tasks:
+    - name: Run `show techsupport` on DUT
+      shell: show techsupport --silent | tail -1
+      register: show_tech_result
+
+    - name: Parse the location of dump file
+      set_fact:
+        dump_file: "{{ show_tech_result.stdout_lines[0] }}"
+
+    - name: Set default output path
+      set_fact:
+        output_path: ./output
+      when: output_path is not defined
+
+    - name: Fetch show techsupport dump file from DUTs to localhost
+      fetch:
+        src: "{{ dump_file }}"
+        dest: "{{ output_path }}/"
+        flat: true
+
+    - name: Delete show techsupport dump file on DUTs
+      file:
+        path: "{{ dump_file }}"
+        state: absent
+      become: true

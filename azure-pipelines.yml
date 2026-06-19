@@ -1,0 +1,164 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+# For every job:
+# continueOnError: false means it's a required test job and will block merge if it fails
+# continueOnError: true means it's an optional test job and will not block merge even though it fails(unless a required test job depends on its result)
+
+# For PR test job:
+# If the current branch is not master, please reference the remote template by appending @sonic-mgmt.
+# For example, "- template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt"
+
+pr:
+   branches:
+     include:
+       - master
+       - 202???
+   paths:
+     exclude:
+       - .github
+       - docs
+       - LICENSE
+       - README.md
+       - SECURITY.md
+       - sdn_tests/**
+       - '**/*.md'
+trigger: none
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+
+stages:
+- template: /.azure-pipelines/common2/stages/analyze-code.yml
+- template: /.azure-pipelines/probe-tests/stages/probe-tests.yml
+- stage: Pre_test
+  condition: succeededOrFailed()
+  jobs:
+  - job: detect_skip_expiry_changes
+    displayName: "Detect skip_expiry changes"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+
+        TARGET_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-refs/heads/master}"
+        TARGET_BRANCH="${TARGET_BRANCH#refs/heads/}"
+
+        git fetch origin "${TARGET_BRANCH}" --depth=1
+        BASE_COMMIT=$(git merge-base "origin/${TARGET_BRANCH}" HEAD || true)
+
+        if [[ -z "${BASE_COMMIT}" ]]; then
+          echo "Unable to determine merge base with origin/${TARGET_BRANCH}; falling back to HEAD~1"
+          BASE_COMMIT="HEAD~1"
+        fi
+
+        CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD -- tools/skip_expiry | tr '\n' ' ')
+        if [[ -n "${CHANGED_FILES}" ]]; then
+          echo "Detected changes under tools/skip_expiry: ${CHANGED_FILES}"
+          echo "##vso[task.setvariable variable=SKIP_EXPIRY_CHANGED;isOutput=true]true"
+        else
+          echo "No changes detected under tools/skip_expiry"
+          echo "##vso[task.setvariable variable=SKIP_EXPIRY_CHANGED;isOutput=true]false"
+        fi
+      name: DetectChanges
+      displayName: "Check changed files under tools/skip_expiry"
+
+  - job: static_analysis
+    displayName: "Static Analysis"
+    timeoutInMinutes: 10
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/pre-commit-check.yml
+
+  - job: validate_test_cases
+    displayName: "Validate Test Cases"
+    timeoutInMinutes: 30
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: .azure-pipelines/pytest-collect-only.yml
+      parameters:
+        MGMT_BRANCH: ""
+
+  - job: dependency_check
+    displayName: "Dependency Check"
+    timeoutInMinutes: 10
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/dependency-check.yml
+
+  - job: markers_check
+    displayName: "Markers Check"
+    timeoutInMinutes: 10
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/markers-check.yml
+
+  - job: meta_check
+    displayName: "Meta check"
+    timeoutInMinutes: 10
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: .azure-pipelines/meta-check.yml
+
+
+- stage: Skip_Expiry_Unit_Tests
+  displayName: "Skip Expiry Unit Tests"
+  dependsOn: Pre_test
+  condition: >-
+    and(
+      succeeded(),
+      not(canceled()),
+      eq(dependencies.Pre_test.outputs['detect_skip_expiry_changes.DetectChanges.SKIP_EXPIRY_CHANGED'], 'true')
+    )
+  jobs:
+  - job: run_skip_expiry_unit_tests
+    displayName: "Run tools/skip_expiry unit tests"
+    timeoutInMinutes: 15
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - checkout: self
+      clean: true
+
+    - script: |
+        set -euo pipefail
+        python -m pip install --upgrade pip
+        python -m pip install pytest requests PyYAML
+      displayName: "Install unit test dependencies"
+
+    - script: |
+        set -euo pipefail
+        python -m pytest tools/skip_expiry/tests/unit_test_*.py -q
+      displayName: "Run skip_expiry unit tests"
+
+
+- stage: Test
+  dependsOn: Pre_test
+  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'))
+  variables:
+  - group: SONiC-Elastictest
+  - name: BUILD_BRANCH
+    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+      value: $(System.PullRequest.TargetBranch)
+    ${{ else }}:
+      value: $(Build.SourceBranchName)
+
+  jobs:
+    - template: .azure-pipelines/pr_test_template.yml

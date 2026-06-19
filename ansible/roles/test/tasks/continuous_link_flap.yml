@@ -1,0 +1,231 @@
+# This is continuous link flap test. In this test,
+# 1.) Flap all interfaces one by one in 1-3 iteration
+# to cause BGP Flaps.
+# 2.) Flap all interfaces on peer (FanOutLeaf) one by one 1-3 iteration
+# to cause BGP Flaps.
+# 3.) Watch for memory (show system-memory) ,orchagent CPU Utilization
+# and Redis_memory.
+# Pass Criteria: All routes must be re-learned with < 5% increase in Redis
+# and ORCH agent CPU consumption below threshold after 3 mins after stopping flaps.
+
+- block:
+    - name: Set Orchagent cpu to default if no user input
+      set_fact:
+        orch_cpu_threshold: 10
+      when: orch_cpu_threshold is not defined
+
+    - name: Record memory status at start
+      shell: show system-memory
+      register: memory_output
+
+    - debug: msg="Memory Status {{memory_output.stdout}}"
+
+    - name: Record Redis Memory at start
+      shell: redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
+      register: start_time_redis_memory
+
+    - debug: msg="Redis Memory {{start_time_redis_memory.stdout}} M"
+
+    # track ipv4 and ipv6 routes.
+    - name: Record ipv4 route counts at start
+      shell: show ip route summary | grep Total | awk '{print $2}'
+      register: start_time_ipv4_route_counts
+
+    - debug: msg="IPv4 routes at start {{start_time_ipv4_route_counts.stdout}}"
+
+    - name: Record ipv6 route counts at start
+      shell: show ipv6 route summary | grep Total | awk '{print $2}'
+      register: start_time_ipv6_route_counts
+
+    - debug: msg="IPv6 routes at start {{start_time_ipv6_route_counts.stdout}}"
+
+    # Make Sure Orch CPU < orch_cpu_threshold before starting test.
+    - name: Make Sure orchagent CPU utilization is less that "{{ orch_cpu_threshold }}" before link flap
+      shell: show processes cpu | grep orchagent | awk '{print $9}'
+      register: orch_cpu
+      until: "{{orch_cpu.stdout|int}} < {{orch_cpu_threshold}}"
+      retries: 100
+      delay: 2
+
+    - debug: msg="First Iteration flap all interfaces one by one on DUT"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - debug: msg="{{ device_conn[inventory_hostname] }}"
+
+    - name: include continuous_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - debug: msg="Second Iteration flap all interfaces one by one on DUT"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - name: include continuous_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - debug: msg="Third Iteration flap all interfaces one by one on DUT"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - name: include continuous_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - debug: msg="First Iteration flap all interfaces one by one on Peer Device"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - debug: msg="{{ device_conn[inventory_hostname] }}"
+
+    - set_fact:
+        neighbors: "{{device_conn[inventory_hostname]}}"
+
+    - name: include continuous_peer_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - debug: msg="Second Iteration flap all interfaces one by one on Peer Device"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - set_fact:
+        neighbors: "{{device_conn[inventory_hostname]}}"
+
+    - name: include continuous_peer_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - debug: msg="Third Iteration flap all interfaces one by one on Peer Device"
+
+    - name: Gathering lab graph facts about the device
+      conn_graph_facts: host={{ inventory_hostname }}
+      delegate_to: localhost
+      tags: always
+
+    - set_fact:
+        neighbors: "{{device_conn[inventory_hostname]}}"
+
+    - name: include continuous_peer_link_flap_helper.yml
+      include_tasks: continuous_link_flap/continuous_peer_link_flap_helper.yml
+      vars:
+        interface: "{{item}}"
+      with_items: "{{ device_conn[inventory_hostname].keys() }}"
+
+    - name: wait 60 secs so that BGP routes are relearned
+      pause: seconds=60
+
+    - name: Record memory status at end
+      shell: show system-memory
+      register: memory_output
+
+    - debug: msg="Memory Status {{memory_output.stdout}}"
+
+    - name: Record orchagent CPU utilization at end
+      shell: show processes cpu | grep orchagent | awk '{print $9}'
+      register: orch_cpu
+
+    - debug: msg="Orchagent CPU Util {{orch_cpu.stdout|int}}"
+
+    - name: Record Redis Memory at end
+      shell: redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'
+      register: end_time_redis_memory
+
+    - debug: msg="Redis Memory {{start_time_redis_memory.stdout}} M"
+    - debug: msg="Redis Memory {{end_time_redis_memory.stdout}} M"
+
+    # Make Sure Redis in not increased > 5%.
+    - name: calculate diff in Redis memory
+      set_fact:
+        incr_redis_memory: "{{ end_time_redis_memory.stdout|float - start_time_redis_memory.stdout|float }}"
+
+    - debug: msg="Redis absolute  difference {{incr_redis_memory}}"
+
+    # check redis memory only if it is increased else default to pass
+    - block:
+        - name: calculate decimal increase in Redis memory
+          set_fact:
+            percent_incr: "{{ incr_redis_memory|float/start_time_redis_memory.stdout|float}}"
+
+        - name: calculate percentage increase in Redis memory
+          set_fact:
+            percent_incr: "{{ percent_incr|float * 100 }}"
+
+        - debug: msg="Redis Memory percentage Increase {{ percent_incr }}"
+
+        - name: Fail if memory increased more than 5 percent
+          fail:
+            msg: "Redis Memory Increase more than expected {{ percent_incr }}"
+          when: "{{ percent_incr|int }} > 5"
+      when: "{{ incr_redis_memory|float }} > 0.0"
+
+    - name: Record ipv4 route counts at end
+      shell: show ip route summary | grep Total | awk '{print $2}'
+      register: end_time_ipv4_route_counts
+
+    - debug: msg="IPv4 routes at start {{start_time_ipv4_route_counts.stdout}}"
+    - debug: msg="IPv4 routes at end {{end_time_ipv4_route_counts.stdout}}"
+
+    - name: Make Sure all ipv4 routes are relearned with jitter of ~5
+      fail:
+        msg: "Ipv4 routes are not equal after link flap"
+      when: "{{start_time_ipv4_route_counts.stdout|int - end_time_ipv4_route_counts.stdout|int}} | abs > 5"
+
+    - name: Record ipv6 route counts at end
+      shell: show ipv6 route summary | grep Total | awk '{print $2}'
+      register: end_time_ipv6_route_counts
+
+    - debug: msg="IPv6 routes at start {{start_time_ipv6_route_counts.stdout}}"
+    - debug: msg="IPv6 routes at end {{end_time_ipv6_route_counts.stdout}}"
+
+    - name: Make Sure all ipv6 routes are relearned with jitter of ~5
+      fail:
+        msg: "Ipv6 routes are not equal after link flap"
+      when: "{{start_time_ipv6_route_counts.stdout|int - end_time_ipv6_route_counts.stdout|int}} | abs > 5"
+
+    # Wait for 15 more secs.
+    - name: wait 15 secs
+      pause: seconds=15
+
+    # Orchagent CPU should consume < orch_cpu_threshold% at last.
+    - name: watch orchagent CPU utilization when it goes below "{{orch_cpu_threshold}}"
+      shell: show processes cpu | grep orchagent | awk '{print $9}'
+      register: orch_cpu
+      until: "{{orch_cpu.stdout|int}} < {{orch_cpu_threshold}}"
+      retries: 30
+      delay: 2
+
+  always:
+    # this is needed to recover from removal of ipv6 addresses.
+    - name: perform config reload
+      shell: config reload -y
+      become: true
+
+    - name: "Wait for 2 minutes for prcesses and interfaces to be stable"
+      pause: minutes=2
