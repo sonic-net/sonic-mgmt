@@ -1,6 +1,6 @@
-# PFC Test Plan — Common Reference
+# PFC Test Plan - Common Reference
 
-- [PFC Test Plan — Common Reference](#pfc-test-plan--common-reference)
+- [PFC Test Plan - Common Reference](#pfc-test-plan--common-reference)
   - [1. Purpose](#1-purpose)
   - [2. Background Theory](#2-background-theory)
     - [2.1 PFC Frame Structure](#21-pfc-frame-structure)
@@ -23,18 +23,12 @@ test plans. It centralizes the background theory, topology constraints, reusable
 utilities, the mandatory teardown contract, and the metrics/reporting specification
 that are common to both companion documents:
 
-- [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md) — verifies lossless priority pause/resume behavior (15 cases)
-- [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md) — verifies lossy priority isolation (6 cases)
+- [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md) - verifies lossless priority pause/resume behavior (15 cases)
+- [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md) - verifies lossy priority isolation (6 cases)
 
-Together, these three documents supersede the legacy
-[PFC-test-plan.md](PFC-test-plan.md) (2020, Keysight) for new test development.
-The legacy plan remains valuable for its frame-format diagrams and Keysight-specific
-configuration and is retained for reference.
 
-**Why PFC matters for AI workloads:** AI/ML training clusters move terabytes of
-gradient data between GPUs using RDMA over Converged Ethernet v2 (RoCEv2). RoCEv2
-requires a **lossless** Ethernet fabric — a single dropped RDMA packet forces a
-retransmission that stalls the GPU. At 400G/800G, that idle time directly wastes
+**Why PFC matters for AI workloads:** Modern clusters with RoCEv2 requires a **lossless** Ethernet fabric, a single dropped RDMA packet forces a
+retransmission that stalls the GPU. At high throughput, that idle time directly wastes
 expensive compute. PFC is the mechanism that guarantees zero packet loss on the
 designated lossless priority queues. A switch that mishandles PFC (ignores it,
 over-applies it, or deadlocks) breaks the entire collective-communication fabric.
@@ -164,8 +158,8 @@ All test cases are parametrized across link speed, buffer model, and ASIC count:
 ```
 
 **Buffer model** reflects how the switch ASIC manages its packet buffer, which
-directly affects when PFC is asserted. Derive the actual value at runtime from
-`DEVICE_METADATA|localhost.buffer_model` in `config_DB` (do not hardcode):
+directly affects when PFC is asserted. The actual value to be derived at runtime from
+`DEVICE_METADATA|localhost.buffer_model` in `config_DB`:
 
 | `buffer_model` | Meaning | PFC relevance |
 |----------------|---------|---------------|
@@ -173,7 +167,7 @@ directly affects when PFC is asserted. Derive the actual value at runtime from
 | `dynamic` | Buffer is shared dynamically across ports/queues via a shared pool, with lossless headroom drawn from a (possibly shared) headroom pool; thresholds scale with pool occupancy via the buffer-profile alpha (`dynamic_th`). | PFC thresholds depend on live pool occupancy; headroom may be shared/over-subscribed across ports. |
 
 When the `dynamic` model uses a **shared-headroom pool**, lossless headroom is pooled
-rather than reserved per port — verify PFC is still generated before drop under that
+rather than reserved per port - need to verify PFC is still generated before drop under that
 configuration (see L08 in the lossless plan). Source of truth: `BUFFER_POOL`,
 `BUFFER_PROFILE` (`dynamic_th`), and `BUFFER_PG` in `config_DB`.
 
@@ -185,7 +179,7 @@ Speed-dependent reference values (max quanta = 65535, 64-byte PFC frames):
 | 400 Gbps  | 83.89 us            | ~763,000 fps                   |
 | 800 Gbps  | 41.94 us            | ~1,526,000 fps                 |
 
-Dynamic calculation (plain text):
+Dynamic calculation:
 
 ```
 pause_duration_us = (quanta * 512 / speed_bps) * 1e6
@@ -193,7 +187,7 @@ pfc_rate_fps      = (1,000,000 / pause_duration_us) * frame_size_bytes
 ```
 
 The test must compute these at runtime from the negotiated link speed so the same
-test body covers 100G/400G/800G without hardcoded constants.
+test body covers different speeds without hardcoded constants.
 
 ## 5. Common Utilities Reference
 
@@ -228,48 +222,18 @@ from tests.snappi_tests.pfc.files.helper import run_pfc_test
 # Assertions
 from tests.common.helpers.assertions import pytest_assert
 
-# Telemetry (current framework — preferred over legacy test_reporting/)
-A new telemetry framework currently in work which will be used
+# Telemetry
+A new telemetry framework currently in work which will be integrated the test script
 ```
 
 ## 6. Mandatory Teardown Template
 
-Every PFC test **MUST** clean up unconditionally — even when the test fails part-way
+Every PFC test **MUST** clean up unconditionally - even when the test fails part-way
 through. A failed test that leaves PFC watchdog stopped, packet aging disabled, or
 traffic-generator streams configured will silently corrupt subsequent tests. Use a
 `yield` fixture with `autouse=True` (or an equivalent `try/finally`):
 
-```python
-@pytest.fixture(autouse=True)
-def pfc_test_cleanup(duthost, snappi_api):
-    """Unconditional teardown for PFC tests. Runs even on failure."""
-    # --- SETUP (before yield): snapshot state to restore ---
-    original_pfcwd_state = get_pfcwd_state(duthost)
-
-    yield
-
-    # --- TEARDOWN  ---
-    # 1. Stop all traffic-generator streams
-    snappi_api.stop_all_flows()
-
-    # 2. Restore PFC Watchdog to its original state
-    if original_pfcwd_state == "enabled":
-        start_pfcwd(duthost)
-
-    # 3. Re-enable packet aging (Mellanox/Nvidia platforms)
-    enable_packet_aging(duthost)
-
-    # 4. Restore any modified buffer profiles
-    restore_buffer_alpha(duthost, orig_dynamic_th)
-
-    # 5. Verify all DUT ports are back up
-    assert_all_ports_up(duthost)
-
-    # 6. Clear PFC counters for a clean next-test baseline
-    duthost.shell("sonic-clear pfccounters")
-```
-
-**Teardown contract (assert in every plan's Teardown section):**
+**Teardown contract:**
 
 1. All traffic-generator flows stopped and cleared.
 2. PFC Watchdog returned to its pre-test state.
@@ -316,6 +280,6 @@ def assert_pfc_lossless_paused(port, priority, rx_rate, pfc_counters, config):
 - [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md)
 - [PFC-test-plan.md](PFC-test-plan.md) (legacy 2020 plan; frame diagrams, Keysight config)
 - [PFC_Snappi_Additional_Testcases.md](PFC_Snappi_Additional_Testcases.md) (multi-ASIC, MACSEC, ECN, PFCWD, port-channel)
-- IEEE 802.1Qbb — Priority-based Flow Control
-- IEEE 802.3x — Link-level Flow Control (global PAUSE)
-- RFC 8782 / RoCEv2 — RDMA over Converged Ethernet
+- IEEE 802.1Qbb - Priority-based Flow Control
+- IEEE 802.3x - Link-level Flow Control (global PAUSE)
+- RFC 8782 / RoCEv2 - RDMA over Converged Ethernet
