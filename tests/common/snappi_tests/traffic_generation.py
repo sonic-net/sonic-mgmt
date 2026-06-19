@@ -2011,9 +2011,10 @@ def multi_base_traffic_config(testbed_config,
                 rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
                 tx_port_name (str): name of ixia TX port ex. 'Port 1'
                 rx_port_name (str): name of ixia RX port ex. 'Port 2'
-                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
-                                        and the associated test priorities
-                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                dut_port_config (dict): a dictionary with "Tx" and "Rx" keys, each containing a list of dictionaries
+                                        of tx and rx ports on the peer (switch) side, and the associated test
+                                        priorities ex. {"Tx": [{'Ethernet4':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]}
                 test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
@@ -2029,11 +2030,11 @@ def multi_base_traffic_config(testbed_config,
     base_flow_config["rx_port_config"] = rx_port_config
 
     # Instantiate peer ports in dut_port_config
-    dut_port_config = []
+    dut_port_config = {"Tx": [], "Rx": []}
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    dut_port_config.append(tx_dict)
-    dut_port_config.append(rx_dict)
+    dut_port_config["Tx"].append(tx_dict)
+    dut_port_config["Rx"].append(rx_dict)
     base_flow_config["dut_port_config"] = dut_port_config
 
     base_flow_config["tx_mac"] = tx_port_config.mac
