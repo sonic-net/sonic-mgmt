@@ -312,11 +312,14 @@ def srv6_qos_setup(request, duthost, srv6_qos_module_setup):
     sid_fields = "action uN"
     if decap_dscp_mode is not None:
         sid_fields += f" decap_dscp_mode {decap_dscp_mode}"
+    # Remove the existing SRv6 SID entry (if it exists)
+    duthost.command(
+        f"{sonic_db_cli} CONFIG_DB DEL SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX}"
+    )
     duthost.command(
         f"{sonic_db_cli} CONFIG_DB HSET SRV6_MY_SIDS\\|{LOCATOR_NAME}\\|{LOCATOR_SID_PREFIX} {sid_fields}"
     )
     duthost.command(f"sudo config route add prefix {NEXTHOP_PREFIX} nexthop {neighbor_ip}")
-    duthost.command("config save -y")
 
     # Check if ASIC DB is updated correctly
     srv6_my_sid_pattern = f'{SRV6_MY_SID_PATTERN_PREFIX}*\\"sid\\":\\"{LOCATOR_PREFIX}\\"*'
