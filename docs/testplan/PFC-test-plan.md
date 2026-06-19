@@ -1,5 +1,8 @@
 # PFC test plan
 
+> For AI-workload-focused PFC test plans, see
+> [PFC_common.md](PFC_common.md), [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md),
+> and [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md).
 - [PFC test plan](#pfc-test-plan)
   - [Overview](#overview)
     - [Scope](#scope)
