@@ -97,7 +97,7 @@ class FanoutPfcStorm():
         intfTolPort = {}
         lPortToIntf = {}
 
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
             output = self._bcmltshellCmd('knet netif info')
             for info in output.split("Network interface Info:"):
                 mo = re.search(r"Name: (?P<intf>Ethernet\d+)[\s\S]{1,100}Port: (?P<lport>\d+)", info)
@@ -143,7 +143,7 @@ class FanoutPfcStorm():
         '''
         mmuPort = self.intfToMmuPort[intf]
         port = self.intfToPort[intf]
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=0")
         else:
@@ -175,7 +175,7 @@ class FanoutPfcStorm():
                 if (1 << prio) & self.priority:
                     self._cliCmd(f"en\nconf\n\nint {intf}\npriority-flow-control priority {prio} no-drop")
 
-        if self.switchChip.startswith(("Tomahawk5", "Tomahawk4")):
+        if self.switchChip.startswith(("Tomahawk6", "Tomahawk5", "Tomahawk4")):
             self._bcmltshellCmd(f"pt MMU_INTFO_XPORT_BKP_HW_UPDATE_DISr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP=1")
             self._bcmltshellCmd(f"pt MMU_INTFO_TO_XPORT_BKPr set BCMLT_PT_PORT={mmuPort} PAUSE_PFC_BKP={self.priority}")
         else:
