@@ -13,7 +13,7 @@ from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
 from ha_bgp_utils import ha_bgp_shutdown, ha_bgp_start
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 2.0
+TRAFFIC_LOSS_TIME_THRESHOLD = 2 # seconds
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -64,11 +64,11 @@ We are testing 4 scenarios:
 
 @pytest.mark.parametrize(
     "bgp_shut_on_standby", [True, False],
-    ids=["Standby BGP Shut", "Primary BGP Shut"]
+    ids=["Standby_BGP_Shut", "Primary_BGP_Shut"]
 )
 @pytest.mark.parametrize(
     "traffic_to_standby", [True, False],
-    ids=["Standby Traffic", "Primary Traffic"]
+    ids=["Standby_Traffic", "Primary_Traffic"]
 )
 def test_ha_bgp_shut(
     localhost,
@@ -128,7 +128,7 @@ def test_ha_bgp_shut(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on standby - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -138,7 +138,7 @@ def test_ha_bgp_shut(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on primary - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
@@ -156,7 +156,7 @@ def test_ha_bgp_shut(
     time.sleep(2)
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     bgp_shut = "Standby BGP shut" if traffic_to_standby else "Primary BGP shut"
-    threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
+    threshold_loss = rate_pps * TRAFFIC_LOSS_TIME_THRESHOLD
     percentage_loss = (failed_count / send_count) * 100
     if bgp_shut_on_standby:
         ha_bgp_start(duthosts[1])
