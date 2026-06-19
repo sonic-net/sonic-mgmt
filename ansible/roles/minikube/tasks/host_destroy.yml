@@ -31,3 +31,14 @@
     sysctl_set: true
     reload: false
   become: true
+
+- name: Stop the forward proxy on the testbed server
+  service:
+    name: tinyproxy
+    state: stopped
+  become: true
+  failed_when: false
+  when:
+    - minikube_setup_image_pull | bool
+    - minikube_setup_host_proxy | bool
+    - minikube_image_pull_proxy | length == 0

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ minikube_dummy_daemonset_name }}
+spec:
+  selector:
+    matchLabels:
+      name: {{ minikube_dummy_daemonset_name }}
+  template:
+    metadata:
+      labels:
+        name: {{ minikube_dummy_daemonset_name }}
+    spec:
+      hostname: sonic
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/hostname: "{{ dut }}"
+      imagePullSecrets:
+        - name: {{ minikube_image_pull_secret_name }}
+      containers:
+        - name: dummyk8s
+          image: {{ minikube_dummy_image }}
+          imagePullPolicy: IfNotPresent
+          tty: true
+          env:
+            - {name: IMAGE_VERSION, value: "dummy.kube"}
+            - {name: RUNTIME_OWNER, value: "kube"}
+          securityContext:
+            privileged: false
+          volumeMounts:
+            - {name: sonic, mountPath: /etc/sonic, readOnly: true}
+            - {name: dbus, mountPath: /var/run/dbus}
+            - {name: redis, mountPath: /var/run/redis}
+            - {name: redis-chassis, mountPath: /var/run/redis-chassis, readOnly: true}
+      volumes:
+        - {name: sonic, hostPath: {path: /etc/sonic}}
+        - {name: dbus, hostPath: {path: /var/run/dbus}}
+        - {name: redis, hostPath: {path: /var/run/redis}}
+        - {name: redis-chassis, hostPath: {path: /var/run/redis-chassis}}

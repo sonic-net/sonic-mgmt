@@ -40,3 +40,19 @@
         daemon_reload: true
       become: true
   when: dut_hwsku.stdout | trim in node_ip_param_skus
+
+- name: Remove the DUT image-pull proxy and restart docker
+  block:
+    - name: Remove the DUT docker proxy drop-in
+      file:
+        path: "{{ dut_docker_proxy_conf }}"
+        state: absent
+      become: true
+
+    - name: Reload systemd and restart docker
+      systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true
+      become: true
+  when: minikube_setup_image_pull | bool

@@ -1,0 +1,39 @@
+---
+# DUT-side image-pull proxy setup. Included at the START of dut_create.yml
+# (BEFORE the join) when minikube_setup_image_pull is true. Configuring the DUT
+# docker daemon proxy requires a docker restart; doing it AFTER the join breaks
+# the kube connection and ctrmgrd resets the node, so it must run before join.
+# This is the same http-proxy.conf that tests/container_upgrade manages.
+
+- name: Ensure docker systemd drop-in dir exists
+  file:
+    path: "{{ dut_docker_proxy_conf | dirname }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Configure the DUT docker daemon proxy
+  copy:
+    dest: "{{ dut_docker_proxy_conf }}"
+    mode: "0644"
+    content: |
+      [Service]
+      Environment="HTTP_PROXY={{ minikube_effective_proxy }}"
+      Environment="HTTPS_PROXY={{ minikube_effective_proxy }}"
+      Environment="NO_PROXY=localhost,127.0.0.1,::1,{{ minikube_apiserver_ip | regex_replace('\\.[0-9]+$', '.0') }}/16,10.96.0.0/12,.svc,.cluster.local"
+  become: true
+
+- name: Reload systemd and restart docker to apply the proxy
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: Wait for DUT critical containers to come back after docker restart
+  shell: docker ps --format '{{ "{{" }}.Names{{ "}}" }}' | grep -qx swss
+  register: dut_swss_back
+  until: dut_swss_back.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false

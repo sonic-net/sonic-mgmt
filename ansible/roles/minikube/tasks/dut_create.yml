@@ -18,6 +18,10 @@
   set_fact:
     minikube_apiserver_ip: "{{ hostvars[minikube_server_host].minikube_apiserver_ip }}"
 
+- name: Set up the DUT image-pull proxy before joining
+  include_tasks: image_pull_dut.yml
+  when: minikube_setup_image_pull | bool
+
 - name: Assert the DUT image is kubesonic-compatible
   assert:
     that: dut_kubeadm_version.stdout == kubernetes_version
@@ -139,3 +143,13 @@
       - dut_node_status.rc == 0
       - "'NotReady' not in dut_node_status.stdout"
     fail_msg: "DUT {{ inventory_hostname }} failed to join the minikube cluster."
+
+- name: Verify the dummy ACR pull smoke pod is Ready on the DUT
+  command: >-
+    {{ minikube_path }} kubectl -- wait --for=condition=Ready
+    pod -l name={{ minikube_dummy_daemonset_name }}
+    --field-selector spec.nodeName={{ inventory_hostname }} --timeout=240s
+  delegate_to: "{{ minikube_server_host }}"
+  environment: "{{ minikube_proxy_env }}"
+  changed_when: false
+  when: minikube_setup_image_pull | bool

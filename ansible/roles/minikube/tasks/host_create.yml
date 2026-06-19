@@ -102,10 +102,16 @@
     src: daemonset.yaml.j2
     dest: /tmp/daemonset.yaml
     mode: "0644"
+  when: not (minikube_setup_image_pull | bool)
 
 - name: Apply the smoke DaemonSet
   command: "{{ minikube_path }} kubectl -- apply -f /tmp/daemonset.yaml"
   environment: "{{ minikube_proxy_env }}"
+  when: not (minikube_setup_image_pull | bool)
+
+- name: Set up image-pull (proxy + secret + dummy ACR smoke)
+  include_tasks: image_pull_host.yml
+  when: minikube_setup_image_pull | bool
 
 - name: Read apiserver cert from the minikube container
   command: docker exec minikube cat /var/lib/minikube/certs/apiserver.crt

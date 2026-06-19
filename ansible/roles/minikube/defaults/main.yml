@@ -76,3 +76,33 @@ minikube_proxy_env:
 node_ip_param_skus:
   - Arista-7060X6-16PE-384C-B-O128S2
   - Arista-7060CX-32S-C32
+
+# --- Image-pull enablement (opt-in) ---------------------------------------
+# When true, create-k8s also: (1) sets up an image-pull proxy on the DUT BEFORE
+# the join (a post-join dockerd restart breaks the join), (2) creates a registry
+# imagePullSecret, and (3) runs a real ACR pull of a dummy container as the smoke
+# (instead of the pause pod) to validate the full image-delivery path.
+# Default off so the basic cluster bring-up works without registry creds.
+minikube_setup_image_pull: false
+
+# Proxy: provide an existing proxy URL, or let the role stand up tinyproxy on the
+# testbed server bound to the mgmt bridge IP (reachable by the DUT).
+minikube_image_pull_proxy: ""
+minikube_setup_host_proxy: true
+minikube_host_proxy_port: 3128
+# Effective proxy URL used by the DUT docker daemon.
+minikube_effective_proxy: "{{ minikube_image_pull_proxy if minikube_image_pull_proxy else 'http://' + minikube_apiserver_ip + ':' + (minikube_host_proxy_port | string) }}"
+
+# Registry creds for the imagePullSecret (provide via -e / vault).
+minikube_registry_server: ""
+minikube_registry_username: ""
+minikube_registry_password: ""
+minikube_image_pull_secret_name: kube-pull-secret
+
+# Dummy validation container (prod docker-dummyk8s, ACR pull smoke). Provide the
+# full image ref, e.g. soniccr1.azurecr.io/docker-dummyk8s:<tag>.
+minikube_dummy_image: ""
+minikube_dummy_daemonset_name: kube-dummy-smoke
+
+# DUT docker proxy conf path (same file container_upgrade manages).
+dut_docker_proxy_conf: /etc/systemd/system/docker.service.d/http-proxy.conf
