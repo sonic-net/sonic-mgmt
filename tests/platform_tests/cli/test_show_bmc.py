@@ -50,6 +50,7 @@ class TestBmcCliCommands:
         - Command succeeds and returns non-empty output
         - Output contains SWITCH-HOST entry
         - Output includes oper status and serial columns
+        - On BMC, output includes `Power-On-Delay (sec)` and `Shutdown-Timeout (sec)` columns
         """
         result = self.duthost.shell(
             "show chassis module status",
@@ -68,6 +69,14 @@ class TestBmcCliCommands:
         has_oper = any(term in output_lower for term in ['oper', 'status', 'online', 'offline'])
         pytest_assert(has_oper,
                       "show chassis module status: oper status column not found")
+
+        has_power_on_delay = 'power-on-delay (sec)' in output_lower
+        pytest_assert(has_power_on_delay,
+                      "show chassis module status: missing 'Power-On-Delay (sec)' column on BMC")
+
+        has_shutdown_timeout = 'shutdown-timeout (sec)' in output_lower
+        pytest_assert(has_shutdown_timeout,
+                      "show chassis module status: missing 'Shutdown-Timeout (sec)' column on BMC")
         logger.info(f"show chassis module status output:\n{output}")
 
     def test_show_platform_temperature(self):

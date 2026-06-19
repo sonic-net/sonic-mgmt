@@ -25,16 +25,21 @@ def skip_if_no_switch_host_module(duthosts, enum_rand_one_per_hwsku_hostname):
     """Skip the module if the chassis does not expose a SWITCH-HOST module."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     probe = (
-        "from sonic_platform.chassis import Chassis; "
-        "c = Chassis(); "
-        "print(c.get_module_index('SWITCH-HOST'))"
+        "from sonic_platform.chassis import Chassis\n"
+        "c = Chassis()\n"
+        "for i in range(c.get_num_modules()):\n"
+        "    if c.get_module(i).get_name().startswith('SWITCH-HOST'):\n"
+        "        print(i)\n"
+        "        break\n"
     )
     out = duthost.shell(f"python3 -c \"{probe}\"", module_ignore_errors=True)
     if out.get('rc') != 0:
         pytest.skip(f"Could not verify SWITCH-HOST support: {out.get('stderr', '').strip()}")
-    idx = -1
+    idx_str = out.get('stdout', '').strip()
+    if not idx_str:
+        pytest.skip("Device does not support SWITCH-HOST module")
     try:
-        idx = int(out.get('stdout', '').strip())
+        idx = int(idx_str)
     except ValueError:
         pytest.skip("Device does not support SWITCH-HOST module")
     if idx < 0:
@@ -48,7 +53,18 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
 
     @pytest.fixture(scope="function", autouse=True)
     def resolve_switch_host_index(self, platform_api_conn):  # noqa: F811
-        self.sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
+        # Find SWITCH-HOST by iterating through modules
+        num_modules = chassis.get_num_modules(platform_api_conn)
+        idx = -1
+        if num_modules and num_modules > 0:
+            for i in range(num_modules):
+                module_obj = chassis.get_module(platform_api_conn, i)
+                if module_obj:
+                    mod_name = module_api.get_name(platform_api_conn, i)
+                    if mod_name and mod_name.startswith('SWITCH-HOST'):
+                        idx = i
+                        break
+        self.sw_idx = idx
 
     def test_switch_host_identity(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
         """Verify get_name(), get_description(), get_serial(), get_type()."""
@@ -157,7 +173,7 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
 
     def test_chassis_module_enumeration(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                         platform_api_conn):  # noqa: F811
-        """Verify get_num_modules/get_all_modules/get_module/get_module_index round-trip."""
+        """Verify get_num_modules/get_all_modules/get_module enumeration and find SWITCH-HOST."""
         num_modules = chassis.get_num_modules(platform_api_conn)
         self.expect(isinstance(num_modules, int) and num_modules >= 0,
                     f"get_num_modules() should return non-negative int, got {num_modules}")
@@ -173,14 +189,22 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
             first = chassis.get_module(platform_api_conn, 0)
             self.expect(first is not None, "get_module(0) should return non-None for valid index")
 
-            sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
-            if sw_idx is not None and sw_idx >= 0:
+            # Find SWITCH-HOST by iterating through modules
+            sw_idx = -1
+            for i in range(num_modules):
+                module_obj = chassis.get_module(platform_api_conn, i)
+                if module_obj:
+                    mod_name = module_api.get_name(platform_api_conn, i)
+                    if mod_name and mod_name.startswith('SWITCH-HOST'):
+                        sw_idx = i
+                        break
+            if sw_idx >= 0:
                 sw_module = chassis.get_module(platform_api_conn, sw_idx)
                 self.expect(sw_module is not None,
-                            f"get_module(get_module_index('SWITCH-HOST')={sw_idx}) should be non-None")
+                            f"get_module({sw_idx}) for SWITCH-HOST should be non-None")
                 logger.info(f"SWITCH-HOST at index {sw_idx}: {sw_module}")
             else:
-                logger.info("SWITCH-HOST not found via get_module_index — skipping round-trip")
+                logger.info("SWITCH-HOST not found in module enumeration")
         else:
             logger.info("No modules reported — skipping enumeration checks")
 
@@ -191,8 +215,18 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
         Disruptive: triggers a real power cycle on the paired Switch-Host.
         """
 
-        sw_idx = chassis.get_module_index(platform_api_conn, 'SWITCH-HOST')
-        if sw_idx is None or sw_idx < 0:
+        # Find SWITCH-HOST by iterating through modules
+        num_modules = chassis.get_num_modules(platform_api_conn)
+        sw_idx = -1
+        if num_modules and num_modules > 0:
+            for i in range(num_modules):
+                module_obj = chassis.get_module(platform_api_conn, i)
+                if module_obj:
+                    mod_name = module_api.get_name(platform_api_conn, i)
+                    if mod_name and mod_name.startswith('SWITCH-HOST'):
+                        sw_idx = i
+                        break
+        if sw_idx < 0:
             pytest.skip("SWITCH-HOST module not found; skipping do_power_cycle test")
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]

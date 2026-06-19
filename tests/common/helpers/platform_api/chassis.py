@@ -231,4 +231,5 @@ def get_bmc(conn):
 # For module-level API calls (ModuleBase methods), use the module helper:
 #   tests/common/helpers/platform_api/module.py
 # Route: /platform/chassis/module/{index}/{method}
-# Get module index first with: chassis.get_module_index(conn, 'SWITCH-HOST')
+# To find a module by name without using get_module_index() (which may not be implemented):
+#   Iterate: for i in range(get_num_modules()): if get_module(i).get_name() == 'MODULE-NAME': return i

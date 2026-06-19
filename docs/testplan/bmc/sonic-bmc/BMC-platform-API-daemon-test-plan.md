@@ -453,6 +453,7 @@ Each scenario snapshots Switch-Host `uptime -s` first; the `finally` block resto
 Verify that `power_on_delay` is configurable via `config chassis modules power-on-delay`, that bmcctld picks up the new value from CONFIG_DB, and that bmcctld's apply-vs-skip decision is driven by the **BMC's own last reboot cause** (not by anything the Switch-Host does):
 - Non-power-loss reboot of the BMC → bmcctld **skips** the delay
 - Power-loss reboot of the BMC (real AC loss via external PDU) → bmcctld **applies** the configured delay before dispatching POWER_ON to the Switch-Host
+- Note: default `power_on_delay` may be pre-seeded by platform policy (for example, 300s on liquid-cooled systems)
 
 **Test Steps**:
 1. Snapshot original `power_on_delay`; set a short test value (e.g. 30 s) via `config chassis modules power-on-delay SWITCH-HOST 30`; assert CONFIG_DB reflects it
@@ -751,8 +752,8 @@ thermalctld first and observes the next initialization + injection cycle.
 2. `stop_pmon_daemon(thermalctld, "-9", pid)` — send SIGKILL
 3. Wait up to 120 s for supervisord to restart; assert new pid > pre-kill pid and status `RUNNING`
 4. **Post-restart smoke** — verify thermalctld is functional again:
-   - Read `STATE_DB SYSTEM_LEAK_STATUS|system timestamp` — assert it advances within one
-     polling interval after the new pid (proves the leak-status loop has resumed)
+   - Read `STATE_DB SYSTEM_LEAK_STATUS|system` — assert key/fields remain present after restart
+     (timestamp may not advance without a leak-state transition)
    - Read at least one `STATE_DB TEMPERATURE_INFO|<sensor>` row — assert non-empty
      (proves the thermal-polling loop has resumed)
 
@@ -799,11 +800,13 @@ Verify `show chassis module status` returns SWITCH-HOST entry with oper status (
 1. Execute `show chassis module status` — verify rc=0, non-empty output
 2. Verify SWITCH-HOST entry is present in output
 3. Verify oper status column is present (online/offline/status)
+4. Verify BMC timing columns `Power-On-Delay (sec)` and `Shutdown-Timeout (sec)` are present
 
 **Expected Result**:
 - Command succeeds with rc=0
 - SWITCH-HOST entry appears in the table
 - Oper status field is populated
+- BMC timing columns are present (`Power-On-Delay (sec)`, `Shutdown-Timeout (sec)`)
 
 ---
 
