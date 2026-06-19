@@ -294,7 +294,7 @@ class SonicAsic(object):
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1):
         """
@@ -316,7 +316,7 @@ class SonicAsic(object):
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel):
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)['ansible_facts']

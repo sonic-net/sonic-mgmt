@@ -985,7 +985,7 @@ decap/:
 
 decap/test_decap.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos. Skip on Arista-720DT (TD3-X2 chip does not honor DSCP uniform decap; concession in aristanetworks/sonic-qual.msft#1176).'
+    reason: 'Skip on t1-isolated-d32/128 topos. Skip on Arista-720DT (TD3-X2 SAI does not support DSCP uniform decap).'
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
@@ -5729,6 +5729,18 @@ test_vs_chassis_setup.py:
     conditions:
       - "asic_type not in ['vs']"
       - *lossyTopos
+
+tests/ha/test_ha_bfd_pin.py:
+  xfail:
+    reason: "BFD pin test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
+    conditions:
+      - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_repairing_dpu.py:
+  xfail:
+    reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
+    conditions:
+      - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
 #######################################
 #####         upgrade_path        #####
