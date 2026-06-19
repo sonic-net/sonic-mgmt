@@ -18,10 +18,15 @@ from .macsec_config_helper import setup_macsec_configuration
 from .macsec_config_helper import cleanup_macsec_configuration
 from .macsec_config_helper import is_macsec_configured
 from .macsec_config_helper import get_macsec_enable_status, get_macsec_profile
-from .macsec_helper import load_all_macsec_info
+from .macsec_config_helper import generate_macsec_profile
+from .macsec_config_helper import setup_macsec_multi_profile_configuration
+from .macsec_config_helper import cleanup_macsec_multi_profile_configuration
+from .macsec_config_helper import enable_macsec_port
+from .macsec_helper import load_all_macsec_info, getns_prefix
 
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +70,32 @@ class MacsecPlugin(object):
         return NotImplementedError()
 
     @pytest.fixture(scope="module")
+    def port_profiles(self, request, ctrl_links, macsec_profile):
+        """Per-port profile mapping
+
+        Returns ``None`` in single-profile mode.
+        When ``--per_interface_macsec`` is set, generates a unique
+        ``MACSEC_PROFILE_<port>`` for every controlled port using the same
+        cipher_suite, policy, send_sci, priority, and rekey_period as the base
+        ``--macsec_profile``, but with unique CAK/CKN per port.
+        """
+        if not request.config.getoption("per_interface_macsec", default=False):
+            return None
+        if len(ctrl_links) < 2:
+            pytest.skip("Per-interface profile tests require at least 2 controlled links")
+        profiles = {}
+        for dut_port in ctrl_links:
+            profiles[dut_port] = generate_macsec_profile(
+                port_name=dut_port,
+                cipher_suite=macsec_profile["cipher_suite"],
+                priority=macsec_profile["priority"],
+                policy=macsec_profile["policy"],
+                send_sci=macsec_profile["send_sci"],
+                rekey_period=macsec_profile["rekey_period"],
+            )
+        return profiles
+
+    @pytest.fixture(scope="module")
     def start_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __start_macsec_service():
             enable_macsec_feature(macsec_duthost, macsec_nbrhosts)
@@ -83,7 +114,7 @@ class MacsecPlugin(object):
         stop_macsec_service()
 
     @pytest.fixture(scope="module")
-    def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+    def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         topo_name = tbinfo['topo']['name']
         def __startup_macsec():
             profile = macsec_profile
@@ -94,42 +125,80 @@ class MacsecPlugin(object):
                     # will drop it for macsec kernel module does not correctly handle it.
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
-            if 't2' not in topo_name:
-                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
-            setup_macsec_configuration(macsec_duthost, ctrl_links,
-                                       profile['name'], profile['priority'], profile['cipher_suite'],
-                                       profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                       profile['send_sci'], profile['rekey_period'], tbinfo)
+
+            if port_profiles:
+                # Save original profile bindings so shutdown can restore them.
+                self._original_profile_per_port = {}
+                for dut_port in ctrl_links:
+                    ns = getns_prefix(macsec_duthost, dut_port)
+                    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
+                        ns, dut_port)
+                    output = macsec_duthost.command(cmd)['stdout'].strip()
+                    self._original_profile_per_port[dut_port] = output if output else None
+
+                setup_macsec_multi_profile_configuration(
+                    macsec_duthost, ctrl_links, port_profiles, tbinfo)
+
+                logger.info(
+                    "Setup per-interface MACsec configuration with profiles:\n{}".format(
+                        {p: pp["name"] for p, pp in port_profiles.items()}))
+            else:
+
+                if 't2' not in topo_name:
+                    cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
+                setup_macsec_configuration(macsec_duthost, ctrl_links,
+                                        profile['name'], profile['priority'], profile['cipher_suite'],
+                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                        profile['send_sci'], profile['rekey_period'], tbinfo)
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
+
         return __startup_macsec
 
     @pytest.fixture(scope="module")
-    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         def __shutdown_macsec():
             profile = macsec_profile
-            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
+            if port_profiles:
+                cleanup_macsec_multi_profile_configuration(
+                    macsec_duthost, ctrl_links, port_profiles)
+                # Restore original profile bindings.
+                orig = getattr(self, '_original_profile_per_port', {})
+                for dut_port, nbr in list(ctrl_links.items()):
+                    orig_name = orig.get(dut_port)
+                    if orig_name:
+                        enable_macsec_port(macsec_duthost, dut_port, orig_name)
+                        enable_macsec_port(nbr["host"], nbr["port"], orig_name)
+                for dut_port, nbr in list(ctrl_links.items()):
+                    # only check the port if it was actually put back to an old macsec configuration
+                    if orig.get(dut_port):
+                        wait_until(300, 3, 0,
+                                lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
+                                n["host"].iface_macsec_ok(n["port"]))
+            else:
+                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
-    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile, ctrl_links):
+    def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature, macsec_duthost, macsec_profile, port_profiles, ctrl_links):
         '''
             setup macsec links
         '''
         shutdown = False
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+
             macsec_preconfigured = is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links)
-            if not macsec_preconfigured:
+            if not macsec_preconfigured or port_profiles is not None:
                 shutdown = True
                 startup_macsec()
-            else:
+            if macsec_preconfigured:
                 logger.info(f"Macsec is already configured for {macsec_profile}, skipping setup")
         yield
         if shutdown:
             shutdown_macsec()
 
     @pytest.fixture(scope="module", autouse=True)
-    def load_macsec_info(self, request, macsec_setup, ctrl_links, macsec_duthost, tbinfo):
+    def load_macsec_info(self, request, macsec_setup, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         """Pre-load MACsec session info for all control links.
 
         If MACsec is enabled and configured for this DUT/profile, wait for
@@ -144,6 +213,7 @@ class MacsecPlugin(object):
                 request.getfixturevalue('wait_mka_establish')
             except pytest.FixtureLookupError:
                 pass
+
             load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
 
     @pytest.fixture(scope="module")
