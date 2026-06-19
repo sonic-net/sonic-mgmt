@@ -1163,6 +1163,11 @@
           - name: Force rapid NTP polling with chrony
             become: true
             command: chronyc burst 4/4
+            register: chrony_burst_result
+            until: chrony_burst_result.rc == 0
+            retries: 3
+            delay: 2
+            changed_when: false
 
           - name: Wait for chrony synchronization (remaining correction < 0.5s)
             become: true
