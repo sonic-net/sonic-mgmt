@@ -1,7 +1,7 @@
-# PFC Lossy Priority Test Plan
+# PFC Lossy Test Plan
 
 > Companion to [PFC_common.md](PFC_common.md) and [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md).
-> This plan covers **lossy** priority isolation. For lossless pause/resume, see the lossless plan.
+> This plan covers **lossy** test case.
 
 - [PFC Lossy Priority Test Plan](#pfc-lossy-priority-test-plan)
   - [1. Test Objective](#1-test-objective)
@@ -13,31 +13,27 @@
     - [Test Case Matrix](#test-case-matrix)
     - [Y01: Lossy Traffic Unaffected During PFC Storm](#y01-lossy-traffic-unaffected-during-pfc-storm)
     - [Y02: Malformed PFC Frame Handling](#y02-malformed-pfc-frame-handling)
-    - [Y03: PFC Targeting Lossy Priority — DUT Ignores](#y03-pfc-targeting-lossy-priority--dut-ignores)
-    - [Y04: Global PAUSE (802.3x) — DUT Ignores](#y04-global-pause-8023x--dut-ignores)
+    - [Y03: PFC Targeting Lossy Priority - DUT Ignores](#y03-pfc-targeting-lossy-priority--dut-ignores)
+    - [Y04: Global PAUSE (802.3x) - DUT Ignores](#y04-global-pause-8023x--dut-ignores)
     - [Y05: Head-of-Line Blocking Measurement](#y05-head-of-line-blocking-measurement)
-    - [Y06: Lossy Queue Congestion — No PFC Generated](#y06-lossy-queue-congestion--no-pfc-generated)
+    - [Y06: Lossy Queue Congestion - No PFC Generated](#y06-lossy-queue-congestion--no-pfc-generated)
   - [7. Teardown](#7-teardown)
   - [8. Metrics \& Reporting](#8-metrics--reporting)
   - [9. Known Limitations \& Future Work](#9-known-limitations--future-work)
 
 ## 1. Test Objective
 
-Verify that SONiC switch ports correctly **isolate lossy** priority queues from PFC —
+Verify that SONiC switch ports correctly **isolate lossy** priority queues from PFC -
 lossy traffic continues at full throughput during a PFC storm on lossless priorities,
 the DUT ignores PFC and global-pause frames aimed at lossy priorities, and the DUT
-never generates PFC for lossy traffic — so best-effort and management traffic in an
-AI fabric is neither paused nor able to interfere with RDMA flow control.
+never generates PFC for lossy traffic - so best-effort and management traffic in an
+ fabric is neither paused nor able to interfere with RDMA flow control.
 
 ## 2. Scope & Limitations
 
-**In scope:** lossy-priority isolation during lossless PFC storms, malformed-frame
+**In scope:** lossy isolation during lossless PFC storms, malformed-frame
 robustness, ignoring PFC/global-pause on lossy priorities, head-of-line blocking
 measurement, and confirming no PFC is generated for lossy congestion.
-
-**Out of scope (see [PFC_common.md §9](PFC_common.md#9-scope-boundaries)):** standalone
-PFC Watchdog tests, MACSEC, port-channel PFC, buffer tuning, performance benchmarking,
-SAI-level tests.
 
 **Topology limitation:** Valid only on **single-tier** testbeds, or the **T0 tier** of
 a two-tier testbed used as proxy. See [PFC_common.md §3](PFC_common.md#3-topology-reference).
@@ -45,7 +41,7 @@ a two-tier testbed used as proxy. See [PFC_common.md §3](PFC_common.md#3-topolo
 ## 3. References
 
 - Shared theory, topology, utilities, teardown, metrics: [PFC_common.md](PFC_common.md)
-- Lossless pause/resume companion: [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md)
+- Lossless companion: [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md)
 - Legacy plan: [PFC-test-plan.md](PFC-test-plan.md)
 - IEEE 802.1Qbb (PFC), IEEE 802.3x (global PAUSE)
 
@@ -60,7 +56,7 @@ a two-tier testbed used as proxy. See [PFC_common.md §3](PFC_common.md#3-topolo
 
 ## 5. Test Setup
 
-1. Read `config_DB` to derive lossless and lossy priority lists (do not hardcode).
+1. Read `config_DB` to derive lossless and lossy priority lists.
 2. Compute PFC storm rate dynamically per
    [PFC_common.md §4](PFC_common.md#4-platform--speed-parametrization).
 3. Build data flows per priority (DSCP-matched) Tx -> DUT -> Rx.
@@ -72,7 +68,9 @@ All cases are parametrized:
 
 ```python
 @pytest.mark.parametrize("speed", ["100G", "400G", "800G"])
-@pytest.mark.parametrize("platform_type", ["memory", "shared_memory"])
+# A check to be put to see what the DUT supports
+@pytest.mark.parametrize("buffer_model", ["static", "dynamic"])
+# A check to be put to see what the DUT supports
 @pytest.mark.parametrize("asic_count", ["single", "multi"])
 ```
 
@@ -84,10 +82,10 @@ All cases are parametrized:
 |-----|--------------------------------------------|----------|-------------|
 | Y01 | Lossy traffic unaffected during PFC storm  | P0 | Full PFC storm on lossless priorities; all lossy flows keep full throughput. |
 | Y02 | Malformed PFC frame handling               | P1 | Invalid class-enable vectors, wrong opcodes, truncated frames; DUT ignores all. |
-| Y03 | PFC targeting lossy priority — DUT ignores | P0 | PFC with class-enable bit set for a lossy priority; DUT does NOT pause it. |
-| Y04 | Global PAUSE (802.3x) — DUT ignores        | P1 | IEEE 802.3x global pause; SONiC neither pauses nor forwards. |
+| Y03 | PFC targeting lossy priority - DUT ignores | P0 | PFC with class-enable bit set for a lossy priority; DUT does NOT pause it. |
+| Y04 | Global PAUSE (802.3x) - DUT ignores        | P1 | IEEE 802.3x global pause; SONiC neither pauses nor forwards. |
 | Y05 | Head-of-line blocking measurement          | P0 | Heavy PFC storm on lossless queues; lossy queue latency stays below threshold. |
-| Y06 | Lossy queue congestion — no PFC generated  | P1 | Oversubscribe a lossy queue; DUT generates no PFC for lossy priorities. |
+| Y06 | Lossy queue congestion - no PFC generated  | P1 | Oversubscribe a lossy queue; DUT generates no PFC for lossy priorities. |
 
 ---
 
@@ -96,10 +94,6 @@ All cases are parametrized:
 #### Objective
 Verify that a full PFC storm on the lossless priorities (3, 4) leaves all lossy
 priority flows (0,1,2,5,6,7) at full throughput with zero loss.
-
-#### AI Workload Relevance
-Management, telemetry, and best-effort traffic share the fabric with RDMA. Pausing
-RDMA must never starve or pause these lossy classes.
 
 #### Test Configuration
 - PFC storm targeting lossless priorities {3, 4}.
@@ -134,10 +128,6 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 Verify the DUT robustly ignores malformed PFC frames (invalid class-enable vectors,
 wrong opcodes, truncated frames) without affecting any traffic class or destabilizing.
 
-#### AI Workload Relevance
-Buggy NICs and misbehaving neighbors emit malformed control frames. A correct switch
-must not pause traffic or crash because of them.
-
 #### Test Configuration
 - Data flows on all priorities at line rate.
 - Inject malformed control frames toward the DUT:
@@ -161,15 +151,11 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 
 ---
 
-### Y03: PFC Targeting Lossy Priority — DUT Ignores
+### Y03: PFC Targeting Lossy Priority - DUT Ignores
 
 #### Objective
 Verify that a well-formed PFC frame whose class-enable vector sets a **lossy** priority
 bit (e.g., 0) does NOT pause that lossy queue.
-
-#### AI Workload Relevance
-Only lossless classes participate in flow control. A PFC request for a lossy class is
-out of spec for that queue and must be ignored, or best-effort traffic could stall.
 
 #### Test Configuration
 - Data flow on a lossy priority (e.g., 0) at line rate.
@@ -190,15 +176,11 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 
 ---
 
-### Y04: Global PAUSE (802.3x) — DUT Ignores
+### Y04: Global PAUSE (802.3x) - DUT Ignores
 
 #### Objective
-Verify that SONiC ignores IEEE 802.3x global PAUSE frames — it neither pauses any
+Verify that SONiC ignores IEEE 802.3x global PAUSE frames - it neither pauses any
 traffic nor forwards the frames.
-
-#### AI Workload Relevance
-Lossless fabrics use per-priority PFC, not link-level global pause. Honoring global
-pause would halt all traffic on a port, including healthy RDMA and management flows.
 
 #### Test Configuration
 - Data flows on all priorities at line rate.
@@ -224,13 +206,8 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 
 #### Objective
 Under a heavy PFC storm on lossless queues, verify that lossy-queue latency does not
-rise above a defined threshold — i.e., paused lossless traffic does not head-of-line
+rise above a defined threshold - i.e., paused lossless traffic does not head-of-line
 block lossy traffic.
-
-#### AI Workload Relevance
-If paused RDMA buffers block the shared pipeline, management and best-effort traffic
-suffer latency spikes — masking failures and delaying control actions during exactly
-the moments congestion is highest.
 
 #### Test Configuration
 - Heavy PFC storm pausing lossless priorities {3, 4}.
@@ -252,15 +229,11 @@ Per [PFC_common.md §6](PFC_common.md#6-mandatory-teardown-template).
 
 ---
 
-### Y06: Lossy Queue Congestion — No PFC Generated
+### Y06: Lossy Queue Congestion - No PFC Generated
 
 #### Objective
 Verify that congesting (oversubscribing) a lossy queue causes the DUT to **drop**
 excess traffic rather than **generate** PFC frames for the lossy priority.
-
-#### AI Workload Relevance
-Lossy classes are intentionally drop-tolerant. Generating PFC for them would wrongly
-extend flow control to best-effort traffic and could propagate congestion upstream.
 
 #### Test Configuration
 - Oversubscribe a lossy priority into the DUT (ingress rate exceeds egress capacity).
@@ -302,7 +275,7 @@ at minimum:
 - `pfc.lossy.packet_loss_pct` and, where relevant, `pfc.counter.tx_pfc`.
 - Lossy-queue latency (Y05).
 
-Every case asserts pass/fail with a detailed, context-rich failure message — the
+Every case asserts pass/fail with a detailed, context-rich failure message - the
 metric is recorded in addition to, not instead of, the hard assertion.
 
 ## 9. Known Limitations & Future Work
@@ -311,5 +284,3 @@ metric is recorded in addition to, not instead of, the hard assertion.
   per platform rather than assumed universal.
 - Malformed-frame variants (Y02) depend on generator support for crafting raw control
   frames; skip cleanly where unsupported.
-- This document specifies **what** to verify; the pytest implementation follows in a
-  separate code change building on `tests/snappi_tests/pfc/`.
