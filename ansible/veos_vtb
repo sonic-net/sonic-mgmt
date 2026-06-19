@@ -421,8 +421,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: lolv
-      vm_host_user: lolv
+      ansible_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
+      vm_host_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
 
 vms_1:
   hosts:
