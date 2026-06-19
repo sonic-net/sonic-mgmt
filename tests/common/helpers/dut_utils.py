@@ -97,6 +97,22 @@ def check_container_state(duthost, container_name, should_be_running):
     return is_running == should_be_running
 
 
+def wait_for_container_running(duthost, container_name, timeout=120, check_interval=5):
+    """Wait until `container_name` is in the running state on `duthost`.
+
+    Polls `is_container_running` every `check_interval` seconds, up to
+    `timeout` seconds total. Raises an Exception if the container is still
+    not running when the timeout expires.
+    """
+    logger.info("Waiting for container %s to be running on %s", container_name, duthost.hostname)
+    if not wait_until(timeout, check_interval, 0, is_container_running, duthost, container_name):
+        raise TimeoutError(
+            "Container {} is not running on {} after {} seconds".format(
+                container_name, duthost.hostname, timeout
+            )
+        )
+
+
 def is_hitting_start_limit(duthost, container_name):
     """Checks whether the container can not be restarted is due to start-limit-hit.
     @param duthost: Host DUT.
