@@ -48,6 +48,20 @@ PROCESS_TO_CONTAINER_MAP = {
     "syncd": "syncd"
 }
 UNKNOWN_ASIC = "unknown"
+COUNTER_TYPE_CLI_MAP = {
+    'QUEUE_STAT': 'queue',
+    'PORT_STAT': 'port',
+    'SWITCH_STAT': 'switch',
+    'PORT_BUFFER_DROP': 'port-buffer-drop',
+    'RIF_STAT': 'rif',
+    'QUEUE_WATERMARK_STAT': 'watermark',
+    'PG_WATERMARK_STAT': 'watermark',
+    'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+    'ACL': 'acl',
+    'TUNNEL_STAT': 'tunnel',
+    'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+    'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -291,7 +305,7 @@ class SonicHost(AnsibleHostBase):
             True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
-        return not self.is_supervisor_node()
+        return not self.is_supervisor_node() and not self.is_bmc()
 
     def is_console_switch(self):
         """
@@ -444,6 +458,38 @@ class SonicHost(AnsibleHostBase):
 
         return monit_services_status
 
+    def _retry_if_oci_exec_race(self, cmd, result, attempts=3, delay=2):
+        """
+        Re-run `cmd` if `result` is a transient `docker exec` runc-setns race
+        (rc=127 with "OCI runtime exec failed: ... setns process | fork/exec
+        /proc/self/fd"). The OCI message can land on either stdout or stderr
+        depending on the docker / runc version, so we inspect both with a
+        DOTALL match so multi-line variants are still caught. The container
+        is actually running while this race fires, so a small bounded retry
+        keeps the framework from declaring the service unhealthy on what is
+        purely an exec infrastructure flake. Pass-through otherwise.
+        """
+        pattern = r"OCI runtime exec failed:.*(starting setns process|fork/exec /proc/self/fd)"
+
+        def _is_oci(res):
+            if not (isinstance(res, dict) and res.get("rc") == 127):
+                return False
+            output = (res.get("stdout") or "") + "\n" + (res.get("stderr") or "")
+            return bool(re.search(pattern, output, flags=re.DOTALL))
+
+        if not _is_oci(result):
+            return result
+        for attempt in range(1, attempts + 1):
+            time.sleep(delay)
+            retry = self.shell(cmd, module_ignore_errors=True)
+            if not _is_oci(retry):
+                logging.info(
+                    "Recovered from transient docker exec OCI race on attempt %d for cmd: %s",
+                    attempt, cmd,
+                )
+                return retry
+        return result
+
     def get_critical_group_and_process_lists(self, container_name):
         """
         @summary: Get critical group and process lists by parsing the
@@ -454,8 +500,10 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
-        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
-                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name)
+        file_content = self.shell(cmd, module_ignore_errors=True)
+        file_content = self._retry_if_oci_exec_race(cmd, file_content)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
@@ -510,6 +558,10 @@ class SonicHost(AnsibleHostBase):
 
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+
+        # Re-run any commands hit by the transient `docker exec` runc-setns race.
+        # The target container is still running; only the new exec failed.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -599,6 +651,12 @@ class SonicHost(AnsibleHostBase):
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
 
+        # Re-run any commands hit by the transient `docker exec` runc-setns race
+        # before we let the result feed parse_service_status_and_critical_process,
+        # which would otherwise see one garbage "OCI runtime exec failed..." line
+        # and flip the service to status=False even though the container is up.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
+
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
         for res in results:
@@ -613,7 +671,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -2298,7 +2382,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2324,7 +2408,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -2732,27 +2816,20 @@ Totals               6450                 6449
             result_dict[counter_type]['status'] = status
         return result_dict
 
+    def set_counter_poll_status(self, counter_type, status):
+        """
+        A function to config the status of counterpoll.
+        """
+        cmd = 'counterpoll {} {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], status)
+        self.shell(cmd)
+
     def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
         """
         A function to config the interval of counterpoll. The counter type should be a key of
         the 'counterpoll show' cli output.
         """
-        counter_type_cli_map = {
-            'QUEUE_STAT': 'queue',
-            'PORT_STAT': 'port',
-            'SWITCH_STAT': 'switch',
-            'PORT_BUFFER_DROP': 'port-buffer-drop',
-            'RIF_STAT': 'rif',
-            'QUEUE_WATERMARK_STAT': 'watermark',
-            'PG_WATERMARK_STAT': 'watermark',
-            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
-            'ACL': 'acl',
-            'TUNNEL_STAT': 'tunnel',
-            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
-            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
-        }
         origin_interval = self.get_counter_poll_status()[counter_type]['interval']
-        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        cmd = 'counterpoll {} interval {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], interval)
         self.shell(cmd)
         # Sleep for the old interval for the new interval to take effect
         if wait_for_new_interval:
@@ -2976,7 +3053,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3057,7 +3134,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3151,7 +3228,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)

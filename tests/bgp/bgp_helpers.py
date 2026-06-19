@@ -21,6 +21,7 @@ from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.utilities import testbed_is_multi_vrf
+from tests.common.utilities import get_neighbor_exabgp_vm_offset
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
@@ -303,7 +304,13 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]
 
-    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    # On converged (multi-VRF) topologies ``VMs[downstream]['vm_offset']`` is the
+    # collapsed *prime* offset, which maps to a different neighbor's exabgp
+    # instance. The per-neighbor exabgp instances are keyed by the ORIGINAL
+    # offset, so use that (via get_neighbor_exabgp_vm_offset) to post the
+    # announce to the intended downstream's exabgp. On stock topologies this
+    # returns the neighbor's own vm_offset, so behavior is unchanged.
+    downstream_offset = get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, downstream)
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
 
@@ -1054,3 +1061,30 @@ def initial_tsa_check_before_and_after_test(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for linecard in duthosts.frontend_nodes:
             executor.submit(run_tsb_on_linecard_and_verify, linecard)
+
+
+def eos_bgp_neighbor_config_parents(tbinfo, nbrhosts, logical_neighbor_name, neigh_remote_as):
+    """
+    Parents list for ansible eos_config under neighbor BGP (default or multi-VRF / converged cEOS).
+
+    Prefer nbrhosts[logical]['is_multi_vrf_peer'] from conftest; if absent, derive from
+    topo_is_multi_vrf + convergence_data (covers stale tbinfo/nbrhosts cache mismatches).
+    """
+    nbr = nbrhosts.get(logical_neighbor_name) or {}
+    if nbr.get("is_multi_vrf_peer") and nbr.get("multi_vrf_data"):
+        mvd = nbr["multi_vrf_data"]
+        return [
+            "router bgp {}".format(mvd["primary_host_asn"]),
+            "vrf {}".format(mvd["vrf"]),
+        ]
+
+    props = tbinfo.get("topo", {}).get("properties", {})
+    if props.get("topo_is_multi_vrf") and props.get("convergence_data", {}).get("convergence_mapping"):
+        conv_map = props["convergence_data"]["convergence_mapping"]
+        cfg = props.get("configuration", {})
+        for prime_name, logical_names in conv_map.items():
+            if logical_neighbor_name in logical_names and prime_name in cfg:
+                primary_asn = cfg[prime_name]["bgp"]["asn"]
+                return ["router bgp {}".format(primary_asn), "vrf {}".format(logical_neighbor_name)]
+
+    return ["router bgp {}".format(neigh_remote_as)]

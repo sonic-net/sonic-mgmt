@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -138,9 +138,11 @@ class TestFaultHandling():
         )
 
     @pytest.mark.disable_loganalyzer
-    def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
+    def test_mismatch_macsec_configuration(self, duthost, unctrl_links, port_profiles,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, wait_mka_establish):
+        if port_profiles:
+            pytest.skip("Mismatch test uses single-profile CAK/CKN fixtures")
         # Only pick one uncontrolled link for mismatch macsec configuration test
         if not unctrl_links:
             pytest.skip('SKIP this test as there are no uncontrolled links in this dut')
@@ -155,7 +157,7 @@ class TestFaultHandling():
         # Set a wrong cak to the profile
         primary_cak = "0" * len(primary_cak)
         enable_macsec_port(duthost, port_name, profile_name)
-        set_macsec_profile(nbr["host"], nbr["port"], profile_name, default_priority,
+        set_macsec_profile(nbr["host"], profile_name, default_priority,
                            cipher_suite, primary_cak, primary_ckn, policy, send_sci)
         enable_macsec_port(nbr["host"], nbr["port"], profile_name)
 
@@ -172,5 +174,5 @@ class TestFaultHandling():
         # Teardown
         disable_macsec_port(duthost, port_name)
         disable_macsec_port(nbr["host"], nbr["port"])
-        delete_macsec_profile(nbr["host"], nbr["port"], profile_name)
+        delete_macsec_profile(nbr["host"], profile_name)
         sleep(300)

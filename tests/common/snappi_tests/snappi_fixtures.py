@@ -26,8 +26,9 @@ from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValue
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
     delete_macsec_profile
-from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
-    create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
+from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
+                                                       create_connections, create_connections_pl, create_uhdIp_list,
+                                                       create_arp_bypass, create_arp_bypass_pl, create_profiles)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
@@ -80,6 +81,8 @@ def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope='module')
 def snappi_api(snappi_api_serv_ip,
                snappi_api_serv_port,
+               duthosts,
+               rand_one_dut_hostname,
                tbinfo):
     """
     Fixture for session handle,
@@ -87,6 +90,8 @@ def snappi_api(snappi_api_serv_ip,
     Args:
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture
+        duthosts (pytest fixture): The duthosts fixture.
+        rand_one_dut_hostname (pytest fixture): hostname of a random DUT.
         tbinfo (pytest fixture): fixture provides information about testbed.
     """
 
@@ -104,9 +109,22 @@ def snappi_api(snappi_api_serv_ip,
         location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
         api = snappi.api(location=location, ext="ixnetwork")
 
-        # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-        # api._username = "<please mention the username if other than default username>"
-        # api._password = "<please mention the password if other than default password>"
+        # Read IxNetwork credentials from the DUT's ansible inventory variable
+        # `snappi_api_server.user` / `.password` (same source as the rest_port
+        # read by snappi_api_serv_port). When a key is absent the value stays
+        # None and the snappi library default applies, preserving behavior for
+        # testbeds that don't define these keys.
+        duthost = duthosts[rand_one_dut_hostname]
+        snappi_api_server = (duthost.host.options['variable_manager']
+                             ._hostvars[duthost.hostname]
+                             .get('snappi_api_server', {}))
+        snappi_api_serv_user = snappi_api_server.get('user')
+        snappi_api_serv_password = snappi_api_server.get('password')
+
+        if snappi_api_serv_user:
+            api._username = snappi_api_serv_user
+        if snappi_api_serv_password:
+            api._password = snappi_api_serv_password
 
     yield api
 
@@ -391,8 +409,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         for phy in members:
             # Added fix to select snappi_ports based on peer-device and peer-hostname.
             port_ids = [
-                int(sp['port_id'])
-                for sp in (snappi_ports)
+                i for i, sp in enumerate(snappi_ports)
                 if ((sp['peer_port'] == phy) and (sp['peer_device'] == duthost.hostname))]
 
             if len(port_ids) != 1:
@@ -1456,6 +1473,10 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                 port['peer_port'],
                                                                                 dutIp,
                                                                                 prefix_length))
+            # During GCU-testing-enabled run, the startup config and running-golden-config
+            # only have the minimal RSB configs, which means we need to make sure whatever
+            # interfaces we are using have to be brought up again.
+            duthost.command(f"sudo config interface startup {port['peer_port']}")
         else:
             duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
                                                                                     port['asic_value'],
@@ -1463,6 +1484,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     port['peer_port'],
                                                                                     dutIp,
                                                                                     prefix_length))
+            duthost.command(f"sudo config interface -n {port['asic_value']} startup {port['peer_port']}")
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
@@ -1580,7 +1602,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 if 'profile' in line:
                     profile_name = line.split()[1]
                     logger.info('Removing already configured Macsec profile {}'.format(profile_name))
-                    delete_macsec_profile(port['duthost'], port['peer_port'], profile_name)
+                    delete_macsec_profile(port['duthost'], profile_name)
             macsec_enabled_port = port
             macsec_profile_name = '256_XPN_SCI'
             cipher = all_values[macsec_profile_name]['cipher_suite']
@@ -1592,7 +1614,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             send_sci = all_values[macsec_profile_name]['send_sci']
             logger.info('Configuring DUTHOST:{}'.format(port['duthost'].hostname))
             logger.info('Configuring MACSEC on DUT Interfaces: {}'.format(port['peer_port']))
-            set_macsec_profile(port['duthost'], port['peer_port'], macsec_profile_name, priority,
+            set_macsec_profile(port['duthost'], macsec_profile_name, priority,
                                cipher, primary_cak, primary_ckn, policy, send_sci, rekey_period)
             enable_macsec_port(port['duthost'], port['peer_port'], macsec_profile_name)
             if port['asic_value'] is None:
@@ -1855,7 +1877,7 @@ def cleanup_config(duthost_list, snappi_ports):
         logger.info('Deleting macsec profile {} on {} port {}'.format(macsec_profile_name,
                                                                       macsec_enabled_port['duthost'].hostname,
                                                                       macsec_enabled_port['peer_port']))
-        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_enabled_port['peer_port'], macsec_profile_name)
+        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_profile_name)
 
 
 @pytest.fixture(scope="module")
@@ -2146,10 +2168,14 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         ethpass_ports = [row for row in csv_data if row['EthernetPass'] == 'True']
         has_switchover = any(dpu.get('SwitchOverPort') == 'True' for dpu in dpu_ports)
 
+        service_type = tbinfo['service_type']
         uhdConnect_ip = tbinfo['uhd_ip']
         num_cps_cards = tbinfo['num_cps_cards']
         num_tcpbg_cards = tbinfo['num_tcpbg_cards']
         num_udpbg_cards = tbinfo['num_udpbg_cards']
+        vxlan_port = tbinfo.get('vxlan_port', 0)
+        vxlan_src_port = tbinfo.get('vxlan_src_port', 0)
+        vxlan_endpoint_vni = tbinfo.get('vxlan_endpoint_vni', 1000)
         num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
@@ -2163,7 +2189,7 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'switchover_port': has_switchover
         }
 
-        uhdSettings = NetworkConfigSettings()  # noqa: F405
+        uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni)  # noqa: F405
         uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
         subnet_mask = uhdSettings.subnet_mask
@@ -2171,9 +2197,19 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
-        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
-        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
-                                              cards_dict, arp_bypass_list)
+
+        if service_type == 'vnet2vnet':
+            file_name = "tempUhdConfig_vnet2vnet.json"
+            arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict,
+                                                subnet_mask)
+            connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                                  cards_dict, arp_bypass_list, vxlan_port, vxlan_src_port)
+        else:
+            # privatelink
+            file_name = "tempUhdConfig_pl.json"
+            arp_bypass_list = create_arp_bypass_pl(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)
+            connections_list = create_connections_pl(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,
+                                                     arp_bypass_list, vxlan_port, vxlan_src_port)
 
         config = {
             "profiles": create_profiles(uhdSettings),  # noqa: F405
@@ -2185,7 +2221,6 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'Content-Type': 'application/json'
         }
 
-        file_name = "tempUhdConfig.json"
         file_location = os.getcwd()
         uhd_post_url = uhdSettings.uhd_post_url
         url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
@@ -2194,7 +2229,10 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
         uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
                        '{}').format(file_location, file_name, url)
-        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        try:
+            res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"UHD config upload failed: {e}")
 
         if not save_uhd_config:
             logger.info("Removing UHD config file")
@@ -2535,7 +2573,11 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         if not snappi_ports:
             pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
 
 
 def flatten_list(lst):
