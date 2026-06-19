@@ -121,13 +121,13 @@ Each gate is a session-scoped pytest fixture defined in [`tests/transceiver/conf
 | System (`system.json`)                  | ✅                            | ✅                                              | ✅ |
 | Physical OIR (`physical_oir.json`)      | ✅                            | ✅                                              | ✅ |
 | Remote Reseat (`remote_reseat.json`)    | ✅                            | ✅                                              | ✅ |
-| CDB FW Upgrade (`cdb_fw_upgrade.json`)  | ✅                            | - own reportable test                           | ✅ |
+| CDB Firmware Upgrade (`cdb_firmware_upgrade.json`) | ✅                  | - own reportable test                           | ✅ |
 | DOM (`dom.json`)                        | ✅                            | ✅                                              | ✅ |
 | VDM (`vdm.json`)                        | ✅                            | ✅                                              | ✅ |
 | PM (`pm.json`)                          | ✅                            | ✅                                              | ✅ |
 | Port Config (`port_config.json`)        | - CONFIG_DB only              | - CONFIG_DB only                                | - CONFIG_DB only |
 
-A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB FW Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB FW Upgrade test failure, not a session-wide skip).
+A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB Firmware Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB Firmware Upgrade test failure, not a session-wide skip).
 
 #### Common Per-Test Health Checks
 
@@ -622,7 +622,7 @@ attributes/
 │   └── ...                                            # same shape as eeprom/
 ├── physical_oir/
 ├── remote_reseat/
-├── cdb_fw_upgrade/
+├── cdb_firmware_upgrade/
 ├── dom/
 ├── vdm/
 ├── pm/
@@ -654,7 +654,7 @@ attributes/
 - `system/` (System tests)
 - `physical_oir/` (Physical OIR)
 - `remote_reseat/` (Remote reseat)
-- `cdb_fw_upgrade/` (CDB FW upgrade tests - see also [Transceiver Firmware Info File](#transceiver-firmware-info-file))
+- `cdb_firmware_upgrade/` (CDB firmware upgrade tests - see also [Transceiver Firmware Info File](#transceiver-firmware-info-file))
 - `dom/` (DOM)
 - `vdm/` (VDM)
 - `pm/` (PM)
