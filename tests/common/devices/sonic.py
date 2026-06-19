@@ -2427,7 +2427,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2453,7 +2453,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
