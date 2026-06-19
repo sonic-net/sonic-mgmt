@@ -305,8 +305,8 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
                 return True
         return False
 
-    # Wait for orchagent to update the ACL counters
-    if not wait_until(timeout, 2, 0, _check_acl_counter):
+    # Wait for orchagent to update the ACL counters when requested.
+    if timeout > 0 and not wait_until(timeout, 2, 0, _check_acl_counter):
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
     result = duthost.show_and_parse('aclshow -a')
