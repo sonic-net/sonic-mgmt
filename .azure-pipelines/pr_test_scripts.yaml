@@ -678,6 +678,7 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - crm/test_crm.py
   - crm/test_crm_available.py
+  - decap/test_decap.py
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - drop_packets/test_drop_counters.py
