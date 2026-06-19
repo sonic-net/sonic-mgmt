@@ -156,14 +156,6 @@ copp:
 #######################################
 #####           Decap             #####
 #######################################
-decap/test_decap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 decap/test_subnet_decap.py:
   skip:
     reason: >
@@ -396,17 +388,6 @@ gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
 #####     Golden Config Infra     #####
 #######################################
 golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           IP                #####
-#######################################
-ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
   skip:
     reason: >
             Failed/Errored: To be included

@@ -132,6 +132,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
             started = True
         except socket.error:
             tries += 1
+            time.sleep(1)
 
     return started
 
@@ -742,7 +743,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 if aggregate_routes_v4:
                     filterout_subnet_ipv4(aggregate_routes, routes_v4)
                     routes_v4.extend(aggregate_routes_v4)
-                topo_routes[k][IPV4] = routes_v4
+                topo_routes[k][IPV4] = topo_routes[k].get(IPV4, []) + routes_v4
                 routes_to_change[port] += routes_v4
             if enable_ipv6_routes_generation:
                 routes_v6, _ = generate_routes("v6", podset_number, tor_number, tor_subnet_number,
@@ -755,7 +756,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
                 if aggregate_routes_v6:
                     filterout_subnet_ipv6(aggregate_routes, routes_v6)
                     routes_v6.extend(aggregate_routes_v6)
-                topo_routes[k][IPV6] = routes_v6
+                topo_routes[k][IPV6] = topo_routes[k].get(IPV6, []) + routes_v6
                 routes_to_change[port6] += routes_v6
 
         if 'vips' in v:
@@ -1565,17 +1566,20 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes=None):
     group_nums = int(math.ceil(float(len(t1_vms)) / T1_GROUP_SIZE))
     t1_route_per_group = int(math.ceil(ROUTE_NUMBER_T1 / T1_GROUP_SIZE / group_nums))
 
-    # 32 routes each x 8 to support up to 256 T1 VMs
-    extra_ipv4_t1 = itertools.chain(
-        ipaddress.ip_network("192.168.0.0/27"),
-        ipaddress.ip_network("192.169.0.0/27"),
-        ipaddress.ip_network("192.170.0.0/27"),
-        ipaddress.ip_network("192.171.0.0/27"),
-        ipaddress.ip_network("192.172.0.0/27"),
-        ipaddress.ip_network("192.173.0.0/27"),
-        ipaddress.ip_network("192.174.0.0/27"),
-        ipaddress.ip_network("192.175.0.0/27"),
+    # 32 addresses per /27; need ceil(len(t1_vms)/32) blocks (min 4).
+    # 224 T1 (needs 7); build enough 192.(168+i).0.0/27 nets.
+    num_extra = max(4, int(math.ceil(float(len(t1_vms)) / 32)))
+    # Second octet 168+i must stay <= 255, so i <= 87 and num_extra <= 88 (~2816 T1 VMs).
+    assert num_extra <= 88, (
+        "fib_lt2_routes: num_extra={} ({} T1 VMs) exceeds scheme limit 88 for 192.(168+i).0.0/27"
+        .format(num_extra, len(t1_vms))
     )
+    extra_networks = []
+    for i in range(num_extra):
+        extra_networks.append(
+            ipaddress.ip_network(UNICODE_TYPE("192.{}.0.0/27".format(168 + i)))
+        )
+    extra_ipv4_t1 = itertools.chain(*extra_networks)
 
     for group in range(group_nums):
         selected_v4_subnets = all_subnetv4[group * t1_route_per_group: group * t1_route_per_group + t1_route_per_group]
