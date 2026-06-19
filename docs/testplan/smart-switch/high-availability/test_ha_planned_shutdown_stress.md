@@ -9,7 +9,7 @@
 - [Prerequisites](#prerequisites)
 - [Topology](#topology)
 - [1. Fanout: L3 routing](#1-fanout-l3-routing)
-- [2. DUT IP on Eth96](#2-dut-ip-on-eth96)
+- [2. DUT IP on the direct link](#2-dut-ip-on-the-direct-link)
 - [3. Steer GRE return + HA traffic through the fanout](#3-steer-gre-return--ha-traffic-through-the-fanout)
 - [4. IxNetwork traffic item construction](#4-ixnetwork-traffic-item-construction)
 - [5. Verification](#6-verification)
@@ -102,7 +102,8 @@ full key-by-key reference.
 
 **What the test configures automatically (no manual setup needed):**
 - Fanout L3: IPs on all 4 interfaces + static routes (ECMP, PE_PA, HA)
-- Eth96 brought admin-up + IPs on both DUTs (10.99.2.2/30, 10.99.3.2/30)
+- Direct-link interface (`direct_link.dut_interface`, Eth96 on MtFuji) brought
+  admin-up + IPs on both DUTs (10.99.2.2/30, 10.99.3.2/30)
 - Route steering: PE_PA (101.1.2.3/32) via fanout gateway on each DUT
 - HA steering: peer DPU PA /24 + peer NPU Loopback0 /32 via fanout gateway
 
@@ -139,7 +140,7 @@ What you set vs. what is derived:
 | `addressing` | `peer_npu_loopbacks` | `auto` → each DUT's `Loopback0` read from CONFIG_DB, or list to override |
 | `stress` | `iterations` / `pre_action_settle_s` / `post_action_settle_s` | HA cycle count and pacing |
 
-Everything else (the fanout routing table, the Eth96 steering routes, the
+Everything else (the fanout routing table, the direct-link steering routes, the
 inter-DUT HA steering) is **derived** from the keys above, so a typical new
 testbed only edits the `direct_link`, `fanout`, `ixia`, and `addressing`
 sections. Each DUT's `Loopback0` is auto-discovered, so you do not have to look
@@ -257,10 +258,11 @@ sudo ip route replace 10.1.0.32/32 via 10.99.2.2    # DUT1 Lo0
 sudo ip route replace 10.1.0.33/32 via 10.99.3.2    # DUT2 Lo0
 ```
 
-## 2. DUT IP on Eth96
+## 2. DUT IP on the direct link
 
-> **Automated by the test.** `_apply_eth96_ips` brings Eth96 admin-up and
-> adds these IPs in setup; `_remove_eth96_ips` removes them in teardown.
+> **Automated by the test.** `_apply_direct_link_ips` brings the direct-link
+> interface (`direct_link.dut_interface`, Eth96 on MtFuji) admin-up and adds
+> these IPs in setup; `_remove_direct_link_ips` removes them in teardown.
 
 ```bash
 # DUT1
