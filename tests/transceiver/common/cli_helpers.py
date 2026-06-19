@@ -130,18 +130,30 @@ def _run_and_parse(duthost, cmd, parser=None):
     Returns ``(parsed, err)``:
       - ``(parser(stdout_lines), None)`` on success when ``parser`` is given
       - ``(stdout_lines, None)`` on success when ``parser`` is None
-      - ``(None, "<cmd> failed with rc=... stderr=...")`` on non-zero rc
+      - ``(None, "<cmd> failed with rc=... (stdout: ...)")`` on non-zero rc
       - ``(None, "<cmd> returned empty output")`` when stdout is empty
 
     ``cmd`` is echoed verbatim into the error message, so it doubles as the
     human-readable label (e.g. ``sfputil show eeprom -p Ethernet0``).
+
+    sfputil writes its error text to STDOUT (not stderr) on a non-zero exit —
+    verified on hardware: ``Error: invalid port ...`` and ``Root privileges are
+    required`` both land on stdout with an empty stderr.  The failure message
+    therefore surfaces stdout (and stderr too, for any command that does use
+    it); both are truncated because some sfputil errors dump the full 500+ port
+    list.
     """
     result = duthost.command(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
-        return None, (
-            f"{cmd} failed with rc={result.get('rc')}, "
-            f"stderr: {result.get('stderr', '')}"
-        )
+        stdout = " ".join(result.get("stdout_lines") or []).strip()
+        stderr = (result.get("stderr") or "").strip()
+        parts = []
+        if stdout:
+            parts.append(f"stdout: {stdout[:200]}")
+        if stderr:
+            parts.append(f"stderr: {stderr[:200]}")
+        detail = "; ".join(parts) if parts else "no stdout/stderr"
+        return None, f"{cmd} failed with rc={result.get('rc')} ({detail})"
     stdout_lines = result.get("stdout_lines", [])
     if not stdout_lines:
         return None, f"{cmd} returned empty output"
