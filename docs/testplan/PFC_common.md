@@ -12,13 +12,9 @@
   - [4. Platform \& Speed Parametrization](#4-platform--speed-parametrization)
   - [5. Common Utilities Reference](#5-common-utilities-reference)
   - [6. Mandatory Teardown Template](#6-mandatory-teardown-template)
-  - [7. Metrics \& Reporting Specification](#7-metrics--reporting-specification)
-    - [7.1 Telemetry Framework Integration](#71-telemetry-framework-integration)
-    - [7.2 Assertion Pattern](#72-assertion-pattern)
-  - [8. Key Engineering Decisions](#8-key-engineering-decisions)
-  - [9. Scope Boundaries](#9-scope-boundaries)
-  - [10. Known Limitations \& Future Work](#10-known-limitations--future-work)
-  - [11. References](#11-references)
+  - [7. Assertion Pattern](#7-assertion-pattern)
+  - [8. Limitations](#8-Limitations)
+  - [9. References](#9-references)
 
 ## 1. Purpose
 
@@ -50,33 +46,13 @@ over-applies it, or deadlocks) breaks the entire collective-communication fabric
 PFC is defined by IEEE 802.1Qbb. A PFC frame is a MAC Control frame that carries a
 per-priority pause request:
 
-```
-+--------------------+------------------------------------------------+
-| Field              | Value / Meaning                                |
-+--------------------+------------------------------------------------+
-| Destination MAC    | 01-80-C2-00-00-01  (reserved multicast;        |
-|                    | NOT forwarded by 802.1D-compliant bridges)     |
-| Source MAC         | Sending station MAC                            |
-| Ethertype          | 0x8808  (MAC Control)                          |
-| Opcode             | 0x0101  (PFC / Priority-based Flow Control)    |
-| Class-Enable Vector| 16 bits: low 8 bits = 1 bit per priority.      |
-|                    | bit P = 1 -> priority P is paused              |
-|                    | bit P = 0 -> priority P is unaffected          |
-| Time[0..7]         | 8 x 16-bit pause durations (quanta),           |
-|                    | one per priority. 0 = resume (un-pause).       |
-| Pad / FCS          | Frame padding and checksum                     |
-+--------------------+------------------------------------------------+
-```
-
-Key consequence of the reserved destination MAC: PFC frames are **link-local**. They
-are consumed by the first switch and never bridged onward. This drives the topology
-constraints in Section 3.
+It uses the reserved destination MAC, key consequence of which is PFC frames are **link-local**. They
+are consumed by the first switch and never bridged onward. This drives the topology constraints in Section 3.
 
 ### 2.2 Quanta and Pause Duration
 
 One **quantum** is the time required to transmit 512 bits at the current link speed.
-The pause duration requested by a PFC frame is therefore speed-dependent (plain-text
-formula, no LaTeX):
+The pause duration requested by a PFC frame is therefore speed-dependent:
 
 ```
 pause_duration_seconds = (quanta_value * 512) / link_speed_bps
@@ -122,9 +98,8 @@ dynamically per link speed** (see Section 4) rather than hardcoded.
 
 | Property              | Lossless Queues (default 3, 4)   | Lossy Queues (0,1,2,5,6,7) |
 |-----------------------|----------------------------------|----------------------------|
-| Reacts to PFC         | YES — stops transmitting         | NO — ignores PFC frames    |
-| Generates PFC         | YES — when ingress buffers fill  | NO — drops packets instead |
-| Typical use           | RDMA / RoCEv2, AI training        | Best-effort, management    |
+| Reacts to PFC         | YES - stops transmitting         | NO - ignores PFC frames    |
+| Generates PFC         | YES - when ingress buffers fill  | NO - drops packets instead |
 | Has headroom buffer   | YES                              | NO                         |
 | WRED profile          | `AZURE_LOSSLESS`                 | None                       |
 
@@ -153,7 +128,7 @@ Read from `config_DB` at test setup time — never hardcode the priority list:
 ```
 Supported Topologies
 
-[PREFERRED] Single-Tier:
+[PREFERRED] Single-Tier (DUT Can be T0/T1):
 +-------------------+         +-------------------+         +-------------------+
 | Snappi Tx Port    | ------> |    SONiC DUT      | <------ | Snappi Rx Port    |
 | (Data flows)      |         | (Port under test) |         | (PFC storm + Rx)  |
@@ -184,9 +159,23 @@ All test cases are parametrized across link speed, buffer model, and ASIC count:
 
 ```python
 @pytest.mark.parametrize("speed", ["100G", "400G", "800G"])
-@pytest.mark.parametrize("platform_type", ["memory", "shared_memory"])
+@pytest.mark.parametrize("buffer_model", ["static", "dynamic"])
 @pytest.mark.parametrize("asic_count", ["single", "multi"])
 ```
+
+**Buffer model** reflects how the switch ASIC manages its packet buffer, which
+directly affects when PFC is asserted. Derive the actual value at runtime from
+`DEVICE_METADATA|localhost.buffer_model` in `config_DB` (do not hardcode):
+
+| `buffer_model` | Meaning | PFC relevance |
+|----------------|---------|---------------|
+| `static`  | Buffer is statically partitioned per port/queue; fixed lossless headroom per port. | PFC trigger thresholds are deterministic per port; no cross-port sharing. |
+| `dynamic` | Buffer is shared dynamically across ports/queues via a shared pool, with lossless headroom drawn from a (possibly shared) headroom pool; thresholds scale with pool occupancy via the buffer-profile alpha (`dynamic_th`). | PFC thresholds depend on live pool occupancy; headroom may be shared/over-subscribed across ports. |
+
+When the `dynamic` model uses a **shared-headroom pool**, lossless headroom is pooled
+rather than reserved per port — verify PFC is still generated before drop under that
+configuration (see L08 in the lossless plan). Source of truth: `BUFFER_POOL`,
+`BUFFER_PROFILE` (`dynamic_th`), and `BUFFER_PG` in `config_DB`.
 
 Speed-dependent reference values (max quanta = 65535, 64-byte PFC frames):
 
@@ -208,7 +197,7 @@ test body covers 100G/400G/800G without hardcoded constants.
 
 ## 5. Common Utilities Reference
 
-The following helpers and fixtures already exist in sonic-mgmt and SHOULD be reused.
+The following helpers and fixtures already exist in sonic-mgmt and will be reused.
 Import paths reflect the current repository layout:
 
 ```python
@@ -240,18 +229,8 @@ from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_assert
 
 # Telemetry (current framework — preferred over legacy test_reporting/)
-from tests.common.telemetry import (
-    GaugeMetric,
-    METRIC_LABEL_DEVICE_ID,
-    METRIC_LABEL_DEVICE_PORT_ID,
-    METRIC_LABEL_DEVICE_QUEUE_ID,
-)
-from tests.common.telemetry.reporters import DBReporter, TSReporter
+A new telemetry framework currently in work which will be used
 ```
-
-> Note: `stop_pfcwd`, `disable_packet_aging`, and `pfc_class_enable_vector` live in
-> `tests/common/snappi_tests/common_helpers.py` (not in the pfc `files/helper.py`).
-> Confirm symbol availability against the target branch before implementation.
 
 ## 6. Mandatory Teardown Template
 
@@ -267,9 +246,9 @@ def pfc_test_cleanup(duthost, snappi_api):
     # --- SETUP (before yield): snapshot state to restore ---
     original_pfcwd_state = get_pfcwd_state(duthost)
 
-    yield  # <-- test body runs here
+    yield
 
-    # --- TEARDOWN (always runs) ---
+    # --- TEARDOWN  ---
     # 1. Stop all traffic-generator streams
     snappi_api.stop_all_flows()
 
@@ -281,7 +260,7 @@ def pfc_test_cleanup(duthost, snappi_api):
     enable_packet_aging(duthost)
 
     # 4. Restore any modified buffer profiles
-    #    restore_buffer_alpha(duthost, orig_dynamic_th)
+    restore_buffer_alpha(duthost, orig_dynamic_th)
 
     # 5. Verify all DUT ports are back up
     assert_all_ports_up(duthost)
@@ -299,61 +278,9 @@ def pfc_test_cleanup(duthost, snappi_api):
 5. All ports administratively and operationally up.
 6. PFC counters cleared.
 
-## 7. Metrics & Reporting Specification
+## 7. Assertion Pattern
 
-### 7.1 Telemetry Framework Integration
-
-Use the current `tests/common/telemetry/` framework (preferred over the legacy
-`test_reporting/telemetry/`). It supports both time-series (OTLP) and DB export.
-
-```python
-PFC_METRICS = {
-    "pfc.lossless.status":          "PASS/FAIL for lossless pause verification",
-    "pfc.lossy.status":             "PASS/FAIL for lossy isolation verification",
-    "pfc.lossless.rx_rate_bps":     "Measured Rx rate for a paused priority (should be 0)",
-    "pfc.lossy.packet_loss_pct":    "Packet loss % for lossy traffic (should be 0)",
-    "pfc.resume_latency_us":        "Microseconds from un-pause to first packet received",
-    "pfc.counter.rx_pfc":           "DUT Rx PFC frame count per priority",
-    "pfc.counter.tx_pfc":           "DUT Tx PFC frame count per priority",
-    "pfc.headroom.utilization_pct": "Headroom buffer utilization %",
-}
-
-PFC_LABELS = {
-    METRIC_LABEL_DEVICE_ID:       "DUT hostname",
-    METRIC_LABEL_DEVICE_PORT_ID:  "Ethernet port name",
-    METRIC_LABEL_DEVICE_QUEUE_ID: "Priority queue number (0-7)",
-    "test.traffic_type":          "lossless | lossy",
-    "test.link_speed":            "100G | 400G | 800G",
-    "test.packet_size":           "64 | 512 | 1518 | 9216 | imix",
-}
-```
-
-Example of recording a per-port status metric:
-
-```python
-reporter = DBReporter(...)
-status = GaugeMetric(
-    name="pfc.lossless.status",
-    description="Lossless pause verification result",
-    unit="bool",
-    reporter=reporter,
-)
-status.record(
-    labels={
-        METRIC_LABEL_DEVICE_ID: duthost.hostname,
-        METRIC_LABEL_DEVICE_PORT_ID: port,
-        METRIC_LABEL_DEVICE_QUEUE_ID: priority,
-        "test.traffic_type": "lossless",
-        "test.link_speed": speed,
-    },
-    value=1 if passed else 0,
-)
-```
-
-### 7.2 Assertion Pattern
-
-Per reviewer mandate, every test fails with **detailed, actionable logs** — not just
-a silent metric. The metric is recorded *in addition to* a hard assertion:
+Every test fails with **detailed, actionable logs** - not just a silent metric. The metric is recorded *in addition to* a hard assertion:
 
 ```python
 def assert_pfc_lossless_paused(port, priority, rx_rate, pfc_counters, config):
@@ -375,46 +302,15 @@ def assert_pfc_lossless_paused(port, priority, rx_rate, pfc_counters, config):
     ))
 ```
 
-## 8. Key Engineering Decisions
 
-| Decision              | Choice                                       | Rationale                                          |
-|-----------------------|----------------------------------------------|----------------------------------------------------|
-| Traffic generator     | Snappi                                       | Open-source, CI-friendly, actively maintained      |
-| Test framework        | pytest + Snappi fixtures                      | Existing sonic-mgmt standard                       |
-| Telemetry             | `tests/common/telemetry/`                    | Newer; supports OTLP + DB export                   |
-| PFC rate calculation  | Dynamic per link speed                       | Supports 100G/400G/800G without hardcoding         |
-| Port iteration        | Parametrized over all ports                  | AI clusters use every port; one-port tests are insufficient |
-| Teardown              | `yield` fixture, `autouse=True`              | Guarantees cleanup even on assertion failure       |
-| Pass/fail threshold   | Lossy: exactly 0% loss; Lossless: exactly 0 bps Rx | Zero-tolerance for AI workloads              |
-| PFC Watchdog          | Test both states                             | Production runs with WD ON; interaction must be verified |
-| Document split        | 3 files (common + lossless + lossy)          | Reviewer mandate; easier to maintain               |
-| Math rendering        | Plain text formulas                          | LaTeX `$$` does not render on GitHub               |
+## 8. Limitations
 
-## 9. Scope Boundaries
-
-To keep these plans focused, the following are **explicitly out of scope** and live
-elsewhere:
-
-- PFC Watchdog standalone tests — see `tests/pfcwd/`. Here we only test PFC/WD
-  **interaction**.
-- MACSEC + PFC — see [PFC_Snappi_Additional_Testcases.md](PFC_Snappi_Additional_Testcases.md).
-- Port-channel PFC behavior — separate concern, separate plan.
-- Buffer tuning/optimization — a configuration guide, not a test plan.
-- Performance benchmarking beyond pass/fail — separate perf suite.
-- SAI-level PFC tests — see `tests/saitests/`.
-
-## 10. Known Limitations & Future Work
-
-- PFC pause-frame validation requires single-tier (or T0-proxy) topology; pure T1
-  validation is not possible due to the reserved destination MAC.
 - Deadlock (L10) and link-flap (L11) cases depend on generator and platform
   capabilities; they are marked P2 and may be skipped on unsupported platforms.
 - Absolute 0% thresholds may need a small, explicitly-documented tolerance on some
   hardware; any tolerance must be justified in the test, not silently widened.
-- These plans describe **what to verify**. The corresponding pytest implementation
-  is delivered in a follow-up code change.
 
-## 11. References
+## 9. References
 
 - [PFC_lossless_test_plan.md](PFC_lossless_test_plan.md)
 - [PFC_lossy_test_plan.md](PFC_lossy_test_plan.md)
