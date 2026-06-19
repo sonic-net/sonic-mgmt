@@ -3053,7 +3053,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3134,7 +3134,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3228,7 +3228,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
