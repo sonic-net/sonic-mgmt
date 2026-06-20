@@ -2413,6 +2413,12 @@ fib/test_fib.py::test_ipinip_hash_negative[ipv4:
     conditions:
       - "'-v6-' in topo_name"
 
+fib/test_fib.py::test_ipinip_hash_negative[ipv6:
+  skip:
+    reason: "Nokia physical platforms do not forward IPv4 packets with IP protocol 41 (IPv6-in-IPv4). On non-v6 topologies the test sends IPv4-outer/IPv6-inner (protocol 41) which Nokia TH6 drops."
+    conditions:
+      - "'nokia' in platform"
+
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M* and cisco-8122, cisco-8223 platforms. Skip on t1-isolated-d32/128 topos'
