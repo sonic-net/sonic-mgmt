@@ -1003,20 +1003,3 @@ class MultiAsicSonicHost(object):
 
         bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
         return bgp_confed_asn
-
-    def get_bgp_confed_peer_asn(self):
-
-        if self.sonichost.is_multi_asic:
-            asic = self.frontend_asics[0]
-            config_facts = asic.config_facts(
-                host=self.hostname, source="running", namespace=asic.namespace
-            )['ansible_facts']
-        else:
-            config_facts = self.sonichost.config_facts(
-                host=self.hostname, source="running"
-            )['ansible_facts']
-
-        bgp_peers = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('peers', "")
-        # split bgp_peers string into list
-        peer_asns = bgp_peers.split(",") if bgp_peers else []
-        return peer_asns

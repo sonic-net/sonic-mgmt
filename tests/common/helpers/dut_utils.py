@@ -20,6 +20,8 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -128,7 +130,8 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
-def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds=30, verify_timeout=180):
+def restart_service_with_startlimit_guard(duthost, service_name, is_namespaced=False,
+                                          backoff_seconds=30, verify_timeout=180):
     """
     Restart a systemd-managed service with StartLimitHit guard.
 
@@ -143,6 +146,13 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
 
     Returns: True when the service is (re)started and running; asserts on failure.
     """
+
+    if is_namespaced:
+        # just check first namespaced instance
+        container_name = "{}0".format(service_name)
+        service_name = "{}@0".format(service_name)
+    else:
+        container_name = service_name
 
     # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
     pre_rate_limited = is_hitting_start_limit(duthost, service_name)
@@ -168,7 +178,7 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
         rate_limited = True
 
     # 2/3) Recovery path: reset-failed + backoff + start if needed
-    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, container_name):
         duthost.shell(
             f"sudo systemctl reset-failed {service_name}.service",
             module_ignore_errors=True
@@ -179,8 +189,8 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
             module_ignore_errors=True
         )
         pytest_assert(
-            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
-            f"{service_name} container did not become running after recovery start"
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, container_name, True),
+            f"{container_name} container did not become running after recovery start"
         )
 
     return True
@@ -608,25 +618,23 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    host = None
     for attempt in range(1, 4):
         try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type],
-                               console_device=console_device)
-            break
+            return ConsoleHost(
+                console_type=console_type,
+                console_host=console_host,
+                console_port=console_port,
+                sonic_username=creds["sonicadmin_user"],
+                sonic_password=sonic_password,
+                console_username=console_username,
+                console_password=creds["console_password"][console_type],
+                console_device=console_device,
+            )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-    return host
 
 
 def creds_on_dut(duthost):
@@ -877,6 +885,21 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def get_random_reload_type(duthost):
+    """
+    Get a random reload type from the list of reload types
+    :param duthost: duthost object
+    :return: a random reload type
+    """
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    reboot_type = random.choice(reload_types)
+    logger.info(f"Selected reload type: {reboot_type}")
+    return reboot_type
 
 
 def migrate_container_systemd(duthost, service, parameters):

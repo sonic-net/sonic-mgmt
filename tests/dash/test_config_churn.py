@@ -1,3 +1,4 @@
+# flake8: noqa: E231
 import logging
 import time
 
@@ -8,6 +9,7 @@ from dash_api.route_type_pb2 import RoutingType
 from gnmi_utils import apply_messages
 
 from tests.common import config_reload
+from tests.common.dash_utils import apply_dash_configs
 from tests.common.helpers.assertions import pytest_assert
 from tests.dash.sairedis_utils import (get_sairedis_line_count,
                                        parse_sairedis_changes)
@@ -33,44 +35,37 @@ def common_setup_teardown(
         yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
-
-    base_config_messages = {
-        **pl.APPLIANCE_FNIC_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.ROUTING_TYPE_VNET_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-    }
-    logger.info(base_config_messages)
-
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-    route_and_mapping_messages = {
-        **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_VNET_MAPPING_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG,
-    }
-    logger.info(route_and_mapping_messages)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
 
     # inbound routing not implemented in Pensando SAI yet, so skip route rule programming
+    route_rule_configs = []
     if "pensando" not in dpuhost.facts["asic_type"]:
-        route_rule_messages = {
-            **pl.VM_VNI_ROUTE_RULE_CONFIG,
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-            **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG,
-        }
-        logger.info(route_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
+        route_rule_configs = [
+            pl.VM_VNI_ROUTE_RULE_CONFIG,
+            pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+            pl.TRUSTED_VNI_ROUTE_RULE_CONFIG,
+        ]
 
-    logger.info(pl.ENI_FNIC_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    # ``apply_dash_configs`` buckets entries by DASH table name and applies
+    # them in dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
+    # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/OUTBOUND_PORT_MAP/VNET) ->
+    # GROUP_3 (METER_RULE) -> GROUP_4 (TUNNEL/OUTBOUND_PORT_MAP_RANGE/ENI/ROUTE_GROUP) ->
+    # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+    apply_dash_configs(
+        localhost, duthost, ptfhost, dpuhost.dpu_index,
+        pl.APPLIANCE_FNIC_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.ROUTING_TYPE_VNET_CONFIG,
+        pl.VNET_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        pl.PE_VNET_MAPPING_CONFIG,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_VNET_MAPPING_CONFIG,
+        pl.VM_SUBNET_ROUTE_CONFIG,
+        *route_rule_configs,
+        pl.ENI_FNIC_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG,
+    )
 
     yield
 
@@ -99,7 +94,7 @@ def test_route_bind_churn(localhost, duthost, ptfhost, dpuhosts, dpu_index):
     pe_subnet_route_group2_config = {
         f"DASH_ROUTE_TABLE:{pl.ROUTE_GROUP2}:{pl.PE_CA_SUBNET}": {
             "routing_type": RoutingType.ROUTING_TYPE_VNET,
-            "vnet": pl.VNET2,
+            "vnet": pl.VNET1,
             "metering_class_or": "2048",
             "metering_class_and": "4095",
         }
@@ -273,15 +268,24 @@ def test_vnet_churn(localhost, duthost, ptfhost, dpuhosts, dpu_index):
         **pl.VM_SUBNET_ROUTE_CONFIG,
     }
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, pl.ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
+    apply_messages(localhost, duthost, ptfhost, pl.METER_POLICY_V4_CONFIG, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, pl.VNET_CONFIG, dpuhost.dpu_index, False)
 
     time.sleep(2)
 
     new_vni = "3001"
     vnet_config_v2 = {f"DASH_VNET_TABLE:{pl.VNET1}": {"vni": new_vni, "guid": pl.VNET1_GUID}}
+    eni_fnic_config_v2 = dict(pl.ENI_FNIC_CONFIG)  # deep copy to avoid modifying the original
+    eni_key = list(eni_fnic_config_v2.keys())[0]
+    # Update pl_sip_encoding to reflect the new VNI of 3001
+    eni_fnic_config_v2[eni_key]["pl_sip_encoding"] = f"::b90b:64:ff71:0:0/{pl.PL_ENCODING_MASK}"
+
     apply_messages(localhost, duthost, ptfhost, vnet_config_v2, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.METER_POLICY_V4_CONFIG, dpuhost.dpu_index)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, eni_fnic_config_v2, dpuhost.dpu_index)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     time.sleep(2)

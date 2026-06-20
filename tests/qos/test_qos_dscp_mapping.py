@@ -24,7 +24,8 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1')
+    pytest.mark.topology('t0', 't1'),
+    pytest.mark.disable_memory_utilization
 ]
 
 DEFAULT_MAPPING_TYPE = "AZURE"
@@ -380,10 +381,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
         def check_ip_route(duthost, step):
-            ip_route_list = [INNER_DST_IP_PREFIX + str(i + 1) + '/32' for i in range(step)]
-            for i in range(step):
-                route = duthost.shell(f"show ip route {ip_route_list[i]}")["stdout"]
-                if ip_route_list[i] not in route:
+            ip_route_list = [f"{INNER_DST_IP_PREFIX}{i}/32" for i in range(1, step)]
+            for route in ip_route_list:
+                output = duthost.shell(f"show ip route {route}")["stdout"]
+                if route not in output:
                     return False
             return True
 
@@ -559,7 +560,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
-                       wait_warmboot_finalizer=True)
+                       wait_warmboot_finalizer=True, ignore_loganalyzer=loganalyzer)
 
             with allure.step("Run test after warm-reboot"):
                 self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module,

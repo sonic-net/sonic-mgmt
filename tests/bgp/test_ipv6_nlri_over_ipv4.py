@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
@@ -27,11 +27,11 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
-    if neighbor_type not in ["sonic", "eos"]:
+    if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))
 
     is_sonic_neigh = True
-    if neighbor_type != "sonic":
+    if neighbor_type not in ("sonic", "csonic"):
         is_sonic_neigh = False
 
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -87,10 +87,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     neigh_bgp_config = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']
     peer_in_bgp_confed = neigh_bgp_config.get('peer_in_bgp_confed', False)
-    if peer_in_bgp_confed:
-        dut_asn = int(confed_asn)
-    else:
-        dut_asn = int(dut_asn)
+    dut_asn = int(confed_asn) if peer_in_bgp_confed else int(dut_asn)
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1].lower()
 
