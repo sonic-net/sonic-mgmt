@@ -309,6 +309,9 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
     if testcase == "lacp_rate":
         if request.config.getoption("--neighbor_type") == 'sonic':
             pytest.skip("lacp_rate is not supported in vsonic")
+        # Skip lacp_rate on Nokia physical platforms — Nokia hardware does not honor LACP short-timeout
+        if any('nokia' in dut.facts.get('platform', '').lower() for dut in duthosts):
+            pytest.skip("lacp_rate is not supported on Nokia physical platforms")
 
     ptfhost = common_setup_teardown
 
