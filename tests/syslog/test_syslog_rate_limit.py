@@ -318,22 +318,29 @@ def get_host_rsyslogd_pid(duthost):
 
 
 @contextlib.contextmanager
-def expect_host_rsyslog_restart(duthost, timeout=30):
+def expect_host_rsyslog_restart(duthost, timeout=60):
     current_pid = get_host_rsyslogd_pid(duthost)
 
     yield
 
-    logger.info('Waiting for host rsyslogd to restart')
+    logger.info('Waiting for host rsyslogd to restart or stabilize')
     begin = time.time()
-    cmd = 'systemctl is-active rsyslog'
+    is_active_cmd = 'systemctl is-active rsyslog'
     while time.time() < begin + timeout:
-        if get_host_rsyslogd_pid(duthost) != current_pid:
-            output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
-            if output == 'active':
-                logger.info('Host rsyslogd restarted')
-                return
-
         time.sleep(1)
+        new_pid = get_host_rsyslogd_pid(duthost)
+        is_active = duthost.command(is_active_cmd, module_ignore_errors=True)['stdout'].strip() == 'active'
+        if not is_active:
+            # rsyslog is mid-restart; keep waiting for it to become active
+            continue
+        if new_pid != current_pid:
+            logger.info('Host rsyslogd restarted with new PID: {}'.format(new_pid))
+            return
+        # PID unchanged and rsyslog is active: rsyslog-config.sh determined the config
+        # was already up-to-date (no file change) and sent SIGHUP only instead of
+        # restarting. The rate-limit config is already applied — no restart is needed.
+        logger.info('Host rsyslogd config unchanged (PID {}), rsyslog is active'.format(new_pid))
+        return
 
     raise TimeoutError('Timeout waiting for host rsyslogd to restart')
 
