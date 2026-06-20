@@ -239,8 +239,13 @@ class TestPfcwdAllPortStorm(object):
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             timeout = max(60, num_ports * 3)
             # LT2/FT2 topologies need at least 120s because the traffic generator
-            # takes longer to spin up on those setups.
-            if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
+            # takes longer to spin up on those setups. Single-node VoQ (ut2)
+            # topologies share the same slow spin-up but classify as topo type
+            # "t2"; identify them by an "Upper" dut_type (UpperSpineRouter,
+            # UpperRegionalHub) and extend their timeout too.
+            dut_type = tbinfo['topo'].get('properties', {}) \
+                .get('configuration_properties', {}).get('common', {}).get('dut_type', '') if tbinfo else ''
+            if tbinfo and (tbinfo['topo']['type'] in ["lt2", "ft2"] or dut_type.startswith('Upper')):
                 timeout = max(timeout, 120)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
