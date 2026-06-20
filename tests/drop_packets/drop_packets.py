@@ -51,14 +51,22 @@ def sai_acl_drop_adj_enabled(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     counted as RX_DRP (in certain test cases), if it is enabled we need to
     skip checking the drop counters for certain test cases
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
     # Since Broadcom DNX platform does not have the soc property (sai_adjust_acl_drop_in_rx_drop)
     # implemented yet, skipping drop count validation for now
     if setup.get("platform_asic") == "broadcom-dnx":
         return True
 
+    # Nokia physical hardware uses a Broadcom ASIC with Nokia SAI. The per-port
+    # RX_DRP counter on LAG member ports is not fully incremented for broken IP
+    # header packets (bad IP version, bad checksum) — the drop count is
+    # unpredictable. Skip counter check validation for Nokia platforms.
+    if 'nokia' in duthost.facts.get('platform', '').lower():
+        return True
+
     check_cmd = "which bcmcmd > /dev/null && bcmcmd 'config show' | grep 'sai_adjust_acl_drop_in_rx_drop=1'"
     try:
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.shell(check_cmd)
     except RunAnsibleModuleFail:
         # If the above command fails, we can assume that either
