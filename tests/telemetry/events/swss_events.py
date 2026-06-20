@@ -40,7 +40,12 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
              "if_state.json", "sonic-events-swss:if-state", tag)
 
     asic_type = duthost.facts["asic_type"]
-    if asic_type == "mellanox":
+    hwsku = duthost.facts["hwsku"]
+    if 'nokia' in hwsku.lower():
+        # Check Nokia by HWSKU first: Nokia physical devices report asic_type="broadcom"
+        # because the underlying chip vendor is Broadcom, so asic_type alone is insufficient.
+        skip_pfc_hwskus = NOKIA_NO_QOS_HWSKUS
+    elif asic_type == "mellanox":
         skip_pfc_hwskus = [*MELLANOX_LOSSY_ONLY_HWSKUS, *MELLANOX_NO_QOS_HWSKUS]
     elif asic_type == "broadcom":
         skip_pfc_hwskus = [*BROADCOM_LOSSY_ONLY_HWSKUS, *BROADCOM_NO_QOS_HWSKUS]
