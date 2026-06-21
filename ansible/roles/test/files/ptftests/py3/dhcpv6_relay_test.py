@@ -449,16 +449,18 @@ class DHCPTest(DataplaneBaseTest):
         self.server_send_reply_relay_reply()
         self.verify_relayed_reply()
 
-        # This step explicitly tests the RFC 8415 section 19.3 relay-to-relay
-        # return path. It is not the normal t0/m0/mx first-hop client/server
-        # exchange; the regular path above uses an end-client link-local peer.
-        # For the nested case, PTF simulates a downstream Relay A with a GUA on
-        # the VLAN subnet. The outer Relay-Reply therefore uses linkaddr=:: and
-        # peeraddr=<Relay A GUA>, matching the relay-to-relay model implemented
-        # by dhcp6relay and validated by dhcpmon. The mgmt test configures PTF's
-        # arp_responder for that GUA before invoking this PTF test so DUT Relay B
-        # can resolve and forward to the simulated Relay A. A link-local
-        # relay-to-relay hop is theoretically allowed by RFC8415, but our current
-        # SONiC topologies and dhcpmon/dhcp6relay profiles assume the GUA path.
+        # Relay-to-relay topology: Client -> Relay A (PTF) -> Relay B (DUT) -> Server.
+        # This explicitly tests the RFC 8415 section 19.3 return path, not the
+        # normal t0/m0/mx first-hop exchange; the regular path above uses an
+        # end-client link-local peer. PTF simulates downstream Relay A with a GUA,
+        # so the outer Relay-Reply uses linkaddr=:: and peeraddr=<Relay A GUA>,
+        # matching the relay-to-relay model implemented by dhcp6relay and validated
+        # by dhcpmon. The mgmt test configures PTF's arp_responder so DUT Relay B
+        # can resolve Relay A. A link-local relay-to-relay hop is allowed by
+        # RFC8415, but current SONiC dhcp6relay/dhcpmon profiles assume GUA. They
+        # also assume first-hop downstream VLANs, which is fundamentally incompatible
+        # with making the DUT a second-or-later relay; this only models GUA return.
+        # This is a hypothetical test; there is no current SONiC topology where
+        # we use the DUT this way.
         self.server_send_relay_relay_reply()
         self.verify_relay_relay_reply()

@@ -42,24 +42,6 @@ logger = logging.getLogger(__name__)
 DHCPV6_RELAY_ARP_RESPONDER_CONF = "/tmp/dhcpv6_downstream_relay_arp_responder.json"
 
 
-def get_downstream_relay_ip(dhcp_relay):
-    return str(ipaddress.ip_address(str(dhcp_relay['downlink_vlan_iface']['addr'])) + 1)
-
-
-def setup_downstream_relay_responder(ptfhost, duthost, dhcp_relay, downstream_relay_ip):
-    # For the nested Relay-Reply case, the DUT forwards the inner Relay-Reply to
-    # the outer peer-address. That peer is a simulated downstream Relay A GUA on
-    # the PTF client-facing port, so configure arp_responder to answer IPv6 NDP
-    # for that GUA using the common PTF reachability helper.
-    setup_ptf_ip_responder(
-        duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF,
-        [(downstream_relay_ip, dhcp_relay['downlink_vlan_iface']['name'], dhcp_relay['client_iface']['port_idx'])])
-
-
-def teardown_downstream_relay_responder(ptfhost, duthost):
-    teardown_ptf_ip_responder(duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF)
-
-
 def wait_all_bgp_up(duthost):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
@@ -533,8 +515,14 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
             time.sleep(5)  # wait for dhcpmon to initialize
             init_dhcpmon_counters(duthost, is_v6=True)
 
-            downstream_relay_ip = get_downstream_relay_ip(dhcp_relay)
-            setup_downstream_relay_responder(ptfhost, duthost, dhcp_relay, downstream_relay_ip)
+            # Relay A's GUA is arbitrary and outside the DUT VLAN prefix; the
+            # responder helper must install a route so DUT Relay B can resolve it.
+            downstream_relay_ip = "fc02:ffff::1"
+            downlink_vlan = dhcp_relay['downlink_vlan_iface']['name']
+            downstream_relay_responder = [
+                (downstream_relay_ip, downlink_vlan, dhcp_relay['client_iface']['port_idx'])]
+            setup_ptf_ip_responder(
+                duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF, downstream_relay_responder, route=True)
 
             # Run the DHCP relay test on the PTF host
             try:
@@ -557,7 +545,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                    "is_dualtor": str(dhcp_relay['is_dualtor'])},
                            log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
             finally:
-                teardown_downstream_relay_responder(ptfhost, duthost)
+                teardown_ptf_ip_responder(
+                    duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF, downstream_relay_responder, route=True)
 
             expected_downlink_counter, expected_uplink_counter = \
                 get_dhcptest_expected_counters(dhcp_server_num)
