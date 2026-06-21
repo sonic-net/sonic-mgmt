@@ -608,6 +608,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     iptables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
     ip6tables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
 
+    # Allow BFD single-hop and multi-hop sessions programmed by caclmgrd.
+    iptables_rules.append("-A INPUT ! -i eth0 -p udp -m multiport --dports 3784,4784 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT ! -i eth0 -p udp -m multiport --dports 3784,4784 -j ACCEPT")
+
     extra_rule_branches = ['201911', '202012', '202111']
     if any(branch in duthost.os_version for branch in extra_rule_branches):
         iptables_rules.append("-A INPUT -p tcp -m tcp --sport 179 -j ACCEPT")
