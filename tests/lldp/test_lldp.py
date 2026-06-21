@@ -140,6 +140,14 @@ def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interfa
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_rand_one_frontend_asic_index, tbinfo, request):
     """ verify LLDP information on neighbors """
+    # cSONiC (docker-sonic-vs) neighbors do not run an SNMP agent (no snmpd /
+    # FEATURE|snmp), and the neighbor advertises an IPv6 mgmt-ip that Ansible's
+    # lldp_facts (pysnmp, IPv4/UDP transport only) cannot query. The neighbor-side
+    # LLDP verification below relies on SNMP, so skip it for cSONiC neighbors. The
+    # DUT-side LLDP coverage (test_lldp / test_lldp_interfaces) still runs.
+    if request.config.getoption("--neighbor_type") == 'csonic':
+        pytest.skip("SNMP not served on docker-sonic-vs (cSONiC) neighbor; "
+                    "neighbor-side LLDP-over-SNMP verification is not applicable")
     asic = enum_rand_one_frontend_asic_index
 
     res = duthost.shell(
