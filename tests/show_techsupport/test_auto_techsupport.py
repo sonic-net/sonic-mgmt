@@ -1308,8 +1308,8 @@ def clear_folders(duthost):
     :param duthost: duthost object
     """
     # print into logs folders content(for debug purpose) before remove
-    duthost.shell('sudo ls -lh /var/core/')
-    duthost.shell('sudo ls -lh /var/dump/')
+    duthost.shell('sudo ls -lh /var/core/', module_ignore_errors=True)
+    duthost.shell('sudo ls -lh /var/dump/', module_ignore_errors=True)
 
     duthost.shell('sudo rm -rf /var/core/*')
     duthost.shell('sudo rm -rf /var/dump/*')
