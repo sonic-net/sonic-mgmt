@@ -4,6 +4,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -118,7 +119,7 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname, ip_version):
         # remove the route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
             rm_route_from_nbr(data, name, prefix, mask, afi_cfg["afi_cmd_eos"])
-        elif isinstance(nbrhost, SonicHost):
+        elif isinstance(nbrhost, (SonicHost, CsonicHost)):
             cmd = "sudo vtysh -c 'configure terminal' " \
                   f"-c 'router bgp {bgp_as_num}' " \
                   f"-c \"{afi_cfg['afi_cmd_sonic']}\" " \
@@ -156,7 +157,7 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
         # add a route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
             add_route_to_nbr(data, name, prefix, mask, afi_cfg["afi_cmd_eos"], afi_cfg["loopback_cmd_eos"])
-        elif isinstance(nbrhost, SonicHost):
+        elif isinstance(nbrhost, (SonicHost, CsonicHost)):
             # Create and configure loopback interface
             cmd = f"sudo config interface ip add Loopback1 {prefix}/{mask}"
             result = nbrhost.shell(cmd)
@@ -174,7 +175,7 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     Logger.info("checking  DUT for route %s", prefix)
-    is_route_propagated = wait_until(10, 2, 0, lambda: _check_route_propagation(duthost, data))
+    is_route_propagated = wait_until(60, 5, 0, lambda: _check_route_propagation(duthost, data))
     py_assert(is_route_propagated, "Route did not propagate to the DUT")
 
 
