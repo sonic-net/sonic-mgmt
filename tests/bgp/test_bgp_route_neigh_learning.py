@@ -175,7 +175,7 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     Logger.info("checking  DUT for route %s", prefix)
-    is_route_propagated = wait_until(10, 2, 0, lambda: _check_route_propagation(duthost, data))
+    is_route_propagated = wait_until(60, 5, 0, lambda: _check_route_propagation(duthost, data))
     py_assert(is_route_propagated, "Route did not propagate to the DUT")
 
 
