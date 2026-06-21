@@ -7,6 +7,13 @@ import ptf.packet as packet
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.assertions import pytest_assert
 from ptf.mask import Mask
+# On dualtor, the upstream IP-in-IP packet from PTF is handled by the active ToR for the
+# server-facing mux port. These fixtures force the randomly selected ToR (the one this test
+# configures the VNET tunnel/route on) to be the active side, so the packet is processed by
+# the configured ToR. They are no-ops on non-dualtor topologies and for the irrelevant cable
+# type, so t0/t1 behavior is unchanged.
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor  # noqa: F401
 
 
 pytestmark = [
@@ -56,13 +63,13 @@ def outer_ip_version(request):
 
 
 @pytest.fixture
-def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, outer_ip_version):
+def setup(request, duthosts, rand_selected_dut, tbinfo, inner_ip_version, outer_ip_version):
     """
     Creates a VXLAN tunnel, a VNET, and one VNET route (with a single endpoint). Also finds an appropriate
     Ethernet port for sending the IP-in-IP packet to the DUT.
     Yields test configuration and data.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = rand_selected_dut
     asic_type = duthost.facts["asic_type"]
     if asic_type not in ["cisco-8000", "mellanox"]:
         pytest.skip("The VNET decap test will only run on Cisco-8000 and Mellanox ASICs.")
@@ -235,7 +242,9 @@ def extract_inner_ip_pkt(outer_pkt, inner_ip_version, outer_ip_version):
         return packet.IPv6(outer_pkt_bytes[outer_ip_header_size:])
 
 
-def test_vnet_decap(setup, ptfadapter):
+def test_vnet_decap(setup, ptfadapter,
+                    toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                    setup_standby_ports_on_rand_unselected_tor):        # noqa: F811
     """
     We send an IP-in-IP packet to the DUT:
         Outer IP packet is from an arbitrary address to the VXLAN tunnel's src IP.
