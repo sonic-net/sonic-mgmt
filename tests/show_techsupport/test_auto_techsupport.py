@@ -6,6 +6,7 @@ import random
 import copy
 import os
 import re
+from decimal import Decimal
 
 from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
@@ -32,9 +33,9 @@ max_limit_test_modes_list = ['techsupport', 'core']
 DEFAULT_STATE = 'enabled'
 DEFAULT_RATE_LIMIT_GLOBAL = 180
 DEFAULT_RATE_LIMIT_FEATURE = 600
-DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
+DEFAULT_MAX_TECHSUPPORT_LIMIT = 10.0
 DEFAULT_AVAILABLE_MEM_THRESHOLD = 10.0
-DEFAULT_MAX_CORE_LIMIT = 5
+DEFAULT_MAX_CORE_LIMIT = 5.0
 DEFAULT_SINCE = '2 days ago'
 
 KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
@@ -863,14 +864,18 @@ def validate_auto_techsupport_global_config(dut_cli, state=None, rate_limit_inte
             assert str(current_rate_limit_interval) == str(rate_limit_interval), \
                 'Wrong configuration for rate_limit_interval: {} expected: {}'.format(current_rate_limit_interval,
                                                                                       rate_limit_interval)
+    # max_techsupport_limit / max_core_size are decimal64; `show auto-techsupport global`
+    # renders them via tabulate's default floatfmt="g", which drops trailing zeros
+    # ("10.0" -> "10"). Compare as Decimal so a display-only format difference does not
+    # fail the assertion.
     if max_techsupport_limit:
         with allure.step('Checking global max techsupport limit'):
-            assert str(current_max_techsupport_limit) == str(max_techsupport_limit), \
+            assert Decimal(str(current_max_techsupport_limit)) == Decimal(str(max_techsupport_limit)), \
                 'Wrong configuration for max_techsupport_limit: {} expected: {}'.format(current_max_techsupport_limit,
                                                                                         max_techsupport_limit)
     if max_core_size:
         with allure.step('Checking global max core size'):
-            assert str(current_max_core_size) == str(max_core_size), \
+            assert Decimal(str(current_max_core_size)) == Decimal(str(max_core_size)), \
                 'Wrong configuration for max_core_size: {} expected: {}'.format(current_max_core_size, max_core_size)
     if since:
         with allure.step('Checking global since'):
