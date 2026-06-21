@@ -20,7 +20,16 @@ CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
-    if neighbor_type in ("sonic", "csonic"):
+    if neighbor_type == "csonic":
+        # cSONiC (docker-sonic-vs) neighbors: the `show ip[ v6] bgp neighbors`
+        # click CLI wrapper is not reliably available, so query FRR directly via
+        # vtysh. The vtysh output uses the same
+        # "BGP version 4, remote router ID <x>" line that the regex below expects.
+        if is_v6_topo:
+            cmd = "vtysh -c \"show bgp ipv6 neighbor {}\"".format(localip)
+        else:
+            cmd = "vtysh -c \"show ip bgp neighbor {}\"".format(localip)
+    elif neighbor_type == "sonic":
         if is_v6_topo:
             cmd = "show ipv6 bgp neighbors {}".format(localip)
         else:
