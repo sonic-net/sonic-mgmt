@@ -67,6 +67,17 @@ def wait_all_bgp_up(duthost):
         pytest.fail("not all bgp sessions are up after config change")
 
 
+def skip_dhcpv6_dhcptest_on_kvm(duthost):
+    # DHCPTest wrappers never passed kvm_support=True, so ptf_runner already
+    # skipped them on KVM/VS. Keep that behavior explicit now that these
+    # wrappers validate dhcpmon counters after the PTF run.
+    if (
+        duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0"
+        and duthost.facts.get("asic_type") != "vpp"
+    ):
+        pytest.skip("dhcpv6_relay_test.DHCPTest is not supported on KVM non-VPP DUTs")
+
+
 def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
     # new counter table
     # sonic-db-cli STATE_DB hgetall 'DHCPv6_COUNTER_TABLE|Vlan1000'
@@ -512,6 +523,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
     """
     _, duthost = testing_config
 
+    skip_dhcpv6_dhcptest_on_kvm(duthost)
+
     # Please note: relay interface always means vlan interface
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -565,6 +578,8 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
        then test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost = testing_config
+
+    skip_dhcpv6_dhcptest_on_kvm(duthost)
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -626,6 +641,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
        relays packets properly.
     """
     testing_mode, duthost = testing_config
+
+    skip_dhcpv6_dhcptest_on_kvm(duthost)
 
     try:
         for dhcp_relay in dut_dhcp_relay_data:
@@ -708,6 +725,7 @@ class TestDhcpv6RelayWithMultipleVlan:
         '''
         vlans_info = setup_multiple_vlans_and_teardown
         _, duthost = testing_config
+        skip_dhcpv6_dhcptest_on_kvm(duthost)
         # Please note: relay interface always means vlan interface
         pytest_assert(len(dut_dhcp_relay_data) > 0, "No VLAN data")
         common_dhcp_relay_data = dut_dhcp_relay_data[0]
