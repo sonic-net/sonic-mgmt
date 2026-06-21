@@ -235,6 +235,8 @@ def extract_inner_ip_pkt(outer_pkt, inner_ip_version, outer_ip_version):
         return packet.IPv6(outer_pkt_bytes[outer_ip_header_size:])
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 def test_vnet_decap(setup, ptfadapter):
     """
     We send an IP-in-IP packet to the DUT:
