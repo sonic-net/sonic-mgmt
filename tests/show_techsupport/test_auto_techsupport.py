@@ -112,11 +112,11 @@ class TestAutoTechSupport:
         self.duthost = duthosts[rand_one_dut_hostname]
         tmp_path = '/tmp/core_cleanup'
         cron_d_path = '/etc/cron.d/core_cleanup'
-        self.duthost.shell('sudo mv {} {}'.format(cron_d_path, tmp_path))
+        self.duthost.shell('sudo mv {} {}'.format(cron_d_path, tmp_path), module_ignore_errors=True)
 
         yield
 
-        self.duthost.shell('sudo mv {} {}'.format(tmp_path, cron_d_path))
+        self.duthost.shell('sudo mv {} {}'.format(tmp_path, cron_d_path), module_ignore_errors=True)
 
     @pytest.fixture()
     def global_rate_limit_zero(self):
