@@ -130,7 +130,7 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
 
 
 @pytest.fixture(scope="function")
-def config_reload_on_cleanup(request, nbrhosts, duthost):
+def config_reload_on_cleanup(request, nbrhosts, duthost, loganalyzer):
     if request.config.getoption("enable_macsec"):
         pytest.skip("Skip for now, since config reload will disable macsec for future test cases")
 
@@ -138,7 +138,7 @@ def config_reload_on_cleanup(request, nbrhosts, duthost):
 
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].command("sudo config reload -y")
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
 
 
 def log_lacpdu_packets(duthost, save_path):
