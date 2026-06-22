@@ -27,30 +27,14 @@ Before executing the DOM tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
+- `dom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test (see [Attributes](#attributes) for the shard layout)
+- DOM monitoring is enabled in CONFIG_DB for all relevant ports under test (verified once at session start — see [Common Test Setup and Teardown](#common-test-setup-and-teardown))
 
-### Environment Validation
-
-Before starting tests, verify the following system conditions:
-
-1. **System Health Check**
-   - All critical services are running (xcvrd, pmon, swss, syncd) for at least 5 minutes
-   - No existing system errors in logs (specific error patterns can be added here)
-
-2. **Transceiver Baseline Verification**
-   - All expected transceivers are present and detected
-   - All links are in operational state
-   - No existing I2C communication errors
-   - LLDP neighbors are discovered (if LLDP is enabled)
-
-3. **Configuration Validation**
-   - `dom.json` configuration file is properly formatted and accessible
-   - All required attributes are defined for the transceivers under test
-   - Platform-specific settings are correctly configured
-   - DOM monitoring config is enabled for all relevant ports under test
+System health (running daemons, fresh logs) and transceiver baseline (presence, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates DOM consumes.
 
 ## Attributes
 
-A `dom.json` file is used to define the attributes for the DOM tests for the various types of transceivers the system supports.
+A `dom.json` file is used to define the attributes for the DOM tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/dom/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
 **Note on Operational vs. Threshold Ranges:** The DOM test framework uses dual-range validation to provide more nuanced testing. Realistic operational ranges represent the expected values during normal, healthy operation in typical data center environments. These ranges are tighter than the absolute EEPROM threshold ranges and help distinguish between normal operation and edge cases that, while within specification, may indicate environmental stress, aging components, or suboptimal conditions. This approach enables early detection of potential issues before they trigger formal alarms, providing better system health monitoring and preventive maintenance capabilities.
 
@@ -88,45 +72,44 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 
 **Post-test deviation rule:** For tests that restore a port to steady-state operation, the test captures a baseline DOM reading before the disruptive operation and a post-test reading after recovery. For each configured `_deviation_range` attribute, compute `difference = post-test value − baseline value` and verify `min <= difference <= max`. The baseline is the first reading recorded at the start of the test (or the average of multiple pre-test readings if the test collects them). The check applies only to attributes that are present in the configuration. Lane-based entries such as TX bias and TX/RX power use the `LANE_NUM` expansion and are validated per lane. The test fails if any enabled field's deviation falls outside its configured range.
 
-## Example `dom.json` File
+## Example `dom` Category Shards
 
-The following example demonstrates a complete `dom.json` file focusing on `temperature_threshold_range` for different transceiver types:
+The following example demonstrates `temperature_threshold_range` for different transceivers across the sharded `dom` category. Each PN lives in its own file under its vendor directory.
+
+**`attributes/dom/transceivers/vendors/FINISAR/part_numbers/FTLX8571D3BCL-10GSFP/dom.json`:**
 
 ```json
 {
-  "transceivers": {
-    "vendors": {
-      "finisar": {
-        "part_numbers": {
-          "FTLX8571D3BCL-10GSFP": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
-          }
-        }
-      },
-      "mellanox": {
-        "part_numbers": {
-          "MCP1600-C003-100G": {
-            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
-          },
-          "MMA1T00-VS-400G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
-            "voltage_deviation_range": {"min": -0.10, "max": 0.10},
-            "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
-            "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
-            "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
-            "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
-          }
-        }
-      },
-      "marvell": {
-        "part_numbers": {
-          "88X7120-800G": {
-            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
-          }
-        }
-      }
-    }
-  }
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MELLANOX/part_numbers/MCP1600-C003-100G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MELLANOX/part_numbers/MMA1T00-VS-400G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0},
+  "voltage_deviation_range": {"min": -0.10, "max": 0.10},
+  "laser_temperature_deviation_range": {"min": -5.0, "max": 5.0},
+  "txLANE_NUMbias_deviation_range": {"min": -10.0, "max": 10.0},
+  "txLANE_NUMpower_deviation_range": {"min": -1.0, "max": 1.0},
+  "rxLANE_NUMpower_deviation_range": {"min": -2.0, "max": 2.0}
+}
+```
+
+**`attributes/dom/transceivers/vendors/MARVELL/part_numbers/88X7120-800G/dom.json`:**
+
+```json
+{
+  "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
 }
 ```
 
@@ -166,21 +149,26 @@ For detailed CLI commands used in the test cases below, please refer to the [CLI
 
 ## Test Cases
 
-**Test Execution Prerequisites:**
-
-The following tests from the [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-cases-interim) will be run prior to executing the DOM tests:
-
-- Transceiver presence check
-- Ensure active firmware is gold firmware (for non-DAC CMIS transceivers)
-- Link up verification
-- LLDP verification (if enabled)
-- Ensure DOM monitoring is enabled for all relevant ports under test
-
-> **Note:** Each prerequisite check is itself a test case. If a prerequisite test case fails, the dependent DOM test case will also be declared as failed.
-
 **Assumptions for the Below Tests:**
 
 - All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
+
+### Common Test Setup and Teardown
+
+Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) from the parent framework. DOM tests add the following category-specific checks:
+
+#### Session-Level Setup (once per test run)
+
+1. **DOM polling state**: Confirm DOM polling is enabled for all ports under test. This is a one-time check at the start of the run; individual tests that disable polling (Advanced TC 2) are responsible for restoring it as part of their own teardown.
+
+#### Per-Test Setup (before each test case)
+
+1. **Interface liveness**: Verify all ports under test are operationally up with no recent link flaps. Checked per test because Advanced tests are disruptive and may affect link state.
+2. **Data freshness**: Query `TRANSCEIVER_DOM_SENSOR` in STATE_DB and verify `last_update_time` is within `data_max_age_min` minutes of current time.
+
+#### Per-Test Teardown (after each test case)
+
+1. **Data freshness**: Re-verify `last_update_time` in `TRANSCEIVER_DOM_SENSOR` is within `data_max_age_min` minutes of current time for all ports under test.
 
 ### Basic DOM Functionality Tests
 
@@ -193,6 +181,8 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 
 ### Advanced DOM Testing
 
+> **Note:** Each test case's steps include the TC-specific baselines it needs (e.g., remote-side DOM values, link flap counts). Failure-path recovery (restoring shutdown interfaces, re-enabling DOM polling) is handled by the session-level [Cleanup](#cleanup-and-post-test-verification).
+
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | DOM data during interface state changes | 1. Record baseline DOM values with interface in operational state and verify `last_update_time` is within `data_max_age_min` minutes of current time.<br>2. Identify remote side port from `sonic_{inv_name}_links.csv` for end-to-end validation.<br>3. Record remote side baseline DOM values including RX power for all lanes and alarm/warning flag states.<br>4. Issue `config interface shutdown <port>` and wait for shutdown completion.<br>5. Validate local DOM data changes for shutdown state:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table:<br>      i. For each available media lane: `tx{lane}bias` should be below `shutdown_tx_bias_threshold`<br>      ii. For each available media lane: `tx{lane}power` should be below `shutdown_tx_power_threshold`<br>      iii. `temperature` and `voltage` should remain within normal ranges<br>   b. From `TRANSCEIVER_STATUS` table:<br>      i. For each available host lane: verify `tx{lane}los_hostlane` flag is set (indicating host lane loss of signal)<br>   c. From corresponding flag metadata tables for `tx{lane}los_hostlane`:<br>      i. For each available host lane: verify flag change count increments<br>      ii. For each available host lane: verify last set time is updated to reflect shutdown event timing<br>      iii. For each available host lane: verify last clear time remains unchanged from baseline<br>   d. From `PORT_TABLE` of APPL_DB: verify `last_update_time` is updated within `last_down_time` for all relevant tables<br>6. Validate remote side DOM reflects link down condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: for each available lane verify `rx{lane}power` is below `shutdown_rx_power_threshold`<br>   b. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are set<br>   c. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last set time is updated to reflect link down event timing<br>7. Issue `config interface startup <port>` and wait for startup completion.<br>8. Validate local DOM data returns to operational ranges:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify all sensor values return to operational ranges and `last_update_time` is fresh<br>   b. If any of `voltage_deviation_range`, `laser_temperature_deviation_range`, `txLANE_NUMbias_deviation_range`, or `txLANE_NUMpower_deviation_range` are defined, compute the deviation of each post-startup DOM value from the baseline recorded in step 1 and verify `min <= deviation <= max`<br>   c. From `TRANSCEIVER_STATUS` table: for each available host lane verify `tx{lane}los_hostlane` flag is cleared<br>   d. From corresponding flag metadata tables:<br>      i. For each available host lane: verify flag change count increments for `tx{lane}los_hostlane`<br>      ii. For each available host lane: verify last clear time is updated to reflect startup event<br>9. Validate remote side DOM reflects link up condition:<br>   a. From `TRANSCEIVER_DOM_SENSOR` table: verify RX power returns to operational range on remote side for all lanes<br>   b. If `rxLANE_NUMpower_deviation_range` is defined, compute the deviation of remote-side post-startup RX power from the baseline recorded in step 3 and verify `min <= deviation <= max`<br>   c. From `TRANSCEIVER_DOM_FLAG` table: verify `rxLANE_NUMpowerLAlarm` and `rxLANE_NUMpowerLWarn` flags are cleared<br>   d. From corresponding flag metadata tables:<br>      i. Verify flag change count increments for low alarm and warning flags<br>      ii. Verify last clear time is updated to reflect link up event<br> | DOM values accurately reflect interface operational state on both local and remote sides with proper timing correlation. Shutdown state shows expected TX parameter changes locally (including `tx{lane}los_hostlane` flag set with proper change count and timing) while remote side shows corresponding RX power drop below `shutdown_rx_power_threshold` with appropriate flag management. Startup properly restores all DOM parameters to operational ranges on both sides with flag clearing (local `tx{lane}los_hostlane` cleared with updated change count and clear time). When any deviation range attribute is configured, the deviation of post-test values from their baselines stays within the configured min/max range for all enabled DOM fields. Data freshness is confirmed at each state transition within expected timing windows. End-to-end link health is validated through comprehensive DOM correlation including flag lifecycle management with complete change tracking. Complete bidirectional validation ensures robust link health monitoring. |
@@ -201,17 +191,17 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 
 ## Cleanup and Post-Test Verification
 
-After test completion:
+The following steps are performed once after **all test cases** in this plan have completed. The [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) already cover ongoing health monitoring throughout the run.
 
-### Immediate Cleanup
+### State Restoration
 
-1. **DOM State Verification**: Ensure DOM monitoring continues to function normally after testing
-2. **System Health**: Check system logs for any DOM-related errors or warnings introduced during testing
-3. **Service Status**: Verify xcvrd and pmon services are operating normally with DOM polling active
+1. **Interface state**: Confirm all ports under test are operationally up. If any port remains in a shutdown state (e.g., due to test failure in Advanced TC 1), issue `config interface startup <port>`.
+2. **DOM polling**: Confirm DOM polling is re-enabled for all ports. If any port has DOM polling disabled (e.g., due to test failure in Advanced TC 2), issue `config interface transceiver dom <port> enable`.
+3. **Restoration verification**: Verify `last_update_time` in `TRANSCEIVER_DOM_SENSOR` is within `data_max_age_min` minutes of current time for all ports (confirms polling resumed), and LLDP neighbors are discovered (if LLDP is enabled) to confirm end-to-end connectivity.
 
 ### Post-Test Report Generation
 
-1. **Test Summary**: Generate comprehensive test results including pass/fail status for each DOM parameter
-2. **Sensor Analysis**: Document any sensor values that approached range limits or showed unusual behavior
-3. **Performance Metrics**: Report DOM access times and any performance variations observed
-4. **Range Validation**: Summary of all DOM parameters with their actual vs. expected ranges
+1. **Test Summary**: Generate comprehensive test results including pass/fail status for each test case and DOM parameter.
+2. **Sensor Analysis**: Document any sensor values that approached range limits or showed unusual behavior during the test run.
+3. **Range Validation**: Summary of all DOM parameters with their actual vs. expected operational and threshold ranges.
+4. **Telemetry Profile**: If Advanced TC 3 was executed, include the logged update interval statistics (min, max, mean, median) as a quantitative baseline for cross-release comparison.

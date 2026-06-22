@@ -945,7 +945,17 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
     if expected_techsupport_files:
         # ensure that creation of tar.gz file is complete by checking if the intermediate tar
         # file generated is removed
-        assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
+
+        platform = duthost.facts["platform"]
+
+        if platform in ["armhf-nokia_ixs7215_52x-r0"]:
+            # For this platform, techsupport takes more time, so increase waiting time
+            wait = 900
+        else:
+            # For other platforms, fall back to default 600 seconds
+            wait = 600
+
+        assert wait_until(wait, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
     # Do validation for history

@@ -8,22 +8,33 @@ import pytest
 import time
 import threading
 from constants import (
+    LOCAL_DUT_INTF,
     LOCAL_PTF_INTF,
+    REMOTE_DUT_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from gnmi_utils import apply_messages
+from gnmi_utils import (
+    apply_gnmi_cert,
+    generate_gnmi_cert,
+    recover_gnmi_cert
+)
 from packets import outbound_pl_packets
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from tests.ha.conftest import apply_dash_pl_pipeline_config
+from tests.common.helpers.assertions import pytest_assert, pytest_require as pt_require
+from tests.common.platform.processes_utils import wait_critical_processes
+from ha_dash_flow_utils import compare_flow_tables
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
+from tests.ha.conftest import get_interface_ip
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
+
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1-smartswitch-ha')
+    pytest.mark.topology('t1-smartswitch-ha'),
+    pytest.mark.skip_check_dut_health
 ]
 
 
@@ -37,6 +48,65 @@ def reload_config_for_host(dpuhost):
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
+@pytest.fixture(scope="function")
+def setup_gnmi_server(duthosts, localhost, ptfhost, skip_cert_cleanup):
+    for duthost in duthosts:
+        wait_for_startup(duthost, localhost, delay=10, timeout=600)
+        wait_critical_processes(duthost)
+        generate_gnmi_cert(localhost, duthost)
+        apply_gnmi_cert(duthost, ptfhost)
+    yield
+    for duthost in duthosts:
+        wait_for_startup(duthost, localhost, delay=10, timeout=600)
+        wait_critical_processes(duthost)
+        recover_gnmi_cert(localhost, duthost, skip_cert_cleanup)
+
+
+@pytest.fixture(scope="function")
+def add_npu_static_routes(
+    duthosts, localhost, dash_pl_config, skip_config, skip_cleanup, dpu_index
+):
+    if not skip_config:
+        for i in range(len(duthosts)):
+            duthost = duthosts[i]
+            wait_for_startup(duthost, localhost, delay=10, timeout=600)
+            wait_critical_processes(duthost)
+
+            cmds = []
+            vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
+            pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][REMOTE_DUT_INTF]).ip + 1
+
+            pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
+            pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
+
+            cmds.append(f"config route add prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
+            cmds.append(f"config route add prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
+            logger.info(f"Adding function-scoped static routes: {cmds} on {duthost}")
+            duthost.shell_cmds(cmds=cmds)
+
+    yield
+
+    if not skip_config and not skip_cleanup:
+        for i in range(len(duthosts)):
+            duthost = duthosts[i]
+            wait_for_startup(duthost, localhost, delay=10, timeout=600)
+            wait_critical_processes(duthost)
+
+            cmds = []
+            vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
+            pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][REMOTE_DUT_INTF]).ip + 1
+
+            cmds.append(f"config route del prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
+            cmds.append(f"config route del prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
+            logger.info(f"Removing function-scoped static routes: {cmds} from {duthost}")
+            duthost.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="function")
+def setup_npu_dpu(dpu_setup, setup_gnmi_server, add_npu_static_routes):
+    yield
+
+
 @pytest.fixture(autouse=True, scope="function")
 def common_setup_teardown(
     localhost,
@@ -48,53 +118,13 @@ def common_setup_teardown(
     setup_ha_config,
     setup_dash_ha_from_json_func_scope,
     setup_gnmi_server,
-    set_vxlan_udp_sport_range,
+    ensure_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
 ):
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"Starting DASH configuration on {duthost.hostname}"
-                    "dpu {dpuhost.dpu_index} with {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
@@ -185,7 +215,7 @@ def test_ha_npu_reboot(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to standby received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -195,7 +225,7 @@ def test_ha_npu_reboot(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to primary received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
