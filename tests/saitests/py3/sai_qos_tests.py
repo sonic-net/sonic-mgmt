@@ -6731,6 +6731,15 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
             "First quantized threshold {} is too small for fill_margin {} (bytes_per_pkt {})".format(
                 thresholds[1], fill_margin, bytes_per_pkt)
 
+        skip_asserts = bool(platform_asic) and platform_asic == "broadcom-dnx"
+        if skip_asserts:
+            logging.info("Skipping quantized watermark assertions on broadcom-dnx")
+
+        # Collect every mismatch instead of bailing on the first one so the test
+        # reports a complete picture of the device's quantization behavior. Each
+        # entry is (phase, threshold_idx, offset, target_pkts, expected, actual).
+        failures = []
+
         try:
             # Phase A: uncongested validation. Leave egress enabled and send a burst
             # bounded strictly below threshold[1]. Even though traffic flows
@@ -6743,12 +6752,9 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, port_list['dst'][dst_port_id])
             print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
                 uncongested_pkts, q_wm_res[queue], thresholds[1]), file=sys.stderr)
-            if platform_asic and platform_asic == "broadcom-dnx":
-                logging.info("Skipping quantized watermark assertions on broadcom-dnx")
-            else:
-                assert q_wm_res[queue] == thresholds[1], \
-                    "Uncongested queue watermark expected {}, got {}".format(
-                        thresholds[1], q_wm_res[queue])
+            if not skip_asserts and q_wm_res[queue] != thresholds[1]:
+                failures.append(("uncongested", "-", "-", uncongested_pkts,
+                                 thresholds[1], q_wm_res[queue]))
 
             # Establish the leakout baseline once for non-refill devices, which keep
             # egress disabled and accumulate occupancy across measurements.
@@ -6771,15 +6777,21 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected = thresholds[expected_idx]
                     print("Threshold idx %d offset %d: target %d pkts, watermark %d, expected %d" % (
                         i, offset, target_pkts, watermark, expected), file=sys.stderr)
-                    if platform_asic and platform_asic == "broadcom-dnx":
-                        logging.info("Skipping quantized watermark assertions on broadcom-dnx")
-                        continue
-                    assert watermark == expected, \
-                        "Quantized queue watermark mismatch at threshold index {} ({:+d} pkts): " \
-                        "expected {}, got {} (hwsku {})".format(
-                            i, offset, expected, watermark, hwsku)
+                    if not skip_asserts and watermark != expected:
+                        failures.append(("threshold", i, "{:+d}".format(offset),
+                                         target_pkts, expected, watermark))
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+
+        if failures:
+            fail_tbl = texttable.TextTable(
+                ['Phase', 'Threshold Idx', 'Offset (pkts)', 'Target Pkts',
+                 'Expected (bytes)', 'Actual (bytes)'])
+            for phase, idx, offset, target_pkts, expected, actual in failures:
+                fail_tbl.add_row([phase, idx, offset, target_pkts, expected, actual])
+            assert False, \
+                "Quantized queue watermark mismatches on hwsku {} ({} of {} measurement(s) failed):\n{}".format(
+                    hwsku, len(failures), 1 + 2 * (len(thresholds) - 3), fail_tbl)
 
 # TODO: buffer pool roid should be obtained via rpc calls
 # based on the pg or queue index
