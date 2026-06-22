@@ -23,7 +23,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-TRAFFIC_LOSS_TIME_THRESHOLD = 2 # seconds
+TRAFFIC_LOSS_TIME_THRESHOLD = 2  # seconds
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -163,9 +163,9 @@ def test_ha_bgp_shut(
     else:
         ha_bgp_start(duthosts[0])
 
-    if (percentage_loss < threshold_loss):
-        logger.info(f"{bgp_shut} with {traffic} test passed. Sent: {send_count},"
+    if (failed_count < threshold_loss):
+        logger.info(f"{bgp_shut} with {traffic} test passed. Sent: {send_count}, "
                     f" lost: {failed_count}, percentage loss: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        pytest.fail(f"{bgp_shut} with {traffic} test failed. Sent: {send_count},"
+        pytest.fail(f"{bgp_shut} with {traffic} test failed. Sent: {send_count}, "
                     f" lost: {failed_count} percentage loss: {percentage_loss}, threshold: {threshold_loss}")
