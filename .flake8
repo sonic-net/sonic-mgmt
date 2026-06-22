@@ -7,6 +7,8 @@ per-file-ignores =
     tests/snappi_tests/dataplane/files/helper.py: F405
     tests/snappi_tests/dataplane/*.py: F405
     tests/snappi_tests/dataplane/*.py: F401
+    # rocev2 helper re-exports fixtures via `import *`; F405 (name may be undefined
+    # from star import) is intentional for the test-facing helper surface.
     tests/snappi_tests/rocev2/files/helper.py: F405
 
 exclude =

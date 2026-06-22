@@ -1,3 +1,6 @@
+# This helper re-exports common snappi/QoS fixtures via `import *` so test files can
+# pull fixtures + helpers from this one module; F403/F401/F405 are expected for that
+# pattern and intentionally ignored here.
 # flake8: noqa: F403, F401, F405
 """
 Self-contained RoCEv2 data-plane test library.
@@ -57,9 +60,12 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map
 
 logger = logging.getLogger(__name__)
 
+# Latency thresholds are in NANOSECONDS. snappi/IxNetwork report RoCEv2 per-QP
+# latency in ns (the schema carries no unit); e.g. observed ~930-980 ns for small
+# messages on a no-congestion run, so the 5 us / 50 us caps below are generous.
 LATENCY_SPECS = {
-    "avg_latency_max": 5000,
-    "max_latency_max": 50000,
+    "avg_latency_max": 5000,     # ns  (= 5 us)
+    "max_latency_max": 50000,    # ns  (= 50 us)
 }
 LATENCY_PROFILES = {
     "ai": LATENCY_SPECS,
@@ -117,9 +123,10 @@ def configure_rocev2_topology(config, port_config_list, topology):
 
     qps_objs = {}
     for tx_port_id, topo_entry in topology.items():
-        if "peers" not in topo_entry:
-            logger.error(f"Missing required 'peers' key for port {tx_port_id}. Skipping.")
-            continue
+        pytest_assert(
+            isinstance(topo_entry.get("peers"), list),
+            f"configure_rocev2_topology: tx port {tx_port_id} missing required key 'peers' "
+            f"(must be a list; an empty list is allowed for a receive-only node).")
         tx_info = port_to_dev_ip.get(tx_port_id)
         if not tx_info or not tx_info["device"]:
             continue
@@ -135,7 +142,29 @@ def configure_rocev2_topology(config, port_config_list, topology):
         rocev2_int.ipv4_name = ipv4_stack.name
 
         peers_ids = topo_entry["peers"]
+        # Fail fast on multi-peer tx ports: QPs are created once after the peer loop
+        # and would attach only to the last peer. Single peer (or none, for an rx-only
+        # node) is supported today. TODO: to support multi-peer, move QP creation inside
+        # the peer loop with per-peer-unique peer/QP names.
+        pytest_assert(
+            len(peers_ids) <= 1,
+            f"configure_rocev2_topology: tx port {tx_port_id} has {len(peers_ids)} peers; "
+            f"multi-peer per tx port is not supported yet (QPs attach only to the last peer). "
+            f"Use one peer per tx port, or extend the helper to create QPs per peer."
+        )
+        # Fail fast on unknown peers (no configured IP/device) so misconfig surfaces
+        # here rather than as silently-dropped destinations downstream.
+        for pid in peers_ids:
+            pytest_assert(
+                pid in port_to_dev_ip,
+                f"configure_rocev2_topology: tx port {tx_port_id} peer {pid} has no configured "
+                f"IP/device; known ports: {sorted(port_to_dev_ip)}.")
+
         qp_cfgs = topo_entry.get("qp_configs", default_qp_configs)
+        pytest_assert(
+            isinstance(qp_cfgs, list) and all(isinstance(q, dict) for q in qp_cfgs),
+            f"configure_rocev2_topology: tx port {tx_port_id} 'qp_configs' must be a list of dicts "
+            f"(individual keys like dscp/message_size are optional and fall back to defaults).")
         cnp_cfg = topo_entry.get("cnp", default_cnp_config)
         conn_type_cfg = topo_entry.get("connection_type", default_connection_type_config)
         dcqcn_settings_cfg = topo_entry.get("dcqcn_settings", default_dcqcn_settings_config)
@@ -279,8 +308,9 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
         except AttributeError:
             return default
 
-    stat_obj = None
-    column_headers = [
+    # Per-QP and per-peer metrics have DIFFERENT schemas, so each stat_name reads
+    # its own response object AND its own column set.
+    per_qp_columns = [
         "flow_name", "port_tx", "port_rx", "src_qp", "dest_qp", "src_ipv4", "dest_ipv4",
         "data_frames_tx", "data_frames_rx", "frame_delta", "data_frames_retransmitted",
         "frame_sequence_error", "tx_bytes", "rx_bytes", "data_tx_rate", "data_rx_rate",
@@ -288,16 +318,26 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
         "avg_latency", "min_latency", "max_latency", "ecn_ce_rx", "cnp_tx", "cnp_rx",
         "ack_tx", "ack_rx", "nak_tx", "nak_rx", "first_timestamp", "last_timestamp",
     ]
+    per_peer_columns = [
+        "name", "qp_configured", "qp_up", "qp_down",
+        "connect_request_tx", "connect_request_rx", "connect_reply_tx", "connect_reply_rx",
+        "ready_tx", "ready_rx", "disconnect_request_tx", "disconnect_request_rx",
+        "disconnect_reply_tx", "disconnect_reply_rx", "reject_tx", "unknown_msg_rx",
+    ]
 
+    stat_obj = None
+    column_headers = None
     req = api.metrics_request()
     if stat_name == "per_qp":
         req.rocev2_flow.choice = "per_qp"
         req.rocev2_flow.per_qp.column_names = []
         stat_obj = api.get_metrics(req).rocev2_flow_per_qp_metrics
+        column_headers = per_qp_columns
     elif stat_name == "per_peer":
         req.rocev2_ipv4.choice = "per_peer"
         req.rocev2_ipv4.per_peer.column_names = []
-        stat_obj = api.get_metrics(req).rocev2_flow_per_qp_metrics
+        stat_obj = api.get_metrics(req).rocev2_ipv4_per_peer_metrics
+        column_headers = per_peer_columns
     elif stat_name == "Port Statistics":
         ixnet = api._ixnetwork
         dp_metrics = StatViewAssistant(ixnet, stat_name)
@@ -573,12 +613,17 @@ def queue_counters(snappi_dut_port_map, queue_ids=None, queue_cols=None):
 
 
 def queue_stats(flow_df, snappi_dut_port_map, prio_dscp_map=None,
-                queue_ids=None, queue_cols=None, egress_port_col="port_rx"):
+                queue_ids=None, queue_cols=None, egress_port_col="port_rx", strict=False):
     """
     Merge live queue counters onto the flow df (on port_tx) and, if prio_dscp_map
     is given, attach a single scalar per flow: `tc` (ip_dscp -> tc) and `weight`
     (the egress scheduler weight of that queue only, looked up on egress_port_col).
     Returns (merged_df, dut_queue_df, sched_df).
+
+    strict=True: fail fast if any flow's ip_dscp has no DSCP->TC mapping, or its
+    queue has no scheduler weight on the egress port (otherwise these stay silent
+    None/NaN that surface later as confusing check failures). Opt-in, because
+    control queues (e.g. strict-priority ACK/CNP) may legitimately have no weight.
     """
     dut_queue_df = queue_counters(snappi_dut_port_map, queue_ids=queue_ids, queue_cols=queue_cols)
     sched_df = scheduler_weights(snappi_dut_port_map, queue_ids=queue_ids)
@@ -597,6 +642,19 @@ def queue_stats(flow_df, snappi_dut_port_map, prio_dscp_map=None,
             lambda r: weight_by_port_tc.get((r[egress_port_col], int(r["tc"])))
                       if pd.notna(r["tc"]) else None,
             axis=1)
+
+        if strict:
+            no_tc = merged_df[merged_df["tc"].isna()]
+            pytest_assert(
+                no_tc.empty,
+                f"queue_stats(strict): no DSCP->TC mapping for ip_dscp(s) "
+                f"{sorted(no_tc['ip_dscp'].unique())} on flows {no_tc['flow_name'].tolist()}")
+            no_w = merged_df[merged_df["weight"].isna()]
+            pytest_assert(
+                no_w.empty,
+                f"queue_stats(strict): no scheduler weight on egress port for "
+                f"{no_w[[egress_port_col, 'tc']].drop_duplicates().to_dict('records')} "
+                f"on flows {no_w['flow_name'].tolist()}")
 
     return merged_df, dut_queue_df, sched_df
 
@@ -655,10 +713,15 @@ def assert_queries(stat_df, checks):
         table = tabulate(show, headers='keys', tablefmt='psql')
         logger.info(f"[Check {i}][DATA] {msg} – rows checked:\n{table}")
         logger.error(f"[Check {i}][FAIL] {msg}")
-        failures.append(f"{i}. {msg}\n")
+        # Compact sample (first 3 offending rows) carried into the raised error.
+        sample = tabulate(show.head(3), headers='keys', tablefmt='psql')
+        failures.append(f"{i}. {msg} ({len(show)} offending row(s)):\n{sample}")
     if failures:
         logger.error(f"\nchecks failed: {len(failures)}/{len(checks)}")
-        raise AssertionError(f"{len(failures)} checks failed.")
+        summary = "\n".join(failures[:3])
+        if len(failures) > 3:
+            summary += f"\n... and {len(failures) - 3} more failed check(s); see log."
+        raise AssertionError(f"{len(failures)}/{len(checks)} checks failed:\n{summary}")
     logger.info("*** ALL CHECKS PASSED ***")
 
 

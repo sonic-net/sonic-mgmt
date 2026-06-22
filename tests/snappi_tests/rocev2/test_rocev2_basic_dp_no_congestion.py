@@ -12,9 +12,9 @@ TRAFFIC_DURATION = 60      # seconds
 
 # ---- queue / priority intent (tune here) ----
 LOSSLESS_QUEUES = [3, 4]        # one is picked at random per run
-ACK_NAK_QUEUE = 5               # queue carrying ACK/NAK
+ACK_NAK_QUEUE = 6               # queue carrying ACK/NAK
 LOSSY_QUEUES = [0, 1]           # lossy data queues driven from the last rank pair
-CNP_QUEUE = 6                   # CNP control queue - kept out of LOSSY_QUEUES so lossy
+CNP_QUEUE = 5                   # CNP control queue - kept out of LOSSY_QUEUES so lossy
 #                                 data does not share a queue/DSCP with CNP
 
 
@@ -33,8 +33,8 @@ def test_rocev2_basic_dp_traffic_no_congestion(
 
     The lossless rank pair runs one QP on a randomly chosen lossless queue
     (LOSSLESS_QUEUES); the last rank pair drives the lossy queues (LOSSY_QUEUES),
-    one QP each. ACK/NAK ride LOSSY_QUEUE_ACK_NAK; CNP on DSCP 48. 1MB messages,
-    non-ECT, DCQCN off.
+    one QP each. ACK/NAK ride ACK_NAK_QUEUE (Q6); CNP on CNP_QUEUE (Q5, DSCP 46),
+    kept separate from the ACK queue. 1MB messages, non-ECT, DCQCN off.
 
     Verifies (nothing is oversubscribed, so congestion control must stay idle):
       all messages complete with no loss, no NAK/sequence errors, latency within
@@ -46,6 +46,9 @@ def test_rocev2_basic_dp_traffic_no_congestion(
 
     snappi_port_list = get_snappi_ports
     pytest_require(len(snappi_port_list) >= 4, "Need minimum of 4 ports")
+    # build_pairwise_topology() pairs first-half with second-half via zip(); an odd
+    # count would silently drop the unpaired port, so require an even number.
+    pytest_require(len(snappi_port_list) % 2 == 0, "Need an even number of ports for pairwise topology")
 
     tconfig, plist, sports = snappi_dut_base_config(duthosts, snappi_port_list, snappi_api)
     snappi_dut_port_map = snappi_dut_port_mapping(sports)
