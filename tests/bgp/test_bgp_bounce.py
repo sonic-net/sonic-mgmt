@@ -37,6 +37,7 @@ def check_no_export_routes(vm_host, is_v6_topo, expected):
                   "No-export route state did not become {}".format("present" if expected else "absent"))
 
 
+@pytest.mark.disable_loganalyzer
 def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config,
                     backup_bgp_config):
     """
