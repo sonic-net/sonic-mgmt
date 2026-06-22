@@ -16,7 +16,8 @@ all:
             sonic_msft_sup:
             sonic_msft_lc_100G:
             sonic_cisco_vs:
-            sonic_vnut:
+            sonic_arista_7060:
+            sonic_nvidia_5640:
         fanout:
           hosts:
             str-7260-10:
@@ -54,12 +55,8 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
-        vnut-tg-01:
-          ansible_host: 10.250.0.220
-        vnut-l2snk-tg:
-          ansible_host: 10.250.0.221
         ptf_ptf1:
-          ansible_host: 10.255.0.188
+          ansible_host: 192.168.11.87
           ansible_hostv6: 2001:db8:1::1/64
         ptf_vms1-1:
           ansible_host: 10.255.0.178
@@ -290,44 +287,31 @@ sonic_cisco_vs:
       ansible_ssh_user: admin
       ansible_altpassword: admin
 
-sonic_vnut:
+sonic_arista_7060:
   vars:
-    hwsku: Force10-S6000
-    iface_speed: 10000
+    hwsku: Arista-7060X6-64PE-B-O128
+    ansible_user: admin
+    ansible_ssh_pass: pxq123               
+    ansible_become_pass: pxq123
+    ansible_network_os: sonic
+    ansible_connection: ssh
+    ansible_ssh_extra_args: '-o PreferredAuthentications=publickey,keyboard-interactive,password -o StrictHostKeyChecking=no'
   hosts:
-    vnut-t0-01:
-      ansible_host: 10.250.0.210
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9100
-      num_asics: 1
-    vnut-t0-02:
-      ansible_host: 10.250.0.211
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9101
-      num_asics: 1
-    vnut-t1-01:
-      ansible_host: 10.250.0.212
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9102
-      num_asics: 1
-    vnut-l2snk-01:
-      ansible_host: 10.250.0.213
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9103
-      num_asics: 1
-    vnut-l2msnk-01:
-      ansible_host: 10.250.0.214
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9104
-      num_asics: 1
-    vnut-l2msnk-02:
-      ansible_host: 10.250.0.215
-      type: kvm
-      hwsku: Force10-S6000
-      serial_port: 9105
-      num_asics: 1
+    arista_sw1:
+      ansible_host: 192.168.11.216
+      ptf_host: localhost
+      
+      
+sonic_nvidia_5640:
+  vars:
+    hwsku: Mellanox-SN5640-C512S2
+    ansible_user: admin
+    ansible_ssh_pass: password               
+    ansible_become_pass: password
+    ansible_network_os: sonic
+    ansible_connection: ssh
+    ansible_ssh_extra_args: '-o PreferredAuthentications=publickey,keyboard-interactive,password -o StrictHostKeyChecking=no'
+  hosts:
+    nvidia_sw2:
+      ansible_host: 192.168.11.213
+      ptf_host: localhost

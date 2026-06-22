@@ -1,0 +1,58 @@
+==================== ROW 1 (test_eeprom_content_verification_via_sfputil) ====================
+SET  ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json
+     Ethernet0:7.vendor_sn: 'IDPAGS231330' -> 'BADSN000000'
+     backup: ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json.neg.bak (orig sha 8ac73a6939e2)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json
+ROW 1  test_eeprom_content_verification_via_sfputil          PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 1 deselected, 55 warnings in 52.94s =================
+==================== ROW 2 (test_eeprom_content_verification_via_sfputil) ====================
+SET  ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json
+     Ethernet0,Ethernet16,Ethernet64,Ethernet80,Ethernet128,Ethernet144,Ethernet352,Ethernet368,Ethernet416,Ethernet432,Ethernet480,Ethernet496.vendor_rev: '1A' -> 'BADREV'
+     backup: ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json.neg.bak (orig sha 8ac73a6939e2)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/dut_info/arista_sw2.json
+ROW 2  test_eeprom_content_verification_via_sfputil          PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 1 deselected, 55 warnings in 49.10s =================
+==================== ROW 3 (test_eeprom_content_verification_via_show_cli) ====================
+SET  ../ansible/files/transceiver/inventory/attributes/eeprom/transceivers/vendors/PINEWAVE/part_numbers/T-OH8CNT-NMT/eeprom.json
+     cmis_revision: '5.2' -> '9.9'
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/transceivers/vendors/PINEWAVE/part_numbers/T-OH8CNT-NMT/eeprom.json.neg.bak (orig sha 24d6b36ce829)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/transceivers/vendors/PINEWAVE/part_numbers/T-OH8CNT-NMT/eeprom.json
+ROW 3  test_eeprom_content_verification_via_show_cli         PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 1 deselected, 55 warnings in 47.21s =================
+==================== ROW 4 (test_identifier_byte_verification_via_sfputil) ====================
+SET  ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+     transceivers.deployment_configurations.8x100G_DR8.sff8024_identifier: 25 -> 17
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json.neg.bak (orig sha 811a19ac8e02)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+ROW 4  test_identifier_byte_verification_via_sfputil         PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 3 deselected, 55 warnings in 47.97s =================
+==================== ROW 5 (test_vdm_supported_consistency) ====================
+SET  ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+     defaults.vdm_supported: True -> False
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json.neg.bak (orig sha 811a19ac8e02)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+ROW 5  test_vdm_supported_consistency                        PASS (failed as expected; msg matched)
+        result: ======================= 1 failed, 41 warnings in 29.82s ========================
+==================== ROW 6 (test_cdb_background_mode_support_test) ====================
+SET  ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+     defaults.cdb_background_mode_supported: True -> False
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json.neg.bak (orig sha 811a19ac8e02)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+ROW 6  test_cdb_background_mode_support_test                 PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 1 deselected, 57 warnings in 49.42s =================
+==================== ROW 7 (test_serial_number_pattern_validation_for_breakout_ports) ====================
+SET  ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+     defaults.breakout_stem_serial_number_pattern: '^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$' -> '.*-ZZZ$'
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json.neg.bak (orig sha 811a19ac8e02)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+ROW 7  test_serial_number_pattern_validation_for_breakout_ports  PASS (failed as expected; msg matched)
+        result: ================= 1 failed, 136 warnings in 119.35s (0:01:59) ==================
+==================== ROW 8 (test_cdb_background_mode_stress_test) ====================
+DEL  ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+     removed defaults.cdb_stress_iteration_count (was 10)
+     backup: ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json.neg.bak (orig sha 811a19ac8e02)
+     revert with: python perturb_inventory.py revert ../ansible/files/transceiver/inventory/attributes/eeprom/eeprom.json
+ROW 8  test_cdb_background_mode_stress_test                  PASS (failed as expected; msg matched)
+        result: ================ 1 failed, 1 deselected, 45 warnings in 37.32s =================
+==================== CLEANLINESS GATE ====================
+CLEAN: no inventory perturbations in flight.

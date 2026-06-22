@@ -1,0 +1,11 @@
+{
+    "gold_firmware_version": "36.233.254",
+    "inactive_firmware_version": "36.233.254",
+    "cmis_revision": "5.2",
+    "dual_bank_supported": true,    
+    "platform_hwsku_overrides": {
+        "x86_64-nvidia_sn5640-r0+Mellanox-SN5640-C512S2": {
+            "eeprom_dump_timeout_sec": 5
+        }
+    }
+}

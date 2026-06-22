@@ -1,0 +1,157 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/cmis/test_cdb_background_mode.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_cdb_background_mode_stress_test
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 2 items / 1 deselected / 1 selected
+
+transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test FAILED [100%]
+
+=================================== FAILURES ===================================
+_____________________ test_cdb_background_mode_stress_test _____________________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+
+    def test_cdb_background_mode_stress_test(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping
+    ):
+        """CDB background mode stress test for CMIS transceivers.
+    
+        Prerequisites per port (silently skipped when not met):
+          - ``EEPROM_ATTRIBUTES.cmis_active_optical`` is True (non-DAC CMIS)
+          - ``EEPROM_ATTRIBUTES.cdb_background_mode_supported`` is True
+        Both gates plus the stem-port filter are evaluated by
+        ``_stress_port_in_scope``.
+    
+        For each qualifying stem port the helper ``_run_cdb_stress_for_port``:
+          1. Records a seconds-since-boot watermark (``/proc/uptime`` on the DUT).
+          2. Starts a background EEPROM reader thread (concurrent I2C traffic).
+          3. Reads CDB firmware version for
+             ``EEPROM_ATTRIBUTES.cdb_stress_iteration_count`` iterations
+             (required per-port inventory attribute, see the "CDB background mode
+             stress test" case in eeprom_test_plan.md; the port fails if it is
+             undefined — its default of 10 is supplied by eeprom.json defaults).
+          4. After each iteration scans dmesg for new I2C errors; aborts early
+             once the cumulative count exceeds
+             ``STRESS_TEST_I2C_ERROR_THRESHOLD``.
+          5. Stops the background reader (joined with a 10 s timeout, always).
+          6. Reports a failure if the background EEPROM read fail rate exceeds
+             ``STRESS_EEPROM_MAX_FAIL_RATE``.
+    
+        Expected result: every configured iteration completes AND the observed
+        I2C kernel-error count stays at-or-below the threshold.  The per-port
+        pass line reports the observed counters so drift below the threshold is
+        visible at a glance.  Per-port failures are aggregated into one
+        ``pytest.fail`` at the end so a single run surfaces every misbehaving
+        port.
+        """
+        all_failures = []
+        for port, port_attrs in port_attributes_dict.items():
+            if not _stress_port_in_scope(port, port_attrs, lport_to_first_subport_mapping):
+                continue
+            port_failures = _run_cdb_stress_for_port(duthost, port, port_attrs)
+            if port_failures:
+                all_failures.append(f"{port}:\n  " + "\n  ".join(port_failures))
+    
+        if all_failures:
+>           pytest.fail(
+                "CDB background mode stress test failures:\n" + "\n".join(all_failures)
+            )
+E           Failed: CDB background mode stress test failures:
+E           Ethernet0:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet16:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet64:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet80:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet128:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet144:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet352:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet368:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet416:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet432:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet480:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+E           Ethernet496:
+E             EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)
+
+all_failures = ['Ethernet0:\n  EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is requ...for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)', ...]
+duthost    = <MultiAsicSonicHost arista_sw2>
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+port       = 'Ethernet503'
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+port_attrs = {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_rev': '1.10', .....t_supported': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}
+port_failures = ['EEPROM_ATTRIBUTES.cdb_stress_iteration_count is not defined in the inventory for this port; it is required for the CDB background-mode stress test (set it in eeprom.json defaults or per-PN)']
+
+transceiver/eeprom/cmis/test_cdb_background_mode.py:612: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+DEBUG:tests.conftest:[log_custom_msg] item: <Function test_cdb_background_mode_stress_test>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py: 34 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=473982) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_stress_test
+================ 1 failed, 1 deselected, 45 warnings in 37.32s =================

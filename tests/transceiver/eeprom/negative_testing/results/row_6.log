@@ -1,0 +1,214 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/cmis/test_cdb_background_mode.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_cdb_background_mode_support_test
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 2 items / 1 deselected / 1 selected
+
+transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test FAILED [100%]
+
+=================================== FAILURES ===================================
+____________________ test_cdb_background_mode_support_test _____________________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+
+    def test_cdb_background_mode_support_test(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping
+    ):
+        """Verify CMIS CDB background mode hardware capability against inventory configuration.
+    
+        Prerequisites per port (both must be satisfied or the port is silently skipped):
+        - EEPROM_ATTRIBUTES: cmis_active_optical = True  (non-DAC CMIS module)
+        - EEPROM_ATTRIBUTES: cdb_background_mode_supported is defined (True or False)
+    
+        Stem-port detection (used to skip breakout sub-ports that share an EEPROM
+        with their parent) comes from
+        ``tests.common.platform.interface_utils.get_lport_to_first_subport_mapping``
+        — a port is the stem iff it maps to itself, so no per-platform port-number
+        modulus is needed.
+    
+        For qualifying stem ports, reads CMIS Page 01h at sfputil offset 0xA3
+        (= CMIS global byte 163 decimal, absolute address 0xA3 in the 256-byte
+        page view) using:
+            sfputil read-eeprom -p <port> -n 0x01 -o 0xA3 -s 1
+    
+        Extracts bit 5 of the returned byte and validates against expected configuration:
+            cdb_background_mode_supported = True  → bit 5 must be 1 (hardware supports it)
+            cdb_background_mode_supported = False → bit 5 must be 0 (hardware does not)
+    
+        Aggregates all failures for reporting.
+    
+        CMIS reference:
+            Page 01h (Capabilities Advertising), CMIS global byte 163 (decimal) = 0xA3, bit 5:
+            CDB background mode support advertisement.
+            sfputil: -n 0x01 -o 0xA3  (upper page, 0xA3 - 0x80 = 0x23 = 35 bytes from page start)
+        """
+        all_failures = []
+    
+        for port, port_attrs in port_attributes_dict.items():
+            # Only test stem (parent) ports.  In a breakout deployment a single
+            # physical transceiver is represented by one stem port and one or more
+            # sub-ports that share the same EEPROM; running CDB reads against the
+            # sub-ports is redundant and can cause false failures on some ASIC
+            # drivers.
+            if not is_stem_port(port, lport_to_first_subport_mapping):
+                logger.debug("Port %s is a breakout sub-port, skipping CDB check", port)
+                continue
+            if not port_attrs:
+                logger.debug("Port %s has no attributes, skipping", port)
+                continue
+    
+            eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+    
+            # Prerequisite 1: port must be a non-DAC CMIS module
+            if not eeprom_attrs.get("cmis_active_optical"):
+                logger.debug("Port %s: cmis_active_optical is not True, skipping CDB check", port)
+                continue
+    
+            # Prerequisite 2: expected CDB background mode support must be defined
+            expected_cdb_bg_mode = eeprom_attrs.get("cdb_background_mode_supported")
+            if expected_cdb_bg_mode is None:
+                logger.debug("Port %s: cdb_background_mode_supported not defined, skipping", port)
+                continue
+    
+            # Read CMIS Page 01h, CMIS global byte 163 (decimal) = 0xA3 (sfputil offset 0xA3)
+            byte_map, err = cli_helpers.sfputil_read_eeprom(
+                duthost, port,
+                page=f"0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X}",
+                offset=CMIS_PAGE_01_CDB_CAP_OFFSET,
+                size=1,
+            )
+            if err:
+                all_failures.append(f"{port}: {err}")
+                continue
+    
+            if not byte_map:
+                all_failures.append(
+                    f"{port}: no parseable byte found in sfputil read-eeprom output "
+                    f"(page 0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X}, "
+                    f"offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X})"
+                )
+                continue
+    
+            # Extract bit 5 from the single returned byte
+            raw_byte = byte_map.get(CMIS_PAGE_01_CDB_CAP_OFFSET)
+            if raw_byte is None:
+                all_failures.append(
+                    f"{port}: expected byte missing at offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X} "
+                    f"in parsed sfputil output (keys: {sorted(byte_map.keys())})"
+                )
+                continue
+            actual_bit = (raw_byte >> CMIS_PAGE_01_CDB_BG_MODE_BIT) & 0x01
+            expected_bit = 1 if expected_cdb_bg_mode else 0
+    
+            if actual_bit != expected_bit:
+                all_failures.append(
+                    f"{port}: CDB background mode mismatch: "
+                    f"expected bit {CMIS_PAGE_01_CDB_BG_MODE_BIT} = {expected_bit} "
+                    f"(cdb_background_mode_supported={expected_cdb_bg_mode}), "
+                    f"got bit {CMIS_PAGE_01_CDB_BG_MODE_BIT} = {actual_bit} "
+                    f"(raw byte: 0x{raw_byte:02X}, "
+                    f"page 0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X} "
+                    f"offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X})"
+                )
+            else:
+                logger.debug(
+                    "Port %s CDB background mode verified: bit %d = %d "
+                    "(cdb_background_mode_supported=%s, raw byte: 0x%02X)",
+                    port, CMIS_PAGE_01_CDB_BG_MODE_BIT, actual_bit, expected_cdb_bg_mode, raw_byte,
+                )
+    
+        if all_failures:
+>           pytest.fail("CDB background mode verification failures:\n" + "\n".join(all_failures))
+E           Failed: CDB background mode verification failures:
+E           Ethernet0: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet16: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet64: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet80: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet128: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet144: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet352: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet368: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet416: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet432: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet480: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+E           Ethernet496: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)
+
+actual_bit = 1
+DEBUG:tests.conftest:[log_custom_msg] item: <Function test_cdb_background_mode_support_test>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+all_failures = ['Ethernet0: CDB background mode mismatch: expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (ra... expected bit 5 = 0 (cdb_background_mode_supported=False), got bit 5 = 1 (raw byte: 0x67, page 0x01 offset 0xA3)', ...]
+byte_map   = {163: 103}
+duthost    = <MultiAsicSonicHost arista_sw2>
+eeprom_attrs = {'breakout_stem_serial_number_pattern': '^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$', 'cdb_background_mode_supported': False, 'cdb_stress_iteration_count': 10, 'cmis_active_optical': True, ...}
+err        = None
+expected_bit = 0
+expected_cdb_bg_mode = False
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+port       = 'Ethernet503'
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+port_attrs = {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_rev': '1.10', .....t_supported': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}
+raw_byte   = 103
+
+transceiver/eeprom/cmis/test_cdb_background_mode.py:382: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py: 46 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=472568) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/cmis/test_cdb_background_mode.py::test_cdb_background_mode_support_test
+================ 1 failed, 1 deselected, 57 warnings in 49.42s =================

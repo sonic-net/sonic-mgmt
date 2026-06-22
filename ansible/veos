@@ -51,7 +51,6 @@ all:
           - t0-118
           - t0-backend
           - t0-f2-d40u8
-          - t0-f2-d40u8-po2vlan
           - t0-standalone-32
           - t0-standalone-64
           - t0-standalone-128
@@ -80,7 +79,6 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
-          - t2-isolated-d128s2
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -96,19 +94,16 @@ all:
           - c0-lo
           - dpu-1
           - ft2-64
-          - ft2-16
           - lt2-p32o64
           - lt2-o128
-          - urh
-          - lrh
       children:
-        server_1:
-        server_2:
+        server_1_grp:
+        server_2_grp:
 
 vm_host_1:
   hosts:
     STR-ACS-SERV-01:
-      ansible_host: 10.251.0.245
+      ansible_host: 192.168.11.87
 
 vm_host_2:
   hosts:
@@ -118,9 +113,9 @@ vm_host_2:
 vms_1:
   hosts:
     VM0100:
-      ansible_host: 10.250.0.2
+      ansible_host: 192.168.11.100
     VM0101:
-      ansible_host: 10.250.0.3
+      ansible_host: 192.168.11.101
     VM0102:
       ansible_host: 10.250.0.4
     VM0103:
@@ -390,14 +385,14 @@ vms_2:
       ansible_host: 10.250.0.255
 
 # The groups below are helper to limit running playbooks to specific server(s) only
-server_1:
+server_1_grp:
   vars:
     host_var_file: host_vars/STR-ACS-SERV-01.yml
   children:
     vm_host_1:
     vms_1:
 
-server_2:
+server_2_grp:
   vars:
     host_var_file: host_vars/STR-ACS-SERV-02.yml
   children:

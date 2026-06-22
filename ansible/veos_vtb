@@ -38,7 +38,6 @@ all:
           - t0-backend
           - t0-88-o8c80
           - dualtor
-          - dualtor-vpp
           - dualtor-56
           - dualtor-120
           - t2
@@ -54,7 +53,6 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - dualtor-aa
-          - dualtor-aa-vpp
           - dualtor-aa-56
           - dualtor-aa-64
           - dualtor-aa-120
@@ -94,10 +92,6 @@ all:
         vlab-c-02:
         vlab-vpp-01:
         vlab-vpp-02:
-        vlab-vpp-03:
-        vlab-vpp-04:
-        vlab-vpp-05:
-        vlab-vpp-06:
     ptf:
       hosts:
         ptf-01:
@@ -124,18 +118,12 @@ all:
         ptf-08:
           ansible_host: 10.250.0.119
           ansible_hostv6: fec0::ffff:afb:5
-        ptf-09:
-          ansible_host: 10.250.0.120
-          ansible_hostv6: fec0::ffff:afb:9
-        ptf-10:
-          ansible_host: 10.250.0.121
-          ansible_hostv6: fec0::ffff:afb:10
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
-        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_ALTPASSWORD') | default('YourPaSsWoRd', true) }}"
+        ansible_altpassword: pxq123
       children:
         vms_1:
       hosts:
@@ -360,7 +348,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9008
+          serial_port: 9001
           ansible_password: password
           ansible_user: admin
         vlab-vpp-02:
@@ -369,43 +357,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9091
-          ansible_password: password
-          ansible_user: admin
-        vlab-vpp-03:
-          ansible_host: 10.250.0.133
-          ansible_hostv6: fec0::ffff:afa:73
-          type: kvm
-          hwsku: Force10-S6000
-          asic_type: vpp
-          serial_port: 9026
-          ansible_password: password
-          ansible_user: admin
-        vlab-vpp-04:
-          ansible_host: 10.250.0.134
-          ansible_hostv6: fec0::ffff:afa:74
-          type: kvm
-          hwsku: Force10-S6000
-          asic_type: vpp
-          serial_port: 9027
-          ansible_password: password
-          ansible_user: admin
-        vlab-vpp-05:
-          ansible_host: 10.250.0.135
-          ansible_hostv6: fec0::ffff:afa:75
-          type: kvm
-          hwsku: Force10-S6000
-          asic_type: vpp
-          serial_port: 9028
-          ansible_password: password
-          ansible_user: admin
-        vlab-vpp-06:
-          ansible_host: 10.250.0.136
-          ansible_hostv6: fec0::ffff:afa:76
-          type: kvm
-          hwsku: Force10-S6000
-          asic_type: vpp
-          serial_port: 9029
+          serial_port: 9001
           ansible_password: password
           ansible_user: admin
 
@@ -421,8 +373,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
-      vm_host_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
+      ansible_user: use_own_value
+      vm_host_user: use_own_value
 
 vms_1:
   hosts:
@@ -514,19 +466,3 @@ vms_1:
       ansible_host: 10.250.0.93
     VM0143:
       ansible_host: 10.250.0.94
-    VM0144:
-      ansible_host: 10.250.0.95
-    VM0145:
-      ansible_host: 10.250.0.96
-    VM0146:
-      ansible_host: 10.250.0.97
-    VM0147:
-      ansible_host: 10.250.0.98
-    VM0148:
-      ansible_host: 10.250.0.99
-    VM0149:
-      ansible_host: 10.250.0.100
-    VM0150:
-      ansible_host: 10.250.0.101
-    VM0151:
-      ansible_host: 10.250.0.102

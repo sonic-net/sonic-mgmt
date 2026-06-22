@@ -1,7 +1,8 @@
 """System / Process Restart - xcvrd daemon restart validation.
 
 Implements xcvrd daemon restart impact, xcvrd restart with I2C errors,
-and xcvrd crash recovery test from ``docs/testplan/transceiver/system_test_plan.md``.
+and xcvrd crash recovery test from
+    ``docs/testplan/transceiver/system_test_plan.md``.
 
 
 
@@ -49,7 +50,7 @@ from spytest.apis.system.i2c import err_simulation
 logger = logging.getLogger(__name__)
 
 
-    #TODO: See if there are existing functions in /common, or move these to there
+# TODO: See if there are existing functions in /common, or move these there
 def _sys_attr(port_attrs, name, default):
     """Extract system attribute from port attributes dict with default fallback."""
     return port_attrs.get(SYSTEM_ATTRIBUTES_KEY, {}).get(name, default)

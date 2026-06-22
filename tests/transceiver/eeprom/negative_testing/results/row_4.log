@@ -1,0 +1,167 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/test_hexdump.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_identifier_byte_verification_via_sfputil
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 4 items / 3 deselected / 1 selected
+
+transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil FAILED [100%]
+
+=================================== FAILURES ===================================
+________________ test_identifier_byte_verification_via_sfputil _________________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+
+    def test_identifier_byte_verification_via_sfputil(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping
+    ):
+        """Verify the SFF-8024 identifier byte via 'sfputil read-eeprom'.
+    
+        For every connected port, reads exactly one identifier byte at offset 0 and
+        validates it against the 'sff8024_identifier' value from EEPROM_ATTRIBUTES in
+        port_attributes_dict.  The address space is dispatched on the (expected)
+        identifier family, mirroring the non-CMIS upper-page test:
+          - SFF-8472 (SFP/SFP+/SFP28, id 0x03): read A0h byte 0
+            ('sfputil read-eeprom -p <port> --wire-addr A0h -o 0 -s 1').
+          - Paged families (QSFP/QSFP+/QSFP28/CMIS): read lower page 0 byte 0
+            ('sfputil read-eeprom -p <port> -n 0 -o 0 -s 1').
+        Aggregates all failures for reporting.
+    
+        Byte 0 — SFF-8024 identifier values (decimal):
+            25 (0x19) = QSFP-DD / OSFP (CMIS)
+        """
+        all_failures = []
+    
+        for port, port_attrs in port_attributes_dict.items():
+            if not port_attrs:
+                logger.debug("Port %s has no attributes, skipping", port)
+                continue
+            if not is_stem_port(port, lport_to_first_subport_mapping):
+                logger.debug("Port %s is a breakout sub-port, skipping", port)
+                continue
+    
+            eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+            expected_identifier = eeprom_attrs.get("sff8024_identifier")
+            if expected_identifier is None:
+                logger.debug("Port %s has no sff8024_identifier defined, skipping", port)
+                continue
+    
+            # SFF-8472 transceivers expose the identifier byte at A0h byte 0; paged
+            # families (QSFP/QSFP+/QSFP28/CMIS) expose it at lower page 0 byte 0.
+            # Dispatch on the expected identifier so SFP/SFP+/SFP28 (0x03) hit the
+            # correct address space (per the "sfputil read-eeprom lower page
+            # verification" case in eeprom_test_plan.md).
+            if classify(eeprom_attrs) is ModuleFamily.SFF8472:
+                byte_map, err = cli_helpers.sfputil_read_eeprom(
+                    duthost, port, wire_addr="A0h", offset=0, size=1,
+                )
+            else:
+                byte_map, err = cli_helpers.sfputil_read_eeprom(
+                    duthost, port, page=0, offset=0, size=1,
+                )
+            if err:
+                all_failures.append(f"{port}: {err}")
+                continue
+    
+            actual_identifier = byte_map.get(0)
+            if actual_identifier is None:
+                all_failures.append(f"{port}: identifier byte at offset 0 not found in sfputil output")
+            elif actual_identifier != expected_identifier:
+                all_failures.append(
+                    f"{port}: identifier byte mismatch: "
+                    f"expected 0x{expected_identifier:02X} ({expected_identifier}), "
+                    f"got 0x{actual_identifier:02X} ({actual_identifier})"
+                )
+    
+        if all_failures:
+>           pytest.fail("Identifier byte verification failures:\n" + "\n".join(all_failures))
+E           Failed: Identifier byte verification failures:
+E           Ethernet0: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet16: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet64: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet80: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet128: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet144: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet352: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet368: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet416: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet432: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet480: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+E           Ethernet496: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)
+
+actual_identifier = 25
+all_failures = ['Ethernet0: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)', 'Ethernet16: identifier byte mismatch: expe...h: expected 0x11 (17), got 0x19 (25)', 'Ethernet144: identifier byte mismatch: expected 0x11 (17), got 0x19 (25)', ...]
+byte_map   = {0: 25}
+duthost    = <MultiAsicSonicHost arista_sw2>
+eeprom_attrs = {'breakout_stem_serial_number_pattern': '^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$', 'cdb_background_mode_supported': True, 'cdb_stress_iteration_count': 10, 'cmis_active_optical': True, ...}
+err        = None
+expected_identifier = 17
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+port       = 'Ethernet503'
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+port_attrs = {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_rev': '1.10', .....t_supported': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}
+
+transceiver/eeprom/test_hexdump.py:241: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+DEBUG:tests.conftest:[log_custom_msg] item: <Function test_identifier_byte_verification_via_sfputil>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/test_hexdump.py: 44 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=471667) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/test_hexdump.py::test_identifier_byte_verification_via_sfputil
+================ 1 failed, 3 deselected, 55 warnings in 47.97s =================

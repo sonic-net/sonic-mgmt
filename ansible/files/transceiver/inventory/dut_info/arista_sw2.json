@@ -1,0 +1,114 @@
+{
+  "Ethernet0,Ethernet16,Ethernet64,Ethernet80,Ethernet128,Ethernet144,Ethernet352,Ethernet368,Ethernet416,Ethernet432,Ethernet480,Ethernet496": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x01-0x01"
+  },
+  "Ethernet1,Ethernet17,Ethernet65,Ethernet81,Ethernet129,Ethernet145,Ethernet353,Ethernet369,Ethernet417,Ethernet433,Ethernet481,Ethernet497": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x02-0x02"
+  },
+  "Ethernet2,Ethernet18,Ethernet66,Ethernet82,Ethernet130,Ethernet146,Ethernet354,Ethernet370,Ethernet418,Ethernet434,Ethernet482,Ethernet498": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x04-0x04"
+  },
+  "Ethernet3,Ethernet19,Ethernet67,Ethernet83,Ethernet131,Ethernet147,Ethernet355,Ethernet371,Ethernet419,Ethernet435,Ethernet483,Ethernet499": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x08-0x08"
+  },
+  "Ethernet4,Ethernet20,Ethernet68,Ethernet84,Ethernet132,Ethernet148,Ethernet356,Ethernet372,Ethernet420,Ethernet436,Ethernet484,Ethernet500": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x10-0x10"
+  },
+  "Ethernet5,Ethernet21,Ethernet69,Ethernet85,Ethernet133,Ethernet149,Ethernet357,Ethernet373,Ethernet421,Ethernet437,Ethernet485,Ethernet501": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x20-0x20"
+  },
+  "Ethernet6,Ethernet22,Ethernet70,Ethernet86,Ethernet134,Ethernet150,Ethernet358,Ethernet374,Ethernet422,Ethernet438,Ethernet486,Ethernet502": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x40-0x40"
+  },
+  "Ethernet7,Ethernet23,Ethernet71,Ethernet87,Ethernet135,Ethernet151,Ethernet359,Ethernet375,Ethernet423,Ethernet439,Ethernet487,Ethernet503": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x80-0x80"
+  },
+  "Ethernet0:7": {
+    "vendor_sn": "IDPAGS231330",
+    "vendor_date": "2025-02-18"
+  },
+  "Ethernet16:23": {
+    "vendor_sn": "IDPALS190967",
+    "vendor_date": "2025-03-21"
+  },
+  "Ethernet64:71": {
+    "vendor_sn": "IDPALS194989",
+    "vendor_date": "2025-03-22"
+  },
+  "Ethernet80:87": {
+    "vendor_sn": "IDPATS390108",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet128:135": {
+    "vendor_sn": "IDPATS390129",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet144:151": {
+    "vendor_sn": "IDPATS390094",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet352:359": {
+    "vendor_sn": "IDPAGS233652",
+    "vendor_date": "2025-02-19"
+  },
+  "Ethernet368:375": {
+    "vendor_sn": "IDPATS390138",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet416:423": {
+    "vendor_sn": "IDPAGS233798",
+    "vendor_date": "2025-02-19"
+  },
+  "Ethernet432:439": {
+    "vendor_sn": "IDPAGS232373",
+    "vendor_date": "2025-02-19"
+  },
+  "Ethernet480:487": {
+    "vendor_sn": "IDPALS194089",
+    "vendor_date": "2025-03-22"
+  },
+  "Ethernet496:503": {
+    "vendor_sn": "IDPAHS050736",
+    "vendor_date": "2025-02-21"
+  }
+}

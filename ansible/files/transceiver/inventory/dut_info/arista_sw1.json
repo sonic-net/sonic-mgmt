@@ -1,0 +1,82 @@
+{
+  "Ethernet32,Ethernet48,Ethernet96,Ethernet112": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x01-0x01"
+  },
+  "Ethernet33,Ethernet49,Ethernet97,Ethernet113": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x02-0x02"
+  },
+  "Ethernet34,Ethernet50,Ethernet98,Ethernet114": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x04-0x04"
+  },
+  "Ethernet35,Ethernet51,Ethernet99,Ethernet115": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x08-0x08"
+  },
+  "Ethernet36,Ethernet52,Ethernet100,Ethernet116": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x10-0x10"
+  },
+   "Ethernet37,Ethernet53,Ethernet101,Ethernet117": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x20-0x20"
+  },
+   "Ethernet38,Ethernet54,Ethernet102,Ethernet118": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x40-0x40"
+  },
+   "Ethernet39,Ethernet55,Ethernet103,Ethernet119": {
+    "vendor_name": "PINEWAVE",
+    "vendor_pn": "T-OH8CNT-NMT",
+    "vendor_rev": "1A",
+    "vendor_oui": "34-36-07",
+    "hardware_rev": "1.10",
+    "transceiver_configuration": "DR-100-OSFP-8x100G_DR8-0x80-0x80"
+  },
+  "Ethernet32:39": {
+    "vendor_sn": "IDPALS194547",
+    "vendor_date": "2025-03-22"
+  },
+  "Ethernet48:55": {
+    "vendor_sn": "IDPATS390017",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet96:103": {
+    "vendor_sn": "IDPATS390111",
+    "vendor_date": "2025-05-20"
+  },
+  "Ethernet112:119": {
+    "vendor_sn": "IDPAGS230700",
+    "vendor_date": "2025-02-18"
+  }
+}

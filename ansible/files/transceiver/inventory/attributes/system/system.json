@@ -1,0 +1,63 @@
+{
+    "mandatory": [],
+    "defaults": {
+        "verify_lldp_on_link_up": true,
+        "port_shutdown_wait_sec": 5,
+        "port_startup_wait_sec": 60,
+        "port_toggle_iterations": 100,
+        "port_toggle_delay_sec": 2,
+        "port_range_toggle_iterations": 50,
+        "port_range_test_ports": [],
+        "port_range_startup_wait_sec": 60,
+        "xcvrd_restart_settle_sec": 120,
+        "i2c_error_inject_cmd": "sudo sfputil write-eeprom -p {port} -n 0 -o 128 -d FF",
+        "i2c_error_clear_cmd": "sudo sfputil write-eeprom -p {port} -n 0 -o 127 -d 01",
+        "pmon_restart_settle_sec": 120,
+        "swss_restart_settle_sec": 180,
+        "syncd_restart_settle_sec": 240,
+        "expect_pmon_restart_with_swss_or_syncd": false,
+        "config_reload_settle_sec": 300,
+        "cold_reboot_settle_sec": 400,
+        "cold_reboot_iterations": 5,
+        "warm_reboot_supported": false,
+        "warm_reboot_settle_sec": 300,
+        "warm_reboot_iterations": 5,
+        "fast_reboot_supported": false,
+        "fast_reboot_settle_sec": 300,
+        "fast_reboot_iterations": 5,
+        "power_cycle_supported": false,
+        "power_cycle_settle_sec": 600,
+        "power_cycle_iterations": 3,
+        "transceiver_reset_supported": true,
+        "transceiver_reset_i2c_recover_sec": 5,
+        "low_power_mode_supported": false,
+        "loopback_supported": false,
+        "supported_loopback_modes": [],
+        "loopback_settle_sec": 15,
+        "low_pwr_request_hw_asserted": true,
+        "cmis_bootup_low_power_test_supported": false,
+        "tx_disable_test_supported": false,
+        "optics_si_settings": {
+            "page.11h_223":[0,0,0,0,0,0,0,0,1,1,1,1]            
+        },
+        "media_si_settings": {
+            "pre3": "0x00000000",
+            "pre2": "0x00000003",
+            "pre1": "0xffffffec",
+            "main": "0x00000028",
+            "post1": "0x00000000",
+            "idriver": "0x0000003f"
+        },
+
+        "frequency_values": [],
+        "tx_power_values": [],
+        "link_stability_monitor_sec": 300
+    },
+    "transceivers": {
+        "deployment_configurations": {
+            "8x100G_DR8": {
+	            "expected_application_code":1    
+            }
+        }
+    }
+}

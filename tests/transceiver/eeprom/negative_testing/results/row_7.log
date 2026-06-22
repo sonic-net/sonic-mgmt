@@ -1,0 +1,344 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/test_breakout_serial.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_serial_number_pattern_validation_for_breakout_ports
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 1 item
+
+transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports FAILED [100%]
+
+=================================== FAILURES ===================================
+___________ test_serial_number_pattern_validation_for_breakout_ports ___________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+
+    def test_serial_number_pattern_validation_for_breakout_ports(duthost, port_attributes_dict):
+        """Validate transceiver serial numbers against breakout deployment regex patterns.
+    
+        In a breakout deployment one physical cable is split into multiple logical ports
+        (leaf ports) that share a common stem transceiver.  Each leaf or stem port carries
+        a serial number whose format identifies which side of the cable it belongs to.
+    
+        This test intentionally iterates ALL logical ports (no stem filtering): the
+        serial-number pattern is per-logical-port — leaf and stem serials differ — so
+        every sub-port must be validated individually.
+    
+        Attribute lookup (EEPROM_ATTRIBUTES only — both patterns live under
+        ``transceivers`` per the plan's attribute table):
+            breakout_serial_number_pattern       — present on leaf ports (e.g. ".*-A$")
+            breakout_stem_serial_number_pattern  — present on stem ports
+    
+        Per-port logic:
+        - If neither attribute is found the port is silently skipped (not a breakout port).
+        - If breakout_serial_number_pattern is defined  → leaf port; use that pattern.
+        - If breakout_stem_serial_number_pattern only    → stem port; use that pattern.
+        - If both are defined on the same port           → AMBIGUOUS: the port role
+          cannot be determined heuristically and is reported as a failure. Resolve
+          by setting only the pattern matching the port's actual role in inventory.
+        - The serial number is retrieved from 'sfputil show eeprom -p <port>'
+          (field 'Vendor SN') and matched with re.fullmatch against the chosen pattern.
+        - The retrieved serial number is always logged at INFO level for traceability.
+    
+        Test-level skip: if no port in port_attributes_dict carries either attribute, the
+        test is skipped (not failed) — the DUT is simply not a breakout deployment.
+    
+        Aggregates all failures for final reporting.
+    
+        Example patterns:
+            Leaf A  : ".*-A$"   — serial number must end with '-A'
+            Leaf B  : ".*-B$"   — serial number must end with '-B'
+            Stem    : "^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$" or similar — no leaf suffix present
+        """
+        all_failures = []
+        any_port_tested = False   # becomes True when at least one port has a pattern defined
+    
+        for port, port_attrs in port_attributes_dict.items():
+            if not port_attrs:
+                logger.debug("Port %s has no attributes, skipping", port)
+                continue
+    
+            eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+    
+            # Step 1 - Resolve which breakout pattern applies to this port. Both
+            # breakout_serial_number_pattern (leaf) and
+            # breakout_stem_serial_number_pattern (stem) live under
+            # EEPROM_ATTRIBUTES per the plan's attribute table, so look there only.
+            leaf_pattern = eeprom_attrs.get("breakout_serial_number_pattern")
+            stem_pattern = eeprom_attrs.get("breakout_stem_serial_number_pattern")
+    
+            if leaf_pattern is None and stem_pattern is None:
+                logger.debug(
+                    "Port %s: no breakout serial number pattern defined, skipping", port
+                )
+                continue
+    
+            any_port_tested = True
+    
+            # When both attributes resolve on the same port the role is genuinely
+            # ambiguous — silently picking one would mask an inventory bug where a
+            # defaults block sets both patterns globally.  Surface it as a hard
+            # failure so the inventory gets corrected instead of the wrong pattern
+            # being applied port-after-port.
+            if leaf_pattern is not None and stem_pattern is not None:
+                all_failures.append(
+                    f"{port}: both 'breakout_serial_number_pattern' (leaf) and "
+                    f"'breakout_stem_serial_number_pattern' (stem) resolved on the "
+                    f"same port — role is ambiguous. Configure only the pattern "
+                    f"matching this port's actual role in inventory."
+                )
+                continue
+    
+            if leaf_pattern is not None:
+                pattern = leaf_pattern
+                port_role = "leaf"
+            else:
+                pattern = stem_pattern
+                port_role = "stem"
+    
+            logger.debug(
+                "Port %s: %s port — expected serial number regex: '%s'",
+                port, port_role, pattern,
+            )
+    
+            # ------------------------------------------------------------------ #
+            # Step 2 – Retrieve the serial number via sfputil show eeprom         #
+            # ------------------------------------------------------------------ #
+            port_eeprom, err = cli_helpers.sfputil_show_eeprom(duthost, port=port)
+            if err:
+                all_failures.append(f"{port}: {err}")
+                continue
+    
+            port_fields = port_eeprom.get(port, {})
+            if not port_fields:
+                all_failures.append(
+                    f"{port}: transceiver not detected in sfputil show eeprom output"
+                )
+                continue
+    
+            vendor_sn = port_fields.get("Vendor SN")
+            if vendor_sn is None:
+                all_failures.append(
+                    f"{port}: 'Vendor SN' field missing in sfputil show eeprom output"
+                )
+                continue
+    
+            # Step 2b – Log the retrieved serial number for debugging traceability
+            logger.info(
+                "Port %s (%s port): retrieved serial number: '%s'", port, port_role, vendor_sn
+            )
+    
+            # ------------------------------------------------------------------ #
+            # Step 3 – Validate serial number against the expected regex pattern  #
+            # ------------------------------------------------------------------ #
+            try:
+                match = re.fullmatch(pattern, vendor_sn)
+            except re.error as exc:
+                all_failures.append(
+                    f"{port}: invalid regex pattern '{pattern}' "
+                    f"(from {port_role} breakout attribute): {exc}"
+                )
+                continue
+    
+            if not match:
+                all_failures.append(
+                    f"{port}: serial number pattern mismatch ({port_role} port): "
+                    f"serial number '{vendor_sn}' does not match pattern '{pattern}'"
+                )
+            else:
+                logger.debug(
+                    "Port %s: serial number '%s' matches %s pattern '%s'",
+                    port, vendor_sn, port_role, pattern,
+                )
+    
+        # ------------------------------------------------------------------ #
+        # Test-level skip when the DUT has no breakout ports at all           #
+        # ------------------------------------------------------------------ #
+        if not any_port_tested:
+            pytest.skip(
+                "No ports with breakout_serial_number_pattern or "
+                "breakout_stem_serial_number_pattern found; "
+                "skipping serial number pattern validation"
+            )
+    
+        if all_failures:
+>           pytest.fail(
+                "Serial number pattern validation failures:\n" + "\n".join(all_failures)
+            )
+E           Failed: Serial number pattern validation failures:
+E           Ethernet0: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet16: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet64: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet80: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet128: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet144: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet352: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet368: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet416: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet432: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet480: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet496: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet1: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet17: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet65: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet81: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet129: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet145: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet353: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet369: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet417: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet433: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet481: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet497: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet2: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet18: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet66: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet82: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet130: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet146: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet354: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet370: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet418: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet434: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet482: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet498: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet3: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet19: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet67: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet83: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet131: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet147: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet355: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet371: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet419: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet435: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet483: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet499: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet4: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet20: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet68: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet84: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet132: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet148: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet356: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet372: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet420: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet436: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet484: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet500: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet5: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet21: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet69: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet85: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet133: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet149: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet357: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet373: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet421: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet437: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet485: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet501: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet6: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet22: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet70: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet86: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet134: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet150: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet358: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet374: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet422: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet438: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet486: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet502: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+E           Ethernet7: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'
+E           Ethernet23: serial number pattern mismatch (stem port): serial number 'IDPALS190967' does not match pattern '.*-ZZZ$'
+E           Ethernet71: serial number pattern mismatch (stem port): serial number 'IDPALS194989' does not match pattern '.*-ZZZ$'
+E           Ethernet87: serial number pattern mismatch (stem port): serial number 'IDPATS390108' does not match pattern '.*-ZZZ$'
+E           Ethernet135: serial number pattern mismatch (stem port): serial number 'IDPATS390129' does not match pattern '.*-ZZZ$'
+E           Ethernet151: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'
+E           Ethernet359: serial number pattern mismatch (stem port): serial number 'IDPAGS233652' does not match pattern '.*-ZZZ$'
+E           Ethernet375: serial number pattern mismatch (stem port): serial number 'IDPATS390138' does not match pattern '.*-ZZZ$'
+E           Ethernet423: serial number pattern mismatch (stem port): serial number 'IDPAGS233798' does not match pattern '.*-ZZZ$'
+E           Ethernet439: serial number pattern mismatch (stem port): serial number 'IDPAGS232373' does not match pattern '.*-ZZZ$'
+E           Ethernet487: serial number pattern mismatch (stem port): serial number 'IDPALS194089' does not match pattern '.*-ZZZ$'
+E           Ethernet503: serial number pattern mismatch (stem port): serial number 'IDPAHS050736' does not match pattern '.*-ZZZ$'
+
+all_failures = ["Ethernet0: serial number pattern mismatch (stem port): serial number 'IDPAGS231330' does not match pattern '.*-ZZZ$'...et144: serial number pattern mismatch (stem port): serial number 'IDPATS390094' does not match pattern '.*-ZZZ$'", ...]
+any_port_tested = True
+duthost    = <MultiAsicSonicHost arista_sw2>
+eeprom_attrs = {'breakout_stem_serial_number_pattern': '.*-ZZZ$', 'cdb_background_mode_supported': True, 'cdb_stress_iteration_count': 10, 'cmis_active_optical': True, ...}
+err        = None
+leaf_pattern = None
+match      = None
+pattern    = '.*-ZZZ$'
+port       = 'Ethernet503'
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+port_attrs = {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_rev': '1.10', .....t_supported': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}
+port_eeprom = {'Ethernet503': {'Active App Selection Host Lane 1': '1', 'Active App Selection Host Lane 2': '1', 'Active App Selection Host Lane 3': '1', 'Active App Selection Host Lane 4': '1', ...}}
+port_fields = {'Active App Selection Host Lane 1': '1', 'Active App Selection Host Lane 2': '1', 'Active App Selection Host Lane 3': '1', 'Active App Selection Host Lane 4': '1', ...}
+port_role  = 'stem'
+stem_pattern = '.*-ZZZ$'
+vendor_sn  = 'IDPAHS050736'
+
+transceiver/eeprom/test_breakout_serial.py:160: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+DEBUG:tests.conftest:[log_custom_msg] item: <Function test_serial_number_pattern_validation_for_breakout_ports>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/test_breakout_serial.py: 125 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=473071) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/test_breakout_serial.py::test_serial_number_pattern_validation_for_breakout_ports
+================= 1 failed, 136 warnings in 119.35s (0:01:59) ==================

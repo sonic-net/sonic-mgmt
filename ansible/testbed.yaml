@@ -268,36 +268,34 @@
   auto_recover: 'True'
   comment: Multi servers testbed demo
 
-- conf-name: bmc-dual-mgmt-01
-  group-name: bmc-dual-mgmt
-  topo: bmc-dual-mgmt
+
+
+
+- conf-name: dvt_arista_test
+  group-name: sonic_arista_7060
+  topo: t1
   ptf_image_name: docker-ptf
-  ptf: ptf_bmc01
-  ptf_ip: 10.255.0.200/24
-  ptf_ipv6: 2001:db8:1::10/64
-  server: server_1
-  vm_base:
+  ptf: ptf_ptf1
+  ptf_ip: 192.168.11.87/24
+  ptf_ipv6:
+  host: STR-ACS-SERV-01
   dut:
-    - switch01-bmc
-  bmc_host: switch01
+    - arista_sw1
   inv_name: lab
   auto_recover: 'False'
-  comment: BMC dual-mgmt testbed
-
-- conf-name: tor-dualtor3
-  group-name: tor-dualtor
-  topo: dualtor-aa
+  comment: "Wilson Arista SFP Testbed"
+  
+  
+- conf-name: dvt_nvidia_test
+  group-name: sonic_nvidia_5640
+  topo: t1
   ptf_image_name: docker-ptf
-  ptf: ptf_dtor3
-  ptf_ip: 10.255.0.210/24
-  ptf_ipv6: 2001:db8:1::20/64
-  prober_type: hardware
-  server: server_1
-  vm_base: VM0100
+  ptf: ptf_ptf1
+  ptf_ip: 192.168.11.87/24
+  ptf_ipv6:
+  host: STR-ACS-SERV-01
   dut:
-    - dtor3-dut0
-    - dtor3-dut1
+    - nvidia_sw2
   inv_name: lab
-  auto_recover: 'True'
-  netns_mgmt_ip: 10.255.0.211/16
-  comment: dualtor setup example
+  auto_recover: 'False'
+  comment: "Pinewave Nvidia SFP Testbed"

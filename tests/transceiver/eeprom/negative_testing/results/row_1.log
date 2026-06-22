@@ -1,0 +1,117 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/test_eeprom_content.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_eeprom_content_verification_via_sfputil
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 2 items / 1 deselected / 1 selected
+
+transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil FAILED [100%]DEBUG:tests.conftest:[log_custom_msg] item: <Function test_eeprom_content_verification_via_sfputil>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+
+
+=================================== FAILURES ===================================
+_________________ test_eeprom_content_verification_via_sfputil _________________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+
+    def test_eeprom_content_verification_via_sfputil(
+        duthost, port_attributes_dict, lport_to_first_subport_mapping
+    ):
+        """Verify EEPROM content via ``sfputil show eeprom -p <port>`` per port.
+    
+        Implements Generic test case from
+        ``docs/testplan/transceiver/eeprom_test_plan.md``.  For every port with
+        inventory attributes the test:
+    
+          * Runs ``sfputil show eeprom -p <port>`` once, timed.
+          * Fails the port when elapsed time exceeds
+            ``EEPROM_ATTRIBUTES.eeprom_dump_timeout_sec`` (default 5s per the
+            plan).  This is the test case expected result "EEPROM dump completes
+            within eeprom_dump_timeout_sec".
+          * Compares the parsed EEPROM fields against expected values from
+            ``port_attributes_dict``.  Firmware versions are NOT checked here:
+            ``sfputil show eeprom`` does not report them, so they are verified by
+            the show-CLI variant instead.
+    
+        Aggregates per-port failure blocks into one ``pytest.fail``.
+        """
+        all_failures = _run_per_port_eeprom_check(
+            duthost, port_attributes_dict,
+            parse_wrapper=cli_helpers.sfputil_show_eeprom,
+            source_label="sfputil show eeprom -p <port>",
+            key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
+            stem_map=lport_to_first_subport_mapping,
+        )
+        if all_failures:
+>           pytest.fail("EEPROM verification failures:\n" + "\n".join(all_failures))
+E           Failed: EEPROM verification failures:
+E           Ethernet0:
+E             'Vendor SN': expected 'BADSN000000', got 'IDPAGS231330'
+
+all_failures = ["Ethernet0:\n  'Vendor SN': expected 'BADSN000000', got 'IDPAGS231330'"]
+duthost    = <MultiAsicSonicHost arista_sw2>
+lport_to_first_subport_mapping = {'Ethernet0': 'Ethernet0', 'Ethernet1': 'Ethernet0', 'Ethernet10': 'Ethernet8', 'Ethernet100': 'Ethernet96', ...}
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+
+transceiver/eeprom/test_eeprom_content.py:225: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/test_eeprom_content.py: 44 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=470208) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/test_eeprom_content.py::test_eeprom_content_verification_via_sfputil
+================ 1 failed, 1 deselected, 55 warnings in 52.94s =================

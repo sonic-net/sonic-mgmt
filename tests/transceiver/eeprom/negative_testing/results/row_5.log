@@ -1,0 +1,280 @@
+pkill: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pkill -f' option to match against the complete command line.
+=== Clearing pytest cache ===
+=== Running tests in groups ===
+Running: python3 -m pytest transceiver/eeprom/test_vdm_consistency.py --inventory ../ansible/lab,../ansible/veos --host-pattern arista_sw2 --dpu-pattern None --testbed dvt_arista_test --testbed_file /var/AzDevOps/sonic-mgmt/ansible/testbed.yaml --log-cli-level warning --log-file-level debug --kube_master unset --showlocals --assert plain --show-capture no -rav --allow_recover --ignore=ptftests --ignore=acstests --ignore=saitests --ignore=scripts --ignore=k8s --ignore=sai_qualify --junit-xml=logs/tr.xml --log-file=logs/test.log --skip_sanity --skip_yang -k test_vdm_supported_consistency
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+ansible: 2.18.14
+rootdir: /var/AzDevOps/sonic-mgmt
+configfile: pyproject.toml
+plugins: cov-7.1.0, stress-1.0.1, repeat-0.9.4, allure-pytest-2.15.3, html-4.2.0, metadata-3.1.1, xdist-3.8.0, ansible-26.2.0
+
+----------------------------- live log collection ------------------------------
+ERROR    tests.common.plugins.conditional_mark:__init__.py:263 Failed to load minigraph basic facts, exception: CalledProcessError(2, ['ansible', '-M', '/var/AzDevOps/sonic-mgmt/ansible/library', '-m', 'minigraph_facts', '-i', '../ansible/lab', 'arista_sw2', '-a', 'host=arista_sw2'])
+collected 1 item
+
+transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency FAILED [100%]
+
+=================================== FAILURES ===================================
+________________________ test_vdm_supported_consistency ________________________
+
+duthost = <MultiAsicSonicHost arista_sw2>
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+
+    def test_vdm_supported_consistency(duthost, port_attributes_dict):
+        """Verify STATE_DB ``vdm_supported`` matches the configured attribute per port.
+    
+        For every port that has ``EEPROM_ATTRIBUTES.vdm_supported`` configured:
+    
+        1. Read the expected value from ``port_attributes_dict``.
+        2. Look up ``vdm_supported`` for the port in the STATE_DB ``TRANSCEIVER_INFO``
+           table, which is read once for all ports via a single ``sonic-db-dump``.
+        3. Compare; aggregate any mismatch (or missing/malformed STATE_DB value).
+    
+        This test intentionally iterates ALL logical ports (no stem filtering),
+        unlike the per-physical EEPROM reads in ``test_hexdump.py`` and
+        ``cmis/test_cdb_background_mode.py`` that filter to stem ports via
+        ``is_stem_port``: STATE_DB ``TRANSCEIVER_INFO`` is populated per-logical-port,
+        so each sub-port has its own ``vdm_supported`` entry that must be verified
+        individually.
+    
+        Ports without a configured ``vdm_supported`` attribute are skipped (treated
+        as "no expectation"); this is the documented behavior in the task spec.
+    
+        A non-CMIS port (``cmis_revision`` unset) that nonetheless carries a
+        ``vdm_supported`` attribute is flagged as an inventory misconfiguration —
+        VDM is CMIS-only and the attribute must not be present for such modules.
+    
+        All failures are collected and reported at the end so a single run surfaces
+        every offending port instead of stopping at the first one.
+        """
+        all_failures = []
+    
+        # Read the whole TRANSCEIVER_INFO table once (a single sonic-db-dump) and
+        # look up each port below, instead of issuing one hget per logical port.
+        transceiver_info, err = db_helpers.get_state_db_table(
+            duthost, STATE_DB_TRANSCEIVER_INFO
+        )
+        if err:
+            pytest.fail(f"Could not read STATE_DB {STATE_DB_TRANSCEIVER_INFO}: {err}")
+    
+        for port, port_attrs in port_attributes_dict.items():
+            if not port_attrs:
+                logger.debug("Port %s has no attributes, skipping", port)
+                continue
+    
+            eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+    
+            # VDM is a CMIS-only construct. Per the plan attribute table, non-CMIS
+            # transceivers must not carry vdm_supported at all; its presence on a
+            # non-CMIS port (cmis_revision unset) is an inventory misconfiguration,
+            # so flag it rather than silently honoring it.  Key presence is checked
+            # (not just a non-None value) so an explicit ``vdm_supported: null`` on
+            # a non-CMIS port is caught too.
+            if eeprom_attrs.get("cmis_revision") is None and "vdm_supported" in eeprom_attrs:
+                all_failures.append(
+                    f"{port}: 'vdm_supported' is set on a non-CMIS transceiver "
+                    f"(cmis_revision unset); VDM is CMIS-only and this attribute must "
+                    f"not be present for non-CMIS modules"
+                )
+                continue
+    
+            expected_value = eeprom_attrs.get("vdm_supported")
+            if expected_value is None:
+                logger.debug("Port %s has no vdm_supported attribute, skipping", port)
+                continue
+    
+            raw_value = transceiver_info.get(port, {}).get(VDM_SUPPORTED_FIELD)
+            if raw_value is None:
+                # Field (or the whole TRANSCEIVER_INFO|<port> entry) absent; itself a
+                # failure per Expected Result #1.
+                all_failures.append(
+                    f"{port}: STATE_DB {STATE_DB_TRANSCEIVER_INFO}|{port} has no "
+                    f"'{VDM_SUPPORTED_FIELD}' field"
+                )
+                continue
+    
+            actual_value = _parse_state_db_bool(raw_value)
+            if actual_value is None:
+                all_failures.append(
+                    f"{port}: STATE_DB vdm_supported has unrecognized value '{raw_value}' "
+                    f"(expected 'True'/'False')"
+                )
+                continue
+    
+            if actual_value != expected_value:
+                all_failures.append(
+                    f"{port}: vdm_supported mismatch — "
+                    f"configured={expected_value}, STATE_DB={actual_value}"
+                )
+            else:
+                logger.debug("Port %s vdm_supported=%s matches STATE_DB", port, expected_value)
+    
+        if all_failures:
+>           pytest.fail(
+                "VDM consistency verification failures:\n  " + "\n  ".join(all_failures)
+            )
+E           Failed: VDM consistency verification failures:
+E             Ethernet0: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet16: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet64: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet80: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet128: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet144: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet352: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet368: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet416: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet432: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet480: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet496: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet1: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet17: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet65: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet81: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet129: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet145: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet353: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet369: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet417: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet433: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet481: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet497: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet2: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet18: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet66: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet82: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet130: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet146: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet354: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet370: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet418: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet434: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet482: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet498: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet3: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet19: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet67: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet83: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet131: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet147: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet355: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet371: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet419: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet435: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet483: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet499: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet4: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet20: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet68: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet84: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet132: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet148: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet356: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet372: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet420: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet436: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet484: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet500: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet5: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet21: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet69: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet85: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet133: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet149: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet357: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet373: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet421: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet437: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet485: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet501: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet6: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet22: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet70: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet86: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet134: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet150: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet358: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet374: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet422: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet438: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet486: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet502: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet7: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet23: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet71: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet87: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet135: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet151: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet359: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet375: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet423: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet439: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet487: vdm_supported mismatch — configured=False, STATE_DB=True
+E             Ethernet503: vdm_supported mismatch — configured=False, STATE_DB=True
+
+actual_value = True
+all_failures = ['Ethernet0: vdm_supported mismatch — configured=False, STATE_DB=True', 'Ethernet16: vdm_supported mismatch — configur...match — configured=False, STATE_DB=True', 'Ethernet144: vdm_supported mismatch — configured=False, STATE_DB=True', ...]
+duthost    = <MultiAsicSonicHost arista_sw2>
+eeprom_attrs = {'breakout_stem_serial_number_pattern': '^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$', 'cdb_background_mode_supported': True, 'cdb_stress_iteration_count': 10, 'cmis_active_optical': True, ...}
+err        = None
+expected_value = False
+port       = 'Ethernet503'
+port_attributes_dict = {'Ethernet0': {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_re...orted': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}, ...}
+port_attrs = {'BASE_ATTRIBUTES': {'cable_type': 'DR', 'deployment': '8x100G_DR8', 'form_factor': 'OSFP', 'hardware_rev': '1.10', .....t_supported': False, 'cold_reboot_iterations': 5, 'cold_reboot_settle_sec': 400, 'config_reload_settle_sec': 300, ...}}
+raw_value  = 'True'
+transceiver_info = {'Ethernet0': {'active_apsel_hostlane1': '1', 'active_apsel_hostlane2': 'N/A', 'active_apsel_hostlane3': 'N/A', 'activ...e1': 'N/A', 'active_apsel_hostlane2': '1', 'active_apsel_hostlane3': 'N/A', 'active_apsel_hostlane4': 'N/A', ...}, ...}
+
+transceiver/eeprom/test_vdm_consistency.py:139: Failed
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.MessageMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+<frozen importlib._bootstrap>:488
+  <frozen importlib._bootstrap>:488: DeprecationWarning: Type google._upb._message.ScalarMapContainer uses PyType_Spec with a metaclass that has custom tp_new. This is deprecated and will no longer be allowed in Python 3.14.
+
+../../../../opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93
+  /opt/venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:93: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+
+ptf_runner.py:3
+  /var/AzDevOps/sonic-mgmt/tests/ptf_runner.py:3: DeprecationWarning: 'pipes' is deprecated and slated for removal in Python 3.13
+    import pipes
+
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+DEBUG:tests.conftest:[log_custom_msg] item: <Function test_vdm_supported_consistency>
+DEBUG:root:[Parallel Fixture] Terminate parallel manager after teardown
+INFO:root:[Parallel Fixture] Terminating parallel fixture manager
+DEBUG:root:[Parallel Fixture] Running tasks to be terminated: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] Current worker threads: []
+DEBUG:root:[Parallel Fixture] The fixture manager is terminated:
+stopped tasks [],
+canceled tasks [],
+pending tasks [],
+done tasks [].
+INFO:root:Can not get Allure report URL. Please check logs
+  /opt/venv/lib/python3.12/site-packages/pytest_ansible/host_manager/v213.py:13: DeprecationWarning: Host management is deprecated and will be removed in a future release
+    class HostManagerV213(BaseHostManager):
+
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+  /opt/venv/lib/python3.12/site-packages/ansible/plugins/loader.py:1485: UserWarning: AnsibleCollectionFinder has already been configured
+    warnings.warn('AnsibleCollectionFinder has already been configured')
+
+tests/transceiver/eeprom/test_vdm_consistency.py: 30 warnings
+  /usr/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=472153) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+  /var/AzDevOps/sonic-mgmt/tests/conftest.py:1565: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    record_testsuite_property("timestamp", datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+-------- generated xml file: /var/AzDevOps/sonic-mgmt/tests/logs/tr.xml --------
+=========================== short test summary info ============================
+FAILED transceiver/eeprom/test_vdm_consistency.py::test_vdm_supported_consistency
+======================= 1 failed, 41 warnings in 29.82s ========================
