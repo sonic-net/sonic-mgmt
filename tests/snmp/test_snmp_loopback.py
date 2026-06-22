@@ -29,6 +29,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
 
+    nbr = None
     if tbinfo['topo']['type'] == 'lt2':
         # Get a UT2 nbr to run the test on LT2 topo
         for nbr_id, nbr_host in nbrhosts.items():
