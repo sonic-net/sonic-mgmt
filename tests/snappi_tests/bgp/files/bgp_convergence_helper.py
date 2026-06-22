@@ -561,11 +561,6 @@ def __tgen_bgp_config(snappi_api,
         createTrafficItem("IPv6 Traffic", v6_tx_flow, v6_rx_flow, 50)
     else:
         raise Exception('Invalid route type given')
-    flow.tx_rx.device.tx_names = [config.devices[0].ethernets[0].name]
-    flow.tx_rx.device.rx_names = rx_flows
-    flow.size.fixed = 1024
-    flow.rate.percentage = 100
-    flow.metrics.enable = True
     return config
 
 
