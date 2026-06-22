@@ -122,3 +122,13 @@
   when: >
     '202511' in fanout_sonic_version['build_version']  and
     not is_cisco_env
+
+- name: deploy SONiC fanout with image version 202605
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run with 202605 images
+      include_tasks:
+        sonic/fanout_sonic_202605.yml
+      when: dry_run is not defined and incremental is not defined
+  when: >
+    ('202605' in fanout_sonic_version['build_version'] or 'master' in fanout_sonic_version['build_version']) and
+    not is_cisco_env
