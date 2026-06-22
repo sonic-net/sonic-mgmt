@@ -6588,6 +6588,199 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
 
+
+class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    Validate the quantized queue shared watermark behavior on Cisco-8000 p200.
+
+    On p200 the queue shared watermark is heavily quantized: as the real queue
+    occupancy crosses a hardware congestion level, the reported watermark snaps
+    to the value of the *next* congestion level. The exact level values are read
+    at runtime from the "show platform npu voq thresholds" serviceability command
+    and supplied in the 'quant_thresholds' test param (bytes, ascending, with
+    thresholds[0] == 0).
+
+    Rule under test: if occupancy exceeds threshold[i], the reported watermark
+    must display exactly threshold[i+1]. As a corollary, since threshold[0] == 0,
+    any traffic at all - even uncongested - must report a non-zero watermark equal
+    to threshold[1].
+
+    For each threshold boundary i (1 .. len-3, ignoring the final threshold which
+    has no i+1) the queue is filled to 'fill_margin' packets below the boundary
+    (watermark must still read threshold[i]) and then to 'fill_margin' packets
+    above the boundary (watermark must read threshold[i+1]). The fill_margin gives
+    slack for device transition nuance and stray background packets while keeping
+    the watermark assertion itself exact.
+    """
+
+    def fill_to_target(self, src_port_id, dst_port_id, pkt, queue, asic_type,
+                       target_pkts, refill_queue):
+        """
+        Fill the egress queue to 'target_pkts' packets of occupancy, then return
+        the queue shared watermark (bytes) for 'queue' on the dst port.
+
+        For refill-capable devices (e.g. p200) the queue is drained on read, so
+        each call re-disables tx, re-establishes the leakout baseline, and fills
+        to the absolute target before re-enabling tx to capture the peak.
+
+        For non-refill devices (e.g. gr2) tx stays disabled for the whole test and
+        occupancy persists; only the incremental delta since the last fill is sent.
+        Targets are visited in strictly increasing order so the delta is positive.
+        """
+        if refill_queue:
+            self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+            # Enqueue exactly one packet past the (variable) leakout.
+            fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+            to_send = target_pkts - 1
+            if to_send > 0:
+                send_packet(self, src_port_id, pkt, to_send)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+        else:
+            delta = target_pkts - self.cur_pkts
+            if delta > 0:
+                send_packet(self, src_port_id, pkt, delta)
+                self.cur_pkts = target_pkts
+        # Allow the dut to sync up the counter values in counters_db.
+        time.sleep(8)
+        q_wm_res, _, _ = sai_thrift_read_port_watermarks(
+            self.dst_client, port_list['dst'][dst_port_id])
+        return q_wm_res[queue]
+
+    def runTest(self):
+        time.sleep(5)
+        switch_init(self.clients)
+
+        # Parse input parameters
+        dscp = int(self.test_params['dscp'])
+        ecn = int(self.test_params['ecn'])
+        router_mac = self.test_params['router_mac']
+        print("router_mac: %s" % (router_mac), file=sys.stderr)
+        queue = int(self.test_params['queue'])
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+
+        asic_type = self.test_params['sonic_asic_type']
+        cell_size = int(self.test_params['cell_size'])
+        hwsku = self.test_params['hwsku']
+        platform_asic = self.test_params['platform_asic']
+        dut_asic = self.test_params['dut_asic']
+        ip_type = self.test_params.get('ip_type', 'ipv4')
+        descriptor_size = int(self.test_params.get('descriptor_size', 0))
+        fill_margin = int(self.test_params.get('fill_margin', 10))
+        thresholds = [int(value) for value in self.test_params['quant_thresholds']]
+
+        if 'packet_size' in list(self.test_params.keys()):
+            packet_length = int(self.test_params['packet_size'])
+        else:
+            packet_length = 64
+
+        # Sanity check the threshold vector. We need threshold[0] == 0 (the empty
+        # queue level) and at least one testable boundary that has an i+1 neighbor
+        # excluding the final threshold.
+        assert len(thresholds) >= 4, \
+            "Expected at least 4 quantized thresholds, got {}".format(thresholds)
+        assert thresholds[0] == 0, \
+            "Expected first quantized threshold to be 0, got {}".format(thresholds)
+
+        cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
+        bytes_per_pkt = cell_occupancy * cell_size
+
+        # Prepare packet data
+        ttl = 64
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        is_dualtor = self.test_params.get('is_dualtor', False)
+        def_vlan_mac = self.test_params.get('def_vlan_mac', None)
+        if is_dualtor and def_vlan_mac is not None:
+            pkt_dst_mac = def_vlan_mac
+
+        if ip_type == 'ipv6':
+            pkt = construct_ipv6_pkt(packet_length, pkt_dst_mac, src_port_mac,
+                                     src_port_ip, dst_port_ip, dscp, src_port_vlan,
+                                     ecn=ecn, ttl=ttl)
+        else:
+            pkt = construct_ip_pkt(packet_length, pkt_dst_mac, src_port_mac,
+                                   src_port_ip, dst_port_ip, dscp, src_port_vlan,
+                                   ecn=ecn, ttl=ttl)
+
+        print("dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" %
+              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+        # In case dst_port_id is part of a LAG, find out the actual dst port for
+        # the given IP parameters so egress blocking and queue reads target the
+        # correct member port.
+        if ip_type == 'ipv6':
+            dst_port_id = get_rx_port_ipv6(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan)
+        else:
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan)
+        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+
+        refill_queue = 'cisco-8000' in asic_type and dut_asic != 'gr2'
+
+        def thr_to_pkts(threshold_bytes):
+            return threshold_bytes // bytes_per_pkt
+
+        # The first non-zero threshold must be reachable while still leaving room
+        # for the fill_margin below it.
+        assert thr_to_pkts(thresholds[1]) > fill_margin, \
+            "First quantized threshold {} is too small for fill_margin {} (bytes_per_pkt {})".format(
+                thresholds[1], fill_margin, bytes_per_pkt)
+
+        try:
+            # Phase A: uncongested validation. Leave egress enabled and send a burst
+            # bounded strictly below threshold[1]. Even though traffic flows
+            # unimpeded, any transient occupancy must push the quantized watermark
+            # to exactly threshold[1].
+            uncongested_pkts = thr_to_pkts(thresholds[1]) - fill_margin
+            send_packet(self, src_port_id, pkt, uncongested_pkts)
+            time.sleep(8)
+            q_wm_res, _, _ = sai_thrift_read_port_watermarks(
+                self.dst_client, port_list['dst'][dst_port_id])
+            print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
+                uncongested_pkts, q_wm_res[queue], thresholds[1]), file=sys.stderr)
+            if platform_asic and platform_asic == "broadcom-dnx":
+                logging.info("Skipping quantized watermark assertions on broadcom-dnx")
+            else:
+                assert q_wm_res[queue] == thresholds[1], \
+                    "Uncongested queue watermark expected {}, got {}".format(
+                        thresholds[1], q_wm_res[queue])
+
+            # Establish the leakout baseline once for non-refill devices, which keep
+            # egress disabled and accumulate occupancy across measurements.
+            self.cur_pkts = 0
+            if not refill_queue:
+                self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+                if 'cisco-8000' in asic_type:
+                    fill_leakout_plus_one(self, src_port_id, dst_port_id, pkt, queue, asic_type)
+                    self.cur_pkts = 1
+
+            # Phase B: per-threshold validation. Skip the final threshold since it
+            # has no i+1 neighbor to transition into.
+            for i in range(1, len(thresholds) - 2):
+                threshold_pkts = thr_to_pkts(thresholds[i])
+                for offset, expected_idx in ((-fill_margin, i), (fill_margin, i + 1)):
+                    target_pkts = threshold_pkts + offset
+                    watermark = self.fill_to_target(
+                        src_port_id, dst_port_id, pkt, queue, asic_type,
+                        target_pkts, refill_queue)
+                    expected = thresholds[expected_idx]
+                    print("Threshold idx %d offset %d: target %d pkts, watermark %d, expected %d" % (
+                        i, offset, target_pkts, watermark, expected), file=sys.stderr)
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        logging.info("Skipping quantized watermark assertions on broadcom-dnx")
+                        continue
+                    assert watermark == expected, \
+                        "Quantized queue watermark mismatch at threshold index {} ({:+d} pkts): " \
+                        "expected {}, got {} (hwsku {})".format(
+                            i, offset, expected, watermark, hwsku)
+        finally:
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+
 # TODO: buffer pool roid should be obtained via rpc calls
 # based on the pg or queue index
 # rather than fed in as test parameters due to the lack in SAI implement

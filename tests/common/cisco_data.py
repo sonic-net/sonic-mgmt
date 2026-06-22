@@ -125,3 +125,30 @@ def run_dshell_command(duthost, command):
     if not wait_until(300, 20, 0, check_dshell_ready, duthost):
         raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     return duthost.shell(command)
+
+
+def get_voq_quant_thresholds(duthost, interface, traffic_class):
+    """
+        Return the quantized VOQ congestion thresholds (in bytes) for a given
+        interface and traffic class on a Cisco-8000 device.
+
+        Runs the "show platform npu voq thresholds" serviceability command and
+        parses its JSON output, returning the "cong_level_to_bytes" list. These
+        are the exact watermark values the hardware will report as queue
+        occupancy crosses each successive congestion level.
+
+        Args:
+            duthost: The DUT host handle.
+            interface (str): The egress interface name (e.g. "Ethernet8").
+            traffic_class (int): The traffic class / queue index.
+
+        Returns:
+            list[int]: The congestion-level thresholds in bytes, ordered from
+                lowest to highest.
+    """
+    if duthost.facts["asic_type"] != "cisco-8000":
+        raise RuntimeError("VOQ quantized thresholds are only available on cisco-8000 platforms.")
+    cmd = "show platform npu voq thresholds -i {} -t {} -d".format(interface, traffic_class)
+    output = duthost.shell(cmd)["stdout"]
+    data = json.loads(output)
+    return [int(value) for value in data["cong_level_to_bytes"]]

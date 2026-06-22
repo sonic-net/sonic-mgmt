@@ -311,6 +311,7 @@ class QosParamCisco(object):
         self.__define_pg_shared_watermark()
         self.__define_buffer_pool_watermark()
         self.__define_q_shared_watermark()
+        self.__define_q_shared_watermark_quant()
         self.__define_lossy_queue_voq()
         self.__define_lossy_queue()
         self.__define_lossless_voq()
@@ -588,6 +589,32 @@ class QosParamCisco(object):
             if self.dutAsic in ["gr2", "gr2x"]:
                 lossy_params["pkts_num_margin"] = 9
             self.write_params("wm_q_shared_lossy", lossy_params)
+
+    def __define_q_shared_watermark_quant(self):
+        # Quantized queue shared watermark test (currently exercised on p200).
+        # The hardware reports the queue shared watermark snapped to discrete
+        # congestion levels read at test time from the serviceability command
+        # "show platform npu voq thresholds". "fill_margin" is the number of
+        # packets to under-/over-fill each threshold by, giving slack for
+        # device transition nuance and stray background packets while keeping
+        # the watermark assertion exact (zero margin).
+        quant_fill_margin = 10
+        if self.should_autogen(["wm_q_shared_quant_lossless"]):
+            lossless_params = {"dscp": 3,
+                               "ecn": 1,
+                               "queue": 3,
+                               "pkts_num_fill_min": 0,
+                               "fill_margin": quant_fill_margin,
+                               "cell_size": self.buffer_size}
+            self.write_params("wm_q_shared_quant_lossless", lossless_params)
+        if self.should_autogen(["wm_q_shared_quant_lossy"]):
+            lossy_params = {"dscp": self.dscp_queue0,
+                            "ecn": 1,
+                            "queue": 0,
+                            "pkts_num_fill_min": 0,
+                            "fill_margin": quant_fill_margin,
+                            "cell_size": self.buffer_size}
+            self.write_params("wm_q_shared_quant_lossy", lossy_params)
 
     def __define_lossy_queue_voq(self):
         if self.should_autogen(["lossy_queue_voq_1"]):
