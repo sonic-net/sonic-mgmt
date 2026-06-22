@@ -297,6 +297,9 @@ def pytest_addoption(parser):
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
+    parser.addoption("--per_interface_macsec", action="store_true", default=False,
+                     help="Layer per-interface MACsec profiles (unique CAK/CKN per port) "
+                          "on top of the base profile for testing")
 
     ############################
     #   QoS options         #
@@ -1093,6 +1096,28 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     neighbor_type = request.config.getoption("--neighbor_type")
+    neighbor_type_overridden = any(
+        arg == "--neighbor_type" or arg.startswith("--neighbor_type=")
+        for arg in request.config.invocation_params.args
+    )
+    # Auto-derive the neighbor type from the testbed's ``vm_type`` field only
+    # when no ``--neighbor_type`` override was provided on the pytest command
+    # line. This lets non-EOS testbeds (e.g. cSONiC, vsonic) resolve the correct
+    # neighbor host class (CsonicHost/SonicHost) while preserving explicit CLI
+    # overrides.
+    if not neighbor_type_overridden:
+        tb_vm_type = tbinfo.get("vm_type")
+        valid_vm_types = ("eos", "sonic", "cisco", "csonic", "vsonic", "ceos")
+        if tb_vm_type and tb_vm_type in valid_vm_types:
+            if tb_vm_type != neighbor_type:
+                logger.info(
+                    "nbrhosts: deriving neighbor_type='%s' from testbed vm_type "
+                    "(--neighbor_type was not provided)", tb_vm_type)
+            neighbor_type = tb_vm_type
+        elif tb_vm_type:
+            logger.warning(
+                "nbrhosts: testbed vm_type='%s' is not a recognized neighbor type; "
+                "falling back to neighbor_type='%s'", tb_vm_type, neighbor_type)
     if 'VMs' not in tbinfo['topo']['properties']['topology']:
         logger.info("No VMs exist for this topology: {}".format(
             tbinfo['topo']['properties']['topology']))
@@ -3895,6 +3920,34 @@ def setup_connection(request, setup_gnmi_server):
                                                         client_key_path=client_key)
         yield gnmi_connection
         channel.close()
+
+
+def backup_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH, backup_path))
+
+
+def restore_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(backup_path, GOLDEN_CONFIG_DB_PATH))
+
+
+def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
+    """
+    @summary: Update golden_config_db.json on the DUT to set tsa_enabled in BGP_DEVICE_GLOBAL.
+    Handles both multi-asic and single-asic cases.
+    """
+    golden_config_db = json.loads(duthost.shell("cat {}".format(GOLDEN_CONFIG_DB_PATH))['stdout'])
+    tsa_enabled_str = "true" if tsa_enabled else "false"
+
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.asics:
+            golden_config_db.setdefault(asic.namespace, {}) \
+                            .setdefault("BGP_DEVICE_GLOBAL", {}) \
+                            .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+    else:
+        golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
+                        .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+
+    duthost.copy(content=json.dumps(golden_config_db, indent=4), dest=GOLDEN_CONFIG_DB_PATH)
 
 
 @pytest.fixture(scope="module", autouse=True)

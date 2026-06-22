@@ -172,6 +172,8 @@ def test_ha_planned_shutdown(
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)
 
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
+
     # Re-activate standby
     pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, standby_vdpu_key, "activate_role",
                                              owner=ha_owner), "Failed to re-activate HA on standby")

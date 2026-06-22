@@ -1,5 +1,4 @@
 import logging
-import concurrent.futures
 import random
 
 import configs.privatelink_config as pl
@@ -11,11 +10,16 @@ import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from packets import outbound_pl_packets
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
-from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dash_ha_scope, set_dead_dash_ha_scope
+from ha_utils import (
+    activate_primary_dash_ha,
+    activate_secondary_dash_ha,
+    verify_ha_state,
+    set_dash_ha_scope,
+    set_dead_dash_ha_scope,
+    parallel_config_reload_dpuhosts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +32,6 @@ pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
     pytest.mark.skip_check_dut_health
 ]
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -56,8 +55,7 @@ def common_setup_teardown(
 
     yield
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 def test_ha_planned_shutdown(

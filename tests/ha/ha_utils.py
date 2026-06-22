@@ -1,13 +1,29 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import configs.privatelink_config as pl
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
+
+
+def _config_reload_dpuhost(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def parallel_config_reload_dpuhosts(dpuhosts):
+    dpuhosts = list(dpuhosts)
+    if not dpuhosts:
+        return
+
+    with ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_config_reload_dpuhost, dpuhosts))
 
 
 def build_dash_ha_scope_args(fields):
@@ -174,14 +190,16 @@ def verify_ha_state(
     expected_state,
     timeout=120,
     interval=5,
+    ack=True
 ):
     """
     Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
         db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+        var = "local_acked_asic_ha_state" if ack else "local_ha_state"
         res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+            f'sonic-db-cli STATE_DB HGET "{db_key}" {var}'
         )
         state = res["stdout"].strip()
         return state == expected_state
