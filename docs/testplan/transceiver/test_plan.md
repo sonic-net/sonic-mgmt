@@ -627,7 +627,7 @@ attributes/
 │           └── ACME_CORP/
 │               └── part_numbers/
 │                   └── QSFP-2X100G-AOC-GENERIC_2_ENDM/
-│                       └── physical_oir.json          # per-PN body 
+│                       └── physical_oir.json          # per-PN body
 ├── remote_reseat/
 │   ├── remote_reseat.json                             # category-level shard
 │   └── transceivers/
@@ -635,7 +635,7 @@ attributes/
 │           └── ACME_CORP/
 │               └── part_numbers/
 │                   └── QSFP-2X100G-AOC-GENERIC_2_ENDM/
-│                       └── remote_reseat.json         # per-PN body 
+│                       └── remote_reseat.json         # per-PN body
 ├── cdb_firmware_upgrade/
 ├── dom/
 ├── vdm/
