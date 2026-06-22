@@ -194,7 +194,8 @@ class ShowInterfaceModule(object):
                         # (and its include_internal_intfs gate) before regex_int_mid can claim them.
                         internal = regex_int_internal.match(line) if not fec and not old else None
                         mid = regex_int_mid.match(line) if not fec and not old and not internal else None
-                        legacy = regex_int_legacy.match(line) if not fec and not old and not internal and not mid else None
+                        no_match = not fec and not old and not internal and not mid
+                        legacy = regex_int_legacy.match(line) if no_match else None
                         if fec and interface == fec.group(1):
                             self.int_status[interface]['name'] = fec.group(1)
                             self.int_status[interface]['speed'] = fec.group(2)
