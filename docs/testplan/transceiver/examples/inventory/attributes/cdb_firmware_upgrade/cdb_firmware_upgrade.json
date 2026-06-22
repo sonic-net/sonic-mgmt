@@ -5,10 +5,9 @@
         "firmware_download_stress_iterations": 5,
         "firmware_activation_stress_iterations": 5,
         "firmware_read_stress_iterations": 5,
-        "firmware_download_interrupt_method": "ctrl_c",
+        "firmware_download_interrupt_method": "sigkill",
         "firmware_download_interrupt_percentage": [10, 30, 50, 90],
         "sleep_after_dom_disable_sec": 5,
-        "monitor_kernel_errors": false,
         "thermalctld_disabling_required": false,
         "dual_bank_supported": true
     },

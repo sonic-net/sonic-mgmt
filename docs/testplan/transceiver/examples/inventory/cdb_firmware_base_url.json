@@ -1,0 +1,4 @@
+{
+    "lab": "http://firmware-server.example.com/cmis_cdb_firmware",
+    "production": "https://secure-firmware.example.com/cmis_cdb_firmware"
+}

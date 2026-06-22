@@ -250,8 +250,8 @@ Example of `dut_info/sonic-device-01.json`:
 
 **Structure:**
 
-- `vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
-- `part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [Vendor Name and Part Number Normalization Rules](#vendor-name-and-part-number-normalization-rules) section.
+- `part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [Vendor Name and Part Number Normalization Rules](#vendor-name-and-part-number-normalization-rules) section.
 
 Example of `normalization_mappings.json`:
 
@@ -274,6 +274,78 @@ Example of `normalization_mappings.json`:
     "DAC-400G-5M": "DAC-400G-GENERIC_1_ENDM"
   }
 }
+```
+
+#### Vendor Name and Part Number Normalization Rules
+
+This section defines the shared normalization rules referenced by the `normalization_mappings.json` file above and by all per-category test plans that need filesystem-safe representations of vendor names and part numbers (for example, the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md) uses these rules for its firmware binary directory layout).
+
+To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
+
+> **Important Note:** These normalization rules are designed for test framework consumption and on-disk artifact organization. They are **not** applied to the actual transceiver EEPROM data, which remains unchanged.
+
+**Core Normalization Rules:**
+
+1. **Character Replacement:**
+   - Preserve hyphens (`-`) and underscores (`_`) as they are filesystem-safe
+   - Replace all other non-alphanumeric characters (spaces, `/`, `.`, `&`, `#`, `@`, `%`, `+`, etc.) with underscores (`_`)
+   - Handle consecutive special characters by replacing sequences with a single underscore
+
+2. **Cable Length Normalization:**
+   - **Purpose:** Standardize part numbers that differ only by cable length to enable artifact sharing (e.g. firmware binaries) across length variants
+   - **Replacement Format:** `GENERIC_N_END<UNIT>` where `N` = number of digits in the original length
+   - **Preservation:** Non-unit suffixes after length are preserved (e.g., `10YY` → `GENERIC_2_ENDYY`)
+
+   **Cable Length Examples:**
+
+   | Original Part Number         | Normalized Part Number                  | Explanation |
+   |-----------------------------|-----------------------------------------|-------------|
+   | QSFP-100G-AOC-15M           | QSFP-100G-AOC-GENERIC_2_ENDM            | 15 has 2 digits, M unit preserved |
+   | QSFP-100G-AOC-10YY          | QSFP-100G-AOC-GENERIC_2_ENDYY           | 10 has 2 digits, YY suffix preserved |
+   | QSFP-100G-AOC-100           | QSFP-100G-AOC-GENERIC_3_END             | 100 has 3 digits, no unit |
+   | QSFP-100G-AOC-3M            | QSFP-100G-AOC-GENERIC_1_ENDM            | 3 has 1 digit, M unit preserved |
+   | SFP-1000M                   | SFP-GENERIC_4_ENDM                      | 1000 has 4 digits, M unit preserved |
+
+3. **Cleanup and Formatting:**
+   - Remove leading and trailing underscores
+   - Replace multiple consecutive underscores with a single underscore
+   - Convert the entire result to uppercase for consistency
+
+4. **Usage:**
+   - Use normalized names for directory structures and on-disk artifact organization
+   - Enable inventory management across cable length variants
+   - Ensure cross-platform filesystem compatibility
+
+**Vendor Name Examples:**
+
+| Original Vendor Name    | Normalized Vendor Name | Explanation |
+|------------------------|------------------------|-------------|
+| ACME Corp.             | ACME_CORP              | Space and dot replaced with underscore |
+| Example & Co           | EXAMPLE_CO             | Ampersand and space replaced |
+| Vendor/Inc             | VENDOR_INC             | Slash replaced with underscore |
+| Multi___Underscore     | MULTI_UNDERSCORE       | Multiple underscores consolidated |
+
+Sample script to normalize vendor name and part number (script assumes that the length is already replaced with `GENERIC_N_END`):
+
+```python
+import re
+def normalize_vendor_field(field: str) -> str:
+    """
+    Normalize vendor name or part number according to the rules:
+    - Except for '-' and '_', all non-alphanumeric characters are replaced with '_'
+    - Replace any sequence of '_' with a single '_'
+    - Remove leading/trailing underscores
+    - Convert the result to uppercase
+    - Hyphens are preserved
+    """
+    # Replace all non-alphanumeric except '-' and '_' with '_'
+    field = re.sub(r"[^\w\-]", "_", field)
+    # Replace multiple consecutive '_' with single '_'
+    field = re.sub(r"_+", "_", field)
+    # Remove leading/trailing underscores
+    field = field.strip("_")
+    # Convert to uppercase
+    return field.upper()
 ```
 
 #### Per-DUT File Structure
@@ -1001,11 +1073,11 @@ See the [Configuration Control](#configuration-control) section above for pytest
 
 ### Transceiver Firmware Info File
 
-A `transceiver_firmware_info.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#test-cases) for the full file format specification and examples.
+A `cdb_firmware_binaries.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
 
 ### CMIS CDB Firmware Base URL File
 
-A `cmis_cdb_firmware_base_url.json` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#test-cases) for the full file format specification and examples.
+A `cdb_firmware_base_url.json` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
 
 ## Detailed Test Plans
 
