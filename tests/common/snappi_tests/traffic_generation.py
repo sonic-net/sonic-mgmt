@@ -1099,7 +1099,6 @@ def run_basic_traffic(
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.control_state()
-        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
         logger.info(
@@ -1796,7 +1795,6 @@ def run_traffic_and_collect_stats(rx_duthost,
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.control_state()
-        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
         logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
