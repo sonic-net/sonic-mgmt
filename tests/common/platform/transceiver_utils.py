@@ -451,6 +451,15 @@ def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
     return expected_state
 
 
+# Valid CMIS module states for Mellanox sw_control-enabled ports where not all
+# data paths (sub-lanes) of an OSFP module are activated. An 8-lane OSFP module
+# reports "OK" only when all data paths are active. When partial sub-lanes are
+# used (e.g., 1 of 8 in the topology), the module reports "DataPathInitialized".
+# "ConfigUndefined" is a transient state after module reset (e.g., lpmode toggle)
+# before xcvrd re-applies configuration.
+MLNX_VALID_CMIS_PARTIAL_STATES = ['DataPathInitialized', 'ConfigUndefined']
+
+
 def is_sw_control_enabled(duthost, port_index):
     """
     @summary: This method is for checking if software control SAI attribute set to 1 in sai.profile

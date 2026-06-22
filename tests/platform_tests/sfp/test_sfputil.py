@@ -20,7 +20,8 @@ from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESE
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
-    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled, \
+    MLNX_VALID_CMIS_PARTIAL_STATES
 
 
 cmd_sfp_presence = "sudo sfputil show presence"
@@ -406,6 +407,11 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
                     continue
                 expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
                     intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
+                if intf in parsed_presence and parsed_presence[intf] in MLNX_VALID_CMIS_PARTIAL_STATES:
+                    logger.info("test_check_sfputil_error_status: Interface {} state is '{}' "
+                                "(valid CMIS state for partially-used OSFP module), skipping".format(
+                                    intf, parsed_presence[intf]))
+                    continue
             elif "Not supported" in sfp_error_status['stdout']:
                 logger.warning("test_check_sfputil_error_status: Skipping transceiver {} as error status "
                                "not supported on this port)".format(intf))

@@ -16,7 +16,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: 
 from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
-    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled,\
+    MLNX_VALID_CMIS_PARTIAL_STATES
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
 from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled  # noqa: F401
@@ -1025,6 +1026,11 @@ class TestSfpApi(PlatformApiTestBase):
                     intf = self.sfp_setup["index_physical_port_map"][i][0]
                     expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
                         intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
+                    if error_description in MLNX_VALID_CMIS_PARTIAL_STATES:
+                        logger.info("test_get_error_description: Transceiver {} state is '{}' "
+                                    "(valid CMIS state for partially-used OSFP module), skipping".format(
+                                        i, error_description))
+                        continue
                 elif "Not supported" in error_description:
                     logger.warning("test_get_error_description: Skipping transceiver {} as error description not "
                                    "supported on this port)".format(i))
