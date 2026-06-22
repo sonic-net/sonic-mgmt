@@ -38,6 +38,7 @@ all:
           - t0-backend
           - t0-88-o8c80
           - dualtor
+          - dualtor-vpp
           - dualtor-56
           - dualtor-120
           - t2
@@ -53,6 +54,7 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - dualtor-aa
+          - dualtor-aa-vpp
           - dualtor-aa-56
           - dualtor-aa-64
           - dualtor-aa-120
@@ -358,7 +360,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9008
           ansible_password: password
           ansible_user: admin
         vlab-vpp-02:
@@ -367,7 +369,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9091
           ansible_password: password
           ansible_user: admin
         vlab-vpp-03:

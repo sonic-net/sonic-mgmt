@@ -1,6 +1,5 @@
 import logging
 
-import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 import time
@@ -8,9 +7,9 @@ import threading
 import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
 from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
          verify_ha_state, set_dash_ha_scope
@@ -42,50 +41,12 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"configure on {duthost.hostname} dpu {dpuhost.dpu_index} {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
 
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 def test_ha_planned_shutdown(
@@ -210,6 +171,8 @@ def test_ha_planned_shutdown(
     )
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)
+
+    set_dash_ha_scope(localhost, duthosts[1], ptfhost, standby_vdpu_key, "dead", ha_owner, disabled=True)
 
     # Re-activate standby
     pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, standby_vdpu_key, "activate_role",
