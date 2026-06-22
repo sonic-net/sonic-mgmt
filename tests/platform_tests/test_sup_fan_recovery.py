@@ -40,7 +40,24 @@ from tests.platform_tests.cli.test_show_platform import verify_show_platform_fan
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
+    # The autouse loganalyzer fixture in
+    # tests/common/plugins/loganalyzer/__init__.py runs on every duthost
+    # with the default match patterns.  Cold-rebooting the sup brings
+    # linecards down with it, and on the linecards the kernel boot
+    # banner (``Kernel command line: BOOT_IMAGE=...``) and ERR-level
+    # ``thermalctld`` init messages (``validateNamespace: Initialize
+    # global DB config``) trip the default matchers as collateral noise.
+    # Disable the autouse loganalyzer so those linecard reboot artifacts
+    # don't fail the test.  The SUP-scoped LogAnalyzer we instantiate
+    # inside the test body still runs with our narrow bug-signature
+    # regexes (Traceback / UnboundLocalError / Fan removed warning /
+    # Insufficient number of working fans), which is the watchdog we
+    # actually want.  This matches every other reboot/reload test in
+    # tests/platform_tests/ (test_reboot, test_reload_config,
+    # test_chassis_reboot, test_advanced_reboot, test_link_down_sup,
+    # test_power_off_reboot, test_sequential_restart, ...).
+    pytest.mark.disable_loganalyzer,
 ]
 
 
