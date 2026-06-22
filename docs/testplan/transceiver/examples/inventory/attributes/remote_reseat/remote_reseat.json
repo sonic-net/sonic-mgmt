@@ -1,7 +1,7 @@
 {
     "defaults":
     {
-        "port_under_test": [],
+        "ports_under_test": [],
         "remote_reseat_timeout_min": 10,
         "remote_reseat_stress_iteration": 5,
         "monitor_kernel_errors": false,
@@ -9,7 +9,7 @@
     },
     "dut": {
         "<dut-name>":{
-            "port_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
+            "ports_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
             "remote_reseat_stress_iteration": 10
         }
     }
