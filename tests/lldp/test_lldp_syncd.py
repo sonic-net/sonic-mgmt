@@ -297,7 +297,14 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
         "No LLDP data found for {} in lldpctl output".format(interface),
     )
 
-    chassis_info = lldpctl_interface["chassis"][entry_content["lldp_rem_sys_name"]]
+    sys_name = entry_content["lldp_rem_sys_name"]
+    pytest_assert(
+        sys_name in lldpctl_interface["chassis"],
+        "lldp_rem_sys_name '{}' for {} not found in matching lldpctl chassis {}".format(
+            sys_name, interface, list(lldpctl_interface["chassis"].keys())
+        ),
+    )
+    chassis_info = lldpctl_interface["chassis"][sys_name]
     port_info = lldpctl_interface["port"]
 
     # Compare relevant fields between LLDP_ENTRY_TABLE and lldpctl output
@@ -388,6 +395,35 @@ def verify_lldp_table(duthost):
         return False
 
 
+def _select_lldpctl_interface(interface, entry_content, lldpctl_interfaces):
+    """
+    Select the lldpctl entry for an interface that matches the neighbor stored in
+    LLDP_ENTRY_TABLE. A port may have multiple LLDP neighbors (e.g. T1 switch +
+    fanout), so lldpctl can list the same interface once per neighbor, while
+    LLDP_ENTRY_TABLE stores a single neighbor per interface identified by
+    lldp_rem_sys_name. Pick the lldpctl entry whose chassis system name matches.
+    """
+    expected_sys_name = ""
+    if isinstance(entry_content, dict):
+        expected_sys_name = entry_content.get("lldp_rem_sys_name", "")
+
+    candidates = []
+    if isinstance(lldpctl_interfaces, dict):
+        if interface in lldpctl_interfaces:
+            candidates.append(lldpctl_interfaces[interface])
+    elif isinstance(lldpctl_interfaces, list):
+        for iface in lldpctl_interfaces:
+            key = list(iface.keys())[0]
+            if key.lower() == interface.lower():
+                candidates.append(iface.get(key))
+
+    if expected_sys_name:
+        for candidate in candidates:
+            if candidate and expected_sys_name in candidate.get("chassis", {}):
+                return candidate
+    return candidates[0] if candidates else None
+
+
 def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
     def get_lldp_entry_content_with_retry():
         nonlocal entry_content
@@ -399,14 +435,9 @@ def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interface
     wait_until(30, 1, 0, get_lldp_entry_content_with_retry)
 
     logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
-    lldpctl_interface = None
-    if isinstance(lldpctl_interfaces, dict):
-        lldpctl_interface = lldpctl_interfaces.get(interface)
-    elif isinstance(lldpctl_interfaces, list):
-        for iface in lldpctl_interfaces:
-            if list(iface.keys())[0].lower() == interface.lower():
-                lldpctl_interface = iface.get(list(iface.keys())[0])
-                break
+    lldpctl_interface = _select_lldpctl_interface(
+        interface, entry_content, lldpctl_interfaces
+    )
     assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
 
 
