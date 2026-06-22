@@ -27,12 +27,12 @@ from tests.common.dash_utils import render_template_to_host, apply_swssconfig_fi
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file, apply_messages
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
-from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.utilities import wait_until
 from tests.ha.ha_utils import (
+    parallel_config_reload_dpuhosts,
     wait_for_pending_operation_id,
     verify_ha_state,
     set_dash_ha_scope
@@ -500,10 +500,12 @@ def set_vxlan_udp_sport_range(dpuhosts):
     """
     _apply_vxlan_udp_sport_range(dpuhosts)
     yield
+    dpuhosts_to_reload = []
     for dpuhost in dpuhosts:
         if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0"
                                                          " hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-            config_reload(dpuhost, safe_reload=True, yang_validate=False)
+            dpuhosts_to_reload.append(dpuhost)
+    parallel_config_reload_dpuhosts(dpuhosts_to_reload)
 
 
 @pytest.fixture(scope="function")
@@ -956,8 +958,7 @@ def setup_dash_pl_pipeline(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
     yield
     logger.info("setup_dash_pl_pipeline: cleanup.")
-    for dpuhost in dpuhosts:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 @pytest.fixture(scope="module")
@@ -971,5 +972,4 @@ def setup_dash_pl_pipeline_module_scope(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
     yield
     logger.info("setup_dash_pl_pipeline: cleanup.")
-    for dpuhost in dpuhosts:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
