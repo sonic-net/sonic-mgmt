@@ -90,12 +90,25 @@ def _all_fans_ok(duthost, cmd="show platform fan"):
     ``check_fan_status`` helper (which accepts >=1 OK fan) -- we want
     a single non-OK fan to fail the test, because that is exactly how
     the bug manifested.
+
+    Treat any failure to fetch or parse ``show platform fan`` output as
+    "not ready yet" and return False so the caller's ``wait_until`` keeps
+    polling.  ``verify_show_platform_fan_output`` raises ``pytest_assert``
+    on malformed CLI output (empty / wrong column count / etc.), which
+    can happen for a few seconds after thermalctld restarts before
+    state-db is repopulated; we don't want a transient parse failure
+    to short-circuit the retry loop.
     """
     if duthost.facts.get("asic_type") == "vs":
         return True
 
-    raw = duthost.command(cmd)["stdout_lines"]
-    fans = verify_show_platform_fan_output(duthost, raw)
+    try:
+        raw = duthost.command(cmd)["stdout_lines"]
+        fans = verify_show_platform_fan_output(duthost, raw)
+    except Exception as err:
+        logger.info("Transient '%s' read/parse failure on %s, will retry: %s",
+                    cmd, duthost.hostname, err)
+        return False
 
     if not fans:
         cfg = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
