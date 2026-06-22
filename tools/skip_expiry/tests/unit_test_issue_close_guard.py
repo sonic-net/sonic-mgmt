@@ -72,6 +72,18 @@ def test_enforce_issue_close_guard_reopens_and_comments_when_tracked() -> None:
     assert api.comments == [(issue, MANUAL_CLOSE_COMMENT)]
 
 
+def test_enforce_issue_close_guard_matches_case_insensitive_repo_names() -> None:
+    api = FakeGuardApiClient(branches=[])
+    issue = IssueRef(owner="sonic-net", repo="sonic-mgmt", number=77)
+    tracked_issue = IssueRef(owner="SONiC-Net", repo="SONiC-MGMT", number=77)
+
+    did_reopen = enforce_issue_close_guard(api, issue, {tracked_issue})
+
+    assert did_reopen is True
+    assert api.reopened == [issue]
+    assert api.comments == [(issue, MANUAL_CLOSE_COMMENT)]
+
+
 def test_run_issue_close_guard_reopens_tracked_closed_issue(tmp_path: Path, monkeypatch) -> None:
     event_file = tmp_path / "event.json"
     event_file.write_text(
