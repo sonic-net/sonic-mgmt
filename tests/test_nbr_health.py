@@ -5,6 +5,7 @@ import logging
 from .common.helpers.assertions import pytest_assert
 from .common.devices.eos import EosHost
 from .common.devices.sonic import SonicHost
+from .common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,20 @@ def check_sonic_bgp_facts(hostname, host):
         return "neighbor {} bgp not configured correctly".format(hostname)
 
 
+def check_csonic_health(hostname, host):
+    """Health check for a cSONiC (docker-sonic-vs) neighbor container.
+
+    A cSONiC neighbor is reached via 'docker exec' rather than SSH/SNMP, so it
+    has no SNMP mgmt-address path. Verify the container is reachable and that
+    BGP is configured/up via vtysh, mirroring the SONiC BGP health check.
+    """
+    logger.info("Check cSONiC neighbor {} health".format(hostname))
+    reach = host.command('true')
+    if reach.get('rc', 1) != 0:
+        return "cSONiC neighbor {} container is not reachable".format(hostname)
+    return check_sonic_bgp_facts(hostname, host)
+
+
 def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_frontend_dut_hostname):
     """Check each neighbor device health"""
 
@@ -129,6 +144,14 @@ def test_neighbors_health(duthosts, localhost, nbrhosts, eos, sonic, enum_fronte
                 fails.append(failmsg)
 
             failmsg = check_eos_bgp_facts(k, nbrhost)
+            if failmsg:
+                fails.append(failmsg)
+
+        elif isinstance(nbrhost, CsonicHost):
+            # cSONiC neighbors are docker-sonic-vs containers accessed via
+            # 'docker exec' (no SSH/SNMP mgmt path). Check container reachability
+            # and BGP health rather than SNMP/mgmt facts.
+            failmsg = check_csonic_health(k, nbrhost)
             if failmsg:
                 fails.append(failmsg)
 
