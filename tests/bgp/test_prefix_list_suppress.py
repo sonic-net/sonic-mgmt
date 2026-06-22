@@ -287,26 +287,63 @@ def start_bgp_container(duthost, service, container):
     duthost.shell("sudo docker start {}".format(container), module_ignore_errors=True)
 
 
-def restart_bgp_container(duthost):
-    """Restart the bgp container on every frontend asic and wait for bgpcfgd.
+def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
+    """Wait until FRR vtysh responds on a specific ASIC.
 
-    ``sudo systemctl restart bgp`` occasionally exits non-zero on real DUTs
-    when systemd races with docker (the unit's start helper returns before
-    the container has fully come up). The bgp container itself still comes
-    up correctly a few seconds later, so we tolerate a non-zero rc here and
-    rely on :func:`wait_for_bgpcfgd` to confirm that bgpcfgd is actually
-    RUNNING. On some builds a failed restart can leave the container stopped,
-    so we do a bounded start fallback before failing."""
+    bgpcfgd RUNNING does NOT imply FRR daemons are ready — on T2 KVM
+    with slow I/O and large configs, FRR can take 6-7 minutes to open
+    its VTY socket. Uses 'timeout 10' to prevent vtysh from blocking
+    indefinitely when the socket is not yet available.
+    """
+    ns = asic_ns_for_vtysh(duthost, asic_index)
+    cmd = 'timeout 10 vtysh {} -c "show version"'.format(ns).strip()
+    pytest_assert(
+        wait_until(timeout, 15, 0,
+                   lambda c=cmd: duthost.shell(c, module_ignore_errors=True)["rc"] == 0),
+        "FRR vtysh not responsive within {}s on {} of {}".format(
+            timeout, container, duthost.hostname),
+    )
+
+
+def restart_bgp_container(duthost):
+    """Restart BGP containers on all frontend ASICs in parallel,
+    then verify each ASIC's readiness sequentially.
+
+    Restarts all BGP services first (parallel boot), then for each ASIC:
+    1. Waits for bgpcfgd to be RUNNING (fast — Python daemon)
+    2. Waits for FRR vtysh to respond (slower — needs VTY socket ready)
+
+    The vtysh check uses 'timeout 10' to avoid indefinite blocking and
+    adapts to system speed: fast on physical hardware (<30s), slower on
+    T2 KVM (~7 min due to slow I/O and large config).
+    """
     service_container_pairs = bgp_service_container_pairs(duthost)
+
+    # 1. Restart all ASICs in parallel
     for service, _ in service_container_pairs:
         duthost.shell(
             "sudo systemctl restart {}".format(service),
             module_ignore_errors=True,
         )
-    if not wait_until(60, BGPCFGD_RUNNING_INTERVAL, 0, bgpcfgd_running, duthost):
-        for service, container in service_container_pairs:
+
+    # 2. Verify each ASIC sequentially: bgpcfgd up → vtysh responsive
+    sonichost = getattr(duthost, "sonichost", duthost)
+    for service, container in service_container_pairs:
+        suffix = container.removeprefix("bgp")
+        asic_index = int(suffix) if suffix.isdigit() else None
+
+        # 2a. bgpcfgd running (fallback to explicit start if needed)
+        if not wait_until(60, BGPCFGD_RUNNING_INTERVAL, 0,
+                          lambda c=container: sonichost.is_service_running("bgpcfgd", c)):
             start_bgp_container(duthost, service, container)
-    wait_for_bgpcfgd(duthost, timeout=180)
+            pytest_assert(
+                wait_until(180, BGPCFGD_RUNNING_INTERVAL, 0,
+                           lambda c=container: sonichost.is_service_running("bgpcfgd", c)),
+                "bgpcfgd not running in {} on {}".format(container, duthost.hostname),
+            )
+
+        # 2b. FRR vtysh responsive
+        wait_for_frr_ready(duthost, container, asic_index)
 
 
 def apply_constants_to_bgpcfgd(duthost):
