@@ -118,7 +118,7 @@ def get_number_of_streams(duthost, tx_ports, rx_ports):
     return no_of_test_streams
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=False)
 def setup_ports_and_dut(
         duthosts,
         snappi_api,
@@ -141,7 +141,7 @@ def setup_ports_and_dut(
 
         if len(rdma_ports['rx_ports']) < rx_port_count:
             pytest.skip(
-                "Not enough Tx ports for "
+                "Not enough Rx ports for "
                 "testbed {}, subtype {} in tgen_port_config.json".format(
                     tbinfo['conf-name'], testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))

@@ -18,8 +18,7 @@ from tests.common.config_reload import config_reload
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.snappi_tests.pfcwd.files.pfcwd_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.files.helper import reboot_duts, \
-    setup_ports_and_dut  # noqa: F401
+from tests.snappi_tests.files.helper import reboot_duts         # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 

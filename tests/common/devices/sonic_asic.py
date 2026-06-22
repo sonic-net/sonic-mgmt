@@ -144,7 +144,7 @@ class SonicAsic(object):
         Returns:
             [dict]: [the output of show interface status command]
         """
-        if self.sonichost.facts['asic-type'] != "cisco-8000":
+        if self.sonichost.facts['asic_type'] != "cisco-8000":
             if self.sonichost.is_supervisor_node():
                 logger.debug("Skipping show_interface on supervisor node %s asic %s",
                              self.sonichost.hostname, self.namespace)

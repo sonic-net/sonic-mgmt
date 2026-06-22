@@ -4,7 +4,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000
 from tests.common.cisco_data import is_cisco_device
-from common.snappi_tests.snappi_fixtures import is_snappi_multidut
+from tests.common.snappi_tests.snappi_fixtures import is_snappi_multidut
 
 
 logger = logging.getLogger(__name__)
