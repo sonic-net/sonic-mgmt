@@ -5,7 +5,7 @@ maintainers:
 
 releases:
   includes:
-    - '^202\d{3}'
+    - '^202\d{3}$'
   excludes:
     - "202305"
     - "202311"
