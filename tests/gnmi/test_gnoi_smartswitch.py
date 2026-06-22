@@ -6,7 +6,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server, reprovision_gnoi_tls
+    gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ptf_gnoi import PtfGnoi
