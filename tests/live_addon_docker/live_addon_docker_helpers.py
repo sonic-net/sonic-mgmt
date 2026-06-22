@@ -59,9 +59,6 @@ _DEFAULT_SYSLOG_ERROR_PATTERN = (
     "(segfault|SIGSEGV|SIGABRT|Out of memory|oom-kill|FATAL|panic)"
 )
 
-# Used by ``run_config_reload_live_addon_start_reload_health``: pause after first reload before ``docker run``.
-CONFIG_RELOAD_LIVE_ADDON_CYCLE_WAIT_SECONDS = 60
-
 # Default supervisord-managed programs (names from ``supervisorctl status`` in live-addon container).
 DEFAULT_LIVE_ADDON_EXPECTED_PROCESSES = (
     "start",
@@ -1060,17 +1057,20 @@ def verify_live_addon_container_startup_logs(duthost, container_name, startup_lo
         logger.info("Startup log validation disabled (empty required_patterns)")
         return
 
-    deadline = time.time() + wait_seconds
+    def _fetch_current_logs():
+        if started_at:
+            return fetch_container_logs(duthost, container_name, since=started_at)
+        logs = fetch_container_logs(duthost, container_name, tail=log_tail)
+        if session_start_pattern:
+            return _logs_since_latest_session(logs, session_start_pattern)
+        return logs
+
     last_logs = ""
     last_missing = list(required)
 
-    while time.time() < deadline:
-        if started_at:
-            last_logs = fetch_container_logs(duthost, container_name, since=started_at)
-        else:
-            last_logs = fetch_container_logs(duthost, container_name, tail=log_tail)
-            if session_start_pattern:
-                last_logs = _logs_since_latest_session(last_logs, session_start_pattern)
+    def _startup_logs_ready():
+        nonlocal last_logs, last_missing
+        last_logs = _fetch_current_logs()
         forbidden_hits = _match_log_patterns(last_logs, forbidden)
         if forbidden_hits:
             snippet = last_logs[-_STARTUP_LOG_FAILURE_SNIPPET_CHARS:]
@@ -1090,27 +1090,29 @@ def verify_live_addon_container_startup_logs(duthost, container_name, startup_lo
         matched = _match_log_patterns(last_logs, required)
         last_missing = [p for p in required if p not in matched]
         if not last_missing:
-            logger.info(
-                "Live-addon container %r startup logs OK (required patterns matched within %ss)",
-                container_name,
-                wait_seconds,
-            )
-            logger.info(
-                "Live-addon container %r startup logs (last %s chars):\n%s",
-                container_name,
-                min(len(last_logs), 4000),
-                last_logs[-4000:],
-            )
-            return
+            return True
 
-        # Quiet between polls; full log output only on success (above) or final failure (below).
         logger.debug(
             "Live-addon container %r waiting for log patterns (missing %s); retry in %ss",
             container_name,
             last_missing,
             poll_interval,
         )
-        time.sleep(poll_interval)
+        return False
+
+    if wait_until(wait_seconds, poll_interval, 0, _startup_logs_ready):
+        logger.info(
+            "Live-addon container %r startup logs OK (required patterns matched within %ss)",
+            container_name,
+            wait_seconds,
+        )
+        logger.info(
+            "Live-addon container %r startup logs (last %s chars):\n%s",
+            container_name,
+            min(len(last_logs), 4000),
+            last_logs[-4000:],
+        )
+        return
 
     snippet = last_logs[-_STARTUP_LOG_FAILURE_SNIPPET_CHARS:]
     logger.error(
@@ -1196,17 +1198,16 @@ def http_health_check(duthost, health_cfg):
     return ok, code, body
 
 
-def run_config_reload_live_addon_start_reload_health(duthost, resolved_cfg):
+def run_config_reload_live_addon_start_reload_health(duthost, resolved_cfg, loganalyzer=None):
     """
     Config-reload cycle for live-addon persistence:
 
     1. Stop/remove live-addon container (``docker_run.container_name``; fixture may still have it running).
-    2. First ``config reload``.
-    3. Wait ``CONFIG_RELOAD_LIVE_ADDON_CYCLE_WAIT_SECONDS``.
-    4. ``docker run`` live-addon + post-start checks (logs/processes).
-    5. Second ``config reload`` (may stop the container).
-    6. ``docker_manual_teardown`` + ``docker_run_manual`` + post-start (process poll only).
-    7. HTTP health probe (``wait_for_health_ready``).
+    2. First ``config reload`` (``safe_reload`` waits for critical services).
+    3. ``docker run`` live-addon + post-start checks (logs/processes).
+    4. Second ``config reload``.
+    5. ``docker_manual_teardown`` + ``docker_run_manual`` + post-start (process poll only).
+    6. HTTP health probe (``wait_for_health_ready``).
     """
     from tests.common.config_reload import config_reload
 
@@ -1216,13 +1217,8 @@ def run_config_reload_live_addon_start_reload_health(duthost, resolved_cfg):
         duthost,
         config_source="config_db",
         safe_reload=True,
-        wait_for_bgp=True,
+        ignore_loganalyzer=loganalyzer,
     )
-    logger.info(
-        "Waiting %s s after first config reload before starting live-addon container",
-        CONFIG_RELOAD_LIVE_ADDON_CYCLE_WAIT_SECONDS,
-    )
-    time.sleep(CONFIG_RELOAD_LIVE_ADDON_CYCLE_WAIT_SECONDS)
 
     cfg_run = copy.deepcopy(resolved_cfg)
     docker_run_manual(duthost, cfg_run)
@@ -1232,7 +1228,7 @@ def run_config_reload_live_addon_start_reload_health(duthost, resolved_cfg):
         duthost,
         config_source="config_db",
         safe_reload=True,
-        wait_for_bgp=True,
+        ignore_loganalyzer=loganalyzer,
     )
     logger.info("Re-start live-addon container after second config reload (teardown + docker run)")
     docker_manual_teardown(duthost, cfg_run["docker_run"])

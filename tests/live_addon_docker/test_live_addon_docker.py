@@ -70,13 +70,17 @@ def test_live_addon_docker_health_http(live_addon_docker_setup_teardown):
     pytest_assert(ok, "Health check failed: http_code={} body={}".format(code, body))
 
 
-def test_live_addon_docker_health_after_config_reload_cycle(live_addon_docker_setup_teardown):
+def test_live_addon_docker_health_after_config_reload_cycle(
+    live_addon_docker_setup_teardown, loganalyzer
+):
     """
-    Config reload, wait (see ``CONFIG_RELOAD_LIVE_ADDON_CYCLE_WAIT_SECONDS``), start live-addon via
-    ``docker run``, config reload again, teardown + ``docker run`` again, then validate HTTP health.
+    Config reload, start live-addon via ``docker run``, config reload again,
+    teardown + ``docker run`` again, then validate HTTP health.
     """
     duthost, cfg = live_addon_docker_setup_teardown
-    ok, code, body = lad.run_config_reload_live_addon_start_reload_health(duthost, cfg)
+    ok, code, body = lad.run_config_reload_live_addon_start_reload_health(
+        duthost, cfg, loganalyzer=loganalyzer
+    )
     pytest_assert(
         ok,
         "Health check after config-reload cycle failed: http_code={} body={}".format(code, body),

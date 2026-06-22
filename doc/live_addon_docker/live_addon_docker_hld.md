@@ -266,7 +266,7 @@ Post-start validation is **not** duplicated in pytest cases; it runs in the fixt
 | Test | Validates |
 |------|-----------|
 | `test_live_addon_docker_health_http` | HTTP `/health` returns expected status within probe timeout |
-| `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → wait 60s → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
+| `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
 
 **Module fixture** `live_addon_docker_setup_teardown`: install once per module, `docker run`,
 `verify_live_addon_post_start` (full readiness), yield `(duthost, cfg)`, then teardown and
