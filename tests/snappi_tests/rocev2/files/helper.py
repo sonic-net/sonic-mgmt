@@ -60,6 +60,36 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map
 
 logger = logging.getLogger(__name__)
 
+# Public surface for `from ...files.helper import *`: re-exported fixtures, the
+# utilities tests pull through this module, and the RoCEv2 DP helpers. Keeps the
+# API intentional and avoids accidental symbol leakage.
+__all__ = [
+    # re-exported pytest fixtures
+    "conn_graph_facts", "fanout_graph_facts", "fanout_graph_facts_multidut",
+    "snappi_api_serv_ip", "snappi_api_serv_port", "snappi_api", "snappi_testbed_config",
+    "get_snappi_ports_single_dut", "get_snappi_ports_multi_dut", "get_snappi_ports",
+    "snappi_dut_base_config", "prio_dscp_map",
+    # re-exported utilities the test files rely on via `import *`
+    "pytest_require", "pytest_assert", "wait", "wait_until", "pd", "tabulate", "random",
+    # constants
+    "LATENCY_SPECS", "LATENCY_PROFILES",
+    # base config / topology
+    "snappi_dut_port_mapping", "configure_rocev2_topology", "derive_priority_to_dscp",
+    "build_pairwise_topology", "build_incast_topology",
+    # traffic control + metrics
+    "start_stop", "is_traffic_running", "is_traffic_stopped", "wait_with_message",
+    "get_stats", "sample_flow_rates", "run_rocev2_step",
+    # DUT-side data
+    "scheduler_weights", "disable_wred", "restore_wred", "pfc_counters",
+    "queue_counters", "queue_stats",
+    # analysis + checks
+    "dwrr_expected_rates", "make_check", "assert_queries",
+    "build_ack_aggregate", "build_lossy_data_aggregate",
+    "build_rate_fairness", "build_rate_fairness_by_queue", "build_rank_fairness",
+    # orchestration
+    "Rocev2DpStats", "collect_flow_queue_stats", "collect_rocev2_dp_stats",
+]
+
 # Latency thresholds are in NANOSECONDS. snappi/IxNetwork report RoCEv2 per-QP
 # latency in ns (the schema carries no unit); e.g. observed ~930-980 ns for small
 # messages on a no-congestion run, so the 5 us / 50 us caps below are generous.
