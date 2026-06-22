@@ -1,0 +1,34 @@
+{
+    "ACME_CORP": {
+        "QSFP-2X100G-AOC-GENERIC_2_ENDM": {
+            "1.2.3": {
+                "fw_binary_name": "ACME_CORP_QSFP-2X100G-AOC-GENERIC_2_ENDM_1.2.3.bin",
+                "md5sum": "0123456789abcdef0123456789abcdef"
+            },
+            "1.2.4": {
+                "fw_binary_name": "ACME_CORP_QSFP-2X100G-AOC-GENERIC_2_ENDM_1.2.4.bin",
+                "md5sum": "fedcba9876543210fedcba9876543210"
+            },
+            "1.2.5": {
+                "fw_binary_name": "ACME_CORP_QSFP-2X100G-AOC-GENERIC_2_ENDM_1.2.5.bin",
+                "md5sum": "aaaa1111bbbb2222cccc3333dddd4444"
+            }
+        }
+    },
+    "NORTHSTAR_OPTICS": {
+        "QSFP-2X100G-AOC-GENERIC_2_ENDM": {
+            "2.0.1": {
+                "fw_binary_name": "NORTHSTAR_OPTICS_QSFP-2X100G-AOC-GENERIC_2_ENDM_2.0.1.bin",
+                "md5sum": "1111aaaa2222bbbb3333cccc4444dddd"
+            },
+            "2.0.5": {
+                "fw_binary_name": "NORTHSTAR_OPTICS_QSFP-2X100G-AOC-GENERIC_2_ENDM_2.0.5.bin",
+                "md5sum": "5555eeee6666ffff7777aaaa8888bbbb"
+            },
+            "2.1.0": {
+                "fw_binary_name": "NORTHSTAR_OPTICS_QSFP-2X100G-AOC-GENERIC_2_ENDM_2.1.0.bin",
+                "md5sum": "9999cccc0000dddd1111eeee2222ffff"
+            }
+        }
+    }
+}
