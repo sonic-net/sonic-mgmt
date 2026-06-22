@@ -274,9 +274,17 @@ def assert_lldp_interfaces(
             "Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interface))
         )
 
+    # Deduplicate and compare as sets: a port may have multiple LLDP neighbors
+    # (e.g. T1 switch + fanout), so lldpctl lists the interface once per neighbor
+    # while LLDP_ENTRY_TABLE stores a single entry per interface.
+    db_lldpctl_set = set(lldp_entry_keys)
+    lldpctl_set = set(lldpctl_interfaces)
     pytest_assert(
-        sorted(lldp_entry_keys) == sorted(lldpctl_interfaces),
-        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes",
+        db_lldpctl_set == lldpctl_set,
+        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
+        "In DB but not in lldpctl: {}. In lldpctl but not in DB: {}".format(
+            db_lldpctl_set - lldpctl_set, lldpctl_set - db_lldpctl_set
+        ),
     )
 
 
