@@ -1,13 +1,29 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
 import configs.privatelink_config as pl
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
+
+
+def _config_reload_dpuhost(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def parallel_config_reload_dpuhosts(dpuhosts):
+    dpuhosts = list(dpuhosts)
+    if not dpuhosts:
+        return
+
+    with ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_config_reload_dpuhost, dpuhosts))
 
 
 def build_dash_ha_scope_args(fields):
