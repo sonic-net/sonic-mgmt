@@ -509,7 +509,7 @@ def test_fdb_mac_ping_pong(
 
     after = wait_for_stat_increase(
         duthost, FDBORCH_STATS_KEY, "lru_pushed",
-        before["lru_pushed"], timeout=STATS_PUBLISH_SEC + 60,
+        before["lru_pushed"] + cycles - 1, timeout=STATS_PUBLISH_SEC + 60,
     )
     pushed = after["lru_pushed"] - before["lru_pushed"]
     hits = after["lru_dedup_hits"] - before["lru_dedup_hits"]
