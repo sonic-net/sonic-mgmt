@@ -2,6 +2,7 @@ import pytest
 import ipaddress
 from tests.common.helpers.snmp_helpers import get_snmp_facts, get_snmp_output
 from tests.common.devices.eos import EosHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.utilities import skip_release
 
 pytestmark = [
@@ -37,6 +38,17 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     else:
         # Get first neighbor VM information
         nbr = nbrhosts[list(nbrhosts.keys())[0]]
+
+    # A cSONiC neighbor is itself a docker-sonic-vs container with no SNMP client
+    # installed (no snmpget/snmpwalk binaries, and the legacy vsonic path runs
+    # 'docker exec snmp ...' which fails because there is no nested docker). The
+    # SNMP query in this test must originate from the neighbor, which a cSONiC
+    # neighbor cannot do. Skip with a clear reason until docker-sonic-vs ships an
+    # SNMP client. See sonic-net/sonic-mgmt#25522.
+    if isinstance(nbr["host"], CsonicHost):
+        pytest.skip(
+            "cSONiC (docker-sonic-vs) neighbor has no SNMP client to send the "
+            "loopback SNMP query from; skipping SNMP-from-neighbor test")
 
     for ip in config_facts['LOOPBACK_INTERFACE']['Loopback0']:
         loip = ip.split('/')[0]
