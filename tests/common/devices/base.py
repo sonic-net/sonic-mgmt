@@ -217,6 +217,14 @@ class AnsibleHostBase(object):
         if 'failed' not in hostname_res:
             hostname_res['failed'] = hostname_res.is_failed
 
+        # Ensure 'failed' key is always present for backward compatibility with code that
+        # accesses rc['failed'] directly. The _IGNORE hack above is no longer effective in
+        # ansible-core >= 2.21 where the post-processing behavior changed so that 'failed'
+        # is absent from successful command results. Normalizing here is a single robust fix
+        # that covers all call sites without requiring per-file changes.
+        if 'failed' not in hostname_res:
+            hostname_res['failed'] = hostname_res.is_failed
+
         return hostname_res
 
 
