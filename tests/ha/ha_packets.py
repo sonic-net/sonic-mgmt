@@ -12,6 +12,20 @@ from ptf.mask import Mask, MaskException
 
 logger = logging.getLogger(__name__)
 
+# Module-level default for the inner L4 protocol used by the HA traffic helpers
+# (``inbound_pl_packets``, ``outbound_pl_packets``, ``bootstrap_pl_tcp_flow_outbound``).
+# Tests can override this on the pytest CLI via ``--ha-inner-l4-proto={tcp,udp}``;
+# see ``tests/ha/conftest.py``. Individual callers can still override per-call by
+# passing an explicit ``inner_packet_type`` argument.
+DEFAULT_INNER_PACKET_TYPE = "tcp"
+
+
+def _resolve_inner_packet_type(inner_packet_type):
+    """Return ``inner_packet_type`` if explicitly set, else the module default."""
+    if inner_packet_type is None:
+        return DEFAULT_INNER_PACKET_TYPE
+    return inner_packet_type
+
 
 def set_do_not_care_layer(mask, layer, field_name, n=1):
     """
@@ -93,11 +107,12 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
 
 
 def inbound_pl_packets(
-    config, floating_nic=False, inner_packet_type="tcp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
+    config, floating_nic=False, inner_packet_type=None, vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
     vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None,
     tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
     tcp_seq_num=None, tcp_ack_num=None
 ):
+    inner_packet_type = _resolve_inner_packet_type(inner_packet_type)
     if exp_vni is not None:
         expected_vni = int(exp_vni)
     else:
@@ -192,7 +207,7 @@ def outbound_pl_packets(
     config,
     outer_encap,
     floating_nic=False,
-    inner_packet_type="tcp",
+    inner_packet_type=None,
     vxlan_udp_dport=4789,
     vxlan_udp_sport=random.randint(
         VXLAN_UDP_BASE_SRC_PORT,
@@ -206,6 +221,7 @@ def outbound_pl_packets(
     tcp_seq_num=None,
     tcp_ack_num=None
 ):
+    inner_packet_type = _resolve_inner_packet_type(inner_packet_type)
     outer_vni = int(vni if vni else pl.VM_VNI)
 
     l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
@@ -326,7 +342,18 @@ def bootstrap_pl_tcp_flow_outbound(ptfadapter, config, outer_encap="vxlan", recv
 
     Any kwargs accepted by ``outbound_pl_packets`` (e.g. ``floating_nic``, ``vni``,
     ``inner_sport``, ``inner_dport``) are forwarded.
+
+    When the effective inner L4 protocol is UDP (set via the ``--ha-inner-l4-proto``
+    pytest CLI option or an explicit ``inner_packet_type="udp"`` kwarg), this helper
+    is a no-op: UDP flows do not require a stateful bootstrap.
     """
+    inner_packet_type = _resolve_inner_packet_type(kwargs.get("inner_packet_type"))
+    if inner_packet_type != "tcp":
+        logger.info(
+            "bootstrap_pl_tcp_flow_outbound: skipping (inner_packet_type=%s, TCP bootstrap not needed)",
+            inner_packet_type,
+        )
+        return
     for k in ("tcp_flag_syn", "tcp_flag_ack", "tcp_flag_fin"):
         kwargs.pop(k, None)
     if recv_ports is None:
