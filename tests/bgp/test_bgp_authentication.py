@@ -20,9 +20,6 @@ pytestmark = [
 
 BGP_PASS = "sonic.123"
 MISMATCH_PASS = "badpassword"
-EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/bgp_auth_eos_backup_config_{}"
-
-
 def get_lldp_neighbors(duthost):
     neighbors = []
     for line in duthost.shell("show lldp table")['stdout'].splitlines()[3:]:
@@ -207,10 +204,6 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         logger.debug("Neighbor BGP Config: {}".format(neigh_host.shell("show run bgp", module_ignore_errors=True)))
     else:
         logger.debug("Neighbor BGP Config: {}".format(neigh_host.eos_command(commands=["show run | section bgp"])))
-        logger.debug(neigh_host.eos_config(
-            backup=True,
-            backup_options={'filename': EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname)},
-        ))
 
     logger.debug('Setup_info: {}'.format(setup_info))
 
@@ -220,7 +213,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     if is_sonic_neigh:
         config_reload(neigh_host, is_dut=False)
     else:
-        neigh_host.load_configuration(EOS_NEIGH_BACKUP_CONFIG_FILE.format(neigh_host.hostname))
+        remove_password_on_neighbor(setup_info)
 
     time.sleep(10)
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
