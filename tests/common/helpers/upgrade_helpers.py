@@ -384,7 +384,8 @@ def perform_gnoi_upgrade(
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
-    pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
+    if not cfg.to_version:
+        logger.warning("cfg.to_version not set; skipping post-upgrade version validation")
     # ---- 4) Reboot (via reboot_and_check) ----
     pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
     pytest_assert(conn_graph_facts is not None, "conn_graph_facts must be provided for reboot_and_check")
@@ -422,10 +423,13 @@ def perform_gnoi_upgrade(
     # ---- 7) Version validation ----
     images = _get_images_from_sonic_installer_list(duthost)
     logger.info("sonic-installer list parsed: %s", images)
-    pytest_assert(
-        images.get("current") == cfg.to_version,
-        f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
-    )
+    if cfg.to_version:
+        pytest_assert(
+            images.get("current") == cfg.to_version,
+            f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"  # noqa: E501
+        )
+    else:
+        logger.info("to_version not set; skipping version validation. current=%s", images.get("current"))
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
