@@ -19,9 +19,11 @@ from tests.common.port_toggle import default_port_toggle_wait_time
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
-    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled, \
-    MLNX_VALID_CMIS_PARTIAL_STATES
+from tests.common.platform.transceiver_utils import (
+    is_sw_control_enabled,
+    get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled,
+    MLNX_VALID_CMIS_PARTIAL_STATES,
+)
 
 
 cmd_sfp_presence = "sudo sfputil show presence"

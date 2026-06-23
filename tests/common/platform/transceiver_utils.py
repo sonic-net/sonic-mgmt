@@ -457,7 +457,7 @@ def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
 # used (e.g., 1 of 8 in the topology), the module reports "DataPathInitialized".
 # "ConfigUndefined" is a transient state after module reset (e.g., lpmode toggle)
 # before xcvrd re-applies configuration.
-MLNX_VALID_CMIS_PARTIAL_STATES = ['DataPathInitialized', 'ConfigUndefined']
+MLNX_VALID_CMIS_PARTIAL_STATES = ('DataPathInitialized', 'ConfigUndefined')
 
 
 def is_sw_control_enabled(duthost, port_index):
