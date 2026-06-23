@@ -2576,6 +2576,10 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
       - "'isolated' in topo_name"
+  xfail:
+    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-mgmt/issues/25549"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25549"
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
@@ -5677,6 +5681,7 @@ telemetry/test_telemetry_srv6.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'bmc' in topo_type"
 
 telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
@@ -6126,6 +6131,13 @@ vxlan/test_vxlan_decap_ttl.py:
       - "is_multi_asic == True"
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
       - "'dualtor' in topo_name"
+
+vxlan/test_vxlan_decap_ttl.py::test_vxlan_decap_ttl\[v6-.*\]:
+  regex: true
+  skip:
+    reason: "IPv6 VXLAN tunnels are not supported on Mellanox Spectrum-1."
+    conditions:
+      - "asic_type in ['mellanox'] and asic_gen == 'spc1'"
 
 vxlan/test_vxlan_ecmp.py:
   skip:

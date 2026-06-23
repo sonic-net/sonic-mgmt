@@ -15,7 +15,6 @@ from constants import (
 )
 from packets import outbound_pl_packets
 from tests.common.devices.duthosts import DutHosts
-from tests.common.config_reload import config_reload
 from tests.common.dash_utils import apply_swssconfig_file
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import InterruptableThread
@@ -23,6 +22,7 @@ from tests.conftest import get_specified_dpus, get_target_hostname, is_parallel_
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from ha_utils import (
+    parallel_config_reload_dpuhosts,
     program_eni_pl_on_dpu,
     set_dash_ha_scope,
     verify_ha_state,
@@ -487,9 +487,7 @@ def common_setup_teardown(
                     set_db=False,
                 )
     finally:
-        for dpuhost in selected_dpuhosts:
-            logger.info(f"config reload on {dpuhost.hostname}")
-            config_reload(dpuhost, safe_reload=True, yang_validate=False)
+        parallel_config_reload_dpuhosts(selected_dpuhosts)
 
 
 def _update_ha_set_with_replacement_dpu(
