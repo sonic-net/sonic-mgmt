@@ -222,7 +222,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinf
 
     ptf_runner(ptfhost,
                "ptftests",
-               "vxlan-decap.Vxlan",
+               "vxlan-decap",
                platform_dir="ptftests",
                params={"vxlan_enabled": vxlan_enabled,
                        "config_file": '/tmp/vxlan_decap.json',
