@@ -58,12 +58,16 @@ trap 'write_counts; exit 0' TERM INT EXIT
 write_counts
 
 while true; do
-    total_count=$((total_count + 1))
     # read_eeprom_cmd is intentionally left unquoted so a multi-word command
     # ("sfputil read-eeprom") word-splits into separate argv entries.
     if ! $read_eeprom_cmd -p "$port" -n 0 -o 0 -s 1 >/dev/null 2>&1; then
         fail_count=$((fail_count + 1))
     fi
+    # Increment total_count only after the read returns so the counters move
+    # together. If the process group is SIGKILL'd mid-read, that in-flight
+    # attempt is counted in neither total nor fail, keeping the fail-rate exact
+    # rather than counting an attempt that could never be marked as a failure.
+    total_count=$((total_count + 1))
     # Flush counts every iteration so a SIGKILL (which bypasses the trap) or a
     # trap deferred behind a stuck sfputil loses at most the in-flight update,
     # not the whole running total.  Each iteration already forks sfputil (tens

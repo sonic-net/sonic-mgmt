@@ -24,6 +24,14 @@ import re
 # group(1) is seconds-since-boot, compared against the /proc/uptime watermark.
 _DMESG_MONOTONIC_TS_RE = re.compile(r'^\[\s*(\d+(?:\.\d+)?)\]')
 
+# Severity levels worth scanning. Genuine I2C hardware faults (bus errors,
+# timeouts, NACKs) are emitted via dev_err/dev_warn and friends, never at
+# info/notice/debug -- which is the bulk of ring-buffer volume. Bounding dmesg
+# to these levels shrinks the input grep has to scan on each stress iteration
+# (the scan is O(iterations x buffer) otherwise) without weakening the
+# timestamp-window + seen_errors correctness guarantees below.
+_DMESG_ERROR_LEVELS = "emerg,alert,crit,err,warn"
+
 
 def capture_dmesg_uptime_watermark(duthost):
     """Read seconds-since-boot from ``/proc/uptime`` and return it as a float.
@@ -68,9 +76,14 @@ def scan_new_dmesg_errors(duthost, start_uptime, seen_errors, grep_pattern):
     A matching line whose leading ``[<seconds>]`` timestamp can't be parsed is
     conservatively kept (not dropped), so an unrecognized format never silently
     hides an error.
+
+    ``dmesg --level`` bounds the scan to error/warning-class lines
+    (:data:`_DMESG_ERROR_LEVELS`) so each iteration only greps the relevant
+    slice of the ring buffer rather than the full info/debug-dominated buffer.
     """
     result = duthost.shell(
-        "sudo dmesg | grep -iE '" + grep_pattern + "' || true",
+        "sudo dmesg --level=" + _DMESG_ERROR_LEVELS
+        + " | grep -iE '" + grep_pattern + "' || true",
         module_ignore_errors=True,
     )
     truly_new = []
