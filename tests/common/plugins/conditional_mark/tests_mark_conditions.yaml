@@ -5681,6 +5681,7 @@ telemetry/test_telemetry_srv6.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'bmc' in topo_type"
 
 telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
