@@ -142,7 +142,6 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    confed_asn = duthost.get_bgp_confed_asn()
 
     neighbor_info = get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh)
     tor1 = neighbor_info['tor1']
