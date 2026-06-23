@@ -20,6 +20,8 @@ pytestmark = [
 
 BGP_PASS = "sonic.123"
 MISMATCH_PASS = "badpassword"
+
+
 def get_lldp_neighbors(duthost):
     neighbors = []
     for line in duthost.shell("show lldp table")['stdout'].splitlines()[3:]:
