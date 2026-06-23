@@ -67,6 +67,30 @@ SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Multi-ASIC namespace support
+#
+# Only the DB-backed ``show interfaces transceiver`` commands take a namespace;
+# they accept a ``namespace`` kwarg and emit ``-n <ns>`` when it is truthy
+# (``asicN``, from e.g. ``duthost.get_namespace_from_asic_id`` /
+# ``asichost.namespace``).  On a single-ASIC DUT the value is ``None``/``""`` and
+# no flag is emitted, so the command stays byte-identical to the pre-namespace
+# form.  ``show interfaces transceiver``'s ``-n`` is a Choice type that can
+# reject an empty string, hence emitting it only when truthy.
+#
+# The ``sfputil`` family takes NO namespace argument: sfputil reaches the SFP via
+# the platform API (global logical-port map) and resolves the correct ASIC's
+# hardware from the port name alone, so no ASIC scoping is needed.  (Note
+# ``sfputil read-eeprom``/``eeprom-hexdump`` do use ``-n``, but it is the
+# ``--page`` option, unrelated to namespaces.)
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _ns_flag(namespace):
+    """Return ``" -n <namespace>"`` for a truthy namespace, else ``""``."""
+    return f" -n {namespace}" if namespace else ""
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Command-string builders (pure string assembly, no I/O)
 # ──────────────────────────────────────────────────────────────────────
 
@@ -109,14 +133,20 @@ def sfputil_show_presence_cmd(port=None):
     return f"{SFPUTIL_SHOW_PRESENCE} -p {port}" if port else SFPUTIL_SHOW_PRESENCE
 
 
-def show_interfaces_transceiver_info_cmd(port=None):
-    """Return ``show interfaces transceiver info`` (all ports) or ``... <port>``."""
-    return f"{SHOW_TRANSCEIVER_INFO} {port}" if port else SHOW_TRANSCEIVER_INFO
+def show_interfaces_transceiver_info_cmd(port=None, namespace=None):
+    """Return ``show interfaces transceiver info [-n <ns>] [<port>]``."""
+    cmd = SHOW_TRANSCEIVER_INFO + _ns_flag(namespace)
+    if port:
+        cmd += f" {port}"
+    return cmd
 
 
-def show_interfaces_transceiver_presence_cmd(port=None):
-    """Return ``show interfaces transceiver presence`` (all ports) or ``... <port>``."""
-    return f"{SHOW_TRANSCEIVER_PRESENCE} {port}" if port else SHOW_TRANSCEIVER_PRESENCE
+def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
+    """Return ``show interfaces transceiver presence [-n <ns>] [<port>]``."""
+    cmd = SHOW_TRANSCEIVER_PRESENCE + _ns_flag(namespace)
+    if port:
+        cmd += f" {port}"
+    return cmd
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -212,7 +242,7 @@ def sfputil_show_fwversion(duthost, port):
     return _run_and_parse(duthost, sfputil_show_fwversion_cmd(port))
 
 
-def show_interfaces_transceiver_info(duthost, port=None):
-    """Run ``show interfaces transceiver info [<port>]`` → ``({port: {field: value}}, err)``."""
-    cmd = show_interfaces_transceiver_info_cmd(port)
+def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
+    """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
+    cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)
     return _run_and_parse(duthost, cmd, parse_eeprom)
