@@ -20,9 +20,9 @@
   when: fanout_tacacs_user is defined and fanout_tacacs_password is defined
   tags: always
 
-- set_fact: os='eos'
-  when: os is not defined
-  tags: always
+- name: Set OS from device info with nxos fallback
+  set_fact:
+    os: "{{ device_info[inventory_hostname]['Os'] | default('') or 'nxos' }}"
 
 - fail: msg="non sonic does not support incremental update and dry run"
   when: os != 'sonic' and (incremental is defined or dry_run is defined)

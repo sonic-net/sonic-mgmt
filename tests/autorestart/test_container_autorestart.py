@@ -3,9 +3,13 @@ Test the auto-restart feature of containers
 """
 import logging
 import re
+import signal
+import time
 from collections import defaultdict
+from contextlib import contextmanager
 
 import pytest
+from _pytest.outcomes import OutcomeException
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -29,7 +33,87 @@ DHCP_SERVER = "dhcp_server"
 POST_CHECK_INTERVAL_SECS = 1
 POST_CHECK_THRESHOLD_SECS = 360
 POST_CHECK_THRESHOLD_SECS_T2 = 600
+POST_CHECK_THRESHOLD_SECS_TH6_128 = 600
 PROGRAM_STATUS = "RUNNING"
+
+# Per-container watchdog budget for a single parametrized autorestart case.
+# Each test_containers_autorestart[<feature>] exercises exactly one container; the
+# slowest legitimate container (telemetry) finishes in ~22 min, so 40 min gives a
+# comfortable ~1.8x margin for healthy runs. A container that hangs during
+# stop/restart or post-check is interrupted here and fails with a junit entry,
+# instead of blocking until the framework's module-level timeout (~155 min) kills
+# the run and discards all results as phantom "no xml file" failures.
+SINGLE_CONTAINER_TEST_TIMEOUT_SECS = 2400
+
+# Upper bound for the best-effort config_reload that recovers the DUT after a
+# per-container hang. A healthy `config_reload(safe_reload, wait_for_bgp)` -- even
+# on a slow/modular topology -- completes well within this; if recovery itself
+# exceeds it, something is badly wrong and we just log and fail the case anyway.
+RECOVERY_RELOAD_TIMEOUT_SECS = 600
+
+
+class ContainerAutorestartTimeout(BaseException):
+    """Raised when a single container's autorestart sub-test exceeds its watchdog budget.
+
+    Inherits from BaseException (not Exception) on purpose. The autorestart sub-test
+    polls DUT state through common.utilities.wait_until, whose retry loop catches
+    ``except Exception`` and treats any error as "condition not met yet, keep polling".
+    A plain Exception raised from the SIGALRM handler would be swallowed there, the
+    one-shot alarm consumed, and the case would then run unbounded -- defeating the
+    watchdog. As a BaseException (like KeyboardInterrupt/SystemExit and pytest's own
+    OutcomeException) it bypasses those ``except Exception`` loops and propagates up to
+    the per-case handler in test_containers_autorestart.
+    """
+
+
+@contextmanager
+def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_TIMEOUT_SECS):
+    """Interrupt a single container's autorestart sub-test if it hangs.
+
+    Uses SIGALRM so a blocked SSH/docker call is actually interrupted -- a thread
+    based timer cannot break out of a blocking C-level read. The signal interrupts
+    the blocking syscall and, because the handler raises, the exception propagates
+    out instead of the call being retried. Only effective on the main thread on
+    POSIX; on platforms without SIGALRM, or when not running on the main thread, it
+    is a no-op and execution falls back to the framework's module-level timeout.
+    """
+    if not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    def _on_timeout(signum, frame):
+        raise ContainerAutorestartTimeout(
+            "Autorestart test for container '{}' exceeded {} seconds and was interrupted. "
+            "The container most likely hung during stop/restart or post-check.".format(
+                container_name, timeout_secs)
+        )
+
+    try:
+        previous_handler = signal.signal(signal.SIGALRM, _on_timeout)
+    except ValueError:
+        # signal handlers can only be installed on the main thread.
+        logger.warning("single_container_timeout disabled for '%s': not on main thread", container_name)
+        yield
+        return
+
+    # signal.alarm() returns the seconds left on any previously scheduled alarm
+    # (0 if none). Save it so the watchdog restores -- rather than silently cancels
+    # -- a SIGALRM that pytest, the framework, or another fixture may have armed,
+    # instead of clobbering process-global timer state. Arming inside the try also
+    # keeps the handler restoration in finally even if signal.alarm() ever raised.
+    previous_alarm_remaining = 0
+    armed_at = time.monotonic()
+    try:
+        previous_alarm_remaining = signal.alarm(timeout_secs)
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous_handler)
+        if previous_alarm_remaining > 0:
+            # Re-arm the pre-existing alarm, debited by the time we held it
+            # (at least 1s -- alarm(0) would cancel it instead).
+            elapsed = int(time.monotonic() - armed_at)
+            signal.alarm(max(1, previous_alarm_remaining - elapsed))
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -62,7 +146,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, wait_for_bgp=True)
         if hostname in dhcp_server_hosts:
             duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
 
@@ -461,8 +545,11 @@ def postcheck_critical_processes_status(duthost, feature_autorestart_states, up_
             if is_hiting_start_limit(duthost, feature_name):
                 clear_failed_flag_and_restart(duthost, feature_name, feature_name)
 
-    post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2 if duthost.get_facts().get("modular_chassis") \
-        else POST_CHECK_THRESHOLD_SECS
+    post_check_threshold = POST_CHECK_THRESHOLD_SECS
+    if duthost.get_facts().get("modular_chassis"):
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_T2
+    if duthost.sonichost.facts['platform'] == 'x86_64-nokia_ixr7220_h6_128-r0':
+        post_check_threshold = POST_CHECK_THRESHOLD_SECS_TH6_128
 
     critical_proceses = wait_until(
         post_check_threshold, POST_CHECK_INTERVAL_SECS, 0,
@@ -555,14 +642,26 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
     )
+    if not critical_proceses:
+        processes_status = duthost.all_critical_process_status()
+        for cname, procs in list(processes_status.items()):
+            if procs["status"] is False or len(procs["exited_critical_process"]) > 0:
+                logger.info("Post-check: container '{}' has exited critical processes: {}"
+                            .format(cname, procs["exited_critical_process"]))
+    if not bgp_check:
+        bgp_neigh = duthost.get_bgp_neighbors()
+        down_sessions = {ip: info['state'] for ip, info in list(bgp_neigh.items()) if info['state'] != 'established'}
+        logger.info("Post-check: BGP sessions not established: {}".format(down_sessions))
     if not (critical_proceses and bgp_check):
-        config_reload(duthost, safe_reload=True)
-        # after config reload, the feature autorestart config is reset,
-        # so, before next test, enable again
-        enable_autorestart(duthost)
-
+        # Capture diagnostic state BEFORE config_reload, otherwise all sessions
+        # will appear established in the error message after recovery.
         failed_check = "[Critical Process] " if not critical_proceses else ""
         failed_check += "[BGP] " if not bgp_check else ""
+        bgp_failures = [
+            {x: v['state']}
+            for x, v in list(duthost.get_bgp_neighbors().items())
+            if v['state'] != 'established'
+        ]
         processes_status = duthost.all_critical_process_status()
         pstatus = [
             {
@@ -574,6 +673,11 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 "status"
             ] is False and len(v["exited_critical_process"]) > 0
         ]
+
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        # after config reload, the feature autorestart config is reset,
+        # so, before next test, enable again
+        enable_autorestart(duthost)
 
         if (duthost.get_facts().get("modular_chassis") and
                 duthost.facts["asic_type"] == "cisco-8000" and
@@ -591,11 +695,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
                  "\nProcess status {}").format(
                     failed_check, container_name,
-                    [
-                        {x: v['state']}
-                        for x, v in list(duthost.get_bgp_neighbors().items())
-                        if v['state'] != 'established'
-                    ],
+                    bgp_failures,
                     up_bgp_neighbors, pstatus
                 )
             )
@@ -615,4 +715,32 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    try:
+        with single_container_timeout(container_name):
+            run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    except ContainerAutorestartTimeout as timeout_err:
+        # Recover the DUT before failing so the remaining per-container cases in this
+        # module are not poisoned by a half-restarted container, then surface the hang
+        # as a normal failure (with junit) instead of a phantom run. The recovery is
+        # itself bounded so it cannot hang the module either.
+        logger.error(str(timeout_err))
+        try:
+            with single_container_timeout(container_name, timeout_secs=RECOVERY_RELOAD_TIMEOUT_SECS):
+                config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+                enable_autorestart(duthost)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except ContainerAutorestartTimeout as recovery_timeout_err:
+            # Recovery itself exceeded RECOVERY_RELOAD_TIMEOUT_SECS. ContainerAutorestartTimeout
+            # is a BaseException (so wait_until cannot swallow it) and is therefore not caught by
+            # the (Exception, OutcomeException) handler below; catch it explicitly here, log it,
+            # and still fail with the original hang reason rather than letting it propagate raw.
+            logger.error("Recovery after hang on container '%s' itself timed out: %s",
+                         container_name, recovery_timeout_err)
+        except (Exception, OutcomeException) as recovery_err:
+            # Recovery itself failed -- e.g. a config_reload assertion such as BGP-not-converged,
+            # which pytest raises as Failed (an OutcomeException, not a plain Exception). Log it
+            # with the traceback but still fail with the original hang reason so triage sees which
+            # container hung rather than a masked recovery error.
+            logger.exception("Recovery after hang on container '%s' failed: %s", container_name, recovery_err)
+        pytest.fail(str(timeout_err))

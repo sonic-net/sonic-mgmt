@@ -132,7 +132,11 @@ class TestLowerBoundProbingAlgorithm:
 
     @pytest.mark.order(8260)
     def test_run_maximum_iterations_exceeded(self):
-        """Test safety limit when max iterations exceeded"""
+        """Test safety limit when max iterations exceeded.
+
+        When threshold is always triggered, algorithm halves down to 1 and
+        returns (1, phase_time) — lower bound is 1.
+        """
         self.setUp()
         # Always return triggered (never dismiss)
         self.mock_executor.check.return_value = (True, True)
@@ -140,16 +144,15 @@ class TestLowerBoundProbingAlgorithm:
         algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
         result, phase_time = algo.run(src_port=24, dst_port=28, upper_bound=1000000)
 
-        # Verify failure result
-        assert result is None
-
-        # Verify error was logged
-        self.mock_observer.on_error.assert_called_once()
-        assert "exceeded maximum iterations" in self.mock_observer.on_error.call_args[0][0].lower()
+        # Lower bound is 1 (minimum probed value where threshold still triggered)
+        assert result == 1
 
     @pytest.mark.order(8270)
     def test_run_reaches_minimum_value(self):
-        """Test when reduction reaches minimum value of 1"""
+        """Test when reduction reaches minimum value of 1.
+
+        All values trigger threshold → lower bound is 1.
+        """
         self.setUp()
         # Always trigger until we reach 1
         self.mock_executor.check.side_effect = [
@@ -161,11 +164,8 @@ class TestLowerBoundProbingAlgorithm:
         algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
         result, phase_time = algo.run(src_port=24, dst_port=28, upper_bound=8)
 
-        # Verify failure result
-        assert result is None
-
-        # Verify error was logged
-        self.mock_observer.on_error.assert_called_once()
+        # Lower bound is 1 (minimum probed value where threshold still triggered)
+        assert result == 1
 
     @pytest.mark.order(8280)
     def test_run_with_traffic_keys(self):
@@ -287,27 +287,54 @@ class TestLowerBoundProbingAlgorithm:
         the loop should terminate promptly (not spin for max_iterations).
         """
         self.setUp()
-        # Always detected at current=1 — should NOT loop indefinitely
         call_count = 0
 
         def counting_check(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            return (True, True)  # Always triggered
+            return (True, True)
 
         self.mock_executor.check.side_effect = counting_check
 
         algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
         result, phase_time = algo.run(src_port=24, dst_port=28, upper_bound=2)
 
-        # Algorithm should terminate with None (can't find lower bound)
-        assert result is None
-        # Critical: should NOT take more than a handful of iterations.
-        # With upper_bound=2, start=1, if current=1 is still triggered,
-        # algorithm should recognize it cannot go lower and exit.
-        # A reasonable bound is <= 5 iterations, not 50 (max_iterations default).
+        # Should return 1 (minimum probed value where threshold still triggered)
+        assert result == 1
         assert call_count <= 5, \
             f"Algorithm took {call_count} iterations at current=1 — likely infinite loop bug"
+
+    @pytest.mark.order(8350)
+    def test_lower_bound_returns_1_when_threshold_always_triggered(self):
+        """Bug: When threshold is triggered at current=1, should return 1 not None.
+
+        StormLiangMS review (2026-03-25): Lower bound returns None instead of
+        minimum value when threshold is always triggered. current=1 with
+        detected=True means the lower bound IS 1 — returning None incorrectly
+        signals failure to the caller.
+        """
+        self.setUp()
+        self.mock_executor.check.return_value = (True, True)
+
+        algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        result, phase_time = algo.run(src_port=24, dst_port=28, upper_bound=4)
+
+        # Should return 1 (minimum probed value where threshold was still triggered)
+        # BUG: currently returns None
+        assert result == 1, \
+            f"Lower bound should be 1 when threshold triggered at minimum, got {result}"
+
+    @pytest.mark.order(8351)
+    def test_lower_bound_returns_1_with_various_upper_bounds(self):
+        """Same bug with different upper_bound values — should always return 1."""
+        self.setUp()
+        self.mock_executor.check.return_value = (True, True)
+
+        for upper in [2, 10, 100, 1000]:
+            algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+            result, _ = algo.run(src_port=24, dst_port=28, upper_bound=upper)
+            assert result == 1, \
+                f"upper_bound={upper}: lower bound should be 1, got {result}"
 
 
 if __name__ == "__main__":

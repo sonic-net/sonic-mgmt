@@ -133,6 +133,19 @@ class StreamManager:
             )
             flow_config.dst_port.actual_port_id = actual_rx_port
 
+        # Add resolved-port aliases so get_packet() works with both original
+        # and actual dst port IDs (e.g., LAG member selection differs).
+        extra = {}
+        for (src_id, dst_id, frozen_keys), flow_config in self.flows.items():
+            actual_dst = flow_config.dst_port.port_id
+            if actual_dst != dst_id:
+                extra[(src_id, actual_dst, frozen_keys)] = flow_config
+        if extra:
+            self.flows.update(extra)
+            from probing_observer import ProbingObserver
+            ProbingObserver.trace(
+                "[StreamManager] LAG remapping: added %d dual-key alias(es)" % len(extra))
+
     def get_port_ids(self, type="all"):
         """Get port IDs from all flows
 

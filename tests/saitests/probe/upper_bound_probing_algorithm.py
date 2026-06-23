@@ -68,7 +68,8 @@ class UpperBoundProbingAlgorithm:
         self.observer = observer
         self.verification_attempts = verification_attempts
 
-    def run(self, src_port: int, dst_port: int, initial_value: int, **traffic_keys) -> Tuple[Optional[int], float]:
+    def run(self, src_port: int, dst_port: int, initial_value: int,
+            pool_size: int = None, **traffic_keys) -> Tuple[Optional[int], float]:
         """
         Run upper bound discovery algorithm
 
@@ -76,6 +77,10 @@ class UpperBoundProbingAlgorithm:
             src_port: Source port for traffic generation
             dst_port: Destination port for threshold detection
             initial_value: Starting value (typically buffer_pool_size)
+            pool_size: Optional pool size in packet units for safety cap.
+                       When provided, algorithm aborts if current exceeds 3x pool_size.
+                       This prevents runaway when threshold is not triggerable
+                       (e.g., dead PFC counter on Mellanox pg=4).
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
 
         Returns:
@@ -120,6 +125,17 @@ class UpperBoundProbingAlgorithm:
                 else:
                     # Continue exponential growth
                     current *= 2
+                    # Safety cap: abort if current exceeds 3x pool_size
+                    # Prevents runaway when threshold is not triggerable (dead counter).
+                    # 3x gives ~1.5 extra doublings beyond pool capacity — generous enough
+                    # to find thresholds even with misconfigured pool_size, but prevents
+                    # sending 10x+ pool_size packets which causes SAI thrift errors.
+                    if pool_size is not None and current > pool_size * 3:
+                        self.observer.on_error(
+                            f"Upper bound exceeded 3x pool_size ({pool_size} pkt), "
+                            f"threshold likely not triggerable at current={current} pkt"
+                        )
+                        return (None, phase_time)
 
             self.observer.on_error(f"Upper bound discovery exceeded maximum iterations ({max_iterations})")
             return (None, phase_time)

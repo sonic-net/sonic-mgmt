@@ -8,7 +8,7 @@ from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports, get_port_indexes_with_flat_memory
 from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
@@ -83,6 +83,8 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
+
+    sfp_setup["indexes_with_flat_memory"] = get_port_indexes_with_flat_memory(duthost)
 
 
 @pytest.mark.usefixtures("setup")
@@ -309,24 +311,30 @@ class TestSfpApi(PlatformApiTestBase):
     #
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
-        # For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
-            if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
-                    xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
+        type_name = xcvr_info_dict["type_abbrv_name"]
+        spec = xcvr_info_dict["specification_compliance"]
+
+        # QSFP-DD/OSFP-8X/QSFP+C/BP report specification_compliance as a plain string.
+        if type_name in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
+            return spec not in ("Passive Copper Cable", "passive_copper_media_interface")
+
+        # SFP may report specification_compliance either as a plain string
+        # (e.g. Cisco-console SFP) or as a dict-formatted string (standard SFP/SFP+ DAC).
+        if type_name == "SFP":
+            if spec in ("Passive Copper Cable", "passive_copper_media_interface"):
                 return False
-        else:
-            spec_compliance_dict = ast.literal_eval(xcvr_info_dict["specification_compliance"])
-            if xcvr_info_dict["type_abbrv_name"] == "SFP":
-                compliance_code = spec_compliance_dict.get("SFP+CableTechnology")
-                if compliance_code == "Passive Cable":
-                    return False
-            else:
-                compliance_code = spec_compliance_dict.get("10/40G Ethernet Compliance Code", " ")
-                if "CR" in compliance_code:
-                    return False
-                extended_code = spec_compliance_dict.get("Extended Specification Compliance", " ")
-                if "CR" in extended_code:
-                    return False
+            try:
+                spec_compliance_dict = ast.literal_eval(spec)
+            except (ValueError, SyntaxError):
+                return True
+            return spec_compliance_dict.get("SFP+CableTechnology") != "Passive Cable"
+
+        # All other types use the dict-based copper check.
+        spec_compliance_dict = ast.literal_eval(spec)
+        if "CR" in spec_compliance_dict.get("10/40G Ethernet Compliance Code", " "):
+            return False
+        if "CR" in spec_compliance_dict.get("Extended Specification Compliance", " "):
+            return False
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
@@ -350,15 +358,18 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
-    def is_xcvr_support_lpmode(self, xcvr_info_dict):
+    def is_xcvr_support_lpmode(self, xcvr_info_dict, port_index=None):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
         # Amphenol 800G Backplane cartridge does not support lpmode.
         if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
             return False
 
-        ext_identifier = xcvr_info_dict["ext_identifier"]
-        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
+        if port_index is not None and port_index in self.sfp_setup["indexes_with_flat_memory"]:
+            logger.info("Skipping lpmode test for transceiver {} as it is in flat memory".format(port_index))
+            return False
+
+        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type):
             return False
 
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
@@ -396,7 +407,7 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
-            if self.is_xcvr_support_lpmode(info_dict):
+            if self.is_xcvr_support_lpmode(info_dict, sfp_port_idx):
                 logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
                 interfaces_to_flap.append(intf)
         return interfaces_to_flap
@@ -911,7 +922,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_support_lpmode(info_dict):
+            if not self.is_xcvr_support_lpmode(info_dict, i):
                 logger.warning(
                     "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))
@@ -995,8 +1006,14 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests get_error_description() API (supported on 202106 and above)"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
+        admin_up_port_set = set(duthost.get_admin_up_ports())
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
+            current_ports_set = set(self.sfp_setup["index_physical_port_map"][i])
+            if admin_up_port_set.isdisjoint(current_ports_set):
+                logger.warning(f"test_get_error_description: Skipping transceiver {i} as ports are not admin up: "
+                               f"{current_ports_set}")
+                continue
             error_description = sfp.get_error_description(platform_api_conn, i)
             if self.expect(error_description is not None,
                            "Unable to retrieve transceiver {} error description".format(i)):

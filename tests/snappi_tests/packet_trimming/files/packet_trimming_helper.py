@@ -1,6 +1,7 @@
 import inspect
 import time
 import logging
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
@@ -74,6 +75,22 @@ def run_packet_trimming_test(
 
     if snappi_test_params is None:
         snappi_test_params = SnappiTestParams()
+
+    # Skip test if testbed does not have enough TGEN ports
+    num_required = (
+        snappi_test_params.num_tx_links
+        + snappi_test_params.num_rx_links
+    )
+    num_available = len(port_config_list)
+    if num_available < num_required:
+        pytest.skip(
+            "Test requires {} ports ({} TX + {} RX) but testbed has only {} ports".format(
+                num_required,
+                snappi_test_params.num_tx_links,
+                snappi_test_params.num_rx_links,
+                num_available,
+            )
+        )
 
     caller_name = inspect.stack()[1].function
     snappi_test_params.packet_capture_file = f'packet_trimming_{caller_name}'  # will be saved as .pcapng

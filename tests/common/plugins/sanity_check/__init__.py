@@ -88,6 +88,11 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
 
         cmds = list(constants.PRINT_LOGS.values())
 
+        # Skip commands that trigger rexec on supervisor (e.g. show interface status, show ip bgp summary)
+        if dut.is_supervisor_node():
+            cmds = [cmd for cmd in cmds
+                    if not any(p.search(cmd) for p in constants.SUPERVISOR_REXEC_COMMAND_PATTERNS)]
+
         if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
@@ -358,7 +363,19 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         if post_check_items:
             logger.info("Start post-test sanity check")
-            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            try:
+                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            except Exception as e:
+                logger.error(
+                    "Post-test sanity check crashed (DUT may be unreachable): %s", repr(e)
+                )
+                request.config.cache.set("post_sanity_check_failed", True)
+                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
+                pt_assert(
+                    False,
+                    "!!!!!!!!!!!!!!!! Post-test sanity check crashed: !!!!!!!!!!!!!!!!\n{}".format(repr(e))
+                )
+                return
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 

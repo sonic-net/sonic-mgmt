@@ -26,9 +26,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEWER_INDEX: .github/.code-reviewers/pr_reviewer-by-files.yml
+          SKIP_EXPIRY_CONFIG_PATH: .github/SKIP_EXPIRY_CONFIG.yaml
           NEEDED_REVIEWER_COUNT: 3
           INCLUDE_CONTRIBUTORS_TIES: True
-          
+
       - name: Cleanup the checked out repo
         run: git clean -fdx
-

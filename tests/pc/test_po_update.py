@@ -204,6 +204,22 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             or wait_until(10, 10, 0, pc_active, asichost, tmp_portchannel))
     finally:
         # Recover all states
+        # The T1 topology golden config (smartswitch_t1.json) installs a static route
+        # "10.2.0.1/32 via 18.0.202.1" whose nexthop is resolved recursively. While
+        # PortChannel999 is operationally up and holds the 10.0.0.0/31 subnet, FRR
+        # resolves that static route through PortChannel999. sonic-utilities
+        # config/main.py checks "show ip route vrf all static" before removing the
+        # last IP on an interface and raises:
+        #   "Cannot remove the last IP entry of interface PortChannel999.
+        #    A static ip route is still bound to the RIF."
+        # Issuing admin-down on PortChannel999 first drops the LAG link, tears down
+        # BGP, and causes FRR to withdraw PortChannel999 from the recursive nexthop
+        # resolution. A brief sleep allows FRR to update its routing table before
+        # the IP removal is attempted, preserving the original cleanup order
+        # (IP removed before members).
+        if create_tmp_portchannel:
+            asichost.shutdown_interface(tmp_portchannel)
+            time.sleep(5)
         if add_tmp_portchannel_ip:
             asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "remove")
 
@@ -396,6 +412,22 @@ def test_po_update_io_no_loss(
                       "Packets lost rate > {} during pc members add/removal, send_count: {}, match_count: {}".format(
                           max_loss_rate, send_count, match_count))
     finally:
+        # The T1 topology golden config (smartswitch_t1.json) installs a static route
+        # "10.2.0.1/32 via 18.0.202.1" whose nexthop is resolved recursively. While
+        # PortChannel999 is operationally up and holds the 10.0.0.0/31 subnet, FRR
+        # resolves that static route through PortChannel999. sonic-utilities
+        # config/main.py checks "show ip route vrf all static" before removing the
+        # last IP on an interface and raises:
+        #   "Cannot remove the last IP entry of interface PortChannel999.
+        #    A static ip route is still bound to the RIF."
+        # Issuing admin-down on PortChannel999 first drops the LAG link, tears down
+        # BGP, and causes FRR to withdraw PortChannel999 from the recursive nexthop
+        # resolution. A brief sleep allows FRR to update its routing table before
+        # the IP removal is attempted, preserving the original cleanup order
+        # (IP removed before members).
+        if create_tmp_pc:
+            asichost.shutdown_interface(tmp_pc)
+            time.sleep(5)
         if add_tmp_pc_ip:
             asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
             wait_until(10, 2, 2, _check_ip_removed, asichost, tmp_pc)

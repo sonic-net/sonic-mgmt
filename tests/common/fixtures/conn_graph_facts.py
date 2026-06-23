@@ -18,10 +18,14 @@ def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_gra
     dev_conn = conn_graph_facts.get('device_conn', {})
     if not dev_conn:
         return facts
+
+    selected_dut_hostnames = [dh.hostname for dh in duthosts]
     for _, val in list(dev_conn[duthost.hostname].items()):
         fanout = val["peerdevice"]
         if fanout not in facts:
-            facts[fanout] = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+            # Query graph using selected DUT + fanout so linked ports are scoped to selected DUTs.
+            scoped_graph_facts = get_graph_facts(duthost, localhost, selected_dut_hostnames + [fanout])
+            facts[fanout] = {k: v[fanout] for k, v in list(scoped_graph_facts.items()) if fanout in v}
     return facts
 
 
@@ -32,6 +36,9 @@ def fanout_graph_facts_multidut(localhost, duthosts, conn_graph_facts):
     if not dev_conn:
         return facts
 
+    selected_dut_hostnames = [dh.hostname for dh in duthosts]
+    anchor_duthost = duthosts[0]
+
     fanout_set = set()
     for duthost in duthosts:
         for _, val in list(dev_conn[duthost.hostname].items()):
@@ -39,7 +46,9 @@ def fanout_graph_facts_multidut(localhost, duthosts, conn_graph_facts):
 
     # Only take IXIA/SNAPPI testers into fanout_facts
     for fanout in fanout_set:
-        fanout_data = {k: v[fanout] for k, v in list(get_graph_facts(duthost, localhost, fanout).items())}
+        # Query graph using selected DUTs + fanout so linked ports are scoped to selected DUTs.
+        scoped_graph_facts = get_graph_facts(anchor_duthost, localhost, selected_dut_hostnames + [fanout])
+        fanout_data = {k: v[fanout] for k, v in list(scoped_graph_facts.items()) if fanout in v}
         if fanout_data['device_info']['HwSku'] in ('SNAPPI-tester', 'IXIA-tester'):
             facts[fanout] = fanout_data
 
@@ -75,8 +84,13 @@ def get_graph_facts(duthost, localhost, hostnames):
         graph_groups = yaml.safe_load(open(graph_groups_file))
         for inv_file in inv_files:
             inv_name = os.path.basename(inv_file)
-            if inv_name in graph_groups:
-                group = inv_name
+            # Try exact match first, then prefix match for trimmed inventory names
+            for graph_group in graph_groups:
+                if (inv_name == graph_group or
+                        (inv_name.startswith("{}_".format(graph_group)) and
+                         inv_name.endswith("_trim_tmp"))):
+                    group = graph_group
+                    break
 
     kargs = {"filepath": lab_conn_graph_path}
     if group:

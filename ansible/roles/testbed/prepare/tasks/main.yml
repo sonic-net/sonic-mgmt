@@ -1,2 +1,5 @@
 ---
 - import_tasks: rotate_password.yml
+- import_tasks: setup_telemetry_certs.yml
+- import_tasks: setup_restapi_certs.yml
+- import_tasks: setup_core_uploader.yml

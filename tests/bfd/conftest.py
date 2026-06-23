@@ -10,6 +10,39 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 
+class BfdCleanupContext(object):
+    def __init__(self):
+        self.src_dut = None
+        self.src_asic = None
+        self.src_prefix = None
+        self.dst_dut = None
+        self.dst_asic = None
+        self.dst_prefix = None
+        self.rp_asic_ids = []
+        self.allow_empty_static_routes_on_removal = False
+        self.restore_targets = []
+
+    def set_bfd_endpoints(self, selection):
+        self.src_dut = selection.get("src_dut")
+        self.src_asic = selection.get("src_asic")
+        self.src_prefix = selection.get("src_prefix")
+        self.dst_dut = selection.get("dst_dut")
+        self.dst_asic = selection.get("dst_asic")
+        self.dst_prefix = selection.get("dst_prefix")
+
+    def register_restore(self, dut, asic, interfaces):
+        if not interfaces:
+            return
+
+        self.restore_targets.append(
+            {
+                "dut": dut,
+                "asic": asic,
+                "interfaces": list(interfaces),
+            }
+        )
+
+
 def pytest_addoption(parser):
     parser.addoption("--num_sessions", action="store", default=5)
     parser.addoption("--num_sessions_scale", action="store", default=128)
@@ -21,7 +54,7 @@ def get_function_completeness_level(pytestconfig):
 
 
 @pytest.fixture(scope="function")
-def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
+def bfd_cleanup_db(duthosts, enum_supervisor_dut_hostname):
     # Temporarily disable orchagent CPU check before starting test as it is not stable
     # orch_cpu_threshold = 10
     # # Make Sure Orch CPU < orch_cpu_threshold before starting test.
@@ -35,7 +68,8 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
     #         100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
     #     ), "Orch CPU utilization exceeds orch cpu threshold {} before starting the test".format(orch_cpu_threshold)
 
-    yield
+    cleanup_context = BfdCleanupContext()
+    yield cleanup_context
 
     # Temporarily disable orchagent CPU check after finishing test as it is not stable
     # orch_cpu_threshold = 10
@@ -50,11 +84,11 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
 
     rp = duthosts[enum_supervisor_dut_hostname]
     container_status = True
-    if hasattr(request.config, "rp_asic_ids"):
+    if cleanup_context.rp_asic_ids:
         logger.info("Verifying swss container status on RP")
-        for id in request.config.rp_asic_ids:
+        for asic_id in cleanup_context.rp_asic_ids:
             docker_output = rp.shell(
-                "docker ps | grep swss{} | awk '{{print $NF}}'".format(id)
+                "docker ps | grep swss{} | awk '{{print $NF}}'".format(asic_id)
             )["stdout"]
             if len(docker_output) == 0:
                 container_status = False
@@ -63,38 +97,27 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
         logger.error("swss container is not running on RP, so running config reload")
         config_reload(rp, safe_reload=True)
 
-    if hasattr(request.config, "src_dut") and hasattr(request.config, "dst_dut"):
-        clear_bfd_configs(request.config.src_dut, request.config.src_asic.asic_index, request.config.src_prefix)
-        clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
+    if cleanup_context.src_dut and cleanup_context.dst_dut:
+        clear_bfd_configs(
+            cleanup_context.src_dut,
+            cleanup_context.src_asic.asic_index,
+            cleanup_context.src_prefix,
+        )
+        clear_bfd_configs(
+            cleanup_context.dst_dut,
+            cleanup_context.dst_asic.asic_index,
+            cleanup_context.dst_prefix,
+        )
 
-    portchannels_on_dut = None
-    if hasattr(request.config, "portchannels_on_dut"):
-        portchannels_on_dut = request.config.portchannels_on_dut
-        selected_interfaces = request.config.selected_portchannels
-    elif hasattr(request.config, "selected_portchannel_members"):
-        portchannels_on_dut = request.config.portchannels_on_dut
-        selected_interfaces = request.config.selected_portchannel_members
-    else:
-        selected_interfaces = []
-
-    if selected_interfaces:
-        logger.info("Bringing up portchannels or respective members")
-        if portchannels_on_dut == "src":
-            dut = request.config.src_dut
-        elif portchannels_on_dut == "dst":
-            dut = request.config.dst_dut
-        else:
-            dut = request.config.dut
-
-        if portchannels_on_dut == "src":
-            asic = request.config.src_asic
-        elif portchannels_on_dut == "dst":
-            asic = request.config.dst_asic
-        else:
-            asic = request.config.asic
-
-        ensure_interfaces_are_up(dut, asic, selected_interfaces)
+    if cleanup_context.restore_targets:
+        logger.info("Bringing up registered interfaces")
+        for restore_target in cleanup_context.restore_targets:
+            ensure_interfaces_are_up(
+                restore_target["dut"],
+                restore_target["asic"],
+                restore_target["interfaces"],
+            )
     else:
         logger.info(
-            "None of the portchannels are selected to flap. So skipping portchannel interface check"
+            "No interfaces were registered for cleanup. So skipping interface check"
         )

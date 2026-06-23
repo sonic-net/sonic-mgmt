@@ -88,6 +88,19 @@ def get_as_numbers_for_topology():
     }
 
 
+def build_ordered_multi_duthosts(*duts):
+    """
+    Stable DUT list in the same order as arguments (typically duthost1 uplink LC,
+    duthost2 downlink LC, optional duthost3 supervisor). Skips None; drops
+    duplicates without reordering earlier entries.
+    """
+    duthosts = []
+    for dut in duts:
+        if dut is not None and dut not in duthosts:
+            duthosts.append(dut)
+    return duthosts
+
+
 def run_bgp_outbound_uplink_blackout_test(api,
                                           snappi_extra_params,
                                           creds, record_property):
@@ -109,7 +122,7 @@ def run_bgp_outbound_uplink_blackout_test(api,
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     # Build unique duthosts list, filtering None values
-    duthosts = list({dut for dut in [duthost1, duthost2] if dut is not None})
+    duthosts = build_ordered_multi_duthosts(duthost1, duthost2)
     t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -166,7 +179,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     # Build unique duthosts list, filtering None values
-    duthosts = list({dut for dut in [duthost1, duthost2, duthost3] if dut is not None})
+    duthosts = build_ordered_multi_duthosts(duthost1, duthost2, duthost3)
     t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -224,7 +237,7 @@ def run_bgp_outbound_ungraceful_restart(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     duthost3 = snappi_extra_params.multi_dut_params.duthost3
     # Build unique duthosts list, filtering None values
-    duthosts = list({dut for dut in [duthost1, duthost2, duthost3] if dut is not None})
+    duthosts = build_ordered_multi_duthosts(duthost1, duthost2, duthost3)
     t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -283,7 +296,7 @@ def run_bgp_outbound_process_restart_test(api,
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     # Build unique duthosts list, filtering None values
-    duthosts = list({dut for dut in [duthost1, duthost2] if dut is not None})
+    duthosts = build_ordered_multi_duthosts(duthost1, duthost2)
     t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports
@@ -342,7 +355,7 @@ def run_bgp_outbound_link_flap_test(api,
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     # Build unique duthosts list, filtering None values
-    duthosts = list({dut for dut in [duthost1, duthost2] if dut is not None})
+    duthosts = build_ordered_multi_duthosts(duthost1, duthost2)
     t1_hostname = snappi_extra_params.multi_dut_params.t1_hostname
     route_ranges = snappi_extra_params.ROUTE_RANGES
     snappi_ports = snappi_extra_params.multi_dut_params.multi_dut_ports

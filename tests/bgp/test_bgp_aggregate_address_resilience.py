@@ -21,12 +21,10 @@ import logging
 
 import pytest
 
-from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
-
 from bgp_aggregate_helpers import (
-    AggregateCfg,
     BGP_AGGREGATE_ADDRESS,
     PLACEHOLDER_PREFIX,
+    AggregateCfg,
     dump_db,
     gcu_add_aggregate,
     gcu_add_placeholder_aggregate,
@@ -35,10 +33,7 @@ from bgp_aggregate_helpers import (
     verify_bgp_aggregate_cleanup,
 )
 
-from test_bgp_aggregate_address import (
-    AGGR_V4,
-    AGGR_V6,
-)
+from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
@@ -51,10 +46,11 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
-    pytest.mark.disable_loganalyzer,
 ]
 
 # ---- Constants ----
+AGGR_V4 = "172.16.51.0/24"
+AGGR_V6 = "2000:172:16:50::/64"
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
 
@@ -82,6 +78,27 @@ def setup_teardown(duthost):
         duthost.shell("sudo config save -y")
     finally:
         delete_checkpoint(duthost)
+
+
+@pytest.fixture(autouse=True)
+def ignore_disruption_loganalyzer_noise(duthost, loganalyzer):
+    """Ignore transient ERR logs caused by reload/reboot disruptions.
+
+    - iptables TACACS noise: every reload/iptables-change moment briefly
+      breaks DUT->TACACS reachability; the existing common-ignore rule for
+      `nss_tacplus: failed to connect TACACS+ server` has an unescaped '+'
+      and does not actually match, so we add a properly-escaped pair here.
+      The sibling `tac_connect_single: ... Network is unreachable` line has
+      no common-ignore at all, add it too.
+    """
+    if loganalyzer and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            r".* ERR iptables: nss_tacplus: failed to connect TACACS\+ server .*",
+            r".* ERR iptables: tac_connect_single: connection to .* failed: "
+            r"Network is unreachable.*",
+            r".* ERR iptables: tac_author_read: reply timeout after \d+ secs.*",
+        ])
+    yield
 
 
 # ---- Fixtures ----
@@ -221,6 +238,10 @@ def test_aggregate_persists_config_reload(
 # ===========================================================================
 # Test Case 5.3 — Config save and cold reboot
 # ===========================================================================
+# Cold reboot truncates /var/log/syslog so the LogAnalyzer start marker is
+# lost; disable LogAnalyzer for this test (matches the pattern used by other
+# reboot-based tests in the repo).
+@pytest.mark.disable_loganalyzer
 def test_aggregate_persists_config_save_and_reboot(
     duthosts, rand_one_dut_hostname, localhost, bgp_neighbors
 ):
@@ -312,6 +333,10 @@ def test_aggregate_bbr_required_inactive_persists_bgp_restart(
 # ===========================================================================
 # Test Case 5.5 — Warm reboot
 # ===========================================================================
+# Warm reboot rotates/truncates /var/log/syslog so the LogAnalyzer start
+# marker is lost; disable LogAnalyzer for this test (matches the pattern
+# used by other reboot-based tests in the repo).
+@pytest.mark.disable_loganalyzer
 def test_aggregate_persists_warm_reboot(
     duthosts, rand_one_dut_hostname, localhost, bgp_neighbors
 ):

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.macsec_required,
-    pytest.mark.topology("t0", "t2", "t0-sonic"),
+    pytest.mark.topology("t0", "t2", "lrh", "urh", "t0-sonic"),
 ]
 
 
@@ -26,6 +26,9 @@ class TestDataPlane():
     def test_server_to_neighbor(self, duthost, ctrl_links, downstream_links,
                                 upstream_links, ptfadapter, wait_mka_establish):
         ptfadapter.dataplane.set_qlen(TestDataPlane.BATCH_COUNT * 100)
+
+        if len(downstream_links) == 0:
+            pytest.skip("No downstream links")
 
         down_link = list(downstream_links.values())[0]
         dut_macaddress = duthost.get_dut_iface_mac(list(ctrl_links.keys())[0])

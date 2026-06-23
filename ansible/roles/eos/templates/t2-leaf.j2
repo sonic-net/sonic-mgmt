@@ -1,3 +1,8 @@
+{# Converged (multi-VRF) topologies render the shared converged config; the
+   stock body below is used unchanged on non-converged topologies. #}
+{% if topo_is_multi_vrf | default(false) | bool %}
+{% include 'ceos_converged.j2' %}
+{% else %}
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
@@ -109,6 +114,12 @@ interface {{ bp_ifname }}
 router bgp {{ host['bgp']['asn'] }}
  router-id {{ host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+ bgp confederation identifier {{ host['bgp']['confed_asn'] }}
+ bgp confederation peers {{ host['bgp']['confed_peers'] }}
+ !
+ {% endif %}
+
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
@@ -146,3 +157,4 @@ management api http-commands
  no shutdown
 !
 end
+{% endif %}

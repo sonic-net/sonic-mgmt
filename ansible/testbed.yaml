@@ -283,3 +283,21 @@
   inv_name: lab
   auto_recover: 'False'
   comment: BMC dual-mgmt testbed
+
+- conf-name: tor-dualtor3
+  group-name: tor-dualtor
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: ptf_dtor3
+  ptf_ip: 10.255.0.210/24
+  ptf_ipv6: 2001:db8:1::20/64
+  prober_type: hardware
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - dtor3-dut0
+    - dtor3-dut1
+  inv_name: lab
+  auto_recover: 'True'
+  netns_mgmt_ip: 10.255.0.211/16
+  comment: dualtor setup example

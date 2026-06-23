@@ -7,9 +7,43 @@ import ptf.testutils as testutils
 from configs import privatelink_config as pl
 from constants import VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
         DUT_MAC, LOCAL_PTF_MAC, REMOTE_PTF_MAC
-from ptf.mask import Mask
+from ptf.mask import Mask, MaskException
 
 logger = logging.getLogger(__name__)
+
+
+def set_do_not_care_layer(mask, layer, field_name, n=1):
+    """
+    Zeroes out the mask for 'field' in the nth occurrence of the specified layer.
+    """
+    header_offset = mask.size - len(mask.exp_pkt.getlayer(layer, n))
+
+    try:
+        fields_desc = [
+            field
+            for field in layer.fields_desc
+            if field.name in mask.exp_pkt[layer].__class__(bytes(mask.exp_pkt[layer])).fields.keys()
+        ]  # build & parse packet to be sure all fields are correctly filled
+    except Exception:  # noqa
+        raise MaskException("Can not build or decode Packet")
+
+    if field_name not in [x.name for x in fields_desc]:
+        raise MaskException("Field %s does not exist in frame" % field_name)
+
+    field_offset = 0
+    bitwidth = 0
+    for f in fields_desc:
+        try:
+            bits = f.size
+        except Exception:  # noqa
+            bits = 8 * f.sz
+        if f.name == field_name:
+            bitwidth = bits
+            break
+        else:
+            field_offset += bits
+
+    mask.set_do_not_care(header_offset * 8 + field_offset, bitwidth)
 
 
 def generate_inner_packet(packet_type, ipv6=False):
@@ -59,8 +93,15 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
 
 def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
-    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK
+    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None,
+    tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
+    tcp_seq_num=None, tcp_ack_num=None
 ):
+    if exp_vni is not None:
+        expected_vni = int(exp_vni)
+    else:
+        expected_vni = int(pl.ENCAP_VNI if floating_nic else pl.VM_VNI)
+
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )
@@ -79,6 +120,21 @@ def inbound_pl_packets(
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
+
+    if inner_packet_type == "tcp":
+        tcp_flags = ''
+        if tcp_seq_num is not None:
+            inner_packet[l4_protocol_key].seq = tcp_seq_num
+        if tcp_ack_num is not None:
+            inner_packet[l4_protocol_key].ack = tcp_ack_num
+        if tcp_flag_syn:
+            tcp_flags += 'S'
+        if tcp_flag_ack:
+            tcp_flags += 'A'
+        if tcp_flag_fin:
+            tcp_flags += 'F'
+        if tcp_flags:
+            inner_packet[l4_protocol_key].flags = tcp_flags
 
     gre_packet = testutils.simple_gre_packet(
         eth_dst=config[DUT_MAC],
@@ -109,7 +165,7 @@ def inbound_pl_packets(
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=vxlan_udp_base_src_port,
-        vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VNET1_VNI),
+        vxlan_vni=expected_vni,
         inner_frame=exp_inner_packet,
     )
 
@@ -123,8 +179,7 @@ def inbound_pl_packets(
     if floating_nic:
         # As destination IP is not fixed in case of return path ECMP,
         # we need to mask the checksum and destination IP
-        masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
-        masked_exp_packet.set_do_not_care(400, 48)  # Inner dst MAC
+        set_do_not_care_layer(masked_exp_packet, scapy.Ether, "dst", 2)
 
     return gre_packet, masked_exp_packet
 
@@ -140,7 +195,12 @@ def outbound_pl_packets(
         VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1),
     inner_sport=6789,
     inner_dport=4567,
-    vni=None
+    vni=None,
+    tcp_flag_syn=False,
+    tcp_flag_ack=False,
+    tcp_flag_fin=False,
+    tcp_seq_num=None,
+    tcp_ack_num=None
 ):
     outer_vni = int(vni if vni else pl.VM_VNI)
 
@@ -154,6 +214,21 @@ def outbound_pl_packets(
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
+
+    if inner_packet_type == "tcp":
+        tcp_flags = ''
+        if tcp_seq_num is not None:
+            inner_packet[l4_protocol_key].seq = tcp_seq_num
+        if tcp_ack_num is not None:
+            inner_packet[l4_protocol_key].ack = tcp_ack_num
+        if tcp_flag_syn:
+            tcp_flags += 'S'
+        if tcp_flag_ack:
+            tcp_flags += 'A'
+        if tcp_flag_fin:
+            tcp_flags += 'F'
+        if tcp_flags:
+            inner_packet[l4_protocol_key].flags = tcp_flags
 
     if outer_encap == "vxlan":
         outer_packet = testutils.simple_vxlan_packet(
@@ -174,7 +249,7 @@ def outbound_pl_packets(
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VNET1_VNI) << 8),
+            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VM_VNI) << 8),
             inner_frame=inner_packet,
         )
     else:

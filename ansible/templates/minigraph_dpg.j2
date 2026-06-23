@@ -1,3 +1,13 @@
+{# HWSKUs whose port-alias namespace overlaps the SONiC port-name namespace.
+   Patterns in this list are matched as SUBSTRINGS against the DUT hwsku,
+   so e.g. "Arista-7050CX3" matches "Arista-7050CX3-32C", "Arista-7050CX3-32S",
+   and any other Arista-7050CX3 variant.
+   For these, <AttachTo> must carry the alias verbatim, because the SONiC
+   minigraph parser will perform its own alias->name lookup; pre-converting
+   here would cause a second lookup on a string that is also a valid alias
+   for a *different* port (see PR #24516 / regression from PR #22166). #}
+{% set alias_name_collision_hwsku_patterns = ['Arista-7050CX3'] %}
+{% set hwsku_has_alias_name_collision = (alias_name_collision_hwsku_patterns | select('in', hwsku) | list | length > 0) %}
   <DpgDec>
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
@@ -200,8 +210,8 @@
   <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
   {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-  {% if num_asics > 1 %}
-    {# Chassis: use alias directly #}
+  {% if num_asics > 1 or hwsku_has_alias_name_collision %}
+    {# Chassis, or HWSKU whose alias namespace overlaps port-name namespace: use alias directly #}
     <AttachTo>{{ intf_alias }}</AttachTo>
   {% else %}
     {# TOR: use port_alias_map #}
@@ -218,7 +228,7 @@
           <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-          {% if num_asics > 1 %}
+          {% if num_asics > 1 or hwsku_has_alias_name_collision %}
             <AttachTo>{{ intf_alias }}</AttachTo>
           {% else %}
             <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
@@ -319,7 +329,7 @@
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
 {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-{% if num_asics > 1 %}
+{% if num_asics > 1 or hwsku_has_alias_name_collision %}
   {% set a_intf = intf_alias %}
 {% else %}
   {% set a_intf = port_alias_map[intf_alias] %}

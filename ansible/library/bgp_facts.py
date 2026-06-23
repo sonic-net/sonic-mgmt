@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from ansible.module_utils.basic import AnsibleModule
 import re
+import time
 
 DOCUMENTATION = '''
 module:         bgp_facts
@@ -98,19 +99,36 @@ class BgpModule(object):
         """
             Collect bgp information by reading output of 'vtysh' command line tool
         """
-        docker_cmd = 'docker exec -i {} vtysh -c "show ip bgp {}" '.format(
-            instance, command_str)
-        try:
-            rc, self.out, err = self.module.run_command(
-                docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
-        except Exception as e:
-            self.module.fail_json(msg=str(e))
+        deadline = time.time() + 120
+        interval = 2
+        last_rc, last_err = None, ''
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            per_call = min(20, max(5, int(remaining)))
+            docker_cmd = 'timeout -k 5 {t} docker exec -i {inst} vtysh -c "show ip bgp {cmd}" '.format(
+                t=per_call, inst=instance, cmd=command_str)
+            try:
+                rc, self.out, err = self.module.run_command(
+                    docker_cmd, executable='/bin/bash', use_unsafe_shell=True)
+            except Exception as e:
+                self.module.fail_json(msg=str(e))
 
-        if rc != 0:
-            self.module.fail_json(msg="Command failed rc=%d, out=%s, err=%s" %
-                                      (rc, self.out, err))
+            if rc == 0:
+                return
+            last_rc, last_err = rc, err
 
-        return
+            sleep_for = min(interval, max(0, deadline - time.time()))
+            if sleep_for <= 0:
+                break
+            time.sleep(sleep_for)
+            interval = min(interval * 2, 10)
+
+        self.module.fail_json(
+            msg="bgp_facts: 'show ip bgp %s' in container '%s' did not succeed within 120s "
+                "(last rc=%s, err=%r); caller should retry" % (
+                    command_str, instance, last_rc, last_err))
 
     def parse_summary(self):
         regex_asn = re.compile(r'.*local AS number (\d+).*')
@@ -120,6 +138,7 @@ class BgpModule(object):
     def parse_neighbors(self):
         regex_ipv4 = re.compile(
             r'^BGP neighbor is \*?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        regex_confed_link = re.compile(r'^BGP neighbor is .*(confed-(?:internal|external) link)')
         regex_ipv6 = re.compile(r'^BGP neighbor is \*?([0-9a-fA-F:]+)')
         regex_remote_as = re.compile(r'.*remote AS (\d+)')
         regex_local_as = re.compile(r'.*local AS (\d+)')
@@ -165,6 +184,10 @@ class BgpModule(object):
                     neighbor_ip = None
 
                     for line in lines:
+                        if regex_confed_link.match(line):
+                            neighbor['confed_peer'] = True
+                            confed_peer_type = regex_confed_link.match(line).group(1)
+                            neighbor['confed_peer_type'] = 'external' if confed_peer_type == 'confed-external link' else 'internal'  # noqa: E501
                         if regex_ipv4.match(line):
                             neighbor_ip = regex_ipv4.match(line).group(1)
                             neighbor['ip_version'] = 4

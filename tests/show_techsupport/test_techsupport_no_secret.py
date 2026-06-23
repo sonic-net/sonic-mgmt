@@ -81,7 +81,7 @@ def test_secret_removed_from_show_techsupport(
         Radius key
         snmp community string
         /etc/shadow, which includes the hash of local/domain users' password
-        Certificate files: *.cer *.crt *.pem *.key
+        Certificate files: *.cer *.crt *.pem *.key *.pfx
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -128,6 +128,42 @@ def test_secret_removed_from_show_techsupport(
     check_no_result(duthost, test_command)
 
     # check *.cer *.crt *.pem *.key not exist in dump files
-    find_command = r"find {0}/ -type f \( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key \)"\
-        .format(dump_extract_path)
+    find_pattern = r"\( -iname \*.cer -o -iname \*.crt -o -iname \*.pem -o -iname \*.key -o -iname \*.pfx \)"
+    find_command = r"find {0}/ -type f " + find_pattern
+    find_command = find_command.format(dump_extract_path)
+    check_no_result(duthost, find_command)
+
+
+@pytest.fixture
+def setup_credentials_dir(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cred_dir = "/etc/sonic/credentials"
+    test_file = "{}/test_secret.dat".format(cred_dir)
+    duthost.shell("sudo mkdir -p {}".format(cred_dir))
+    duthost.shell("echo 'FAKE_SECRET_CONTENT' | sudo tee {}".format(test_file))
+    pfx_file = "{}/test_cert.pfx".format(cred_dir)
+    duthost.shell("echo 'FAKE_PFX_CONTENT' | sudo tee {}".format(pfx_file))
+    yield test_file
+    duthost.shell("sudo rm -f {}".format(test_file))
+    duthost.shell("sudo rm -f {}".format(pfx_file))
+
+
+def test_credentials_dir_removed_from_show_techsupport(
+    duthosts, enum_rand_one_per_hwsku_hostname, check_image_version, setup_credentials_dir
+):
+    """
+    Test that all files under /etc/sonic/credentials/ are removed from the techsupport dump.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    duthost.shell('rm -rf /var/dump/sonic_dump_*')
+    duthost.shell('show techsupport')
+    dump_file_path = duthost.shell('ls -t /var/dump/sonic_dump_* | tail -1')['stdout']
+    dump_file_name = dump_file_path.replace("/var/dump/", "")
+
+    duthost.shell("tar -xf {0}".format(dump_file_path))
+    dump_extract_path = "./{0}".format(dump_file_name.replace(".tar.gz", ""))
+
+    # check no files exist under etc/sonic/credentials/ in the dump
+    find_command = "find {0}/etc/sonic/credentials/ -type f 2>/dev/null".format(dump_extract_path)
     check_no_result(duthost, find_command)

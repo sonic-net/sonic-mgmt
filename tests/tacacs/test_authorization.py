@@ -184,7 +184,6 @@ def test_authorization_tacacs_only(
         "portstat -c",
         "show interfaces portchannel",
         "show platform summary",
-        "show interfaces status",
         "show version",
         "show lldp table",
         "show reboot-cause",
@@ -198,6 +197,7 @@ def test_authorization_tacacs_only(
         "show ip bgp summary",
         "show ipv6 bgp summary",
         "show muxcable firmware",
+        "show interfaces status"
     ]
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

@@ -16,19 +16,25 @@ devices:
     s6100-01:
         device_type: DevSonic
         access: {protocol: telnet, ip: 1.2.3.4, port: 2000}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         credentials: {username: admin, password: YourPaSsWoRd, altpassword: company}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     s6100-02:
         device_type: DevSonic
         access: {protocol: telnet, ip: 1.2.3.4, port: 2001}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         credentials: {username: admin, password: YourPaSsWoRd, altpassword: company}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     s6100-03:
         device_type: DevSonic
         access: {protocol: telnet, ip: 1.2.3.4, port: 2002}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Sample placeholder password")]
         credentials: {username: admin, password: YourPaSsWoRd, altpassword: company}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     ixia-01:

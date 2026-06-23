@@ -8,6 +8,8 @@ Traffic Pattern: 1 src -> N dst
 - Single source port sends to multiple destination ports
 - Detects the PFC Xoff threshold by observing PFC frame generation
 
+CI: changes to this file trigger the probe-tests stage UT/IT.
+
 Design:
 - setUp(): PTF initialization + parse_param
 - setup_traffic(): Build stream_mgr (1 src -> N dst)
@@ -139,8 +141,9 @@ class PfcXoffProbing(ProbingBase):
             log_message("ERROR: No probing ports available", to_stderr=True)
             return
 
-        dut_idx = 0
-        asic_idx = 0
+        # Use first available dut/asic index from test_port_ips (handles dualtor where keys may not be 0)
+        dut_idx = next(iter(self.test_port_ips))
+        asic_idx = next(iter(self.test_port_ips[dut_idx]))
         port_ips = self.test_port_ips[dut_idx][asic_idx]
 
         # 1 src -> N dst: First is src, rest are dst
@@ -160,21 +163,14 @@ class PfcXoffProbing(ProbingBase):
                 vlan=port_ips[dpid].get("vlan_id", None)
             ))
 
-        # Platform-independent: 64-byte packets = 1 cell
-        packet_length = 64
+        # Probe packet config (resolved by ProbeParamsResolver in test_qos_probe.py)
+        packet_length = self.probe_packet_length
         ttl = 64
 
-        # Log platform info
-        original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (
-            (original_packet_length + self.cell_size - 1) // self.cell_size
-            if hasattr(self, "cell_size") else 1
-        )
         log_message(
-            f"Platform-specific: packet_length={original_packet_length}, "
-            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
+            f"Probe config: packet_length={packet_length}, "
+            f"cells_per_packet={self.probe_cells_per_packet}", to_stderr=True
         )
-        log_message(f"Probing uses: packet_length={packet_length}, cell_occupancy=1", to_stderr=True)
 
         is_dualtor = getattr(self, "is_dualtor", False)
         def_vlan_mac = getattr(self, "def_vlan_mac", None)
@@ -210,8 +206,10 @@ class PfcXoffProbing(ProbingBase):
         Returns:
             ThresholdResult: Probing result with PFC XOFF threshold
         """
-        # Get pool size and ports
-        pool_size = self.get_pool_size()
+        # Convert pool size from cells to packets
+        pool_size_cells = self.get_pool_size()
+        pool_size = pool_size_cells // self.probe_cells_per_packet
+
         src_port = self.probing_port_ids[0]
         dst_port = self.stream_mgr.get_port_ids("dst")[0]
 
@@ -222,7 +220,9 @@ class PfcXoffProbing(ProbingBase):
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting threshold probing")
         ProbingObserver.console(f"  src_port={src_port}, dst_port={dst_port}")
-        ProbingObserver.console(f"  pool_size={pool_size}")
+        ProbingObserver.console(
+            f"  pool_size_cells={pool_size_cells}, cells_per_packet={self.probe_cells_per_packet}, "
+            f"pool_size_pkts={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
         ProbingObserver.console(f"  executor_env={self.EXECUTOR_ENV}")
@@ -395,7 +395,8 @@ class PfcXoffProbing(ProbingBase):
             tuple: (lower_bound, upper_bound) or (None, None) on failure
         """
         # Phase 1: Upper bound discovery (exponential growth)
-        upper_bound, _ = algorithms["upper_bound"].run(src_port, dst_port, pool_size, **traffic_keys)
+        upper_bound, _ = algorithms["upper_bound"].run(
+            src_port, dst_port, pool_size, pool_size=pool_size, **traffic_keys)
         if upper_bound is None:
             ProbingObserver.console("[ERROR] Upper bound detection failed")
             return (None, None)

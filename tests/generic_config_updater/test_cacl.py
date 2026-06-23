@@ -21,7 +21,7 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,8 @@ def get_iptable_rules(duthost, ip_netns_namespace_prefix):
 @pytest.fixture(scope="module", autouse=True)
 def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
     duthost = duthosts[rand_one_dut_front_end_hostname]
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
+                  override_config=True)
     yield
 
 

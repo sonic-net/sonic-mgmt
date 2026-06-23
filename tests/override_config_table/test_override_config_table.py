@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.common.utilities import backup_config, restore_config, get_running_config,\
+from tests.common.utilities import backup_config, restore_config, get_running_config, \
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
 from tests.common import mellanox_data
@@ -18,7 +18,6 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
-    pytest.mark.disable_loganalyzer,
 ]
 
 LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
@@ -64,7 +63,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -82,7 +81,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -172,10 +171,17 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Set loganalyzer to collect-only mode (no error matching, just log collection)
+    if loganalyzer:
+        loganalyzer[duthost.hostname].match_regex = []
+        loganalyzer[duthost.hostname].expect_regex = []
+        loganalyzer[duthost.hostname].ignore_regex = []
+
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     full_config = setup_env

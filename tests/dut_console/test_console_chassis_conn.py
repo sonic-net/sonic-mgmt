@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import get_target_lines, handle_pexpect_exceptions
 
 pytestmark = [
-    pytest.mark.topology("t2")  # Test is only for T2 Chassis
+    pytest.mark.topology("t2", "lrh", "urh")  # Test is only for T2 Chassis
 ]
 
 

@@ -37,11 +37,11 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
              "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
 
-def trigger_dhcp_relay_discard(duthost, tbinfo, ptfadapter):
+def trigger_dhcp_relay_discard(duthost, tbinfo, ptfadapter=None):
     send_dhcp_discover_packets(duthost, tbinfo, ptfadapter)
 
 
-def trigger_dhcp_relay_disparity(duthost, tbinfo, ptfadapter):
+def trigger_dhcp_relay_disparity(duthost, tbinfo, ptfadapter=None):
     """11 packets because dhcpmon process will store up to 10 unhealthy status events
     https://github.com/sonic-net/sonic-dhcpmon/blob/master/src/dhcp_mon.cpp#L94
     static int dhcp_unhealthy_max_count = 10;

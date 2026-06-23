@@ -22,7 +22,8 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
         r".*ERR swss#orchagent: .*update: Failed to get port by bridge port ID.*",
-        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*"
+        r".* ERR swss#tunnel_packet_handler.py: All portchannels failed to come up within \d+ minutes, exiting.*",
+        r".*ERR swss#orchagent: .*meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* doesn't exist.*",  # noqa: E501
         ]
     if loganalyzer:
         for duthost in duthosts:
@@ -258,7 +259,8 @@ class TestFdbMacLearning:
             target_ports_to_ptf_mapping[2][0],
             target_ports_to_ptf_mapping[3][0]
         ]
-        duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
+        duthost.shell("sudo config interface startup "
+                      f"{target_ports[0]},{target_ports[1]},{target_ports[2]}")
         self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):

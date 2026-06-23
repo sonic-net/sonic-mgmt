@@ -19,7 +19,7 @@ from tests.generic_config_updater.add_cluster.helpers import get_active_interfac
     remove_dataacl_table_single_dut, send_and_verify_traffic
 
 pytestmark = [
-    pytest.mark.topology("t2")
+    pytest.mark.topology("t2", "lrh", "urh")
 ]
 
 logger = logging.getLogger(__name__)

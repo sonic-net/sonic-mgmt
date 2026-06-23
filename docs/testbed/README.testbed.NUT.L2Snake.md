@@ -2,117 +2,309 @@
 
 ## 1. Overview
 
-This document describes the design for L2 snake testbed support within the SONiC NUT (Network Under Test) framework in `sonic-mgmt`. L2 snake testing sends traffic through a single DUT by snaking it across all ports via external loopback cables and L2 VLAN bridging — used for throughput stress testing, port validation, and latency measurement.
+This document describes L2 snake support for SONiC NUT (Network Under Test) in `sonic-mgmt`.
+
+L2 snake mode provisions **pure Layer-2 forwarding chains** instead of the existing NUT L3 routed topology. Traffic enters from the traffic generator (TG), traverses one or more DUT ports through VLAN-bridged hops, and exits back to the TG.
+
+The design now supports two deployment modes:
+
+- **Single-DUT L2 snake**: one DUT, with external loopback cables forming the snake body.
+- **Multi-device L2 snake**: two or more DUTs, where the snake can cross DUT boundaries through inter-DUT links.
+
+This mode is intended for throughput, port validation, and end-to-end forwarding checks without requiring IP or BGP setup.
 
 ## 2. Background
 
-The existing NUT testbed (`deploy-cfg`) supports multi-tier L3 topologies with BGP routing. L2 snake is fundamentally different:
+The existing NUT `deploy-cfg` flow targets routed, multi-tier L3 topologies. L2 snake has different requirements.
 
 | | NUT (L3) | L2 Snake |
 |--|----------|----------|
-| Forwarding | L3 (BGP routes) | L2 (VLAN bridge) |
-| Topology | Multi-tier, multi-device | Single DUT |
-| Neighbors | BGP sessions between tiers | None |
-| Traffic path | TG → T0 → T1 → T2 | TG TX → snake loop × N → TG RX |
-| Config | IP + BGP per interface | VLANs + port pairs |
+| Forwarding | L3 (IP/BGP) | L2 (VLAN bridge) |
+| Topology | Multi-tier routed fabric | Linear snake chains |
+| DUT count | 1+ | 1+ |
+| Neighbors | BGP peers between tiers | None |
+| Traffic path | TG → T0 → T1 → T2 | TG TX → snake hops → TG RX |
+| Config | IP + BGP per interface | VLANs + VLAN members |
 
 ## 3. Architecture
 
-### 3.1. Single DUT, Parallel Chains
+### 3.1. Mode A: Single-DUT snake
 
-- Always single DUT.
-- TG connects to `T` ports on the DUT (must be even).
-- First `T/2` TG-connected ports (sorted by port index) = TX (ingress), last `T/2` = RX (egress).
-- All remaining DUT ports are snake body ports, connected in pairs using external loopback cables with a stride of `T/2`.
-- This creates `T/2` independent parallel snake chains.
+In single-DUT mode:
 
-### 3.2. Example
-
-DUT with 16 ports (P0–P15), TG with 4 ports (T=4, T/2=2), creating 2 parallel chains:
+- The TG connects to an even number of DUT ports.
+- The DUT's TG-connected ports are naturally sorted.
+- The **first half** of the DUT's TG ports are TX (ingress).
+- The **second half** are RX (egress).
+- All remaining snake hops are formed by external loopback cables on that same DUT.
 
 ```mermaid
 graph LR
-    subgraph "Traffic Generator"
-        TX0[TX Port 0]
-        TX1[TX Port 1]
-        RX0[RX Port 0]
-        RX1[RX Port 1]
+    subgraph TG[Traffic Generator]
+        TX0[TX0]
+        RX0[RX0]
     end
 
-    subgraph "DUT - Chain 0"
-        P0[P0] --- |VLAN 1001| P2[P2]
-        P4[P4] --- |VLAN 1002| P6[P6]
-        P8[P8] --- |VLAN 1003| P10[P10]
-        P12[P12] --- |VLAN 1004| P14[P14]
-    end
-
-    subgraph "DUT - Chain 1"
-        P1[P1] --- |VLAN 1005| P3[P3]
-        P5[P5] --- |VLAN 1006| P7[P7]
-        P9[P9] --- |VLAN 1007| P11[P11]
-        P13[P13] --- |VLAN 1008| P15[P15]
+    subgraph DUT1[DUT1]
+        P0[Eth0] ---|VLAN 1001| P4[Eth4]
+        P8[Eth8] ---|VLAN 1002| P12[Eth12]
     end
 
     TX0 --> P0
-    P2 -.loopback.- P4
-    P6 -.loopback.- P8
-    P10 -.loopback.- P12
-    P14 --> RX0
-
-    TX1 --> P1
-    P3 -.loopback.- P5
-    P7 -.loopback.- P9
-    P11 -.loopback.- P13
-    P15 --> RX1
+    P4 -. loopback .- P8
+    P12 --> RX0
 ```
 
-**Legend:**
-- Solid lines with VLAN labels = L2 forwarding inside the DUT (two ports bridged in one VLAN)
-- Dotted lines (loopback) = external loopback cables
-- Arrows from/to TG = traffic ingress/egress
+### 3.2. Mode B: Multi-device snake
 
-**Note:** VLANs are numbered per-chain: chain 0 receives VLAN IDs `vlan_base` through `vlan_base + hops_per_chain - 1`, then chain 1 receives the next block, and so on. This keeps VLAN numbering contiguous within each chain.
+In multi-device mode:
 
-## 4. Data Model
+- The snake can traverse **multiple DUTs**.
+- A hop can end on:
+  - an RX TG port,
+  - a loopback cable on the same DUT, or
+  - an inter-DUT physical link.
+- The chain tracing logic remains global and lockstep, but transitions can cross DUT boundaries.
+- TG ports are still split into TX/RX, but the split is done **per DUT first**, then assembled globally.
 
-### 4.1. Input Data
+This prevents misclassification when multiple DUTs each have both TG ingress and TG egress ports.
 
-The algorithm operates on data from the existing `LabGraph` (`graph_utils.py`) and `nut_test_facts`. The key input is `device_port_links[dut]`, which is a dict of DUT port → link info:
+### 3.3. Multi-device topology example
+
+Example: two DUTs, two parallel chains, TG connected to both DUTs.
+
+- Chain 0 starts on DUT1, crosses DUT2, exits on DUT2.
+- Chain 1 starts on DUT2, crosses DUT1, exits on DUT1.
+- Each DUT port belongs to exactly one chain in the illustration below.
+- A simpler deployment may also keep each chain local to a DUT; the allocator supports either as long as the graph is valid.
+
+```mermaid
+graph LR
+    subgraph TG[Traffic Generator]
+        T0[Port0 / TX for chain 0]
+        T1[Port4 / RX for chain 1]
+        T2[Port8 / RX for chain 0]
+        T3[Port12 / TX for chain 1]
+    end
+
+    subgraph D1[DUT1]
+        D1E0[Eth0]
+        D1E4[Eth4]
+        D1E8[Eth8]
+        D1E12[Eth12]
+    end
+
+    subgraph D2[DUT2]
+        D2E0[Eth0]
+        D2E4[Eth4]
+        D2E8[Eth8]
+        D2E12[Eth12]
+    end
+
+    T0 --> D1E0
+    D1E0 ---|VLAN 1001| D1E4
+    D1E4 -. inter-DUT .- D2E4
+    D2E4 ---|VLAN 1002| D2E8
+    D2E8 --> T2
+
+    T3 --> D2E0
+    D2E0 ---|VLAN 1003| D2E12
+    D2E12 -. inter-DUT .- D1E12
+    D1E12 ---|VLAN 1004| D1E8
+    D1E8 --> T1
+```
+
+## 4. Port classification
+
+Each DUT port in `device_port_links[dut]` is classified as one of the following:
+
+1. **TGen port**
+   - `peerdevice ∈ tgs`
+   - Endpoint between TG and DUT
+   - Participates as either TX or RX
+
+2. **Loopback port**
+   - `peerdevice == dut`
+   - Physical snake continuation on the same DUT
+
+3. **Inter-DUT port**
+   - `peerdevice ∈ duts` and `peerdevice != dut`
+   - Physical transition from one DUT to another
+
+Any other peer type is invalid for L2 snake allocation.
+
+## 5. Chain tracing algorithm
+
+All chains are traced **in lockstep** so one chain cannot consume ports intended for another. VLAN IDs are assigned only after tracing succeeds.
+
+### 5.1. Input data
+
+The allocator uses the existing `LabGraph` / `conn_graph_facts`-derived `device_port_links`.
+
+Example shape:
 
 ```python
-# device_port_links["switch-t0-1"] (from conn_graph_facts / LabGraph)
 {
-    "Ethernet0":  {"peerdevice": "tg-1",        "peerport": "Port1.1", "speed": "100000"},
-    "Ethernet4":  {"peerdevice": "tg-1",        "peerport": "Port1.2", "speed": "100000"},
-    "Ethernet16": {"peerdevice": "switch-t0-1", "peerport": "Ethernet24", "speed": "100000"},  # loopback
-    "Ethernet20": {"peerdevice": "switch-t0-1", "peerport": "Ethernet28", "speed": "100000"},  # loopback
-    "Ethernet32": {"peerdevice": "switch-t0-1", "peerport": "Ethernet40", "speed": "100000"},  # loopback
-    "Ethernet36": {"peerdevice": "switch-t0-1", "peerport": "Ethernet44", "speed": "100000"},  # loopback
-    "Ethernet48": {"peerdevice": "tg-1",        "peerport": "Port1.3", "speed": "100000"},
-    "Ethernet52": {"peerdevice": "tg-1",        "peerport": "Port1.4", "speed": "100000"},
+    "dut1": {
+        "Ethernet0": {"peerdevice": "tg1",  "peerport": "Port1"},
+        "Ethernet4": {"peerdevice": "dut2", "peerport": "Ethernet4"},
+        "Ethernet8": {"peerdevice": "tg1",  "peerport": "Port2"},
+    },
+    "dut2": {
+        "Ethernet0": {"peerdevice": "tg1",  "peerport": "Port3"},
+        "Ethernet4": {"peerdevice": "dut1", "peerport": "Ethernet4"},
+        "Ethernet8": {"peerdevice": "tg1",  "peerport": "Port4"},
+    },
 }
 ```
 
-- **TGen ports**: entries where `peerdevice ∈ tgs`
-- **Loopback ports**: entries where `peerdevice == dut` itself (self-links, already recognized by existing code)
+### 5.2. TX/RX split
 
-Note: The links CSV may not be sorted. All ports must be sorted by `natsort` before processing.
+The TX/RX split must be derived **per DUT**:
 
-### 4.2. Testbed YAML
+1. For each DUT, collect its TG-connected ports.
+2. `natsort` them.
+3. The first half are that DUT's TX ports.
+4. The second half are that DUT's RX ports.
+5. Concatenate all per-DUT TX lists in DUT order to form the global TX list.
+6. Concatenate all per-DUT RX lists in DUT order to form the global RX list.
 
-```yaml
-- name: testbed-snake-1
-  comment: "L2 snake single-DUT testbed"
-  inv_name: lab
-  topo: nut-l2-snake
-  duts:
-    - switch-t0-1
-  tgs:
-    - tg-1
-  tg_api_server: 10.2.0.1:443
+This is required because a simple global midpoint split can break when TG ports are interleaved by DUT.
+
+### 5.3. Tracing rules
+
+For each active chain:
+
+1. Start at its TX port.
+2. On the current DUT, scan forward in naturally sorted local port order to find the next unused partner port.
+3. Record a VLAN pair on that DUT.
+4. If the partner is an RX port, the chain completes.
+5. If the partner is a loopback port, transition to its peer on the same DUT.
+6. If the partner is an inter-DUT port, transition to its peer on the remote DUT.
+7. Continue until every chain completes.
+
+Pseudo flow:
+
+```text
+for dut in duts:
+    tgen_ports[dut] = natsorted(TG-connected ports on dut)
+    tx[dut] = first half
+    rx[dut] = second half
+
+global_tx = concat(tx[dut] in DUT order)
+global_rx = concat(rx[dut] in DUT order)
+
+used = set(global_tx)
+for each chain i:
+    current = global_tx[i]
+
+repeat in lockstep:
+    partner = next unused local port after current
+    add VLAN pair (current, partner) on current DUT
+
+    if partner in global_rx:
+        chain complete
+    elif partner is loopback:
+        current = loopback peer
+    elif partner is inter-DUT:
+        current = remote DUT peer
+    else:
+        error
 ```
 
-### 4.3. Topology Definition
+### 5.4. Worked multi-device split example
+
+Given DUT order `[dut1, dut2]`:
+
+- `dut1` TG ports: `[Ethernet0, Ethernet12]` → TX=`[Ethernet0]`, RX=`[Ethernet12]`
+- `dut2` TG ports: `[Ethernet0, Ethernet12]` → TX=`[Ethernet0]`, RX=`[Ethernet12]`
+
+Global lists become:
+
+- `global_tx = [(dut1, Ethernet0), (dut2, Ethernet0)]`
+- `global_rx = [(dut1, Ethernet12), (dut2, Ethernet12)]`
+
+A naive midpoint split over the global list would incorrectly produce:
+
+- TX=`[(dut1, Ethernet0), (dut1, Ethernet12)]`
+- RX=`[(dut2, Ethernet0), (dut2, Ethernet12)]`
+
+That can dead-end tracing because `dut1:Ethernet12` is actually an RX port, not a TX starting point.
+
+## 6. Data model
+
+### 6.1. Testbed YAML examples
+
+#### Single-DUT example
+
+From `ansible/testbed.nut.yaml`:
+
+```yaml
+- name: vnut-l2-snake-single
+  comment: "vNUT L2 snake testbed with 1 DUT and 1 TG"
+  inv_name: lab
+  topo: nut-l2-snake
+  test_tags: []
+  duts:
+    - vnut-l2-snake-single
+  tgs:
+    - vnut-l2snk-tg
+  tg_api_server: 10.250.0.221:443
+  auto_recover: 'True'
+```
+
+#### Multi-device KVM/vNUT example
+
+From `ansible/testbed.nut.yaml`:
+
+```yaml
+- name: vnut-l2-snake-multi
+  comment: "L2 snake multi-device testbed"
+  inv_name: lab
+  topo: nut-l2-snake
+  test_tags: []
+  duts:
+    - vnut-l2msnk-01
+    - vnut-l2msnk-02
+  tgs:
+    - vnut-l2snk-tg
+  tg_api_server: 10.250.0.221:443
+  auto_recover: 'True'
+```
+
+### 6.2. Lab device example
+
+From `ansible/files/sonic_lab_devices.csv`:
+
+```csv
+Hostname,ManagementIp,HwSku,Type,Protocol,Os,AuthType
+vnut-l2msnk-01,10.250.0.214/24,Force10-S6000,DevSonic,,sonic,
+vnut-l2msnk-02,10.250.0.215/24,Force10-S6000,DevSonic,,sonic,
+vnut-l2snk-tg,10.250.0.221/24,IxiaChassis,DevIxiaChassis,,ixia,
+```
+
+### 6.3. Simplified lab link example
+
+Illustrative multi-device wiring pattern inspired by `ansible/files/sonic_lab_links.csv` (not a literal dump of the full deployable CSV):
+
+```csv
+vnut-l2msnk-01,Ethernet0,vnut-l2snk-tg,Ethernet0,10000,,,
+vnut-l2msnk-01,Ethernet4,vnut-l2msnk-02,Ethernet4,10000,,,
+vnut-l2msnk-01,Ethernet8,vnut-l2snk-tg,Ethernet8,10000,,,
+vnut-l2msnk-02,Ethernet0,vnut-l2snk-tg,Ethernet4,10000,,,
+vnut-l2msnk-02,Ethernet4,vnut-l2msnk-01,Ethernet4,10000,,,
+vnut-l2msnk-02,Ethernet8,vnut-l2snk-tg,Ethernet12,10000,,,
+```
+
+This example demonstrates:
+
+- two virtual DUTs,
+- a shared TG,
+- one inter-DUT link,
+- TG attached to both DUTs,
+- `nut-l2-snake` as the topology type.
+
+### 6.4. Topology YAML
 
 `ansible/vars/nut_topos/nut-l2-snake.yml`:
 
@@ -121,220 +313,105 @@ type: l2-snake
 vlan_base: 1001
 ```
 
-The `type` field drives which allocator strategy is used. No `dut_templates`, no `tg_template`, no IP pools needed — everything is auto-derived from the connection graph.
+No IP pools, DUT templates, or TG templates are required for the L2 snake allocator.
 
-## 5. Chain Tracing Algorithm
+## 7. Per-DUT VLAN output
 
-All chains are traced **in lockstep** (one hop per round, all chains advance together) to prevent one chain from greedily consuming ports meant for another. VLAN IDs are assigned **per-chain** after tracing completes — all VLANs for chain 0 are numbered first, then chain 1, etc.
+The allocator returns a per-DUT compatibility/debug view that flattens each DUT's local VLAN pairs into a single `vlans` list.
 
-**Assumption:** Loopback cables must connect ports such that the snake progresses in natsorted order. That is, each loopback peer must be reachable by scanning forward from the current position in the natsorted port list.
-
-```
-Input:
-  device_port_links[dut]  — port → link info dict
-  tgs                     — list of TGen device names
-  vlan_base               — starting VLAN ID (from topo YAML)
-
-Steps:
-
-1. Classify ports:
-   - tgen_ports: ports where peerdevice ∈ tgs
-   - loopback_ports: ports where peerdevice == dut  →  {port: peerport}
-
-2. Sort tgen_ports by natsort(port_name):
-   - TX = first T/2
-   - RX = last T/2
-
-3. Build all_linked_ports = natsorted(all ports in device_port_links[dut])
-
-4. Initialize:
-   - used = set(all TX ports ∪ all RX ports)   # reserve TGen ports
-   - For each chain k: chain[k].current = TX[k], chain[k].pairs = []
-
-5. Lockstep tracing (repeat until all chains complete):
-   For each active chain k (in order k = 0..T/2-1):
-       partner = next port in all_linked_ports after chain[k].current's position
-                 in the natsorted list, scanning forward (wrapping is an error),
-                 that is not in used
-       used.add(partner)
-       Record port pair: chain[k].pairs.append((chain[k].current, partner))
-
-       if partner ∈ RX ports → mark chain k complete
-       elif partner ∈ loopback_ports →
-           chain[k].current = loopback_ports[partner]
-           used.add(chain[k].current)
-       else → error: dead end
-
-6. Assign VLAN IDs per-chain:
-   vlan_id = vlan_base
-   For each chain k in order:
-       For each pair in chain[k].pairs:
-           pair.vlan_id = vlan_id
-           vlan_id += 1
-```
-
-### 5.1. Worked Example
-
-Given the data in section 4.1 (T=4, T/2=2):
-
-**TGen ports** (natsorted): `[Ethernet0, Ethernet4, Ethernet48, Ethernet52]`
-- TX: `[Ethernet0, Ethernet4]`
-- RX: `[Ethernet48, Ethernet52]`
-
-**Loopback map**: `{Ethernet16↔Ethernet24, Ethernet20↔Ethernet28, Ethernet32↔Ethernet40, Ethernet36↔Ethernet44}`
-
-**All linked ports** (natsorted): `[Ethernet0, Ethernet4, Ethernet16, Ethernet20, Ethernet24, Ethernet28, Ethernet32, Ethernet36, Ethernet40, Ethernet44, Ethernet48, Ethernet52]`
-
-**used** (initial): `{Ethernet0, Ethernet4, Ethernet48, Ethernet52}`
-
-**Round 1:**
-```
-Chain 0: current=Ethernet0  → next unused after Ethernet0's position  = Ethernet16 → pair(Ethernet0, Ethernet16)  → loopback → current=Ethernet24
-Chain 1: current=Ethernet4  → next unused after Ethernet4's position  = Ethernet20 → pair(Ethernet4, Ethernet20)  → loopback → current=Ethernet28
-```
-
-**Round 2:**
-```
-Chain 0: current=Ethernet24 → next unused after Ethernet24's position = Ethernet32 → pair(Ethernet24, Ethernet32) → loopback → current=Ethernet40
-Chain 1: current=Ethernet28 → next unused after Ethernet28's position = Ethernet36 → pair(Ethernet28, Ethernet36) → loopback → current=Ethernet44
-```
-
-**Round 3:**
-```
-Chain 0: current=Ethernet40 → next unused after Ethernet40's position = Ethernet48 (RX!) → pair(Ethernet40, Ethernet48) → complete
-Chain 1: current=Ethernet44 → next unused after Ethernet44's position = Ethernet52 (RX!) → pair(Ethernet44, Ethernet52) → complete
-```
-
-**VLAN assignment (per-chain):**
-- Chain 0: pair(Ethernet0, Ethernet16) → VLAN 1001, pair(Ethernet24, Ethernet32) → VLAN 1002, pair(Ethernet40, Ethernet48) → VLAN 1003
-- Chain 1: pair(Ethernet4, Ethernet20) → VLAN 1004, pair(Ethernet28, Ethernet36) → VLAN 1005, pair(Ethernet44, Ethernet52) → VLAN 1006
-
-### 5.2. Validation & Error Handling
-
-The allocator must validate the following before proceeding:
-
-1. **Odd TG port count:** If the number of TG-connected ports (`T`) is odd, raise an error. L2 snake requires an even number of TG ports to form TX/RX pairs.
-
-2. **Incomplete loopback wiring:** After tracing, if any chain reaches a port that is neither an RX port nor has a loopback peer, raise an error with an actionable message identifying which chain and which port has missing wiring. Example: `"Chain 1 dead end at Ethernet36: no loopback cable and not an RX port."`
-
-3. **VLAN ID exhaustion:** Before assigning VLAN IDs, verify that `vlan_base + total_vlan_count - 1 ≤ 4094`. If exceeded, raise an error: `"VLAN range overflow: need VLANs {vlan_base}–{vlan_base + total - 1}, but max VLAN ID is 4094."`
-
-4. **Single VLAN per port:** Each DUT port must belong to exactly one VLAN. If the tracing algorithm attempts to assign a port to a second VLAN (indicating a wiring or classification error), raise an error identifying the duplicate port.
-
-## 6. Implementation: Strategy Pattern in `nut_allocate_ip.py`
-
-Instead of a separate module, we extend `nut_allocate_ip.py` with a strategy pattern based on topo type:
+Example shape:
 
 ```python
-# nut_allocate_ip.py
-
-class L3IpAllocator:
-    """Existing NUT L3 strategy — IP + BGP allocation."""
-    # Current GenerateDeviceConfig logic moves here
-
-class L2SnakeVlanAllocator:
-    """L2 snake strategy — VLAN pair allocation, no IP/BGP."""
-    # Chain tracing + VLAN generation logic
-
-STRATEGY_MAP = {
-    "nut": L3IpAllocator,
-    "l2-snake": L2SnakeVlanAllocator,
-}
-
-class DeviceConfigAllocator:
-    def __init__(self, testbed_facts, device_info, device_port_links, device_port_vrfs):
-        topo_type = testbed_facts['topo']['properties'].get('type', 'nut')
-        strategy_cls = STRATEGY_MAP[topo_type]
-        self.strategy = strategy_cls(testbed_facts, device_info, device_port_links, device_port_vrfs)
-
-    def run(self):
-        return self.strategy.run()
-```
-
-**Backwards compatibility:** The existing `GenerateDeviceConfig` class remains untouched. `L2SnakeVlanAllocator` is purely additive — it is a new class that only activates for `l2-snake` topologies. The strategy dispatch reads `testbed_facts["topo"]["properties"].get("type", "nut")`. Existing topologies have no `type` field in their `properties` dict, so they default to `"nut"` and continue using the existing `L3IpAllocator` (i.e., the current `GenerateDeviceConfig` logic) unchanged. Note the indirection: the `type` field lives under `topo.properties.type` (as loaded from the topo YAML), not `topo.type` — `topo.type` is the testbed-level type, while `properties` holds topo-specific parameters.
-
-### 6.1. L2SnakeVlanAllocator Output
-
-```python
-# ansible_facts output
 {
-    "device_meta": {
-        "switch-t0-1": {
-            "type": "ToRRouter"
-            # No BGP ASN, no router ID, no loopback IPs
-        }
-    },
     "device_vlans": {
-        "switch-t0-1": {
-            "chains": [
-                {
-                    "chain_id": 0,
-                    "tx_port": "Ethernet0",
-                    "rx_port": "Ethernet48",
-                    "vlan_pairs": [
-                        {"vlan_id": 1001, "ports": ["Ethernet0", "Ethernet16"]},
-                        {"vlan_id": 1002, "ports": ["Ethernet24", "Ethernet32"]},
-                        {"vlan_id": 1003, "ports": ["Ethernet40", "Ethernet48"]}
-                    ]
-                },
-                {
-                    "chain_id": 1,
-                    "tx_port": "Ethernet4",
-                    "rx_port": "Ethernet52",
-                    "vlan_pairs": [
-                        {"vlan_id": 1004, "ports": ["Ethernet4", "Ethernet20"]},
-                        {"vlan_id": 1005, "ports": ["Ethernet28", "Ethernet36"]},
-                        {"vlan_id": 1006, "ports": ["Ethernet44", "Ethernet52"]}
-                    ]
-                }
+        "dut1": {
+            "vlans": [
+                {"vlan_id": 1001, "ports": ["Ethernet0", "Ethernet4"]}
+            ]
+        },
+        "dut2": {
+            "vlans": [
+                {"vlan_id": 1002, "ports": ["Ethernet4", "Ethernet8"]}
             ]
         }
     }
 }
 ```
 
-## 7. `deploy-cfg` Flow for L2 Snake
+Properties:
+
+- `device_vlans` is a dictionary keyed by DUT name.
+- Each DUT entry is a dictionary with a `vlans` list.
+- Every item in `vlans` has the shape `{"vlan_id": <int>, "ports": [<port_a>, <port_b>]}`.
+- VLAN IDs are globally unique across the testbed.
+- Each DUT only receives the local VLAN pairs that terminate on that DUT.
+- Chain-level metadata is intentionally not preserved in this flattened compatibility/debug view.
+- A global chain may appear as partial VLAN segments on multiple DUTs.
+
+## 8. `deploy-cfg` flow for L2 snake
+
+`deploy-cfg` for `nut-l2-snake` differs from L3 NUT as follows:
 
 | Step | Action |
 |------|--------|
-| 1. Initial config | Same as NUT L3 — backup tables, generate clean config via `sonic-cfggen` |
-| 2. Device metadata | Hostname and type only. **No BGP ASN or router ID.** |
-| 3. Port config | Speed, FEC, admin status from links CSV — same as NUT L3 |
-| 4. VLAN config | **NEW** — generate VLAN + VLAN_MEMBER patches from `device_vlans` output |
-| 5. Interface IPs | **Skip** — no IPs needed |
-| 6. BGP neighbors | **Skip** — no BGP needed |
-| 7. Apply config | `config reload` — same as NUT L3 |
+| 1 | Load testbed facts and connection graph |
+| 2 | Run L2 snake allocator in `nut_allocate_ip.py` |
+| 3 | Build per-DUT VLAN/VLAN_MEMBER config from `device_vlans` |
+| 4 | Apply port settings (speed/FEC/admin state) as usual |
+| 5 | Skip interface IP allocation |
+| 6 | Skip BGP neighbor generation |
+| 7 | Apply config reload / patches |
 
-### 7.1. Config Patch Example
-
-Each snake port belongs to exactly one VLAN with `untagged` mode. No port appears in multiple VLANs.
+Config patch example:
 
 ```json
 [
-  { "op": "add", "path": "/VLAN/Vlan1001", "value": { "vlanid": "1001" } },
-  { "op": "add", "path": "/VLAN_MEMBER/Vlan1001|Ethernet0", "value": { "tagging_mode": "untagged" } },
-  { "op": "add", "path": "/VLAN_MEMBER/Vlan1001|Ethernet16", "value": { "tagging_mode": "untagged" } },
-  { "op": "add", "path": "/VLAN/Vlan1002", "value": { "vlanid": "1002" } },
-  { "op": "add", "path": "/VLAN_MEMBER/Vlan1002|Ethernet24", "value": { "tagging_mode": "untagged" } },
-  { "op": "add", "path": "/VLAN_MEMBER/Vlan1002|Ethernet32", "value": { "tagging_mode": "untagged" } }
+  {"op": "add", "path": "/VLAN/Vlan1001", "value": {"vlanid": "1001"}},
+  {"op": "add", "path": "/VLAN_MEMBER/Vlan1001|Ethernet0", "value": {"tagging_mode": "untagged"}},
+  {"op": "add", "path": "/VLAN_MEMBER/Vlan1001|Ethernet4", "value": {"tagging_mode": "untagged"}}
 ]
 ```
 
-**STP note:** STP (Spanning Tree Protocol) must be disabled on all snake VLANs. The L2 snake is a linear topology with no loops — STP is unnecessary and would interfere with traffic forwarding by potentially blocking ports.
+Rules:
 
-## 8. Traffic Generator Setup
+- Every snake port belongs to exactly one VLAN.
+- VLAN membership is untagged.
+- No BGP, loopback IP, or P2P interface config is created.
+- STP should remain disabled for these snake VLANs.
 
-During the pretest fixture:
+## 9. Validation and error handling
 
-1. Configure TG TX ports to send L2 traffic (frames with appropriate MACs).
-2. Configure TG RX ports to receive and measure.
-3. No BGP sessions needed on TG side — pure L2 traffic.
-4. MAC addresses can be auto-generated or test-defined.
-5. **Each chain must use distinct source/destination MAC addresses** to prevent MAC flapping across VLANs. If multiple chains share the same MAC, the DUT's MAC table will oscillate as the same address is learned on different ports/VLANs, causing packet loss.
+The allocator validates at least the following conditions:
 
-## 9. Validation
+1. **At least two TG-connected ports exist globally**.
+2. **Global TG-connected port count is even**.
+3. **Per-DUT TG-connected port count is even** so each DUT can derive TX/RX halves correctly.
+4. **Every traced hop finds a forward local partner** in natural port order.
+5. **Every non-RX partner has a valid continuation**, either loopback or inter-DUT.
+6. **Transition targets are not reused** by another chain.
+7. **No port is assigned to multiple VLANs**.
+8. **VLAN range does not overflow 4094**.
 
-- Verify all VLANs are created: `show vlan brief`
-- Verify port membership: `show vlan config`
-- Verify traffic flows end-to-end: TG TX counters match TG RX counters
-- Per-port counters can identify which snake hop is failing
+Typical failures should include actionable context, such as the chain ID and the DUT/port where tracing stopped.
+
+## 10. Traffic generator setup
+
+TG setup remains L2-only:
+
+1. Configure TX ports to send Ethernet frames.
+2. Configure RX ports to measure end-to-end forwarding.
+3. Use distinct MAC streams per chain to avoid MAC flapping.
+4. Map TG ports according to the per-DUT TX/RX split, not by a naive global midpoint.
+5. In multi-device mode, ensure the TG cabling matches the lab CSV and testbed entry exactly.
+
+## 11. Reference example files
+
+The following files provide concrete examples for both single-DUT and multi-device L2 snake:
+
+- `ansible/testbed.nut.yaml`
+- `ansible/files/sonic_lab_devices.csv`
+- `ansible/files/sonic_lab_links.csv`
+- `ansible/lab`
+- `ansible/vars/nut_topos/nut-l2-snake.yml`
+
+In particular, `vnut-l2-snake-multi` is the reference dual-DUT KVM/vNUT example for multi-device L2 snake deployment.

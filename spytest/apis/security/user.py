@@ -123,13 +123,13 @@ def config(dut, **kwargs):
     :param :no_form: 0[False] | 1[True]
 
     :Usage:
-    config(vars.D1, username='test', password='test123', role='operator', cli_type='kilsh')
-    config(vars.D1, username='test', cli_type='kilsh', no_form=True)
+    config(vars.D1, username='test', password='test123', role='operator', cli_type='kilsh')  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Sample placeholder password in docstring")]
+    config(vars.D1, username='test', cli_type='kilsh', no_form=True)  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Sample placeholder password in docstring")]
     config(vars.D1, username='test', password='test123', role='admin', cli_type='click', no_form=0)
     config(vars.D1, username='test', password_update='test1234', cli_type='click', no_form=0)
     config(vars.D1, group='admin_test', cli_type='click', no_form=0)
     config(vars.D1, group='admin_test', cli_type='click', no_form=1)
-    config(vars.D1, username='test', password='test123', role='admin', cli_type='click', no_form=1)
+    config(vars.D1, username='test', password='test123', role='admin', cli_type='click', no_form=1)  # [SuppressMessage("Microsoft.Security", "CS001:SecretInline", Justification="Sample placeholder password in docstring")]
     """
     skip_error_check = kwargs.get("skip_error_check", False)
     cli_type = kwargs.get("cli_type", "")

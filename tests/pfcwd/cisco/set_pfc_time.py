@@ -1,5 +1,5 @@
 import math
-from common import is_graphene2, tree, is_gr, port_to_sai_lane_map, \
+from common import is_graphene2, is_palladium2, tree, is_gr, port_to_sai_lane_map, \
     sai_lane_to_slice_ifg_pif, dd0, is_pac, is_gb, sdk, d0
 
 
@@ -9,7 +9,7 @@ arg_interface = "INTERFACE"
 
 def get_ifg_reg_list(slice_idx):
     ''' Gr2 does not have an ifg list, listify '''
-    if is_graphene2:                               # noqa: F821
+    if is_graphene2 or is_palladium2:               # noqa: F821
         ifg_root = [tree.slice[slice_idx].ifg]     # noqa: F821
     else:
         ifg_root = tree.slice[slice_idx].ifg     # noqa: F821
@@ -19,7 +19,7 @@ def get_ifg_reg_list(slice_idx):
 def get_ifgb(ifg_root):
     ''' Complex tree register differences for ifgb per asic.
             Takes tree.slice[slice_idx].ifg[ifg_idx] '''
-    if is_graphene2:                             # noqa: F821
+    if is_graphene2 or is_palladium2:             # noqa: F821
         ifgb = ifg_root.ifgbe_ra
     elif is_gr:                                 # noqa: F821
         ifgb = ifg_root.ifgbe_mac
@@ -43,7 +43,7 @@ def set_pfc512_bit_sec(interface, time_sec):
     if is_gb or is_pac:          # noqa: F821
         khz = d0.get_int_property(sdk.la_device_property_e_DEVICE_FREQUENCY)       # noqa: F821
         print("Device frequency khz: {}".format(khz))
-    elif is_gr or is_graphene2:                                                 # noqa: F821
+    elif is_gr or is_graphene2 or is_palladium2:                                # noqa: F821
         khz = d0.get_int_property(sdk.la_device_property_e_MAC_FREQUENCY)      # noqa: F821
         print("Mac frequency khz: {}".format(khz))
     else:
@@ -53,7 +53,7 @@ def set_pfc512_bit_sec(interface, time_sec):
 
     if is_gb or is_pac:                                                      # noqa: F821
         bit_time = math.ceil(num_clocks_float)
-    elif is_gr or is_graphene2:                                           # noqa: F821
+    elif is_gr or is_graphene2 or is_palladium2:                          # noqa: F821
         int_part = int(num_clocks_float)
         float_part = num_clocks_float - int_part
         print("Integer: {}".format(int_part))

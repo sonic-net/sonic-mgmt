@@ -67,18 +67,22 @@ def run_bgp_facts(duthost, enum_asic_index):
     namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     config_facts = duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
     sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
+    bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
+    bgp_asn = int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].encode().decode("utf-8"))
     for k, v in list(bgp_facts['bgp_neighbors'].items()):
         # Verify bgp sessions are established
         assert v['state'] == 'established', (
             "BGP session not established for neighbor. Expected 'established', got '{}'."
         ).format(v['state'])
         # Verify local ASNs in bgp sessions
-        assert v['local AS'] == int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].encode().decode("utf-8")), (
-            "Local AS mismatch for neighbor. Expected '{}', got '{}'."
-        ).format(
-            int(config_facts['DEVICE_METADATA']['localhost']['bgp_asn'].encode().decode("utf-8")),
-            v['local AS']
-        )
+        confed_peer = v.get('confed_peer', False)
+        if bgp_confed_asn:
+            if confed_peer:
+                assert v['local AS'] == int(bgp_asn)
+            else:
+                assert v['local AS'] == int(bgp_confed_asn)
+        else:
+            assert v['local AS'] == bgp_asn
         # Check bgpmon functionality by validate STATE DB contains this neighbor as well
         state_fact = duthost.shell('{} STATE_DB HGET "NEIGH_STATE_TABLE|{}" "state"'
                                    .format(sonic_db_cmd, k), module_ignore_errors=False)['stdout_lines']

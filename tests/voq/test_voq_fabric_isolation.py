@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 # This test checks if fabric link monitoring algorithm works as expected.
