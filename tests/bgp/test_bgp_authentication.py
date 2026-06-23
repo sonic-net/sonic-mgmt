@@ -26,15 +26,16 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/bgp_auth_eos_backup_config_{}"
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
-    if neighbor_type not in ["sonic", "eos"]:
+    if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))
 
     is_sonic_neigh = True
-    if neighbor_type != "sonic":
+    if neighbor_type not in ("sonic", "csonic"):
         is_sonic_neigh = False
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     tor1 = lldp_table[1]
@@ -83,8 +84,13 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     else:
         neigh_eos_bgp_parents = eos_bgp_neighbor_config_parents(tbinfo, nbrhosts, tor1, neigh_asn)
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
+    peer_in_bgp_confed = tbinfo['topo']['properties']['configuration'][tor1]['bgp'].get('peer_in_bgp_confed', False)
+    if peer_in_bgp_confed:
+        asn = int(confed_asn)
+    else:
+        asn = int(dut_asn)
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][asn][1]
 
     logger.info("default namespace {}".format(DEFAULT_NAMESPACE))
 

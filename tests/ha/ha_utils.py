@@ -1,11 +1,29 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
+import configs.privatelink_config as pl
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
+from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
+
+
+def _config_reload_dpuhost(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def parallel_config_reload_dpuhosts(dpuhosts):
+    dpuhosts = list(dpuhosts)
+    if not dpuhosts:
+        return
+
+    with ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_config_reload_dpuhost, dpuhosts))
 
 
 def build_dash_ha_scope_args(fields):
@@ -172,14 +190,16 @@ def verify_ha_state(
     expected_state,
     timeout=120,
     interval=5,
+    ack=True
 ):
     """
     Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
         db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+        var = "local_acked_asic_ha_state" if ack else "local_ha_state"
         res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+            f'sonic-db-cli STATE_DB HGET "{db_key}" {var}'
         )
         state = res["stdout"].strip()
         return state == expected_state
@@ -434,3 +454,42 @@ def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
                 ptfhost=ptfhost,
                 messages=ha_set_messages,
             )
+
+
+def program_eni_pl_on_dpu(localhost, ptfhost, duthost, dpuhost):
+    """
+    Apply the full DASH PL pipeline configuration (appliance, routing types,
+    VNET, routes, meters and ENI) on the DPU .
+    """
+
+    base_config_messages = {
+        **pl.APPLIANCE_CONFIG,
+        **pl.ROUTING_TYPE_PL_CONFIG,
+        **pl.VNET_CONFIG,
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG
+    }
+    logger.info(
+        f"HA: Programming ENI PL on DPU: "
+        f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+    )
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+    route_and_mapping_messages = {
+        **pl.PE_VNET_MAPPING_CONFIG,
+        **pl.PE_SUBNET_ROUTE_CONFIG,
+        **pl.VM_SUBNET_ROUTE_CONFIG
+    }
+    if 'bluefield' in dpuhost.facts['asic_type']:
+        route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    meter_rule_messages = {
+        **pl.METER_RULE1_V4_CONFIG,
+        **pl.METER_RULE2_V4_CONFIG,
+    }
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    logger.info(f"HA: ENI programming on {dpuhost.hostname} completed")

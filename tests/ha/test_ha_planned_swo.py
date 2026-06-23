@@ -1,25 +1,22 @@
-import concurrent.futures
 import logging
 import queue
 import random
 import threading
 import time
 
-import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF,
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from ha_dash_flow_utils import compare_flow_tables
-from ha_utils import verify_ha_state, set_dash_ha_scope
+from ha_utils import verify_ha_state, set_dash_ha_scope, parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -51,55 +48,10 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"configure on {duthost.hostname} dpu {dpuhost.dpu_index} {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-
-    def _reload(host):
-        logger.info(f"config reload on {host.hostname}")
-        config_reload(host, safe_reload=True, yang_validate=False)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        list(executor.map(_reload, dpuhosts))
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 def _planned_swo_phase(

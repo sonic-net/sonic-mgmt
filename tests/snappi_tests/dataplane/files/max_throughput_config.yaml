@@ -1,0 +1,134 @@
+# Max Throughput Minimum Packet Size Test Configuration
+
+min_ports: 30
+traffic_duration_sec: 60
+line_rate_pct: 100
+tolerance_pkt_size_offset: 10
+
+srv6:
+  locator_name: "loc1"
+  locator_prefix: "fcbb:bbbb:1::"
+  block_len: 32
+  node_len: 16
+  func_len: 0
+  arg_len: 0
+  sid_action: "uN"
+  sid_ip: "fcbb:bbbb:1::"
+  decap_vrf: "default"
+  decap_dscp_mode: "pipe"
+  outer_dst_ip: "fcbb:bbbb:1:11a::2"
+
+# Each scenario defines which DUT features are enabled (true) or disabled (false).
+scenarios:
+  all_features:
+    description: "DataAcl + Everflow + EverflowV6 + IPinIP Decap + uSID Decap"
+    dataacl: true
+    everflow: true
+    everflowv6: true
+    ipinip_decap: true
+    usid_decap: true
+
+  dataacl_usid:
+    description: "DataAcl + uSID Decap"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: true
+
+  dataacl_ipinip_usid:
+    description: "DataAcl + IPinIP Decap + uSID Decap"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: true
+    usid_decap: true
+
+  ipinip_usid:
+    description: "IPinIP Decap + uSID Decap"
+    dataacl: false
+    everflow: false
+    everflowv6: false
+    ipinip_decap: true
+    usid_decap: true
+
+  dataacl_only:
+    description: "DataAcl only"
+    dataacl: true
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: false
+
+  no_features:
+    description: "No ACLs + No Decap"
+    dataacl: false
+    everflow: false
+    everflowv6: false
+    ipinip_decap: false
+    usid_decap: false
+
+# Optional aliases for lab names or platform names that differ from HwSku.
+platform_aliases:
+  "sn5640": "Mellanox-SN5640-C512S2"
+  "Nvidia 5640": "Mellanox-SN5640-C512S2"
+  "Arista 7260": "Arista-7260CX3-C64"
+  "Cisco 8102": "Cisco-8102-C64"
+
+# Per-platform minimum packet sizes (bytes) for zero-drop at 100% line rate.
+platform_thresholds:
+  "Mellanox-SN5640-C512S2":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Mellanox-SN5640-C448O16":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7260CX3-C64":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7260CX3-D108C8":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Cisco-8102-C64":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Cisco-8102-28FH-DPU-O":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
+
+  "Arista-7060X6-64PE-B-C512S2":
+    all_features: 500
+    dataacl_usid: 450
+    dataacl_ipinip_usid: 500
+    ipinip_usid: 450
+    dataacl_only: 400
+    no_features: 400
