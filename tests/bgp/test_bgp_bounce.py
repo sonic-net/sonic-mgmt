@@ -25,6 +25,7 @@ def get_downstream_vm(duthost, nbrhosts, tbinfo):
          if vm_name in connected_neighbors and vm_name.upper().endswith(tuple(downstream_type))]
     )
     pytest_assert(downstream_neighbors, "No downstream neighbor found for topology {}".format(tbinfo["topo"]["type"]))
+    # Pick deterministically so failures are reproducible.
     return nbrhosts[downstream_neighbors[0]]['host']
 
 
@@ -37,7 +38,7 @@ def check_no_export_routes(vm_host, is_v6_topo, expected):
                   "No-export route state did not become {}".format("present" if expected else "absent"))
 
 
-@pytest.mark.disable_loganalyzer
+@pytest.mark.disable_loganalyzer  # apply_bgp_config restarts BGP and can log expected transient errors.
 def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config,
                     backup_bgp_config):
     """
@@ -69,11 +70,11 @@ def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_n
     # Apply bgp plain config
     apply_bgp_config(duthost, bgp_plain_config)
 
-    # Take action on one of the ToR VM
+    # Verify downstream VM has no no-export routes yet
     check_no_export_routes(vm_host, is_v6_topo, expected=False)
 
     # Apply bgp no export config
     apply_bgp_config(duthost, bgp_no_export_config)
 
-    # Take action on one of the ToR VM
+    # Verify downstream VM now sees the no-export community
     check_no_export_routes(vm_host, is_v6_topo, expected=True)
