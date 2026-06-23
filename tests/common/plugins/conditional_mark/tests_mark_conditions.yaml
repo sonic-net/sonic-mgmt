@@ -2544,6 +2544,10 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
       - "'isolated' in topo_name"
+  xfail:
+    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-mgmt/issues/25549"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25549"
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
