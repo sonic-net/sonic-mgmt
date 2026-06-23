@@ -22,7 +22,7 @@ from tests.common.platform.bmc_utils import (
     wait_host_off,
     wait_host_on,
 )
-from tests.common.utilities import get_inventory_files, get_host_visible_vars
+from tests.common.utilities import get_inventory_files, get_host_visible_vars, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -164,17 +164,70 @@ class TestBmcCliCommands:
             if result['rc'] == 0:
                 logger.info(f"config chassis modules {subcmd} --help: available")
 
+        def get_switch_host_status():
+            rows = self.duthost.show_and_parse("show chassis module status")
+            for row in rows or []:
+                name = (row.get('name') or '').strip()
+                if name.startswith('SWITCH-HOST'):
+                    oper = (row.get('oper-status') or '').strip().lower()
+                    admin = (row.get('admin-status') or '').strip().lower()
+                    return oper, admin
+            return None, None
+
+        def is_admin_on(val):
+            return val in ('on', 'up')
+
+        def is_admin_off(val):
+            return val in ('off', 'down')
+
+        def is_switch_host_offline_admin_off():
+            oper, admin = get_switch_host_status()
+            return oper == 'offline' and is_admin_off(admin)
+
+        def is_switch_host_online_admin_on():
+            oper, admin = get_switch_host_status()
+            return oper == 'online' and is_admin_on(admin)
+
         host = get_switch_host_or_skip_test(self.duthost)
         pre_boot = get_host_uptime(host)
 
         try:
+            oper_before, admin_before = get_switch_host_status()
+            pytest_assert(oper_before == 'online',
+                          f"Expected SWITCH-HOST oper-status 'Online' before shutdown, got {oper_before!r}")
+            pytest_assert(is_admin_on(admin_before),
+                          f"Expected SWITCH-HOST admin-status on/up before shutdown, got {admin_before!r}")
+
             self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
                                module_ignore_errors=True)
+
+            oper_after_shutdown, admin_after_shutdown = get_switch_host_status()
+            pytest_assert(is_admin_off(admin_after_shutdown),
+                          f"Expected SWITCH-HOST admin-status off/down after shutdown, "
+                          f"got {admin_after_shutdown!r}")
+            pytest_assert(oper_after_shutdown in ('online', 'offline'),
+                          f"Expected SWITCH-HOST oper-status online/offline after shutdown, "
+                          f"got {oper_after_shutdown!r}")
+
+            pytest_assert(
+                wait_until(
+                    180, 10, 0, is_switch_host_offline_admin_off
+                ),
+                "SWITCH-HOST did not reach Offline/off (or Offline/down) after shutdown"
+            )
+
             wait_host_off(host, timeout=300)
 
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
             wait_host_on(host)
+
+            pytest_assert(
+                wait_until(
+                    420, 10, 30, is_switch_host_online_admin_on
+                ),
+                "SWITCH-HOST did not return to Online/on (or Online/up) after startup"
+            )
 
             verify_bmc_initiated_reboot(host, pre_boot)
         finally:

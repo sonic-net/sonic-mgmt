@@ -120,7 +120,10 @@ class TestThermalctldDaemon:
             if timeout_str:
                 try:
                     timeout = float(timeout_str)
-                    pytest_assert(timeout > 0, "Timeout should be positive")
+                    # Design: 0 means the platform does not support
+                    # minor-leak escalation over time.
+                    pytest_assert(timeout >= 0,
+                                  "Timeout should be non-negative (0 means unsupported)")
                     logger.info(f"Escalation timeout: {timeout}s")
                 except ValueError:
                     logger.warning("Could not parse timeout")

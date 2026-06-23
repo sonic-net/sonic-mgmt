@@ -90,6 +90,10 @@ class TestBmcctldDaemon:
           "Skipping SWITCH_HOST_POWER_ON_DELAY"
         """
 
+        # Bound log verification to this reboot window.
+        la = make_bmc_loganalyzer(self.duthost, "bmcctld_init_after_reboot")
+        marker = la.init()
+
         # Reboot the BMC so we exercise a fresh bmcctld initialization
         reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
                wait_for_ssh=True, safe_reboot=True)
@@ -113,14 +117,12 @@ class TestBmcctldDaemon:
             logger.info("No bmcctld startup path log found (daemon may have been running before log window)")
 
         # Non-power-loss BMC reboot must SKIP the boot delay.
-        skipped = bmc_log_zgrep(
-            self.duthost,
-            r"Skipping SWITCH_HOST_POWER_ON_DELAY",
-            tail=5,
-            files=f"/var/log/syslog* {BMC_EVENT_LOG}",
-        )
+        # Use marker-bounded analysis so we verify the most recent reboot path.
+        la.match_regex = [r".*Skipping SWITCH_HOST_POWER_ON_DELAY.*"]
+        skip_result = la.analyze(marker, fail=False)
+        skipped = skip_result.get("total", {}).get("match", 0)
         pytest_assert(
-            bool(skipped),
+            skipped > 0,
             "Expected 'Skipping SWITCH_HOST_POWER_ON_DELAY' in BMC syslog/event.log "
             "after non-power-loss BMC reboot"
         )
@@ -466,16 +468,18 @@ class TestBmcctldDaemon:
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
             # Scenario A: cold reboot BMC → reboot cause NOT power loss → bmcctld must skip delay.
+            la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_a")
+            marker_a = la.init()
             reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
                    wait_for_ssh=True, safe_reboot=True)
             wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
 
-            # Post-reboot syslog (tmpfs) is fresh — entire file is the window.
-            # Use bmc_log_zgrep to also walk event.log + any rotated .gz files.
-            journal_a = bmc_log_zgrep(
-                self.duthost, r"SWITCH_HOST_POWER_ON_DELAY", tail=50,
-                files=f"/var/log/syslog* {BMC_EVENT_LOG}",
-            )
+            la.match_regex = [r".*SWITCH_HOST_POWER_ON_DELAY.*"]
+            a_result = la.analyze(marker_a, fail=False)
+            a_lines = []
+            for lines in (a_result.get("match_messages") or {}).values():
+                a_lines.extend(lines)
+            journal_a = "\n".join(a_lines)
             logger.info(f"Scenario A (BMC cold reboot) journal:\n{journal_a}")
 
             pytest_assert('Skipping SWITCH_HOST_POWER_ON_DELAY' in journal_a,
@@ -513,12 +517,15 @@ class TestBmcctldDaemon:
             for outlet in outlet_ids:
                 pdu_ctrl.turn_on_outlet(outlet)
 
+            marker_b = la.init()
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
 
-            journal_b = bmc_log_zgrep(
-                self.duthost, r"SWITCH_HOST_POWER_ON_DELAY|issuing power_on", tail=50,
-                files=f"/var/log/syslog* {BMC_EVENT_LOG}",
-            )
+            la.match_regex = [r".*SWITCH_HOST_POWER_ON_DELAY.*", r".*issuing power_on.*"]
+            b_result = la.analyze(marker_b, fail=False)
+            b_lines = []
+            for lines in (b_result.get("match_messages") or {}).values():
+                b_lines.extend(lines)
+            journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) journal:\n{journal_b}")
 
             # Match "Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY" (N before token).

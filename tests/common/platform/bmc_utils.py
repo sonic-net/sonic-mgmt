@@ -143,7 +143,6 @@ def verify_bmc_initiated_reboot(host, pre_uptime,
     post_uptime = get_host_uptime(host)
     pytest_assert(post_uptime and post_uptime != pre_uptime,
                   f"Switch-Host uptime did not advance: pre={pre_uptime!r} post={post_uptime!r}")
-    cause_out = host.show_and_parse('show reboot-cause')
-    cause = (cause_out[0].get('cause') or '').lower() if cause_out else ''
+    cause = host.shell('show reboot-cause', module_ignore_errors=True).get('stdout', '').strip().lower()
     pytest_assert(any(c in cause for c in valid_causes),
                   f"Switch-Host reboot-cause {cause!r} not in {valid_causes}")
