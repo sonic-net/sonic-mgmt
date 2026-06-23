@@ -16,7 +16,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     generate_pause_flows, run_traffic, verify_basic_test_flow
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame as pcap_validate_pfc_frame
-from tests.common.snappi_tests.read_pcap import validate_pfc_frame_cisco as pcap_validate_pfc_frame_cisco
+from tests.common.snappi_tests.read_pcap import validate_pfc_frame_cisco
 from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
@@ -197,7 +197,7 @@ def run_pfc_valid_src_mac_test(
         peer_mac_addr = snappi_extra_params.base_flow_config["rx_port_config"].gateway_mac
         pcap_file = snappi_extra_params.packet_capture_file + ".pcapng"
         if is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = pcap_validate_pfc_frame_cisco(
+            is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                                 pcap_file, peer_mac_addr=peer_mac_addr)
         else:
             is_valid_pfc_frame, error_msg = pcap_validate_pfc_frame(
