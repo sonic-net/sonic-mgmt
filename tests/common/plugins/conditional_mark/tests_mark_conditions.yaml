@@ -2370,8 +2370,10 @@ fib/test_fib.py:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_basic_fib[True-True-1514]:
@@ -2380,8 +2382,10 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     conditions:
       - "'-v6-' in topo_name"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_hash[ipv4]:
@@ -2390,14 +2394,18 @@ fib/test_fib.py::test_hash[ipv4]:
     conditions:
       - "'-v6-' in topo_name"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_hash[ipv6]:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_ipinip_hash:
