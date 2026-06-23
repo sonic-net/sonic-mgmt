@@ -347,6 +347,24 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     # Group outlets/PDUs by PSU and toggle PDUs by PSU
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
+    # Safety check: there must be at least 2 distinct PDU outlets across all PSUs, so that
+    # turning one PSU's outlet off still leaves another PSU powered. If every PSU hangs off
+    # a single shared outlet (e.g. both PSUs of a 2-PSU DUT on one outlet, as seen when the
+    # PDU connection graph maps PSU1 and PSU2 to the same outlet), turning it off removes
+    # all power from the DUT and reboots it
+    distinct_outlets = set()
+    for outlets in psu_to_pdus.values():
+        for outlet in outlets:
+            distinct_outlets.add("{}/{}".format(outlet.get('pdu_name'), outlet.get('outlet_id')))
+    if len(distinct_outlets) < 2:
+        logging.warning(
+            "All PSUs on %s share a single PDU outlet %s; turning it off would power off the "
+            "whole DUT. Please fix the PDU cabling/connection graph so each PSU has its own "
+            "outlet.", duthost.hostname, sorted(distinct_outlets))
+    pytest_require(
+        len(distinct_outlets) >= 2,
+        "Skip the test: all PSUs on {} share PDU outlet(s) {}; toggling would power off the "
+        "whole DUT.".format(duthost.hostname, sorted(distinct_outlets)))
 
     # Get list of PSUs to skip from inventory configuration
     skip_psu_list = get_skip_mod_list(duthost, ['psus'])
