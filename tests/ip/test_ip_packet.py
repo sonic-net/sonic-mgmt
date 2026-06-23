@@ -44,6 +44,20 @@ class TestIPPacket(object):
         return rx_ok >= pkt_num_min
 
     @staticmethod
+    def check_rx_drop(duthost, ingress_iface, rif_support, rif_rx_ifaces, pkt_num_min):
+        """Check if the ingress drop counter (rx_drp / rif rx_err) has caught up.
+        On some ASICs the drop counter updates a few seconds after rx_ok, so reading
+        it immediately yields a flaky 0. Poll until it settles."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_drp = int(portstat_out[ingress_iface]["rx_drp"].replace(",", ""))
+        rx_err = 0
+        if rif_support:
+            rif_counter_out = parse_rif_counters(
+                duthost.command("show interfaces counters rif")["stdout_lines"])
+            rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", ""))
+        return max(rx_drp, rx_err) >= pkt_num_min
+
+    @staticmethod
     def send_packets(duthost, ptfadapter, ptf_port_idx, pkt, count):
         """Send packets, using chunked sends on VPP/KVM to avoid virtio TX ring overflow."""
         platform = duthost.facts.get("platform", "")
@@ -632,6 +646,15 @@ class TestIPPacket(object):
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
+
+        # The drop counter (rx_drp / rif rx_err) can lag rx_ok by a few seconds on some
+        # ASICs, producing a flaky 0 read. Wait for it to settle before asserting.
+        # Platforms that tolerate/forward the packet (marvell) never drop it, so they
+        # are excluded to avoid an unnecessary 30s timeout.
+        if asic_type not in ["marvell", "marvell-prestera"]:
+            if not wait_until(30, 1, 0, self.check_rx_drop, duthost, peer_ip_ifaces_pair[0][1][0],
+                              rif_support, rif_rx_ifaces, self.PKT_NUM_MIN):
+                logger.warning("Drop counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
