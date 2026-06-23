@@ -222,17 +222,19 @@ hw_port_cfg = {
                          "skip_ports": [p for p in range(128) if p % 8 not in (0, 6)],
                          "panel_port_step": 1},
     # t0-isolated 32 DL / 32 UL / 2 peer "mix" layout.
-    # 16 interleaved super-blocks of 20 panel ports (4 sets of 5). Within each super-block
-    # keep sets 1 and 4 (offsets 0..4 and 15..19) and skip sets 2 and 3 (offsets 5..14).
-    # Within every kept set of 5: 1st port (offset 0/15) = downlink (host interface on t0),
-    # 5th port (offset 4/19) = uplink (T1 VM). 16 * 2 = 32 DL, 16 * 2 = 32 UL.
-    # 2 peer (pt0) VMs at panel ports 320, 321 (appended after the 320-port main range).
-    # NOTE: the range(320) literals are tied to the intended `-c 322` invocation
-    # (320 main panel ports + 2 peer ports); update them if `-c` changes.
+    # 16 interleaved super-blocks of 12 panel ports (4 groups of 3). Within each super-block
+    # keep groups 1 and 4 (offsets 0..2 and 9..11) and skip groups 2 and 3 (offsets 3..8).
+    # Within every kept group of 3: 1st port (offset 0/9) = downlink (host interface on t0),
+    # 3rd port (offset 2/11) = uplink (T1 VM); middle port (offset 1/10) is skipped.
+    # 16 * 2 = 32 DL, 16 * 2 = 32 UL.
+    # 2 peer (pt0) VMs at panel ports 192, 193 (appended after the 192-port main range).
+    # NOTE: the range(192) literals are tied to the intended `-c 192` invocation
+    # (peer_ports are appended after panel_port_count, not included in it);
+    # update them if `-c` changes.
     'd32u32s2-mix':     {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
-                         "uplink_ports": [p for p in range(320) if p % 20 in (4, 19)],
-                         "peer_ports": [320, 321],
-                         "skip_ports": [p for p in range(320) if p % 20 not in (0, 4, 15, 19)],
+                         "uplink_ports": [p for p in range(192) if p % 12 in (2, 11)],
+                         "peer_ports": [192, 193],
+                         "skip_ports": [p for p in range(192) if p % 12 not in (0, 2, 9, 11)],
                          "panel_port_step": 1},
     # t1-isolated with 28 downlinks + 4 uplinks (no peers) on a 32-port device.
     # Panel ports 0..27 = T0 downlinks; panel ports 28..31 = T2 uplinks.
@@ -778,7 +780,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd508u1s2'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd32u1s2'  # 509 matches d508u1s2 IPs
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128 -l 'd32'  # 32 DL only
-    - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 320 -l 'd32u32s2-mix'  # mix layout
+    - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 192 -l 'd32u32s2-mix'  # mix layout
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 32 -l 'd28u4'  # 28 DL + 4 UL
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
