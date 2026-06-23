@@ -579,6 +579,8 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
 
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
+    if "ManagementIp" not in conn_graph_facts['device_console_info'][dut_hostname]:
+        pytest.skip("Console port does not exist in console_links.csv file. Skipping {}".format(dut_hostname))
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     if "/" in console_host:
         console_host = console_host.split("/")[0]
