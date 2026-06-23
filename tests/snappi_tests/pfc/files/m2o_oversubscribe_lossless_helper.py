@@ -125,7 +125,6 @@ def run_m2o_oversubscribe_lossless_test(api,
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
-    
     flow_stats, switch_flow_stats, _ = run_traffic(duthost=egress_duthost,
                                                    api=api,
                                                    config=testbed_config,

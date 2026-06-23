@@ -162,9 +162,9 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
     else:
         pkt_drop = get_interface_stats(egress_duthost, dut_tx_port)[egress_duthost.hostname][dut_tx_port]['tx_drp']
         drop_percentage = (100 * pkt_drop) / total_rx_pkts
-    
 
-    pytest_assert(abs(drop_percentage - 5) < 1, 'FAIL: Drop packets must be around 5 percent {}'.format(drop_percentage))
+    pytest_assert(abs(drop_percentage - 5) < 1,
+                  'FAIL: Drop packets must be around 5 percent {}'.format(drop_percentage))
 
     """ Verify Results """
     verify_m2o_oversubscribe_lossless_lossy_result(flow_stats,
@@ -411,4 +411,5 @@ def verify_m2o_oversubscribe_lossless_lossy_result(rows,
         elif 'Background Flow 1 -> 0' in row.name:
             pytest_assert(int(row.loss) == 0, "{} must have 0% loss and having {}% loss".format(row.name, row.loss))
         elif 'Background Flow 2 -> 0' in row.name:
-            pytest_assert(int(row.loss) >= 10, "{} must have loss >= 10% and having {}% loss".format(row.name, row.loss))
+            pytest_assert(int(row.loss) >= 10,
+                          "{} must have loss >= 10% and having {}% loss".format(row.name, row.loss))
