@@ -1,4 +1,4 @@
-# Live-Addon Docker Test Framework — High-Level Design
+# Live-Addon Docker Test Framework Test Plan and High-Level Design
 
 ## 1. Problem statement
 
@@ -31,7 +31,28 @@ live in per-ASIC JSON files under `tests/live_addon_docker/files/`.
 `tests/common/plugins/conditional_mark/tests_mark_conditions_live_addon_docker.yaml`). VS/KVM is
 skipped. Additional asic types can be added when supported.
 
-## 3. Repository layout
+## 3. Test coverage
+
+Post-start validation is **not** duplicated in pytest cases; it runs in the module fixture and inside
+`run_config_reload_live_addon_start_reload_health` on each `docker run`.
+
+| Test | Validates |
+|------|-----------|
+| `test_live_addon_docker_health_http` | HTTP `/health` returns expected status within probe timeout |
+| `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
+
+**Module fixture** `live_addon_docker_setup_teardown`: install once per module, `docker run`,
+`verify_live_addon_post_start` (full readiness), yield `(duthost, cfg)`, then teardown and
+post-teardown checks.
+
+**Typical runtime (Cisco):** first start may wait up to **900s** for startup logs; config-reload
+cycle adds another full post-start plus a **120s** supervisord poll on restart; HTTP health polls
+up to **900s** when needed.
+
+**Topology:** tests are marked `pytest.mark.topology("any")`. Use `-t any` or `-t t1,any` with
+`run_tests.sh` (a bare `-t t1` skips these tests).
+
+## 4. Repository layout
 
 ```
 tests/live_addon_docker/
@@ -50,9 +71,9 @@ tests/live_addon_docker/files/<asic_type>_live_addon_docker.json
 
 Example: `asic_type=cisco-8000` → `cisco-8000_live_addon_docker.json`.
 
-## 4. Image and container naming
+## 5. Image and container naming
 
-### 4.1 Docker image repository (SONiC ACR convention)
+### 5.1 Docker image repository (SONiC ACR convention)
 
 Repository name follows the same pattern as `docker-syncd-cisco` and `docker-gbsyncd-cisco`:
 
@@ -71,7 +92,7 @@ The `vendor` field drives `docker_run.image_ref` when only `image_tag` is set. A
 `image_ref` in JSON must use the `docker-live-addon-<vendor>` repository for registry pull to
 succeed.
 
-### 4.2 Container name (vendor-specific)
+### 5.2 Container name (vendor-specific)
 
 The running container name is **not** normalized across vendors. Cisco keeps the manifest label
 name:
@@ -83,7 +104,7 @@ name:
 
 Other vendors set their own `container_name` in JSON (for example `acme-diagnostics`).
 
-## 5. Image resolution flow
+## 6. Image resolution flow
 
 Registry pull is attempted first when a registry host is available. On failure, the framework
 falls back to tarballs or an image already on the DUT.
@@ -113,7 +134,7 @@ flowchart TD
 ```
 
 Registry host comes from Ansible `docker_registry_host` or pytest `live_addon_docker_registry`
-(see §6). Tarball path on the DUT is `dut_tarball_home` plus `tarball_filename` from JSON.
+(see §7). Tarball path on the DUT is `dut_tarball_home` plus `tarball_filename` from JSON.
 
 **Pull tag selection:**
 
@@ -121,7 +142,7 @@ Registry host comes from Ansible `docker_registry_host` or pytest `live_addon_do
 2. Else tag from `docker_run.image_ref` when not `latest`
 3. Else `duthost.os_version` (same convention as syncd-rpc / `swap_syncd`)
 
-## 6. Pytest CLI parameters
+## 7. Pytest CLI parameters
 
 | Option | Purpose |
 |--------|---------|
@@ -146,7 +167,7 @@ cd tests
 
 Each vendor or MSFT can point at their own container registry without sharing tarballs.
 
-## 7. Vendor JSON schema
+## 8. Vendor JSON schema
 
 Required top-level fields:
 
@@ -225,7 +246,7 @@ lines; ``supervisorctl`` confirms program state directly.
   - **Log scope:** ``docker logs --since <StartedAt>`` from ``docker inspect``. Optional
     ``session_start_pattern`` slices from the last matching line if ``StartedAt`` is unavailable.
 
-## 8. Version matrix
+## 9. Version matrix
 
 Omit `version_matrix`, set it to `null`, or use `[]` to disable the check.
 
@@ -257,24 +278,6 @@ Example:
   }
 ]
 ```
-
-## 9. Test cases
-
-Post-start validation is **not** duplicated in pytest cases; it runs in the fixture and inside
-`run_config_reload_live_addon_start_reload_health` on each `docker run`.
-
-| Test | Validates |
-|------|-----------|
-| `test_live_addon_docker_health_http` | HTTP `/health` returns expected status within probe timeout |
-| `test_live_addon_docker_health_after_config_reload_cycle` | Stop container → `config reload` → `docker run` + full post-start → `config reload` → teardown + `docker run` + restart post-start (120s supervisord) → HTTP health |
-
-**Module fixture** `live_addon_docker_setup_teardown`: install once per module, `docker run`,
-`verify_live_addon_post_start` (full readiness), yield `(duthost, cfg)`, then teardown and
-post-teardown checks.
-
-**Typical runtime (Cisco):** first start may wait up to **900s** for startup logs; config-reload
-cycle adds another full post-start plus a **120s** supervisord poll on restart; HTTP health polls
-up to **900s** when needed.
 
 ## 10. Adding a new vendor / ASIC
 
