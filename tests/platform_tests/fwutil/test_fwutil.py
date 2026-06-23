@@ -5,8 +5,7 @@ import json
 from fwutil_common import call_fwutil, show_firmware, upload_platform, find_pattern
 
 pytestmark = [
-    pytest.mark.topology("any"),
-    pytest.mark.disable_memory_utilization
+    pytest.mark.topology("any")
 ]
 
 DEVICES_PATH = "/usr/share/sonic/device"
@@ -103,6 +102,7 @@ def test_fwutil_update_bad_config(duthost, component):
     assert found_bad_component
 
 
+@pytest.mark.disable_memory_utilization
 def test_fwutil_install_file(request, duthost, localhost, pdu_controller, component, fw_pkg,
                              ignore_fwutil_expected_dpu_reset_errors):
     """Tests manually installing firmware to a component from a file."""
@@ -115,6 +115,7 @@ def test_fwutil_install_file(request, duthost, localhost, pdu_controller, compon
                 basepath=os.path.join(DEVICES_PATH, duthost.facts['platform']))
 
 
+@pytest.mark.disable_memory_utilization
 def test_fwutil_install_url(request, duthost, localhost, pdu_controller, component, fw_pkg, host_firmware,
                             ignore_fwutil_expected_dpu_reset_errors):
     """Tests manually installing firmware to a component from a URL."""
@@ -127,6 +128,7 @@ def test_fwutil_install_url(request, duthost, localhost, pdu_controller, compone
                 basepath=host_firmware)
 
 
+@pytest.mark.disable_memory_utilization
 def test_fwutil_update_current(request, duthost, localhost, pdu_controller, component, fw_pkg,
                                ignore_fwutil_expected_dpu_reset_errors):
     """Tests updating firmware from current image using fwutil update"""
@@ -138,6 +140,7 @@ def test_fwutil_update_current(request, duthost, localhost, pdu_controller, comp
                 component=component)
 
 
+@pytest.mark.disable_memory_utilization
 def test_fwutil_update_next(request, duthost, localhost, pdu_controller, component, next_image, fw_pkg,
                             ignore_fwutil_expected_dpu_reset_errors):
     """Tests updating firmware from the "next" image using fwutil update"""
@@ -150,7 +153,10 @@ def test_fwutil_update_next(request, duthost, localhost, pdu_controller, compone
                 next_image=next_image)
 
 
-@pytest.mark.parametrize("reboot_type", ["none", "cold"])
+@pytest.mark.parametrize("reboot_type", [
+    "none",
+    pytest.param("cold", marks=pytest.mark.disable_memory_utilization)
+])
 def test_fwutil_auto(request, duthost, localhost, pdu_controller, fw_pkg, reboot_type):
     """Tests fwutil update all command ability to properly select firmware for install based on boot type."""
     call_fwutil(request,
