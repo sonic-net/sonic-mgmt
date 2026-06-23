@@ -58,3 +58,32 @@ def get_grouped_pdus_by_psu(pdu_controller):
             psu_to_pdus[outlet['psu_name']].append(outlet)
 
     return psu_to_pdus
+
+
+def get_psus_sharing_outlets(pdu_controller):
+    """Find physical PDU outlets that feed more than one PSU of the DUT.
+
+    On some testbeds a single switchable PDU outlet powers more than one PSU of
+    the DUT (for example when a breakout/Y power cable is used, so pdu_links.csv
+    maps PSU1 and PSU2 to the same pdu/outlet). Turning such an outlet off to
+    test one PSU would also power off the other PSU(s) sharing it and reboot the
+    whole DUT, so a single PSU cannot be turned off in isolation on these
+    testbeds.
+
+    A physical outlet is identified by the pair (pdu_name, outlet_id).
+
+    Args:
+        pdu_controller (BasePduController): Instance of PDU controller
+
+    Returns:
+        dict: {(pdu_name, outlet_id): sorted list of psu_name} for every
+              physical outlet that is associated with more than one PSU.
+              Returns an empty dict when no outlet is shared.
+    """
+    outlet_status = pdu_controller.get_outlet_status()
+    outlet_to_psus = {}
+    for outlet in outlet_status:
+        identity = (outlet.get('pdu_name'), outlet.get('outlet_id'))
+        outlet_to_psus.setdefault(identity, set()).add(outlet.get('psu_name'))
+
+    return {identity: sorted(psus) for identity, psus in outlet_to_psus.items() if len(psus) > 1}

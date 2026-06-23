@@ -11,7 +11,7 @@ import pytest
 
 from retry.api import retry_call
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu
+from tests.common.helpers.psu_helpers import turn_on_all_outlets, get_grouped_pdus_by_psu, get_psus_sharing_outlets
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until, get_sup_node_or_random_node
 from tests.common.platform.device_utils import get_dut_psu_line_pattern
@@ -347,6 +347,20 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
     # Group outlets/PDUs by PSU and toggle PDUs by PSU
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
+
+    # On testbeds that use a breakout/Y power cable, a single switchable PDU
+    # outlet feeds more than one PSU. Turning that outlet off to test one PSU
+    # would also power off the PSU(s) sharing it and reboot the whole DUT, so a
+    # single PSU cannot be turned off in isolation. Skip the test in that case.
+    shared_outlets = get_psus_sharing_outlets(pdu_ctrl)
+    if shared_outlets:
+        shared_desc = "; ".join(
+            "outlet {} on {} feeds PSUs {}".format(outlet_id, pdu_name, psus)
+            for (pdu_name, outlet_id), psus in shared_outlets.items())
+        pytest.skip(
+            "Skip the test because one or more PDU outlets are shared by multiple PSUs "
+            "(e.g. breakout cable); a single PSU cannot be powered off without rebooting "
+            "the DUT: {}".format(shared_desc))
 
     # Get list of PSUs to skip from inventory configuration
     skip_psu_list = get_skip_mod_list(duthost, ['psus'])
