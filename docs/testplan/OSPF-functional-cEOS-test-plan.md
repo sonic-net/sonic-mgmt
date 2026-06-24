@@ -112,7 +112,8 @@ Why this matters: Passive interface is commonly used to advertise networks witho
 Steps:
 1. Resolve DUT interface connected to selected neighbor.
 2. Configure `passive-interface` and clear OSPF process.
-3. Verify selected adjacency is not Full.
+3. Verify selected adjacency is not Full and the interface subnet is still present as a stub 
+link in the DUT's self-originated Type-1 Router LSA.
 4. Remove passive-interface and verify Full recovery.
 Expected Result: Adjacency drops while passive is configured and returns after removal.
 
@@ -129,9 +130,11 @@ Expected Result: Full neighbor count reaches or exceeds majority threshold withi
 Objective: Verify DUT interfaces report valid steady-state OSPF network roles/states.
 Why this matters: Different link types show different state semantics (P2P vs DR/BDR).
 Steps:
-1. Collect `show ip ospf interface` output.
-2. Check for valid steady-state values (P2P or DR/BDR family).
-Expected Result: At least one expected steady-state token is present.
+1. Put a DUT–neighbor link into ip ospf network broadcast.
+2. Priority: set higher ip ospf priority on one router → verify it becomes DR, next-highest becomes BDR (show ip ospf neighbor/interface).
+3. Router-id tie-break: set equal priorities → verify higher router-id wins DR.
+4. Set DUT priority 0 → verify it's excluded and a new DR is elected.
+Expected: both priority and router-id tie-break paths produce correct DR/BDR.
 
 ### TC12 - test_ospf_router_lsa_self_originated
 Objective: Verify DUT originates Router LSA entries.
@@ -174,10 +177,15 @@ Expected Result: Adjacency drops during mismatch and recovers after defaults are
 Objective: Verify reference-bandwidth configuration is applied to OSPF process config.
 Why this matters: Reference bandwidth influences interface cost calculation and path selection.
 Steps:
-1. Configure `auto-cost reference-bandwidth 1000000`.
-2. Verify command in `show running-config ospfd`.
-3. Remove override.
-Expected Result: Running config contains and then removes the configured auto-cost line.
+1. Use two parallel DUT→neighbor links to the same destination.
+2. Set auto-cost reference-bandwidth 1000000.
+3. Verify command in `show running-config ospfd`.
+4. Change cost/speed on one link (via bandwidth/speed or ip ospf cost) so the two links differ in OSPF cost.
+5. Verify recomputed cost in show ip ospf interface.
+6. Verify show ip route ospf installs the lower-cost (higher-speed) link, with failover when it's penalized.
+
+Expected Result: Running config contains and then removes the configured auto-cost line and cost recomputes 
+per reference-bandwidth and the higher-speed link is chosen.
 
 ### TC17 - test_ospf_default_information_originate
 Objective: Verify DUT can originate default route into OSPF.
@@ -194,9 +202,74 @@ Why this matters: Ensures protocol security checks are enforced and misconfigura
 Steps:
 1. Configure MD5 auth only on DUT side.
 2. Verify selected adjacency does not stay Full.
-3. Remove DUT auth settings.
-4. Verify adjacency returns to Full.
+3. Verify the syslog messages for auth-failure signature
+4. Remove DUT auth settings.
+5. Verify adjacency returns to Full.
 Expected Result: Adjacency fails during mismatch and restores after configuration rollback.
+
+### TC19 - test_ospf_redistribute_connected
+Objective: Verify DUT connected subnets are advertised into OSPF as external routes when redistribute 
+connected is enabled, and withdrawn when disabled.
+Why this matters: Redistributing connected interfaces is a common way to inject local subnets into OSPF
+without per-network statements; withdrawal on disable must be clean.
+Steps:
+1. Pick a DUT connected subnet not already covered by a network statement (e.g. a Loopback or unused L3 
+interface with a known /24).
+2. On DUT OSPF: redistribute connected.
+3. On the neighbor, verify the connected prefix appears in the OSPF route table 
+(show ip ospf route / show ip route ospf) as an external (E2) route.
+4. Remove no redistribute connected on DUT.
+5. Verify the prefix is withdrawn from the neighbor's OSPF routes and from the DUT external LSDB.
+Expected Result: Connected prefix is learned by the neighbor as an OSPF external route and present as a 
+self-originated Type-5 LSA while redistribution is enabled, and fully withdrawn after it is disabled.
+
+###TC20 - test_ospf_spf_throttle_timers
+Objective: Verify SPF throttle timers (timers throttle spf) are applied and govern SPF scheduling.
+Steps:
+1. timers throttle spf 200 400 5000.
+2. Verify line in show running-config ospfd.
+3. Verify values in show ip ospf (SPF delay/hold fields).
+4. Trigger a topology change, confirm OSPF stays stable and SPF runs are scheduled.
+5. no timers throttle spf.
+Expected: configured values appear, SPF runs under new delay/hold, defaults restored.
+
+###TC21 - test_ospf_lsa_throttle_timers
+Objective: Verify LSA throttle / min-arrival timers are applied.
+Steps:
+1. timers throttle lsa all 500 and timers lsa min-arrival 2000.
+2. Verify both in show running-config ospfd.
+3. Verify values in show ip ospf.
+4. Repeatedly add/remove a redistributed /32; confirm OSPF stable and adjacencies stay Full.
+5. no timers throttle lsa all, no timers lsa min-arrival.
+Expected: values appear, adjacencies stay Full under repeated LSA changes, defaults restored.
+
+###TC22 - test_ospf_type2_network_lsa
+Objective: Verify a Type-2 Network LSA is originated on a multi-access segment with an elected DR.
+Steps:
+1. Configure ip ospf network broadcast on a DUT–neighbor link (P2P /31 links don't create Type-2).
+2. Let DR/BDR election complete.
+3. Run show ip ospf database network on DUT.
+4. Revert interface to default network type.
+Expected: A Type-2 Network LSA for the segment, originated by the DR, is present.
+
+###TC23 - test_ospf_type3_summary_lsa
+Objective: Verify Type-3 Summary LSA is generated across areas by the ABR.
+Steps:
+1. Use the existing multi-area setup (area 0 + area 1/2).
+2. Advertise an intra-area prefix in one area.
+3. Run show ip ospf database summary and confirm it appears as Type-3 in the other area.
+4. Remove the test prefix.
+Expected: Intra-area prefix appears as a Type-3 summary in the adjacent area.
+
+###TC24 - test_ospf_type4_asbr_summary_lsa
+Objective: Verify Type-4 ASBR-Summary LSA describing the ASBR is originated by the ABR.
+Steps:
+1. Place the ASBR (redistributing static) in a non-backbone area.
+2. Enable redistribute static on the ASBR.
+3. Run show ip ospf database asbr-summary on the DUT in another area.
+4. Remove redistribution.
+Expected: A Type-4 ASBR-Summary LSA referencing the ASBR router-id is present.
+
 
 ## Pass Criteria
 1. All listed test cases pass on supported topology.
