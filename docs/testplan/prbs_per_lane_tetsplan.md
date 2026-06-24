@@ -18,7 +18,7 @@
 | 0.3  | 2/06/26 | Madhukiran AS | updated test names                      |
 ## Overview
 
-This document describes the test plan for PRBS (Pseudo‑Random Bit Sequence) interface functionality in SONiC. The PRBS feature provides CLI support to enable, disable, monitor, and clear PRBS tests on network interfaces, with configuration and runtime state reflected in SONiC databases. The goal of this test plan is to validate correct PRBS CLI behavior, database interactions, end-to-end RX lock with a connected fanout peer, SerDes/L1 sign-off behavior, and full-box stress, as implemented in sonic-swss and the SAI.
+This document describes the test plan for PRBS (Pseudo‑Random Bit Sequence) interface functionality in SONiC. The PRBS feature provides CLI support to enable, disable, monitor, and clear PRBS tests on network interfaces, with configuration and runtime state reflected in SONiC databases. The goal of this test plan is to validate correct PRBS CLI behavior, database interactions, end-to-end RX lock with a connected fanout peer, SerDes/L1 sign-off behavior, and full-box stress, as implemented in sonic-swss and the SAI.More details on PRBS design can be found  in below HLD link https://github.com/pavannaregundi/SONiC/blob/f703bfca0c25a14bfbec800e53fce9c8c636c5f9/doc/prbs/PRBS_Per_Lane_HLD.md
 
 
 ### Scope
