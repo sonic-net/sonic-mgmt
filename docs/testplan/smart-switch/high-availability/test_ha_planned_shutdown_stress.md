@@ -25,12 +25,11 @@ stay serviced and stay in sync between the primary and secondary DPUs with no
 drops.
 
 To generate that load we use an **Ixia (IxNetwork)** traffic generator instead
-of PTF — Ixia can sustain line-rate / millions-of-flows that PTF cannot. Ixia
-only has two ports in the testbed (**3.1 TX** and **3.2 RX**), so to get its
-traffic to and from the DUTs we add a **dedicated "direct" physical link** in
-the testbed: each DUT's `Ethernet96` (configurable) is cabled to an L3 fanout
-switch, and all heavy traffic classes are deliberately steered over that
-link —
+of PTF — Ixia can sustain the line-rate / millions-of-flows that PTF cannot. To
+carry the high traffic load without drops between the two DUTs (and to/from
+Ixia), we add a **dedicated "direct" physical link** in the testbed: each DUT's
+direct link interface is cabled to an L3 fanout switch, and all heavy
+traffic classes are deliberately steered over that link —
 
 - **ingress** test traffic (Ixia → DUT),
 - **egress** GRE/NVGRE return (DUT → Ixia),
@@ -188,15 +187,26 @@ Per-link /30 wiring (.1 = fanout side, .2 = device side of each /30):
                             +------------+   +------------+
 ```
 
-Key prefixes routed over the fanout (and the function that programs each on
-the DUTs):
+### Route programming summary
 
-| Function | Prefix | Steered to | Purpose |
-| -------- | ------ | ---------- | ------- |
-| `_configure_fanout_l3` | 3.2.1.0/32 (APPLIANCE_VIP) | ECMP → DUT1 (.2.2) + DUT2 (.3.2) | ingress |
-| `_apply_ixia_steering` | 101.1.2.3/32 (PE_PA) | Ixia 3.2 RX (.4.2) | egress (GRE return) |
-| `_apply_direct_link_ha_steering` | 20.0.200.0/24 → DUT1 (.2.2), 20.0.201.0/24 → DUT2 (.3.2) | peer DUT | peer DPU PA (HA DP/CP + flow-sync) |
-| `_apply_direct_link_ha_steering` | 10.1.0.32/32 → DUT1 (.2.2), 10.1.0.33/32 → DUT2 (.3.2) | peer DUT | peer Lo0 (DPU-down VxLAN re-encap) |
+Each steered prefix is installed by one or both of: a **fanout** route
+(`_configure_fanout_l3`, removed by `_remove_fanout_l3`) and a **per-DUT**
+route out the direct link (removed by the matching `_remove_*` helper). The
+two halves form one bidirectional steer — the DUT route pushes traffic onto
+the direct link toward its fanout gateway (`.1`), and the fanout route forwards
+it on to the owning device (`.2`).
+
+| Prefix (role) | Programmed on | Steered to | Function(s) | Purpose |
+| ------------- | ------------- | ---------- | ----------- | --- |
+| `3.2.1.0/32` (APPLIANCE_VIP) | **Fanout only** | ECMP → DUT1 (.2.2) + DUT2 (.3.2) | `_configure_fanout_l3` | Ingress VxLAN from Ixia TX, ECMP'd to both DUTs. The DUTs terminate the VIP locally in the DASH pipeline, so no DUT-side route is needed. |
+| `101.1.2.3/32` (PE_PA) | **Fanout + DUTs** | Ixia 3.2 RX (.4.2) | fanout: `_configure_fanout_l3`; DUT: `_apply_ixia_steering` | Egress GRE/NVGRE return. Each DUT steers it out the direct link (overriding the BGP nexthop via cEOS); the fanout forwards it to the Ixia RX port. |
+| `20.0.200.0/24`, `20.0.201.0/24` (peer DPU PA) | **Fanout + DUTs** | peer DUT (.24 → owner DUT) | fanout: `_configure_fanout_l3`; DUT: `_apply_direct_link_ha_steering` | Inter-DUT HA DP/CP flow-sync (UDP/11368 + UDP/11362). Each DUT steers its **peer's** /24 to the fanout; the fanout routes it to the owning DUT. |
+| `10.1.0.32/32`, `10.1.0.33/32` (peer NPU Lo0) | **Fanout + DUTs** | peer DUT (.32/.33 → owner DUT) | fanout: `_configure_fanout_l3`; DUT: `_apply_direct_link_ha_steering` | DPU-down VxLAN re-encap toward the peer NPU's Loopback0. Same owner/peer pattern as the DPU PA above. |
+
+> The direct-link interface IPs that these DUT-side routes resolve through are
+> applied by `_apply_direct_link_ips` (and the fanout interface IPs by
+> `_configure_fanout_l3`); all of the above is set up automatically by the test
+> and removed in teardown.
 
 | Entity              | Address                                  |
 | ------------------- | ---------------------------------------- |
@@ -532,15 +542,14 @@ for debugging (only when `--ha_pause_mode != none`).
 
 ## Test Matrix
 
-Each test below has its own **Issues** line — add notes, links, or bug
-references there as you run them.
+Tests with known issues list them under an **Issues** line — add notes,
+links, or bug references there as you run them.
 
 For each test, use corresponding stream in the IXNetwork config file: `TBD`.
 
 ### Test 1 — `--ha_pause_mode=none`, UDP low
 Start low-rate UDP traffic manually, then run the test with no pauses;
 verify it runs successfully to completion.
-- **Issues:**
 
 ### Test 2 — `--ha_pause_mode=none`, UDP high (10 Mpps, 10M flows)
 Start high-rate UDP traffic manually, then run the test with no pauses;
@@ -552,11 +561,9 @@ verify it runs successfully to completion.
 At pause #1 (HA established): start UDP low stream, clear stats,
 continue. At pause #2: verify RX count matches TX count. Ensure test
 passes.
-- **Issues:**
 
 ### Test 4 — `--ha_pause_mode=ends`, UDP high (10 Mpps, 10M flows)
 Same as (3) but with high-rate UDP traffic.
-- **Issues:**
 
 ### Test 5 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + ACK (10 Mpps, 10M flows)
 At pause #1: send TCP SYN stream to establish sessions at 1Mcps;
@@ -568,16 +575,15 @@ Ensure test passes.
     Requires lower rate or sending the same stream twice to get full 10M flows.
   - Occasionally, some sessions are not synced to the secondary.
 
-### Test 6 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
-Same as (5), but after ACK stream, send TCP FIN-ACK stream; verify sessions
-are cleared.
+### Test 6 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + RST (1 Mpps, 10M flows)
+Same as (5), but after ACK stream, send TCP RST stream to clear sessions;
+verify sessions are cleared.
+
+### Test 7 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
+Same as (6), but use TCP FIN-ACK to clear sessions instead of RST.
 - **Issues:**
   - Does not work to clear sessions.
     TBD how to properly clear TCP sessions (we are only sending one side of traffic).
-
-### Test 7 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + RST (1 Mpps, 10M flows)
-Same as (6), but use TCP RST to clear sessions instead of FIN-ACK.
-- **Issues:**
 
 ### Test 8 — `--ha_pause_mode=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
 Same as (5) for initial 10M flows. During first mid pause (primary
@@ -600,6 +606,5 @@ At pause #1: start traffic, confirm all flows land on the single
 chosen DUT, clear stats, continue. Run HA cycles; verify flows stay on
 (and sync from) the active DUT with no drops. At pause #2: verify RX
 matches TX, then restore the ECMP route.
-- **Issues:**
 
 ### TBD additional tests
