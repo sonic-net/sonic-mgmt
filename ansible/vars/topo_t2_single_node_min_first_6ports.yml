@@ -53,6 +53,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -76,6 +77,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -97,6 +99,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -120,7 +123,6 @@ configuration:
     - common
     - leaf
     bgp:
-      peer_in_bgp_confed: true
       asn: 65300
       confed_asn: 65100
       confed_peers: 66000
@@ -148,7 +150,6 @@ configuration:
     - common
     - leaf
     bgp:
-      peer_in_bgp_confed: true
       asn: 65300
       confed_asn: 65100
       confed_peers: 66000
