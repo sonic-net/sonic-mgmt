@@ -18,7 +18,7 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
-                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
+                                             SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
                                              ACL_TABLE_NAME,
@@ -2125,10 +2125,12 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
     router_mac = duthost.facts["router_mac"]
 
+    packet_count = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for srv6_packet in SRV6_PACKETS:
         logger.info('-------------------------------------------------------------------------')
         logger.info(f'SRv6 tunnel decapsulation mode: {dscp_mode}')
-        logger.info(f'Send {PACKET_COUNT} SRv6 packets with action: {srv6_packet["action"]}')
+        logger.info(f'Send {packet_count} SRv6 packets with action: {srv6_packet["action"]}')
         logger.info(f'Pkt Src MAC: {DUMMY_MAC}')
         logger.info(f'Pkt Dst MAC: {router_mac}')
         if srv6_packet['action'] == SRV6_UN:
@@ -2198,7 +2200,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
         ptfadapter.dataplane.flush()
 
         logger.info(f"Send SRv6 packet(s) from PTF port {ingress_port['ptf_id']} to upstream")
-        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=PACKET_COUNT)
+        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=packet_count)
 
         logger.info('SRv6 packet format:\n ---------------------------')
         logger.info(f'{dump_packet_detail(srv6_pkt)}\n---------------------------')
@@ -2611,6 +2613,8 @@ def verify_trimmed_packet(
     if len(egress_ports) == 2:
         dscp_list.append(recv_pkt_dscp_port2)
 
+    num_verify_packets = PacketTrimmingConfig.get_verify_packet_count(duthost)
+
     for egress_port, dscp in zip(egress_ports, dscp_list):
         logger.info(f"Verifying packet trimming for egress port {egress_port['name']} with DSCP {dscp}")
         verify_packet_trimming(
@@ -2624,12 +2628,12 @@ def verify_trimmed_packet(
             recv_pkt_size=recv_pkt_size,
             recv_pkt_dscp=dscp,
             expect_packets=expect_packets,
-            packet_count=PACKET_COUNT
+            packet_count=num_verify_packets
         )
 
 
 def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pkt_size, send_pkt_dscp, recv_pkt_size,
-                         recv_pkt_dscp, packet_count=PACKET_COUNT, timeout=5, expect_packets=True):
+                         recv_pkt_dscp, packet_count, timeout=5, expect_packets=True):
     """
     Verify normal packet transmission and reception.
 
