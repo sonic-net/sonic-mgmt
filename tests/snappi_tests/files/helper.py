@@ -4,7 +4,7 @@ import pytest
 import json
 from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.nokia_data import is_nokia_device
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
@@ -446,6 +446,12 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
     return dict_output
 
 
+def _dut_can_reach(duthost, ip):
+    """Return True if DUT can ping the given IP (used to verify ASIC forwarding readiness)."""
+    result = duthost.shell("ping -c 1 -W 2 {}".format(ip), module_ignore_errors=True)
+    return result.get('rc', 1) == 0
+
+
 @pytest.fixture(params=['warm', 'cold', 'fast'])
 def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     '''
@@ -470,6 +476,21 @@ def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
     parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
+
+    # Warm/fast reboot completes the control plane quickly, but the ASIC forwarding
+    # plane may still be initializing (orchagent syncing routes/ARP to ASIC).
+    # Verify that each DUT can actually reach the TGEN test IP before the test starts,
+    # so traffic doesn't begin before end-to-end forwarding is ready.
+    if reboot_type in ('warm', 'fast'):
+        logger.info("Verifying L3 forwarding plane is ready after {} reboot ...".format(reboot_type))
+        for port in snappi_ports:
+            tgen_ip = port['ip']
+            duthost = port['duthost']
+            pytest_assert(
+                wait_until(120, 5, 0, _dut_can_reach, duthost, tgen_ip),
+                "DUT {} cannot reach TGEN {} after {} reboot — "
+                "forwarding plane not ready".format(duthost.hostname, tgen_ip, reboot_type)
+            )
 
     pfcwd_value = {}
 
