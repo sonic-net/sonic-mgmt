@@ -64,9 +64,10 @@ class TestNeighborMacNoPtf:
                 try:
                     iface = ip_interface(addr)
                     if iface.version == 4:
-                        # Use network address so both connected routes are excluded
-                        # (e.g. 20.0.200.0/24 subnet and 20.0.200.254/32 host).
+                        # Redis KEYS glob uses prefix match on dest; subnet (20.0.200.0/24)
+                        # and host (20.0.200.254/32) need separate filter prefixes.
                         back_plane_port_ips.append(str(iface.network.network_address))
+                        back_plane_port_ips.append(str(iface.ip))
                 except ValueError as e:
                     logger.warning(f"Error parsing VLAN {vlan_name} address {addr}: {e}")
 
@@ -78,7 +79,9 @@ class TestNeighborMacNoPtf:
                         f"ip addr show {port} | grep -w inet | awk '{{print $2}}'",
                         module_ignore_errors=True, verbose=False)["stdout"].strip()
                     if output:
-                        back_plane_port_ips.append(str(ip_interface(output).network.network_address))
+                        iface = ip_interface(output)
+                        back_plane_port_ips.append(str(iface.network.network_address))
+                        back_plane_port_ips.append(str(iface.ip))
                 except Exception as e:
                     logger.warning(f"Error getting back plane {port} IP: {e}")
 
