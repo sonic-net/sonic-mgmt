@@ -8,7 +8,7 @@ eos_root_password: "123456"
 junos_default_login: "root"
 junos_default_password:  ""
 junos_login: "root"
-junos_password: ""
+junos_password: "Juniper@123"
 
 cisco_login: "admin"
 cisco_password: "password"
@@ -29,5 +29,5 @@ ptf_host_pass: root
 vm_host_user: use_own_value
 vm_host_password: use_own_value
 vm_host_become_password: use_own_value
-
 csonic_image: "{{ lookup('env', 'SONIC_MGMT_CSONIC_DOCKER_IMAGE') | default('docker-sonic-vs', true) }}"
+crpd_image: crpd:25.4R1.12
