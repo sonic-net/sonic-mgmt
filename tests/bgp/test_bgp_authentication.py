@@ -35,25 +35,25 @@ def get_lldp_neighbors(duthost):
     return neighbors
 
 
-def get_peer_addrs(tbinfo, tor1, dut_asn):
+def get_peer_addrs(tbinfo, tor1, dut_asn, confed_asn):
     try:
-        peers = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers']
+        neigh_bgp = tbinfo['topo']['properties']['configuration'][tor1]['bgp']
     except KeyError:
         return None
 
-    peer_addrs = peers.get(dut_asn) or peers.get(str(dut_asn))
-    if peer_addrs:
-        return peer_addrs
-
+    peers = neigh_bgp.get('peers', {})
     try:
-        return peers.get(int(dut_asn))
+        asn = int(confed_asn) if neigh_bgp.get('peer_in_bgp_confed', False) else int(dut_asn)
     except (TypeError, ValueError):
         return None
 
+    return peers.get(asn) or peers.get(str(asn))
 
-def get_bgp_neighbor_info(duthost, asic_index, tor1):
+
+def get_bgp_neighbor_info(duthost, asic_index, tor1, bgp_facts=None):
     skip_hosts = set([host.lower() for host in duthost.get_asic_namespace_list()])
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    if bgp_facts is None:
+        bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neighbor_info = {
         'bgp_facts': bgp_facts,
         'neigh_ip_v4': None,
@@ -78,10 +78,14 @@ def get_bgp_neighbor_info(duthost, asic_index, tor1):
     return neighbor_info
 
 
-def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh):
+def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, confed_asn, is_sonic_neigh):
+    bgp_facts_cache = {}
+    reject_reasons = []
+
     for lldp_neigh in get_lldp_neighbors(duthost):
         tor1 = lldp_neigh['name']
         if tor1 not in nbrhosts:
+            reject_reasons.append("{}: not in nbrhosts".format(tor1))
             continue
 
         try:
@@ -90,22 +94,30 @@ def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh):
             else:
                 asic_index = None
         except Exception as e:
-            logger.debug("Skipping neighbor {}: failed to get DUT ASIC index, error={}".format(tor1, e))
+            reason = "{}: failed to get DUT ASIC index, error={}".format(tor1, e)
+            logger.debug("Skipping neighbor {}".format(reason))
+            reject_reasons.append(reason)
             continue
 
-        neighbor_info = get_bgp_neighbor_info(duthost, asic_index, tor1)
+        if asic_index not in bgp_facts_cache:
+            bgp_facts_cache[asic_index] = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+
+        neighbor_info = get_bgp_neighbor_info(duthost, asic_index, tor1, bgp_facts_cache[asic_index])
         if not all([neighbor_info['neigh_ip_v4'], neighbor_info['neigh_ip_v6'],
                     neighbor_info['peer_group_v4'], neighbor_info['peer_group_v6'],
                     neighbor_info['neigh_asn']]):
+            reject_reasons.append("{}: missing IPv4/IPv6 BGP neighbor info".format(tor1))
             continue
 
         bgp_facts = neighbor_info['bgp_facts']
         if (bgp_facts['bgp_neighbors'][neighbor_info['neigh_ip_v4']]['state'] != 'established' or
                 bgp_facts['bgp_neighbors'][neighbor_info['neigh_ip_v6']]['state'] != 'established'):
+            reject_reasons.append("{}: IPv4/IPv6 BGP session is not established".format(tor1))
             continue
 
-        peer_addrs = get_peer_addrs(tbinfo, tor1, dut_asn)
+        peer_addrs = get_peer_addrs(tbinfo, tor1, dut_asn, confed_asn)
         if not peer_addrs or len(peer_addrs) < 2:
+            reject_reasons.append("{}: missing peer addresses for dut_asn/confed_asn".format(tor1))
             continue
 
         neigh_asic_index = None
@@ -113,7 +125,9 @@ def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh):
             try:
                 neigh_asic_index = nbrhosts[tor1]["host"].get_port_asic_instance(lldp_neigh['neigh_intf']).asic_index
             except Exception as e:
-                logger.debug("Skipping neighbor {}: failed to get neighbor ASIC index, error={}".format(tor1, e))
+                reason = "{}: failed to get neighbor ASIC index, error={}".format(tor1, e)
+                logger.debug("Skipping neighbor {}".format(reason))
+                reject_reasons.append(reason)
                 continue
 
         neighbor_info.update({
@@ -127,7 +141,8 @@ def get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh):
         })
         return neighbor_info
 
-    pytest.skip("Failed to find an established IPv4/IPv6 BGP neighbor")
+    pytest.skip("Failed to find an established IPv4/IPv6 BGP neighbor. Candidates checked: {}. Reasons: {}"
+                .format(len(reject_reasons), "; ".join(reject_reasons)))
 
 
 @pytest.fixture(scope='module')
@@ -142,8 +157,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
-    neighbor_info = get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, is_sonic_neigh)
+    neighbor_info = get_valid_bgp_neighbor(tbinfo, nbrhosts, duthost, dut_asn, confed_asn, is_sonic_neigh)
     tor1 = neighbor_info['tor1']
     asic_index = neighbor_info['asic_index']
     neigh_asic_index = neighbor_info['neigh_asic_index']
