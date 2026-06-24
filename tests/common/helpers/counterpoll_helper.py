@@ -62,13 +62,13 @@ class ConterpollHelper:
                 return {'rc': 1, 'stdout': str(e), 'stderr': str(e)}
 
     @staticmethod
-    def disable_counterpoll(duthost, counter_type_list):
-
+    def disable_counterpoll(duthost, counter_type_list, asic=None):
         for counterpoll_type in counter_type_list:
+            asic_index = " -n asic{}".format(asic.asic_index) if asic else ""
             result = ConterpollHelper._run_command_ignore_errors(
                 duthost,
                 CounterpollConstants.COUNTERPOLL_DISABLE.format(
-                    counterpoll_type))
+                    counterpoll_type, asic_index))
             if result.get('rc', 0) != 0:
                 stdout = result.get('stdout', '').lower()
                 stderr = result.get('stderr', '').lower()
@@ -89,10 +89,11 @@ class ConterpollHelper:
     @staticmethod
     def enable_counterpoll(duthost, counter_type_list, asic=None):
         for counterpoll_type in counter_type_list:
+            asic_index = " -n asic{}".format(asic.asic_index) if asic else ""
             result = ConterpollHelper._run_command_ignore_errors(
                 duthost,
                 CounterpollConstants.COUNTERPOLL_ENABLE.format(
-                    counterpoll_type))
+                    counterpoll_type, asic_index))
             if result.get('rc', 0) != 0:
                 stdout = result.get('stdout', '').lower()
                 stderr = result.get('stderr', '').lower()

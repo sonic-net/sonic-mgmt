@@ -32,8 +32,6 @@ class CounterpollConstants:
     STATUS = 'status'
     STDOUT = 'stdout'
     PG_DROP = 'pg-drop'
-    WRED_QUEUE = 'wredqueue'
-    WRED_PORT = 'wredport'
     PG_DROP_STAT_TYPE = 'PG_DROP_STAT'
     QUEUE_STAT_TYPE = 'QUEUE_STAT'
     QUEUE = 'queue'
@@ -49,8 +47,6 @@ class CounterpollConstants:
     QUEUE_WATERMARK_STAT_TYPE = 'QUEUE_WATERMARK_STAT'
     PG_WATERMARK_STAT_TYPE = 'PG_WATERMARK_STAT'
     BUFFER_POOL_WATERMARK_STAT_TYPE = 'BUFFER_POOL_WATERMARK_STAT'
-    WRED_ECN_QUEUE_STAT_TYPE = 'WRED_ECN_QUEUE_STAT'
-    WRED_ECN_PORT_STAT_TYPE = 'WRED_ECN_PORT_STAT'
     ACL = 'acl'
     ACL_TYPE = "ACL"
     WRED_ECN_QUEUE_STAT_TYPE = 'WRED_ECN_QUEUE_STAT'
@@ -59,8 +55,8 @@ class CounterpollConstants:
     WRED_PORT = 'wredport'
     PHY_TYPE = 'PHY'
     PHY = 'phy'
-    FLOW_CNT_ROUTE_STAT_TYPE = 'FLOW_CNT_ROUTE_STAT'
-    FLOW_CNT_ROUTE = 'flowcnt-route'
+    #FLOW_CNT_ROUTE_STAT_TYPE = 'FLOW_CNT_ROUTE_STAT'
+    #FLOW_CNT_ROUTE = 'flowcnt-route'
     SRV6_STAT_TYPE = 'SRV6_STAT'
     SRV6 = 'srv6'
     SWITCH_STAT_TYPE = 'SWITCH_STAT'
@@ -78,7 +74,6 @@ class CounterpollConstants:
                            WRED_ECN_QUEUE_STAT_TYPE: WRED_QUEUE,
                            WRED_ECN_PORT_STAT_TYPE: WRED_PORT,
                            PHY_TYPE: PHY,
-                           FLOW_CNT_ROUTE_STAT_TYPE: FLOW_CNT_ROUTE,
                            SRV6_STAT_TYPE: SRV6,
                            SWITCH_STAT_TYPE: SWITCH}
     PORT_BUFFER_DROP_INTERVAL = '10000'
