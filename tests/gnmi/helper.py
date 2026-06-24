@@ -96,7 +96,13 @@ def _check_monit_container_checker(duthost):
     After gNMI cert config recovery, monit needs time to re-evaluate
     container status. This function checks if container_checker has
     returned to a healthy state (OK or Status ok).
+
+    Trigger a focused container_checker refresh before reading the cached
+    monit status. This avoids failing post-test sanity on stale monit state
+    after telemetry was restarted by cert recovery.
     """
+    duthost.shell("sudo /usr/bin/container_checker", module_ignore_errors=True)
+    duthost.shell("sudo monit validate container_checker", module_ignore_errors=True)
     monit_services = duthost.get_monit_services_status()
     if not monit_services:
         return False
@@ -131,8 +137,9 @@ def recover_cert_config(duthost, stopped_programs=None):
     # Restart telemetry container if it was stopped during cert config change
     # apply_cert_config may trigger ctrmgrd to stop the telemetry container
     if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+        logger.info("Telemetry container is not running after cert config recovery, starting it")
+        duthost.shell("sudo systemctl reset-failed telemetry", module_ignore_errors=True)
+        duthost.shell("sudo systemctl start telemetry", module_ignore_errors=True)
 
     # Wait for monit container_checker to report healthy status.
     # After restarting processes/containers, monit needs time to re-evaluate
