@@ -988,6 +988,41 @@
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
 
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
+
+        - name: Configure Mellanox-SN6600_LD-P64O128C2 subports after minigraph load
+          block:
+          # Every one of the 64 modules uses the uneven breakout
+          # "2x400G[200G](4)+1x800G[400G](4)". sonic-config-engine numbers the third
+          # child port 3, but it occupies the second 4-lane slot and must be 2.
+          - name: Set subport for Mellanox-SN6600_LD-P64O128C2 uneven breakout
+            become: true
+            shell: >-
+              sonic-db-cli CONFIG_DB hset "PORT|Ethernet{{ item * 8 + 4 }}" subport 2
+            loop: "{{ range(0, 64) | list }}"
+            loop_control:
+              label: "Ethernet{{ item * 8 + 4 }}"
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN6600_LD-P64O128C2'
+
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
           shell: config load_minigraph -y
