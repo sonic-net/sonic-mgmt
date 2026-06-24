@@ -20,7 +20,7 @@ from tests.snappi_tests.dataplane.files.helper import set_primary_chassis, creat
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
-from tests.snappi_tests.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
+from tests.snappi_tests.dataplane.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
     assign_sid_to_duts, create_snappi_flows, get_dut_list, set_dut_tier_level, get_t0_duts, get_pairings, \
     increment_hex, snappi_port_name_mapper, get_ingress_egress_stats, verify_nut_stats, remove_srv6_config
 
