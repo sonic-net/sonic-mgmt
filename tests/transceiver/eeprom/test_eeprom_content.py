@@ -59,6 +59,23 @@ _MISSING = object()
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+# Per-test parse-wrapper adapters.  Both expose the uniform
+# ``(duthost, port, namespace) -> (parsed_by_port, err)`` signature the per-port
+# check calls, but each routes namespace per the rule for its command:
+#   * sfputil takes NO namespace argument (it resolves the logical port to the
+#     owning ASIC's hardware globally), so the namespace is intentionally dropped.
+#   * ``show interfaces transceiver info`` is namespace-scoped, so it is
+#     forwarded (``""`` on single-ASIC emits no ``-n``).
+def _parse_via_sfputil(duthost, port, namespace=None):
+    return cli_helpers.sfputil_show_eeprom(duthost, port=port)
+
+
+def _parse_via_show_cli(duthost, port, namespace=None):
+    return cli_helpers.show_interfaces_transceiver_info(
+        duthost, port=port, namespace=namespace
+    )
+
+
 def _resolve_expected(base_attrs, eeprom_attrs, cdb_fw_attrs, attr_key):
     """Look up ``attr_key`` in BASE, then EEPROM, then CDB_FIRMWARE_UPGRADE attrs.
 
@@ -83,15 +100,21 @@ def _resolve_expected(base_attrs, eeprom_attrs, cdb_fw_attrs, attr_key):
 
 def _validate_port_eeprom_dump(
     duthost, port, port_attrs, parse_wrapper, source_label, key_mapping,
+    namespace=None,
 ):
     """Per-port EEPROM dump + timeout enforcement + field validation.
 
     Implements Generic full contract for a single port:
-      1. Call ``parse_wrapper(duthost, port=port)`` once, timed with
-         ``time.monotonic()``.  The wrapper is a ``cli_helpers`` parsed
-         accessor (e.g. ``cli_helpers.sfputil_show_eeprom``) that runs the
-         command and centralizes the rc / empty-output / parse handling via
-         ``_run_and_parse``, returning ``(parsed_by_port, err)``.
+      1. Call ``parse_wrapper(duthost, port=port, namespace=namespace)`` once,
+         timed with ``time.monotonic()``.  ``parse_wrapper`` is one of the
+         per-test adapters below (``_parse_via_sfputil`` /
+         ``_parse_via_show_cli``) that wraps a ``cli_helpers`` parsed accessor and
+         centralizes the rc / empty-output / parse handling via
+         ``_run_and_parse``, returning ``(parsed_by_port, err)``.  ``namespace``
+         is the port's ASIC network namespace on a multi-ASIC DUT (``""`` on
+         single-ASIC); the show-CLI adapter forwards it (that command is
+         namespace-scoped), the sfputil adapter drops it (sfputil takes no
+         namespace and resolves the port globally).
       2. Fail the port when the call's elapsed time exceeds
          ``EEPROM_ATTRIBUTES.eeprom_dump_timeout_sec``
          (default ``DEFAULT_EEPROM_DUMP_TIMEOUT_SEC``).  Field validation
@@ -104,15 +127,19 @@ def _validate_port_eeprom_dump(
         duthost: DUT host fixture.
         port:    logical interface name (e.g. ``"Ethernet0"``).
         port_attrs: the port's entry from ``port_attributes_dict``.
-        parse_wrapper: callable ``(duthost, port=...) -> (parsed_by_port, err)``
-            from ``cli_helpers`` (e.g. ``cli_helpers.sfputil_show_eeprom``).
-            Timing the wrapper rather than a bare command keeps the
-            rc / empty / parse handling centralized in ``_run_and_parse``.
+        parse_wrapper: callable
+            ``(duthost, port=..., namespace=...) -> (parsed_by_port, err)`` —
+            one of the per-test adapters (``_parse_via_sfputil`` /
+            ``_parse_via_show_cli``).  Timing the wrapper rather than a bare
+            command keeps the rc / empty / parse handling centralized in
+            ``_run_and_parse``.
         source_label: human-readable label for failure messages.
         key_mapping: CLI-key → inventory-attribute dict for the command this
             test drives (e.g. ``SFPUTIL_CLI_KEY_TO_INV_KEY``).  The two CLIs
             spell some fields differently (e.g. hardware revision), so each
             test passes its own.
+        namespace: the port's ASIC network namespace (``asicN``) on a multi-ASIC
+            DUT, or ``""`` on single-ASIC.  Forwarded to ``parse_wrapper``.
 
     Returns:
         list[str]: zero or more per-port failure strings.  Empty list means
@@ -127,7 +154,7 @@ def _validate_port_eeprom_dump(
     )
 
     start = time.monotonic()
-    parsed_by_port, err = parse_wrapper(duthost, port=port)
+    parsed_by_port, err = parse_wrapper(duthost, port=port, namespace=namespace)
     elapsed = time.monotonic() - start
 
     failures = []
@@ -172,6 +199,12 @@ def _run_per_port_eeprom_check(
     Filters to stem ports: EEPROM bytes are per-physical-port, so a breakout
     sub-port returns the same data as its stem and adds no coverage here.  The
     per-subport ``sfputil`` CLI-resolution path has its own dedicated test.
+
+    Each port's ASIC network namespace is resolved via
+    ``get_port_asic_instance`` + ``get_namespace_from_asic_id`` and forwarded to
+    the parse wrapper, so the show-CLI variant scopes its query to the owning
+    ASIC on a multi-ASIC DUT.  On a single-ASIC DUT this resolves to ``""`` and
+    no ``-n`` is emitted, leaving the command unchanged.
     """
     all_failures = []
     for port, port_attrs in port_attributes_dict.items():
@@ -181,8 +214,12 @@ def _run_per_port_eeprom_check(
         if not is_stem_port(port, stem_map):
             logger.debug("Port %s is a breakout sub-port, skipping", port)
             continue
+        namespace = duthost.get_namespace_from_asic_id(
+            duthost.get_port_asic_instance(port).asic_index
+        )
         port_failures = _validate_port_eeprom_dump(
             duthost, port, port_attrs, parse_wrapper, source_label, key_mapping,
+            namespace=namespace,
         )
         if port_failures:
             all_failures.append(f"{port}:\n  " + "\n  ".join(port_failures))
@@ -216,7 +253,7 @@ def test_eeprom_content_verification_via_sfputil(
     """
     all_failures = _run_per_port_eeprom_check(
         duthost, port_attributes_dict,
-        parse_wrapper=cli_helpers.sfputil_show_eeprom,
+        parse_wrapper=_parse_via_sfputil,
         source_label="sfputil show eeprom -p <port>",
         key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
         stem_map=lport_to_first_subport_mapping,
@@ -239,7 +276,7 @@ def test_eeprom_content_verification_via_show_cli(
     """
     all_failures = _run_per_port_eeprom_check(
         duthost, port_attributes_dict,
-        parse_wrapper=cli_helpers.show_interfaces_transceiver_info,
+        parse_wrapper=_parse_via_show_cli,
         source_label="show interfaces transceiver info <port>",
         key_mapping=SHOW_CLI_KEY_TO_INV_KEY,
         stem_map=lport_to_first_subport_mapping,
