@@ -21,6 +21,7 @@ def _open_pcap_reader(f):
         return dpkt.pcap.Reader(f)
     return dpkt.pcapng.Reader(f)
 
+
 logger = logging.getLogger(__name__)
 
 PFC_MAC_CONTROL_CODE = 0x8808
