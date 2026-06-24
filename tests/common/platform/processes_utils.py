@@ -12,23 +12,56 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
 logger = logging.getLogger(__name__)
 
+# Conversion factors (minutes) for every unit that `docker ps` may emit.
+_DOCKER_UPTIME_UNIT_TO_MINUTES = {
+    "second":  1 / 60,
+    "seconds": 1 / 60,
+    "minute":  1,
+    "minutes": 1,
+    "hour":    60,
+    "hours":   60,
+    "day":     60 * 24,
+    "days":    60 * 24,
+    "week":    60 * 24 * 7,
+    "weeks":   60 * 24 * 7,
+    "month":   60 * 24 * 30,
+    "months":  60 * 24 * 30,
+    "year":    60 * 24 * 365,
+    "years":   60 * 24 * 365,
+}
 
-def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6, pmon_status=None):
     """
-    @summary: This function checks if pmon uptime is at least the minimal_runtime
-    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    @summary: Check whether the pmon container has been running for at least minimal_runtime minutes.
+    @param duthost: AnsibleHost object for the DUT. May be None when pmon_status is supplied directly.
+    @param minimal_runtime: Required minimum uptime in minutes (default 6).
+    @param pmon_status: Optional pre-fetched STATUS string from `docker ps` (e.g. "Up 2 months").
+                        When supplied, duthost is not queried. Intended for unit-testing only.
+    @return: True if pmon uptime >= minimal_runtime minutes, False otherwise.
     """
-    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
-    if result["stdout"]:
-        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
-        if match:
-            if match.group(2) == "hours":
-                return int(match.group(1))*60 >= minimal_runtime
-            else:
-                return int(match.group(1)) >= minimal_runtime
-        match = re.search(r'Up About an hour', result["stdout"])
-        if match:
-            return 60 >= minimal_runtime
+    if pmon_status is None:
+        result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+        status_str = result["stdout"] if result["stdout"] else ""
+    else:
+        status_str = pmon_status
+
+    if not status_str:
+        return False
+
+    # Standard form: "Up N <unit>" (e.g. "Up 3 days", "Up 2 months", "Up 6 minutes")
+    match = re.search(r'Up (\d+) (\w+)', status_str)
+    if match:
+        count = int(match.group(1))
+        unit = match.group(2).lower()
+        factor = _DOCKER_UPTIME_UNIT_TO_MINUTES.get(unit)
+        if factor is not None:
+            return count * factor >= minimal_runtime
+
+    # Older docker versions emit "Up About an hour" (no digit) for ~60 minutes.
+    if re.search(r'Up About an hour', status_str):
+        return minimal_runtime <= 60
+
     return False
 
 
