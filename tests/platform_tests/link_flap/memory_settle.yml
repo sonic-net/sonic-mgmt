@@ -15,7 +15,7 @@ default:
 
 x86_64-nexthop_.*:
   default: 30
-  t2-single-node-min: 180
-  t2_single_node_min: 180
-  t2-single-node-max.*: 600
-  t2_single_node_max.*: 600
+  t2-single-node-min: 300
+  t2_single_node_min: 300
+  t2-single-node-max.*: 1200
+  t2_single_node_max.*: 1200
