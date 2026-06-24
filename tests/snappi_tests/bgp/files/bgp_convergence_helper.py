@@ -851,7 +851,7 @@ def get_rib_in_convergence(snappi_api,
         tx_frame_rate = flow_stats[0].frames_tx_rate
         rx_frame_rate = flow_stats[0].frames_rx_rate
         assert tx_frame_rate != 0, "Traffic has not started"
-        assert rx_frame_rate == 0
+        assert rx_frame_rate != 0, "Traffic are not received"
 
         """ Advertise All Routes """
         logger.info('Advertising all Routes from {}'.format(route_names))
