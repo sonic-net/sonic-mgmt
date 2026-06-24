@@ -102,8 +102,6 @@ class PFCPacket():
                 return False
             elif self.class_pause_times[i] > 0x0 and self.class_enable_vec[PRIO_DEFAULT_LEN - i - 1] == "0":
                 return False
-            # elif self.class_pause_times[i] == 0x0 and self.class_enable_vec[PRIO_DEFAULT_LEN - i - 1] == "1":
-            #     return False
 
         return True
 
