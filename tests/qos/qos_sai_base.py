@@ -61,7 +61,7 @@ class QosBase:
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "q3d", "th6"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -2068,8 +2068,8 @@ class QosSaiBase(QosBase):
             if 'platform_asic' in duthost.facts and duthost.facts['platform_asic'] == 'broadcom-dnx':
                 logger.info("THDI_BUFFER_CELL_LIMIT_SP is not valid for broadcom DNX - ignore dynamic buffer config")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
-            elif dutAsic == 'th5':
-                logger.info("Generator script not implemented for TH5")
+            elif dutAsic in ['th5', 'th6']:
+                logger.info("Generator script not implemented for TH5/6")
                 qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
             else:
                 bufferConfig = dutBufferConfig(duthost, dut_asic)

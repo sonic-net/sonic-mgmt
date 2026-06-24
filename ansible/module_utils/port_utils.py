@@ -753,6 +753,24 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             port_alias_to_name_map["Port65"] = "Ethernet512"
             port_alias_to_name_map["Port66"] = "Ethernet513"
 
+        elif "NH-4210-F" in hwsku:
+            logical_num = 1
+            max_sub_intfs = 8
+
+            # Default is P128 no subintfs
+            sub_intfs = ("",)
+            if "O256" in hwsku:
+                sub_intfs = ("a", "b")
+
+            for i in range(0, 1017, 8):
+                for idx in range(len(sub_intfs)):
+                    name = f"Ethernet{i + (idx * max_sub_intfs // len(sub_intfs))}"
+                    port_alias_to_name_map[f"etp{logical_num}{sub_intfs[idx]}"] = name
+                logical_num += 1
+            # adding 100G management port
+            if "C1" in hwsku:
+                port_alias_to_name_map["etp129"] = "Ethernet1024"
+
         elif "NH-5010" in hwsku:
             logical_num = 1
             for i in range(0, 256, 4):
