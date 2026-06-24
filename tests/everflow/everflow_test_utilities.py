@@ -594,27 +594,28 @@ def validate_acl_rule_rids(duthost):
     return True
 
 
-def validate_acl_rules_in_asic_db(duthost):
+def get_acl_rule_counts(duthost):
     """
-    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
-    Also check that the ACL rule RIDs are not empty.
-    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+    Snapshot the number of ACL rules in CONFIG DB and ASIC DB, per frontend ASIC.
+
+    Returns a list with one (config_count, asic_count) tuple per frontend ASIC
+    (a single tuple for single-ASIC DUTs). Use this to capture a baseline before
+    applying ACL rules so the readiness check can compare deltas (see
+    validate_acl_rules_in_asic_db).
 
     Args:
         duthost: DUT host object
 
     Returns:
-        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
+        list[tuple[int, int]]: [(config_count, asic_count), ...] indexed by frontend ASIC
     """
-    # Get all frontend ASIC instances
     if duthost.is_multi_asic:
         asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
     else:
         asic_instances = [duthost]
 
-    # Validate ACL rules in each ASIC
+    counts = []
     for asic in asic_instances:
-        # Get namespace-specific command prefix
         if duthost.is_multi_asic:
             namespace = asic.get_asic_namespace()
             config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
@@ -623,32 +624,90 @@ def validate_acl_rules_in_asic_db(duthost):
             config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
             asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
 
-        config_rules = asic.shell(config_cmd)['stdout_lines']
-        asic_rules = asic.shell(asic_cmd)['stdout_lines']
+        config_count = len(asic.shell(config_cmd)['stdout_lines'])
+        asic_count = len(asic.shell(asic_cmd)['stdout_lines'])
+        counts.append((config_count, asic_count))
 
-        if len(config_rules) != len(asic_rules):
-            logging.warning("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
-                asic.asic_index if duthost.is_multi_asic else "single",
-                len(config_rules), len(asic_rules)))
+    return counts
+
+
+def validate_acl_rules_in_asic_db(duthost, baseline_counts=None):
+    """
+    Validate that the ACL rules added since a baseline have all been programmed into ASIC DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+
+    The check compares the CHANGE in entry counts rather than absolute counts: the
+    number of new ASIC_DB ACL entries must be at least the number of new CONFIG_DB
+    ACL rules since `baseline_counts` was captured. This cancels any constant,
+    pre-existing offset between the two DBs caused by ASIC ACL entries that have no
+    CONFIG_DB ACL_RULE key.
+
+    On dualtor, the standby ToR carries exactly such an entry: MuxOrch programs a
+    DROP-all-ingress-ports ACL (matching IN_PORTS + traffic-class) directly into the
+    ASIC -- not via CONFIG_DB ACL_RULE/ACL_TABLE -- to black-hole server traffic on
+    the standby side. So on the standby ToR ASIC_DB has one more ACL entry than
+    CONFIG_DB, and the old absolute-equality check spun until timeout (observed on
+    Broadcom dualtor: a stable CONFIG_DB=28, ASIC_DB=29 on the standby ToR on every
+    retry).
+
+    Args:
+        duthost: DUT host object
+        baseline_counts: optional list of (config_count, asic_count) tuples captured
+            by get_acl_rule_counts() BEFORE the rules under test were applied. When
+            None, a zero baseline is assumed, which requires ASIC_DB >= CONFIG_DB
+            (every configured rule is programmed) without assuming the two counts
+            are exactly equal.
+
+    Returns:
+        bool: True if the per-ASIC ACL delta matches and RIDs are valid in all
+        frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    if baseline_counts is None:
+        baseline_counts = [(0, 0)] * len(asic_instances)
+
+    current_counts = get_acl_rule_counts(duthost)
+
+    # Validate ACL rules in each ASIC by comparing deltas against the baseline
+    for index, asic in enumerate(asic_instances):
+        config_now, asic_now = current_counts[index]
+        config_base, asic_base = baseline_counts[index]
+        config_delta = config_now - config_base
+        asic_delta = asic_now - asic_base
+
+        if asic_delta < config_delta:
+            logging.warning("Not all ACL rules are programmed in ASIC {}: "
+                            "CONFIG_DB delta={}, ASIC_DB delta={} (CONFIG_DB={}, ASIC_DB={})".format(
+                                asic.asic_index if duthost.is_multi_asic else "single",
+                                config_delta, asic_delta, config_now, asic_now))
             return False
 
     # Validate ACL rule RIDs across all ASICs
     return validate_acl_rule_rids(duthost)
 
 
-def wait_for_acl_rules_in_asic_db(duthost):
+def wait_for_acl_rules_in_asic_db(duthost, baseline_counts=None):
     """
-    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
+    Wait until the ACL rules added since a baseline are programmed in ASIC DB and RIDs are valid.
 
     Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
     defaulting to 120 seconds if not configured.
 
     Args:
         duthost: DUT host object
+        baseline_counts: optional ACL-count baseline from get_acl_rule_counts(),
+            captured before the rules under test were applied. Passed through to
+            validate_acl_rules_in_asic_db so the readiness check compares deltas.
     """
     acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
     pytest_assert(
-        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost, baseline_counts),
         "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
     )
     logging.info("Successfully validated ACL rules")
