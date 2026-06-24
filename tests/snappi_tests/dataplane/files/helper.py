@@ -385,7 +385,8 @@ def create_snappi_config(snappi_api, get_snappi_ports):
     def _create_snappi_config(snappi_extra_params):
         config = create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params)
         pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
-        snappi_obj_handles = {k: {"ip": [], "ipv4_address": [], "ipv6_address": [], "port_name": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+        snappi_obj_handles = {k: {"ip": [], "ipv4_address": [], "ipv6_address": [],
+                                  "port_name": [], "network_group": []} for k in snappi_extra_params.protocol_config}
         count = 0
         for role, pconfig in snappi_extra_params.protocol_config.items():
             is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
