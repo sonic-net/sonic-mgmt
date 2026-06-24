@@ -983,6 +983,20 @@
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
 
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
+
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true
           shell: config load_minigraph -y

@@ -24,6 +24,22 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
+C508O1X2_HWSKU = 'Mellanox-SN5640-C508O1X2'
+
+
+def _configure_c508o1x2_subport_after_minigraph(sonic_host):
+    """
+    Mellanox-SN5640-C508O1X2 uses uneven port 64 breakout; Ethernet508 needs subport 2
+    in CONFIG_DB after minigraph load (same as config_sonic_basedon_testbed.yml).
+    """
+    if sonic_host.facts.get('hwsku') != C508O1X2_HWSKU:
+        return
+
+    logger.info('Setting Ethernet508 subport=2 for %s', C508O1X2_HWSKU)
+    sonic_host.shell('sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2')
+
+    logger.info('Saving subport configuration for %s', C508O1X2_HWSKU)
+    sonic_host.shell('sudo config save -y')
 
 
 def config_system_checks_passed(duthost, delayed_services=[]):
@@ -271,6 +287,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         time.sleep(60)
+        if is_dut:
+            _configure_c508o1x2_subport_after_minigraph(sonic_host)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
