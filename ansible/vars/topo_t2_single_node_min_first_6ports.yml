@@ -38,7 +38,7 @@ configuration_properties:
     tor_subnet_size: 128
     dut_asn: 66000
     dut_confed_asn: 65100
-    dut_confed_peers: 65200
+    dut_confed_peers: 65300
     dut_type: UpperSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: fc0a::ff
@@ -53,7 +53,6 @@ configuration:
     - common
     - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -77,7 +76,6 @@ configuration:
     - common
     - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -99,7 +97,6 @@ configuration:
     - common
     - core
     bgp:
-      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -123,6 +120,7 @@ configuration:
     - common
     - leaf
     bgp:
+      peer_in_bgp_confed: true
       asn: 65300
       confed_asn: 65100
       confed_peers: 66000
@@ -150,6 +148,7 @@ configuration:
     - common
     - leaf
     bgp:
+      peer_in_bgp_confed: true
       asn: 65300
       confed_asn: 65100
       confed_peers: 66000
