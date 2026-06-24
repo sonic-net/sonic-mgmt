@@ -3,7 +3,6 @@ import logging
 import pytest
 import json
 from tests.common.utilities import wait_until
-from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
@@ -529,29 +528,3 @@ def is_reboot_inactive(duthost, localhost):
         return False
     status = extract_gnoi_response(msg)
     return status and not status.get("active", True)
-
-
-def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_data):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-
-    ip = get_dpu_ip(duthost, dpu_index)
-    if ip is None:
-        return -1, "Failed to get DPU IP address"
-
-    port = get_dpu_port(duthost, dpu_index)
-    if port is None:
-        return -1, "Failed to get DPU gNMI port"
-
-    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-insecure "
-    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
-    cmd += f'-jsonin \'{request_json_data}\''
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        logging.error(output['stderr'])
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']

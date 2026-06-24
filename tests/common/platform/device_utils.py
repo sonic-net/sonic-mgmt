@@ -1305,32 +1305,6 @@ def get_dpu_ip(duthost, dpu_index):
     return ip.split('/')[0]
 
 
-def get_dpu_port(duthost, dpu_index):
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    if not config_facts:
-        logger.error("Failed to retrieve config_facts from DUT")
-        return None
-
-    dpu_section = config_facts.get('DPU', {})
-    if not dpu_section:
-        logger.error("DPU section not found in config_facts")
-        return None
-
-    dpu_key = 'dpu{}'.format(dpu_index)
-    # Check if the DPU exists in the configuration
-    if dpu_key not in dpu_section:
-        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
-            dpu_key, list(dpu_section.keys())))
-        return None
-
-    dpu_config = dpu_section[dpu_key]
-    port = dpu_config.get('gnmi_port', None)
-    if port is None:
-        logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
-        return None
-    return port
-
-
 def get_configured_dpu_names(duthost):
     """
     Return DPU names configured in the DUT running config (e.g. ["dpu0","dpu1"]).
