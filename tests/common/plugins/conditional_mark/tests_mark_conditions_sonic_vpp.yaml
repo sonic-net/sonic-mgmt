@@ -490,14 +490,6 @@ pc/test_lag_2.py::test_lag:
     conditions:
       - "asic_type in ['vpp']"
 
-pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 pc/test_po_cleanup.py::test_po_cleanup:
   skip:
     reason: >
