@@ -130,37 +130,22 @@ def startup_bgp_session(dut, bgp_to_up):
         dut.shell("config bgp startup neighbor {}".format(bgp_to_up))
 
 
-def check_mux_status(duthost, state):
+def check_mux_status(duthost, tor_mux_intfs, state):
     """
-    Check if all interfaces are in expected state in mux status output
+    Check mux state in APP_DB for the interfaces under test.
+
+    This module runs on mocked dual-ToR t0 testbeds only. ``set_mux_state`` writes
+    mux state via swssconfig to APP_DB MUX_CABLE_TABLE, so verify that directly
+    instead of ``dualtor_neighbor_check.py``, which requires a real dual-ToR peer.
     """
-    result = duthost.shell("python3 /usr/local/bin/dualtor_neighbor_check.py", module_ignore_errors=True)
-    if result["rc"] != 0:
-        return False
-    output = result["stdout_lines"]
-    if len(output) <= 2:
-        logger.info(f"dualtor_neighbor_check output too short: {output}")
-        return False
-
-    headers = output[0].split()
-    try:
-        state_idx = headers.index("State")
-        type_idx = headers.index("Type")
-    except (IndexError, ValueError) as e:
-        logger.warning(f"Failed to find column headers in dualtor_neighbor_check output: {headers}, error: {e}")
-        return False
-
-    for intf_state in output[2:]:
-        intf = intf_state.split()
-        if len(intf) <= max(state_idx, type_idx):
-            logger.warning(f"Interface state line too short: {intf}")
+    for intf in tor_mux_intfs:
+        out = duthost.shell('redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
+        if out['stdout_lines'][0] != state:
+            logger.info(
+                "Mux state for %s is %s, expected %s",
+                intf, out['stdout_lines'][0], state
+            )
             return False
-        if intf[state_idx] == state and intf[type_idx] == "consistent":
-            continue
-        state_str = intf[state_idx] if state_idx < len(intf) else "N/A"
-        type_str = intf[type_idx] if type_idx < len(intf) else "N/A"
-        logger.info(f"Neighbor check failed for line: {intf_state} (state={state_str}, type={type_str})")
-        return False
     return True
 
 
@@ -401,7 +386,7 @@ def test_downstream_standby_mux_toggle_active(
     add_nexthop_routes(rand_selected_dut, random_dst_ip, nexthops=[target_server])
     pt_assert(
         wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
-                   lambda: check_mux_status(rand_selected_dut, "standby")),
+                   lambda: check_mux_status(rand_selected_dut, tor_mux_intfs, "standby")),
         "Mux status did not reach 'standby' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
     logger.info("Step 1.2: Verify traffic to this route dst is forwarded to Active ToR and equally distributed")
     check_tunnel_balance(**test_params)
@@ -413,7 +398,7 @@ def test_downstream_standby_mux_toggle_active(
     set_mux_state(rand_selected_dut, tbinfo, 'active', tor_mux_intfs, toggle_all_simulator_ports)
     pt_assert(
         wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
-                   lambda: check_mux_status(rand_selected_dut, "active")),
+                   lambda: check_mux_status(rand_selected_dut, tor_mux_intfs, "active")),
         "Mux status did not reach 'active' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
     logger.info("Step 2.2: Verify traffic to this route dst is forwarded directly to server")
     monitor_tunnel_and_server_traffic(rand_selected_dut, expect_server_traffic=True,
@@ -424,7 +409,7 @@ def test_downstream_standby_mux_toggle_active(
     set_mux_state(rand_selected_dut, tbinfo, 'standby', tor_mux_intfs, toggle_all_simulator_ports)
     pt_assert(
         wait_until(MUX_STATUS_CHECK_TIMEOUT, MUX_STATUS_CHECK_INTERVAL, 0,
-                   lambda: check_mux_status(rand_selected_dut, "standby")),
+                   lambda: check_mux_status(rand_selected_dut, tor_mux_intfs, "standby")),
         "Mux status did not reach 'standby' within {}s".format(MUX_STATUS_CHECK_TIMEOUT))
     logger.info("Step 3.2: Verify traffic to this route dst "
                 "is now redirected back to Active ToR and equally distributed")
