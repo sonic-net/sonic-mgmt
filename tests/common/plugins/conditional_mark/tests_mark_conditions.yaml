@@ -3959,6 +3959,13 @@ pc/:
     conditions:
       - "'bmc' in topo_type"
 
+pc/test_lag_2.py::test_lag\[.*-single_lag\]:
+  regex: true
+  skip:
+    reason: "single_lag test cannot run on virtual testbeds because there is no leaf fanout switch to perform the minlink test"
+    conditions:
+      - "asic_type in ['vs', 'vpp']"
+
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
     reason: "Only support t1-lag, t1-56-lag, t1-28-lag, t1-64-lag and t2 topology"
