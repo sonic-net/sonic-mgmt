@@ -25,7 +25,8 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
-                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_METER_TYPE,
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_CIR,
+                                             SCHEDULER_METER_TYPE,
                                              PACKET_SIZE_MARGIN, TRIMMING_COUNTER_INTERVAL)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
@@ -290,6 +291,7 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
             - type: Scheduler type (e.g., "DWRR", "STRICT")
             - weight: Scheduling weight (e.g., 15)
             - pir: Peak Information Rate (e.g., 1)
+            - cir: Committed Information Rate (e.g., 1)
 
     Returns:
         str: OID of the matched scheduler, or None if not found
@@ -298,7 +300,8 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
     param_to_sai_attr = {
         'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
         'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
-        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE'
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE',
+        'cir': 'SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE'
     }
 
     # Mapping for type values
@@ -394,7 +397,8 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} '
+            f'"cir" {SCHEDULER_CIR} "pir" {SCHEDULER_PIR}'
         )
         # meter_type is platform specific
         if duthost.get_asic_name() == 'th5':
