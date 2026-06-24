@@ -482,31 +482,7 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
 #######################################
 #####          PC                 #####
 #######################################
-pc/test_lag_2.py::test_lag:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pc/test_po_cleanup.py::test_po_cleanup:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pc/test_po_cleanup.py::test_po_cleanup_after_reload:
   skip:
     reason: >
             Failed/Errored: To be included
