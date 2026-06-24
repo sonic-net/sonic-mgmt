@@ -449,14 +449,14 @@ def _check_vnet2_all_dynamic_peers_established(duthost):
         return False
 
 
-def get_ptf_port_index(interface_name):
+def get_ptf_port_index(interface_name, mg_facts):
     """
-    Convert Ethernet interface name to PTF port index (Ethernet112 → 28).
+    Convert Ethernet interface name to PTF port index using the minigraph port map.
     """
-    return int(interface_name.replace("Ethernet", "")) // 4
+    return mg_facts['minigraph_ptf_indices'][interface_name]
 
 
-def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected):
+def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected, mg_facts):
     """
     Return two lists of unique PTF port indices:
     - expected_ptf_ports: ports belonging to vnet_expected
@@ -487,7 +487,7 @@ def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected)
                 # Malformed key (should be pc|member)
                 continue
             if pc in portchannels:
-                ptf_ports.add(get_ptf_port_index(iface))
+                ptf_ports.add(get_ptf_port_index(iface, mg_facts))
         return sorted(ptf_ports)
 
     expected_ptf_ports = collect_ptf_ports(expected_portchannels)
@@ -558,7 +558,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         pytest.fail("Vnet testing setup failed: {}".format(repr(e)))
 
 
-def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts):
+def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts, mg_facts):
     '''
     Verify that the traffic to the peer in Vnet1 is forwarded correctly.
     Send a UDP packet to with the destination as one of the routes learned via bgp in Vnet1
@@ -584,7 +584,7 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
         # Discover the destination IP from the live FIB so the test is not
         # tied to a topology-specific hardcoded address.
         dst_ip = _get_vnet1_bgp_dst_ip(duthost)
-        expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, "Vnet1", "Vnet2")
+        expected_ports, unexpected_ports = get_expected_unexpected_ptf_ports(cfg_facts, "Vnet1", "Vnet2", mg_facts)
         assert expected_ports, \
             "No PTF ports found for Vnet1; check PORTCHANNEL_INTERFACE vnet_name in cfg_facts"
         assert unexpected_ports, \
