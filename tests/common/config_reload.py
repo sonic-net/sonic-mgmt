@@ -24,6 +24,49 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
 DEFAULT_GOLDEN_CONFIG_PATH = '/etc/sonic/golden_config_db.json'
+C508O1X2_HWSKU = 'Mellanox-SN5640-C508O1X2'
+P64O128C2_HWSKU = 'Mellanox-SN6600_LD-P64O128C2'
+
+# HWSKUs using an uneven breakout, mapped to the CONFIG_DB subport corrections they
+# need after every "config load_minigraph".
+#
+# sonic-config-engine derives subport from a running per-module counter, which is
+# only correct when all child ports of a module have the same width. These HWSKUs
+# mix widths, so the last (wide) child port of each module is numbered one past its
+# real position: it must be the Nth slot of its own width, not the Nth alias.
+#
+#   SN5640-C508O1X2   port 64, 4x100G(4)+1x400G(4)              Ethernet508 -> 2
+#   SN6600_LD-P64O128C2  all 64 ports, 2x400G[200G](4)+1x800G[400G](4)
+#                                                    Ethernet(n*8+4) -> 2
+#
+# load_minigraph regenerates config_db.json from scratch, so a one-shot fix at
+# deploy time does not survive; this has to run after every minigraph reload.
+UNEVEN_SPLIT_SUBPORT_FIXUPS = {
+    C508O1X2_HWSKU: {'Ethernet508': 2},
+    P64O128C2_HWSKU: {'Ethernet{}'.format(port * 8 + 4): 2 for port in range(64)},
+}
+
+
+def _configure_uneven_split_subport_after_minigraph(sonic_host):
+    """
+    Correct subport values that load_minigraph derives incorrectly for HWSKUs with an
+    uneven port breakout (mirrors config_sonic_basedon_testbed.yml).
+    """
+    hwsku = sonic_host.facts.get('hwsku')
+    fixups = UNEVEN_SPLIT_SUBPORT_FIXUPS.get(hwsku)
+    if not fixups:
+        return
+
+    logger.info('Correcting uneven split subport for %s on %s ports', hwsku, len(fixups))
+    # One shell invocation keeps this cheap for the 64-port HWSKU.
+    cmds = ' '.join(
+        'sonic-db-cli CONFIG_DB hset "PORT|{}" subport {};'.format(port, subport)
+        for port, subport in sorted(fixups.items())
+    )
+    sonic_host.shell(cmds)
+
+    logger.info('Saving subport configuration for %s', hwsku)
+    sonic_host.shell('sudo config save -y')
 
 
 def config_system_checks_passed(duthost, delayed_services=[]):
@@ -263,6 +306,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
             )
         time.sleep(60)
+        if is_dut:
+            _configure_uneven_split_subport_after_minigraph(sonic_host)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
         if is_buffer_model_dynamic:
