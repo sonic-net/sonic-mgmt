@@ -75,6 +75,7 @@ SKIP_ERROR_LOG_PSU_ABSENCE = [
     '.*ERR pmon#psud:.*Fail to read model number: No key PN_VPD_FIELD in.*',
     '.*ERR pmon#psud:.*Fail to read serial number: No key SN_VPD_FIELD in.*',
     '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*',
+    r'.*ERR pmon#psud(\[\d+\])?: (PSU absence warning: )?PSU \d+ is not present\..*',
     r'.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*',
     r'.*ERR pmon#thermalctld: Failed to read from file \/var\/run\/hw-management\/thermal\/.*FileNotFoundError.*',
     r'.*ERR pmon#thermalctld: Failed to read from file.*\/var\/run\/hw-management\/thermal\/psu.*ValueError.*',
