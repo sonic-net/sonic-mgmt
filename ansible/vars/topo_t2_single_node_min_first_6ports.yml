@@ -124,6 +124,8 @@ configuration:
     - leaf
     bgp:
       asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
         66000:
         - 10.0.0.136
@@ -149,6 +151,8 @@ configuration:
     - leaf
     bgp:
       asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
         66000:
         - 10.0.0.140
