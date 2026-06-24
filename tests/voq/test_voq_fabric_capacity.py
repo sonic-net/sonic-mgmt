@@ -49,7 +49,6 @@ def test_fabric_capacity(duthosts, enum_rand_one_per_hwsku_hostname):
         if token[0].startswith("asic"):
             operating_links = int(token[1])
 
-
     # get list of up/unisolated links by running "show fabric isolation" with Isolated=0
     # example output:
     # # show fabric isolation -n asic0
@@ -98,7 +97,8 @@ def test_fabric_capacity(duthosts, enum_rand_one_per_hwsku_hostname):
         exp_links = operating_links - 1
         pytest_assert(wait_until(180, 30, 0, check_operational_link,
                                  duthost, asic, exp_links, 1),
-                  "The number of opertional links should be {} and Isolated links should be {}".format(exp_links, 1))
+                      "The number of opertional links should be {} and Isolated links should be {}".
+                      format(exp_links, 1))
 
         pytest_assert(wait_until(180, 30, 0, check_isolated_link,
                                  duthost, asic, shutlink, 'config'),
@@ -111,11 +111,12 @@ def test_fabric_capacity(duthosts, enum_rand_one_per_hwsku_hostname):
         exp_links = operating_links
         pytest_assert(wait_until(180, 30, 0, check_operational_link,
                                  duthost, asic, exp_links, 0),
-                  "The number of opertional links should be {} and Isolated links should be {}".format(exp_links, 0))
+                      "The number of opertional links should be {} and Isolated links should be {}".
+                      format(exp_links, 0))
 
-        pytest_assert(not wait_until(180, 30, 0, check_isolated_link,
-                                 duthost, asic, shutlink, 'config'),
-                      "The Port Isolate Reason is not removed")
+        pytest_assert(not wait_until(180, 30, 0, check_isolated_link, duthost, asic,
+                                     shutlink, 'config'), "The Port Isolate Reason is not removed")
+
     finally:
         # clean up the test
         cmd = "sudo config fabric port unisolate {} {}".format(shutlink, asicName)
