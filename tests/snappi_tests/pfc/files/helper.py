@@ -3,12 +3,12 @@ import time
 import sys
 from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    disable_packet_aging, enable_packet_aging, sec_to_nanosec,\
-    get_pfc_frame_count, packet_capture, config_capture_pkt,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
+    disable_packet_aging, enable_packet_aging, sec_to_nanosec, \
+    get_pfc_frame_count, packet_capture, config_capture_pkt, \
     traffic_flow_mode, calc_pfc_pause_flow_rate, get_tx_frame_count      # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id, wait_for_arp  # noqa: F401
@@ -103,6 +103,9 @@ def run_pfc_test(api,
 
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
+    # Reset to initial values before any modification
+    DATA_FLOW_DURATION_SEC = 15
+    data_flow_delay_sec = 1
 
     # Port id of Rx port for traffic config
     port_id = 0
@@ -314,7 +317,11 @@ def run_pfc_test(api,
     # Verify PFC pause frames
     if valid_pfc_frame_test:
         if not is_cisco_device(duthost):
-            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+            # Buffer may wrap during capture,
+            # but at least 100 frames are reliably retained in the pcapng file.
+            pfc_sample_size = 100
+            is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng",
+                                                               SAMPLE_SIZE=pfc_sample_size)
         else:
             is_valid_pfc_frame, error_msg = validate_pfc_frame_cisco(
                                                             snappi_extra_params.packet_capture_file + ".pcapng")
