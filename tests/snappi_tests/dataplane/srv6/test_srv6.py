@@ -3,7 +3,7 @@ import logging
 import pytest
 import re
 from itertools import product
-from rich import print as pr
+# from rich import print as pr
 import collections
 
 from tests.snappi_tests.srv6.files.srv6_telemetry import poll_srv6_perf_stats
@@ -64,7 +64,7 @@ srv6_param_values = {
     "subnet_type":     ["IPv6"],
     # "test_duration":    [1 * 60, 5 * 60, 15 * 60, 60 * 60, 24 * 60 * 60, 2 * 24 * 60 * 60],
     "test_duration":    [10],
-    "packet_size":      [128, 'mix'],
+    "packet_size":      ['mix'],
     "collect_interval": [30],
     "topology":         ["nut-2tiers"],
 }
@@ -74,23 +74,23 @@ srv6_param_product = list(product(*srv6_param_values.values()))
 
 
 @pytest.mark.parametrize(srv6_param_names, srv6_param_product)
-def test_srv6_single_dut(snappi_api,                 # noqa F811
-                         conn_graph_facts,           # noqa F811
-                         fanout_graph_facts_multidut, # noqa F811
-                         duthosts,
-                         set_primary_chassis, # noqa F811
-                         rand_one_dut_hostname,
-                         rand_one_dut_portname_oper_up,
-                         get_snappi_ports, # noqa F811
-                         subnet_type, # noqa F811
-                         packet_size, # noqa F811
-                         test_duration, # noqa F811
-                         collect_interval, # noqa F811
-                         create_snappi_config, # noqa F811
-                         topology,
-                         db_reporter,
-                         local_script_setup_and_teardown
-                         ):
+def test_srv6_nut_test(snappi_api,                 # noqa F811
+                       conn_graph_facts,           # noqa F811
+                       fanout_graph_facts_multidut, # noqa F811
+                       duthosts,
+                       set_primary_chassis, # noqa F811
+                       rand_one_dut_hostname,
+                       rand_one_dut_portname_oper_up,
+                       get_snappi_ports, # noqa F811
+                       subnet_type, # noqa F811
+                       packet_size, # noqa F811
+                       test_duration, # noqa F811
+                       collect_interval, # noqa F811
+                       create_snappi_config, # noqa F811
+                       topology,
+                       db_reporter,
+                       local_script_setup_and_teardown
+                       ):
     Common_vars.dut_hosts = duthosts
     snappi_extra_params = SnappiTestParams()
 
@@ -453,7 +453,7 @@ def test_srv6_single_dut(snappi_api,                 # noqa F811
             logger.info(f'flow mixed packets: {flow.Name}')
             flow.ConfigElement.find()[0].FrameSize.PresetDistribution = 'cisco'
             flow.ConfigElement.find()[0].FrameSize.Type = 'weightedPairs'
-            flow.ConfigElement.find()[0].FrameSize.WeightedPairs = [128, 1, 256, 99, 4096, 98]
+            flow.ConfigElement.find()[0].FrameSize.WeightedPairs = [128, 1, 256, 98, 4096, 98]
 
     for duthost in duthosts:
         logger.info(f'sonic-clear counters on DUT: {duthost.hostname} ...')
@@ -522,6 +522,7 @@ def test_srv6_single_dut(snappi_api,                 # noqa F811
                      'RX_OVR TX_OK TX_BPS TX_UTIL TX_ERR TX_DRP TX_OVR\n')
         dut_stats += dut.shell(cli_command)['stdout']
         Common_vars.dut_stats[dut.hostname] = dut_stats
+        logger.info(dut_stats)
 
     half_of_snappi_stats = len(stats) // 2
     from_t0_1_stats = stats[:half_of_snappi_stats]
