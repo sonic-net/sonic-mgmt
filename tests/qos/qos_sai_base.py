@@ -61,7 +61,7 @@ class QosBase:
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gr2x", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
                            "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
@@ -3935,7 +3935,7 @@ def clear_pg_watermark(interface):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_index = src_asic.asic_index
 
-        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] not in ["gr2", "gr2x"]:
             yield
             return
 
