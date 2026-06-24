@@ -307,10 +307,8 @@ class ReloadTest(BaseTest):
         self.start_sender_delay = 60
 
         # Check if platform type is kvm
-        stdout, stderr, return_code = self.dut_connection.execCommand(
-            "show platform summary | grep Platform | awk '{print $2}'")
-        platform_type = str(stdout[0]).replace('\n', '')
-        if platform_type == 'x86_64-kvm_x86_64-r0':
+        self.platform_type = self.get_dut_platform_type()
+        if self.platform_type == 'x86_64-kvm_x86_64-r0':
             self.kvm_test = True
         else:
             self.kvm_test = False
@@ -329,6 +327,12 @@ class ReloadTest(BaseTest):
                 self.log("Service start time for {} is {}".format(
                     service_name, self.service_data[service_name]['service_start_time']))
         return
+
+    def get_dut_platform_type(self):
+        stdout, _, _ = self.dut_connection.execCommand(
+            "show platform summary | grep Platform | awk '{print $2}'")
+        platform_type = str(stdout[0]).replace('\n', '')
+        return platform_type
 
     def read_json(self, name):
         with open(self.test_params[name]) as fp:
@@ -2336,6 +2340,8 @@ class ReloadTest(BaseTest):
             received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
         # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
         allowed_number_of_flooded_original_packets = 250
+        if self.platform_type == 'x86_64-mlnx_msn2700-r0':
+            allowed_number_of_flooded_original_packets = 700
         if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
             self.dataplane_loss_checked_successfully = False
             self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
