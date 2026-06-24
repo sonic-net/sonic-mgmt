@@ -338,9 +338,9 @@ def expected_pid_changes():
     adds the process name to this set so the parent ``_per_test_health_check``
     treats the PID change as expected instead of a failure. The set is mutable
     and shared with the parent fixture for the duration of the test, so it can
-    be populated at runtime — e.g. a test whose conftest determines that the
-    restart it triggers will propagate to ``xcvrd`` adds ``"xcvrd"`` only in
-    that conditional branch. This is additive: the parent fixture remains the
+    be populated at runtime — e.g. a test that restarts ``pmon`` (which forces
+    an ``xcvrd`` restart) calls ``expected_pid_changes.add("xcvrd")`` before
+    issuing the restart. This is additive: the parent fixture remains the
     single owner of the xcvrd/core check; subcategories feed it intent rather
     than overriding it.
     """
