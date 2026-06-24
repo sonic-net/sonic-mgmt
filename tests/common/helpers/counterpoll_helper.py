@@ -85,7 +85,6 @@ class ConterpollHelper:
                             counterpoll_type,
                             result.get('rc', -1)))
 
-
     @staticmethod
     def enable_counterpoll(duthost, counter_type_list, asic=None):
         for counterpoll_type in counter_type_list:
@@ -109,7 +108,6 @@ class ConterpollHelper:
                         "'{}': rc={}".format(
                             counterpoll_type,
                             result.get('rc', -1)))
-
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):
