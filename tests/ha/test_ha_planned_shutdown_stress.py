@@ -496,6 +496,7 @@ def _planned_shutdown_cycle(
     time.sleep(cfg.post_action_settle_s)
 
 
+@pytest.mark.stress_test
 def test_ha_planned_shutdown_stress_ixia(
     localhost,
     duthosts,
