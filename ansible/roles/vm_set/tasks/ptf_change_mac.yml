@@ -10,6 +10,11 @@
     groups:
       - ptf
 
+- name: Send GARP to update neighbor's the ARP table for reachability
+  command: docker exec -i ptf_{{ vm_set_name }} arping -c 2 -A {{ ptf_host_ip }}
+  become: yes
+  ignore_errors: yes
+
 - name: wait until ptf is reachable
   wait_for:
     port: 22
