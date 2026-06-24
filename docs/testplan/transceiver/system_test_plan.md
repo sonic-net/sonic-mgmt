@@ -203,7 +203,7 @@ The following tests aim to validate the link status and stability of transceiver
 
 ### Process and Service Restart Test Cases
 
-**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: the framework's PID check is overridden in this subcategory's conftest since service restarts are the subject of the test; instead, verify that each restarted service comes back up and is running before the test is considered complete. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
+**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: this subcategory marks the restarted process as expected to change PID (by adding it to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest) so the framework's per-test PID check treats the restart as expected rather than a regression; the parent health check still verifies the process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
