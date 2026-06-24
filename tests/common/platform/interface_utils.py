@@ -304,6 +304,60 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
     return interfaces
 
 
+def verify_fec_counters_not_diverging(duthost, interfaces, num_snapshots=3, interval=5):
+    """
+    Verify that fec_correctable and fec_symbol counters are not diverging.
+
+    SAI does not guarantee symbol >= correctable on each individual read because
+    counters are not read atomically. This method helps take multiple snapshots and
+    fails if for any interface the difference (fec_corr - fec_symbol) is positive and
+    monotonically increasing across all snapshots, indicating real divergence.
+
+    Returns list of (intf_name, diffs) for failing interfaces, empty list if all pass.
+    """
+    interfaces_set = set(interfaces)
+    snapshots = []
+
+    for i in range(num_snapshots):
+        if i > 0:
+            time.sleep(interval)
+
+        intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
+        snapshot = {}
+        for intf in intf_status:
+            intf_name = intf['iface']
+            if intf_name not in interfaces_set:
+                continue
+
+            fec_corr_str = intf.get('fec_corr', '0').replace(',', '').lower()
+            fec_symbol_str = intf.get('fec_symbol_err', '0').replace(',', '').lower()
+            try:
+                fec_corr = int(fec_corr_str)
+                fec_symbol = int(fec_symbol_str)
+            except ValueError:
+                logging.warning("Non-integer FEC counters for %s: fec_corr=%s fec_symbol_err=%s",
+                                intf_name, fec_corr_str, fec_symbol_str)
+                continue
+
+            snapshot[intf_name] = fec_corr - fec_symbol
+
+        snapshots.append(snapshot)
+        positive = {k: v for k, v in snapshot.items() if v > 0}
+        if positive:
+            logging.info("FEC divergence check snapshot %d, interfaces with corr > symbol: %s",
+                         i + 1, positive)
+
+    failing = []
+    for intf_name in sorted(interfaces_set):
+        diffs = [s[intf_name] for s in snapshots if intf_name in s]
+        if len(diffs) < num_snapshots:
+            continue
+        if all(d > 0 for d in diffs) and all(diffs[i] < diffs[i + 1] for i in range(len(diffs) - 1)):
+            failing.append((intf_name, diffs))
+
+    return failing
+
+
 def clear_interface_counters_and_wait(duthost, wait_time=60):
     """
     Clear SONiC interface counters and wait before validating them.
