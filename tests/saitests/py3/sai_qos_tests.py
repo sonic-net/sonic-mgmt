@@ -51,6 +51,17 @@ from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
+if '/root' not in sys.path:
+    sys.path.insert(0, '/root')
+
+try:
+    from TAI import PlatformAdapter
+    _TAI_AVAILABLE = True
+except ImportError:
+    _TAI_AVAILABLE = False
+
+
+
 # Counters
 # The index number comes from the append order in sai_thrift_read_port_counters
 EGRESS_DROP = 0
@@ -170,6 +181,150 @@ def flat_test_port_ids(hierarchy):
     elif isinstance(hierarchy, dict):
         for value in hierarchy.values():
             yield from flat_test_port_ids(value)
+
+
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """Wait until condition is True or timeout. Returns True if condition met, False otherwise."""
+    import traceback
+
+    print("Wait until {} is True, timeout is {} seconds, checking interval is {}, delay is {} seconds".format(
+        condition.__name__, timeout, interval, delay), file=sys.stderr)
+
+    if delay > 0:
+        print("Delay for {} seconds first".format(delay), file=sys.stderr)
+        time.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+
+    while elapsed_time < timeout:
+        print("Time elapsed: {:.1f} seconds".format(elapsed_time), file=sys.stderr)
+
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            print("Exception caught while checking {}: {}, error: {}".format(
+                condition.__name__, "".join(details), e), file=sys.stderr)
+            check_result = False
+
+        if check_result:
+            print("{} is True, exit early with True".format(condition.__name__), file=sys.stderr)
+            return True
+        else:
+            print("{} is False, wait {} seconds and check again".format(
+                condition.__name__, interval), file=sys.stderr)
+            time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    print("{} is still False after {} seconds, exit with False".format(
+        condition.__name__, timeout), file=sys.stderr)
+    return False
+
+
+def check_orchagent_ready(test_case, old_swss_invocation_id=None):
+    """Check if orchagent restart check succeeds.
+
+    If old_swss_invocation_id is provided, also require the swss systemd unit
+    to have a different InvocationID than the snapshot, so we don't return
+    True against the pre-restart instance during a backgrounded restart.
+    """
+    try:
+        if old_swss_invocation_id is not None:
+            stdout, _, _ = test_case.exec_cmd_on_dut(
+                test_case.src_server_ip,
+                test_case.test_params['dut_username'],
+                test_case.test_params['dut_password'],
+                "systemctl show swss --property=InvocationID --value",
+                timeout=30
+            )
+            cur = (''.join(stdout) if isinstance(stdout, list) else str(stdout)).strip()
+            if not cur or cur == old_swss_invocation_id:
+                return False
+
+        stdout, stderr, ret = test_case.exec_cmd_on_dut(
+            test_case.src_server_ip,
+            test_case.test_params['dut_username'],
+            test_case.test_params['dut_password'],
+            "docker exec swss /usr/bin/orchagent_restart_check -n -s -w 2000",
+            timeout=100
+        )
+        if ret == 0 and stdout:
+            result = ''.join(stdout) if isinstance(stdout, list) else str(stdout)
+            return "RESTARTCHECK succeeded" in result
+        return False
+    except Exception as e:
+        print(f"orchagent_restart_check failed: {e}", file=sys.stderr)
+        return False
+
+
+def check_pg_packets_received(test_case, pg, pg_counters_base, recv_counters_base, pkts_to_send):
+    """Check if PG received packets >= sent packets
+
+    Args:
+        test_case: The test case instance
+        pg: Priority group number to check
+        pg_counters_base: Baseline PG counters
+        recv_counters_base: Baseline receive counters
+        pkts_to_send: Number of packets sent
+
+    Returns:
+        True if received packets >= sent packets, False otherwise
+    """
+    pg_counters = sai_thrift_read_pg_counters(
+        test_case.src_client, port_list['src'][test_case.src_port_id])
+    recv_counters, _ = sai_thrift_read_port_counters(
+        test_case.src_client, test_case.asic_type, port_list['src'][test_case.src_port_id])
+
+    pkts_received = pg_counters[pg] - pg_counters_base[pg]
+
+    # For Broadcom DNX, include ingress drops in received count
+    if test_case.platform_asic and test_case.platform_asic == "broadcom-dnx":
+        ingress_drops = ([recv_counters[cntr] - recv_counters_base[cntr]
+                         for cntr in test_case.ingress_counters])[0]
+        pkts_received += ingress_drops
+
+    print("PG{} check: received={}, sent={}".format(pg, pkts_received, pkts_to_send), file=sys.stderr)
+    return pkts_received >= pkts_to_send
+
+
+def read_pg_port_counters(test_case, src_port_id, dst_port_id):
+    """Read all PG and port counters, return dict with pg_counters, recv_counters, xmit_counters, and drop totals."""
+    # Read all PG counters
+    pg_counters = sai_thrift_read_pg_counters(
+        test_case.src_client, port_list['src'][src_port_id])
+
+    # Read port counters
+    recv_counters, _ = sai_thrift_read_port_counters(
+        test_case.src_client, test_case.asic_type, port_list['src'][src_port_id])
+    xmit_counters, _ = sai_thrift_read_port_counters(
+        test_case.dst_client, test_case.asic_type, port_list['dst'][dst_port_id])
+
+    # Calculate drops
+    ingress_drops = ([recv_counters[cntr] for cntr in test_case.ingress_counters])[0]
+    egress_drops = ([xmit_counters[cntr] for cntr in test_case.egress_counters])[0]
+    total_drops = ingress_drops + egress_drops
+
+    return {
+        'pg_counters': pg_counters,
+        'recv_counters': recv_counters,
+        'xmit_counters': xmit_counters,
+        'ingress_drops': ingress_drops,
+        'egress_drops': egress_drops,
+        'total_drops': total_drops
+    }
+
+
+def run_cmd_on_dut(test_case, cmd, timeout=30):
+    """Execute command on DUT."""
+    return test_case.exec_cmd_on_dut(
+        test_case.src_server_ip,
+        test_case.test_params['dut_username'],
+        test_case.test_params['dut_password'],
+        cmd,
+        timeout=timeout
+    )
 
 
 class CounterCollector:
@@ -7630,6 +7785,56 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
             print("END OF TEST")
 
 
+def restart_swss_and_wait(test, raise_on_failure=False):
+    """Restart swss and wait for the new instance's orchagent to become ready.
+
+    Snapshots the systemd InvocationID before restart so check_orchagent_ready
+    can distinguish the new swss instance from the pre-restart one (is-active
+    and PIDs are not reliable when the restart is backgrounded). nohup detaches
+    from SSH so the restart survives the SSH timeout.
+
+    With raise_on_failure=True (tearDown semantics) failures raise RuntimeError.
+    Otherwise (setUp semantics) failures are logged as warnings.
+    """
+    out, _, _ = run_cmd_on_dut(test, "systemctl show swss --property=InvocationID --value")
+    old_swss_invocation_id = (''.join(out) if isinstance(out, list) else str(out)).strip()
+    print("Pre-restart swss InvocationID: {}".format(old_swss_invocation_id), file=sys.stderr)
+
+    cmd = 'sudo nohup systemctl restart swss >/dev/null 2>&1 &'
+    _, stderr, ret = run_cmd_on_dut(test, cmd, timeout=30)
+    if ret != 0:
+        msg = "Failed to launch swss restart: {}".format(stderr)
+        if raise_on_failure:
+            raise RuntimeError(msg)
+        print("Warning: {}".format(msg), file=sys.stderr)
+
+    if not wait_until(420, 10, 5, check_orchagent_ready, test, old_swss_invocation_id):
+        msg = "orchagent_restart_check did not succeed within timeout"
+        if raise_on_failure:
+            raise RuntimeError(msg)
+        print("Warning: {}".format(msg), file=sys.stderr)
+    time.sleep(5)
+
+
+def config_reload(test, label):
+    """Run `config reload -y -f` and wait for orchagent. Shared by TAI and non-TAI variants."""
+    print("\n=== {} cleanup: fallback config reload ===".format(label), file=sys.stderr)
+    sys.stderr.flush()
+    try:
+        cmd = "sudo config reload -y -f &>/dev/null"
+        _, stderr, ret = run_cmd_on_dut(test, cmd, timeout=100)
+        if ret != 0:
+            print("Warning: Config reload failed: {}".format(stderr), file=sys.stderr)
+            return
+        print("Waiting for orchagent to become ready after config reload", file=sys.stderr)
+        if not wait_until(420, 10, 5, check_orchagent_ready, test):
+            print("Warning: orchagent not ready within timeout", file=sys.stderr)
+        time.sleep(30)
+        print("Fallback config reload completed", file=sys.stderr)
+    except Exception as e:
+        print("Error during fallback config reload: {}".format(str(e)), file=sys.stderr)
+
+
 class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
     """
     Test to validate PG MIN threshold behavior.
@@ -7861,3 +8066,348 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Re-enable TX on destination port
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+class _PtfDutShim:
+    """
+    Bridges PTF's run_cmd_on_dut interface to the duthost.shell() interface
+    that TAI adapters expect, so all TAI methods work in PTF context.
+    """
+
+    def __init__(self, test_case):
+        self._tc = test_case
+        tp = test_case.test_params
+        self.facts = {
+            'platform': tp.get('platform', ''),
+            'asic_type': tp.get('sonic_asic_type', ''),
+            'hwsku': tp.get('hwsku', ''),
+            'dut_asic': tp.get('dut_asic', ''),
+        }
+        self.hostname = test_case.src_server_ip
+
+    def shell(self, cmd, module_ignore_errors=False):
+        stdout, stderr, rc = run_cmd_on_dut(self._tc, cmd)
+        stdout_str = '\n'.join(stdout) if isinstance(stdout, list) else (stdout or '')
+        stderr_str = '\n'.join(stderr) if isinstance(stderr, list) else (stderr or '')
+        return {'rc': rc, 'stdout': stdout_str, 'stderr': stderr_str}
+
+
+class PgMinThresholdTestTAI(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    PG MIN threshold test using TAI adapters for all platform-specific logic.
+
+    Standalone implementation (does not inherit PgMinThresholdTest) that
+    eliminates platform if/else branching by delegating to TAI:
+      - get_pg_profile / create_and_apply_pg_buffer_profile (QoSAdapter)
+      - get_pg_counters / get_pg_pkts_received (ThriftAdapter)
+    """
+
+    def setUp(self):
+        if not _TAI_AVAILABLE:
+            raise RuntimeError(
+                "TAI not available — cannot run PgMinThresholdTestTAI. "
+                "Ensure the TAI package is on the Python path."
+            )
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(1)
+        switch_init(self.clients)
+
+        # Build TAI platform adapter via shim that bridges run_cmd_on_dut → duthost.shell()
+        shim = _PtfDutShim(self)
+        self.platform_adapter = PlatformAdapter(shim)
+
+        # Parse input parameters
+        self.testbed_type = self.test_params['testbed_type']
+        self.router_mac = self.test_params['router_mac']
+        self.sonic_version = self.test_params['sonic_version']
+        self.asic_type = self.test_params['sonic_asic_type']
+
+        # Get counter names to query
+        self.ingress_counters, self.egress_counters = get_counter_names(self.sonic_version)
+
+        # PG configuration
+        self.pg0_dscp = self.test_params['pg0_dscp']
+        self.pg1_dscp = self.test_params['pg1_dscp']
+        self.pg0 = self.test_params['pg0']
+        self.pg1 = self.test_params['pg1']
+
+        # Port configuration
+        self.src_port_id = int(self.test_params['src_port_id'])
+        self.src_port_ip = self.test_params['src_port_ip']
+        self.dst_port_id = int(self.test_params['dst_port_id'])
+        self.dst_port_ip = self.test_params['dst_port_ip']
+
+        # Buffer configuration
+        self.packet_size = int(self.test_params.get('packet_size', 64))
+        self.cell_size = int(self.test_params.get('cell_size', 254))
+        self.pg1_min_size = int(self.test_params['pg1_min_size'])
+
+        self.cells_per_packet = int(math.ceil(float(self.packet_size) / float(self.cell_size)))
+        self.cells_in_pg1_threshold = int(math.floor(float(self.pg1_min_size) / float(self.cell_size)))
+        self.pg1_capacity_pkts = int(math.floor(
+            float(self.cells_in_pg1_threshold) / float(self.cells_per_packet)))
+
+        self.pg_pkts_to_fill = int(self.test_params['pg_pkts_to_fill'])
+        self.pkt_count_tolerance = int(self.test_params.get('pkt_count_tolerance', 5))
+
+        assert self.pg1_capacity_pkts >= self.pkt_count_tolerance, \
+            "PG1 capacity ({}) must be >= tolerance ({})".format(
+                self.pg1_capacity_pkts, self.pkt_count_tolerance)
+
+        self.test_interface = self.test_params.get('test_interface')
+        if not self.test_interface:
+            raise ValueError("test_interface not provided in test_params")
+
+        self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
+
+        # Defaults so tearDown can run even if setup fails partway
+        self._orig_pg0_size = None
+        self._orig_pg1_profile = None
+        self.pg1_profile_name = None
+
+        # Step 1: Get PG0 profile details via TAI
+        self.pg0_profile_name, self.pg0_key, pg0_config = self.platform_adapter.get_pg_profile(
+            self.pg0, self.test_interface)
+        if not self.pg0_profile_name:
+            raise ValueError("Could not find profile for PG{} on {}".format(
+                self.pg0, self.test_interface))
+
+        # Derive PG1 key from PG0 key
+        self.pg1_key = "{}|{}".format(self.pg0_key.rsplit('|', 1)[0], self.pg1)
+
+        # Capture originals so tearDown can revert without a full config reload.
+        # Use exact-match for pg1: we only care about a profile attached to a
+        # standalone BUFFER_PG|...|<pg1> key. If pg1 was only covered by a
+        # range (e.g., 3-4), no exact key exists and our HSET will create one
+        # that tearDown must DEL outright.
+        self._orig_pg0_size = pg0_config.get('size') if pg0_config else None
+        orig_pg1_profile_name, _, _ = self.platform_adapter.get_pg_profile(
+            self.pg1, self.test_interface, exact=True)
+        self._orig_pg1_profile = orig_pg1_profile_name or None
+
+        # Step 2a: Update PG0 profile size to 0
+        self.platform_adapter.create_or_update_pg_profile(self.pg0_profile_name, {'size': '0'})
+
+        # Step 2b: Create new profile for PG1 by copying PG0 config with pg1_min_size
+        self.pg1_profile_name = '{}_updated'.format(self.pg0_profile_name)
+        pg1_config = dict(pg0_config)
+        pg1_config['size'] = str(self.pg1_min_size)
+        self.platform_adapter.create_or_update_pg_profile(self.pg1_profile_name, pg1_config)
+
+        # Step 3: Apply new profile to pg1_key
+        self.platform_adapter.apply_pg_profile(self.pg1_key, self.pg1_profile_name)
+
+        # Restart swss and re-init thrift so new buffer config takes effect.
+        restart_swss_and_wait(self)
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(1)
+
+        # Correct destination port if in LAG
+        real_dst_port_id = get_rx_port(
+            self, 0, self.src_port_id,
+            self.router_mac if self.router_mac != '' else self.dst_port_mac,
+            self.dst_port_ip, self.src_port_ip
+        )
+        if real_dst_port_id != self.dst_port_id:
+            print("Corrected dst port from {} to {}".format(
+                self.dst_port_id, real_dst_port_id), file=sys.stderr)
+            self.dst_port_id = real_dst_port_id
+
+    def tearDown(self):
+        """Revert CONFIG_DB mutations and restart swss; fall back to config reload on any failure."""
+        print("\n=== PgMinThreshold (TAI) cleanup: targeted revert ===", file=sys.stderr)
+        sys.stderr.flush()
+        fallback_reload = False
+        try:
+            # Revert PG1 BUFFER_PG entry: if no exact key existed before, our HSET
+            # created the key from scratch — DEL it. Otherwise restore the original
+            # profile field.
+            if self._orig_pg1_profile is None:
+                print("PG1 had no exact BUFFER_PG key before test; deleting {}".format(
+                    self.pg1_key), file=sys.stderr)
+                cmd = 'sonic-db-cli CONFIG_DB DEL "{}"'.format(self.pg1_key)
+                _, stderr, ret = run_cmd_on_dut(self, cmd)
+                if ret != 0:
+                    raise RuntimeError("Failed to delete PG1 BUFFER_PG entry: {}".format(stderr))
+            else:
+                print("Restoring PG1 profile on {} -> {}".format(
+                    self.pg1_key, self._orig_pg1_profile), file=sys.stderr)
+                self.platform_adapter.apply_pg_profile(self.pg1_key, self._orig_pg1_profile)
+
+            # Revert PG0 profile size
+            if self._orig_pg0_size is not None:
+                print("Restoring PG0 profile size: BUFFER_PROFILE|{} size -> {}".format(
+                    self.pg0_profile_name, self._orig_pg0_size), file=sys.stderr)
+                self.platform_adapter.create_or_update_pg_profile(
+                    self.pg0_profile_name, {'size': self._orig_pg0_size})
+            else:
+                print("No original PG0 size captured; skipping PG0 size restore", file=sys.stderr)
+
+            # Delete the new PG1 profile we created
+            if self.pg1_profile_name:
+                print("Deleting created profile BUFFER_PROFILE|{}".format(
+                    self.pg1_profile_name), file=sys.stderr)
+                self.platform_adapter.delete_pg_profile(self.pg1_profile_name)
+            else:
+                print("No PG1 profile was created; skipping profile delete", file=sys.stderr)
+
+            # Restart swss to apply the reverted buffer config
+            print("Restarting swss to apply reverted buffer config", file=sys.stderr)
+            restart_swss_and_wait(self, raise_on_failure=True)
+            print("Targeted cleanup completed successfully", file=sys.stderr)
+
+        except Exception as e:
+            print("Targeted cleanup failed ({}); falling back to config reload".format(e),
+                  file=sys.stderr)
+            fallback_reload = True
+
+        if fallback_reload:
+            config_reload(self, "PgMinThreshold (TAI)")
+
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+
+    def runTest(self):
+        """
+        Same test flow as PgMinThresholdTest.runTest but uses TAI for counter reads,
+        eliminating the platform_asic if/else branches.
+        """
+        print("\n=== Starting PG MIN Threshold Test (TAI) ===", file=sys.stderr)
+        print("PG0: DSCP={}, PG={}".format(self.pg0_dscp, self.pg0), file=sys.stderr)
+        print("PG1: DSCP={}, PG={}".format(self.pg1_dscp, self.pg1), file=sys.stderr)
+        print("PG1 MIN size: {} bytes, capacity: {} packets".format(
+            self.pg1_min_size, self.pg1_capacity_pkts), file=sys.stderr)
+        print("Total packets to send: {}".format(self.pg_pkts_to_fill), file=sys.stderr)
+        sys.stderr.flush()
+
+        self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+        try:
+            print("\n--- Creating packets for PG0 and PG1 ---", file=sys.stderr)
+            pkt_pg0 = simple_tcp_packet(
+                pktlen=self.packet_size,
+                eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                ip_src=self.src_port_ip,
+                ip_dst=self.dst_port_ip,
+                ip_tos=self.pg0_dscp << 2,
+                ip_ttl=64,
+                ip_ecn=1
+            )
+            pkt_pg1 = simple_tcp_packet(
+                pktlen=self.packet_size,
+                eth_dst=self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                ip_src=self.src_port_ip,
+                ip_dst=self.dst_port_ip,
+                ip_tos=self.pg1_dscp << 2,
+                ip_ttl=64,
+                ip_ecn=1
+            )
+
+            def _check_pg_received(pg, baseline):
+                return self.platform_adapter.get_pg_pkts_received(
+                    self, self.src_port_id, self.dst_port_id,
+                    pg, baseline=baseline) >= self.pg_pkts_to_fill
+
+            # ===== PHASE 1: Send traffic to PG0 =====
+            print("\n--- PHASE 1: Sending traffic to PG0 ---", file=sys.stderr)
+
+            baseline_pg0 = self.platform_adapter.get_pg_counters(
+                self, self.src_port_id, self.dst_port_id)
+
+            print("Baseline PG0 counter: {}".format(baseline_pg0['pg_counters'][self.pg0]),
+                  file=sys.stderr)
+            print("Baseline ingress drops: {}".format(baseline_pg0['ingress_drops']),
+                  file=sys.stderr)
+            print("Baseline egress drops: {}".format(baseline_pg0['egress_drops']),
+                  file=sys.stderr)
+
+            print("Sending {} packets to PG0".format(self.pg_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg0, self.pg_pkts_to_fill)
+
+            if not wait_until(10, 2, 2, _check_pg_received, self.pg0, baseline_pg0):
+                print("Warning: PG0 did not receive all packets within timeout", file=sys.stderr)
+
+            pg0_pkts_received = self.platform_adapter.get_pg_pkts_received(
+                self, self.src_port_id, self.dst_port_id, self.pg0, baseline=baseline_pg0)
+            pg0_total_drops = self.platform_adapter.get_pg_all_drop_counters(
+                self, self.src_port_id, self.dst_port_id, baseline=baseline_pg0)['total_drops']
+
+            print("\n=== PG0 Test Results ===", file=sys.stderr)
+            print("PG0 - sent: {}, received: {}, total drops: {}".format(
+                self.pg_pkts_to_fill, pg0_pkts_received, pg0_total_drops), file=sys.stderr)
+
+            assert pg0_pkts_received >= self.pg_pkts_to_fill, \
+                "PG0: Received packets ({}) should be >= sent packets ({})".format(
+                    pg0_pkts_received, self.pg_pkts_to_fill)
+            print("✓ PG0 Validation 1 PASSED: Received ({}) >= Sent ({})".format(
+                pg0_pkts_received, self.pg_pkts_to_fill), file=sys.stderr)
+
+            assert pg0_total_drops > 0, \
+                "PG0: Total drops ({}) should be > 0 (buffer should be exhausted)".format(
+                    pg0_total_drops)
+            print("✓ PG0 Validation 2 PASSED: Total drops ({}) > 0".format(
+                pg0_total_drops), file=sys.stderr)
+
+            # ===== Drain PG0 traffic =====
+            print("\n--- Draining PG0 traffic ---", file=sys.stderr)
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            time.sleep(60)
+            self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+            # ===== PHASE 2: Send traffic to PG1 =====
+            print("\n--- PHASE 2: Sending traffic to PG1 ---", file=sys.stderr)
+
+            baseline_pg1 = self.platform_adapter.get_pg_counters(
+                self, self.src_port_id, self.dst_port_id)
+
+            print("Baseline PG1 counter: {}".format(baseline_pg1['pg_counters'][self.pg1]),
+                  file=sys.stderr)
+            print("Baseline ingress drops: {}".format(baseline_pg1['ingress_drops']),
+                  file=sys.stderr)
+            print("Baseline egress drops: {}".format(baseline_pg1['egress_drops']),
+                  file=sys.stderr)
+
+            print("Sending {} packets to PG1".format(self.pg_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg1, self.pg_pkts_to_fill)
+
+            if not wait_until(10, 2, 2, _check_pg_received, self.pg1, baseline_pg1):
+                print("Warning: PG1 did not receive all packets within timeout", file=sys.stderr)
+
+            pg1_pkts_received = self.platform_adapter.get_pg_pkts_received(
+                self, self.src_port_id, self.dst_port_id, self.pg1, baseline=baseline_pg1)
+            pg1_total_drops = self.platform_adapter.get_pg_all_drop_counters(
+                self, self.src_port_id, self.dst_port_id, baseline=baseline_pg1)['total_drops']
+
+            print("\n=== PG1 Test Results ===", file=sys.stderr)
+            print("PG1 - sent: {}, received: {}, total drops: {}".format(
+                self.pg_pkts_to_fill, pg1_pkts_received, pg1_total_drops), file=sys.stderr)
+
+            assert pg1_pkts_received >= self.pg_pkts_to_fill, \
+                "PG1: Received packets ({}) should be >= sent packets ({})".format(
+                    pg1_pkts_received, self.pg_pkts_to_fill)
+            print("✓ PG1 Validation PASSED: Received ({}) >= Sent ({})".format(
+                pg1_pkts_received, self.pg_pkts_to_fill), file=sys.stderr)
+
+            # ===== PHASE 3: Compare PG0 and PG1 drops =====
+            print("\n--- PHASE 3: Comparing PG0 and PG1 drops ---", file=sys.stderr)
+            print("PG0 total drops: {}".format(pg0_total_drops), file=sys.stderr)
+            print("PG1 total drops: {}".format(pg1_total_drops), file=sys.stderr)
+            print("Tolerance: {} packets".format(self.pkt_count_tolerance), file=sys.stderr)
+
+            drop_difference = pg0_total_drops - pg1_total_drops
+            print("Drop difference (PG0 - PG1): {}".format(drop_difference), file=sys.stderr)
+
+            assert drop_difference >= self.pkt_count_tolerance, \
+                "Drop difference ({}) should be >= tolerance ({}). " \
+                "PG1 MIN threshold is not protecting enough packets.".format(
+                    drop_difference, self.pkt_count_tolerance)
+            print("✓ Final Validation PASSED: Drop difference ({}) >= tolerance ({})".format(
+                drop_difference, self.pkt_count_tolerance), file=sys.stderr)
+
+            print("\n=== ALL VALIDATIONS PASSED ===", file=sys.stderr)
+            print("=== PG MIN Threshold Test (TAI) PASSED ===\n", file=sys.stderr)
+            sys.stderr.flush()
+
+        finally:
+            print("\n--- Enabling TX on destination port ---", file=sys.stderr)
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            print("TX enabled", file=sys.stderr)
+

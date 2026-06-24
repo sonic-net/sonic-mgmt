@@ -32,6 +32,7 @@ from tests.common.fixtures.duthost_utils import (dut_qos_maps,  # noqa: F401
                                                  separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map)
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_tai_directory                          # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx                       # noqa: F401
@@ -1930,6 +1931,123 @@ class TestQosSai(QosSaiBase):
         )
 
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
+
+    def testQosSaiPgMinThresholdTAI(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        get_src_dst_asic_and_duts, tbinfo, ptfadapter,
+        releaseAllPorts, handleFdbAging, lower_tor_host,                             # noqa: F811
+        copy_tai_directory                                                          # noqa: F811
+    ):
+        """
+            TAI variant of testQosSaiPgMinThreshold that runs the PgMinThresholdTestTAI PTF case.
+        """
+        import ptf.testutils as testutils
+
+        qosConfig = dutQosConfig["param"]
+
+        if "pg_min_threshold" not in qosConfig:
+            pytest.skip("PG MIN threshold test parameters not configured for this platform")
+
+        # Get source DUT
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+
+        # Select test interface and PTF port using the helper function
+        test_interface, ptf_port_index = select_test_interface_and_ptf_port(src_dut, tbinfo)
+        pytest_assert(test_interface and ptf_port_index is not None,
+                      "Could not find test interface with PTF port mapping")
+
+        # Get IP address for the selected interface
+        mg_facts = src_dut.get_extended_minigraph_facts(tbinfo)
+        interface_ip = get_interface_ip_address(test_interface, mg_facts)
+        pytest_assert(interface_ip,
+                      "Could not find IP address for interface {}".format(test_interface))
+
+        # Calculate source and destination IPs from interface network
+        interface_network = ipaddress.ip_interface(interface_ip)
+        src_ip = str(interface_network.ip - 1)
+        dst_ip = str(interface_network.ip + 1)
+
+        logger.info("Selected test interface: {} (PTF port: {}), IP: {}".format(
+            test_interface, ptf_port_index, interface_ip))
+        logger.info("Source IP: {}, Destination IP: {}".format(src_ip, dst_ip))
+
+        # Create test packet for PortChannel detection
+        router_mac = src_dut.facts["router_mac"]
+        test_packet = testutils.simple_tcp_packet(
+            eth_dst=router_mac,
+            ip_src=src_ip,
+            ip_dst=dst_ip,
+            ip_dscp=0,
+        )
+
+        # If PortChannel, detect actual egress member
+        portchannels = mg_facts.get('minigraph_portchannels', {})
+        if test_interface in portchannels:
+            logger.info("{} is a PortChannel, detecting egress member".format(test_interface))
+
+            # Detect actual egress member
+            detected_interface, detected_ptf_port = detect_portchannel_egress_member(
+                src_dut, tbinfo, ptfadapter, test_interface, test_packet
+            )
+            if detected_interface and detected_ptf_port is not None:
+                logger.info("Detected egress member: {} (PTF port {})".format(
+                    detected_interface, detected_ptf_port))
+                test_interface = detected_interface
+                ptf_port_index = detected_ptf_port
+            else:
+                pytest.fail("Could not detect egress member for PortChannel {}".format(test_interface))
+
+        logger.info("Final test interface: {} (PTF port: {})".format(
+            test_interface, ptf_port_index))
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "hwsku": dutTestParams['hwsku'],
+            "platform": src_dut.facts.get("platform", ""),
+            "pg0_dscp": qosConfig["pg_min_threshold"]["pg0_dscp"],
+            "pg1_dscp": qosConfig["pg_min_threshold"]["pg1_dscp"],
+            "pg0": qosConfig["pg_min_threshold"]["pg0"],
+            "pg1": qosConfig["pg_min_threshold"]["pg1"],
+            "src_port_id": ptf_port_index,
+            "src_port_ip": src_ip,
+            "dst_port_id": ptf_port_index,
+            "dst_port_ip": dst_ip,
+            "router_mac": router_mac,
+            "pg1_min_size": qosConfig["pg_min_threshold"]["pg1_min_size"],
+            "pg_pkts_to_fill": qosConfig["pg_min_threshold"]["pg_pkts_to_fill"],
+            "pkt_count_tolerance": qosConfig["pg_min_threshold"]["pkt_count_tolerance"],
+            "test_interface": test_interface,
+        })
+
+        if "packet_size" in qosConfig["pg_min_threshold"]:
+            testParams["packet_size"] = qosConfig["pg_min_threshold"]["packet_size"]
+
+        if "cell_size" in qosConfig["pg_min_threshold"]:
+            testParams["cell_size"] = qosConfig["pg_min_threshold"]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig["pg_min_threshold"]:
+            testParams["pkts_num_margin"] = qosConfig["pg_min_threshold"]["pkts_num_margin"]
+
+        # Note: Not passing log_file to avoid pcap generation for this high-volume test
+        # With 2M packets, pcap files become too large and cause OOM during compression
+        try:
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.PgMinThresholdTestTAI",
+                testParams=testParams,
+                skip_pcap=True
+            )
+        finally:
+            # PgMinThresholdTestTAI restarts swss, which wipes ASIC neighbor/FDB state.
+            # Repopulate ARP so subsequent tests in the class (e.g. LossyQueue) have
+            # resolved next-hops; otherwise routed traffic gets dropped at L3 lookup.
+            self.populate_arp_entries(
+                get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig,
+                releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
+            # Wait for ARP entries to come back before the next test runs.
+            time.sleep(60)
+
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
