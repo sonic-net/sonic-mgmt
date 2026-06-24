@@ -555,3 +555,12 @@ def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_da
         return -1, output['stderr']
     else:
         return 0, output['stdout']
+
+
+def get_namespace(duthost, iface="Ethernet0"):
+    """
+    Return per-ASIC namespace name if multi asic and localhost otherwise
+    """
+    if duthost.is_multi_asic:
+        return duthost.get_port_asic_instance(iface).namespace
+    return "localhost"
