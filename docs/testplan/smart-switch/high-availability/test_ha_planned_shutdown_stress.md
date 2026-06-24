@@ -12,7 +12,7 @@
 - [2. DUT IP on the direct link](#2-dut-ip-on-the-direct-link)
 - [3. Steer GRE return + HA traffic through the fanout](#3-steer-gre-return--ha-traffic-through-the-fanout)
 - [4. IxNetwork traffic item construction](#4-ixnetwork-traffic-item-construction)
-- [5. Verification](#6-verification)
+- [5. Verification](#5-verification)
 - [Running the test](#running-the-test)
 - [Test Matrix](#test-matrix)
 
@@ -28,8 +28,9 @@ To generate that load we use an **Ixia (IxNetwork)** traffic generator instead
 of PTF — Ixia can sustain line-rate / millions-of-flows that PTF cannot. Ixia
 only has two ports in the testbed (**3.1 TX** and **3.2 RX**), so to get its
 traffic to and from the DUTs we add a **dedicated "direct" physical link** in
-the testbed: each DUT's `Ethernet96` is cabled to an L3 fanout switch, and all
-heavy traffic classes are deliberately steered over that link —
+the testbed: each DUT's `Ethernet96` (configurable) is cabled to an L3 fanout
+switch, and all heavy traffic classes are deliberately steered over that
+link —
 
 - **ingress** test traffic (Ixia → DUT),
 - **egress** GRE/NVGRE return (DUT → Ixia),
@@ -57,20 +58,14 @@ Ixia emulation IPs, the steered underlay prefixes and the stress-loop pacing —
 is read from a YAML config file rather than hardcoded.
 
 The default config is
-[`tests/ha/configs/ha_stress_ixia.yaml`](../../../../tests/ha/configs/ha_stress_ixia.yaml)
-(which doubles as a template). Point the test at your own testbed with:
-
-```bash
-./run_tests.sh -n <testbed> -d <duts> -H <dpus> -t t1-smartswitch-ha \
-    -c ha/test_ha_planned_shutdown_stress.py \
-    -e "--ha_stress_config=/abs/path/to/your_testbed.yaml"
-```
+[`tests/ha/configs/ha_stress_ixia.yaml`](../../../../tests/ha/configs/ha_stress_ixia.yaml),
+which doubles as a template and as the MtFuji reference testbed's values.
 
 Values that can be inferred from the DUTs (each DUT's Loopback0 and DPU PA
 subnet) are derived automatically, so most testbeds only need to edit the
 fanout/direct-link/Ixia sections. See
 [Configuration (make it your own)](#configuration-make-it-your-own) for the
-full key-by-key reference.
+full key-by-key reference and the command to point the test at your own YAML.
 
 ## Prerequisites
 
@@ -111,7 +106,7 @@ full key-by-key reference.
 - Topology on port 3.1 (TX): IP 10.99.1.2/30, gateway 10.99.1.1
 - Topology on port 3.2 (RX): IP 10.99.4.2/30, gateway 10.99.4.1
 - Traffic item: VxLAN(VNI=2001) wrapping inner IPv4/UDP|TCP, with the inner
-  L4 ports varied by a UDF to scale DPU flows (see section 5)
+  L4 ports varied by a UDF to scale DPU flows (see section 4)
 
 ## Configuration (make it your own)
 
@@ -123,7 +118,7 @@ Copy it, edit it for your testbed, and point the test at it:
 ```bash
 ./run_tests.sh -n <testbed> -d <duts> -H <dpus> -t t1-smartswitch-ha \
     -c ha/test_ha_planned_shutdown_stress.py \
-    -e "--ha_stress_config=/abs/path/to/my_testbed.yaml"
+    -e "--run-stress-tests --ha_stress_config=/abs/path/to/my_testbed.yaml"
 ```
 
 What you set vs. what is derived:
@@ -214,6 +209,10 @@ the DUTs):
 | PE_PA               | 101.1.2.3 (outer dst of GRE return)      |
 | VNI                 | 2001 (forward VxLAN), 100 (return NVGRE) |
 | Fanout IP           | 1.2.31.91 (admin/password, SONiC)        |
+
+> These are MtFuji *reference* values (see the Prerequisites caveat). The MACs
+> are informational only — the test is purely L3 and the fanout responds to
+> ARP, so no MAC is configured on the DUTs or in static routes.
 
 Traffic flow:
 
@@ -485,6 +484,7 @@ payload sent in.
 ## Running the test
 
 ```bash
+# --run-stress-tests is required to run the test (otherwise skipped)
 # --ha_pause_mode controls interactive pauses: none (default), ends, mid
 # --ha_stress_config is optional; omit it to use the bundled default
 # (tests/ha/configs/ha_stress_ixia.yaml).
@@ -497,8 +497,13 @@ payload sent in.
     -c ha/test_ha_planned_shutdown_stress.py \
     -f testbed.yaml \
     -i veos_vtb \
-    -e "--ha_stress_config configs/ha_stress_ixia.yaml --ha_pause_mode mid -s"
+    -e "--run-stress-tests --ha_stress_config configs/ha_stress_ixia.yaml --ha_pause_mode mid -s"
 ```
+
+> **Stress-test gating:** the test is decorated with `@pytest.mark.stress_test`
+> and is skipped unless `--run-stress-tests` is passed (enforced in
+> `tests/conftest.py`). This keeps it from running during normal full-suite
+> runs; you must pass `--run-stress-tests` (via `-e`) to execute it.
 
 **Pause modes (`--ha_pause_mode` option):**
 
