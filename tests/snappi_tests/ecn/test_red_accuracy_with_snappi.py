@@ -44,9 +44,6 @@ def test_red_accuracy(request,
     Returns:
         N/A
     """
-    # disable_test = request.config.getoption("--disable_ecn_snappi_test")
-    # if disable_test:
-    #     pytest.skip("test_red_accuracy is disabled")
 
     testbed_config, port_config_list, snappi_ports = tgen_port_info
 
