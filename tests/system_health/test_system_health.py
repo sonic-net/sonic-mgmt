@@ -15,6 +15,7 @@ from tests.common.helpers.thermal_control_test_helper import disable_thermal_pol
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu    # noqa F401
+from tests.platform_tests.cli.util import get_skip_mod_list
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -105,7 +106,18 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
     check_system_health_led_info(duthost)
+    skip_psus = get_skip_mod_list(duthost, ['psus'])
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
+        # A bare 'psu' ignore doesn't suppress the per-PSU presence check (only
+        # ignoring both 'psu' and 'pdb' does, see hardware_checker._check_psu_status).
+        # The bypass keys off the PSU name, so add each PSU absent via skip_modules
+        # to devices_to_ignore by name; healthd reloads and the summary recovers to OK.
+        if skip_psus:
+            config_path = DUT_CONFIG_FILE.format(duthost.facts['platform'])
+            config = json.loads(duthost.shell('cat {}'.format(config_path))['stdout'])
+            ignore_list = config.setdefault('devices_to_ignore', [])
+            ignore_list.extend(psu for psu in skip_psus if psu not in ignore_list)
+            duthost.copy(content=json.dumps(config, indent=4), dest=config_path)
         processes_status = duthost.all_critical_process_status()
         expect_error_dict = {}
         for container_name, processes in list(processes_status.items()):
