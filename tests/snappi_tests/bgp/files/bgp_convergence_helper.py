@@ -958,6 +958,7 @@ def get_RIB_IN_capacity(snappi_api,
             ipv4.address = temp_tg_port[0]['ip']
             ipv4.gateway = temp_tg_port[0]['peer_ip']
             ipv4.prefix = int(temp_tg_port[0]['prefix'])
+            tx_flow_name = [ipv4.name]
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
@@ -991,7 +992,7 @@ def get_RIB_IN_capacity(snappi_api,
                 as_path_segment.type = as_path_segment.AS_SEQ
                 as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
-            return rx_flow_name
+            return tx_flow_name, rx_flow_name
 
         def create_v6_topo():
             eth = config.devices[0].ethernets.add()
@@ -1003,6 +1004,7 @@ def get_RIB_IN_capacity(snappi_api,
             ipv6.address = temp_tg_port[0]['ipv6']
             ipv6.gateway = temp_tg_port[0]['peer_ipv6']
             ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
+            tx_flow_name = [ipv6.name]
             rx_flow_name = []
             for i in range(2, 3):
                 if len(str(hex(i).split('0x')[1])) == 1:
@@ -1037,21 +1039,25 @@ def get_RIB_IN_capacity(snappi_api,
                 as_path_segment.type = as_path_segment.AS_SEQ
                 as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
-            return rx_flow_name
+            return tx_flow_name, rx_flow_name
+
+        def createTrafficItem(traffic_name, src, dest, rate):
+            flow1 = config.flows.flow(name=str(traffic_name))[-1]
+            flow1.tx_rx.device.tx_names = src
+            flow1.tx_rx.device.rx_names = dest
+            flow1.size.fixed = 1024
+            flow1.rate.percentage = rate
+            flow1.metrics.enable = True
+            flow1.metrics.loss = True
+
         if route_type == 'IPv4':
-            rx_flows = create_v4_topo()
-            flow = config.flows.flow(name='IPv4_Traffic_%d' % routes)[-1]
+            tx_flow, rx_flows = create_v4_topo()
+            createTrafficItem('IPv4_Traffic_%d' % routes, tx_flow, rx_flows, 100)
         elif route_type == 'IPv6':
-            rx_flows = create_v6_topo()
-            flow = config.flows.flow(name='IPv6_Traffic_%d' % routes)[-1]
+            tx_flow, rx_flows = create_v6_topo()
+            createTrafficItem('IPv6_Traffic_%d' % routes, tx_flow, rx_flows, 100)
         else:
             raise Exception('Invalid route type given')
-        flow.tx_rx.device.tx_names = [config.devices[0].name]
-        flow.tx_rx.device.rx_names = rx_flows
-        flow.size.fixed = 1024
-        flow.rate.percentage = 100
-        flow.metrics.enable = True
-        flow.metrics.loss = True
         return config
 
     def run_traffic(routes):
