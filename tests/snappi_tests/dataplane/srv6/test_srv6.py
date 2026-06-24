@@ -6,7 +6,7 @@ from itertools import product
 # from rich import print as pr
 import collections
 
-from tests.snappi_tests.srv6.files.srv6_telemetry import poll_srv6_perf_stats
+from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
 from snappi_tests.dataplane.files.helper import create_traffic_items, start_stop, get_stats
 
 from tests.common.helpers.assertions import pytest_assert
