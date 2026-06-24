@@ -92,15 +92,14 @@ def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     config_reload(duthost, safe_reload=True)
 
 
-def load_minigraph_with_golden_empty_input(duthost, safe_reload_ignored_dockers=[]):
+def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
     initial_host_config = get_running_config(duthost)
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
-    reload_minigraph_with_golden_config(
-        duthost, empty_input, safe_reload_ignored_dockers=safe_reload_ignored_dockers)
+    reload_minigraph_with_golden_config(duthost, empty_input)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
