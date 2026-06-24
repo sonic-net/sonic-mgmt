@@ -10,6 +10,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.errors import RunAnsibleModuleFail
 from pytest_ansible.results import ModuleResult
 from tests.common.platform.ssh_utils import ssh_authorize_local_user
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ class SonicAsic(object):
         Returns:
             [dict]: [the output of show interface status command]
         """
-        if self.sonichost.facts['asic_type'] != "cisco-8000":
+        if not is_cisco_device(self.sonichost):
             if self.sonichost.is_supervisor_node():
                 logger.debug("Skipping show_interface on supervisor node %s asic %s",
                              self.sonichost.hostname, self.namespace)

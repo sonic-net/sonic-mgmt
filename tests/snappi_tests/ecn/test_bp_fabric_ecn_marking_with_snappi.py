@@ -81,11 +81,16 @@ def test_fabric_ecn_marking_lossless_prio(
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        get_snappi_ports (pytest fixture): Snappi port fixture
         tbinfo (pytest fixture): fixture provides information about testbed
+        disable_pfcwd (pytest fixture): disables PFC watchdog
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        tgen_port_info (pytest fixture): Snappi testbed and port details
+        supervisor_dut_cisco (pytest fixture): Cisco supervisor DUT handle
+        validate_snappi_ports (pytest fixture): validates selected Snappi ports
     Returns:
         N/A
     """
@@ -125,11 +130,15 @@ def test_backplane_ecn_marking_lossless_prio(
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        get_snappi_ports (pytest fixture): Snappi port fixture
         tbinfo (pytest fixture): fixture provides information about testbed
+        disable_pfcwd (pytest fixture): disables PFC watchdog
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        tgen_port_info (pytest fixture): Snappi testbed and port details
+        validate_snappi_ports (pytest fixture): validates selected Snappi ports
     Returns:
         N/A
     """

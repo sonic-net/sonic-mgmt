@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="module")
 def number_of_tx_rx_ports():
     yield (1, 1)
 
@@ -35,13 +35,12 @@ def test_red_accuracy(request,
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        tgen_port_info (pytest fixture): Snappi testbed and port details
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
     Returns:
         N/A
     """

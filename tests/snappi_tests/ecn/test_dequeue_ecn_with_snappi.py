@@ -42,12 +42,10 @@ def test_dequeue_ecn(request,
         fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
-        line_card_choice: Line card choice to be mentioned in the variable.py file
-        linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        get_snappi_ports (pytest fixture): Snappi port fixture
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        tgen_port_info (pytest fixture): Snappi testbed and port details
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
     Returns:
         N/A
     """

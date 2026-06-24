@@ -127,16 +127,16 @@ def test_ecn_marking_port_toggle(
     """
     Verify ECN marking both pre and post port shut/no shut toggle
     Args:
-        request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        get_snappi_ports (pytest fixture): Snappi port fixture
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        disable_pfcwd (pytest fixture): disables PFC watchdog
+        tgen_port_info (pytest fixture): Snappi testbed and port details
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
     Returns:
         N/A
     """
@@ -184,16 +184,16 @@ def test_ecn_marking_lossless_prio(
     """
     Verify ECN marking on lossless prio with same DWRR weight
     Args:
-        request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         tbinfo (pytest fixture): fixture provides information about testbed
-        test_flow_percent: Percentage of flow rate used for the two lossless prio
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        disable_pfcwd (pytest fixture): disables PFC watchdog
+        test_flow_percent (list): percentages for the two lossless priorities
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        tgen_port_info (pytest fixture): Snappi testbed and port details
     Returns:
         N/A
     """
@@ -237,16 +237,16 @@ def test_ecn_marking_ect_marked_pkts(
     """
     Verify ECN marking for ECT marked pkts
     Args:
-        request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        get_snappi_ports (pytest fixture): Snappi port fixture
         tbinfo (pytest fixture): fixture provides information about testbed
-        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
+        disable_pfcwd (pytest fixture): disables PFC watchdog
+        tgen_port_info (pytest fixture): Snappi testbed and port details
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
     Returns:
         N/A
     """

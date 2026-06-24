@@ -12,6 +12,7 @@ from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 from tests.common.platform.interface_utils import get_dut_interfaces_status
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +181,7 @@ class MultiAsicSonicHost(object):
         prompts for LC passwords and hangs. Return empty ModuleResult instead.
         Exception: cisco-8000 supervisor has its own interfaces.
         """
-        if self.sonichost.facts['asic_type'] != "cisco-8000":
+        if not is_cisco_device(self.sonichost):
             if self.sonichost.is_supervisor_node():
                 logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
                 return ModuleResult(ansible_facts={

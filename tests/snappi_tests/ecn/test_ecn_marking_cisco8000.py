@@ -59,7 +59,6 @@ def test_ecn_multi_lossless_prio(snappi_api,
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
@@ -67,7 +66,7 @@ def test_ecn_multi_lossless_prio(snappi_api,
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
-        test_flow_percent: percent of traffic for the test
+        skip_ecn_multilossless_prio (pytest fixture): validated testbed objects for this test
 
     Returns:
         N/A

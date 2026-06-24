@@ -233,8 +233,6 @@ def run_fabric_ecn_marking_test(api,
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         test_prio_list (list): priority of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
@@ -273,8 +271,6 @@ def run_backplane_ecn_marking_test(
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        conn_data (dict): the dictionary returned by conn_graph_fact.
-        fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         test_prio_list (list): priority of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).

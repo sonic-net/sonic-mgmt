@@ -36,12 +36,13 @@ def test_ecn_marking_with_pfc_quanta_variance(
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
+        fanout_graph_facts_multidut (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         tbinfo (pytest fixture): fixture provides information about testbed
-        test_flow_percent: Percentage of flow rate used for the two lossless prio
+        test_ecn_config (tuple): ECN config tuple of (gmin MB, gmax MB, gdrop %)
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        tgen_port_info (pytest fixture): Snappi testbed and port details
     Returns:
         N/A
     """

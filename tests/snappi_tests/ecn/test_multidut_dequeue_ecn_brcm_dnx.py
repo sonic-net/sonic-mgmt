@@ -253,6 +253,15 @@ def verify_ecn(ip_pkts,
         - Determines and counts if packet is ECN marked or not.
         - Determines ECN marked packet less than Kmin, between Kmin and Kmax and more than Kmax.
 
+    Args:
+        ip_pkts (list): captured IP packets
+        kmin (int): minimum ECN threshold in bytes
+        kmax (int): maximum ECN threshold in bytes
+        pmax (int): maximum ECN marking probability
+        dut_list (list): list of DUT hosts for cleanup
+        data_flow_pkt_size (int): packet size used for data flow
+        data_flow_pkt_count (int): total number of packets sent in data flow
+
     Returns:
         N/A
     """
