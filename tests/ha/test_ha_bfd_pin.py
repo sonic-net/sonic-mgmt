@@ -1,6 +1,5 @@
 import logging
 
-import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 import time
@@ -10,12 +9,17 @@ from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
-from tests.common.config_reload import config_reload
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
-from ha_utils import bfd_pin_primary, bfd_unpin_primary, bfd_pin_both_sides, bfd_unpin_both_sides
+from ha_utils import (
+    bfd_pin_primary,
+    bfd_unpin_primary,
+    bfd_pin_both_sides,
+    bfd_unpin_both_sides,
+    parallel_config_reload_dpuhosts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,52 +48,10 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"Starting DASH configuration on {duthost.hostname} dpu {dpuhost.dpu_index} "
-                    f"with {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    for dpuhost in dpuhosts:
-        logger.info(f"config reload on {dpuhost.hostname}")
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """

@@ -1,6 +1,5 @@
 import logging
 from multiprocessing.pool import ThreadPool
-import concurrent.futures
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
@@ -14,20 +13,20 @@ from constants import (
     REMOTE_PTF_RECV_INTF
 )
 from gnmi_utils import (
-    apply_messages,
     apply_gnmi_cert,
     generate_gnmi_cert,
     recover_gnmi_cert
 )
 from packets import outbound_pl_packets
 from tests.common.utilities import wait_until
-from tests.common.config_reload import config_reload
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert, pytest_require as pt_require
 from tests.common.platform.processes_utils import wait_critical_processes
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
 from tests.ha.conftest import get_interface_ip
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
+from ha_utils import parallel_config_reload_dpuhosts
 
 
 logger = logging.getLogger(__name__)
@@ -41,11 +40,6 @@ pytestmark = [
 THRESHOLD_LOSS_PERCENT = 2.0
 RATE_PPS = 20
 INITIAL_SEND_COUNT = 100
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="function")
@@ -124,52 +118,10 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"Starting DASH configuration on {duthost.hostname}"
-                    "dpu {dpuhost.dpu_index} with {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """
@@ -255,7 +207,7 @@ def test_ha_npu_reboot(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to standby received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -265,7 +217,7 @@ def test_ha_npu_reboot(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet to primary received - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
