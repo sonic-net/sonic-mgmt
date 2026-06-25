@@ -76,7 +76,7 @@ def get_expected_bgpmon_routes(setup_info):
 def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811
                                       ptfhost, bgpmon_setup_teardown):
     """
-    Before applying allow list, verify bgp policy by default config
+    Before applying allow list, verify the bgp policy by default config
     """
     permit = True if get_default_action() == "permit" else False
     duthost = duthosts[rand_one_dut_hostname]
