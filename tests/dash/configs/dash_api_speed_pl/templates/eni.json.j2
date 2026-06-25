@@ -1,0 +1,29 @@
+[
+    {"DASH_VNET_TABLE:vnet-{{ r_vni_id }}": {"vni": {{ r_vni_id }}, "guid": "{{ vnet_guid }}"}, "OP": "SET"},
+    {
+        "DASH_ENI_TABLE:eni-{{ eni }}": {
+            "eni_id": "eni-{{ eni }}",
+            "mac_address": "{{ mac_address }}",
+            "underlay_ip": "{{ underlay_ip }}",
+            "admin_state": "enabled",
+            "vnet": "vnet-{{ r_vni_id }}",
+            "pl_underlay_sip": "{{ pl_underlay_sip }}",
+            "pl_sip_encoding": "{{ pl_sip_encoding }}",
+            "trusted_vnis_list": [{"value": {{ vm_vni }}}]
+        },
+        "OP": "SET"
+    },
+{# route-group-{{ eni }} is created in the per-ENI grp file (pushed first) so the SAI group exists before these routes — see render.py grp->eni->map order. #}
+{% for r in routes %}
+{% if r.routing_type == 'vnet' %}
+    {"DASH_ROUTE_TABLE:route-group-{{ eni }}:{{ r.ip }}/{{ r.mask }}": {"routing_type": "vnet", "vnet": "vnet-{{ r_vni_id }}"}, "OP": "SET"},
+{% else %}
+    {"DASH_ROUTE_TABLE:route-group-{{ eni }}:{{ r.ip }}/{{ r.mask }}": {"routing_type": "vnet_direct", "vnet": "vnet-{{ r_vni_id }}", "overlay_ip": "{{ r.overlay_ip }}"}, "OP": "SET"},
+{% endif %}
+{% endfor %}
+    {"DASH_ROUTE_TABLE:route-group-{{ eni }}:{{ local_ip }}/32": {"routing_type": "vnet", "vnet": "vnet-{{ r_vni_id }}"}, "OP": "SET"}{% if include_route_rule %},{% endif %}
+
+{% if include_route_rule %}
+    {"DASH_ROUTE_RULE_TABLE:eni-{{ eni }}:100:{{ vtep_remote }}/32": {"action_type": "decap", "priority": 0}, "OP": "SET"}
+{% endif %}
+]

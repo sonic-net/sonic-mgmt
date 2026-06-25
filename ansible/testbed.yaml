@@ -301,3 +301,36 @@
   auto_recover: 'True'
   netns_mgmt_ip: 10.255.0.211/16
   comment: dualtor setup example
+
+- conf-name: keysight-nss01
+  group-name: vms-keysight-1
+  topo: smartswitch-nvidia
+  ptf_image_name: docker-ptf
+  ptf: ptf_keysight-nss01
+  ptf_ip: 10.36.78.200/24    # UPDATE: IP of the PTF Docker container on server_keysight
+  ptf_ipv6:
+  server: server_keysight
+  vm_base:
+  dut:
+    - keysight-nss01
+    - keysight-nss01-dpu0
+    - keysight-nss01-dpu1
+  inv_name: lab
+  auto_recover: 'False'
+  comment: Keysight SmartSwitch 10.36.78.150 - DPU speed test (DPU0/DPU1)
+
+- conf-name: keysight-css01
+  group-name: vms-keysight-2
+  topo: smartswitch-cisco
+  ptf_image_name: docker-ptf
+  ptf: ptf_keysight-css01
+  ptf_ip: 10.36.77.200/24
+  ptf_ipv6:
+  server: server_keysight
+  vm_base:
+  dut:
+    - keysight-css01
+    - keysight-css01-dpu0
+  inv_name: lab
+  auto_recover: 'False'
+  comment: Keysight Cisco SmartSwitch 10.36.77.121 - DPU0 speed test

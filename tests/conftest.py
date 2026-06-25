@@ -1335,6 +1335,10 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
+    if tbinfo['topo']['name'].startswith('smartswitch'):
+        logging.info("SmartSwitch topology has no fanout")
+        return fanout_hosts
+
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
