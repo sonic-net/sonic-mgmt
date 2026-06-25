@@ -183,7 +183,6 @@ def make_bmc_loganalyzer(duthost, marker_prefix):
     return BmcLogAnalyzer(duthost, marker_prefix)
 
 
-
 def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
     """
     Historical / pre-existing-state scan that walks all rotated syslog files
