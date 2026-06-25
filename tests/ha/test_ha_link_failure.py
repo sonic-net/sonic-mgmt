@@ -279,6 +279,13 @@ def test_ha_link_down(
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
     _, exp_dpu_to_vm_pkt_standby = inbound_pl_packets(dash_pl_config[1])
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
+
     packet_sending_event = threading.Event()
     stop_link_action_event = threading.Event()
 
