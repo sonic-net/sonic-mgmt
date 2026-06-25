@@ -51,9 +51,10 @@ class TestNeighborMacNoPtf:
 
         logger.info(f"back plane ports: {sorted(back_plane_ports)}")
 
+        # config_facts formats VLAN_MEMBER as {Vlan55: {Ethernet224: {tagging_mode: ...}}}.
         vlan_names = set()
         for vlan_name, members in cfg_facts.get("VLAN_MEMBER", {}).items():
-            for port in members:
+            for port in members.keys():
                 if port in back_plane_ports:
                     vlan_names.add(vlan_name)
 
@@ -64,10 +65,10 @@ class TestNeighborMacNoPtf:
                 try:
                     iface = ip_interface(addr)
                     if iface.version == 4:
-                        # Redis KEYS glob uses prefix match on dest; subnet (20.0.200.0/24)
-                        # and host (20.0.200.254/32) need separate filter prefixes.
-                        back_plane_port_ips.append(str(iface.network.network_address))
+                        # Redis KEYS glob prefix-matches dest; filter both subnet and /32 host.
+                        # e.g. Vlan55 20.0.200.254/24 -> 20.0.200.0 and 20.0.200.254
                         back_plane_port_ips.append(str(iface.ip))
+                        back_plane_port_ips.append(str(iface.network.network_address))
                 except ValueError as e:
                     logger.warning(f"Error parsing VLAN {vlan_name} address {addr}: {e}")
 
@@ -80,8 +81,8 @@ class TestNeighborMacNoPtf:
                         module_ignore_errors=True, verbose=False)["stdout"].strip()
                     if output:
                         iface = ip_interface(output)
-                        back_plane_port_ips.append(str(iface.network.network_address))
                         back_plane_port_ips.append(str(iface.ip))
+                        back_plane_port_ips.append(str(iface.network.network_address))
                 except Exception as e:
                     logger.warning(f"Error getting back plane {port} IP: {e}")
 
