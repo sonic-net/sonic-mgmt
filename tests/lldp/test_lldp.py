@@ -195,18 +195,55 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
-    for k, v in list(lldpctl_facts['lldpctl'].items()):
-        try:
-            hostip = v['chassis']['mgmt-ip']
-        except Exception:
-            logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
-            hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
+    # Read LLDP via json so a port's multiple neighbors (the real VM neighbor +
+    # the fanout switch on physical testbeds) are all visible. The keyvalue
+    # lldpctl_facts collapses a port's neighbors field-by-field (last write
+    # wins), which can mix the VM's identity with the physical fanout's
+    # mgmt-ip; the SNMP reverse-check then queries the fanout (which does not
+    # answer SNMP) instead of the cEOS VM and times out intermittently.
+    # Verify only the minigraph neighbors, and use the minigraph-provisioned
+    # mgmt addr (the address the framework uses to reach the VM) as the SNMP
+    # target rather than any LLDP-advertised mgmt-ip.
+    lldp_json = json.loads(duthost.shell(
+        "docker exec lldp{} /usr/sbin/lldpctl -f json".format('' if asic is None else asic))['stdout'])
+    lldp_interfaces = lldp_json.get('lldp', {}).get('interface', [])
+    if isinstance(lldp_interfaces, dict):
+        lldp_interfaces = [lldp_interfaces]
+    skip_re = re.compile("(?:%s)" % "|".join(["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list))
+    learned = {}
+    for iface in lldp_interfaces:
+        if not iface:
+            continue
+        local_port = list(iface.keys())[0]
+        if skip_re.match(local_port):
+            continue
+        info = iface[local_port] or {}
+        chassis = info.get('chassis', {}) or {}
+        port = info.get('port', {}) or {}
+        cname = list(chassis.keys())[0] if chassis else ''
+        learned.setdefault(local_port, []).append({
+            'name': cname,
+            'port_id': (port.get('id', {}) or {}).get('value', ''),
+        })
 
+    for k in config_facts['DEVICE_NEIGHBOR']:
+        if k not in learned:
+            continue
+        exp_name = config_facts['DEVICE_NEIGHBOR'][k]['name']
+        # Tolerate extra neighbors (e.g. fanout): require the expected VM neighbor.
+        match = next((n for n in learned[k] if n['name'] == exp_name), None)
+        assert match is not None, (
+            "LLDP neighbor name mismatch on {}. Expected '{}' among learned {}."
+        ).format(k, exp_name, [n['name'] for n in learned[k]])
+        # Use the minigraph-provisioned mgmt addr (the VM the framework reaches),
+        # not any LLDP-advertised mgmt-ip (which can be the fanout on physical tb).
+        hostip = nei_meta.get(exp_name, {}).get('mgmt_addr')
+        if not hostip:
+            pytest.fail("No mgmt_addr for neighbor {} in DEVICE_NEIGHBOR_METADATA".format(exp_name))
+        neighbor_interface = match['port_id']
         if request.config.getoption("--neighbor_type") == 'eos':
-            neighbor_interface = v['port']['ifname']
             snmp_community = eos['snmp_rocommunity']
         else:
-            neighbor_interface = v['port']['local']
             snmp_community = sonic['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
