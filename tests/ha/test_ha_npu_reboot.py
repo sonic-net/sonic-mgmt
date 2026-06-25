@@ -17,7 +17,7 @@ from gnmi_utils import (
     generate_gnmi_cert,
     recover_gnmi_cert
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.utilities import wait_until
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert, pytest_require as pt_require
@@ -165,6 +165,12 @@ def test_ha_npu_reboot(
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
 
     stop_event = threading.Event()
     action_event = threading.Event()

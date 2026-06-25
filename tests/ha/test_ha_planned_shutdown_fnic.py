@@ -9,7 +9,7 @@ import threading
 import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
 from ha_utils import (
@@ -23,7 +23,7 @@ from ha_utils import (
 
 logger = logging.getLogger(__name__)
 
-# Distinct inner UDP ports used only after standby shutdown to create a new
+# Distinct inner TCP ports used only after standby shutdown to create a new
 # flow on the standalone primary and verify it is bulk-synced to the standby.
 POST_SHUTDOWN_INNER_SPORT = 50001
 POST_SHUTDOWN_INNER_DPORT = 50002
@@ -101,7 +101,8 @@ def test_ha_planned_shutdown(
             dport = random.randint(49152, 65535)
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
                 dash_pl_config[0], encap_proto, floating_nic=True,
-                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+                tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
             )
             testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
             testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
@@ -155,7 +156,8 @@ def test_ha_planned_shutdown(
         dport = random.randint(49152, 65535)
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
             dash_pl_config[0], encap_proto, floating_nic=True,
-            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+            tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
         )
         testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
@@ -190,7 +192,8 @@ def test_ha_planned_shutdown(
     vm_post_sd, exp_post_sd = outbound_pl_packets(
         dash_pl_config[0], encap_proto, floating_nic=True,
         inner_sport=POST_SHUTDOWN_INNER_SPORT, inner_dport=POST_SHUTDOWN_INNER_DPORT,
-        vni=pl.ENI_TRUSTED_VNI
+        vni=pl.ENI_TRUSTED_VNI,
+        tcp_flag_syn=True,  # post-shutdown packet uses a new 5-tuple; SYN creates the flow.
     )
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)
