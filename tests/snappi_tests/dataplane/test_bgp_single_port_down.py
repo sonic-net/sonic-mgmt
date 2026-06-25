@@ -89,8 +89,12 @@ def test_bgp_t0_port_shutdown(
         logger.info("All ports Tx and Rx rates are within 0.05% of average rates")
         logger.info("Shutting down {} port of {} dut !!".format(port, device))
         flap_dut_obj.command("sudo config interface shutdown {}\n".format(port))
-        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
-
+        wait_for(
+            lambda: is_traffic_converged(snappi_api),
+            "Traffic to Converge",
+            interval_seconds=5,
+            timeout_seconds=180
+        )
     run_bgp_convergence_event(
         snappi_api, snappi_config, db_reporter, snappi_extra_params,
         ip_version, event_type, METRIC_DESCRIPTION,
@@ -166,7 +170,12 @@ def test_bgp_route_withdrawal(
         cs.protocol.route.names = [snappi_obj_handles["Rx"]["network_group"][1]]
         snappi_api.set_control_state(cs)
         end_time = time.time()
-        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
+        wait_for(
+            lambda: is_traffic_converged(snappi_api),
+            "Traffic to Converge",
+            interval_seconds=5,
+            timeout_seconds=180
+        )
         logger.info('Time taken to apply acl and route withdraw on snappi port: {} (s)'.
                     format(end_time - start_time))
 
