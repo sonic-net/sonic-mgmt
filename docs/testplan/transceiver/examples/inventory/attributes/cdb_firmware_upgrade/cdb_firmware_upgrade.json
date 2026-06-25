@@ -13,7 +13,7 @@
     },
     "dut": {
         "lab-dut-01": {
-            "port_under_test": ["Ethernet0", "Ethernet8"],
+            "ports_under_test": ["Ethernet0", "Ethernet8"],
             "restore_initial_inactive_firmware": true
         }
     }
