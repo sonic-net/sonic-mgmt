@@ -86,7 +86,7 @@ class TestBmcctldDaemon:
         - Service is running and responsive
         """
 
-        # Bound log verification to this reboot window.
+        # Bound log verification to this reboot window via persistent event.log.
         la = make_bmc_loganalyzer(self.duthost, "bmcctld_init_after_reboot")
         marker = la.init()
 
@@ -100,7 +100,7 @@ class TestBmcctldDaemon:
         pytest_assert(daemon_status == "RUNNING", "bmcctld daemon should be running")
         pytest_assert(daemon_pid != -1, "bmcctld daemon should have a valid pid")
 
-        # Verify startup path from marker-bounded post-reboot logs.
+        # Verify startup path from marker-bounded post-reboot event.log entries.
         la.match_regex = [r".*STARTUP:.*liquid.*", r".*STARTUP:.*power_on.*"]
         startup_result = la.analyze(marker, fail=False)
         startup_lines = []
@@ -108,9 +108,9 @@ class TestBmcctldDaemon:
             startup_lines.extend(lines)
         startup = "\n".join(startup_lines)
         if startup:
-            logger.info(f"bmcctld startup path: {startup}")
+            logger.info(f"bmcctld startup path (event.log):\n{startup}")
         else:
-            logger.info(f"No bmcctld startup path log found in marker-bounded window ({BMC_EVENT_LOG})")
+            logger.info(f"No bmcctld STARTUP entries found in {BMC_EVENT_LOG} since reboot")
 
         # Verify CHASSIS_MODULE_INFO
         info_dict = redis_hgetall(self.duthost, STATE_DB,
@@ -188,19 +188,17 @@ class TestBmcctldDaemon:
         orig_admin = redis_hget(self.duthost, CONFIG_DB,
                                 'CHASSIS_MODULE|SWITCH-HOST', 'admin_status') or 'up'
         new_admin = 'down' if orig_admin.lower() == 'up' else 'up'
-        marker = la.init()
+        marker = la.init(log_target='syslog')
         try:
             redis_hset(self.duthost, CONFIG_DB, 'CHASSIS_MODULE|SWITCH-HOST',
                        admin_status=new_admin)
-            logger.info(f"Trigger 1 [CONFIG_DB CHASSIS_MODULE admin_status]: {orig_admin} → {new_admin}")
             time.sleep(15)
         finally:
             redis_hset(self.duthost, CONFIG_DB, 'CHASSIS_MODULE|SWITCH-HOST',
                        admin_status=orig_admin)
         la.match_regex = [r".*SWITCH-HOST.*"]
-        r1 = la.analyze(marker, fail=False)
+        r1 = la.analyze(marker, fail=False, log_target='syslog')
         trigger_results['CHASSIS_MODULE'] = r1.get("total", {}).get("match", 0) > 0
-        logger.info(f"Trigger 1: {'logged' if trigger_results['CHASSIS_MODULE'] else 'no log within 15s'}")
 
         # --- Trigger 2: STATE_DB SYSTEM_LEAK_STATUS device_leak_status ---
         # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is CRITICAL-only).
@@ -210,11 +208,8 @@ class TestBmcctldDaemon:
         if orig_leak == 'CRITICAL':
             logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: already CRITICAL - skipping")
         else:
-            # Re-init (not update_marker_prefix) so the new start marker is also
-            # written to additional_files (event.log); update_marker_prefix only
-            # writes to syslog.
             la.marker_prefix = "bmcctld_event_trigger_minor_leak"
-            marker = la.init()
+            marker = la.init(log_target='syslog')
             la.match_regex = []
             # Pause thermalctld so it doesn't overwrite the injected device_leak_status.
             with pause_pmon_daemon(self.duthost, 'thermalctld'):
@@ -222,16 +217,14 @@ class TestBmcctldDaemon:
                     redis_hset(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status='MINOR')
-                    logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → MINOR")
                     time.sleep(15)
                 finally:
                     redis_hset(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                                device_leak_status=orig_leak)
             la.match_regex = [r".*[Ll]eak.*"]
-            r2 = la.analyze(marker, fail=False)
+            r2 = la.analyze(marker, fail=False, log_target='syslog')
             trigger_results['SYSTEM_LEAK_STATUS'] = r2.get("total", {}).get("match", 0) > 0
-            logger.info(f"Trigger 2: {'logged' if trigger_results['SYSTEM_LEAK_STATUS'] else 'no log within 15s'}")
             # MINOR is syslog-only: must NOT appear in event.log.
             minor_in_eventlog = []
             for path, lines in (r2.get("match_messages") or {}).items():
@@ -276,27 +269,22 @@ class TestBmcctldDaemon:
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
         alert_key = 'test_trigger_alert'
         la.marker_prefix = "bmcctld_event_trigger_rack_mgr_alert"
-        marker = la.init()
+        marker = la.init(log_target='syslog')
         la.match_regex = []
         try:
             redis_hset(self.duthost, STATE_DB,
                        f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}', severity='MINOR')
-            logger.info("Trigger 3 [STATE_DB RACK_MANAGER_ALERT]: severity=MINOR")
             time.sleep(15)
         finally:
             redis_del(self.duthost, STATE_DB, f'{RACK_MANAGER_ALERT_TABLE}|{alert_key}')
         la.match_regex = [r".*(rack.*alert|rack_mgr|RACK_MGR).*"]
-        r3 = la.analyze(marker, fail=False)
+        r3 = la.analyze(marker, fail=False, log_target='syslog')
         trigger_results['RACK_MANAGER_ALERT'] = r3.get("total", {}).get("match", 0) > 0
-        logger.info(f"Trigger 3: {'logged' if trigger_results['RACK_MANAGER_ALERT'] else 'no log within 15s'}")
 
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        if logged:
-            logger.info(f"Event logging confirmed for: {logged}")
-        if not_logged:
-            logger.info(f"No log detected (may require hardware) for: {not_logged}")
+        logger.info(f"Event logging confirmed: {logged}; not detected: {not_logged}")
         pytest_assert(
             any(trigger_results.values()),
             f"bmcctld did not log any event after HSET on: {list(trigger_results.keys())}"
@@ -445,7 +433,6 @@ class TestBmcctldDaemon:
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
-            la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             try:
                 pdu_ctrl = get_pdu_controller(self.duthost)
             except Exception as e:
@@ -458,11 +445,9 @@ class TestBmcctldDaemon:
             outlet_ids = [o['outlet_id'] for o in outlets if 'outlet_id' in o]
             pytest_assert(outlet_ids, "PDU controller returned no outlets for BMC")
 
-            # Set the marker BEFORE power cycle. The syslog marker is written to
-            # tmpfs (lost on power loss), but the marker is also written to the
-            # persistent event.log (additional_files). After BMC comes back up,
-            # LogAnalyzer scans event.log from the pre-power-loss marker forward,
-            # so STARTUP logs written on the coming-up path are captured correctly.
+            # Set marker in event.log BEFORE power cycle. event.log is persistent;
+            # syslog is tmpfs and is wiped on power loss so cannot be used here.
+            la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             marker_b = la.init()
 
             for outlet in outlet_ids:
@@ -474,23 +459,19 @@ class TestBmcctldDaemon:
 
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
 
-            la.match_regex = [r".*STARTUP:.*issuing power_on.*", r".*issuing power_on.*"]
+            la.match_regex = [r".*issuing power_on.*", r".*STARTUP:.*"]
             b_result = la.analyze(marker_b, fail=False)
             b_lines = []
             for lines in (b_result.get("match_messages") or {}).values():
                 b_lines.extend(lines)
             journal_b = "\n".join(b_lines)
-            logger.info(f"Scenario B (BMC power-loss) journal:\n{journal_b}")
+            logger.info(f"Scenario B (BMC power-loss) event.log entries:\n{journal_b}")
 
-            # Match "STARTUP: Switch-Host OFFLINE — issuing power_on" (lowercase 'issuing').
-            poweron_match = re.search(
-                r'(\S+\s+\S+\s+\S+).*?issuing power_on',
-                journal_b
-            )
+            poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
                 poweron_match,
                 "After PDU-induced BMC power-loss reboot, expected "
-                "'STARTUP: ... issuing power_on' log not found in bounded window"
+                "'STARTUP: ... issuing power_on' log not found in event.log"
             )
         finally:
             if orig_delay and orig_delay.isdigit():

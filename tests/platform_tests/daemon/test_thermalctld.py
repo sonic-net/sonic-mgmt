@@ -165,15 +165,12 @@ class TestThermalctldDaemon:
 
         trigger_results = {}
 
-        # Bracket the trigger with LogAnalyzer (rotation-safe; also scans event.log).
+        # Bracket the trigger with BmcLogAnalyzer scanning syslog (live, no reboot).
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_event_trigger_leak")
-        marker = la.init()
+        marker = la.init(log_target='syslog')
         try:
             inject_leak_sensor(self.duthost, 'test_sensor_leaking',
                                leaking='Yes', leak_sensor_status='Good', leak_severity='MINOR')
-            logger.info("Trigger [leaking sensor]: leaking=Yes leak_sensor_status=Good")
-            logger.info("Expected syslog: 'Liquid cooling leakage sensor test_sensor_leaking reported leaking'")
-
             in_db = wait_until(15, 2, 0, sensor_has_value, LEAKING_SENSOR_KEY, 'leaking', 'Yes')
             trigger_results['leaking_sensor_in_db'] = in_db
             # Give thermalctld a hardware-poll cycle to react.
@@ -182,13 +179,9 @@ class TestThermalctldDaemon:
             redis_del(self.duthost, STATE_DB, LEAKING_SENSOR_KEY)
 
         la.match_regex = [r".*Liquid cooling leak(age|ing) sensor .* reported leaking.*"]
-        result = la.analyze(marker, fail=False)
+        result = la.analyze(marker, fail=False, log_target='syslog')
         match_count = result.get("total", {}).get("match", 0)
         trigger_results['leaking_sensor_syslog'] = match_count > 0
-        if match_count:
-            logger.info(f"Trigger: log confirmed 'reported leaking' ({match_count} match[es])")
-        else:
-            logger.info("Trigger: no log match - thermalctld logs on hardware poll, not DB write")
 
         # Historical informational scan (rotation-safe via zgrep).
         existing = bmc_log_zgrep(
@@ -201,10 +194,7 @@ class TestThermalctldDaemon:
 
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        if logged:
-            logger.info(f"Confirmed for: {logged}")
-        if not_logged:
-            logger.info(f"Not confirmed (liquid cooling hardware not present): {not_logged}")
+        logger.info(f"Confirmed: {logged}; not confirmed: {not_logged}")
         pytest_assert(
             any(trigger_results.values()),
             f"thermalctld event trigger test found no evidence for: {list(trigger_results.keys())}"
@@ -393,9 +383,9 @@ class TestThermalctldDaemon:
 
         # Inject a test TEMPERATURE_INFO entry with temp above critical threshold
         TEST_SENSOR = "TEMPERATURE_INFO:test_critical_thermal_monitor"
-        # Bracket the inject with LogAnalyzer (syslog + event.log windowed scan).
+        # Bracket the inject with BmcLogAnalyzer scanning syslog (live, no reboot).
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_switch_host_thermal_breach")
-        marker = la.init()
+        marker = la.init(log_target='syslog')
         try:
             redis_hset(self.duthost, STATE_DB, TEST_SENSOR,
                        temperature='120.0',
@@ -404,22 +394,17 @@ class TestThermalctldDaemon:
                        low_threshold='-10.0',
                        warning='False',
                        timestamp='2099-01-01T00:00:00')
-            logger.info(f"Injected test TEMPERATURE_INFO entry: {TEST_SENSOR} (120C > 80C critical)")
-
             # Wait for thermalctld to poll and log the breach (up to 2 update cycles).
             time.sleep(90)
         finally:
             redis_del(self.duthost, STATE_DB, TEST_SENSOR)
 
         la.match_regex = [r".*CRITICAL chassis thermal.*test_critical.*"]
-        breach_result = la.analyze(marker, fail=False)
+        breach_result = la.analyze(marker, fail=False, log_target='syslog')
         if breach_result.get("total", {}).get("match", 0) > 0:
             logger.info("CRITICAL chassis thermal log confirmed for injected sensor")
         else:
-            logger.info(
-                "No CRITICAL chassis thermal log found within 90s — "
-                "thermalctld may use a longer polling interval on this platform"
-            )
+            logger.info("No CRITICAL chassis thermal log found within 90s")
 
 
 # ---------------------------------------------------------------------------

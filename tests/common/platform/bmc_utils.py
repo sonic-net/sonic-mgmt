@@ -52,21 +52,136 @@ def get_switch_host_or_skip_test(duthost):
 
 # --- Log helpers -----------------------------------------------------------
 
-def make_bmc_loganalyzer(duthost, marker_prefix, include_event_log=True):
-    """
-    Return a LogAnalyzer configured for BMC tests.
+LOG_TARGET_EVENT_LOG = 'event_log'
+LOG_TARGET_SYSLOG = 'syslog'
 
-    With include_event_log=True, /host/bmc/event.log is added to additional_files
-    so init() writes a sentinel marker line into it and analyze() extracts the
-    same windowed slice from both syslog (rotation-safe, incl. .gz) and event.log.
+
+class BmcLogAnalyzer:
+    """
+    Unified log analyzer for BMC tests supporting both /host/bmc/event.log and syslog.
+
+    The standard LogAnalyzer.analyze() always calls extract_log on /var/log/syslog*
+    to locate the start marker. On BMC platforms the syslog is on tmpfs and is
+    wiped on every reboot/power-loss, so the marker is lost and extract_log throws.
+
+    This class provides the same init()/analyze() interface as LogAnalyzer but
+    lets the caller choose the log target per analyze() call:
+
+      log_target='event_log' (default):
+        - init()    : writes start marker into /host/bmc/event.log (persistent).
+        - analyze() : scans event.log from the start marker forward.
+        - Use for post-reboot checks — syslog is wiped, event.log survives.
+
+      log_target='syslog':
+        - init()    : delegates to LogAnalyzer.init() (writes marker to syslog).
+        - analyze() : delegates to LogAnalyzer.analyze() (scans /var/log/syslog*).
+        - Use for live trigger-and-verify checks where no reboot occurs.
+
+    Usage:
+        la = make_bmc_loganalyzer(duthost, "my_test")
+
+        # post-reboot (default):
+        marker = la.init()
+        reboot(...)
+        result = la.analyze(marker)               # uses event_log
+
+        # live trigger (no reboot):
+        marker = la.init(log_target='syslog')
+        trigger_something()
+        result = la.analyze(marker, log_target='syslog')
+
+    Tests using this MUST be decorated with @pytest.mark.disable_loganalyzer.
+    """
+
+    def __init__(self, duthost, marker_prefix):
+        self.duthost = duthost
+        self.marker_prefix = marker_prefix.replace(' ', '_')
+        self.match_regex = []
+        self.ignore_regex = []
+        self._la = None  # lazy LogAnalyzer for syslog path
+
+    def _get_syslog_analyzer(self):
+        """Lazily create and return the underlying LogAnalyzer for syslog scans."""
+        if self._la is None:
+            from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+            self._la = LogAnalyzer(ansible_host=self.duthost,
+                                   marker_prefix=self.marker_prefix)
+        self._la.match_regex = list(self.match_regex)
+        self._la.ignore_regex = list(self.ignore_regex)
+        return self._la
+
+    def init(self, log_target=LOG_TARGET_EVENT_LOG):
+        """Write a start marker and return the marker string.
+
+        For event_log: appends marker line to /host/bmc/event.log (persistent).
+        For syslog: delegates to LogAnalyzer.init() (writes to syslog via loganalyzer.py).
+        """
+        import time
+        if log_target == LOG_TARGET_SYSLOG:
+            return self._get_syslog_analyzer().init()
+
+        marker = "{}.{}".format(self.marker_prefix,
+                                time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime()))
+        start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell(
+            "echo '{}' >> {}".format(start_line, BMC_EVENT_LOG),
+            module_ignore_errors=True,
+        )
+        logger.debug("BmcLogAnalyzer: wrote marker '%s' to %s", start_line, BMC_EVENT_LOG)
+        return marker
+
+    def analyze(self, marker, fail=False, log_target=LOG_TARGET_EVENT_LOG):
+        """Scan logs from the start marker forward.
+
+        log_target='event_log' (default): scans /host/bmc/event.log only.
+        log_target='syslog': delegates to LogAnalyzer.analyze() (/var/log/syslog*).
+
+        Returns the same dict shape as LogAnalyzer.analyze():
+          {"total": {"match": <n>}, "match_messages": {"<path>": [lines]}}
+        """
+        import re as _re
+
+        if log_target == LOG_TARGET_SYSLOG:
+            return self._get_syslog_analyzer().analyze(marker, fail=fail)
+
+        start_line = "start-LogAnalyzer-{}".format(marker)
+        result = self.duthost.shell(
+            "awk '/{}/ {{found=1; next}} found' {} 2>/dev/null".format(
+                start_line.replace("'", r"'\''"), BMC_EVENT_LOG),
+            module_ignore_errors=True,
+        )
+        content = (result.get('stdout', '') or '').strip()
+
+        match_lines = []
+        if content and self.match_regex:
+            combined = _re.compile('|'.join(self.match_regex))
+            match_lines = [ln for ln in content.splitlines() if combined.search(ln)]
+
+        logger.debug("BmcLogAnalyzer.analyze(event_log): %d match lines for marker '%s'",
+                     len(match_lines), marker)
+        return {
+            "total": {"match": len(match_lines),
+                      "expected_match": 0,
+                      "expected_missing_match": 0},
+            "match_messages": {BMC_EVENT_LOG: match_lines},
+            "match_files": {BMC_EVENT_LOG: {"match": len(match_lines), "expected_match": 0}},
+            "expect_messages": {},
+            "unused_expected_regexp": [],
+        }
+
+
+def make_bmc_loganalyzer(duthost, marker_prefix):
+    """
+    Return a BmcLogAnalyzer for BMC tests.
+
+    Supports both event.log (default, persistent — use for post-reboot checks)
+    and syslog (live — use for trigger-and-verify checks with no reboot).
 
     Tests using this MUST be decorated with @pytest.mark.disable_loganalyzer to
     avoid interference with the session-scoped LogAnalyzer fixture.
     """
-    from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-    additional = {BMC_EVENT_LOG: ''} if include_event_log else {}
-    return LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix,
-                       additional_files=additional)
+    return BmcLogAnalyzer(duthost, marker_prefix)
+
 
 
 def bmc_log_zgrep(duthost, pattern, tail=20, files='/var/log/syslog*'):
