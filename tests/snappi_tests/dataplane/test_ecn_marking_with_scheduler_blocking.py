@@ -43,6 +43,7 @@ def port_groups(duthosts, get_snappi_ports):
 @pytest.mark.parametrize("lossless_prio", [0])
 def test_ecn_marking_lossless_queue(
     duthosts,
+    dutconfig_checkpoint,  # noqa: F811
     snappi_api,
     get_snappi_ports,
     set_primary_chassis,  # noqa: F811

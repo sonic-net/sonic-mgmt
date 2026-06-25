@@ -1,4 +1,11 @@
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
+from typing import Any, Dict
+from tabulate import tabulate
+from tests.common.gu_utils import (
+    create_checkpoint,
+    delete_checkpoint,
+    rollback_or_reload,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -194,18 +201,37 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
                         (subnet_type == 'ipv6' and ip_obj.version == 6)):
                     peer_to_gateway[port] = (str(ip_obj.ip), ip_obj.network.prefixlen)
         mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+        valid_ports = []
         for index, port in enumerate(get_snappi_ports):
             if port['duthost'] == duthost:
                 # Get the IP address of the peer port
                 port['router_mac_address'] = port['duthost'].facts['router_mac']
                 port['src_mac_address'] = mac_address_generator[index]
-                port['ipGateway'] = peer_to_gateway.get(port['peer_port'])[0]
-                port['ipAddress'] = gateway_to_bgp.get(port['ipGateway'])['ipAddress']
-                port['asn'] = gateway_to_bgp.get(port['ipGateway'])['asn']
-                port['prefix'] = peer_to_gateway.get(port['peer_port'])[1]
-                port['subnet'] = str(peer_to_gateway.get(port['peer_port'])[0]) \
-                                    + "/" + str(peer_to_gateway.get(port['peer_port'])[1])  # noqa: E127
-    return get_snappi_ports
+                peer_info = peer_to_gateway.get(port['peer_port'])
+                if peer_info is None:
+                    logger.warning(
+                        "Port %s not found in peer_to_gateway mapping, skipping",
+                        port['peer_port']
+                    )
+                    continue
+                port['ipGateway'] = peer_info[0]
+                bgp_info = gateway_to_bgp.get(port['ipGateway'])
+                if bgp_info is None:
+                    logger.warning(
+                        "No BGP neighbor found for gateway %s on port %s, skipping",
+                        port['ipGateway'], port['peer_port']
+                    )
+                    continue
+                port['ipAddress'] = bgp_info['ipAddress']
+                port['asn'] = bgp_info['asn']
+                port['prefix'] = peer_info[1]
+                port['subnet'] = str(peer_info[0]) + "/" + str(peer_info[1])
+                valid_ports.append(port)
+            else:
+                # Port belongs to different dut, keep it if it was already processed
+                if 'ipAddress' in port:
+                    valid_ports.append(port)
+    return valid_ports
 
 
 def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa F811
@@ -431,11 +457,12 @@ def create_traffic_items(config, snappi_extra_params):
         test_flow.size.fixed = traffic["frame_size"]
         test_flow.rate.percentage = traffic["line_rate"]
         if traffic.get("is_rdma", False):
-            _, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = traffic["prio"]
             ipv4.priority.dscp.phb.values = [
                 ipv4.priority.dscp.phb.DEFAULT,
             ]
-            ipv4.priority.dscp.phb.value = 4
+            ipv4.priority.dscp.phb.value = traffic["dscp_value"]
             ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
         if traffic.get("latency", False):
             # Latency Config
@@ -706,6 +733,130 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
     return True
 
 
+def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
+    """
+    Args:
+        api (pytest fixture): Snappi API
+    """
+    def deep_getattr(obj, attr, default=None):
+        try:
+            for part in attr.split('.'):
+                obj = getattr(obj, part)
+            return obj
+        except AttributeError:
+            return default
+    request = api.metrics_request()
+    if stat_name == "Data Plane Port Statistics":
+        ixnet = api._ixnetwork
+        dp_metrics = StatViewAssistant(ixnet, stat_name)
+        df = pd.DataFrame(dp_metrics.Rows.RawData, columns=dp_metrics.ColumnHeaders)
+        df = df[columns] if columns else df
+        cols = ['Tx Frame Rate', 'Rx Frame Rate']
+        df[cols] = df[cols].apply(pd.to_numeric, errors='coerce')
+        if return_type == 'print':
+            logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+        elif return_type == 'df':
+            return df
+    if stat_name == "Traffic Item Statistics":
+        request.flow.flow_names = []
+        stat_obj = api.get_metrics(request).flow_metrics
+        column_headers = [
+            "bytes_rx", "bytes_tx", "frames_rx", "frames_rx_rate", "frames_tx", "frames_tx_rate",
+            "loss", "name", "port_rx", "port_tx", "rx_l1_rate_bps", "rx_rate_bps", "rx_rate_bytes", "rx_rate_kbps",
+            "rx_rate_mbps", "transmit", "tx_l1_rate_bps", "tx_rate_bps", "tx_rate_bytes", "tx_rate_kbps",
+            "tx_rate_mbps", "latency.average_ns", "latency.maximum_ns", "latency.minimum_ns"
+        ]
+    elif stat_name == "Port Statistics":
+        request.port.port_names = []
+        stat_obj = api.get_metrics(request).port_metrics
+        column_headers = [
+            "bytes_rx", "bytes_rx_rate", "bytes_tx", "bytes_tx_rate", "capture", "frames_rx", "frames_rx_rate",
+            "frames_tx", "frames_tx_rate", "link", "location", "name"]
+    rows = [
+        [deep_getattr(stat, column, None) for column in column_headers]
+        for stat in stat_obj
+    ]
+    tdf = pd.DataFrame(rows, columns=column_headers)
+    selected_columns = columns if columns else column_headers
+    df = tdf[selected_columns]
+    if return_type == 'print':
+        logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+    elif return_type == 'df':
+        return df
+    else:
+        return stat_obj
+
+
+def _normalize_stat_rows(rows: Any) -> list:
+    """Normalize StatViewAssistant.Rows into list[dict].
+
+    Handles cases where each row element is:
+    - a dict-like (already usable)
+    - a string with lines like "Key: value"
+    - an object whose str() contains the key/value lines
+    """
+    norm = []
+    if rows is None:
+        return norm
+    for r in rows:
+        # If it's already a dict-like
+        if isinstance(r, dict):
+            norm.append(r)
+            continue
+        # Try to get a mapping attribute
+        try:
+            items = getattr(r, 'items', None)
+            if callable(items):
+                norm.append(dict(r.items()))
+                continue
+        except Exception:
+            pass
+
+        # Fallback: string parse
+        s = str(r)
+        # Split into lines, parse 'key: value' pairs
+        entry: Dict[str, str] = {}
+        for line in s.splitlines():
+            if ':' in line:
+                key, val = line.split(':', 1)
+                entry[key.strip()] = val.strip()
+        if entry:
+            norm.append(entry)
+        else:
+            # last resort: store full string under 'value'
+            norm.append({'value': s})
+    return norm
+
+
+def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
+    """Print selected columns from a User Defined Statistics StatViewAssistant.
+
+    Args:
+        stat_obj: a StatViewAssistant instance (already created).
+
+    Returns:
+        pandas.DataFrame or None
+    """
+    try:
+        rows = _normalize_stat_rows(stat_obj.Rows)
+        if not rows:
+            logger.info("User Defined Statistics: empty rows")
+            return None
+        df = pd.DataFrame(rows)
+        df = df.reindex(columns=selected_cols)
+        numeric_cols = ["Tx Frames", "Rx Frames", "Frames Delta", "Loss %", "Tx Frame Rate", "Rx Frame Rate"]
+        try:
+            df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        except Exception:
+            pass
+        df = df.fillna("")
+        logger.info("\n%s", tabulate(df, headers="keys", tablefmt="psql"))
+        return df
+    except Exception as e:
+        logger.warning("Failed to tabulate UD_Statistics: %s", e)
+        return None
+
+
 def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
     logger.info("%s %s", operation.capitalize(), op_type)
 
@@ -748,6 +899,22 @@ def check_bgp_state(snappi_api, subnet_type):
         bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
         assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
         logger.info("BGP v6 Session State is UP")
+
+
+@pytest.fixture(scope="module", autouse=False)
+def dutconfig_checkpoint(duthosts):
+    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
+
+    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
+    rollback_or_reload() falls back to config_reload if the rollback fails, so
+    the DUT always returns to a clean state -- no try/finally needed in the tests.
+    """
+    for duthost in duthosts:
+        create_checkpoint(duthost)
+    yield
+    for duthost in duthosts:
+        rollback_or_reload(duthost)
+        delete_checkpoint(duthost)
 
 
 def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):

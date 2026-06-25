@@ -184,6 +184,7 @@ def _run_one_iteration(
 @pytest.mark.parametrize("lossless_prio", [0])
 def test_ecn_accuracy_scheduler(
     duthosts,
+    dutconfig_checkpoint,  # noqa: F811
     snappi_api,
     get_snappi_ports,   # noqa: F811
     set_primary_chassis,  # noqa: F811
