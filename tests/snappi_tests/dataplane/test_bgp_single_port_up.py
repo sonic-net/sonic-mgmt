@@ -1,6 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, \
-    dutconfig_checkpoint  # noqa: F401
+    dutconfig_checkpoint, wait_for  # noqa: F401
 from snappi_tests.dataplane.files.helper import (
     configure_acl_for_route_withdrawl, start_stop, get_stats, check_bgp_state,
     build_bgp_convergence_config, run_bgp_convergence_event,
@@ -33,6 +33,7 @@ ROUTE_RANGES = {
 @pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10, 25, 50, 75, 100])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
+@pytest.mark.parametrize("max_convergence_ms", [4000])
 def test_bgp_t0_port_startup(
     duthosts,
     dutconfig_checkpoint,  # noqa: F811, F401
@@ -47,6 +48,7 @@ def test_bgp_t0_port_startup(
     tbinfo,
     frame_rate,
     frame_size,
+    max_convergence_ms
 ):
     """
     Measure BGP dataplane convergence after a single Rx port comes back up via a
@@ -88,7 +90,7 @@ def test_bgp_t0_port_startup(
         pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap Up")
         logger.info("Starting Up {} port of {} dut !!".format(port, device))
         flap_dut_obj.command("sudo config interface startup {}\n".format(port))
-        wait(90, "For statistics to be collected")
+        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
         assert_rx_ports_receiving(snappi_api)
 
     run_bgp_convergence_event(
@@ -97,12 +99,14 @@ def test_bgp_t0_port_startup(
         disrupt=disrupt,
         delta_zero_msg="Delta Frames is 0 after flap, which means no packet drop occurred",
         not_converged_msg="Traffic did not converge after link down",
+        max_convergence_ms=max_convergence_ms,
     )
 
 
 @pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10, 25, 50, 75, 100])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
+@pytest.mark.parametrize("max_convergence_ms", [4000])
 def test_bgp_route_injection(
     duthosts,
     dutconfig_checkpoint,  # noqa: F811, F401
@@ -116,6 +120,7 @@ def test_bgp_route_injection(
     tbinfo,
     frame_rate,
     frame_size,
+    max_convergence_ms
 ):
     """
     Measure BGP dataplane convergence after a single Rx port's routes are
@@ -182,4 +187,5 @@ def test_bgp_route_injection(
         delta_zero_msg="Delta Frames is 0 after removing applied acl and route Injection, "
                        "which means no packet drop occurred",
         not_converged_msg="Traffic did not converge after route injection",
+        max_convergence_ms=max_convergence_ms
     )
