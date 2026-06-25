@@ -70,7 +70,6 @@ def test_bgp_t0_port_startup(
     # Flap a randomly selected T0 DUT's port that connects to the T1 (from links.csv)
     # instead of the default snappi-facing Rx port.
     snappi_extra_params.FLAP_DETAILS = select_random_t0_t1_port(duthosts, conn_graph_facts, dut_type="t0")
-    snappi_extra_params.FLAP_DETAILS = {'device_name': 'sonic-s6100-t0-dut1', 'port_name': 'Ethernet1'}
     flap_dut_obj = next(
         (dut for dut in duthosts if dut.hostname == snappi_extra_params.FLAP_DETAILS["device_name"]),
         None
