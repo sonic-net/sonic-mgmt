@@ -111,13 +111,9 @@ and `GRE.proto == session.gre_type`. This three-tuple uniquely identifies frames
 under test and is robust against ASIC-specific ERSPAN encapsulation differences (e.g. extra
 ERSPAN II/III header bytes between GRE and the inner frame).
 
-Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 100` and `N = sample_rate`) so
-the expected mirrored count is `~NUM_SAMPLES = 100` regardless of `N`, and assert the observed count
+Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 1000` and `N = sample_rate`) so
+the expected mirrored count is `~NUM_SAMPLES = 1000` regardless of `N`, and assert the observed count
 is within `[950, 1050]` (`NUM_SAMPLES +- 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
-This is a deliberately tight tolerance: under a binomial approximation
-(`sigma = sqrt(NUM_SAMPLES) = 10`), +-5% is only ~0.5 sigma, so the single-run pass rate is modest
-and the tests rely on reruns (or a larger `NUM_SAMPLES`) for CI stability, in exchange for detecting
-any `sample_rate` misprogramming of >=5%.
 
 ## Test cases
 
@@ -139,29 +135,27 @@ valid boolean value.
 
 ### Configuration and CLI validation
 
-#### Test case test_create_erspan_session_with_sample_rate
-**Objective:** Valid `sample_rate` is accepted and written to CONFIG_DB.
+#### Test case test_create_erspan_session_config_fields
+**Objective:** Valid `sample_rate` and/or `truncate_size` are accepted and written to CONFIG_DB
+together with an explicit mirror direction.
+
+**Parametrized cases (`create_kwargs`):** `sample_rate` only, `truncate_size` only, and both
+together. Each case is additionally parametrized over direction `rx`/`tx`/`both`. A direction is
+skipped when the platform does not advertise the matching per-direction sampling capability
+(ingress for `rx`, egress for `tx`, both for `both`), and the `truncate_size` cases are skipped
+when truncation is unsupported.
 
 **Steps:**
-- Run `config mirror_session erspan add ... --sample_rate 50000`.
+- Run `config mirror_session erspan add ... <src_port> <direction> [--sample_rate N] [--truncate_size B]`.
 - Read `CONFIG_DB MIRROR_SESSION|<name>`.
 
-**Pass criteria:** CLI exits 0; CONFIG_DB field `sample_rate` equals the configured value.
-
-#### Test case test_create_erspan_session_with_truncate_size
-**Objective:** Valid `truncate_size` is accepted and written to CONFIG_DB.
-
-**Pass criteria:** CLI exits 0; CONFIG_DB field `truncate_size` equals the configured value.
-
-#### Test case test_create_erspan_session_with_both
-**Objective:** Both parameters can be configured together on the same session.
-
-**Pass criteria:** Both fields present in CONFIG_DB with the correct values.
+**Pass criteria:** CLI exits 0; each configured field plus `direction` (uppercase) is present in
+CONFIG_DB with the expected value.
 
 #### Test case test_remove_erspan_session_with_sampling
 **Objective:** Session removal cleans up a sampling-enabled session completely.
 
-**Steps:** Create a session with `--sample_rate 256`, remove it, check CONFIG_DB key existence.
+**Steps:** Create a session with `--sample_rate 256` and a direction (parametrized `rx`/`tx`/`both`), remove it, check CONFIG_DB key existence.
 
 **Pass criteria:** `MIRROR_SESSION|<name>` no longer exists in CONFIG_DB (redis `exists` == 0).
 
@@ -200,7 +194,7 @@ the flag.
 Requires both sampling and truncation support (skipped otherwise).
 
 **Steps:**
-- Create a session with `--sample_rate 512 --truncate_size 128`.
+- Create a session with `--sample_rate 512 --truncate_size 128` and a direction (parametrized `rx`/`tx`/`both`).
 - Run `show mirror_session`.
 - Locate the row for this session and split it into fields.
 

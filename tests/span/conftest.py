@@ -204,21 +204,6 @@ def erspan_capabilities(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def skip_if_any_sampling_unsupported(erspan_capabilities):
-    '''Skip if the platform supports neither ingress nor egress sampled mirroring.
-
-    OR-gate for config-only tests (which have no dataplane direction). Direction-aware
-    dataplane tests must use skip_if_ingress_sampling_unsupported /
-    skip_if_egress_sampling_unsupported instead, so they do not run on a platform that
-    only supports the other direction and then fail spuriously.
-    '''
-    ingress = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false")
-    egress = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false")
-    if ingress.lower() != 'true' and egress.lower() != 'true':
-        pytest.skip("Skip: platform does not support sampled port mirroring (PORT_*_SAMPLE_MIRROR_CAPABLE != true)")
-
-
-@pytest.fixture(scope="module")
 def skip_if_ingress_sampling_unsupported(erspan_capabilities):
     '''Skip if the platform does not support RX (ingress) sampled port mirroring.
 
@@ -261,6 +246,60 @@ def skip_if_truncation_unsupported(erspan_capabilities):
         pytest.skip(
             "Skip: platform does not support sample packet truncation "
             "(SAMPLEPACKET_TRUNCATION_CAPABLE != true)")
+
+
+def _sampling_direction_supported(erspan_capabilities, direction):
+    '''Return True if the platform advertises the sampled-mirroring capability that
+    `direction` (rx/tx/both) requires (ingress for rx, egress for tx, both for both).'''
+    ingress = erspan_capabilities.get("PORT_INGRESS_SAMPLE_MIRROR_CAPABLE", "false").lower() == 'true'
+    egress = erspan_capabilities.get("PORT_EGRESS_SAMPLE_MIRROR_CAPABLE", "false").lower() == 'true'
+    if direction in ('rx', 'both') and not ingress:
+        return False
+    if direction in ('tx', 'both') and not egress:
+        return False
+    return True
+
+
+@pytest.fixture
+def sampling_direction(request, erspan_capabilities):
+    '''Parametrized sampled-mirroring direction (rx/tx/both) for config tests.
+
+    Sampled mirroring requires an explicit direction (swss), and each direction needs
+    the matching per-direction capability. Skip the parametrized direction when the
+    platform does not advertise it, so we never configure an unsupported direction (which
+    orchagent would reject with an ERR log).
+
+    Usage:
+        @pytest.mark.parametrize('sampling_direction', ['rx', 'tx', 'both'], indirect=True)
+        def test_something(sampling_direction): ...
+    '''
+    direction = request.param
+    if not _sampling_direction_supported(erspan_capabilities, direction):
+        pytest.skip("Skip: platform does not support {} sampled port mirroring".format(direction))
+    return direction
+
+
+@pytest.fixture
+def mirror_session_cleanup(duthosts, rand_one_dut_hostname):
+    '''Register mirror-session names for guaranteed removal at teardown.
+
+    A lightweight alternative to per-test try/finally remove_mirror_session boilerplate for
+    config-only tests. Unlike the erspan_session fixture it does no routing/STATE_DB setup.
+
+    Usage:
+        session_name = mirror_session_cleanup("my_session")
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    session_names = []
+
+    def register(session_name):
+        session_names.append(session_name)
+        return session_name
+
+    yield register
+
+    for session_name in session_names:
+        remove_mirror_session(duthost, session_name)
 
 
 @pytest.fixture(scope="module")

@@ -5,6 +5,8 @@ Helper functions for ERSPAN sampled port mirroring with truncation tests.
 import time
 import logging
 
+from tests.common.helpers.assertions import pytest_assert
+
 logger = logging.getLogger(__name__)
 
 # Sampling verification constants.
@@ -130,6 +132,30 @@ def remove_mirror_session(duthost, session_name):
         module_ignore_errors=True)
 
 
+def get_mirror_session_config_db_field(duthost, session_name, field):
+    '''Return a CONFIG_DB MIRROR_SESSION field value (empty string when unset).'''
+    output = duthost.shell(
+        'redis-cli -n 4 hget "MIRROR_SESSION|{}" "{}"'.format(session_name, field))
+    return output['stdout'].strip()
+
+
+def mirror_session_config_db_exists(duthost, session_name):
+    '''Return True if the CONFIG_DB MIRROR_SESSION key for session_name exists.'''
+    output = duthost.shell(
+        'redis-cli -n 4 exists "MIRROR_SESSION|{}"'.format(session_name))
+    return output['stdout'].strip() == '1'
+
+
+def assert_mirror_session_config_db_fields(duthost, session_name, expected_fields):
+    '''Assert each CONFIG_DB MIRROR_SESSION field matches its expected value.'''
+    for field, expected in expected_fields.items():
+        actual = get_mirror_session_config_db_field(duthost, session_name, field)
+        pytest_assert(
+            actual == str(expected),
+            "CONFIG_DB MIRROR_SESSION|{} field '{}' should be {!r}, got {!r}".format(
+                session_name, field, str(expected), actual))
+
+
 def create_erspan_session_config(duthost, session_name, sample_rate=None,
                                  truncate_size=None, source_port=None,
                                  direction=None, module_ignore_errors=False):
@@ -149,6 +175,9 @@ def create_erspan_session_config(duthost, session_name, sample_rate=None,
 
     Returns the duthost.command result dict.
     '''
+    if direction is not None and source_port is None:
+        raise ValueError(
+            'direction is only applied together with source_port; pass source_port too')
     remove_mirror_session(duthost, session_name)
     cmd = 'config mirror_session erspan add {} {} {} {} {} {} {}'.format(
         session_name, ERSPAN_SRC_IP, ERSPAN_DST_IP,
