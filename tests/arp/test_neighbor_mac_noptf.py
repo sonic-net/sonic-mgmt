@@ -62,6 +62,8 @@ class TestNeighborMacNoPtf:
         vlan_interface = cfg_facts.get("VLAN_INTERFACE", {})
         for vlan_name in vlan_names:
             for addr in vlan_interface.get(vlan_name, {}):
+                if "/" not in addr:
+                    continue
                 try:
                     iface = ip_interface(addr)
                     if iface.version == 4:
