@@ -617,3 +617,13 @@ def get_bgp_ips_for_topology(topology_type, vendor):
 # =============================================================================
 # END OF BGP OUTBOUND ROUTE CONVERGENCE CONFIGURATIONS
 # =============================================================================
+# AI Stress case Common Variables
+pfcQueueGroupSize = 4
+pfcQueueValueDict = {0: 0,
+                     1: 1,
+                     2: 0,
+                     3: 3,
+                     4: 2,
+                     5: 0,
+                     6: 1,
+                     7: 0}
