@@ -212,6 +212,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                         cur_idx += 4
             port_alias_to_name_map['etp25a'] = "Ethernet512"
             port_alias_to_name_map['etp25b'] = "Ethernet513"
+        elif hwsku == "M2-W6940-64X1-FR4":
+            for i in range(1, 65):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
         elif hwsku == "Arista-7050QX32S-Q32":
             for i in range(5, 29):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 5) * 4)
