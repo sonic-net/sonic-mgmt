@@ -35,6 +35,10 @@ PACKET_COUNT = 100
 QUEUE_SETTLE_TIME_SECS = 2
 # Unicast queues that require the ECN bit set in the packet TOS field
 ECN_QUEUES = {3, 4}
+# IP TTL value used in test packets
+PACKET_IP_TTL = 64
+# Packet length (bytes) used in test packets
+PACKET_LEN = 100
 
 
 @pytest.fixture(scope='module')
@@ -48,9 +52,9 @@ def chassis_port_info(duthosts, tbinfo):
 
     Returns:
         dict: mapping PTF port index to a dict with keys
-            ``peer_ip``    – IP address of the PTF end of the link (used as dst IP),
-            ``port_name``  – DUT interface name (e.g. ``'Ethernet0'``),
-            ``duthost``    – :class:`MultiAsicSonicHost` instance for this port,
+            ``peer_ip`` – IP address of the PTF end of the link (used as dst IP),
+            ``port_name`` – DUT interface name (e.g. ``'Ethernet0'``),
+            ``duthost`` – :class:`MultiAsicSonicHost` instance for this port,
             ``router_mac`` – the DUT's chassis-wide router MAC.
     """
     port_info = {}
@@ -113,7 +117,7 @@ def chassis_dscp_queue_map(dut_qos_maps_module):  # noqa: F811
     dscp_queue_map = {}
     seen_queues = set()
     for dscp_str, tc in sorted(dscp_to_tc_map.items(), key=lambda x: int(x[0])):
-        if str(tc) == '7':
+        if tc == '7':
             continue
         queue_str = tc_to_q_map.get(tc)
         if queue_str is None:
@@ -164,7 +168,14 @@ def _get_egress_queue_pkt_counts(duthost, port_name):
         count_str = stats.get('totalpacket', '0')
         if not count_str or count_str == 'N/A':
             count_str = '0'
-        queue_counts[queue_num] = int(count_str.replace(',', ''))
+        try:
+            queue_counts[queue_num] = int(count_str.replace(',', ''))
+        except ValueError:
+            logger.warning(
+                "Unexpected counter value for %s %s: %r; treating as 0",
+                port_name, key, count_str
+            )
+            queue_counts[queue_num] = 0
 
     return queue_counts
 
@@ -203,9 +214,12 @@ def test_chassis_qos_full_mesh_traffic(ptfadapter, chassis_port_info, chassis_ds
     dscp_to_queue = chassis_dscp_queue_map
     num_dscp = len(dscp_to_queue)
 
-    # Skip on VS platform – virtual switches do not maintain real queue counters
-    asic_type = chassis_port_info[all_port_ids[0]]['duthost'].facts.get('asic_type', '')
-    if asic_type == 'vs':
+    # Skip on VS platform – virtual switches do not maintain real queue counters.
+    # Check all DUTs since a chassis may theoretically have multiple line cards.
+    if any(
+        info['duthost'].facts.get('asic_type', '') == 'vs'
+        for info in chassis_port_info.values()
+    ):
         pytest.skip("Chassis QoS full mesh test is not supported on VS platform")
 
     logger.info(
@@ -255,8 +269,8 @@ def test_chassis_qos_full_mesh_traffic(ptfadapter, chassis_port_info, chassis_ds
                     ip_src=src_peer_ip,
                     ip_dst=dst_peer_ip,
                     ip_tos=ip_tos,
-                    ip_ttl=64,
-                    pktlen=100,
+                    ip_ttl=PACKET_IP_TTL,
+                    pktlen=PACKET_LEN,
                 )
                 testutils.send(ptfadapter, src_port_id, pkt, count=PACKET_COUNT)
 
