@@ -5395,13 +5395,13 @@ ssh/test_ssh_default_password:
   skip:
     reason: "Skip because the default password test is no longer appropriate after password rotation."
     conditions:
-      - "'vpp' not in topo_name"
+      - "asic_type not in ['vpp']"
 
 ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions:
-      - "'vpp' not in topo_name"
+      - "asic_type not in ['vpp']"
 
 #######################################
 #####             stress          #####
