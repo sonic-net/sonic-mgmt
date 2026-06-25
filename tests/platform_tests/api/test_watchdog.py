@@ -288,10 +288,9 @@ class TestWatchdogApi(PlatformApiTestBase):
 class TestWatchdogPunching(PlatformApiTestBase):
     def test_punching_arm(self, platform_api_conn, conf):   # noqa: F811
         """watchdog is punched periodically without explicit arm calls"""
-        if not conf["has_watchdog_punching"]:
-            pytest.skip(
-                "skip test for watchdog punching due to lack of watchdog punching"
-            )
+        punching_period = conf.get("watchdog_punching_period_seconds")
+        if punching_period is None:
+            pytest.skip("skip test for watchdog punching: watchdog_punching_period_seconds not configured")
 
         remaining_time_before = watchdog.get_remaining_time(platform_api_conn)
         self.expect(
@@ -299,11 +298,18 @@ class TestWatchdogPunching(PlatformApiTestBase):
             "watchdog should be armed with positive remaining_time",
         )
 
-        time.sleep(remaining_time_before + TEST_WAIT_TIME_SECONDS)
+        time.sleep(punching_period)
 
         remaining_time_after = watchdog.get_remaining_time(platform_api_conn)
         self.expect(
             watchdog.is_armed(platform_api_conn) and remaining_time_after > 0,
             "Watchdog should be re-armed by puncher",
+        )
+        self.expect(
+            remaining_time_after > remaining_time_before - punching_period,
+            "Watchdog remaining_time {} seconds should have been refreshed by puncher; "
+            "expected more than {} seconds".format(
+                remaining_time_after, remaining_time_before - punching_period
+            ),
         )
         self.assert_expectations()
