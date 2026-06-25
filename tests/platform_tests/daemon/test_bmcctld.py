@@ -433,6 +433,7 @@ class TestBmcctldDaemon:
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
+            pdu_ctrl = None
             try:
                 pdu_ctrl = get_pdu_controller(self.duthost)
             except Exception as e:
