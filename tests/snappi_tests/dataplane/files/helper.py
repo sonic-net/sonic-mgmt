@@ -75,6 +75,7 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    #
         for index, slave in enumerate(slave_chassis, start=2)
     ]
 
+
 def get_autoneg_fec(duthosts, get_snappi_ports):
     duthost_processed = []
     for port in get_snappi_ports:
@@ -309,7 +310,7 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa 
         subnet_tracker.add(subnet)
         subnet_tracker = list(subnet_tracker)
         all_vlan_gateway_ip = list(all_vlan_gateway_ip)
-        mac_address_generator = get_macs("AA0%d00000000"%dut_index, count=len(get_snappi_ports))
+        mac_address_generator = get_macs("AA0%d00000000" % dut_index, count=len(get_snappi_ports))
         ip_addresses = get_addrs_in_subnet(
             subnet_tracker[0],
             number_of_ip=len(get_snappi_ports),
@@ -999,6 +1000,7 @@ def packet_loss_duration_ms(flow_stat):
     Returns ``(delta_frames, pkt_loss_duration_ms)``.
     """
     delta_frames = flow_stat.frames_tx - flow_stat.frames_rx
+
     pkt_loss_duration = 1000 * (delta_frames / flow_stat.frames_tx_rate)
     return delta_frames, pkt_loss_duration
 
@@ -1069,7 +1071,7 @@ def measure_and_record_convergence(
     delta_frames, pkt_loss_duration = packet_loss_duration_ms(flow_stats[0])
     logger.info("Delta Frames : {}".format(delta_frames))
     if convergence == "rate_within":
-        frame_rate_difference = abs(int(flow_stats[0].frames_tx_rate) - int(flow_stats[0].frames_rx_rate))
+        frame_rate_difference = abs(float(flow_stats[0].frames_tx_rate) - float(flow_stats[0].frames_rx_rate))
         logger.info("Frames Tx Rate : {}".format(flow_stats[0].frames_tx_rate))
         logger.info("Frames Rx Rate : {}".format(flow_stats[0].frames_rx_rate))
         logger.info("Frame Rate Difference : {}".format(frame_rate_difference))
@@ -1127,9 +1129,6 @@ def run_bgp_convergence_event(
             delta_zero_msg=delta_zero_msg, not_converged_msg=not_converged_msg,
             rate_varying_msg=rate_varying_msg,
         )
-    except Exception as e:
-        logger.error("Error during packet loss duration calculation: {}".format(e))
-        pytest.fail("Test failed due to exception: {}".format(e))
     finally:
         if cleanup is not None and cleanup_first:
             cleanup()

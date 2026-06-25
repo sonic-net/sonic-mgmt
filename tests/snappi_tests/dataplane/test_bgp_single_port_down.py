@@ -1,5 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, dutconfig_checkpoint  # noqa: F401
+from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, \
+    dutconfig_checkpoint, wait_for  # noqa: F401
 from snappi_tests.dataplane.files.helper import (
     configure_acl_for_route_withdrawl, start_stop, get_stats, check_bgp_state,
     build_bgp_convergence_config, run_bgp_convergence_event,
@@ -32,6 +33,7 @@ ROUTE_RANGES = {
 @pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10, 25, 50, 75, 100])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
+@pytest.mark.parametrize("max_convergence_ms", [4000])
 def test_bgp_t0_port_shutdown(
     duthosts,
     dutconfig_checkpoint,   # noqa: F811, F401
@@ -46,6 +48,7 @@ def test_bgp_t0_port_shutdown(
     tbinfo,
     frame_rate,
     frame_size,
+    max_convergence_ms
 ):
     """
     Measure BGP dataplane convergence after a single Rx port goes down via a
@@ -86,7 +89,7 @@ def test_bgp_t0_port_shutdown(
         logger.info("All ports Tx and Rx rates are within 0.05% of average rates")
         logger.info("Shutting down {} port of {} dut !!".format(port, device))
         flap_dut_obj.command("sudo config interface shutdown {}\n".format(port))
-        wait(20, "For statistics to be collected")
+        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
 
     run_bgp_convergence_event(
         snappi_api, snappi_config, db_reporter, snappi_extra_params,
@@ -94,15 +97,17 @@ def test_bgp_t0_port_shutdown(
         disrupt=disrupt,
         delta_zero_msg="Delta Frames is 0 after flap, which means no packet drop occurred",
         not_converged_msg="Traffic did not converge after link down",
+        max_convergence_ms=max_convergence_ms,
     )
 
 
 @pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10, 25, 50, 75, 100])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
+@pytest.mark.parametrize("max_convergence_ms", [4000])
 def test_bgp_route_withdrawal(
     duthosts,
-    dutconfig_checkpoint,
+    dutconfig_checkpoint,    # noqa: F811, F401
     snappi_api,
     get_snappi_ports,
     fanout_graph_facts_multidut,
@@ -113,6 +118,7 @@ def test_bgp_route_withdrawal(
     tbinfo,
     frame_rate,
     frame_size,
+    max_convergence_ms,
 ):
     """
     Measure BGP dataplane convergence after a single Rx port's routes are
@@ -160,10 +166,9 @@ def test_bgp_route_withdrawal(
         cs.protocol.route.names = [snappi_obj_handles["Rx"]["network_group"][1]]
         snappi_api.set_control_state(cs)
         end_time = time.time()
-        wait(50, "For routes to be withdrawn")
+        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
         logger.info('Time taken to apply acl and route withdraw on snappi port: {} (s)'.
                     format(end_time - start_time))
-
 
     run_bgp_convergence_event(
         snappi_api, snappi_config, db_reporter, snappi_extra_params,
@@ -172,4 +177,5 @@ def test_bgp_route_withdrawal(
         delta_zero_msg="Delta Frames is 0 after applying acl and route withdraw, "
                        "which means no packet drop occurred",
         not_converged_msg="Traffic did not converge after route withdraw",
+        max_convergence_ms=max_convergence_ms,
     )
