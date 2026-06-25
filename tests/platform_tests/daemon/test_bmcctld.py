@@ -458,6 +458,13 @@ class TestBmcctldDaemon:
             outlet_ids = [o['outlet_id'] for o in outlets if 'outlet_id' in o]
             pytest_assert(outlet_ids, "PDU controller returned no outlets for BMC")
 
+            # Set the marker BEFORE power cycle. The syslog marker is written to
+            # tmpfs (lost on power loss), but the marker is also written to the
+            # persistent event.log (additional_files). After BMC comes back up,
+            # LogAnalyzer scans event.log from the pre-power-loss marker forward,
+            # so STARTUP logs written on the coming-up path are captured correctly.
+            marker_b = la.init()
+
             for outlet in outlet_ids:
                 pdu_ctrl.turn_off_outlet(outlet)
             wait_until(120, 5, 10,
@@ -465,7 +472,6 @@ class TestBmcctldDaemon:
             for outlet in outlet_ids:
                 pdu_ctrl.turn_on_outlet(outlet)
 
-            marker_b = la.init()
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
 
             la.match_regex = [r".*STARTUP:.*issuing power_on.*", r".*issuing power_on.*"]
