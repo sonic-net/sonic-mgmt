@@ -83,7 +83,6 @@ def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
     """
     expected = (expected_state or "").strip().lower()
     deadline = time.monotonic() + max(0, int(timeout_sec))
-    observed = "missing"
     while True:
         intf_status = get_dut_interfaces_status(duthost)
         observed = (intf_status.get(port, {}) or {}).get("oper", "missing")
