@@ -70,6 +70,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         if (
             duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0'
             or duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0'
+            or duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0'
             or duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
         ):
             duthost.shell("watchdogutil disarm")
@@ -85,7 +86,8 @@ class TestWatchdogApi(PlatformApiTestBase):
             watchdog.disarm(platform_api_conn)
 
             if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
-                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0':
+                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
+                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0':
                 duthost.shell("systemctl start cpu_wdt.service")
             elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
                 duthost.shell("systemctl enable watchdog.timer --now")

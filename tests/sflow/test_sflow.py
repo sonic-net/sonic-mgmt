@@ -92,7 +92,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', wait=120)
+    config_reload(duthost, config_source='minigraph', wait=120, override_config=True)
 
 # ----------------------------------------------------------------------------------
 
@@ -152,6 +152,14 @@ def get_default_agent(duthost):
 def get_ifindex(duthost, port):
     ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' % port)['stdout']
     return ifindex
+
+
+def sflow_intfs_exist(duthost, interfaces):
+    for intf in interfaces:
+        res = duthost.shell(f"test -e /sys/class/net/{intf}", module_ignore_errors=True)
+        if res['rc'] != 0:
+            return False
+    return True
 
 # ----------------------------------------------------------------------------------
 
@@ -658,9 +666,15 @@ class TestAgentId():
 
     def testDelAgent(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
+        read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+        previous_agent_ip = duthost.shell(read_agent_cmd, module_ignore_errors=True)['stdout'].strip()
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost, status='up', agent_id='default')
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
+        # Wait for hsflowd to rewrite /etc/hsflowd.auto with the new agentIP,
+        # otherwise get_default_agent below reads the stale previous value.
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() not in ('', previous_agent_ip))
         agent_ip = get_default_agent(duthost)
         # Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
@@ -750,6 +764,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after fast reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(
@@ -774,6 +790,8 @@ class TestReboot():
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
+        all_intfs_present = wait_until(120, 10, 0, sflow_intfs_exist, duthost, list(var['sflow_ports'].keys()))
+        assert all_intfs_present, "Not all sflow interfaces present in sysfs after warm reboot"
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
             var['sflow_ports'][intf]['port_index'] = get_port_index(

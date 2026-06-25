@@ -22,7 +22,7 @@ from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
-from typing import TypedDict
+from typing import Dict, Optional, TypedDict
 
 
 class ShellResult(TypedDict):
@@ -36,12 +36,32 @@ class ShellResult(TypedDict):
     changed: bool
 
 
+class ConsoleLineStatus(TypedDict):
+    """Type definition for console line status."""
+    oper_state: str
+    state_duration: str
+
+
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
 }
 UNKNOWN_ASIC = "unknown"
+COUNTER_TYPE_CLI_MAP = {
+    'QUEUE_STAT': 'queue',
+    'PORT_STAT': 'port',
+    'SWITCH_STAT': 'switch',
+    'PORT_BUFFER_DROP': 'port-buffer-drop',
+    'RIF_STAT': 'rif',
+    'QUEUE_WATERMARK_STAT': 'watermark',
+    'PG_WATERMARK_STAT': 'watermark',
+    'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+    'ACL': 'acl',
+    'TUNNEL_STAT': 'tunnel',
+    'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+    'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -285,7 +305,7 @@ class SonicHost(AnsibleHostBase):
             True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
-        return not self.is_supervisor_node()
+        return not self.is_supervisor_node() and not self.is_bmc()
 
     def is_console_switch(self):
         """
@@ -438,6 +458,38 @@ class SonicHost(AnsibleHostBase):
 
         return monit_services_status
 
+    def _retry_if_oci_exec_race(self, cmd, result, attempts=3, delay=2):
+        """
+        Re-run `cmd` if `result` is a transient `docker exec` runc-setns race
+        (rc=127 with "OCI runtime exec failed: ... setns process | fork/exec
+        /proc/self/fd"). The OCI message can land on either stdout or stderr
+        depending on the docker / runc version, so we inspect both with a
+        DOTALL match so multi-line variants are still caught. The container
+        is actually running while this race fires, so a small bounded retry
+        keeps the framework from declaring the service unhealthy on what is
+        purely an exec infrastructure flake. Pass-through otherwise.
+        """
+        pattern = r"OCI runtime exec failed:.*(starting setns process|fork/exec /proc/self/fd)"
+
+        def _is_oci(res):
+            if not (isinstance(res, dict) and res.get("rc") == 127):
+                return False
+            output = (res.get("stdout") or "") + "\n" + (res.get("stderr") or "")
+            return bool(re.search(pattern, output, flags=re.DOTALL))
+
+        if not _is_oci(result):
+            return result
+        for attempt in range(1, attempts + 1):
+            time.sleep(delay)
+            retry = self.shell(cmd, module_ignore_errors=True)
+            if not _is_oci(retry):
+                logging.info(
+                    "Recovered from transient docker exec OCI race on attempt %d for cmd: %s",
+                    attempt, cmd,
+                )
+                return retry
+        return result
+
     def get_critical_group_and_process_lists(self, container_name):
         """
         @summary: Get critical group and process lists by parsing the
@@ -448,8 +500,10 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
-        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
-                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name)
+        file_content = self.shell(cmd, module_ignore_errors=True)
+        file_content = self._retry_if_oci_exec_race(cmd, file_content)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
@@ -504,6 +558,10 @@ class SonicHost(AnsibleHostBase):
 
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+
+        # Re-run any commands hit by the transient `docker exec` runc-setns race.
+        # The target container is still running; only the new exec failed.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -593,6 +651,12 @@ class SonicHost(AnsibleHostBase):
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
 
+        # Re-run any commands hit by the transient `docker exec` runc-setns race
+        # before we let the result feed parse_service_status_and_critical_process,
+        # which would otherwise see one garbage "OCI runtime exec failed..." line
+        # and flip the service to status=False even though the container is up.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
+
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
         for res in results:
@@ -607,7 +671,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -2292,7 +2382,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2318,7 +2408,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -2726,27 +2816,20 @@ Totals               6450                 6449
             result_dict[counter_type]['status'] = status
         return result_dict
 
+    def set_counter_poll_status(self, counter_type, status):
+        """
+        A function to config the status of counterpoll.
+        """
+        cmd = 'counterpoll {} {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], status)
+        self.shell(cmd)
+
     def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
         """
         A function to config the interval of counterpoll. The counter type should be a key of
         the 'counterpoll show' cli output.
         """
-        counter_type_cli_map = {
-            'QUEUE_STAT': 'queue',
-            'PORT_STAT': 'port',
-            'SWITCH_STAT': 'switch',
-            'PORT_BUFFER_DROP': 'port-buffer-drop',
-            'RIF_STAT': 'rif',
-            'QUEUE_WATERMARK_STAT': 'watermark',
-            'PG_WATERMARK_STAT': 'watermark',
-            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
-            'ACL': 'acl',
-            'TUNNEL_STAT': 'tunnel',
-            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
-            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
-        }
         origin_interval = self.get_counter_poll_status()[counter_type]['interval']
-        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        cmd = 'counterpoll {} interval {}'.format(COUNTER_TYPE_CLI_MAP[counter_type], interval)
         self.shell(cmd)
         # Sleep for the old interval for the new interval to take effect
         if wait_for_new_interval:
@@ -2964,14 +3047,13 @@ print(device_prefix)
         # Execute loopback command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"EXEC:'/bin/cat' "
             f"& echo $! "
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3046,15 +3128,13 @@ print(device_prefix)
         # Execute bridge command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
-            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"& echo $! "
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3142,14 +3222,13 @@ print(device_prefix)
         # Execute bridge command to remote host
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,b{baud_rate},crtscts={crtscts_val} "
             f"TCP:{remote_host}:{remote_port} "
             f"& echo $! "
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3178,9 +3257,8 @@ print(device_prefix)
         pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
 
         if not pids or pids == ['']:
-            error_msg = f"No remote bridge found for port {port}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            logging.info(f"No remote bridge found for port {port}, nothing to do")
+            return
 
         # Kill all related socat processes
         for pid in pids:
@@ -3228,6 +3306,96 @@ print(device_prefix)
             raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
+
+    @staticmethod
+    def parse_show_line_output(output: str) -> Dict[str, ConsoleLineStatus]:
+        """
+        Parse the output of 'show line -b' command.
+
+        Example output:
+          Line    Baud    Flow Control    PID    Start Time      Device    Oper State    State Duration
+        ------  ------  --------------  -----  ------------  ----------  ------------  ----------------
+             1    9600        Disabled      -             -   Terminal1       Unknown          3h20m26s
+             2    9600        Disabled      -             -   Terminal2       Unknown          3h32m59s
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        result: Dict[str, ConsoleLineStatus] = {}
+        lines = output.strip().split('\n')
+
+        # Find the header line to determine column positions
+        header_line = None
+        data_start = 0
+        for i, line in enumerate(lines):
+            if 'Line' in line and 'Oper State' in line:
+                header_line = line
+                data_start = i + 2  # Skip header and separator line
+                break
+
+        if header_line is None:
+            return result
+
+        # Parse data lines
+        for line in lines[data_start:]:
+            if not line.strip():
+                continue
+
+            # Split by multiple spaces to handle the tabular format
+            parts = line.split()
+            if len(parts) >= 8:
+                # Line ID is the first column, Oper State is the 7th column (index 6)
+                # State Duration is the 8th column (index 7)
+                # Format: Line, Baud, Flow Control (2 words), PID, Start Time, Device, Oper State, State Duration
+                line_id = parts[0]
+                oper_state = parts[6]
+                state_duration = parts[7]
+                result[line_id] = ConsoleLineStatus(
+                    oper_state=oper_state,
+                    state_duration=state_duration
+                )
+
+        return result
+
+    def get_console_line_statuses(self) -> Dict[str, ConsoleLineStatus]:
+        """
+        Get status of all configured console lines using 'show line -b' command.
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        output = self.shell("show line -b")['stdout']
+        return self.parse_show_line_output(output)
+
+    def get_console_line_status(self, line_id: int) -> Optional[str]:
+        """
+        Get the oper_state of a specific console line.
+
+        Args:
+            line_id: Console line ID (e.g., 1, 2)
+
+        Returns:
+            str: Line status ('Up', 'Unknown') or None if not found
+        """
+        all_statuses = self.get_console_line_statuses()
+        line_info = all_statuses.get(str(line_id))
+        return line_info['oper_state'] if line_info else None
+
+    def enable_console_heartbeat(self) -> None:
+        """
+        Enable console heartbeat on the DTE side.
+        Starts console-monitor-dte service and enables heartbeat sending.
+        """
+        self.shell("sudo systemctl start console-monitor-dte")
+        self.shell("sudo config console heartbeat enable")
+        logging.info("console-monitor-dte service started and heartbeat enabled")
+
+    def disable_console_heartbeat(self) -> None:
+        """
+        Disable console heartbeat on the DTE side.
+        """
+        self.shell("sudo config console heartbeat disable")
+        logging.info("console heartbeat disabled")
 
     def get_mgmt_ip(self):
         """

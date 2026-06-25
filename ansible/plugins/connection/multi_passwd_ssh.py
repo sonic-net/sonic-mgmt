@@ -64,6 +64,19 @@ DOCUMENTATION += """
 # 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: No route to host'
 CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
 CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
+# ansible-core 2.19 changed the default password_mechanism from 'sshpass' to
+# 'ssh_askpass'. With ssh_askpass, authentication failures are reported as
+# AnsibleConnectionFailure instead of AnsibleAuthenticationFailure. We detect
+# the "Permission denied" message to distinguish auth failures from
+# connectivity failures (timeout, no route to host, etc.).
+PERMISSION_DENIED_ERR_FLAG = "Permission denied"
+# When a task has `no_log: true`, Ansible censors the underlying SSH stderr
+# before the connection plugin sees it. In that case the error message no
+# longer contains "Permission denied", so the auth-failure detection above
+# would mis-classify wrong-password attempts as real connectivity failures
+# and abort the retry loop. Detect the censorship marker so we can still
+# iterate through remaining passwords.
+NO_LOG_CENSORED_FLAG = "censored due to no log"
 
 
 def _password_retry(func):
@@ -96,16 +109,36 @@ def _password_retry(func):
                 # if there is no more altpassword to try, raise
                 if not conn_passwords:
                     raise
+            except AnsibleConnectionFailure as e:
+                # ansible-core 2.19+ with ssh_askpass raises AnsibleConnectionFailure
+                # (not AnsibleAuthenticationFailure) for "Permission denied" auth failures.
+                # Treat it as an auth failure so the retry loop still iterates.
+                # If the task sets `no_log: true`, the SSH stderr is censored before
+                # this plugin can inspect it, so "Permission denied" will be absent
+                # from `err_msg`. In that case we cannot tell auth failure from a
+                # real connectivity failure; assume it may be auth and keep trying
+                # the remaining passwords rather than aborting prematurely.
+                err_msg = getattr(e, "message", "") or str(e)
+                is_auth_failure = (
+                    PERMISSION_DENIED_ERR_FLAG in err_msg
+                    or NO_LOG_CENSORED_FLAG in err_msg
+                )
+                if not is_auth_failure:
+                    raise  # not an auth failure; preserve original behaviour
+                if not conn_passwords:
+                    raise  # exhausted all passwords
             finally:
                 # reset `password` to its original state
                 self.set_option("password", password)
                 self._play_context.password = password
             # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-            self.sshpass_pipe = os.pipe()
+            if hasattr(self, 'sshpass_pipe'):
+                self.sshpass_pipe = os.pipe()
 
     def _change_host(self, new_host, *args):
         # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
-        self.sshpass_pipe = os.pipe()
+        if hasattr(self, 'sshpass_pipe'):
+            self.sshpass_pipe = os.pipe()
         self._play_context.remote_addr = new_host
         # args sample:
         # ( [b'sshpass', b'-d18', b'ssh', b'-o', b'ControlMaster=auto', b'-o', b'ControlPersist=120s', b'-o', b'UserKnownHostsFile=/dev/null', b'-o', b'StrictHostKeyChecking=no', b'-o', b'StrictHostKeyChecking=no', b'-o', b'User="admin"', b'-o', b'ConnectTimeout=60', b'-o', b'ControlPath="/home/user/.ansible/cp/376bdcc730"', 'fc00:1234:5678:abcd::2', b'/bin/sh -c \'echo PLATFORM; uname; echo FOUND; command -v \'"\'"\'python3.10\'"\'"\'; command -v \'"\'"\'python3.9\'"\'"\'; command -v \'"\'"\'python3.8\'"\'"\'; command -v \'"\'"\'python3.7\'"\'"\'; command -v \'"\'"\'python3.6\'"\'"\'; command -v \'"\'"\'python3.5\'"\'"\'; command -v \'"\'"\'/usr/bin/python3\'"\'"\'; command -v \'"\'"\'/usr/libexec/platform-python\'"\'"\'; command -v \'"\'"\'python2.7\'"\'"\'; command -v \'"\'"\'/usr/bin/python\'"\'"\'; command -v \'"\'"\'python\'"\'"\'; echo ENDFOUND && sleep 0\''], None) # noqa: E501

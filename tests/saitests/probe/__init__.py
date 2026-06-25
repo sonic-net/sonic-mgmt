@@ -14,6 +14,9 @@ Probing Test Cases (1 src -> N dst pattern):
 - PfcXoffProbing: PFC Xoff threshold probing
 - IngressDropProbing: Ingress Drop threshold probing
 
+Probing Test Cases (1 src -> 1 dst pattern):
+- EgressDropProbing: Egress Drop threshold probing (lossy queue)
+
 Probing Test Cases (N src -> 1 dst pattern):
 - HeadroomPoolProbing: Headroom Pool Size probing (multi-PG iteration)
 

@@ -50,6 +50,8 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
+DEFAULT_VRF_NAME = "default"
+MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
@@ -148,7 +150,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -874,6 +876,35 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def get_plt_wait_time(duthost, tc_name):
+    """
+    @summary: utility function returns platform specific wait dict for each
+    test case that contains tc_name in it
+    @return a dict containing wait time and timeout for each test case
+
+        plt_wait_time:
+          acl/test_acl.py:
+            timeout: 300
+            wait: 300
+          everflow:
+            timeout: 300
+            wait: 60
+    """
+
+    wait_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_wait_time' in dut_vars:
+        for key in list(dut_vars['plt_wait_time'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_wait_time'][key].keys()):
+                    wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
+
+    return wait_dict
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
@@ -1312,7 +1343,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=4096
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1342,6 +1373,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1708,11 +1740,11 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
     # Get DoW
     day_of_week = datetime.now().weekday()
     logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+    day_index = datetime.now().toordinal()
+    rng = random.Random(day_index)  # Local RNG: reproducible per day, no global side effects
 
     bucket_size = len(ports) // num_buckets
     remainder = len(ports) % num_buckets
-    shuffled_ports = list(ports)
-    random.shuffle(shuffled_ports)
     selected_ports = []
     start_idx = 0
 
@@ -1722,7 +1754,8 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
         if current_bucket_size == 0:
             break
         end_idx = start_idx + current_bucket_size
-        bucket_ports = shuffled_ports[start_idx:end_idx]
+        bucket_ports = ports[start_idx:end_idx]
+        rng.shuffle(bucket_ports)
         # Select port based on DoW index (wrapping if bucket is smaller than 7)
         port_index = day_of_week % len(bucket_ports)
         selected_ports.append(bucket_ports[port_index])
@@ -1757,3 +1790,25 @@ def testbed_is_multi_vrf(tbinfo):
     if val:
         return str(val).lower() == 'true'
     return False
+
+
+def get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, neighbor_name):
+    """Return the vm_offset used to derive a neighbor's exabgp API port.
+
+    The per-neighbor exabgp instances are created from the ORIGINAL topology
+    offsets. On a converged (multi-VRF) topology those original offsets are
+    preserved per logical neighbor in ``multi_vrf_data['vm_offset_mapping']``
+    (sourced from ``convergence_data['vm_offset_mapping']``), while
+    ``tbinfo['topo']['properties']['topology']['VMs']`` only carries the
+    collapsed *prime* offsets. Route-injection helpers that compute
+    ``EXABGP_BASE_PORT + offset`` must therefore use the per-neighbor original
+    offset, otherwise they post the announce to the wrong exabgp instance (a
+    different VRF) and the route never reaches the intended neighbor.
+
+    On stock topologies the neighbor is its own VM and this simply returns the
+    VM's ``vm_offset``, so behavior is unchanged there.
+    """
+    neighbor = nbrhosts.get(neighbor_name, {})
+    if neighbor.get('is_multi_vrf_peer', False):
+        return neighbor['multi_vrf_data']['vm_offset_mapping']
+    return tbinfo['topo']['properties']['topology']['VMs'][neighbor_name]['vm_offset']
