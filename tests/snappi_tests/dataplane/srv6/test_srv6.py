@@ -6,7 +6,6 @@ from itertools import product
 # from rich import print as pr
 import collections
 
-from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
 from snappi_tests.dataplane.files.helper import create_traffic_items, start_stop, get_stats
 
 from tests.common.helpers.assertions import pytest_assert
@@ -20,6 +19,7 @@ from tests.snappi_tests.dataplane.files.helper import set_primary_chassis, creat
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
+from tests.snappi_tests.dataplane.srv6.files.srv6_telemetry import poll_srv6_perf_stats
 from tests.snappi_tests.dataplane.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
     assign_sid_to_duts, create_snappi_flows, get_dut_list, set_dut_tier_level, get_t0_duts, get_pairings, \
     increment_hex, snappi_port_name_mapper, get_ingress_egress_stats, verify_nut_stats, remove_srv6_config
@@ -450,7 +450,6 @@ def test_srv6_nut_test(snappi_api,                 # noqa F811
         # Snappi doesn't support custom mix packet sizes yet
         # Using restpy to make the imix packets
         for flow in snappi_api._ixnetwork.Traffic.TrafficItem.find():
-            logger.info(f'flow mixed packets: {flow.Name}')
             flow.ConfigElement.find()[0].FrameSize.PresetDistribution = 'cisco'
             flow.ConfigElement.find()[0].FrameSize.Type = 'weightedPairs'
             flow.ConfigElement.find()[0].FrameSize.WeightedPairs = [128, 1, 256, 98, 4096, 98]
@@ -490,18 +489,24 @@ def test_srv6_nut_test(snappi_api,                 # noqa F811
 
     start_stop(snappi_api, operation="stop", op_type="traffic")
 
-    stats = get_stats(api=snappi_api,
-                      stat_name="Traffic Item Statistics",
-                      columns=["frames_tx", "frames_rx", "loss"],
-                      return_type='stat_obj')
-    logger.info(f"\nTraffic Item Statistics: {stats}\n")
+    snappi_stats = get_stats(api=snappi_api,
+                             stat_name="Traffic Item Statistics",
+                             columns=["frames_tx", "frames_rx", "loss"],
+                             return_type='stat_obj')
+    logger.info(f"\nTraffic Item Statistics: {snappi_stats}\n")
 
     # --------------- Trace SRv6 DUT paths for ingress/egress stats -----------------
     topo = Multi_Tier_Map(conn_graph_facts)
+
     # ['switch-t0-1', 'switch-t1-1', 'switch-t2-1', 'switch-t1-2', 'switch-t0-2']
     full_path_duts = topo.full_path()
-    full_path_duts.pop(0)
-    full_path_duts.pop(-1)
+
+    if len(full_path_duts) > 1:
+        # Remove snappi tgen devices from full_path_duts
+        # 2+ DUTS:  ['snappi-sonic', 'switch-t0-1', 'switch-t0-2', 'snappi-sonic2'] ->  ['switch-t0-1', 'switch-t0-2']
+        # 1 DUT:    ['switch-t0-1']
+        full_path_duts.pop(0)
+        full_path_duts.pop(-1)
 
     for dut in Common_vars.dut_hosts:
         # 'dut_link_port_connections': {'switch-t1-2': ['Ethernet128', 'Ethernet129', 'Ethernet130', 'Ethernet131',
@@ -524,22 +529,30 @@ def test_srv6_nut_test(snappi_api,                 # noqa F811
         Common_vars.dut_stats[dut.hostname] = dut_stats
         logger.info(dut_stats)
 
-    half_of_snappi_stats = len(stats) // 2
-    from_t0_1_stats = stats[:half_of_snappi_stats]
-    from_t0_2_stats = stats[half_of_snappi_stats: 2 * half_of_snappi_stats]
-
-    # Now check DUT stats the other direction from t0-2 to t0-1
-    aligned = get_ingress_egress_stats(full_path_duts, Common_vars)
-    t0_1_stat_result = verify_nut_stats(aligned, from_t0_1_stats)
-    full_path_duts.reverse()
+    half_of_snappi_stats = len(snappi_stats) // 2
+    from_t0_1_stats = snappi_stats[:half_of_snappi_stats]
+    from_t0_2_stats = snappi_stats[half_of_snappi_stats: 2 * half_of_snappi_stats]
 
     aligned = get_ingress_egress_stats(full_path_duts, Common_vars)
-    t0_2_stat_result = verify_nut_stats(aligned, from_t0_2_stats)
+
+    if len(Common_vars.dut_list) > 1:
+        # Two t0s: each carries one direction's flows -> verify each half separately.
+        t0_1_stat_result = verify_nut_stats(aligned, from_t0_1_stats)
+        # Now check DUT stats the other direction from t0-2 to t0-1
+        full_path_duts.reverse()
+        aligned = get_ingress_egress_stats(full_path_duts, Common_vars)
+        t0_2_stat_result = verify_nut_stats(aligned, from_t0_2_stats)
+    else:
+        # Single t0: the one dut carries all bidirectional flows. aligned already has
+        # one row per flow (ingress/egress swap naturally for the reverse-direction
+        # flows), so verify against the full snappi_stats -- no half-split, no reverse.
+        t0_1_stat_result = verify_nut_stats(aligned, snappi_stats)
+        t0_2_stat_result = True
 
     # ------------------------------------------------------------------------------
 
     test_failed = False
-    for index, flow_stat in enumerate(stats):
+    for index, flow_stat in enumerate(snappi_stats):
         flow_name = flow_stat.name
         frames_tx = flow_stat.frames_tx
         frames_rx = flow_stat.frames_rx

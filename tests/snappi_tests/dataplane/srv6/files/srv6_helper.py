@@ -140,6 +140,10 @@ class Multi_Tier_Map:
           - dst = first tgen attached to a DIFFERENT t0 than src
         Falls back to the longest discoverable path if the simple pick fails.
         """
+        edge_t0s = self.edge_t0s()
+        if len(edge_t0s) == 1:
+            return edge_t0s[:]                  # only one t0: that's the whole path
+
         tgens = self.tgens()
         if len(tgens) < 2:
             return tgens[:]                     # 0 or 1 tgen: nothing to traverse
@@ -625,6 +629,32 @@ def _tgen_facing_port(cfg, dut, index):
     return None
 
 
+def _single_dut_stats(dut, cfg, parsed):
+    """
+    Single-t0 fabric: traffic enters on a tgen-facing tx port and leaves on a
+    different tgen-facing rx port of the SAME dut, so there are no inter-dut
+    hops to walk -- trace the dut's own tx_ports records instead.
+    """
+    counters = parsed[dut]
+    # snappi location ('10.36.84.36/1.1') -> dut-side ethernet port ('Ethernet64')
+    loc_to_port = {p['location']: p['peer_port'] for p in cfg[dut].get('tgen_ports', [])}
+
+    aligned = []
+    for index, flow in enumerate(cfg[dut].get('tx_ports', [])):
+        ingress = flow['my_dut_port']                 # tgen -> t0  (RX_OK)
+        egress = loc_to_port.get(flow['rx_port'])     # t0 -> tgen  (TX_OK)
+        chain = [{'dut': dut,
+                  'tier': Multi_Tier_Map.tier_of(dut),
+                  'ingress_port': ingress,
+                  'egress_port': egress,
+                  'ingress_stats': counters.get(ingress, {}) if ingress else {},
+                  'egress_stats': counters.get(egress, {}) if egress else {}
+                  }]
+        aligned.append({'index': index, 'chain': chain})
+
+    return aligned
+
+
 def get_ingress_egress_stats(full_path_duts, Common_vars):
     """
     For tracing SRv6 DUT path end-to-end for ingress and egress stats
@@ -632,6 +662,10 @@ def get_ingress_egress_stats(full_path_duts, Common_vars):
     cfg = Common_vars.config_data
 
     parsed = {dut: _dut_counters(Common_vars.dut_stats, dut) for dut in full_path_duts}
+
+    # Single-t0 fabric: no inter-dut hops, ingress/egress are both on the one dut.
+    if len(full_path_duts) == 1:
+        return _single_dut_stats(full_path_duts[0], cfg, parsed)
 
     link_counts = [len(cfg[a]['dut_link_port_connections'][b])
                    for a, b in zip(full_path_duts, full_path_duts[1:])]
@@ -709,7 +743,7 @@ def verify_nut_stats(aligned, snappi_stats):
     result = True  # PASSED
 
     for row in aligned:
-        logger.info(f"\n=== link index {row['index']} ===")
+        logger.info(f"\n=== Link port index {row['index']} ===")
         snappi_tx_frames = snappi_stats[row['index']].frames_tx
 
         for hop in row['chain']:
