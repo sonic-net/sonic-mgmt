@@ -155,11 +155,15 @@ class TestDpuProcessCrash:
 
     @pytest.fixture(autouse=True)
     def _setup(self, ha_owner):
+        # In DPU-driven HA the crash-side local_ha_state is not overwritten when
+        # the DPU's STATE_DB row is wiped. PMON is the authoritative signal.
+        self.expected_ha_state_after_crash = None if ha_owner == "dpu" else "HA_STATE_STANDBY"
         self.expected_ha_state_verify = "standalone" if ha_owner == "dpu" else "HA_STATE_STANDALONE"
 
     def _run(
         self, process_name, container,
         crash_dpuhost, crash_duthost, crash_scope_key,
+        expected_ha_state_after_crash,
         verify_duthost, verify_scope_key, expected_ha_state_verify,
         ptfadapter, dash_pl_config, traffic_dut_index,
     ):
@@ -219,6 +223,10 @@ class TestDpuProcessCrash:
                 f"Observed: {down_state}"
             )
 
+            if expected_ha_state_after_crash is not None:
+                verify_ha_state_converged(
+                    crash_duthost, crash_scope_key, expected_ha_state_after_crash
+                )
             verify_ha_state_converged(
                 verify_duthost, verify_scope_key, expected_ha_state_verify
             )
@@ -276,6 +284,7 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
             crash_scope_key=primary_vdpu_key,
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify=self.expected_ha_state_verify,
@@ -295,6 +304,7 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=primary_dpuhost, crash_duthost=primary_dut,
             crash_scope_key=primary_vdpu_key,
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=standby_dut,
             verify_scope_key=standby_vdpu_key,
             expected_ha_state_verify=self.expected_ha_state_verify,
@@ -314,6 +324,7 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify=self.expected_ha_state_verify,
@@ -333,6 +344,7 @@ class TestDpuProcessCrash:
             process_name=process_name, container=container,
             crash_dpuhost=standby_dpuhost, crash_duthost=standby_dut,
             crash_scope_key=standby_vdpu_key,
+            expected_ha_state_after_crash=self.expected_ha_state_after_crash,
             verify_duthost=primary_dut,
             verify_scope_key=primary_vdpu_key,
             expected_ha_state_verify=self.expected_ha_state_verify,
