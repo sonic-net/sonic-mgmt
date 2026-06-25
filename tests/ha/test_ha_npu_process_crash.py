@@ -25,7 +25,7 @@ import ptf.testutils as testutils
 import pytest
 
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets
 from tests.common.utilities import wait_until, InterruptableThread
 from tests.ha.ha_utils import verify_ha_state
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config
@@ -236,7 +236,7 @@ class TestNpuProcessCrash:
         )
         logger.info("Initial HA states confirmed")
 
-        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan")
+        send_pkt, exp_pkt = outbound_pl_packets(pl_config, "vxlan", tcp_flag_syn=True)
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pl_config[LOCAL_PTF_INTF], send_pkt, count=1)
         testutils.verify_packet_any_port(

@@ -14,7 +14,7 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from ha_dash_flow_utils import compare_flow_tables
 from ha_utils import verify_ha_state, set_dash_ha_scope, parallel_config_reload_dpuhosts
 
@@ -149,6 +149,7 @@ def _planned_swo_phase(
                 PLANNED_SWO_OUTER_ENCAP,
                 inner_sport=inner_sport,
                 vxlan_udp_sport=fixed_vxlan_udp_sport,
+                tcp_flag_syn=True,  # multi-flow: every iteration is a brand-new TCP flow.
             )
             testutils.send(ptfadapter, send_ptf_intf, vm_pkt, 1)
         else:
@@ -220,6 +221,11 @@ def test_ha_planned_swo(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], PLANNED_SWO_OUTER_ENCAP)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
     send_ptf_intf = dash_pl_config[0][LOCAL_PTF_INTF]
+
+    # Single-flow mode: bootstrap stateful TCP flow on the DPU so subsequent ACK packets match.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[0], PLANNED_SWO_OUTER_ENCAP, recv_ports=rcv_outbound_pl_ports
+    )
 
     _planned_swo_phase(
         ptfadapter=ptfadapter,

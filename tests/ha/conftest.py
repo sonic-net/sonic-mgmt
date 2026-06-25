@@ -42,6 +42,34 @@ ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
 
+def pytest_addoption(parser):
+    """Register HA-specific pytest CLI options."""
+    parser.addoption(
+        "--ha-inner-l4-proto",
+        action="store",
+        choices=("tcp", "udp"),
+        default="tcp",
+        help=(
+            "Inner L4 protocol used by HA traffic helpers in tests/ha "
+            "(default: tcp). Switching to udp disables the stateful-flow "
+            "bootstrap and TCP-specific behavior in ha_packets.outbound_pl_packets / "
+            "inbound_pl_packets / bootstrap_pl_tcp_flow_outbound."
+        ),
+    )
+
+
+def pytest_configure(config):
+    """Propagate the --ha-inner-l4-proto knob into ha_packets at session start."""
+    import ha_packets
+    ha_packets.DEFAULT_INNER_PACKET_TYPE = config.getoption("--ha-inner-l4-proto")
+
+
+@pytest.fixture(scope="session")
+def ha_inner_l4_proto(request):
+    """Return the inner L4 protocol selected via --ha-inner-l4-proto (default: tcp)."""
+    return request.config.getoption("--ha-inner-l4-proto")
+
+
 def _get_dpu_neighbor_ip(role_index, dpu_index):
     return f"20.0.{200 + role_index}.{dpu_index + 1}"
 

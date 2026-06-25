@@ -6,10 +6,25 @@ import ptf.packet as scapy
 import ptf.testutils as testutils
 from configs import privatelink_config as pl
 from constants import VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
-        DUT_MAC, LOCAL_PTF_MAC, REMOTE_PTF_MAC
+        DUT_MAC, LOCAL_PTF_MAC, REMOTE_PTF_MAC, \
+        LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from ptf.mask import Mask, MaskException
 
 logger = logging.getLogger(__name__)
+
+# Module-level default for the inner L4 protocol used by the HA traffic helpers
+# (``inbound_pl_packets``, ``outbound_pl_packets``, ``bootstrap_pl_tcp_flow_outbound``).
+# Tests can override this on the pytest CLI via ``--ha-inner-l4-proto={tcp,udp}``;
+# see ``tests/ha/conftest.py``. Individual callers can still override per-call by
+# passing an explicit ``inner_packet_type`` argument.
+DEFAULT_INNER_PACKET_TYPE = "tcp"
+
+
+def _resolve_inner_packet_type(inner_packet_type):
+    """Return ``inner_packet_type`` if explicitly set, else the module default."""
+    if inner_packet_type is None:
+        return DEFAULT_INNER_PACKET_TYPE
+    return inner_packet_type
 
 
 def set_do_not_care_layer(mask, layer, field_name, n=1):
@@ -92,11 +107,12 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
 
 
 def inbound_pl_packets(
-    config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
+    config, floating_nic=False, inner_packet_type=None, vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
     vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None,
     tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
     tcp_seq_num=None, tcp_ack_num=None
 ):
+    inner_packet_type = _resolve_inner_packet_type(inner_packet_type)
     if exp_vni is not None:
         expected_vni = int(exp_vni)
     else:
@@ -133,8 +149,11 @@ def inbound_pl_packets(
             tcp_flags += 'A'
         if tcp_flag_fin:
             tcp_flags += 'F'
-        if tcp_flags:
-            inner_packet[l4_protocol_key].flags = tcp_flags
+        if not tcp_flags:
+            # Default to ACK so the packet looks like a data segment on an established
+            # connection; DASH stateful TCP tracking drops repeated bare SYNs.
+            tcp_flags = 'A'
+        inner_packet[l4_protocol_key].flags = tcp_flags
 
     gre_packet = testutils.simple_gre_packet(
         eth_dst=config[DUT_MAC],
@@ -188,7 +207,7 @@ def outbound_pl_packets(
     config,
     outer_encap,
     floating_nic=False,
-    inner_packet_type="udp",
+    inner_packet_type=None,
     vxlan_udp_dport=4789,
     vxlan_udp_sport=random.randint(
         VXLAN_UDP_BASE_SRC_PORT,
@@ -202,6 +221,7 @@ def outbound_pl_packets(
     tcp_seq_num=None,
     tcp_ack_num=None
 ):
+    inner_packet_type = _resolve_inner_packet_type(inner_packet_type)
     outer_vni = int(vni if vni else pl.VM_VNI)
 
     l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
@@ -227,8 +247,11 @@ def outbound_pl_packets(
             tcp_flags += 'A'
         if tcp_flag_fin:
             tcp_flags += 'F'
-        if tcp_flags:
-            inner_packet[l4_protocol_key].flags = tcp_flags
+        if not tcp_flags:
+            # Default to ACK so the packet looks like a data segment on an established
+            # connection; DASH stateful TCP tracking drops repeated bare SYNs.
+            tcp_flags = 'A'
+        inner_packet[l4_protocol_key].flags = tcp_flags
 
     if outer_encap == "vxlan":
         outer_packet = testutils.simple_vxlan_packet(
@@ -302,3 +325,42 @@ def get_scapy_l4_protocol_key(inner_packet_type):
     scapy_udp = scapy.UDP
     l4_protocol_key = scapy_udp if inner_packet_type == 'udp' else scapy_tcp
     return l4_protocol_key
+
+
+def bootstrap_pl_tcp_flow_outbound(ptfadapter, config, outer_encap="vxlan", recv_ports=None, **kwargs):
+    """
+    Bootstrap a stateful TCP flow on the DPU by sending a single SYN through the outbound
+    path and verifying it is forwarded. After this call, subsequent ACK-flagged packets
+    matching the same 5-tuple (in either direction) match the established flow and are
+    forwarded.
+
+    ``recv_ports`` is the list of PTF port indices on which the SYN's expected egress is
+    accepted. Defaults to ``config[REMOTE_PTF_RECV_INTF]``. In HA setups the standby DPU
+    forwards traffic to the active DPU for processing, so when bootstrapping via the
+    standby's config the caller should pass the active DPU's recv ports (or the combined
+    list of both, matching the test's own ``verify_packet_any_port`` call).
+
+    Any kwargs accepted by ``outbound_pl_packets`` (e.g. ``floating_nic``, ``vni``,
+    ``inner_sport``, ``inner_dport``) are forwarded.
+
+    When the effective inner L4 protocol is UDP (set via the ``--ha-inner-l4-proto``
+    pytest CLI option or an explicit ``inner_packet_type="udp"`` kwarg), this helper
+    is a no-op: UDP flows do not require a stateful bootstrap.
+    """
+    inner_packet_type = _resolve_inner_packet_type(kwargs.get("inner_packet_type"))
+    if inner_packet_type != "tcp":
+        logger.info(
+            "bootstrap_pl_tcp_flow_outbound: skipping (inner_packet_type=%s, TCP bootstrap not needed)",
+            inner_packet_type,
+        )
+        return
+    for k in ("tcp_flag_syn", "tcp_flag_ack", "tcp_flag_fin"):
+        kwargs.pop(k, None)
+    if recv_ports is None:
+        recv_ports = config[REMOTE_PTF_RECV_INTF]
+    syn_pkt, exp_syn_pkt = outbound_pl_packets(
+        config, outer_encap, tcp_flag_syn=True, **kwargs
+    )
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, config[LOCAL_PTF_INTF], syn_pkt, 1)
+    testutils.verify_packet_any_port(ptfadapter, exp_syn_pkt, recv_ports)
