@@ -12,14 +12,13 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 logger = logging.getLogger(__name__)
 
 
-# Computes pmon's uptime in whole seconds from its container start time, entirely
-# on the DUT so there is no test-host/DUT clock skew. Prints nothing when pmon is
-# absent or not running. Reading State.StartedAt avoids parsing the localized,
-# rounded "Up ..." text that `docker ps` renders for display.
+# Runs on the DUT to avoid clock skew; uses State.StartedAt (not `docker ps` text) for precision.
 _PMON_UPTIME_SECONDS_CMD = (
+    '{% raw %}'
     'if [ "$(docker inspect -f \'{{.State.Running}}\' pmon 2>/dev/null)" = "true" ]; then '
     'echo $(( $(date -u +%s) - $(date -u -d "$(docker inspect -f \'{{.State.StartedAt}}\' pmon)" +%s) )); '
     'fi'
+    '{% endraw %}'
 )
 
 

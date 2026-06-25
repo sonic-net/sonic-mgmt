@@ -68,3 +68,16 @@ def test_check_pmon_uptime_minutes(processes_utils, uptime_seconds, expected):
     invoked_cmd = duthost.command.call_args[0][0]
     assert "docker inspect" in invoked_cmd
     assert "State.StartedAt" in invoked_cmd
+
+
+def test_pmon_uptime_cmd_survives_ansible_jinja2_templating(processes_utils):
+    """Go-template braces in _PMON_UPTIME_SECONDS_CMD must survive Ansible Jinja2 templating."""
+    jinja2 = pytest.importorskip("jinja2")
+    cmd = processes_utils._PMON_UPTIME_SECONDS_CMD
+
+    try:
+        rendered = jinja2.Environment().from_string(cmd).render()
+        assert "{{.State.Running}}" in rendered
+        assert "{{.State.StartedAt}}" in rendered
+    except jinja2.exceptions.TemplateError as exc:
+        pytest.fail("_PMON_UPTIME_SECONDS_CMD is not Jinja2-safe: {}".format(exc))
