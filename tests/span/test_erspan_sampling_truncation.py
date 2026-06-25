@@ -29,7 +29,7 @@ DEFAULT_TRUNCATE_SIZE = 128
 DEFAULT_SAMPLE_RATE = 50000
 
 # Number of probe packets for truncation checks
-TRUNCATION_PROBE_COUNT = 100
+TRUNCATION_PROBE_COUNT = 1000
 
 
 def _assert_mirror_len(observed_len, original_len, truncate_size):
@@ -314,6 +314,7 @@ def test_erspan_sampling_config_high_rate(
     indirect=['erspan_session'],
 )
 def test_erspan_truncation_packet_size(
+        skip_if_vs_platform,
         skip_if_ingress_sampling_unsupported,
         skip_if_truncation_unsupported,
         ptfadapter,
@@ -346,7 +347,11 @@ def test_erspan_truncation_packet_size(
                           {'sample_rate': 512},
                           {'sample_rate': 1024}],
                          indirect=True)
-def test_erspan_sampling_rx_direction(skip_if_ingress_sampling_unsupported, ptfadapter, erspan_session):
+def test_erspan_sampling_rx_direction(
+        skip_if_vs_platform,
+        skip_if_ingress_sampling_unsupported,
+        ptfadapter,
+        erspan_session):
     '''
     Verify RX (ingress) sampling yields ~1 in N frames: mirrored count within
     [950, 1050] (NUM_SAMPLES +-5%).
@@ -367,6 +372,7 @@ def test_erspan_sampling_rx_direction(skip_if_ingress_sampling_unsupported, ptfa
                          [{'sample_rate': 256, 'truncate_size': 128}],
                          indirect=True)
 def test_erspan_sampling_rx_with_truncation(
+        skip_if_vs_platform,
         skip_if_ingress_sampling_unsupported,
         skip_if_truncation_unsupported,
         ptfadapter,
@@ -399,6 +405,7 @@ def test_erspan_sampling_rx_with_truncation(
                           {'sample_rate': 1024, 'direction': 'tx'}],
                          indirect=True)
 def test_erspan_sampling_tx_direction(
+        skip_if_vs_platform,
         skip_if_egress_sampling_unsupported,
         skip_if_no_tx_ingress,
         ptfadapter,
@@ -427,6 +434,7 @@ def test_erspan_sampling_tx_direction(
                          [{'sample_rate': 256, 'truncate_size': 128, 'direction': 'tx'}],
                          indirect=True)
 def test_erspan_sampling_tx_with_truncation(
+        skip_if_vs_platform,
         skip_if_egress_sampling_unsupported,
         skip_if_truncation_unsupported,
         skip_if_no_tx_ingress,
@@ -461,6 +469,7 @@ def test_erspan_sampling_tx_with_truncation(
                           {'sample_rate': 1024, 'direction': 'both'}],
                          indirect=True)
 def test_erspan_sampling_both_direction(
+        skip_if_vs_platform,
         skip_if_ingress_sampling_unsupported,
         skip_if_egress_sampling_unsupported,
         skip_if_no_tx_ingress,
@@ -494,6 +503,7 @@ def test_erspan_sampling_both_direction(
                          [{'sample_rate': 256, 'truncate_size': 128, 'direction': 'both'}],
                          indirect=True)
 def test_erspan_sampling_both_with_truncation(
+        skip_if_vs_platform,
         skip_if_ingress_sampling_unsupported,
         skip_if_egress_sampling_unsupported,
         skip_if_truncation_unsupported,
@@ -533,6 +543,7 @@ def test_erspan_sampling_both_with_truncation(
                          [{'sample_rate': 256}],
                          indirect=True)
 def test_erspan_session_remove_stops_mirroring(
+        skip_if_vs_platform,
         duthosts,
         rand_one_dut_hostname,
         skip_if_ingress_sampling_unsupported,

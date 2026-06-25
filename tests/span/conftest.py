@@ -248,6 +248,15 @@ def skip_if_truncation_unsupported(erspan_capabilities):
             "(SAMPLEPACKET_TRUNCATION_CAPABLE != true)")
 
 
+@pytest.fixture(scope="module")
+def skip_if_vs_platform(duthosts, rand_one_dut_hostname):
+    '''Skip dataplane mirroring tests on the vs platform.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"] == "vs":
+        pytest.skip("Dataplane sampled mirroring is not testable on the vs platform")
+
+
 def _sampling_direction_supported(erspan_capabilities, direction):
     '''Return True if the platform advertises the sampled-mirroring capability that
     `direction` (rx/tx/both) requires (ingress for rx, egress for tx, both for both).'''
