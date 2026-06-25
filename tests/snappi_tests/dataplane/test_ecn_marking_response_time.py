@@ -183,6 +183,7 @@ def _ts_seconds(timestamp_str):
 @pytest.mark.parametrize("lossy_prio", [0])
 def test_ecn_response_entry_time(
         duthosts,
+        dutconfig_checkpoint,   # noqa: F811
         snappi_api,  # noqa: F811
         get_snappi_ports,  # noqa: F811
         set_primary_chassis,  # noqa: F811
@@ -239,6 +240,8 @@ def test_ecn_response_entry_time(
         _drill_down_egress(ixnet)
         UD_Statistics = StatViewAssistant(ixnet, "User Defined Statistics")
         print_ud_statistics(SELECTED_UD_COLS, UD_Statistics)
+        pytest_assert(len(_normalize_stat_rows(UD_Statistics.Rows)) == 3,
+                      "Expected 3 rows in User Defined Statistics")
         pytest_assert(int(float(UD_Statistics.Rows[ECN_CE_ROW]["Rx Frame Rate"])) > 0,
                       "FAIL: Packets are not received with ECN - CE bit set to 3 after oversubscription")
         logger.info("PASS: Packets are received with ECN - CE bit set to 3.")
@@ -274,6 +277,7 @@ def test_ecn_response_entry_time(
 @pytest.mark.parametrize("lossy_prio", [0])
 def test_ecn_response_exit_time(
         duthosts,
+        dutconfig_checkpoint,   # noqa: F811
         snappi_api,  # noqa: F811
         get_snappi_ports,  # noqa: F811
         set_primary_chassis,  # noqa: F811
@@ -314,6 +318,8 @@ def test_ecn_response_exit_time(
         # Stop one of the high level streams and note down its respective time stamp.
         stream1 = trafficItem.HighLevelStream.find()[0]
         UD_Statistics = StatViewAssistant(ixnet, "User Defined Statistics")
+        pytest_assert(len(_normalize_stat_rows(UD_Statistics.Rows)) == 3,
+                      "Expected 3 rows in User Defined Statistics")
         pytest_assert(int(float(UD_Statistics.Rows[ECN_CE_ROW]["Rx Frame Rate"])) > 0,
                       "FAIL: Packets are not received with ECN - CE bit set to 3")
         print_ud_statistics(SELECTED_UD_COLS, UD_Statistics)

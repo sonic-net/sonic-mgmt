@@ -847,7 +847,7 @@ def check_bgp_state(snappi_api, subnet_type):
         logger.info("BGP v6 Session State is UP")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=False)
 def dutconfig_checkpoint(duthosts):
     """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
 
