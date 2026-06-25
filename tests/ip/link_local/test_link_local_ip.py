@@ -14,7 +14,7 @@ from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.utilities import parse_rif_counters, wait_until
-from tests.ip.ip_util import sum_ifaces_counts
+from tests.ip.ip_util import sum_ifaces_counts, safe_int_counter
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -406,7 +406,7 @@ class TestLinkLocalIPacket:
     def check_portstat_rx_ok(duthost, dut_rx_iface):
         """Check if portstat rx_ok counter has converged to expected packet count."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[dut_rx_iface]["rx_ok"].replace(",", ""))
+        rx_ok = safe_int_counter(portstat_out[dut_rx_iface]["rx_ok"])
         logger.debug(f"portstat rx_ok={rx_ok} on {dut_rx_iface}, expected >= {PKT_NUM}")
         return rx_ok >= PKT_NUM
 
@@ -423,8 +423,8 @@ class TestLinkLocalIPacket:
             rif_counter_out = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
 
         # Rx counters Validations
-        rx_drp = int(portstat_out[dut_rx_iface]["rx_drp"].replace(",", ""))
-        rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
+        rx_drp = safe_int_counter(portstat_out[dut_rx_iface]["rx_drp"])
+        rx_err = safe_int_counter(rif_counter_out[rif_rx_ifaces]["rx_err"]) \
             if rif_support and rif_rx_ifaces else 0
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
                       f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}; expected both <= {PKT_NUM_ZERO}")
