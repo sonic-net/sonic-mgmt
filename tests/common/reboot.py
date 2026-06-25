@@ -172,7 +172,7 @@ reboot_ss_ctrl_dict = {
 }
 
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
-REBOOT_TYPE_HISTOYR_QUEUE = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
+REBOOT_TYPE_HISTORY_QUEUE = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
 REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
 
 # Retry logic config
@@ -601,7 +601,7 @@ def sync_reboot_history_queue_with_dut(dut):
     @param dut: The AnsibleHost object of DUT.
     """
 
-    global REBOOT_TYPE_HISTOYR_QUEUE
+    global REBOOT_TYPE_HISTORY_QUEUE
     global MAX_NUM_REBOOT_CAUSE_HISTORY
 
     # Initialize local deque for storing DUT reboot cause history
@@ -643,12 +643,12 @@ def sync_reboot_history_queue_with_dut(dut):
     # If the reboot cause history is received from DUT,
     # we sync the two queues. TO that end,
     # Clear the current reboot history queue
-    REBOOT_TYPE_HISTOYR_QUEUE.clear()
+    REBOOT_TYPE_HISTORY_QUEUE.clear()
 
     # For each item in the DUT reboot queue,
     # iterate through every item in the reboot dict until
     # a "cause" match is found. Then add that key to the
-    # reboot history queue REBOOT_TYPE_HISTOYR_QUEUE
+    # reboot history queue REBOOT_TYPE_HISTORY_QUEUE
     # If no cause is found add 'Unknown' as reboot type.
 
     # NB: appendleft used because queue received from DUT
@@ -658,13 +658,13 @@ def sync_reboot_history_queue_with_dut(dut):
         dict_iter_found = False
         for dict_iter in (reboot_ctrl_dict):
             if re.search(reboot_ctrl_dict[dict_iter]["cause"], reboot_type["cause"]):
-                logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(dict_iter))
-                REBOOT_TYPE_HISTOYR_QUEUE.appendleft(dict_iter)
+                logger.info("Adding {} to REBOOT_TYPE_HISTORY_QUEUE".format(dict_iter))
+                REBOOT_TYPE_HISTORY_QUEUE.appendleft(dict_iter)
                 dict_iter_found = True
                 break
         if not dict_iter_found:
-            logger.info("Adding {} to REBOOT_TYPE_HISTOYR_QUEUE".format(REBOOT_TYPE_UNKNOWN))
-            REBOOT_TYPE_HISTOYR_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
+            logger.info("Adding {} to REBOOT_TYPE_HISTORY_QUEUE".format(REBOOT_TYPE_UNKNOWN))
+            REBOOT_TYPE_HISTORY_QUEUE.appendleft(REBOOT_TYPE_UNKNOWN)
 
 
 def check_reboot_cause_history(dut, reboot_type_history_queue):
