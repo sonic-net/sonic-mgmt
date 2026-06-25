@@ -105,7 +105,6 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
             assert v['port']['ifname'] == new_intf
         else:
             # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
             assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
                 "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
             ).format(
