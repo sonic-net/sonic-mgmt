@@ -90,7 +90,12 @@ def test_bgp_t0_port_startup(
         pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap Up")
         logger.info("Starting Up {} port of {} dut !!".format(port, device))
         flap_dut_obj.command("sudo config interface startup {}\n".format(port))
-        wait_for(lambda: is_traffic_converged(snappi_api), "Traffic to Converge", interval_seconds=5, timeout_seconds=180)
+        wait_for(
+            lambda: is_traffic_converged(snappi_api),
+            "Traffic to Converge",
+            interval_seconds=5,
+            timeout_seconds=180
+        )
         assert_rx_ports_receiving(snappi_api)
 
     run_bgp_convergence_event(
