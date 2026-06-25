@@ -28,6 +28,10 @@ parameters:
   type: string
   default: ""
 
+- name: PTF_IMAGE_TAG
+  type: string
+  default: ""
+
 - name: PTF_MODIFIED
   type: string
   default: "False"
@@ -113,6 +117,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
@@ -154,6 +159,7 @@ jobs:
   #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
   #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
   #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+  #         PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
   #         PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
   #         EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
   #         TOPOLOGY: t0
@@ -196,6 +202,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-lag
@@ -237,6 +244,7 @@ jobs:
   #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
   #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
   #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+  #         PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
   #         PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
   #         EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
   #         TOPOLOGY: dualtor
@@ -278,6 +286,7 @@ jobs:
   #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
   #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
   #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+  #         PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
   #         PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
   #         EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
   #         TOPOLOGY: t0-64-32
@@ -324,6 +333,7 @@ jobs:
   #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
   #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
   #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+  #         PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
   #         PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
   #         EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
   #         TOPOLOGY: dpu
@@ -369,6 +379,7 @@ jobs:
   #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
   #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
   #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+  #         PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
   #         PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
   #         EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
   #         TOPOLOGY: t1-8-lag
@@ -412,6 +423,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_IMAGE_TAG: ${{ parameters.PTF_IMAGE_TAG }}
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t2
