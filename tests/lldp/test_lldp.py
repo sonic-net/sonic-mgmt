@@ -327,6 +327,7 @@ def eth0_has_lldp_neighbor(duthost):
         return False
     return int(match.group(1)) > 0
 
+
 def verify_lldp_table(duthost, intf_status_output, test_name=""):
     """
     Verify LLDP table interfaces match interface status (admin up, no PortChannels).
