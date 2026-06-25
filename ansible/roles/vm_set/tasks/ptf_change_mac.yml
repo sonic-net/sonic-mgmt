@@ -34,3 +34,4 @@
 - name: Change PTF interface MAC addresses
   script: change_mac.sh
   delegate_to: "{{ ptf_host }}"
+  when: "'bmc' not in topo"

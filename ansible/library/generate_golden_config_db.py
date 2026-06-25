@@ -1295,14 +1295,19 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
-        # Disable swss and syncd features on BMC devices.
+        # Disable features not present on BMC devices.
+        # BMC runs only: database, gnmi, lldp, pmon, redfish, sysmgr, telemetry.
+        # All data-plane and management-framework features must be disabled.
         if self.is_bmc_device():
-            if multi_asic.is_multi_asic():
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "syncd", "disabled", "disabled")
-            else:
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "swss", "disabled", "disabled")
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "syncd", "disabled", "disabled")
+            bmc_disabled_features = [
+                "eventd", "mgmt-framework", "radv", "snmp", "swss", "syncd",
+                "bgp", "bmp", "dhcp_relay", "macsec", "nat", "sflow", "teamd",
+            ]
+            for feature in bmc_disabled_features:
+                if multi_asic.is_multi_asic():
+                    config = self.overwrite_feature_golden_config_db_multiasic(config, feature, "disabled", "disabled")
+                else:
+                    config = self.overwrite_feature_golden_config_db_singleasic(config, feature, "disabled", "disabled")
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
