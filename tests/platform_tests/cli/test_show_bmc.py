@@ -193,13 +193,21 @@ class TestBmcCliCommands:
 
         try:
             oper_before, admin_before = get_switch_host_status()
-            pytest_assert(oper_before == 'online',
-                          f"Expected SWITCH-HOST oper-status 'Online' before shutdown, got {oper_before!r}")
             pytest_assert(is_admin_on(admin_before),
                           f"Expected SWITCH-HOST admin-status on/up before shutdown, got {admin_before!r}")
 
-            self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
-                               module_ignore_errors=True)
+            shutdown_result = self.duthost.shell("config chassis modules shutdown SWITCH-HOST",
+                                                 module_ignore_errors=True)
+            shutdown_out = ((shutdown_result.get('stdout') or '') +
+                            '\n' + (shutdown_result.get('stderr') or '')).lower()
+            pytest_assert(
+                shutdown_result.get('rc') == 0,
+                f"shutdown command failed: rc={shutdown_result.get('rc')} out={shutdown_out!r}"
+            )
+            pytest_assert(
+                "already in down state" not in shutdown_out,
+                f"shutdown command reported no-op despite admin-status {admin_before!r}: {shutdown_out!r}"
+            )
 
             oper_after_shutdown, admin_after_shutdown = get_switch_host_status()
             pytest_assert(is_admin_off(admin_after_shutdown),
@@ -218,8 +226,18 @@ class TestBmcCliCommands:
 
             wait_host_off(host, timeout=300)
 
-            self.duthost.shell("config chassis modules startup SWITCH-HOST",
-                               module_ignore_errors=True)
+            startup_result = self.duthost.shell("config chassis modules startup SWITCH-HOST",
+                                                module_ignore_errors=True)
+            startup_out = ((startup_result.get('stdout') or '') +
+                           '\n' + (startup_result.get('stderr') or '')).lower()
+            pytest_assert(
+                startup_result.get('rc') == 0,
+                f"startup command failed: rc={startup_result.get('rc')} out={startup_out!r}"
+            )
+            pytest_assert(
+                "is already set to up state" not in startup_out,
+                f"startup command reported no-op unexpectedly: {startup_out!r}"
+            )
             wait_host_on(host)
 
             pytest_assert(

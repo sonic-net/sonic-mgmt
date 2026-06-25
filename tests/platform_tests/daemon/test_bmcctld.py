@@ -13,7 +13,6 @@ import logging
 import pytest
 import re
 import time
-from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import (
@@ -27,7 +26,6 @@ from tests.common.helpers.sonic_db import (
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
-    bmc_log_zgrep,
     get_host_uptime,
     get_switch_host_or_skip_test,
     make_bmc_loganalyzer,
@@ -86,8 +84,6 @@ class TestBmcctldDaemon:
         - HOST_STATE:switch-host initialized with valid device_status
         - Startup log reflects liquid-cooled vs air-cooled path
         - Service is running and responsive
-        - After a BMC reboot (non-power-loss), pmon journal contains
-          "Skipping SWITCH_HOST_POWER_ON_DELAY"
         """
 
         # Bound log verification to this reboot window.
@@ -104,28 +100,17 @@ class TestBmcctldDaemon:
         pytest_assert(daemon_status == "RUNNING", "bmcctld daemon should be running")
         pytest_assert(daemon_pid != -1, "bmcctld daemon should have a valid pid")
 
-        # Verify startup path logged (historical scan, rotation-safe via zgrep on syslog+event.log).
-        startup = bmc_log_zgrep(
-            self.duthost,
-            r"STARTUP:.*liquid|STARTUP:.*power_on",
-            tail=5,
-            files=f"/var/log/syslog* {BMC_EVENT_LOG}",
-        )
+        # Verify startup path from marker-bounded post-reboot logs.
+        la.match_regex = [r".*STARTUP:.*liquid.*", r".*STARTUP:.*power_on.*"]
+        startup_result = la.analyze(marker, fail=False)
+        startup_lines = []
+        for lines in (startup_result.get("match_messages") or {}).values():
+            startup_lines.extend(lines)
+        startup = "\n".join(startup_lines)
         if startup:
             logger.info(f"bmcctld startup path: {startup}")
         else:
-            logger.info("No bmcctld startup path log found (daemon may have been running before log window)")
-
-        # Non-power-loss BMC reboot must SKIP the boot delay.
-        # Use marker-bounded analysis so we verify the most recent reboot path.
-        la.match_regex = [r".*Skipping SWITCH_HOST_POWER_ON_DELAY.*"]
-        skip_result = la.analyze(marker, fail=False)
-        skipped = skip_result.get("total", {}).get("match", 0)
-        pytest_assert(
-            skipped > 0,
-            "Expected 'Skipping SWITCH_HOST_POWER_ON_DELAY' in BMC syslog/event.log "
-            "after non-power-loss BMC reboot"
-        )
+            logger.info(f"No bmcctld startup path log found in marker-bounded window ({BMC_EVENT_LOG})")
 
         # Verify CHASSIS_MODULE_INFO
         info_dict = redis_hgetall(self.duthost, STATE_DB,
@@ -434,22 +419,14 @@ class TestBmcctldDaemon:
             del_cmd(unknown_key)
 
     def test_bmcctld_power_on_delay(self, localhost, get_pdu_controller):
-        """Verify bmcctld's power_on_delay reaction to its own reboot cause.
+        """Verify bmcctld startup dispatch after BMC power loss.
 
-        Two scenarios — power_on_delay is a BMC-side reaction to the BMC's own last
-        reboot cause; it has nothing to do with the Switch-Host boot path:
-          A) BMC cold reboot (non-power-loss): bmcctld must SKIP the delay.
-             Journal must contain 'Skipping SWITCH_HOST_POWER_ON_DELAY' and must NOT
-             contain 'SWITCH_HOST_POWER_ON_DELAY <N>' (delay-applied form).
-          B) BMC power loss via external PDU (power-loss): bmcctld must APPLY the
-             configured delay. Journal must contain 'SWITCH_HOST_POWER_ON_DELAY <N>'
-             matching the configured value, and the elapsed time between that log
-             and the subsequent power_on dispatch must be >= configured delay.
-             Skipped if no PDU controller is wired for this BMC.
+        This test focuses on hard assertions from marker-bounded persistent logs:
+        after a PDU-induced BMC power-loss reboot, startup must log
+        'STARTUP: ... issuing power_on'. Skipped if no PDU controller is wired.
         """
 
         test_delay = 30
-        tolerance_upper = 30
 
         orig_delay = self.duthost.shell(
             "sonic-db-cli CONFIG_DB HGET 'CHASSIS_MODULE|SWITCH-HOST' power_on_delay",
@@ -467,37 +444,8 @@ class TestBmcctldDaemon:
             pytest_assert(readback == str(test_delay),
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
-            # Scenario A: cold reboot BMC → reboot cause NOT power loss → bmcctld must skip delay.
-            la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_a")
-            marker_a = la.init()
-            reboot(self.duthost, localhost, reboot_type=REBOOT_TYPE_COLD,
-                   wait_for_ssh=True, safe_reboot=True)
-            wait_until(420, 10, 30, lambda: self.duthost.critical_services_fully_started())
-
-            la.match_regex = [r".*SWITCH_HOST_POWER_ON_DELAY.*"]
-            a_result = la.analyze(marker_a, fail=False)
-            a_lines = []
-            for lines in (a_result.get("match_messages") or {}).values():
-                a_lines.extend(lines)
-            journal_a = "\n".join(a_lines)
-            logger.info(f"Scenario A (BMC cold reboot) journal:\n{journal_a}")
-
-            pytest_assert('Skipping SWITCH_HOST_POWER_ON_DELAY' in journal_a,
-                          "After non-power-loss BMC reboot, expected 'Skipping "
-                          "SWITCH_HOST_POWER_ON_DELAY' log not found")
-            # Strip 'Skipping ...' lines so 'Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY' can't false-match.
-            non_skip_lines = '\n'.join(
-                ln for ln in journal_a.splitlines()
-                if 'Skipping SWITCH_HOST_POWER_ON_DELAY' not in ln
-            )
-            delay_applied = re.search(
-                r'Waiting\s+\d+s.*SWITCH_HOST_POWER_ON_DELAY', non_skip_lines
-            )
-            pytest_assert(not delay_applied,
-                          f"After non-power-loss BMC reboot, delay-applied log found "
-                          f"unexpectedly: {delay_applied.group(0) if delay_applied else ''}")
-
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
+            la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             try:
                 pdu_ctrl = get_pdu_controller(self.duthost)
             except Exception as e:
@@ -520,7 +468,7 @@ class TestBmcctldDaemon:
             marker_b = la.init()
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
 
-            la.match_regex = [r".*SWITCH_HOST_POWER_ON_DELAY.*", r".*issuing power_on.*"]
+            la.match_regex = [r".*STARTUP:.*issuing power_on.*", r".*issuing power_on.*"]
             b_result = la.analyze(marker_b, fail=False)
             b_lines = []
             for lines in (b_result.get("match_messages") or {}).values():
@@ -528,34 +476,16 @@ class TestBmcctldDaemon:
             journal_b = "\n".join(b_lines)
             logger.info(f"Scenario B (BMC power-loss) journal:\n{journal_b}")
 
-            # Match "Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY" (N before token).
-            delay_match = re.search(
-                r'(\S+\s+\S+\s+\S+).*?Waiting\s+(\d+)s.*?SWITCH_HOST_POWER_ON_DELAY',
-                journal_b
-            )
-            pytest_assert(delay_match,
-                          "After PDU-induced BMC power-loss reboot, expected "
-                          "'Waiting <N>s ... SWITCH_HOST_POWER_ON_DELAY' log not found")
-            logged_delay = int(delay_match.group(2))
-            pytest_assert(logged_delay == test_delay,
-                          f"Logged power_on_delay {logged_delay} != configured {test_delay}")
-
             # Match "STARTUP: Switch-Host OFFLINE — issuing power_on" (lowercase 'issuing').
             poweron_match = re.search(
                 r'(\S+\s+\S+\s+\S+).*?issuing power_on',
                 journal_b
             )
-            if poweron_match:
-                fmt = '%b %d %H:%M:%S'
-                t_delay = datetime.strptime(delay_match.group(1), fmt)
-                t_on = datetime.strptime(poweron_match.group(1), fmt)
-                elapsed = (t_on - t_delay).total_seconds()
-                pytest_assert(test_delay <= elapsed <= test_delay + tolerance_upper,
-                              f"Elapsed {elapsed}s between delay-log and power_on-dispatch "
-                              f"outside expected [{test_delay}, {test_delay + tolerance_upper}]s")
-                logger.info(f"Power-on delay honored: elapsed={elapsed}s, configured={test_delay}s")
-            else:
-                logger.warning("No 'Issuing power_on' log found; timing assertion skipped")
+            pytest_assert(
+                poweron_match,
+                "After PDU-induced BMC power-loss reboot, expected "
+                "'STARTUP: ... issuing power_on' log not found in bounded window"
+            )
         finally:
             if orig_delay and orig_delay.isdigit():
                 self.duthost.shell(

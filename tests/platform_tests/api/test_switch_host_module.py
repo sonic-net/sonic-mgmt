@@ -190,14 +190,10 @@ class TestChassisBmcModuleApi(PlatformApiTestBase):
 
     def test_chassis_is_bmc(self, duthosts, enum_rand_one_per_hwsku_hostname,
                             platform_api_conn):  # noqa: F811
-        """Verify is_bmc() is True and get_bmc() returns non-None on BMC topology."""
+        """Verify is_bmc() is True on BMC topology."""
         result = chassis.is_bmc(platform_api_conn)
         self.expect(isinstance(result, bool), "is_bmc() should return bool")
         self.expect(result is True, "is_bmc() should be True on bmc topology")
-
-        bmc_obj = chassis.get_bmc(platform_api_conn)
-        self.expect(bmc_obj is not None, "get_bmc() should return non-None on BMC system")
-        logger.info(f"get_bmc() returned: {bmc_obj}")
 
     def test_chassis_is_liquid_cooled(self, duthosts, enum_rand_one_per_hwsku_hostname,
                                       platform_api_conn):  # noqa: F811

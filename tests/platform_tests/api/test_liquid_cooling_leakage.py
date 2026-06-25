@@ -64,7 +64,20 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
     def test_get_leak_sensor_status(self, platform_api_conn):    # noqa: F811
         leak_sensor_status_list = liquid_cooling.get_leak_sensor_status(platform_api_conn)
         if leak_sensor_status_list:
-            self.expect(False, f"There is a leak sensor with status {leak_sensor_status_list}")
+            details = []
+            for idx, sensor in enumerate(leak_sensor_status_list):
+                sensor_name = getattr(sensor, 'name', None) or getattr(sensor, 'sensor_name', None)
+                sensor_status = getattr(sensor, 'status', None) or getattr(sensor, 'leak_sensor_status', None)
+                sensor_is_leak = getattr(sensor, 'is_leak', None)
+                details.append(
+                    f"[{idx}] type={type(sensor).__name__} "
+                    f"name={sensor_name!r} status={sensor_status!r} "
+                    f"is_leak={sensor_is_leak!r} repr={sensor!r}"
+                )
+            self.expect(
+                False,
+                "There is a leak sensor with active status:\n{}".format("\n".join(details))
+            )
         self.assert_expectations()
 
     def test_get_all_leak_sensors(self, platform_api_conn):    # noqa: F811
