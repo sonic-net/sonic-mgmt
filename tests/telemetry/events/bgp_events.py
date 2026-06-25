@@ -4,6 +4,8 @@ import logging
 import time
 import ipaddress
 
+import pytest
+
 from run_events_test import run_test
 from tests.common.utilities import is_ipv6_only_topology
 
@@ -11,8 +13,15 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-bgp"
 
 
+<<<<<<< HEAD
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
+=======
+def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+    if len(duthost.get_bgp_neighbors()) == 0:
+        pytest.skip("Skipping BGP telemetry events: no BGP neighbors configured")
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
+>>>>>>> ef3b9f7c0 (Skip BGP telemetry events when no BGP neighbors configured)
              "bgp_notification.json", "sonic-events-bgp:notification", tag)
     run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
