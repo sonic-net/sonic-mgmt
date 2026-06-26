@@ -187,9 +187,9 @@ Cleanup runs after normal completion, assertion failure, or partial setup failur
 
 Cleanup steps:
 
-1. `config reload` from minigraph with `safe_reload=True`
+1. `config reload` from minigraph with `safe_reload=True` and `wait_for_bgp=True`
 2. Blanket loganalyzer ignore during reload teardown
-3. Wait for critical services to fully start (handled inside `config_reload`)
+3. Wait for critical services and BGP to stabilize (handled inside `config_reload`)
 
 ## 6. Loganalyzer Handling
 

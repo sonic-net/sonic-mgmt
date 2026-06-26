@@ -78,11 +78,30 @@ ACL_RULE_VERIFY_LIST = ["RULE_100", "RULE_200"]
 LOGANALYZER_IGNORE_REGEX = [
     ".*doPortTask: Unsupported port .* speed.*",
     ".*createEntry: Failed to start PFC Watchdog on port.*",
+    ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
     ".*ERR pmon#.*CmisManagerTask.*no suitable app for the port appl.*",
     ".*ERR syncd[0-9]*#syncd: SAI_LOG\\|SAI_API_QUEUE: Invalid queue counter.*",
-    ".*ERR GenericConfigUpdater: Service Validator: Restart failed for telemetry.*",
-    ".*ERR GenericConfigUpdater:.*port_speed_change_validator failed.*",
 ]
+
+
+def _restore_dut_via_minigraph(duthost, loganalyzer=None):
+    """
+    Restore the DUT to the original minigraph configuration.
+
+    Used for teardown and for recovery when setup or the test leaves the DUT in
+    a bad state (for example telemetry start-limit-hit after GCU speed changes).
+
+    Args:
+        duthost: DUT host object.
+        loganalyzer: Optional loganalyzer fixture for reload-time syslog ignores.
+    """
+    config_reload(
+        duthost,
+        config_source="minigraph",
+        safe_reload=True,
+        wait_for_bgp=True,
+        ignore_loganalyzer=loganalyzer,
+    )
 
 
 # -----------------------------
@@ -117,18 +136,24 @@ def _pick_primary_downstream_hostname(duthosts, tbinfo):
         str: Hostname of a qualifying downstream-facing frontend DUT.
     """
     downstream_nbr_type = _get_downstream_neighbor_types(tbinfo)
+    selected_hostname = None
 
     for dut in duthosts.frontend_nodes:
         minigraph_neighbors = dut.get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
         for neighbor in minigraph_neighbors.values():
             if any(downstream_type in neighbor['name'] for downstream_type in downstream_nbr_type):
-                return dut.hostname
+                selected_hostname = dut.hostname
+                break
+        if selected_hostname is not None:
+            break
 
-    pytest.fail(
-        "Did not find a dut in duthosts for topo type {} that has downstream nbr type {}".format(
-            tbinfo["topo"]["type"], downstream_nbr_type
+    if selected_hostname is None:
+        pytest.fail(
+            "Did not find a dut in duthosts for topo type {} that has downstream nbr type {}".format(
+                tbinfo["topo"]["type"], downstream_nbr_type
+            )
         )
-    )
+    return selected_hostname
 
 
 def _pick_primary_upstream_hostname(duthosts, tbinfo):
@@ -148,17 +173,23 @@ def _pick_primary_upstream_hostname(duthosts, tbinfo):
     if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
+    selected_hostname = None
     for dut in duthosts.frontend_nodes:
         minigraph_neighbors = dut.get_extended_minigraph_facts(tbinfo)['minigraph_neighbors']
         for neighbor in minigraph_neighbors.values():
             if upstream_nbr_type in neighbor['name']:
-                return dut.hostname
+                selected_hostname = dut.hostname
+                break
+        if selected_hostname is not None:
+            break
 
-    pytest.fail(
-        "Did not find a dut in duthosts for topo type {} that has upstream nbr type {}".format(
-            tbinfo["topo"]["type"], upstream_nbr_type
+    if selected_hostname is None:
+        pytest.fail(
+            "Did not find a dut in duthosts for topo type {} that has upstream nbr type {}".format(
+                tbinfo["topo"]["type"], upstream_nbr_type
+            )
         )
-    )
+    return selected_hostname
 
 
 def _pick_traffic_source(duthosts, test_dut_hostname, original_upstream):
@@ -925,11 +956,15 @@ def validate_patch_scoped_to_ports(json_patch, ports):
         )
 
 
-def build_port_config_for_400g_upgrade(port_config_100g, original_port_config):
+def build_port_config_for_400g_upgrade(duthost, cli_namespace_prefix, selected_random_port,
+                                        port_config_100g, original_port_config):
     """
     Build a full 400G PORT block from the current 100G PORT config.
 
     Args:
+        duthost: DUT host object.
+        cli_namespace_prefix: sonic-db-cli namespace prefix.
+        selected_random_port: Ethernet port name.
         port_config_100g: Full PORT table value used for the 100G setup state.
         original_port_config: Original full 400G PORT table value.
 
@@ -937,11 +972,19 @@ def build_port_config_for_400g_upgrade(port_config_100g, original_port_config):
         dict: Full PORT block preserving non-speed fields from the 100G config.
     """
     port_config_400g = dict(port_config_100g)
-    for field in ["speed", "lanes", "fec"]:
+    for field in ["speed", "lanes"]:
         if field in original_port_config:
             port_config_400g[field] = original_port_config[field]
         else:
             port_config_400g.pop(field, None)
+
+    target_fec = get_target_fec(
+        duthost, cli_namespace_prefix, selected_random_port, SPEED_400G
+    )
+    if target_fec == "N/A":
+        port_config_400g.pop("fec", None)
+    elif target_fec:
+        port_config_400g["fec"] = target_fec
     return port_config_400g
 
 
@@ -976,9 +1019,6 @@ def build_port_config_for_speed(duthost, base_port_config, target_speed,
         str(i) for i in range(start_lane, start_lane + target_num_lanes)
     )
     port_config["speed"] = target_speed
-
-    if int(target_speed) == int(SPEED_400G):
-        return port_config
 
     target_fec = get_target_fec(
         duthost, cli_namespace_prefix, selected_random_port, target_speed
@@ -1345,8 +1385,8 @@ def port_speed_upgrade_context(duthosts, tbinfo):
     )
     if selected_context is None:
         pytest.skip(
-            f"No downstream DUT has a 400G admin-up "
-            f"oper-up portchannel member on any frontend ASIC, or no usable traffic-source DUT"
+            "No downstream DUT has a 400G admin-up "
+            "oper-up portchannel member on any frontend ASIC, or no usable traffic-source DUT"
         )
 
     logging.info(
@@ -1387,8 +1427,7 @@ def setup_port_speed_upgrade(request, duthosts, port_speed_upgrade_context, loga
     and verifies show interface status. Yields the selected test context to the
     test function.
 
-    Teardown restores the DUT to the original minigraph configuration using
-    config reload.
+    Teardown and setup failure recovery restore the DUT via minigraph config reload.
 
     Args:
         duthosts: DUT hosts fixture.
@@ -1410,11 +1449,8 @@ def setup_port_speed_upgrade(request, duthosts, port_speed_upgrade_context, loga
     def cleanup():
         # Restore original minigraph configuration after mutation. Register this
         # before applying the downgrade patch so partial setup failures recover too.
-        with allure.step("Restore DUT configuration via config reload"):
-            config_reload(
-                duthost, config_source="minigraph", safe_reload=True,
-                ignore_loganalyzer=loganalyzer
-            )
+        with allure.step("Restore DUT configuration via minigraph config reload"):
+            _restore_dut_via_minigraph(duthost, loganalyzer)
 
     port_config_100g = build_port_config_for_speed(
         duthost, original_port_config, SPEED_100G, cli_namespace_prefix, port
@@ -1517,6 +1553,7 @@ def test_port_speed_upgrade(tbinfo, duthosts, ptfadapter, setup_port_speed_upgra
         initial_speed, initial_cable_length
     )
     port_config_400g = build_port_config_for_400g_upgrade(
+        duthost, cli_namespace_prefix, selected_random_port,
         port_config_100g, original_port_config
     )
 
