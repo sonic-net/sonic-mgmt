@@ -9,11 +9,12 @@ from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
 from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_utils import parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -45,9 +46,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    for dpuhost in dpuhosts:
-        logger.info(f"config reload on {dpuhost.hostname}")
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """
@@ -89,6 +88,12 @@ def test_ha_dut_config_reload(
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
 
     packet_sending_flag = queue.Queue(1)
 
