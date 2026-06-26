@@ -385,10 +385,12 @@ def create_snappi_config(snappi_api, get_snappi_ports):
     def _create_snappi_config(snappi_extra_params):
         config = create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params)
         pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
-        snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+        snappi_obj_handles = {k: {"ip": [], "ipv4_address": [], "ipv6_address": [],
+                                  "port_name": [], "network_group": []} for k in snappi_extra_params.protocol_config}
         count = 0
         for role, pconfig in snappi_extra_params.protocol_config.items():
             is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
+
             for index, port_data in enumerate(pconfig['ports']):
                 device = config.devices.device(name=f"{role} Topology {index}")[-1]
                 eth = device.ethernets.add(name=f"{role} Ethernet_{index}", mac=port_data["src_mac_address"])
@@ -401,6 +403,12 @@ def create_snappi_config(snappi_api, get_snappi_ports):
                     prefix=int(port_data["prefix"])
                 )
                 snappi_obj_handles[role]["ip"].append(ip_layer.name)
+
+                snappi_obj_handles[role]["port_name"].append(f"Port_{port_data['port_id']}")
+                if is_ipv4:
+                    snappi_obj_handles[role]["ipv4_address"].append(port_data["ipAddress"])
+                else:
+                    snappi_obj_handles[role]["ipv6_address"].append(port_data["ipAddress"])
 
                 if pconfig.get("protocol_type", False) and pconfig['protocol_type'] == "bgp":
                     bgp = device.bgp
