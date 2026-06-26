@@ -6,7 +6,6 @@ import time
 from tests.generic_config_updater.add_cluster.helpers import get_cfg_info_from_dut
 from tests.generic_config_updater.add_cluster.helpers import acl_asic_shell_wrappper
 from .platform_constants import PLATFORM_SUPPORTED_SPEEDS_MAP, PLATFORM_SPEED_LANES_MAP, SPEED_FEC_MAP
-from tests.generic_config_updater.add_cluster.test_add_cluster import format_sonic_interface_dict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -16,7 +15,7 @@ from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_cont
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
 from tests.generic_config_updater.add_cluster.helpers import get_active_interfaces, \
-    remove_dataacl_table_single_dut, send_and_verify_traffic
+    remove_dataacl_table_single_dut, send_and_verify_traffic, format_sonic_interface_dict
 
 pytestmark = [
     pytest.mark.topology("t2", "lrh", "urh")

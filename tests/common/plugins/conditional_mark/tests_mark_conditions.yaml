@@ -2562,6 +2562,14 @@ generic_config_updater/add_cluster/test_port_speed_change.py:
       - "hwsku not in ['Nokia-IXR7250E-36x400G']"
       - "asic_type in ['vs']"
 
+generic_config_updater/add_cluster/test_port_speed_upgrade.py:
+  skip:
+    reason: "Port speed cluster upgrade test is supported only on T2 chassis-packet testbeds"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
+
 generic_config_updater/test_apply_patch_perf.py:
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"

@@ -10,7 +10,8 @@ from tests.common.gu_utils import apply_patch
 from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
     clear_static_route, get_active_interfaces, get_cfg_info_from_dut, \
     get_exabgp_port_for_neighbor, remove_dataacl_table_single_dut, remove_static_route, \
-    send_and_verify_traffic, verify_routev4_existence
+    send_and_verify_traffic, verify_routev4_existence, format_sonic_interface_dict, \
+    format_sonic_buffer_pg_dict
 
 pytestmark = [
         pytest.mark.topology("t2", "lrh", "urh")
@@ -1488,42 +1489,6 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile_rest)
-
-
-def format_sonic_interface_dict(interface_dict, single_entry=True):
-    """
-    Converts a SONiC interface dictionary into the correct format so the formatted value can be used
-    as the 'value' in a JSON patch.
-
-    - Ensures interfaces exist as standalone keys.
-    - Converts IP addresses into the "Interface|IP" format.
-    """
-    formatted_interface_dict = {}
-
-    for key, values in interface_dict.items():
-        if isinstance(values, dict):  # if IPs are defined under the interface
-            if single_entry:
-                formatted_interface_dict[key] = {}
-            for ip in values.keys():
-                formatted_interface_dict[f"{key}|{ip}"] = {}
-        else:
-            if single_entry:
-                formatted_interface_dict[key] = {}
-
-    return formatted_interface_dict
-
-
-def format_sonic_buffer_pg_dict(buffer_pg_dict):
-    """
-    Converts a SONiC interface dictionary into the correct format so the formatted value can be used
-    as the 'value' in a JSON patch.
-    """
-    formatted_dict = {}
-    for key, values in buffer_pg_dict.items():
-        if isinstance(values, dict):
-            for pg_num_key, value in values.items():
-                formatted_dict[f"{key}|{pg_num_key}"] = value
-    return formatted_dict
 
 
 # -----------------------------
