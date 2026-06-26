@@ -326,8 +326,29 @@ def links_verified(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture
+def expected_pid_changes():
+    """Per-test set of monitored-process names allowed to change PID.
+
+    Empty by default, so any monitored-process restart is treated as a
+    regression by the post-test health check — the strict behavior every
+    existing test relies on, unchanged.
+
+    A test (or a subcategory conftest) that intentionally restarts a daemon
+    adds the process name to this set so the parent ``_per_test_health_check``
+    treats the PID change as expected instead of a failure. The set is mutable
+    and shared with the parent fixture for the duration of the test, so it can
+    be populated at runtime — e.g. a test that restarts ``pmon`` (which forces
+    an ``xcvrd`` restart) calls ``expected_pid_changes.add("xcvrd")`` before
+    issuing the restart. This is additive: the parent fixture remains the
+    single owner of the xcvrd/core check; subcategories feed it intent rather
+    than overriding it.
+    """
+    return set()
+
+
 @pytest.fixture(autouse=True)
-def _per_test_health_check(request, duthost):
+def _per_test_health_check(request, duthost, expected_pid_changes):
     """Capture health baseline before each test; verify before and after."""
     baseline = capture_baseline(duthost)
     logger.debug("Health baseline captured for %s", request.node.name)
@@ -341,7 +362,7 @@ def _per_test_health_check(request, duthost):
 
     yield
 
-    result = verify_health(duthost, baseline)
+    result = verify_health(duthost, baseline, expect_pid_change=expected_pid_changes)
     post_checks = [
         ("system_health", result["passed"], "; ".join(result["failures"])),
     ]
