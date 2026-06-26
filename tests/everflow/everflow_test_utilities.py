@@ -1519,6 +1519,14 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
 
+                    if 't2' in setup['topo']:
+                        if duthost.facts['switch_type'] == "chassis-packet":
+                            # On non-VOQ T2, payload SMAC depends on forwarding path.
+                            # ttl_dec==1 corresponds to cross-namespace path; ttl_dec==0 to same-namespace path.
+                            if src_port_metadata_map[src_port][1] == 1:
+                                mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                            else:
+                                mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
                 if multi_binding_acl:
                     inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
                     inner_packet.set_do_not_care_scapy(packet.Ether, "src")
