@@ -396,6 +396,7 @@ def get_lacp_add_remove_link_physically(snappi_api,
             cs.port.link.port_names = [port_name]
             cs.port.link.state = cs.port.link.UP
             snappi_api.set_control_state(cs)
+            wait(TIMEOUT, "For Link to go up")
             """ Stopping Traffic at the end of iteration """
             logger.info('Stopping Traffic')
             cs = snappi_api.control_state()
