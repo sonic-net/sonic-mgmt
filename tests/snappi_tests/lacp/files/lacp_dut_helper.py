@@ -348,7 +348,19 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
                 dut_port_name, i+1))
             duthost.shell(
                 "sudo config portchannel member add PortChannel2 %s\n" % (dut_port_name))
+            """ Stopping Traffic """
+            logger.info('Stopping Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
+            wait(TIMEOUT-10, "For Traffic To stop")
 
+        """ Stopping all protocols """
+        logger.info('Stopping all protocols')
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT-10, "For Protocols To stop")
         table.append('%s Link Failure' % dut_port_name)
         table.append(number_of_routes)
         table.append(iteration)

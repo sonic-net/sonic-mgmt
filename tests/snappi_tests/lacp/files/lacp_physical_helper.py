@@ -396,11 +396,23 @@ def get_lacp_add_remove_link_physically(snappi_api,
             cs.port.link.port_names = [port_name]
             cs.port.link.state = cs.port.link.UP
             snappi_api.set_control_state(cs)
+            """ Stopping Traffic at the end of iteration """
+            logger.info('Stopping Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
+            wait(TIMEOUT-10, "For Traffic To STOP")
         table.append('%s Link Failure' % port_name)
         table.append(number_of_routes)
         table.append(iteration)
         table.append(mean(avg_delta))
         table.append(mean(avg))
+        """ Stopping Protocols """
+        logger.info("Stopping all protocols ...")
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT-10, "For Protocols To STOP")
         return table
     table = []
     """ Iterating link flap test on all the rx ports """
