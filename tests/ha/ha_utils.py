@@ -12,8 +12,36 @@ from gnmi_utils import apply_messages
 logger = logging.getLogger(__name__)
 
 
+def _wait_for_dpuhost_reachable(dpuhost, timeout=300, interval=10):
+    """
+    Wait until ``dpuhost`` is reachable via the Ansible transport.
+    """
+    def _check():
+        try:
+            res = dpuhost.ping(module_ignore_errors=True)
+        except Exception as e:  # noqa: BLE001 - AnsibleConnectionFailure et al
+            logger.info(
+                f"{dpuhost.hostname} not yet reachable: "
+                f"{type(e).__name__}: {e}"
+            )
+            return False
+        if res.get("failed"):
+            logger.info(
+                f"{dpuhost.hostname} ping module reported failed: {res}"
+            )
+            return False
+        return True
+
+    return wait_until(timeout, interval, 0, _check)
+
+
 def _config_reload_dpuhost(dpuhost):
     logger.info(f"config reload on {dpuhost.hostname}")
+    if not _wait_for_dpuhost_reachable(dpuhost):
+        logger.warning(
+            f"{dpuhost.hostname} did not become reachable before "
+            f"config reload; proceeding anyway"
+        )
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
