@@ -131,9 +131,12 @@ class TestThermalctldDaemon:
         # Verify bmcctld coordination: critical leaks propagate to HOST_STATE
         if get_system_leak_status(self.duthost) == 'CRITICAL':
             host_status = redis_hget(self.duthost, STATE_DB,
-                                     'HOST_STATE:switch-host', 'device_status')
-            if host_status:
-                logger.info(f"Critical leak integration: HOST_STATE={host_status}")
+                                     'HOST_STATE|switch-host', 'device_status')
+            pytest_assert(host_status is not None,
+                          "HOST_STATE|switch-host device_status not set despite CRITICAL leak active")
+            pytest_assert(host_status != 'ONLINE',
+                          f"HOST_STATE device_status={host_status!r} — "
+                          "switch-host must not be ONLINE when CRITICAL leak is active")
 
     def test_thermalctld_event_trigger(self):
         """
@@ -326,11 +329,12 @@ class TestThermalctldDaemon:
                 "No BMC mirror log found in /var/log/syslog* — thermalctld may have started earlier"
             )
 
-        # Verify local TEMPERATURE_INFO is populated (source of mirror data)
-        count = len(redis_keys(self.duthost, STATE_DB, 'TEMPERATURE_INFO:*'))
-        logger.info(f"Local TEMPERATURE_INFO entries: {count}")
-        if count == 0:
-            logger.info("No TEMPERATURE_INFO entries — thermals not yet polled or no sensors")
+        # Verify local TEMPERATURE_INFO is populated (source of mirror data).
+        # Keys use | separator: TEMPERATURE_INFO|<sensor_name>
+        count = len(redis_keys(self.duthost, STATE_DB, 'TEMPERATURE_INFO|*'))
+        pytest_assert(count > 0,
+                      "No TEMPERATURE_INFO|* entries in STATE_DB — "
+                      "thermalctld has not polled thermal sensors yet")
 
     def test_thermalctld_switch_host_thermal_monitoring(self):
         """
@@ -381,8 +385,9 @@ class TestThermalctldDaemon:
         if existing:
             logger.info(f"Existing CRITICAL chassis thermal events:\n{existing}")
 
-        # Inject a test TEMPERATURE_INFO entry with temp above critical threshold
-        TEST_SENSOR = "TEMPERATURE_INFO:test_critical_thermal_monitor"
+        # Inject a test TEMPERATURE_INFO entry with temp above critical threshold.
+        # Key uses | separator: TEMPERATURE_INFO|<sensor_name> (sonic TABLE_NAME_SEPARATOR).
+        TEST_SENSOR = "TEMPERATURE_INFO|test_critical_thermal_monitor"
         # Bracket the inject with BmcLogAnalyzer scanning syslog (live, no reboot).
         la = make_bmc_loganalyzer(self.duthost, "thermalctld_switch_host_thermal_breach")
         marker = la.init(log_target='syslog')
@@ -401,10 +406,10 @@ class TestThermalctldDaemon:
 
         la.match_regex = [r".*CRITICAL chassis thermal.*test_critical.*"]
         breach_result = la.analyze(marker, fail=False, log_target='syslog')
-        if breach_result.get("total", {}).get("match", 0) > 0:
-            logger.info("CRITICAL chassis thermal log confirmed for injected sensor")
-        else:
-            logger.info("No CRITICAL chassis thermal log found within 90s")
+        match_count = breach_result.get("total", {}).get("match", 0)
+        pytest_assert(match_count > 0,
+                      "Expected 'CRITICAL chassis thermal' log for injected sensor "
+                      f"{TEST_SENSOR} (120C > 80C threshold) not found in syslog within 90s")
 
 
 # ---------------------------------------------------------------------------

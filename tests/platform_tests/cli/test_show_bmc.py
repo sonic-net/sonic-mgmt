@@ -405,8 +405,8 @@ class TestBmcCliCommands:
                 continue
             output = result['stdout']
             for field in expected_fields:
-                present = field.lower() in output.lower()
-                logger.info(f"{cmd!r} contains '{field}': {present}")
+                pytest_assert(field.lower() in output.lower(),
+                              f"{cmd!r} output missing expected column '{field}'")
 
 
 def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostname, request):

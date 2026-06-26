@@ -146,10 +146,10 @@ class TestBmcctldDaemon:
         them wakes the event thread and invokes the corresponding handler, which must
         produce a log entry in syslog (pmon journal) or /host/bmc/event.log:
 
-        - CONFIG_DB  CHASSIS_MODULE|SWITCH-HOST  admin_status      (_handle_chassis_module)
-        - STATE_DB   SYSTEM_LEAK_STATUS:system   device_leak_status (_handle_system_leak)
-        - STATE_DB   RACK_MANAGER_COMMAND:<id>   command            (_handle_rack_mgr_command)
-        - STATE_DB   RACK_MANAGER_ALERT:<id>     severity           (_handle_rack_mgr_alert)
+        - CONFIG_DB  CHASSIS_MODULE|SWITCH-HOST   admin_status      (_handle_chassis_module)
+        - STATE_DB   SYSTEM_LEAK_STATUS|system    device_leak_status (_handle_system_leak)
+        - STATE_DB   RACK_MANAGER_COMMAND|<id>    command            (_handle_rack_mgr_command)
+        - STATE_DB   RACK_MANAGER_ALERT|<id>      severity           (_handle_rack_mgr_alert)
 
         Safe payload choices avoid real power actions:
         - RACK_MANAGER_ALERT uses MINOR severity whose default action is syslog_only.
