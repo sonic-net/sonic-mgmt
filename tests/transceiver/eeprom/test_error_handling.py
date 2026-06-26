@@ -127,7 +127,7 @@ def test_absence_message_verification(duthost, port_attributes_dict):
         result = duthost.command(cmd, module_ignore_errors=True)
         lines = result.get("stdout_lines", [])
         if result.get("rc", RC_FAILURE) != 0 or not lines:
-            stderr = (result.get("stderr") or "").strip()[:200]
+            stderr = (result.get("stderr") or "").strip()[:cli_helpers.CLI_ERROR_DETAIL_MAX_CHARS]
             all_failures.append(
                 f"[{label}] command failed (rc={result.get('rc')}, stderr={stderr or '<empty>'})"
             )
