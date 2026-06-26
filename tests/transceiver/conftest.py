@@ -265,11 +265,11 @@ def _skip_transceiver_suite_on_vs(duthost):
 
 @pytest.fixture(scope="session")
 def lport_to_first_subport_mapping(duthost):
-    """Map each logical port to its breakout group's first (stem) sub-port.
+    """Map each logical port to its breakout group's first sub-port.
 
     Resolved once per session (it hits the DUT via ansible facts / sonic-db-cli)
-    and shared by every test that needs stem-port filtering, so the mapping is
-    not re-queried per test.  Pair with ``eeprom_decode.is_stem_port``.
+    and shared by every test that needs first-sub-port filtering, so the mapping
+    is not re-queried per test.  Pair with ``eeprom_decode.is_first_subport``.
     """
     return get_lport_to_first_subport_mapping(duthost)
 

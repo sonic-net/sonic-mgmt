@@ -65,6 +65,13 @@ SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 
+# Max characters of stdout/stderr echoed into a failure message.  Some sfputil
+# errors dump the full 500+ port list, which would bury the failure summary in
+# the terminal; 200 chars is enough to carry the actual error line (e.g.
+# "Error: invalid port ..." / "Root privileges are required") while keeping the
+# aggregated per-port failure report readable.
+CLI_ERROR_DETAIL_MAX_CHARS = 200
+
 
 # ──────────────────────────────────────────────────────────────────────
 # Multi-ASIC namespace support
@@ -179,9 +186,9 @@ def _run_and_parse(duthost, cmd, parser=None):
         stderr = (result.get("stderr") or "").strip()
         parts = []
         if stdout:
-            parts.append(f"stdout: {stdout[:200]}")
+            parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
         if stderr:
-            parts.append(f"stderr: {stderr[:200]}")
+            parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
         detail = "; ".join(parts) if parts else "no stdout/stderr"
         return None, f"{cmd} failed with rc={result.get('rc')} ({detail})"
     stdout_lines = result.get("stdout_lines", [])
@@ -205,7 +212,7 @@ def sfputil_show_eeprom_hexdump(duthost, port, page=None):
     """Run ``sfputil show eeprom-hexdump -p <port> [-n <page>]`` → ``(section_dict, err)``.
 
     Output shape: section-keyed byte map via ``parse_hexdump`` (e.g.
-    ``{"upper_page_0": {byte_offset: byte_value}, ...}``).
+    ``{"upper_page_00": {byte_offset: byte_value}, ...}``).
     """
     cmd = sfputil_show_eeprom_hexdump_cmd(port, page)
     return _run_and_parse(duthost, cmd, parse_hexdump)

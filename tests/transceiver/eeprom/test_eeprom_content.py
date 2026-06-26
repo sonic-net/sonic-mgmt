@@ -9,7 +9,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.eeprom_decode import is_stem_port
+from tests.transceiver.common.eeprom_decode import is_first_subport
 from tests.transceiver.eeprom._constants import DEFAULT_EEPROM_DUMP_TIMEOUT_SEC
 
 logger = logging.getLogger(__name__)
@@ -190,15 +190,17 @@ def _validate_port_eeprom_dump(
 
 
 def _run_per_port_eeprom_check(
-    duthost, port_attributes_dict, parse_wrapper, source_label, key_mapping, stem_map,
+    duthost, port_attributes_dict, parse_wrapper, source_label, key_mapping,
+    lport_to_first_subport,
 ):
-    """Iterate stem ports with attributes, validate via
+    """Iterate first sub-ports with attributes, validate via
     ``_validate_port_eeprom_dump``, and aggregate per-port failure blocks
     for one consolidated ``pytest.fail`` at the test level.
 
-    Filters to stem ports: EEPROM bytes are per-physical-port, so a breakout
-    sub-port returns the same data as its stem and adds no coverage here.  The
-    per-subport ``sfputil`` CLI-resolution path has its own dedicated test.
+    Filters to the first sub-port of each breakout group: EEPROM bytes are
+    per-physical-port, so the other sub-ports return the same data and add no
+    coverage here.  The per-subport ``sfputil`` CLI-resolution path has its own
+    dedicated test.
 
     Each port's ASIC network namespace is resolved via
     ``get_port_asic_instance`` + ``get_namespace_from_asic_id`` and forwarded to
@@ -211,8 +213,8 @@ def _run_per_port_eeprom_check(
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
-        if not is_stem_port(port, stem_map):
-            logger.debug("Port %s is a breakout sub-port, skipping", port)
+        if not is_first_subport(port, lport_to_first_subport):
+            logger.debug("Port %s is not the first breakout sub-port, skipping", port)
             continue
         namespace = duthost.get_namespace_from_asic_id(
             duthost.get_port_asic_instance(port).asic_index
@@ -256,7 +258,7 @@ def test_eeprom_content_verification_via_sfputil(
         parse_wrapper=_parse_via_sfputil,
         source_label="sfputil show eeprom -p <port>",
         key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
-        stem_map=lport_to_first_subport_mapping,
+        lport_to_first_subport=lport_to_first_subport_mapping,
     )
     if all_failures:
         pytest.fail("EEPROM verification failures:\n" + "\n".join(all_failures))
@@ -279,7 +281,7 @@ def test_eeprom_content_verification_via_show_cli(
         parse_wrapper=_parse_via_show_cli,
         source_label="show interfaces transceiver info <port>",
         key_mapping=SHOW_CLI_KEY_TO_INV_KEY,
-        stem_map=lport_to_first_subport_mapping,
+        lport_to_first_subport=lport_to_first_subport_mapping,
     )
     if all_failures:
         pytest.fail("EEPROM verification failures:\n" + "\n".join(all_failures))

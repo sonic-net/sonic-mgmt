@@ -8,7 +8,7 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers, dmesg_helpers
-from tests.transceiver.common.eeprom_decode import is_stem_port
+from tests.transceiver.common.eeprom_decode import is_first_subport
 from tests.transceiver.eeprom.cmis._constants import (
     BG_READER_READ_INTERVAL_SEC,
     BG_READER_TMP_PREFIX,
@@ -281,13 +281,13 @@ def test_cdb_background_mode_support_test(
     - EEPROM_ATTRIBUTES: cmis_active_optical = True  (non-DAC CMIS module)
     - EEPROM_ATTRIBUTES: cdb_background_mode_supported is defined (True or False)
 
-    Stem-port detection (used to skip breakout sub-ports that share an EEPROM
-    with their parent) comes from
+    First-sub-port detection (used to skip the other breakout sub-ports that
+    share an EEPROM with the first one) comes from
     ``tests.common.platform.interface_utils.get_lport_to_first_subport_mapping``
-    — a port is the stem iff it maps to itself, so no per-platform port-number
-    modulus is needed.
+    — a port is the first sub-port iff it maps to itself, so no per-platform
+    port-number modulus is needed.
 
-    For qualifying stem ports, reads CMIS Page 01h at sfputil offset 0xA3
+    For qualifying first sub-ports, reads CMIS Page 01h at sfputil offset 0xA3
     (= CMIS global byte 163 decimal, absolute address 0xA3 in the 256-byte
     page view) using:
         sfputil read-eeprom -p <port> -n 0x01 -o 0xA3 -s 1
@@ -306,13 +306,13 @@ def test_cdb_background_mode_support_test(
     all_failures = []
 
     for port, port_attrs in port_attributes_dict.items():
-        # Only test stem (parent) ports.  In a breakout deployment a single
-        # physical transceiver is represented by one stem port and one or more
-        # sub-ports that share the same EEPROM; running CDB reads against the
-        # sub-ports is redundant and can cause false failures on some ASIC
-        # drivers.
-        if not is_stem_port(port, lport_to_first_subport_mapping):
-            logger.debug("Port %s is a breakout sub-port, skipping CDB check", port)
+        # Only test the first sub-port of each breakout group.  In a breakout
+        # deployment a single physical transceiver is represented by several
+        # logical sub-ports that share the same EEPROM; running CDB reads against
+        # the non-first sub-ports is redundant and can cause false failures on
+        # some ASIC drivers.
+        if not is_first_subport(port, lport_to_first_subport_mapping):
+            logger.debug("Port %s is not the first breakout sub-port, skipping CDB check", port)
             continue
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
@@ -389,16 +389,16 @@ def test_cdb_background_mode_support_test(
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _stress_port_in_scope(port, port_attrs, stem_map):
+def _stress_port_in_scope(port, port_attrs, lport_to_first_subport):
     """Return True iff ``port`` qualifies for the CDB stress test.
 
-    Encapsulates the four skip gates (stem port, non-empty attrs,
+    Encapsulates the four skip gates (first sub-port, non-empty attrs,
     cmis_active_optical, cdb_background_mode_supported); logs the reason at
     DEBUG level for every port that is filtered out, so a single grep of
     the run log explains why any port was skipped.
     """
-    if not is_stem_port(port, stem_map):
-        logger.debug("Port %s is a breakout sub-port, skipping stress test", port)
+    if not is_first_subport(port, lport_to_first_subport):
+        logger.debug("Port %s is not the first breakout sub-port, skipping stress test", port)
         return False
     if not port_attrs:
         logger.debug("Port %s has no attributes, skipping", port)
@@ -575,10 +575,10 @@ def test_cdb_background_mode_stress_test(
     Prerequisites per port (silently skipped when not met):
       - ``EEPROM_ATTRIBUTES.cmis_active_optical`` is True (non-DAC CMIS)
       - ``EEPROM_ATTRIBUTES.cdb_background_mode_supported`` is True
-    Both gates plus the stem-port filter are evaluated by
+    Both gates plus the first-sub-port filter are evaluated by
     ``_stress_port_in_scope``.
 
-    For each qualifying stem port the helper ``_run_cdb_stress_for_port``:
+    For each qualifying first sub-port the helper ``_run_cdb_stress_for_port``:
       1. Records a seconds-since-boot watermark (``/proc/uptime`` on the DUT).
       2. Starts a background EEPROM reader thread (concurrent I2C traffic).
       3. Reads CDB firmware version for

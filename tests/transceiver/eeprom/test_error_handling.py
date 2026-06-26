@@ -13,7 +13,6 @@ from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 logger = logging.getLogger(__name__)
 
 
-PRESENCE_STATUS_PRESENT = "Present"
 PRESENCE_STATUS_NOT_PRESENT = "Not present"
 
 # Expected absence messages per command family (case-sensitive — note the difference)

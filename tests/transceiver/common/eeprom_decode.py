@@ -43,16 +43,43 @@ SFF8472_VENDOR_PN_START = 40       # A0h bytes 40-55
 SFF8472_VENDOR_SPAN = 36           # one A0h read covers name (20-35) + PN (40-55)
 
 
+def _normalize_identifier(value):
+    """Coerce an ``sff8024_identifier`` inventory value to an ``int``, or ``None``.
+
+    The identifier sets are decimal ints, but inventory may supply the value as a
+    string in either hex (``"0x03"``) or decimal (``"3"`` / ``"03"``) form.  This
+    normalizes those to an int so the set-membership check in :func:`classify`
+    behaves the same regardless of the source type; an int passes through
+    unchanged (preserving current behavior), and an unparseable / missing /
+    boolean value yields ``None`` so classification falls through to UNKNOWN.
+    """
+    if isinstance(value, bool):       # bool is an int subclass; not a valid id
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        try:
+            return int(s, 16) if s.lower().startswith("0x") else int(s, 10)
+        except ValueError:
+            return None
+    return None
+
+
 def classify(eeprom_attrs):
     """Return the :class:`ModuleFamily` for a port from its EEPROM_ATTRIBUTES.
 
     ``cmis_revision`` wins over ``sff8024_identifier`` because CMIS overlays the
     same identifier byte values as legacy QSFP families, so a CMIS module must be
     classified CMIS even though its identifier byte may match a QSFP set.
+
+    ``sff8024_identifier`` is normalized to an int via
+    :func:`_normalize_identifier` first, so string forms (``"0x03"`` / ``"3"``)
+    classify the same as the int ``0x03``.
     """
     if eeprom_attrs.get("cmis_revision") is not None:
         return ModuleFamily.CMIS
-    sff_id = eeprom_attrs.get("sff8024_identifier")
+    sff_id = _normalize_identifier(eeprom_attrs.get("sff8024_identifier"))
     if sff_id in SFF8024_IDENT_QSFP_NON_CMIS:
         return ModuleFamily.QSFP_NON_CMIS
     if sff_id in SFF8024_IDENT_SFF8472:
@@ -66,15 +93,19 @@ def is_dac(eeprom_attrs):
     return isinstance(cable_type, str) and cable_type.strip().upper() == "DAC"
 
 
-def is_stem_port(port, stem_map):
-    """True iff ``port`` is the stem (first sub-port) of its breakout group.
+def is_first_subport(port, lport_to_first_subport):
+    """True iff ``port`` is the first logical sub-port of its breakout group.
 
-    ``stem_map`` is the ``lport_to_first_subport_mapping`` session fixture: each
-    logical port maps to its group's first sub-port, so a port is the stem iff
-    it maps to itself.  A port absent from the map is treated as non-stem and
-    skipped defensively.
+    "First sub-port" is a DUT-local notion: among the logical ports that share
+    one physical index on this DUT, it is the lowest-numbered one — not a
+    cable root/stem-vs-branch relationship across devices.
+
+    ``lport_to_first_subport`` is the ``lport_to_first_subport_mapping`` session
+    fixture: each logical port maps to its group's first sub-port, so a port is
+    the first sub-port iff it maps to itself.  A port absent from the map is
+    treated as not-first and skipped defensively.
     """
-    first = stem_map.get(port)
+    first = lport_to_first_subport.get(port)
     return first is not None and first == port
 
 

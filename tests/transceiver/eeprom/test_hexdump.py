@@ -10,7 +10,7 @@ from tests.transceiver.common.eeprom_decode import (
     ModuleFamily,
     classify,
     is_dac,
-    is_stem_port,
+    is_first_subport,
     check_vendor_field,
     VENDOR_FIELD_LEN,
     CMIS_VENDOR_NAME_START,
@@ -26,16 +26,16 @@ from tests.transceiver.common.cmis_helper import check_dp_state_activated
 logger = logging.getLogger(__name__)
 
 
-def _read_page0_upper(duthost, port):
-    """Read 'sfputil show eeprom-hexdump -n 0' → (upper_page_0_bytemap, err).
+def _read_hexdump_section(duthost, port, page, section):
+    """Read 'sfputil show eeprom-hexdump -n <page>' → (section_bytemap, err).
 
-    Returns ({}, err) if the command failed, ({}, None) if the upper-page-0
-    section was absent, or (byte_map, None) on success.
+    Returns ({}, err) on command error, ({}, None) if the requested ``section``
+    was absent from the dump, or (byte_map, None) on success.
     """
-    page0, err = cli_helpers.sfputil_show_eeprom_hexdump(duthost, port, page=0)
+    sections, err = cli_helpers.sfputil_show_eeprom_hexdump(duthost, port, page=page)
     if err:
         return {}, err
-    return page0.get("upper_page_0", {}), None
+    return sections.get(section, {}), None
 
 
 def test_eeprom_hexdump_verification_via_sfputil(
@@ -43,11 +43,11 @@ def test_eeprom_hexdump_verification_via_sfputil(
 ):
     """Verify EEPROM hexdump content via 'sfputil show eeprom-hexdump'.
 
-    Stem-port detection (which logical port owns the physical transceiver in a
-    breakout group) comes from the standard
+    First-sub-port detection (which logical port owns the physical transceiver
+    in a breakout group) comes from the standard
     ``tests.common.platform.interface_utils.get_lport_to_first_subport_mapping``
-    helper — a port is the stem iff it maps to itself.  Works for 1-, 2-, 4-,
-    and 8-lane breakouts without per-platform modulus hacks.
+    helper — a port is the first sub-port iff it maps to itself.  Works for 1-,
+    2-, 4-, and 8-lane breakouts without per-platform modulus hacks.
 
     Per-port host lane count comes from
     ``BASE_ATTRIBUTES.host_lane_count`` (pre-computed by ``config_parser`` from
@@ -56,7 +56,7 @@ def test_eeprom_hexdump_verification_via_sfputil(
     looks at the lanes the module actually hosts and never reports spurious
     failures for non-existent lanes on 4-lane / 2-lane modules.
 
-    For every connected stem port, verifies vendor name and part number against
+    For every connected first sub-port, verifies vendor name and part number against
     port_attributes_dict (BASE_ATTRIBUTES: vendor_name, vendor_pn) for the CMIS,
     SFF-8636 (QSFP+), and SFF-8472 (SFP+) families (any other identifier — e.g.
     OSFP non-CMIS or DWDM-SFP 0x0B — is logged and skipped), dispatched on the
@@ -78,12 +78,12 @@ def test_eeprom_hexdump_verification_via_sfputil(
     all_failures = []
 
     for port, port_attrs in port_attributes_dict.items():
-        # Only test stem ports: a breakout sub-port shares the same physical
-        # transceiver (and thus the same EEPROM bytes) as its stem, so reading
-        # it adds no new information here.  The per-subport sfputil CLI-
-        # resolution path has its own dedicated test.
-        if not is_stem_port(port, lport_to_first_subport_mapping):
-            logger.debug("Port %s is a breakout sub-port, skipping hexdump check", port)
+        # Only test the first sub-port of each breakout group: the other
+        # sub-ports share the same physical transceiver (and thus the same EEPROM
+        # bytes), so reading them adds no new information here.  The per-subport
+        # sfputil CLI-resolution path has its own dedicated test.
+        if not is_first_subport(port, lport_to_first_subport_mapping):
+            logger.debug("Port %s is not the first breakout sub-port, skipping hexdump check", port)
             continue
 
         if not port_attrs:
@@ -117,14 +117,14 @@ def test_eeprom_hexdump_verification_via_sfputil(
                 sections, err = cli_helpers.sfputil_show_eeprom_hexdump(
                     duthost, port, page="0x11"
                 )
-                page_data = {} if err else sections.get("upper_page_0", {})
+                page_data = {} if err else sections.get("upper_page_00", {})
                 if not err:
                     upper_page_11 = sections.get("upper_page_11", {})
             else:
-                page_data, err = _read_page0_upper(duthost, port)
+                page_data, err = _read_hexdump_section(duthost, port, 0, "upper_page_00")
             name_start, pn_start, loc = CMIS_VENDOR_NAME_START, CMIS_VENDOR_PN_START, "page 0h"
         elif family is ModuleFamily.QSFP_NON_CMIS:
-            page_data, err = _read_page0_upper(duthost, port)
+            page_data, err = _read_hexdump_section(duthost, port, 0, "upper_page_00")
             name_start, pn_start, loc = SFF8636_VENDOR_NAME_START, SFF8636_VENDOR_PN_START, "page 0h"
         elif family is ModuleFamily.SFF8472:
             page_data, err = cli_helpers.sfputil_read_eeprom(
@@ -147,6 +147,23 @@ def test_eeprom_hexdump_verification_via_sfputil(
         if not page_data:
             all_failures.append(f"{port}: vendor-field bytes not found in EEPROM output ({loc})")
             continue
+
+        # Surface an inventory gap explicitly so a missing expected value is not
+        # confused with a hardware mismatch.  check_vendor_field treats
+        # expected=None as "not pinned" and skips that field, so the present
+        # field(s) are still validated — we only log which are unchecked.
+        missing_fields = [
+            name for name, value in (
+                ("vendor_name", expected_vendor_name),
+                ("vendor_pn", expected_vendor_pn),
+            ) if value is None
+        ]
+        if missing_fields:
+            logger.warning(
+                "Port %s: BASE_ATTRIBUTES missing %s in inventory; those vendor "
+                "field(s) are not checked (any present field is still validated)",
+                port, "/".join(missing_fields),
+            )
 
         field_failures += check_vendor_field(
             "Vendor name", expected_vendor_name, page_data, name_start, VENDOR_FIELD_LEN, loc)
@@ -200,7 +217,7 @@ def test_identifier_byte_verification_via_sfputil(
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
-        if not is_stem_port(port, lport_to_first_subport_mapping):
+        if not is_first_subport(port, lport_to_first_subport_mapping):
             logger.debug("Port %s is a breakout sub-port, skipping", port)
             continue
 
@@ -288,7 +305,7 @@ def test_upper_page_verification_non_cmis_via_sfputil(
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
-        if not is_stem_port(port, lport_to_first_subport_mapping):
+        if not is_first_subport(port, lport_to_first_subport_mapping):
             logger.debug("Port %s is a breakout sub-port, skipping", port)
             continue
 
@@ -404,8 +421,9 @@ def test_upper_page_verification_non_cmis_via_sfputil(
 def test_sfputil_read_eeprom_per_subport_plumbing(duthost, port_attributes_dict):
     """Verify sfputil subport → physical-port resolution for EVERY logical port.
 
-    The per-physical-port EEPROM tests filter to stem ports (a breakout sub-port
-    returns the same EEPROM bytes as its stem), so this is the single test that
+    The per-physical-port EEPROM tests filter to the first sub-port of each
+    breakout group (the other sub-ports return the same EEPROM bytes), so this is
+    the single test that
     exercises ``sfputil read-eeprom`` on every logical port — proving the
     subport-resolution code path.  That resolution lives in the same sfputil
     code path regardless of subcommand, so once it is proven here the other

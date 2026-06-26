@@ -56,12 +56,11 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
        table, which is read once for all ports via a single ``sonic-db-dump``.
     3. Compare; aggregate any mismatch (or missing/malformed STATE_DB value).
 
-    This test intentionally iterates ALL logical ports (no stem filtering),
-    unlike the per-physical EEPROM reads in ``test_hexdump.py`` and
-    ``cmis/test_cdb_background_mode.py`` that filter to stem ports via
-    ``is_stem_port``: STATE_DB ``TRANSCEIVER_INFO`` is populated per-logical-port,
-    so each sub-port has its own ``vdm_supported`` entry that must be verified
-    individually.
+    This test intentionally iterates ALL logical ports (no first-sub-port
+    filtering), unlike the per-physical EEPROM reads in ``test_hexdump.py`` and
+    ``cmis/test_cdb_background_mode.py`` that filter via ``is_first_subport``:
+    STATE_DB ``TRANSCEIVER_INFO`` is populated per-logical-port, so each sub-port
+    has its own ``vdm_supported`` entry that must be verified individually.
 
     Ports without a configured ``vdm_supported`` attribute are skipped (treated
     as "no expectation"); this is the documented behavior in the task spec.

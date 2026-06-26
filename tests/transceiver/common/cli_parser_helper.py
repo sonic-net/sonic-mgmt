@@ -93,22 +93,37 @@ def parse_read_eeprom(output_lines):
     return result
 
 
-# ------------------------------------------------------------------ #
-# Module-level constants: compiled once at import time, shared across #
-# all parse_hexdump() calls (one per port × one per page section).    #
-# ------------------------------------------------------------------ #
-_SECTION_MARKERS = [
-    (re.compile(r'Lower\s+page\s+0h',  re.IGNORECASE), 'lower_page_0'),
-    (re.compile(r'Upper\s+page\s+0h',  re.IGNORECASE), 'upper_page_0'),
-    (re.compile(r'Upper\s+page\s+11h', re.IGNORECASE), 'upper_page_11'),
-]
+# Generic CMIS hexdump page-header matcher, compiled once at import time.
+# sfputil groups the dump under banners like ``Lower page 0h`` / ``Upper page
+# 11h``; group(1) is the half (lower/upper) and group(2) is the page number in
+# hex (1+ digits, no ``0x``).  Matching generically — rather than enumerating a
+# fixed set of pages — means any page the CLI emits (1h, 2h, 20h, ...) is
+# attributed to its own section instead of bleeding into the previous one.
+_PAGE_HEADER_RE = re.compile(r'(lower|upper)\s+page\s+([0-9a-fA-F]+)h', re.IGNORECASE)
+
+
+def _page_section_key(match):
+    """Build the section key for a ``_PAGE_HEADER_RE`` match.
+
+    ``"Lower page 0h"`` → ``"lower_page_00"``, ``"Upper page 1h"`` →
+    ``"upper_page_01"``, ``"Upper page 11h"`` → ``"upper_page_11"``,
+    ``"Upper page 20h"`` → ``"upper_page_20"``.  The page number is normalised to
+    a zero-padded 2-digit lowercase hex string so keys are uniform and sort
+    naturally.
+    """
+    half = match.group(1).lower()
+    page_num = int(match.group(2), 16)
+    return f"{half}_page_{page_num:02x}"
 
 
 def parse_hexdump(output_lines):
     """Parse ``sfputil show eeprom-hexdump`` output into a section-keyed byte map.
 
-    Recognises the ``Lower page 0h``, ``Upper page 0h``, and ``Upper page 11h``
-    section headers and collects each section's bytes under its own key.
+    Recognises any ``<Lower|Upper> page <N>h`` banner generically and collects
+    each section's bytes under its own key (``<half>_page_<2-hex-digit>``).  A
+    line that is neither a recognised page banner nor a hex-data line — i.e. an
+    unknown/non-page header — resets the current section to ``None`` so trailing
+    bytes can never be mis-attributed to the previous page (fail closed).
 
     Args:
         output_lines: command stdout as a list of lines.
@@ -117,8 +132,8 @@ def parse_hexdump(output_lines):
         dict mapping section name to ``{address(int): byte_value(int)}``, e.g.::
 
             {
-                "lower_page_0":  {0x00: 0x19, ...},
-                "upper_page_0":  {0x80: 0x19, 0x81: 0x50, ...},
+                "lower_page_00": {0x00: 0x19, ...},
+                "upper_page_00": {0x80: 0x19, 0x81: 0x50, ...},
                 "upper_page_11": {0x80: 0x44, ...},
             }
     """
@@ -126,21 +141,26 @@ def parse_hexdump(output_lines):
     current_section = None
 
     for line in output_lines:
-        matched_section = False
-        for pattern, name in _SECTION_MARKERS:
-            if pattern.search(line):           # re.IGNORECASE already baked in
-                current_section = name
-                sections[current_section] = {}
-                matched_section = True
-                break
-        if matched_section or current_section is None:
+        header = _PAGE_HEADER_RE.search(line)
+        if header:
+            current_section = _page_section_key(header)
+            sections.setdefault(current_section, {})
             continue
         m = _match_hex_line(line)
         if m:
+            if current_section is None:
+                continue
             base_addr = int(m.group(1), 16)
             hex_bytes = re.findall(r'[0-9a-fA-F]{2}', m.group(2))
             for i, hb in enumerate(hex_bytes):
                 sections[current_section][base_addr + i] = int(hb, 16)
+            continue
+        # Neither a recognised page banner nor a hex-data line.  A non-blank line
+        # here is a section banner we don't recognise as a page (or a malformed
+        # page header); clear current_section so any following bytes are dropped
+        # rather than attributed to the previous page.  Blank lines are neutral.
+        if line.strip():
+            current_section = None
 
     return sections
 
