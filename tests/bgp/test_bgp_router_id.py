@@ -4,9 +4,9 @@ import re
 import time
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.helpers.bgp import run_bgp_facts
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.utilities import get_host_visible_vars
 from ipaddress import ip_interface
 
 
@@ -82,18 +82,31 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
         "BGP router id unexpected, expected: {}, actual: {}. "
     ).format(expected_bgp_router_id, match.group(1)))
 
-    # Verify BGP sessions are established
-    run_bgp_facts(duthost, enum_asic_index)
+    cfg_facts = get_config_facts(duthost, enum_asic_index)
+    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    addr_char = ":" if is_v6_topo else "."
+
+    local_ip_map = {}
+    remote_ip_map = {}
+    for remote_ip, item in cfg_facts.get("BGP_NEIGHBOR", {}).items():
+        if addr_char not in item["local_addr"] or item["name"] not in nbrhosts:
+            continue
+        local_ip_map[item["name"]] = item["local_addr"]
+        remote_ip_map[remote_ip] = item
+
+    # Verify BGP sessions are established for peers checked by this test.
+    for remote_ip in remote_ip_map:
+        pytest_assert(remote_ip in bgp_facts['bgp_neighbors'], (
+            "Cannot find BGP facts for neighbor {}. "
+            "BGP facts neighbors: {}"
+        ).format(remote_ip, bgp_facts['bgp_neighbors'].keys()))
+        pytest_assert(bgp_facts['bgp_neighbors'][remote_ip]['state'] == "established", (
+            "BGP session not established for neighbor {}. Expected 'established', got '{}'."
+        ).format(remote_ip, bgp_facts['bgp_neighbors'][remote_ip]['state']))
 
     # Verify from peer device side to check
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         logger.warning("Unsupport neighbor type for neighbor bgp check: {}".format(neighbor_type))
-    local_ip_map = {}
-    cfg_facts = get_config_facts(duthost, enum_asic_index)
-    for _, item in cfg_facts.get("BGP_NEIGHBOR", {}).items():
-        addr_char = ":" if is_v6_topo else "."
-        if addr_char in item["local_addr"]:
-            local_ip_map[item["name"]] = item["local_addr"]
 
     verified_neighbors = 0
     for neighbor_name, localip in local_ip_map.items():
@@ -117,6 +130,22 @@ def loopback_ip(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
         if "." in key:
             loopback_ip = key.split("/")[0]
     pytest_require(loopback_ip is not None, "Cannot get IPv4 address of Loopback0")
+    yield loopback_ip
+
+
+@pytest.fixture()
+def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    dev_meta = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {})
+
+    if dev_meta.get('switch_type') in ['voq', 'chassis-packet']:
+        host_vars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
+        loopback4096_ips = host_vars.get('loopback4096_ip', [])
+        if len(loopback4096_ips) > enum_frontend_asic_index:
+            yield loopback4096_ips[enum_frontend_asic_index].split("/")[0]
+            return
+
     yield loopback_ip
 
 
@@ -189,11 +218,11 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
 
 
 def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
-                               loopback_ip, tbinfo):
+                               default_bgp_router_id, tbinfo):
     # Test in default config, the BGP router id should be aligned with Loopback IPv4 address
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
-    verify_bgp(enum_frontend_asic_index, duthost, loopback_ip, neighbor_type, nbrhosts, tbinfo)
+    verify_bgp(enum_frontend_asic_index, duthost, default_bgp_router_id, neighbor_type, nbrhosts, tbinfo)
 
 
 # BGP restart in setup/teardown can emit transient loganalyzer noise.
