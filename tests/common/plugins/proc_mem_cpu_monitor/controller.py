@@ -20,7 +20,13 @@ import pytest
 
 from tests.common.plugins.proc_mem_cpu_monitor.constants import MEM_LEAK_EVENT
 from tests.common.plugins.proc_mem_cpu_monitor.tcmalloc_parser import parse_tcmalloc_stats
-from tests.common.plugins.proc_mem_cpu_monitor.top_parser import parse_free_m_used, parse_top, parse_top_host_all
+from tests.common.plugins.proc_mem_cpu_monitor.top_parser import (
+    SYSTEM_CPU_IDLE_PROCESS,
+    parse_free_m_used,
+    parse_top,
+    parse_top_cpu_summary,
+    parse_top_host_all,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -195,9 +201,9 @@ def _stem_filename(
     Build basename (no directory, no extension) for plot/export files.
 
     ``style``:
-        * ``full`` — sanitized full ``nodeid`` + DUT + timestamp (legacy, can be long).
-        * ``short_node`` — pytest ``node.name`` (function + params, no file path) + DUT + timestamp.
-        * ``dut_ts_hash`` — DUT + compact timestamp + 10-char hex of full ``nodeid`` (short, unique).
+        * ``full``  sanitized full ``nodeid`` + DUT + timestamp (legacy, can be long).
+        * ``short_node``  pytest ``node.name`` (function + params, no file path) + DUT + timestamp.
+        * ``dut_ts_hash``  DUT + compact timestamp + 10-char hex of full ``nodeid`` (short, unique).
     """
     if style not in OUTPUT_BASENAME_STYLES:
         raise ValueError(
@@ -364,7 +370,7 @@ class ProcMemCpuMonitor(object):
             try:
                 with _suppress_devices_base_debug():
                     out = duthost.command(cmd, module_ignore_errors=True)
-            except Exception as ex:  # noqa: BLE001 — DUT command failures should not kill sampler
+            except Exception as ex:  # noqa: BLE001  DUT command failures should not kill sampler
                 logger.warning("mem_cpu_monitor command failed: %s", ex)
                 err = "<exception: {}>\n".format(ex)
                 self._append_raw_log(hostname, scope, kind, cmd, err)
@@ -467,6 +473,29 @@ class ProcMemCpuMonitor(object):
                             self._samples.append(rec)
                     continue
 
+                if kind in ("top", "top_all") and scope == "host":
+                    cpu_summary = parse_top_cpu_summary(stdout)
+                    if cpu_summary:
+                        with self._lock:
+                            self._samples.append({
+                                "kind": "sample",
+                                "dut": hostname,
+                                "scope": scope,
+                                "process": SYSTEM_CPU_IDLE_PROCESS,
+                                "cpu_pct": cpu_summary["idle_pct"],
+                                "mem_pct": None,
+                                "mem_res_mib": None,
+                                "mem_unit": "%",
+                                "probe_transport": "top_summary",
+                                "system_cpu_idle_pct": cpu_summary["idle_pct"],
+                                "system_cpu_busy_pct": cpu_summary.get("busy_pct"),
+                                "system_cpu_us_pct": cpu_summary["us_pct"],
+                                "system_cpu_sy_pct": cpu_summary["sy_pct"],
+                                "t_wall": now,
+                                "t_mono": mono,
+                                "seq": self._next_seq(),
+                            })
+
                 if kind == "top_all":
                     rows = parse_top_host_all(stdout)
                     cap = _host_top_capture_names(rows, proc_list, self._jumper_top_n)
@@ -494,7 +523,7 @@ class ProcMemCpuMonitor(object):
                         key = (hostname, scope, row["process"])
                         if key not in self._baseline_mem and self._should_set_mem_baseline(row["process"]):
                             self._baseline_mem[key] = row["mem_pct"]
-            except Exception as ex:  # noqa: BLE001 — one bad target must not stop the sampler
+            except Exception as ex:  # noqa: BLE001  one bad target must not stop the sampler
                 hn = getattr(duthost, "hostname", None) or str(duthost)
                 logger.warning(
                     "mem_cpu_monitor: poll_tick failed for hostname=%s scope=%s kind=%s; "
@@ -514,7 +543,7 @@ class ProcMemCpuMonitor(object):
                         break
                 self._poll_tick()
                 self._stop_event.wait(self._interval)
-        except Exception as ex:  # noqa: BLE001 — surface sampler failures on stop(), not BaseException
+        except Exception as ex:  # noqa: BLE001  surface sampler failures on stop(), not BaseException
             logger.exception("mem_cpu_monitor sampler thread died")
             self._thread_exc = ex
 
@@ -549,7 +578,7 @@ class ProcMemCpuMonitor(object):
                 immediately after ``start()``; the sampler thread then sleeps ``interval`` between rounds.
             docker_service: SONiC feature name for per-ASIC docker (default ``bgp``).
             include_host_top: if True, sample host ``top`` filtered by ``proc_list`` (ignored if
-                ``host_top_all_procs`` is True — host ``top`` is then full-process only).
+                ``host_top_all_procs`` is True  host ``top`` is then full-process only).
             include_host_free: if True, also run host ``free -m`` and record ``free_used``.
             asics: ``\"frontend\"`` (default) or ``\"all\"``.
             host_top_all_procs: if True, run **host** ``top -bn1`` once per DUT per tick and record
@@ -575,7 +604,7 @@ class ProcMemCpuMonitor(object):
                 ``tcmalloc_raw_log_path`` (separate from ``top_raw_log`` / ``raw_log_path``).
             tcmalloc_raw_log_path: optional path for tcmalloc-only raw stdout. Default
                 ``<tmp_path>/mem_cpu_monitor_tcmalloc_raw.log`` when ``include_tcmalloc_stats`` is True.
-            output_basename_style: how to build PNG/JSON/CSV basename — ``full`` (default, long
+            output_basename_style: how to build PNG/JSON/CSV basename  ``full`` (default, long
                 ``nodeid``), ``short_node`` (``node.name`` only), or ``dut_ts_hash`` (DUT + time + hash).
         """
         if output_basename_style not in OUTPUT_BASENAME_STYLES:
@@ -826,11 +855,16 @@ class ProcMemCpuMonitor(object):
     def _filter_samples_for_plot(res: MemCpuMonitorResult, proc_subset: Optional[List[str]]) -> List[Dict[str, Any]]:
         samples = [
             s for s in res.samples
-            if s.get("probe_transport") not in ("tcmalloc",)
+            if s.get("probe_transport") not in ("tcmalloc", "top_summary")
         ]
         if proc_subset:
             samples = [s for s in samples if s["process"] in proc_subset]
         return samples
+
+    @staticmethod
+    def _system_cpu_samples_for_plot(res: MemCpuMonitorResult) -> List[Dict[str, Any]]:
+        """Host ``%Cpu(s)`` idle %  always plotted; not subject to proc_subset."""
+        return [s for s in res.samples if s.get("probe_transport") == "top_summary"]
 
     @staticmethod
     def _tcmalloc_samples_for_plot(res: MemCpuMonitorResult) -> List[Dict[str, Any]]:
@@ -850,7 +884,7 @@ class ProcMemCpuMonitor(object):
         """
         If ``proc_subset`` is set, use it. Otherwise when ``auto_host_jumper_subset`` (default: follow
         ``host_top_all_procs`` from ``start()``) is True and ``host_top_all_procs`` is set: chart every
-        host process that was **stored** (already filtered to user list ∪ top RSS at capture time),
+        host process that was **stored** (already filtered to user list ? top RSS at capture time),
         plus matching docker ``top`` rows and ``free_used`` when present. Legacy jump-based subsetting
         applies only if adaptive is on without ``host_top_all_procs`` (unusual).
         """
@@ -897,11 +931,12 @@ class ProcMemCpuMonitor(object):
         basename_style: Optional[str] = None,
     ) -> Optional[str]:
         """
-        Write a PNG with three rows: CPU %, top ``%MEM`` / host ``free`` %, and RSS or host used (MiB)
-        vs ``t_wall`` if matplotlib is installed.
+        Write a PNG with four rows when host ``top`` samples exist: system CPU idle %,
+        per-process CPU %, top ``%MEM`` / host ``free`` %, and RSS or host used (MiB)
+        vs ``t_wall`` if matplotlib is installed (+ optional tcmalloc rows).
 
         When ``start(..., host_top_all_procs=True)`` and ``proc_subset`` is omitted, the default is
-        to chart all **stored** host processes (capture already applied RSS ranking ∪ user list); pass
+        to chart all **stored** host processes (capture already applied RSS ranking ? user list); pass
         ``auto_host_jumper_subset=False`` to chart every stored sample series (same for non-adaptive).
 
         ``basename_style`` overrides ``output_basename_style`` from ``start()`` for this file only
@@ -934,8 +969,9 @@ class ProcMemCpuMonitor(object):
         if resolved is not None:
             logger.info("mem_cpu_monitor.plot() proc subset: %s", resolved)
         samples = self._filter_samples_for_plot(res, resolved)
+        system_cpu_samples = self._system_cpu_samples_for_plot(res)
         tcmalloc_samples = self._tcmalloc_samples_for_plot(res)
-        if not samples and not tcmalloc_samples:
+        if not samples and not tcmalloc_samples and not system_cpu_samples:
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.plot() top raw stdout log: %s", self._top_raw_log_path)
             if self._tcmalloc_raw_log_path:
@@ -944,8 +980,21 @@ class ProcMemCpuMonitor(object):
 
         out_dir = self._resolve_out_dir(out_dir)
         os.makedirs(out_dir, exist_ok=True)
-        plot_samples = samples if samples else tcmalloc_samples
+        plot_samples = samples or system_cpu_samples or tcmalloc_samples
         path = self._output_stem(out_dir, plot_samples, basename_style) + ".png"
+
+        by_system_cpu_idle: Dict[str, List[Tuple[datetime, float]]] = defaultdict(list)
+        for s in system_cpu_samples:
+            tw = s["t_wall"]
+            if isinstance(tw, str):
+                tw = datetime.fromisoformat(tw.replace("Z", "+00:00"))
+            if tw.tzinfo is None:
+                tw = tw.replace(tzinfo=timezone.utc)
+            idle = s.get("system_cpu_idle_pct")
+            if idle is None and s.get("cpu_pct") is not None:
+                idle = s["cpu_pct"]
+            if idle is not None:
+                by_system_cpu_idle[s["dut"]].append((tw, float(idle)))
 
         by_proc: Dict[str, List[Tuple[datetime, float, float, Optional[float]]]] = defaultdict(list)
         for s in samples:
@@ -976,23 +1025,38 @@ class ProcMemCpuMonitor(object):
             if free_b is not None:
                 by_tcmalloc_free[proc].append((tw, float(free_b) / (1024.0 * 1024.0)))
 
-        n_rows = 5 if tcmalloc_samples else 3
-        fig, axes = plt.subplots(n_rows, 1, figsize=(11, 4 + 2.5 * n_rows), sharex=True)
-        if n_rows == 3:
-            ax_cpu, ax_mem_pct, ax_mem_mib = axes
-            ax_tcm_heap = ax_tcm_free = None
+        has_proc_panels = bool(samples or system_cpu_samples)
+        if has_proc_panels:
+            n_base = 4
+            n_rows = n_base + (2 if tcmalloc_samples else 0)
+            fig, axes = plt.subplots(n_rows, 1, figsize=(11, 4 + 2.5 * n_rows), sharex=True)
+            ax_sys_cpu, ax_proc_cpu, ax_mem_pct, ax_mem_mib = axes[:4]
+            if tcmalloc_samples:
+                ax_tcm_heap, ax_tcm_free = axes[4], axes[5]
+            else:
+                ax_tcm_heap = ax_tcm_free = None
         else:
-            ax_cpu, ax_mem_pct, ax_mem_mib, ax_tcm_heap, ax_tcm_free = axes
+            n_rows = 2
+            fig, axes = plt.subplots(n_rows, 1, figsize=(11, 4 + 2.5 * n_rows), sharex=True)
+            ax_sys_cpu = ax_proc_cpu = ax_mem_pct = ax_mem_mib = None
+            ax_tcm_heap, ax_tcm_free = axes
 
-        for proc, series in by_proc.items():
-            series.sort(key=lambda x: x[0])
-            xs = [x[0] for x in series]
-            ax_cpu.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
-            ax_mem_pct.plot(xs, [x[2] for x in series], marker="o", markersize=2, label=proc)
-            xs_m = [x[0] for x in series if x[3] is not None]
-            ys_m = [x[3] for x in series if x[3] is not None]
-            if xs_m:
-                ax_mem_mib.plot(xs_m, ys_m, marker="o", markersize=2, label=proc)
+        if ax_sys_cpu is not None:
+            for label, series in by_system_cpu_idle.items():
+                series.sort(key=lambda x: x[0])
+                xs = [x[0] for x in series]
+                ax_sys_cpu.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=label)
+
+        if ax_proc_cpu is not None:
+            for proc, series in by_proc.items():
+                series.sort(key=lambda x: x[0])
+                xs = [x[0] for x in series]
+                ax_proc_cpu.plot(xs, [x[1] for x in series], marker="o", markersize=2, label=proc)
+                ax_mem_pct.plot(xs, [x[2] for x in series], marker="o", markersize=2, label=proc)
+                xs_m = [x[0] for x in series if x[3] is not None]
+                ys_m = [x[3] for x in series if x[3] is not None]
+                if xs_m:
+                    ax_mem_mib.plot(xs_m, ys_m, marker="o", markersize=2, label=proc)
 
         if ax_tcm_heap is not None and ax_tcm_free is not None:
             for proc, series in by_tcmalloc_heap.items():
@@ -1029,15 +1093,21 @@ class ProcMemCpuMonitor(object):
                     clip_on=False,
                 )
 
-        ax_cpu.set_ylabel("CPU %")
-        ax_cpu.set_title(self.request.node.nodeid, fontsize=7)
+        if ax_sys_cpu is not None:
+            ax_sys_cpu.set_ylabel("System CPU idle %")
+            ax_sys_cpu.set_ylim(0, 100)
+        if ax_proc_cpu is not None:
+            ax_proc_cpu.set_ylabel("CPU % (per process)")
+            ax_proc_cpu.set_title(self.request.node.nodeid, fontsize=7)
 
-        ax_mem_pct.set_ylabel("MEM % (top %MEM / free %total)")
+        if ax_mem_pct is not None:
+            ax_mem_pct.set_ylabel("MEM % (top %MEM / free %total)")
 
-        ax_mem_mib.set_ylabel("MiB (top RES / free used)")
-        if n_rows == 3:
+        if ax_mem_mib is not None:
+            ax_mem_mib.set_ylabel("MiB (top RES / free used)")
+        if has_proc_panels and not tcmalloc_samples:
             ax_mem_mib.set_xlabel("Time (UTC)")
-        else:
+        elif ax_tcm_heap is not None:
             ax_tcm_heap.set_ylabel("tcmalloc heap (MiB)")
             ax_tcm_free.set_ylabel("tcmalloc pageheap free (MiB)")
             ax_tcm_free.set_xlabel("Time (UTC)")
@@ -1051,7 +1121,9 @@ class ProcMemCpuMonitor(object):
             ax.tick_params(axis="x", labelbottom=True, labelrotation=22, labelsize=8)
 
         top_margin = 0.94
-        legend_proc_count = max(len(by_proc), len(by_tcmalloc_heap), len(by_tcmalloc_free), 1)
+        legend_proc_count = max(
+            len(by_proc), len(by_system_cpu_idle), len(by_tcmalloc_heap), len(by_tcmalloc_free), 1
+        )
         ncol = min(8, max(1, legend_proc_count))
         legend_kw = {
             "loc": "upper center",
@@ -1060,8 +1132,10 @@ class ProcMemCpuMonitor(object):
             "fontsize": 7,
             "frameon": True,
         }
-        if by_proc:
-            ax_cpu.legend(**legend_kw)
+        if ax_sys_cpu is not None and by_system_cpu_idle:
+            ax_sys_cpu.legend(**legend_kw)
+        if ax_proc_cpu is not None and by_proc:
+            ax_proc_cpu.legend(**legend_kw)
             ax_mem_pct.legend(**legend_kw)
             ax_mem_mib.legend(**legend_kw)
         if ax_tcm_heap is not None and by_tcmalloc_heap:
@@ -1102,8 +1176,9 @@ class ProcMemCpuMonitor(object):
 
         resolved = self._resolve_plot_proc_subset(res, proc_subset, auto_host_jumper_subset)
         samples = self._filter_samples_for_plot(res, resolved)
+        system_cpu_samples = self._system_cpu_samples_for_plot(res)
         tcmalloc_samples = self._tcmalloc_samples_for_plot(res)
-        export_samples = samples + tcmalloc_samples
+        export_samples = samples + system_cpu_samples + tcmalloc_samples
         if not export_samples:
             if self._top_raw_log_path:
                 logger.info("mem_cpu_monitor.export_samples() top raw stdout log: %s", self._top_raw_log_path)
@@ -1191,7 +1266,7 @@ def _serialize_event(ev: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_export_sample_row(s: Dict[str, Any]) -> Dict[str, Any]:
-    """Same numeric fields used for matplotlib panels (CPU, %MEM, MiB, tcmalloc)."""
+    """Same numeric fields used for matplotlib panels (CPU, %MEM, MiB, tcmalloc, system CPU)."""
     mib = s.get("mem_res_mib")
     if mib is None and s.get("mem_mib_used") is not None:
         mib = float(s["mem_mib_used"])
@@ -1212,15 +1287,28 @@ def _build_export_sample_row(s: Dict[str, Any]) -> Dict[str, Any]:
         "mem_res_mib": s.get("mem_res_mib"),
         "mem_mib_used": s.get("mem_mib_used"),
         "mem_total_mib": s.get("mem_total_mib"),
-        "plot_cpu_pct": float(s["cpu_pct"]) if s.get("cpu_pct") is not None else 0.0,
         "plot_mem_pct": float(s["mem_pct"]) if s.get("mem_pct") is not None else None,
         "plot_mem_mib": mib,
         "mem_unit": s.get("mem_unit"),
         "probe_transport": s.get("probe_transport"),
         "kind": s.get("kind"),
+        "system_cpu_idle_pct": s.get("system_cpu_idle_pct"),
+        "system_cpu_busy_pct": s.get("system_cpu_busy_pct"),
+        "system_cpu_us_pct": s.get("system_cpu_us_pct"),
+        "system_cpu_sy_pct": s.get("system_cpu_sy_pct"),
         "tcmalloc_heap_size_bytes": heap_b,
         "tcmalloc_pageheap_free_bytes": free_b,
     }
+    if s.get("probe_transport") == "top_summary":
+        idle = s.get("system_cpu_idle_pct")
+        if idle is None and s.get("cpu_pct") is not None:
+            idle = s["cpu_pct"]
+        if idle is not None:
+            row["plot_system_cpu_idle_pct"] = float(idle)
+    elif s.get("cpu_pct") is not None:
+        row["plot_cpu_pct"] = float(s["cpu_pct"])
+    else:
+        row["plot_cpu_pct"] = 0.0
     if heap_b is not None:
         row["plot_tcmalloc_heap_mib"] = float(heap_b) / (1024.0 * 1024.0)
     if free_b is not None:

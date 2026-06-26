@@ -11,6 +11,54 @@ from tests.common.plugins.memory_utilization.memory_utilization import _parse_to
 
 logger = logging.getLogger(__name__)
 
+SYSTEM_CPU_IDLE_PROCESS = "system_cpu_idle"
+
+_TOP_CPU_SUMMARY_RE = re.compile(
+    r"^\s*%Cpu\(s\):\s*"
+    r"([\d.]+)\s*us,\s*"
+    r"([\d.]+)\s*sy,\s*"
+    r"([\d.]+)\s*ni,\s*"
+    r"([\d.]+)\s*id"
+    r"(?:,\s*([\d.]+)\s*wa)?"
+    r"(?:,\s*([\d.]+)\s*hi)?"
+    r"(?:,\s*([\d.]+)\s*si)?"
+    r"(?:,\s*([\d.]+)\s*st)?",
+    re.IGNORECASE,
+)
+
+
+def parse_top_cpu_summary(stdout: str) -> Optional[Dict[str, float]]:
+    """
+    Parse system-wide CPU from the ``%Cpu(s):`` header in ``top -bn1`` output.
+
+    Returns dict with ``idle_pct``, optional ``busy_pct`` (100 - idle), and breakdown
+    fields (``us_pct``, ``sy_pct``, ), or None if not found.
+    """
+    if not stdout:
+        return None
+    for line in stdout.splitlines():
+        m = _TOP_CPU_SUMMARY_RE.match(line.strip())
+        if not m:
+            continue
+        us, sy, ni, idle = (float(m.group(i)) for i in range(1, 5))
+        wa = float(m.group(5)) if m.group(5) is not None else 0.0
+        hi = float(m.group(6)) if m.group(6) is not None else 0.0
+        si = float(m.group(7)) if m.group(7) is not None else 0.0
+        st = float(m.group(8)) if m.group(8) is not None else 0.0
+        idle_pct = round(idle, 2)
+        return {
+            "idle_pct": idle_pct,
+            "busy_pct": round(100.0 - idle, 2),
+            "us_pct": round(us, 2),
+            "sy_pct": round(sy, 2),
+            "ni_pct": round(ni, 2),
+            "wa_pct": round(wa, 2),
+            "hi_pct": round(hi, 2),
+            "si_pct": round(si, 2),
+            "st_pct": round(st, 2),
+        }
+    return None
+
 
 def _match_process(cmd_field: str, proc_names: Set[str]) -> Optional[str]:
     """Return the proc_names entry that matches this COMMAND field (substring)."""
