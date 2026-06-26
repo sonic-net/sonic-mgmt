@@ -217,13 +217,28 @@ def create_ipip_packet(outer_src_mac,
     return outer_pkt, exp_pkt
 
 
-def _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids):
-    """Distinguish a forwarding drop from a DSCP mismatch when a verify fails.
+def _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids, extra_ports=None):
+    """Classify why a verify failed: wrong egress port, DSCP mismatch, or a real drop.
 
-    Re-checks for the same packet while ignoring the IP DSCP/TOS byte. If a packet now
-    matches, it egressed but with the wrong DSCP (real DSCP-handling behavior); if still
-    nothing matches, the packet was not forwarded at all (routing/FIB/infra).
+    1. WRONG_EXPECTED_PORT: the (correctly DSCP-preserved) packet egressed on a port that
+       was excluded from ``ptf_dst_port_ids`` (e.g. the route egresses over a PortChannel
+       whose member is the PTF source port). Re-checks on ``ptf_dst_port_ids + extra_ports``.
+    2. DSCP_MISMATCH: a packet egressed on an expected port but with the wrong DSCP
+       (re-check ignoring the IP DSCP/TOS byte) -> real DSCP-handling behavior.
+    3. FORWARDING_DROP: nothing matched anywhere -> not forwarded (routing/FIB/infra).
     """
+    # 1. Did it egress on an excluded port (correct DSCP)?
+    extra = [p for p in (extra_ports or []) if p not in ptf_dst_port_ids]
+    if extra:
+        try:
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt,
+                                             ports=list(ptf_dst_port_ids) + extra, timeout=2)
+            return "WRONG_EXPECTED_PORT"
+        except AssertionError:
+            pass
+        except Exception:                                          # noqa: BLE001
+            pass
+    # 2. Did it egress with the wrong DSCP?
     try:
         dscp_agnostic = copy.deepcopy(exp_pkt)
         dscp_agnostic.set_do_not_care_scapy(IP, 'tos')
@@ -294,7 +309,8 @@ def send_and_verify_traffic(ptfadapter,
             packet_egressed_success.append(True)
             ptf_dst_port_list.append(ptf_dst_port_ids[port_index])
         except AssertionError as detail:
-            reason = _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids)
+            reason = _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids,
+                                           extra_ports=[ptf_src_port_id])
             logger.error("MISS (%s): inner dst %s, expected packet not matched on ports %s -> %s",
                          reason, dst_ip, ptf_dst_port_ids, detail)
             packet_egressed_success.append(False)
@@ -375,8 +391,12 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_dst_port_ids = get_stream_ptf_ports(links)
         pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        if ptf_src_port_id in ptf_dst_port_ids:
-            ptf_dst_port_ids.remove(ptf_src_port_id)
+        # NOTE: Do NOT remove ptf_src_port_id from the expected egress set. The expected
+        # packet is the DECAPPED inner packet, which has different headers from the
+        # injected outer IP-in-IP packet, so it can never false-match the injected
+        # traffic. A route can legitimately egress over a PortChannel whose member is the
+        # source port; with the source removed, a decapped packet that LAG-hashes back
+        # onto that source member is wrongly reported as "not received" (flaky failure).
 
         return {
             'ptf_src_port_id': ptf_src_port_id,
