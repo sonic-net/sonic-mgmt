@@ -332,7 +332,7 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
                 'Simulating Link Failure on {} from dut side '.format(port_name))
             duthost.shell(
                 "sudo config portchannel member del PortChannel2 %s\n" % (dut_port_name))
-            wait(TIMEOUT-20, "For Link to go down and traffic to stabilize")
+            wait(TIMEOUT, "For Link to go down and traffic to stabilize")
             flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
