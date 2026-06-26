@@ -27,7 +27,12 @@ import pytest
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from ha_packets import outbound_pl_packets
 from tests.common.utilities import wait_until, InterruptableThread
-from tests.ha.ha_utils import verify_ha_state
+from tests.ha.ha_utils import (
+    verify_ha_state,
+    wait_for_ha_scope_pmon_state,
+    get_ha_scope_pmon_state,
+    HA_SCOPE_PMON_STATE_FIELDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +44,8 @@ pytestmark = [
 PROCESS_RECOVERY_TIMEOUT = 120
 HA_CONVERGENCE_TIMEOUT = 180
 HA_CHECK_INTERVAL = 5
+PMON_DOWN_TIMEOUT = 60
+PMON_UP_TIMEOUT = 120
 TRAFFIC_SEND_INTERVAL = 0.1
 PL_VERIFY_TIMEOUT = 10
 
@@ -148,8 +155,10 @@ class TestDpuProcessCrash:
 
     @pytest.fixture(autouse=True)
     def _setup(self, ha_owner):
-        self.expected_ha_state_after_crash = "active" if ha_owner == "dpu" else "HA_STATE_STANDBY"
-        self.expected_ha_state_verify = "active" if ha_owner == "dpu" else "HA_STATE_STANDALONE"
+        # In DPU-driven HA the crash-side local_ha_state is not overwritten when
+        # the DPU's STATE_DB row is wiped. PMON is the authoritative signal.
+        self.expected_ha_state_after_crash = None if ha_owner == "dpu" else "HA_STATE_STANDBY"
+        self.expected_ha_state_verify = "standalone" if ha_owner == "dpu" else "HA_STATE_STANDALONE"
 
     def _run(
         self, process_name, container,
@@ -187,9 +196,37 @@ class TestDpuProcessCrash:
         try:
             kill_process_on_dpu(crash_dpuhost, process_name, container)
 
-            verify_ha_state_converged(
-                crash_duthost, crash_scope_key, expected_ha_state_after_crash
+            logger.info(
+                f"Verify at least one DASH_HA_SCOPE_STATE PMON field goes "
+                f"to 'down' on {crash_duthost.hostname} scope "
+                f"{crash_scope_key}"
             )
+            down_state = {}
+
+            def _any_pmon_down():
+                nonlocal down_state
+                down_state = get_ha_scope_pmon_state(
+                    crash_duthost, crash_scope_key
+                )
+                return any(
+                    down_state.get(f) == "down"
+                    for f in HA_SCOPE_PMON_STATE_FIELDS
+                )
+
+            down_ok = wait_until(
+                PMON_DOWN_TIMEOUT, HA_CHECK_INTERVAL, 0, _any_pmon_down
+            )
+            assert down_ok, (
+                f"{crash_duthost.hostname}: no DASH_HA_SCOPE_STATE PMON "
+                f"field reached 'down' for {crash_scope_key} after killing "
+                f"'{process_name}' on {crash_dpuhost.hostname}. "
+                f"Observed: {down_state}"
+            )
+
+            if expected_ha_state_after_crash is not None:
+                verify_ha_state_converged(
+                    crash_duthost, crash_scope_key, expected_ha_state_after_crash
+                )
             verify_ha_state_converged(
                 verify_duthost, verify_scope_key, expected_ha_state_verify
             )
@@ -202,6 +239,21 @@ class TestDpuProcessCrash:
                 f"within {PROCESS_RECOVERY_TIMEOUT}s"
             )
             logger.info(f"{process_name} recovered")
+
+            logger.info(
+                f"Verify DASH_HA_SCOPE_STATE PMON fields recover to 'up' on "
+                f"{crash_duthost.hostname} scope {crash_scope_key}"
+            )
+            up_ok, up_state = wait_for_ha_scope_pmon_state(
+                crash_duthost, crash_scope_key, expected_state="up",
+                timeout=PMON_UP_TIMEOUT, interval=HA_CHECK_INTERVAL,
+            )
+            assert up_ok, (
+                f"{crash_duthost.hostname}: DASH_HA_SCOPE_STATE PMON fields "
+                f"did not recover to 'up' for {crash_scope_key} after "
+                f"'{process_name}' recovered on {crash_dpuhost.hostname}. "
+                f"Observed: {up_state}"
+            )
         finally:
             stop_event.set()
             traffic_thread.join(timeout=30)
