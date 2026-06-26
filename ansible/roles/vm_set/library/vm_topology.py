@@ -1042,6 +1042,7 @@ class VMTopology(object):
 
             self.bind_vm_link(br_name, port1, port2)
 
+        bind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Create OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1058,7 +1059,11 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.bind_ovs_ports(br_name, port1, injected_iface, port2, disconnect_vm)
+                bind_ovs_links_args.append((br_name, port1, injected_iface, port2, disconnect_vm))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, tmpdir]:
+            self.worker.map(lambda args: self.bind_ovs_ports(*args, processes=processes, tmpdir=tmpdir),
+                            bind_ovs_links_args)
 
     def unbind_fp_ports(self):
         logging.info("=== unbind front panel ports ===")
@@ -1092,6 +1097,7 @@ class VMTopology(object):
             else:
                 self.unbind_vm_link(br_name, port1, port2)
 
+        unbind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Remove OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1108,9 +1114,12 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.unbind_ovs_ports(br_name, port1)
-                self.unbind_ovs_ports(br_name, port2)
-                self.unbind_ovs_ports(br_name, injected_iface)
+                unbind_ovs_links_args.append((br_name, port1))
+                unbind_ovs_links_args.append((br_name, port2))
+                unbind_ovs_links_args.append((br_name, injected_iface))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, _]:
+            self.worker.map(lambda args: self.unbind_ovs_ports(*args, processes=processes), unbind_ovs_links_args)
 
     def unbind_vm_link(self, br_name, port1, port2):
         _, if_to_br = VMTopology.brctl_show()
