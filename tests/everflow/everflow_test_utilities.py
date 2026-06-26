@@ -384,6 +384,14 @@ def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
         duthost: DUT fixture
         mirror_port: The mirror port to check for tx drops
     """
+    def _mirror_port_counter_ready():
+        portstat = json.loads(duthost.get_port_counters(in_json=True))
+        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
+        # wait for the mirror port to appear with a numeric TX_DRP.
+        return mirror_port in portstat and portstat[mirror_port]["TX_DRP"].replace(',', '') != 'N/A'
+
+    pytest_assert(wait_until(30, 5, 0, _mirror_port_counter_ready),
+                  "TX_DRP counter on mirror port {} not ready (still 'N/A')".format(mirror_port))
     portstat = json.loads(duthost.get_port_counters(in_json=True))
     pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
     tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))

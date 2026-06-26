@@ -40,7 +40,12 @@ class TestIPPacket(object):
     def check_rx_ok(duthost, ingress_iface, pkt_num_min):
         """Check if the ingress port has received enough packets."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[ingress_iface]["rx_ok"].replace(",", ""))
+        rx_ok_raw = portstat_out[ingress_iface]["rx_ok"].replace(",", "")
+        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
+        # treat that as "not ready yet" so the wait_until caller keeps polling.
+        if rx_ok_raw == "N/A":
+            return False
+        rx_ok = int(rx_ok_raw)
         return rx_ok >= pkt_num_min
 
     @staticmethod
