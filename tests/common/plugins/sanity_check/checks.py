@@ -455,7 +455,7 @@ def _find_processes_from_unix_sockets(fds, asic):
         process = parts[5]
 
         # If this is a redis-server socket, map its FD to the peer inode
-        if local_socket_path == '/var/run/redis/redis.sock':
+        if local_socket_path.startswith('/var/run/redis'):
             fd_match = re.search(r'fd=(\d+)', process)
             if fd_match:
                 fd = int(fd_match.group(1))
@@ -495,7 +495,7 @@ def _is_db_omem_over_threshold(command_output):
             if omem > 0:
                 non_zero_output.append(line)
                 addr = m.group(1)
-                if addr.startswith('/var/run/redis/redis.sock'):
+                if addr.startswith('/var/run/redis'):
                     fds.append(int(m.group(2)))
                 else:
                     addrs.append(addr)
