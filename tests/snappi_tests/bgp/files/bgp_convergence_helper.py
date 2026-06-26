@@ -1073,8 +1073,8 @@ def get_RIB_IN_capacity(snappi_api,
         wait(TIMEOUT, "For Traffic To start")
 
     try:
+        max_routes = 0
         for j in range(start_value, 100000000000, step_value):
-            max_routes = start_value
             tx_frate, rx_frate = [], []
             run_traffic(j)
             flow_stats = get_flow_stats(snappi_api)
@@ -1099,6 +1099,7 @@ def get_RIB_IN_capacity(snappi_api,
                 snappi_api.set_control_state(cs)
                 wait(TIMEOUT-20, "For Traffic To stop")
                 break
+            max_routes = j
             logger.info('Stopping Traffic')
             cs = snappi_api.control_state()
             cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
@@ -1115,7 +1116,7 @@ def get_RIB_IN_capacity(snappi_api,
             flow_stats = get_flow_stats(snappi_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             if float(flow_stats[0].loss) <= 0.001:
-                max_routes = start_value
+                max_routes = routes[i]
                 pass
             else:
                 max_routes = routes[i]-int(step_value/8)
