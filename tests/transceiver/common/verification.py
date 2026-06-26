@@ -29,8 +29,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import db_helpers
-from tests.transceiver.common.cli_parser_helper import parse_read_eeprom
+from tests.transceiver.common import cli_helpers, db_helpers
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +59,20 @@ def list_core_files(duthost):
         return set()
     stdout = result.get("stdout", "")
     return set(stdout.splitlines()) if stdout.strip() else set()
+
+
+def _resolve_namespace(duthost, port):
+    """Return the ASIC network namespace owning ``port`` (``""`` on single-ASIC).
+
+    Mirrors the resolution used by the EEPROM / link-behavior tests
+    (``get_namespace_from_asic_id`` of the port's ASIC instance). Multi-ASIC DBs
+    (STATE_DB / APPL_DB, including LLDP) are per-namespace, so every per-port DB
+    read in this module scopes to the owning ASIC; on a single-ASIC DUT this is
+    ``""`` and ``db_helpers.hgetall_dict`` emits no ``-n`` flag.
+    """
+    return duthost.get_namespace_from_asic_id(
+        duthost.get_port_asic_instance(port).asic_index
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -157,23 +170,30 @@ def wait_for_ports_oper_state(duthost, ports, expected_state, timeout_sec):
 _LLDP_POLL_INTERVAL_SEC = 3
 
 
-def _check_lldp_neighbor_present(duthost, port, timeout_sec=30):
+def _check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
     """Poll APPL_DB ``LLDP_ENTRY_TABLE:<port>`` until a neighbor is learned.
 
     A non-empty ``LLDP_ENTRY_TABLE:<port>`` hash means lldpd has at least
     one neighbor record for ``port``. Used by System tests to confirm the
     far end re-converged after a disruptive operation.
 
+    ``namespace`` scopes the query to the port's ASIC on a multi-ASIC DUT, where
+    LLDP tables are per-namespace; when ``None`` it is resolved from ``port`` so
+    callers that don't track namespaces (e.g. the post-session check) still query
+    the right ASIC. On a single-ASIC DUT it is ``""`` and no ``-n`` flag is
+    emitted.
+
     Returns:
         dict: ``{'passed': bool, 'details': str}``
     """
+    if namespace is None:
+        namespace = _resolve_namespace(duthost, port)
     deadline = time.monotonic() + max(0, int(timeout_sec))
-    cmd = f'sonic-db-cli APPL_DB hgetall "LLDP_ENTRY_TABLE:{port}"'
-    last_stdout = ""
     while True:
-        out = duthost.shell(cmd, module_ignore_errors=True)
-        last_stdout = (out.get("stdout") or "").strip()
-        if out.get("rc", 1) == 0 and last_stdout and last_stdout != "{}":
+        entry = db_helpers.hgetall_dict(
+            duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{port}", namespace=namespace
+        )
+        if entry:
             details = f"{port}: LLDP neighbor present within {timeout_sec}s"
             logger.info("LLDP check PASSED: %s", details)
             return {"passed": True, "details": details}
@@ -181,7 +201,7 @@ def _check_lldp_neighbor_present(duthost, port, timeout_sec=30):
             break
         time.sleep(_LLDP_POLL_INTERVAL_SEC)
 
-    details = f"{port}: no LLDP neighbor after {timeout_sec}s (raw='{last_stdout}')"
+    details = f"{port}: no LLDP neighbor after {timeout_sec}s"
     logger.warning("LLDP check FAILED: %s", details)
     return {"passed": False, "details": details}
 
@@ -240,25 +260,30 @@ def _resolve_parent_port(duthost, port, shared_state):
     return shared_state["physical_to_parent"].get(phys, port)
 
 
-def _get_transceiver_status(duthost, parent_port, shared_state):
-    """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>``."""
+def _get_transceiver_status(duthost, parent_port, shared_state, namespace=None):
+    """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>`` (per ASIC ns)."""
     cache = shared_state.setdefault("transceiver_status", {})
     if parent_port not in cache:
         cache[parent_port] = db_helpers.hgetall_dict(
-            duthost, "STATE_DB", f"TRANSCEIVER_STATUS|{parent_port}"
+            duthost, "STATE_DB", f"TRANSCEIVER_STATUS|{parent_port}", namespace=namespace
         )
     return cache[parent_port]
 
 
-def _check_cmis_state(duthost, port, shared_state):
+def _check_cmis_state(duthost, port, shared_state, namespace=None):
     """Verify CMIS DataPathState=DPActivated and ConfigState=ConfigSuccess.
 
     Reads the parent port's ``TRANSCEIVER_STATUS`` once (cached via
     ``shared_state``) and validates every ``host_lane*_datapath_state``
     and ``host_lane*_config_state`` field present in the hash.
+
+    ``namespace`` scopes the STATE_DB read to the owning ASIC; when ``None`` it is
+    resolved from ``port`` (a breakout parent shares its subports' ASIC).
     """
+    if namespace is None:
+        namespace = _resolve_namespace(duthost, port)
     parent = _resolve_parent_port(duthost, port, shared_state)
-    status = _get_transceiver_status(duthost, parent, shared_state)
+    status = _get_transceiver_status(duthost, parent, shared_state, namespace)
     if not status:
         return {
             "passed": False,
@@ -338,6 +363,11 @@ def standard_port_recovery_and_verification(
     if shared_state is None:
         shared_state = {}
 
+    # Owning ASIC namespace, resolved once and reused for every per-namespace DB
+    # read below (LLDP / TRANSCEIVER_STATUS / PORT_TABLE / TRANSCEIVER_INFO).
+    # ``""`` on single-ASIC -> no ``-n`` flag.
+    namespace = _resolve_namespace(duthost, port)
+
     sys_attrs = port_attrs.get(SYSTEM_ATTRIBUTES_KEY, {})
     eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
 
@@ -353,14 +383,16 @@ def standard_port_recovery_and_verification(
     # 2. LLDP - only if requested and link came up (otherwise LLDP is moot).
     if link_result["passed"] and sys_attrs.get("verify_lldp_on_link_up", True):
         lldp_timeout = sys_attrs.get("lldp_neighbor_wait_sec", 60)
-        lldp_result = _check_lldp_neighbor_present(duthost, port, timeout_sec=lldp_timeout)
+        lldp_result = _check_lldp_neighbor_present(
+            duthost, port, timeout_sec=lldp_timeout, namespace=namespace
+        )
         checks_ran.append("LLDP")
         if not lldp_result["passed"]:
             failures.append(lldp_result["details"])
 
     # 3. CMIS state - only if link came up and port is CMIS active-optical.
     if link_result["passed"] and eeprom_attrs.get("cmis_active_optical"):
-        cmis_result = _check_cmis_state(duthost, port, shared_state)
+        cmis_result = _check_cmis_state(duthost, port, shared_state, namespace=namespace)
         checks_ran.append("CMIS state")
         if not cmis_result["passed"]:
             failures.append(cmis_result["details"])
@@ -370,8 +402,9 @@ def standard_port_recovery_and_verification(
     if link_result["passed"]:
         # 4a. Optics SI: expected_settings is a dict whose keys are
         #     "page.<hex>h_<offset_decimal>" (e.g. "page.11h_223") and whose
-        #     values are lists of expected byte values. Each region is read
-        #     once via `sudo sfputil read-eeprom` and compared element-wise.
+        #     values are lists of expected byte values. Each region is read once
+        #     via ``cli_helpers.sfputil_read_eeprom`` (bare ``sfputil``, no sudo,
+        #     per the suite convention) and compared element-wise.
         optics_si = sys_attrs.get("optics_si_settings") or {}
         if optics_si:
             checks_ran.append("optics SI")
@@ -387,18 +420,24 @@ def standard_port_recovery_and_verification(
                         f"optics_si[{si_key}]: value must be a non-empty list of bytes"
                     )
                     continue
-                page = int(m.group(1), 16)
+                # sfputil parses ``-n`` as a HEX page number (verified on HW:
+                # ``-n 11`` and ``-n 0x11`` both select page 11h, while ``-n 17``
+                # selects page 0x17). The key's digits are already hex ("11" for
+                # page 11h), so pass them with an explicit ``0x`` prefix -> the
+                # helper emits ``-n 0x11`` (matching the ``-n 0x01`` form used by
+                # the other sfputil_read_eeprom callers).
+                page = m.group(1)
                 offset = int(m.group(2))
                 size = len(expected)
-                cmd = f"sudo sfputil read-eeprom -p {port} -n 0x{page:02X} -o {offset} -s {size}"
-                result = duthost.command(cmd, module_ignore_errors=True)
-                if result.get("rc", 1) != 0:
+                byte_map, err = cli_helpers.sfputil_read_eeprom(
+                    duthost, port, offset=offset, size=size, page=f"0x{page}"
+                )
+                if err:
                     optics_failures.append(
-                        f"optics_si[{si_key}]: read-eeprom page=0x{page:02X} "
-                        f"offset={offset} size={size} failed (rc={result.get('rc')})"
+                        f"optics_si[{si_key}]: read-eeprom (page {page}h, "
+                        f"offset {offset}, size {size}) failed ({err})"
                     )
                     continue
-                byte_map = parse_read_eeprom(result.get("stdout_lines", []))
                 actual = [byte_map.get(o) for o in range(offset, offset + size)]
                 if any(b is None for b in actual):
                     optics_failures.append(
@@ -419,7 +458,9 @@ def standard_port_recovery_and_verification(
         media_si = sys_attrs.get("media_si_settings") or {}
         if media_si:
             checks_ran.append("media SI")
-            port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}")
+            port_table = db_helpers.hgetall_dict(
+                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace
+            )
             if not port_table:
                 failures.append(f"{port}: APPL_DB PORT_TABLE:{port} missing or empty")
             else:
@@ -456,7 +497,9 @@ def standard_port_recovery_and_verification(
         if expected_app is not None:
             checks_ran.append("application code")
             app_failures = []
-            xcvr_info = db_helpers.hgetall_dict(duthost, "STATE_DB", f"TRANSCEIVER_INFO|{port}")
+            xcvr_info = db_helpers.hgetall_dict(
+                duthost, "STATE_DB", f"TRANSCEIVER_INFO|{port}", namespace=namespace
+            )
             if not xcvr_info:
                 app_failures.append(f"STATE_DB TRANSCEIVER_INFO|{port} missing or empty")
             else:

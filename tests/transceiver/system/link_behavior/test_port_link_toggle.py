@@ -158,6 +158,31 @@ def _build_cages(duthost, ports):
     return cages, port_to_cage
 
 
+def _build_ident_map(duthost, ports):
+    """Map every identifier an LLDP neighbor might advertise to its SONiC name.
+
+    ``LLDP_ENTRY_TABLE`` reports the neighbor either by SONiC interface name
+    (``lldp_rem_port_desc``, e.g. ``Ethernet16``) or by alias
+    (``lldp_rem_port_id``, e.g. ``etp3a``) - which one carries the stable
+    identifier varies by platform and lldpd configuration. This builds a single
+    lookup containing both each port's SONiC name and its CONFIG_DB ``alias``,
+    restricted to ports under test, so self-loop resolution succeeds regardless
+    of which field the neighbor advertised (and never depends on the
+    free-form description matching the interface name).
+    """
+    ident = {port: port for port in ports}
+    try:
+        port_cfg = duthost.get_running_config_facts().get("PORT", {})
+    except Exception as exc:  # alias map is best-effort; names still resolve
+        logger.warning("Could not read CONFIG_DB PORT for the alias map: %s", exc)
+        port_cfg = {}
+    for port in ports:
+        alias = (port_cfg.get(port) or {}).get("alias")
+        if alias:
+            ident[alias] = port
+    return ident
+
+
 def _validate_uniform_mode(port_attributes_dict, cages, port_to_cage):
     """Enforce that every front port is the same breakout mode (req #1).
 
@@ -207,6 +232,7 @@ def _split_groups(duthost, cages, port_to_cage):
     emitted. The local chassis id is read per namespace (each ASIC has its own
     LLDP database) and cached.
     """
+    ident_map = _build_ident_map(duthost, list(port_to_cage.keys()))
     loc_chassis_by_ns = {}
 
     def _local_chassis(namespace):
@@ -237,7 +263,18 @@ def _split_groups(duthost, cages, port_to_cage):
         entry = db_helpers.hgetall_dict(
             duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{parent}", namespace=namespace
         )
-        partner_port = entry.get("lldp_rem_port_desc")
+        # The neighbor may be advertised by SONiC name (``lldp_rem_port_desc``)
+        # or by alias (``lldp_rem_port_id``); resolve either form to our SONiC
+        # port name via ident_map. Trying both - rather than trusting one field
+        # to be the interface name - keeps self-loop detection correct across
+        # platforms / lldpd configs.
+        raw_desc = entry.get("lldp_rem_port_desc")
+        raw_id = entry.get("lldp_rem_port_id")
+        partner_port = None
+        for candidate in (raw_desc, raw_id):
+            if candidate and candidate in ident_map:
+                partner_port = ident_map[candidate]
+                break
         rem_chassis_id = entry.get("lldp_rem_chassis_id")
         same_switch = bool(rem_chassis_id) and rem_chassis_id == local_chassis_id
         partner_cage = port_to_cage.get(partner_port) if partner_port else None
@@ -257,12 +294,13 @@ def _split_groups(duthost, cages, port_to_cage):
         else:
             local_cages.append(cage_idx)
             assigned.add(cage_idx)
-            if partner_port and not same_switch:
-                reason = f"partner {partner_port} on a different switch (chassis {rem_chassis_id})"
-            elif not partner_port:
+            raw_partner = raw_desc or raw_id
+            if not raw_partner:
                 reason = "no LLDP neighbor"
+            elif not same_switch:
+                reason = f"partner {raw_partner} on a different switch (chassis {rem_chassis_id})"
             else:
-                reason = f"partner {partner_port} not under test"
+                reason = f"partner {raw_partner} on this switch but not under test"
             logger.debug("Cage parent %s => local_group only (%s)", parent, reason)
 
     return local_cages, remote_cages
