@@ -30,17 +30,13 @@ hostname {{ hostname }}
 vlan {{ ptf_bp_addrs|allowed_vlans_range_str(conv_mapping) }}
 !
 {% endif %}
-{% if converged %}
 vrf instance MGMT
+{% if converged %}
 {% for vrf_name in conv_config['vrf'] %}
 vrf instance {{ vrf_name }}
 {% endfor %}
-!
-{% else %}
-vrf definition MGMT
- rd 1:1
-!
 {% endif %}
+!
 spanning-tree mode mstp
 !
 aaa root secret 0 123456
