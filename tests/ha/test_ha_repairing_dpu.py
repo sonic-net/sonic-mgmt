@@ -15,14 +15,14 @@ from constants import (
 )
 from packets import outbound_pl_packets
 from tests.common.devices.duthosts import DutHosts
-from tests.common.config_reload import config_reload
 from tests.common.dash_utils import apply_swssconfig_file
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import InterruptableThread
 from tests.conftest import get_specified_dpus, get_target_hostname, is_parallel_leader
-from gnmi_utils import apply_messages
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from ha_utils import (
+    parallel_config_reload_dpuhosts,
     program_eni_pl_on_dpu,
     set_dash_ha_scope,
     verify_ha_state,
@@ -271,72 +271,14 @@ def repair_runtime_state():
 
 
 def _cleanup_programmed_dpu(localhost, ptfhost, duthost, dpuhost):
-    base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-    }
-    route_and_mapping_messages = {
-        **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG,
-    }
-    if 'bluefield' in dpuhost.facts['asic_type']:
-        route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
-
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-
     logger.info(
         f"Removing DPU PL programming on {dpuhost.hostname}"
     )
-
-    apply_messages(
+    apply_dash_pl_pipeline_config(
         localhost,
-        duthost,
+        [duthost],
+        [dpuhost],
         ptfhost,
-        pl.ENI_ROUTE_GROUP1_CONFIG,
-        dpuhost.dpu_index,
-        set_db=False,
-        wait_after_apply=1,
-    )
-    apply_messages(
-        localhost,
-        duthost,
-        ptfhost,
-        pl.ENI_CONFIG,
-        dpuhost.dpu_index,
-        set_db=False,
-        wait_after_apply=1,
-    )
-    apply_messages(
-        localhost,
-        duthost,
-        ptfhost,
-        meter_rule_messages,
-        dpuhost.dpu_index,
-        set_db=False,
-        wait_after_apply=1,
-    )
-    apply_messages(
-        localhost,
-        duthost,
-        ptfhost,
-        route_and_mapping_messages,
-        dpuhost.dpu_index,
-        set_db=False,
-        wait_after_apply=1,
-    )
-    apply_messages(
-        localhost,
-        duthost,
-        ptfhost,
-        base_config_messages,
-        dpuhost.dpu_index,
         set_db=False,
         wait_after_apply=1,
     )
@@ -463,50 +405,12 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for dut_index in range(2):
-        duthost = duthosts[dut_index]
-        dpuhost = selected_dpuhosts[dut_index]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG,
-        }
-        logger.info(
-            f"configure on {duthost.hostname} dpu {dpuhost.dpu_index} {base_config_messages}"
-        )
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG,
-        }
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(
-            localhost,
-            duthost,
-            ptfhost,
-            route_and_mapping_messages,
-            dpuhost.dpu_index,
-        )
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(
+        localhost,
+        [duthosts[0], duthosts[1]],
+        [selected_dpuhosts[0], selected_dpuhosts[1]],
+        ptfhost,
+    )
 
     yield
 
@@ -583,9 +487,7 @@ def common_setup_teardown(
                     set_db=False,
                 )
     finally:
-        for dpuhost in selected_dpuhosts:
-            logger.info(f"config reload on {dpuhost.hostname}")
-            config_reload(dpuhost, safe_reload=True, yang_validate=False)
+        parallel_config_reload_dpuhosts(selected_dpuhosts)
 
 
 def _update_ha_set_with_replacement_dpu(
