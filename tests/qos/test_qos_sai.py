@@ -2759,8 +2759,6 @@ class TestQosSai(QosSaiBase):
                 ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
             )
             self.check_and_set_ecn_status(duthost, qosConfig, 'on')
-        elif ecn == "ecn_5":
-            self.check_and_set_ecn_status(duthost, qosConfig, 'off')
 
     def set_test_params_descriptor_size(self, dutQosConfig, testParams):
         if 'descriptor_size' in dutQosConfig["param"]:
