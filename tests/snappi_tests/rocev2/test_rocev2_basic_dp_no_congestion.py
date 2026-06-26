@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
-TRAFFIC_DURATION = 60      # seconds
+TRAFFIC_DURATION = 180      # seconds
 
 # ---- queue / priority intent (tune here) ----
 LOSSLESS_QUEUES = [3, 4]        # one is picked at random per run
