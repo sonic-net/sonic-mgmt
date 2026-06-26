@@ -19,7 +19,8 @@ from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_lin
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue, \
     get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
 from tests.common.helpers.assertions import pytest_assert
-from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route, collect_qos_drop_diagnostics
+from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route, collect_qos_drop_diagnostics, \
+    snapshot_qos_drop_counters
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -271,6 +272,11 @@ def send_and_verify_traffic(ptfadapter,
     ptf_dst_port_list = []
     logger.info("Send packet(s) from port {} from downstream to upstream".format(ptf_src_port_id))
 
+    # Cumulative drop counters are only meaningful as a delta. Capture a baseline once,
+    # before sending, so a miss can be attributed even after a transient route race has
+    # self-healed (the counter increment latches). Only when diagnostics are enabled.
+    diag_baseline = snapshot_qos_drop_counters(duthost) if duthost is not None else None
+
     for idx, (pkt, exp_pkt) in enumerate(zip(pkt_list, exp_pkt_list)):
         dst_ip = inner_dst_ip_list[idx] if inner_dst_ip_list and idx < len(inner_dst_ip_list) else None
         ptfadapter.dataplane.flush()
@@ -294,7 +300,7 @@ def send_and_verify_traffic(ptfadapter,
             packet_egressed_success.append(False)
             ptf_dst_port_list.append(None)
             if duthost is not None:
-                collect_qos_drop_diagnostics(duthost, dst_ip=dst_ip,
+                collect_qos_drop_diagnostics(duthost, dst_ip=dst_ip, baseline=diag_baseline,
                                              tag="{}-idx{}-{}".format(diag_tag, idx, reason))
     return ptf_dst_port_list
 

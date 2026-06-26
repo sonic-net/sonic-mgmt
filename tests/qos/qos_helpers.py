@@ -433,13 +433,52 @@ def announce_route(ptfip, route, port, action=ANNOUNCE):
 # avoid log explosion when a real outage drops traffic to many destinations.
 _QOS_DROP_DIAG_BUDGET = [5]
 
+# Per-interface counter columns returned by drop_counters.get_pkt_drops().
+_L2_DROP_COL = "RX_DRP"
+_L3_DROP_COL = "RX_ERR"
+
 
 def reset_qos_drop_diag_budget(budget=5):
     """Reset the per-run diagnostic snapshot budget. Call at test setup if desired."""
     _QOS_DROP_DIAG_BUDGET[0] = budget
 
 
-def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag=""):
+def snapshot_qos_drop_counters(duthost):
+    """Capture a lightweight, read-only counter baseline for later delta computation.
+
+    Cumulative DUT counters (interface RX_DRP / RX_ERR) are only meaningful as a
+    *delta*. Call this once BEFORE sending a batch; pass the result as ``baseline`` to
+    ``collect_qos_drop_diagnostics`` on a miss so the drop can be attributed even after a
+    transient route race has self-healed (the counter increment latches and survives).
+
+    Best-effort; never raises. Two cheap reads (portstat -j, intfstat -j) per call.
+    """
+    from tests.common.helpers.drop_counters.drop_counters import (
+        get_pkt_drops, GET_L2_COUNTERS, GET_L3_COUNTERS)
+    snap = {}
+    for key, cmd in (("l2", GET_L2_COUNTERS), ("l3", GET_L3_COUNTERS)):
+        try:
+            snap[key] = get_pkt_drops(duthost, cmd)
+        except Exception:                                           # noqa: BLE001
+            snap[key] = {}
+    return snap
+
+
+def _counter_delta(current, baseline, column):
+    """Return {interface: delta} for non-zero deltas of ``column`` between two snapshots."""
+    out = {}
+    for iface, cols in (current or {}).items():
+        try:
+            cur = int(cols.get(column, 0))
+            base = int((baseline or {}).get(iface, {}).get(column, 0))
+            if cur - base != 0:
+                out[iface] = cur - base
+        except (ValueError, TypeError):
+            continue
+    return out
+
+
+def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag="", baseline=None):
     """Best-effort, on-failure DUT snapshot to root-cause a no-egress / forwarding drop.
 
     Shared across QoS test cases. Composes existing device-object methods and the
@@ -448,22 +487,26 @@ def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag=""):
 
     Capture it AT the miss (not at teardown): a RIB->FIB / ARP convergence race
     self-heals within seconds, so a teardown-time snapshot would show a healthy state
-    and miss the evidence.
+    and miss the evidence. For a *transient* drop the durable evidence is the counter
+    delta and the swss/syncd route-programming timestamp (both survive the heal), not
+    the absolute route state (which may already look healthy).
 
     Collected (each best-effort):
-      - kernel FIB + nexthops for dst_ip (duthost.get_ip_route_info)
-      - BGP RIB entry for dst_ip            (duthost.get_route)
-      - RIB-vs-FIB route summary            (duthost.get_ip_route_summary)
-      - CRM route/neighbor resource usage   (duthost.get_crm_resources)
-      - ARP/neighbor table                  (duthost.switch_arptable)
-      - ASIC_DB programmed route count      (asic.count_routes)
-      - L2/L3 per-interface drop counters   (drop_counters.get_pkt_drops)
-      - Broadcom only: 'bcmcmd l3 defip show' filtered to dst_ip
+      - Absolute state (labels transient vs persistent):
+          kernel FIB + nexthops (get_ip_route_info), BGP RIB (get_route),
+          RIB-vs-FIB summary (get_ip_route_summary), CRM usage (get_crm_resources),
+          ARP/neighbor table (switch_arptable), ASIC_DB route count (asic.count_routes)
+      - Durable drop evidence (survives a self-healed transient):
+          L2 RX_DRP / L3 RX_ERR counter DELTAS vs ``baseline`` (if provided),
+          swss + syncd route-programming log lines for dst_ip (timestamp vs send time),
+          Broadcom: 'bcmcmd l3 defip show' (route in HW?) and 'bcmcmd show c' (drop bucket)
 
     Args:
-        duthost: DUT host object.
-        dst_ip:  Inner/forwarded destination IP that was not received (optional).
-        tag:     Short label included in every log line (e.g. "pipe-dscp6").
+        duthost:  DUT host object.
+        dst_ip:   Inner/forwarded destination IP that was not received (optional).
+        tag:      Short label included in every log line (e.g. "pipe-dscp6").
+        baseline: Optional counter snapshot from ``snapshot_qos_drop_counters`` taken
+                  before the batch was sent; enables drop-counter DELTA computation.
 
     Returns:
         dict of the collected state (also emitted to the test log at WARNING level).
@@ -486,6 +529,7 @@ def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag=""):
         except Exception as exc:                                    # noqa: BLE001
             diag[key] = "<collect failed: {}>".format(exc)
 
+    # --- Absolute state: route / FIB / neighbor (labels transient vs persistent) ---
     if dst_ip:
         prefix = "{}/32".format(dst_ip)
         _try("fib_route", lambda: duthost.get_ip_route_info(ipaddress.ip_network(u"{}".format(prefix))))
@@ -494,11 +538,40 @@ def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag=""):
     _try("crm_resources", lambda: duthost.get_crm_resources())
     _try("arp_table", lambda: duthost.switch_arptable()["ansible_facts"]["arptable"])
     _try("asic_db_route_count", lambda: duthost.asic_instance().count_routes("SAI_OBJECT_TYPE_ROUTE_ENTRY"))
-    _try("l2_drops", lambda: get_pkt_drops(duthost, GET_L2_COUNTERS))
-    _try("l3_drops", lambda: get_pkt_drops(duthost, GET_L3_COUNTERS))
-    if duthost.facts.get("asic_type") == "broadcom" and dst_ip:
-        _try("bcm_l3_defip", lambda: duthost.shell(
-            "which bcmcmd > /dev/null && bcmcmd 'l3 defip show' | grep {} || true".format(dst_ip),
+
+    # --- Durable drop evidence: counter deltas (survive a self-healed transient) ---
+    current_l2 = None
+    current_l3 = None
+    try:
+        current_l2 = get_pkt_drops(duthost, GET_L2_COUNTERS)
+        current_l3 = get_pkt_drops(duthost, GET_L3_COUNTERS)
+    except Exception as exc:                                        # noqa: BLE001
+        diag["counter_read"] = "<failed: {}>".format(exc)
+    if baseline is not None:
+        diag["l2_rx_drp_delta"] = _counter_delta(current_l2, baseline.get("l2"), _L2_DROP_COL)
+        diag["l3_rx_err_delta"] = _counter_delta(current_l3, baseline.get("l3"), _L3_DROP_COL)
+    else:
+        # No baseline: cumulative values only (less conclusive, but still recorded).
+        diag["l2_drops_cumulative"] = current_l2
+        diag["l3_drops_cumulative"] = current_l3
+
+    # --- Durable race proof: when was the route/neighbor programmed vs sent? ---
+    if dst_ip:
+        _try("swss_route_log", lambda: duthost.shell(
+            "docker logs --since 5m swss 2>&1 | grep -F '{}' | tail -20 || true".format(dst_ip),
+            module_ignore_errors=True)["stdout"])
+        _try("syncd_route_log", lambda: duthost.shell(
+            "docker logs --since 5m syncd 2>&1 | grep -F '{}' | tail -20 || true".format(dst_ip),
+            module_ignore_errors=True)["stdout"])
+
+    # --- Broadcom ASIC: route in hardware + drop bucket ---
+    if duthost.facts.get("asic_type") == "broadcom":
+        if dst_ip:
+            _try("bcm_l3_defip", lambda: duthost.shell(
+                "which bcmcmd > /dev/null && bcmcmd 'l3 defip show' | grep {} || true".format(dst_ip),
+                module_ignore_errors=True)["stdout"])
+        _try("bcm_show_c", lambda: duthost.shell(
+            "which bcmcmd > /dev/null && bcmcmd 'show c' | grep -iE 'disc|drop|rdisc|ripd' || true",
             module_ignore_errors=True)["stdout"])
 
     logger.warning("[QOS-DROP-DIAG %s] dst=%s diagnostics:\n%s",
