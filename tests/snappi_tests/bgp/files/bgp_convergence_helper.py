@@ -1128,7 +1128,7 @@ def get_RIB_IN_capacity(snappi_api,
             """ Stopping Protocols """
             logger.info("Stopping all protocols ...")
             cs = snappi_api.control_state()
-            cs.protocol.all.state = cs.protocol.all.START
+            cs.protocol.all.state = cs.protocol.all.STOP
             snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Protocols To STOP")
     except Exception as e:
