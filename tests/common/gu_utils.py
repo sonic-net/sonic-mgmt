@@ -554,8 +554,20 @@ def expect_acl_table_match_multiple_bindings(duthost,
         pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
-def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
-    """Check if acl rule shows as expected"""
+def expect_acl_rule_match(duthost, rulename, expected_content_list, setup, timeout=15, interval=2):
+    """Check if acl rule shows as expected.
+
+    GCU writes the rule to CONFIG_DB synchronously, but orchagent programs it to the
+    ASIC asynchronously (draining its queue in lexicographic key order) and only then
+    writes the STATE_DB status to "Active". At scale a freshly-added rule can read back
+    as "N/A" / "Pending creation" for several seconds, so poll until it matches instead
+    of checking exactly once.
+
+    Args:
+        timeout: Maximum seconds to wait for the rule to reach the expected state.
+                 Increase for large/scale patches where programming takes longer.
+        interval: Seconds between polls.
+    """
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
 
@@ -565,20 +577,35 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
+        def rule_matches():
+            # Return True/False (never assert) so wait_until can keep polling.
+            # wait_until swallows pytest.fail.Exception, so an assert here would be
+            # silently treated as a retry rather than a hard failure.
+            output = dut.show_and_parse(cmds)
 
-        rule_lines = len(output)
+            rule_lines = len(output)
+            if rule_lines < 1:
+                logger.warning("'{}' is not a rule on this device yet".format(rulename))
+                return False
 
-        pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
+            first_line = output[0].values()
+            if not set(first_line) <= set(expected_content_list):
+                logger.warning("Rule '{}' not matching yet. Got {}, want subset of {}".format(
+                    rulename, list(first_line), expected_content_list))
+                return False
 
-        first_line = output[0].values()
+            if rule_lines > 1:
+                for i in range(1, rule_lines):
+                    if output[i]["match"] not in expected_content_list:
+                        logger.warning("Unexpected match condition for '{}': {}".format(
+                            rulename, output[i]["match"]))
+                        return False
+            return True
 
-        pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
-
-        if rule_lines > 1:
-            for i in range(1, rule_lines):
-                pytest_assert(output[i]["match"] in expected_content_list,
-                              "Unexpected match condition found: " + str(output[i]["match"]))
+        pytest_assert(
+            wait_until(timeout, interval, 0, rule_matches),
+            "ACL rule '{}' did not reach expected state within {}s "
+            "(status likely N/A/Pending creation)".format(rulename, timeout))
 
 
 def expect_acl_rule_removed(duthost, rulename, setup):
