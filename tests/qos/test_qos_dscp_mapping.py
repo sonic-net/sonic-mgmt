@@ -2,6 +2,7 @@
 Test cases for testing DSCP to Queue mapping for IP-IP packets in SONiC.
 """
 import time
+import copy
 import logging
 import pytest
 import allure
@@ -18,7 +19,7 @@ from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_lin
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue, \
     get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
 from tests.common.helpers.assertions import pytest_assert
-from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route
+from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route, collect_qos_drop_diagnostics
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -215,45 +216,87 @@ def create_ipip_packet(outer_src_mac,
     return outer_pkt, exp_pkt
 
 
+def _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids):
+    """Distinguish a forwarding drop from a DSCP mismatch when a verify fails.
+
+    Re-checks for the same packet while ignoring the IP DSCP/TOS byte. If a packet now
+    matches, it egressed but with the wrong DSCP (real DSCP-handling behavior); if still
+    nothing matches, the packet was not forwarded at all (routing/FIB/infra).
+    """
+    try:
+        dscp_agnostic = copy.deepcopy(exp_pkt)
+        dscp_agnostic.set_do_not_care_scapy(IP, 'tos')
+        testutils.verify_packet_any_port(ptfadapter, dscp_agnostic, ports=ptf_dst_port_ids, timeout=2)
+        return "DSCP_MISMATCH"
+    except AssertionError:
+        return "FORWARDING_DROP"
+    except Exception:                                              # noqa: BLE001
+        return "UNKNOWN_MISS"
+
+
 def send_and_verify_traffic(ptfadapter,
                             pkt_list,
                             exp_pkt_list,
                             ptf_src_port_id,
-                            ptf_dst_port_ids):
+                            ptf_dst_port_ids,
+                            duthost=None,
+                            inner_dst_ip_list=None,
+                            diag_tag=""):
     """
-    Send traffic and verify that traffic was received
+    Send traffic and verify that traffic was received.
+
+    A per-packet result is appended to the module-global ``packet_egressed_success``
+    (True on egress, False on miss) for every packet in ``pkt_list``, so the list length
+    always equals ``len(pkt_list)`` and callers can index it safely (no IndexError).
+
+    On a miss the failure is classified (FORWARDING_DROP vs DSCP_MISMATCH) and, when a
+    ``duthost`` is provided, an on-the-spot diagnostic snapshot is collected via
+    ``collect_qos_drop_diagnostics`` while the (often transient) DUT state is still fresh.
 
     Args:
         ptfadapter: PTF adapter
-        pkt: Packet that should be sent
-        exp_pkt: Expected packet
+        pkt_list: Packets to send
+        exp_pkt_list: Expected (masked) packets
         ptf_src_port_id: Source port of ptf
         ptf_dst_port_ids: Possible destination ports of ptf
+        duthost: Optional DUT host; when set, collect drop diagnostics on a miss
+        inner_dst_ip_list: Optional inner destination IPs aligned with pkt_list, used for
+            clearer logging and targeted diagnostics
+        diag_tag: Optional label prefix for diagnostic log lines
+
+    Returns:
+        list aligned with pkt_list: the receiving ptf port per packet, or None on a miss
     """
-    pkt_egress_index = 0
+    global packet_egressed_success
     ptf_dst_port_list = []
     logger.info("Send packet(s) from port {} from downstream to upstream".format(ptf_src_port_id))
 
-    try:
-        for pkt, exp_pkt in zip(pkt_list, exp_pkt_list):
-            ptfadapter.dataplane.flush()
-            testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
-            logger.info(f"Send packet: {pkt}, expected packet: {exp_pkt}")
+    for idx, (pkt, exp_pkt) in enumerate(zip(pkt_list, exp_pkt_list)):
+        dst_ip = inner_dst_ip_list[idx] if inner_dst_ip_list and idx < len(inner_dst_ip_list) else None
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
+        logger.info(f"Send packet (inner dst {dst_ip}): {pkt}, expected packet: {exp_pkt}")
+        try:
             result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=5)
             if isinstance(result, bool):
                 logger.info("Return a dummy value for VS platform")
                 port_index = 0
             else:
                 port_index, _ = result
-            logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
-            global packet_egressed_success
+            logger.info("Received expected packet(s) for inner dst {} on port {}".format(
+                dst_ip, ptf_dst_port_ids[port_index]))
             packet_egressed_success.append(True)
             ptf_dst_port_list.append(ptf_dst_port_ids[port_index])
-            pkt_egress_index += 1
-        return ptf_dst_port_list
-    except AssertionError as detail:
-        if "Did not receive expected packet on any of ports" in str(detail):
-            logger.error("Expected packet(s) was not received on any of the ports -> {}".format(ptf_dst_port_ids))
+        except AssertionError as detail:
+            reason = _classify_packet_miss(ptfadapter, exp_pkt, ptf_dst_port_ids)
+            logger.error("MISS (%s): inner dst %s, expected packet not matched on ports %s -> %s",
+                         reason, dst_ip, ptf_dst_port_ids, detail)
+            packet_egressed_success.append(False)
+            ptf_dst_port_list.append(None)
+            if duthost is not None:
+                collect_qos_drop_diagnostics(duthost, dst_ip=dst_ip,
+                                             tag="{}-idx{}-{}".format(diag_tag, idx, reason))
+    return ptf_dst_port_list
 
 
 def find_queue_count_and_value(duthost, queue_val_list, dut_egress_port_list):
@@ -262,6 +305,12 @@ def find_queue_count_and_value(duthost, queue_val_list, dut_egress_port_list):
     egress_queue_count_list = []
     egress_queue_val_list = []
     for dut_egress_port, queue_val in zip(dut_egress_port_list, queue_val_list):
+        if dut_egress_port is None:
+            # Packet for this destination did not egress; keep lists aligned so the
+            # caller's verdict loop can classify it as "no packets egressed".
+            egress_queue_count_list.append(0)
+            egress_queue_val_list.append(-1)
+            continue
         egress_queue_count = egress_queue_counts_all_queues[dut_egress_port][queue_val]
         egress_queue_val = find_egress_queue(egress_queue_counts_all_queues[dut_egress_port], DEFAULT_PKT_COUNT)
         egress_queue_count_list.append(egress_queue_count)
@@ -451,7 +500,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                                                                pkt_list=pkt_list,
                                                                exp_pkt_list=exp_pkt_list,
                                                                ptf_src_port_id=ptf_src_port_id,
-                                                               ptf_dst_port_ids=ptf_dst_port_ids)
+                                                               ptf_dst_port_ids=ptf_dst_port_ids,
+                                                               duthost=duthost,
+                                                               inner_dst_ip_list=inner_dst_pkt_ip_list,
+                                                               diag_tag="{}-batch{}".format(decap_mode, rotating_dscp))
 
             except ConnectionError as e:
                 # Sending large number of packets can cause socket buffer to be full and leads connection timeout.
@@ -466,6 +518,12 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             dut_egress_port_list = []
             for i in range(step):
                 dst_ptf_port_id = dst_ptf_port_id_list[i]
+                if dst_ptf_port_id is None:
+                    # Packet for this DSCP/destination did not egress; placeholder keeps
+                    # dut_egress_port_list aligned with step so the verdict loop below can
+                    # classify it as "no packets egressed".
+                    dut_egress_port_list.append(None)
+                    continue
                 if dst_ptf_port_id in ptf_port_to_dut_port_map:
                     dut_egress_port = ptf_port_to_dut_port_map[dst_ptf_port_id]
                 else:
@@ -650,7 +708,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                                             pkt_list=pkt_list,
                                             exp_pkt_list=exp_pkt_list,
                                             ptf_src_port_id=ptf_src_port_id,
-                                            ptf_dst_port_ids=ptf_dst_port_ids)
+                                            ptf_dst_port_ids=ptf_dst_port_ids,
+                                            duthost=duthost,
+                                            inner_dst_ip_list=inner_dst_pkt_ip_list,
+                                            diag_tag="pipe-batch{}".format(rotating_dscp))
                 except ConnectionError as e:
                     logger.error("{}: Try reducing DEFAULT_PKT_COUNT value".format(str(e)))
                     failed_once = True
@@ -659,17 +720,20 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     cur_dscp = rotating_dscp + i
                     if packet_egressed_success[i]:
                         logger.info(f"SUCCESS: Inner DSCP {cur_dscp} preserved in decapsulated packet")
-                        output_table.append([cur_dscp, "SUCCESS - DSCP PRESERVED"])
+                        output_table.append([cur_dscp, inner_dst_pkt_ip_list[i], "SUCCESS - DSCP PRESERVED"])
                     else:
-                        logger.info(f"FAILURE: Inner DSCP {cur_dscp} not found in decapsulated packet")
-                        output_table.append([cur_dscp, "FAILURE - DSCP NOT PRESERVED"])
+                        logger.info(f"FAILURE: Inner DSCP {cur_dscp} (inner dst {inner_dst_pkt_ip_list[i]}) not "
+                                    f"received after decap; see MISS/QOS-DROP-DIAG logs for "
+                                    f"FORWARDING_DROP vs DSCP_MISMATCH classification")
+                        output_table.append([cur_dscp, inner_dst_pkt_ip_list[i],
+                                             "FAILURE - NOT PRESERVED/FORWARDED"])
                         failed_once = True
 
                 packet_egressed_success = []
 
         logger.info("Pipe mode DSCP preservation test results:\n{}"
                     .format(tabulate(output_table,
-                                     headers=["Inner Packet DSCP Value", "Result"])))
+                                     headers=["Inner Packet DSCP Value", "Inner Dst IP", "Result"])))
         output_table = []
 
         pytest_assert(not failed_once, "FAIL: One or more inner DSCP values were not preserved after decap."

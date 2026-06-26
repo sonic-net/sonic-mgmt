@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from netaddr import IPNetwork
 from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa: F401
 from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, run_dshell_command
+import ipaddress
 import re
 import os
 import json
@@ -426,3 +427,80 @@ def announce_route(ptfip, route, port, action=ANNOUNCE):
     logger.info(" action:{}\n ptfip:{}\n route:{}\n port:{}".format(action, ptfip, route, port))
     install_route_from_exabgp(action, ptfip, route, port)
     logger.info("\n--------------------------------------------------------------------------------")
+
+
+# Limit how many on-failure diagnostic snapshots a single test run will collect, to
+# avoid log explosion when a real outage drops traffic to many destinations.
+_QOS_DROP_DIAG_BUDGET = [5]
+
+
+def reset_qos_drop_diag_budget(budget=5):
+    """Reset the per-run diagnostic snapshot budget. Call at test setup if desired."""
+    _QOS_DROP_DIAG_BUDGET[0] = budget
+
+
+def collect_qos_drop_diagnostics(duthost, dst_ip=None, tag=""):
+    """Best-effort, on-failure DUT snapshot to root-cause a no-egress / forwarding drop.
+
+    Shared across QoS test cases. Composes existing device-object methods and the
+    common drop-counter helpers; it is read-only and NEVER raises, so it is safe to
+    call from inside a packet send/verify loop the moment a packet is found missing.
+
+    Capture it AT the miss (not at teardown): a RIB->FIB / ARP convergence race
+    self-heals within seconds, so a teardown-time snapshot would show a healthy state
+    and miss the evidence.
+
+    Collected (each best-effort):
+      - kernel FIB + nexthops for dst_ip (duthost.get_ip_route_info)
+      - BGP RIB entry for dst_ip            (duthost.get_route)
+      - RIB-vs-FIB route summary            (duthost.get_ip_route_summary)
+      - CRM route/neighbor resource usage   (duthost.get_crm_resources)
+      - ARP/neighbor table                  (duthost.switch_arptable)
+      - ASIC_DB programmed route count      (asic.count_routes)
+      - L2/L3 per-interface drop counters   (drop_counters.get_pkt_drops)
+      - Broadcom only: 'bcmcmd l3 defip show' filtered to dst_ip
+
+    Args:
+        duthost: DUT host object.
+        dst_ip:  Inner/forwarded destination IP that was not received (optional).
+        tag:     Short label included in every log line (e.g. "pipe-dscp6").
+
+    Returns:
+        dict of the collected state (also emitted to the test log at WARNING level).
+        Empty dict if the per-run budget is exhausted.
+    """
+    # Imported here to avoid adding an import-time dependency for callers that never
+    # hit a failure path.
+    from tests.common.helpers.drop_counters.drop_counters import (
+        get_pkt_drops, GET_L2_COUNTERS, GET_L3_COUNTERS)
+
+    if _QOS_DROP_DIAG_BUDGET[0] <= 0:
+        return {}
+    _QOS_DROP_DIAG_BUDGET[0] -= 1
+
+    diag = {}
+
+    def _try(key, fn):
+        try:
+            diag[key] = fn()
+        except Exception as exc:                                    # noqa: BLE001
+            diag[key] = "<collect failed: {}>".format(exc)
+
+    if dst_ip:
+        prefix = "{}/32".format(dst_ip)
+        _try("fib_route", lambda: duthost.get_ip_route_info(ipaddress.ip_network(u"{}".format(prefix))))
+        _try("bgp_rib", lambda: duthost.get_route(prefix))
+    _try("route_summary", lambda: duthost.get_ip_route_summary())
+    _try("crm_resources", lambda: duthost.get_crm_resources())
+    _try("arp_table", lambda: duthost.switch_arptable()["ansible_facts"]["arptable"])
+    _try("asic_db_route_count", lambda: duthost.asic_instance().count_routes("SAI_OBJECT_TYPE_ROUTE_ENTRY"))
+    _try("l2_drops", lambda: get_pkt_drops(duthost, GET_L2_COUNTERS))
+    _try("l3_drops", lambda: get_pkt_drops(duthost, GET_L3_COUNTERS))
+    if duthost.facts.get("asic_type") == "broadcom" and dst_ip:
+        _try("bcm_l3_defip", lambda: duthost.shell(
+            "which bcmcmd > /dev/null && bcmcmd 'l3 defip show' | grep {} || true".format(dst_ip),
+            module_ignore_errors=True)["stdout"])
+
+    logger.warning("[QOS-DROP-DIAG %s] dst=%s diagnostics:\n%s",
+                   tag, dst_ip, json.dumps(diag, indent=2, default=str))
+    return diag
