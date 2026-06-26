@@ -42,7 +42,6 @@ def test_dom_data_consistency_verification(
             all_failures.append("{}:\n  missing consistency validation plan".format(port))
             continue
 
-        dom_attrs = plan["dom_attrs"]
         expected_fields = plan["expected_fields"]
         field_ranges = plan["field_ranges"]
         variation_thresholds = plan["variation_thresholds"]

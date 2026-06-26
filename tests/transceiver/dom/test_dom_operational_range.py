@@ -107,7 +107,7 @@ def test_dom_sensor_operational_range_validation(
 
                 checked_fields += 1
                 logger.debug(
-                    "DOM operational range PASS %s %s=%s within [{}, {}]",
+                    "DOM operational range PASS %s %s=%s within [%s, %s]",
                     port,
                     field,
                     numeric_value,
