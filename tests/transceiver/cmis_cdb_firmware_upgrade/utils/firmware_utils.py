@@ -313,6 +313,7 @@ def download_and_validate_firmware_binaries(duthost, firmware_base_url, firmware
                 base_path,
                 normalized_vendor_name,
                 normalized_vendor_pn,
+                firmware_metadata['version'],
                 firmware_metadata['binary']
             )
 
