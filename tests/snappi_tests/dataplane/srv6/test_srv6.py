@@ -14,17 +14,16 @@ from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, fanout_gr
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api, get_snappi_ports, get_snappi_ports_single_dut # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_multi_dut, snappi_testbed_config # noqa F401
-from tests.snappi_tests.dataplane.files.helper import get_duthost_interface_details
 from tests.snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
 from tests.snappi_tests.srv6.files.srv6_telemetry import poll_srv6_perf_stats
 from tests.snappi_tests.srv6.files.srv6_helper import Multi_Tier_Map, assign_sid_on_tgen_ports, \
-    assign_sid_to_duts, create_snappi_flows, get_dut_list, set_dut_tier_level, get_t0_duts, get_pairings, \
+    assign_sid_to_duts, create_snappi_flows, get_dut_list, set_dut_tier_level, get_t0_duts, \
     config_dut_sids, construct_dut_to_dut_links, construct_static_route_dut_to_tgen, construct_dut_peer_connections, \
     config_dut_interface_ip, dut_ping_neighbor_links, configure_dut_static_routes, config_traffic_flows, \
-    get_dut_to_dut_pairs, get_dut_stat_counters, increment_hex, snappi_port_name_mapper, clear_dut_stats, \
+    get_dut_to_dut_pairs, get_dut_stat_counters, snappi_port_name_mapper, clear_dut_stats, \
     get_ingress_egress_stats, verify_nut_stats, set_duthost_interface_details, config_dut_ip_interface, \
     remove_srv6_config
 

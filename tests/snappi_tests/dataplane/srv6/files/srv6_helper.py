@@ -702,13 +702,13 @@ def config_dut_sids(duthosts, Common_vars):
                         f'"SRV6_MY_LOCATORS|loc{count}" prefix "fcbb:bbbb:{sid}::" func_len 0')
 
             dut.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_LOCATORS|loc{count}" '
-                    f'prefix "fcbb:bbbb:{sid}::" func_len 0')
+                      f'prefix "fcbb:bbbb:{sid}::" func_len 0')
 
             logger.info(f'    sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48" '
                         f'action uN decap_dscp_mode pipe')
 
             dut.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48" '
-                    f'action uN decap_dscp_mode pipe')
+                      f'action uN decap_dscp_mode pipe')
             count += 1
 
 
@@ -1145,7 +1145,10 @@ def set_duthost_interface_details(duthosts, Common_vars, get_snappi_ports):
 
 def config_dut_ip_interface(snappi_ports):
     for snappi_port in snappi_ports:
-        cli_command = f'sudo config int ip add {snappi_port["peer_port"]} {snappi_port["ipGateway"]}/{snappi_port["prefix"]}'
+        cli_command = (f'sudo config int ip add {snappi_port["peer_port"]} '
+                       f'{snappi_port["ipGateway"]}/{snappi_port["prefix"]}'
+                       )
+
         logger.info(f'On DUT: {snappi_port["peer_device"]}: {cli_command}')
         snappi_port['duthost'].shell(cli_command)
 
