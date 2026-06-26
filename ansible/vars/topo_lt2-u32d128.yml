@@ -274,11 +274,11 @@ topology:
       vm_offset: 67
     ARISTA69T1:
       vlans:
-        - 68
+        - 160
       vm_offset: 68
     ARISTA70T1:
       vlans:
-        - 69
+        - 161
       vm_offset: 69
     ARISTA71T1:
       vlans:
@@ -306,11 +306,11 @@ topology:
       vm_offset: 75
     ARISTA77T1:
       vlans:
-        - 76
+        - 162
       vm_offset: 76
     ARISTA78T1:
       vlans:
-        - 77
+        - 163
       vm_offset: 77
     ARISTA79T1:
       vlans:
@@ -338,11 +338,11 @@ topology:
       vm_offset: 83
     ARISTA85T1:
       vlans:
-        - 84
+        - 164
       vm_offset: 84
     ARISTA86T1:
       vlans:
-        - 85
+        - 165
       vm_offset: 85
     ARISTA87T1:
       vlans:
@@ -354,11 +354,11 @@ topology:
       vm_offset: 87
     ARISTA89T1:
       vlans:
-        - 88
+        - 166
       vm_offset: 88
     ARISTA90T1:
       vlans:
-        - 89
+        - 167
       vm_offset: 89
     ARISTA91T1:
       vlans:
@@ -370,11 +370,11 @@ topology:
       vm_offset: 91
     ARISTA93T1:
       vlans:
-        - 92
+        - 168
       vm_offset: 92
     ARISTA94T1:
       vlans:
-        - 93
+        - 169
       vm_offset: 93
     ARISTA95T1:
       vlans:
@@ -386,11 +386,11 @@ topology:
       vm_offset: 95
     ARISTA97T1:
       vlans:
-        - 96
+        - 170
       vm_offset: 96
     ARISTA98T1:
       vlans:
-        - 97
+        - 171
       vm_offset: 97
     ARISTA99T1:
       vlans:
@@ -402,11 +402,11 @@ topology:
       vm_offset: 99
     ARISTA101T1:
       vlans:
-        - 100
+        - 172
       vm_offset: 100
     ARISTA102T1:
       vlans:
-        - 101
+        - 173
       vm_offset: 101
     ARISTA103T1:
       vlans:
@@ -450,11 +450,11 @@ topology:
       vm_offset: 111
     ARISTA113T1:
       vlans:
-        - 112
+        - 174
       vm_offset: 112
     ARISTA114T1:
       vlans:
-        - 113
+        - 175
       vm_offset: 113
     ARISTA115T1:
       vlans:
@@ -466,11 +466,11 @@ topology:
       vm_offset: 115
     ARISTA117T1:
       vlans:
-        - 116
+        - 176
       vm_offset: 116
     ARISTA118T1:
       vlans:
-        - 117
+        - 177
       vm_offset: 117
     ARISTA119T1:
       vlans:
@@ -498,11 +498,11 @@ topology:
       vm_offset: 123
     ARISTA125T1:
       vlans:
-        - 124
+        - 178
       vm_offset: 124
     ARISTA126T1:
       vlans:
-        - 125
+        - 179
       vm_offset: 125
     ARISTA127T1:
       vlans:
@@ -593,26 +593,26 @@ topology:
         - 159
       vm_offset: 143
   disabled_host_interfaces:
-    - 160
-    - 161
-    - 162
-    - 163
-    - 164
-    - 165
-    - 166
-    - 167
-    - 168
-    - 169
-    - 170
-    - 171
-    - 172
-    - 173
-    - 174
-    - 175
-    - 176
-    - 177
-    - 178
-    - 179
+    - 68
+    - 69
+    - 76
+    - 77
+    - 84
+    - 85
+    - 88
+    - 89
+    - 92
+    - 93
+    - 96
+    - 97
+    - 100
+    - 101
+    - 112
+    - 113
+    - 116
+    - 117
+    - 124
+    - 125
     - 180
     - 181
     - 182
@@ -689,6 +689,7 @@ topology:
     - 253
     - 254
     - 255
+    - 256
 
 configuration_properties:
   common:
