@@ -1,0 +1,109 @@
+[
+[{
+    "DASH_APPLIANCE_TABLE:100": {
+        "sip": "3.2.1.{{ dpu_index }}",
+        "vm_vni": "1001",
+        "local_region_id": "100",
+        "trusted_vnis_list": ["100"]
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_ROUTING_TYPE_TABLE:privatelink": [
+        {
+            "action_name": "action1",
+            "action_type": "4_to_6"
+        },
+        {
+            "action_name": "action2",
+            "action_type": "staticencap",
+            "encap_type": "nvgre",
+            "vni":"100"
+        }
+    ],
+    "OP": "{{ op }}"
+},
+{
+    "DASH_VNET_TABLE:Vnet1": {
+        "vni": "{{ dpu_index+2001 }}",
+        "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_ROUTE_GROUP_TABLE:RouteGroup1": {
+        "guid": "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2",
+        "version": "rg_version"
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_METER_POLICY_TABLE:MeterPolicyV4": {
+        "ip_version": "ipv4"
+    },
+    "OP": "{{ op }}"
+}],
+[{
+    "DASH_VNET_MAPPING_TABLE:Vnet1:10.2.0.100": {
+        "routing_type": "privatelink",
+        "underlay_ip": "101.1.2.3",
+        "overlay_sip_prefix": "fd41:108:20:abc:abc::0/ffff:ffff:ffff:ffff:ffff:ffff::",
+        "overlay_dip_prefix": "2603:10e1:100:2::3401:203/ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "metering_class_or": "1586"
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_ROUTE_TABLE:RouteGroup1:10.2.0.0/16": {
+        "routing_type": "vnet",
+        "vnet": "Vnet1",
+        "metering_class_or": "2048",
+        "metering_class_and": "4095"
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_ROUTE_TABLE:RouteGroup1:10.0.0.0/16": {
+        "routing_type": "vnet",
+        "vnet": "Vnet1",
+        "metering_class_or": "2048",
+        "metering_class_and": "4095"
+    },
+    "OP": "{{ op }}"
+}],
+[{
+    "DASH_METER_RULE_TABLE:MeterPolicyV4:1": {
+        "priority": "10",
+        "ip_prefix": "48.10.5.0/24",
+        "metering_class": 1
+    },
+    "OP": "{{ op }}"
+},
+{
+    "DASH_METER_RULE_TABLE:MeterPolicyV4:2": {
+        "priority": "10",
+        "ip_prefix": "92.6.0.0/16",
+        "metering_class": 2
+    },
+    "OP": "{{ op }}"
+}],
+[{
+  "DASH_ENI_TABLE:F4939FEFC47E": {
+      "vnet": "Vnet1",
+      "underlay_ip": "25.1.1.1",
+      "mac_address": "F4:93:9F:EF:C4:7E",
+      "eni_id": "497f23d7-f0ac-4c99-a98f-59b470e8c7bd",
+      "admin_state": "enabled",
+      "pl_underlay_sip": "3.2.1.{{ dpu_index }}",
+      "pl_sip_encoding": "::d{{ dpu_index+1 }}07:64:ff71:0:0/::ffff:ffff:ffff:0:0",
+      "v4_meter_policy_id": "MeterPolicyV4"
+  },
+  "OP": "{{ op }}"
+}],
+[{
+  "DASH_ENI_ROUTE_TABLE:F4939FEFC47E": {
+      "group_id": "RouteGroup1"
+  },
+  "OP": "{{ op }}"
+}]
+]
