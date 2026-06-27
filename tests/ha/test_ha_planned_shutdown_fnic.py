@@ -1,5 +1,4 @@
 import logging
-import concurrent.futures
 import random
 
 import configs.privatelink_config as pl
@@ -10,16 +9,21 @@ import threading
 import queue
 from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
-from gnmi_utils import apply_messages
-from packets import outbound_pl_packets
-from tests.common.config_reload import config_reload
+from ha_packets import outbound_pl_packets
+from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables, compare_flow_tables_pdsctl
-from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, set_dash_ha_scope, set_dead_dash_ha_scope
+from ha_utils import (
+    activate_primary_dash_ha,
+    activate_secondary_dash_ha,
+    verify_ha_state,
+    set_dash_ha_scope,
+    set_dead_dash_ha_scope,
+    parallel_config_reload_dpuhosts,
+)
 
 logger = logging.getLogger(__name__)
 
-# Distinct inner UDP ports used only after standby shutdown to create a new
+# Distinct inner TCP ports used only after standby shutdown to create a new
 # flow on the standalone primary and verify it is bulk-synced to the standby.
 POST_SHUTDOWN_INNER_SPORT = 50001
 POST_SHUTDOWN_INNER_DPORT = 50002
@@ -28,11 +32,6 @@ pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
     pytest.mark.skip_check_dut_health
 ]
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -52,58 +51,11 @@ def common_setup_teardown(
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_FNIC_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.ROUTING_TYPE_VNET_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG,
-            **pl.TUNNEL1_CONFIG,
-        }
-        logger.info(f"configure on {duthost.hostname} dpu {dpuhost.dpu_index} {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_VNET_MAPPING_CONFIG,
-            **pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT,
-        }
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        if 'pensando' not in dpuhost.facts['asic_type']:
-            route_rule_messages = {
-                **pl.VM_VNI_ROUTE_RULE_CONFIG,
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-                **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG,
-            }
-            logger.info(route_rule_messages)
-            apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_FNIC_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost, floating_nic=True)
 
     yield
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 def test_ha_planned_shutdown(
@@ -149,7 +101,8 @@ def test_ha_planned_shutdown(
             dport = random.randint(49152, 65535)
             vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
                 dash_pl_config[0], encap_proto, floating_nic=True,
-                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+                inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+                tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
             )
             testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
             testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
@@ -203,7 +156,8 @@ def test_ha_planned_shutdown(
         dport = random.randint(49152, 65535)
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
             dash_pl_config[0], encap_proto, floating_nic=True,
-            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI
+            inner_sport=sport, inner_dport=dport, vni=pl.ENI_TRUSTED_VNI,
+            tcp_flag_syn=True,  # each iteration is a unique 5-tuple; SYN creates a new flow.
         )
         testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
@@ -238,7 +192,8 @@ def test_ha_planned_shutdown(
     vm_post_sd, exp_post_sd = outbound_pl_packets(
         dash_pl_config[0], encap_proto, floating_nic=True,
         inner_sport=POST_SHUTDOWN_INNER_SPORT, inner_dport=POST_SHUTDOWN_INNER_DPORT,
-        vni=pl.ENI_TRUSTED_VNI
+        vni=pl.ENI_TRUSTED_VNI,
+        tcp_flag_syn=True,  # post-shutdown packet uses a new 5-tuple; SYN creates the flow.
     )
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_post_sd, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_post_sd, rcv_outbound_pl_ports)

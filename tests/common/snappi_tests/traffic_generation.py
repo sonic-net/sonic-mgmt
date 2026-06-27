@@ -389,12 +389,12 @@ def generate_background_flows(testbed_config,
             else:
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
 
-                ipv4.src.value = base_flow_config["tx_port_config"].ip
-                ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
-                ipv4.priority.choice = ipv4.priority.DSCP
-                ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-                ipv4.priority.dscp.ecn.value = (
-                    ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            ipv4.src.value = base_flow_config["tx_port_config"].ip
+            ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
+            ipv4.priority.choice = ipv4.priority.DSCP
+            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+            ipv4.priority.dscp.ecn.value = (
+                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
