@@ -49,8 +49,15 @@ def get_db_cli_prefix(duthost, asic_index):
         sonic-db-cli                  # single-ASIC / default namespace
         sonic-db-cli -n asic1         # multi-ASIC, namespace asic1
     """
-    arg = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
-    return "sonic-db-cli {}".format(arg).rstrip()
+    return get_db_cli_prefix_for_namespace(get_asic_namespace(duthost, asic_index))
+
+
+def get_db_cli_prefix_for_namespace(namespace):
+    """Like :func:`get_db_cli_prefix`, but for callers that already hold a
+    resolved ``namespace`` (e.g. helpers that take a ``namespace`` parameter
+    rather than an ``asic_index``).
+    """
+    return "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
 
 
 def get_asic_config_facts(duthost, asic_index):

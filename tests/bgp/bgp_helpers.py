@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE
 from tests.common.helpers.bgp import (
     get_db_cli_prefix,
+    get_db_cli_prefix_for_namespace,
     get_asic_namespace,
     namespace_cli_arg,
 )
@@ -416,7 +417,7 @@ def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
 
 
 def remove_allow_list(duthost, namespace, allow_list_file_path):
-    db_cli = "sonic-db-cli {}".format(namespace_cli_arg(namespace)).rstrip()
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
     allow_list_keys = duthost.shell(
         '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)
     )['stdout_lines']
