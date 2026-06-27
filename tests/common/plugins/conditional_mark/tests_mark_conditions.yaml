@@ -5528,6 +5528,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
 
+system_health/test_system_status.py::test_system_is_running:
+  skip:
+    reason: "watchdog-control can not load on kvm testbed, leaving the system in 'degraded' state so 'systemctl is-system-running' never returns 'running'."
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
+
 system_health/test_watchdog.py::test_orchagent_watchdog:
   skip:
     reason: "orchagent watchdog test requires SWSS/orchagent; BMC SONiC image has no orchagent"
