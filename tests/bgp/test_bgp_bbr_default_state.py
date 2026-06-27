@@ -7,6 +7,7 @@ import pytest
 from jinja2 import Template
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import namespace_cli_arg
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import delete_running_config
 from tests.common.gu_utils import apply_patch, expect_op_success
@@ -99,7 +100,7 @@ def disable_bbr(duthost, namespace):
 
 
 def get_bbr_status_from_config_db(duthost, namespace):
-    namespace_prefix = '-n ' + namespace if namespace else ''
+    namespace_prefix = namespace_cli_arg(namespace)
     return duthost.shell(
         'sonic-db-cli {} CONFIG_DB HGET "BGP_BBR|all" "status"'.format(namespace_prefix)
     )['stdout'].strip().strip('"')

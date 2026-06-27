@@ -22,6 +22,11 @@ import yaml
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.bgp import (
+    get_asic_namespace,
+    get_vtysh_cmd_for_asic,
+    namespace_cli_arg,
+)
 from tests.common.utilities import wait_until
 
 
@@ -91,20 +96,6 @@ def has_chassisdb_conf(duthost):
     return duthost.stat(path=CHASSISDB_CONF)["stat"]["exists"]
 
 
-def asic_ns_for_db_cli(duthost, asic_index):
-    """Build the sonic-db-cli namespace flag for a given frontend asic index."""
-    if duthost.is_multi_asic and asic_index is not None:
-        return "-n asic{}".format(asic_index)
-    return ""
-
-
-def asic_ns_for_vtysh(duthost, asic_index):
-    """Build the vtysh namespace flag for a given frontend asic index."""
-    if duthost.is_multi_asic and asic_index is not None:
-        return "-n {}".format(asic_index)
-    return ""
-
-
 def op_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
     """Run ``sudo prefix_list <action> <type> <prefix>``."""
     pytest_assert(
@@ -145,7 +136,7 @@ def verify_config_db_entry(duthost, prefix_type, prefix, present):
     """
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         cmd = 'sonic-db-cli {} CONFIG_DB keys "{}"'.format(ns, key).strip()
         out = duthost.shell(cmd)["stdout"].strip()
         has_key = key in out
@@ -162,7 +153,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
     """Bypass the CLI and write straight into CONFIG_DB on every frontend asic."""
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
             'sonic-db-cli {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
         )
@@ -171,7 +162,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
 def delete_config_db_key_directly(duthost, prefix_type, prefix):
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
             'sonic-db-cli {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
             module_ignore_errors=True,
@@ -180,8 +171,10 @@ def delete_config_db_key_directly(duthost, prefix_type, prefix):
 
 def fetch_vtysh_prefix_list(duthost, asic_index, ipv, name):
     """Return stdout of ``vtysh -n <n> -c 'show <ip|ipv6> prefix-list <name>'``."""
-    ns = asic_ns_for_vtysh(duthost, asic_index)
-    cmd = 'vtysh {} -c "show {} prefix-list {}"'.format(ns, ipv, name).strip()
+    cmd = get_vtysh_cmd_for_asic(
+        duthost, asic_index,
+        'vtysh -c "show {} prefix-list {}"'.format(ipv, name),
+    )
     return duthost.shell(cmd, module_ignore_errors=True)["stdout"]
 
 
@@ -295,8 +288,8 @@ def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
     its VTY socket. Uses 'timeout 10' to prevent vtysh from blocking
     indefinitely when the socket is not yet available.
     """
-    ns = asic_ns_for_vtysh(duthost, asic_index)
-    cmd = 'timeout 10 vtysh {} -c "show version"'.format(ns).strip()
+    vtysh_cmd = get_vtysh_cmd_for_asic(duthost, asic_index, 'vtysh -c "show version"')
+    cmd = 'timeout 10 {}'.format(vtysh_cmd)
     pytest_assert(
         wait_until(timeout, 15, 0,
                    lambda c=cmd: duthost.shell(c, module_ignore_errors=True)["rc"] == 0),
@@ -1132,10 +1125,12 @@ class TestPrefixListNegative:
             )
             # Defensive: the unknown name must not appear in any FRR prefix-list.
             for asic_index in duthost.get_frontend_asic_ids():
-                ns = asic_ns_for_vtysh(duthost, asic_index)
+                vtysh_cmd = get_vtysh_cmd_for_asic(
+                    duthost, asic_index, 'vtysh -c "show running-config"'
+                )
                 out = duthost.shell(
-                    'vtysh {} -c "show running-config" | grep prefix-list '
-                    '| grep -i {} || true'.format(ns, UNKNOWN_TYPE),
+                    '{} | grep prefix-list '
+                    '| grep -i {} || true'.format(vtysh_cmd, UNKNOWN_TYPE),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
@@ -1188,10 +1183,12 @@ class TestPrefixListNegative:
             "bgpcfgd did not return to RUNNING after CLI accepted malformed prefix",
         )
         for asic_index in duthost.get_frontend_asic_ids():
-            ns = asic_ns_for_vtysh(duthost, asic_index)
+            vtysh_cmd = get_vtysh_cmd_for_asic(
+                duthost, asic_index, 'vtysh -c "show running-config"'
+            )
             out = duthost.shell(
-                'vtysh {} -c "show running-config" | grep prefix-list '
-                '| grep -F {!r} || true'.format(ns, MALFORMED_PREFIX),
+                '{} | grep prefix-list '
+                '| grep -F {!r} || true'.format(vtysh_cmd, MALFORMED_PREFIX),
             )["stdout"]
             pytest_assert(
                 not out.strip(),
@@ -1215,10 +1212,12 @@ class TestPrefixListNegative:
                 "bgpcfgd did not return to RUNNING after malformed-prefix write",
             )
             for asic_index in duthost.get_frontend_asic_ids():
-                ns = asic_ns_for_vtysh(duthost, asic_index)
+                vtysh_cmd = get_vtysh_cmd_for_asic(
+                    duthost, asic_index, 'vtysh -c "show running-config"'
+                )
                 out = duthost.shell(
-                    'vtysh {} -c "show running-config" | grep prefix-list '
-                    '| grep -F {!r} || true'.format(ns, DB_ONLY_BAD_PREFIX),
+                    '{} | grep prefix-list '
+                    '| grep -F {!r} || true'.format(vtysh_cmd, DB_ONLY_BAD_PREFIX),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
@@ -1235,7 +1234,7 @@ class TestPrefixListNegative:
         before = {
             asic_index: duthost.shell(
                 'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
-                    asic_ns_for_db_cli(duthost, asic_index)
+                    namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
             for asic_index in duthost.get_frontend_asic_ids()
@@ -1250,7 +1249,7 @@ class TestPrefixListNegative:
         after = {
             asic_index: duthost.shell(
                 'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
-                    asic_ns_for_db_cli(duthost, asic_index)
+                    namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
             for asic_index in duthost.get_frontend_asic_ids()
