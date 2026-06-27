@@ -19,31 +19,13 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
 from tests.transceiver.common import db_helpers
+from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
 
 logger = logging.getLogger(__name__)
 
 # STATE_DB table / field that publishes the xcvrd-parsed VDM capability flag.
 STATE_DB_TRANSCEIVER_INFO = "TRANSCEIVER_INFO"
 VDM_SUPPORTED_FIELD = "vdm_supported"
-
-
-def _parse_state_db_bool(value):
-    """Parse a STATE_DB string into a Python bool.
-
-    xcvrd writes Python bools into Redis as the strings ``"True"`` / ``"False"``
-    (Redis stores everything as strings). We accept the numeric forms ``"1"`` /
-    ``"0"`` as well to be robust against future xcvrd changes. Returns ``None``
-    for any unrecognized value so the caller can flag it as a parse failure
-    rather than silently treating it as ``False``.
-    """
-    if value is None:
-        return None
-    normalized = value.strip().lower()
-    if normalized in ("true", "1"):
-        return True
-    if normalized in ("false", "0"):
-        return False
-    return None
 
 
 def test_vdm_supported_consistency(duthost, port_attributes_dict):
@@ -65,9 +47,10 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
     Ports without a configured ``vdm_supported`` attribute are skipped (treated
     as "no expectation"); this is the documented behavior in the task spec.
 
-    A non-CMIS port (``cmis_revision`` unset) that nonetheless carries a
-    ``vdm_supported`` attribute is flagged as an inventory misconfiguration —
-    VDM is CMIS-only and the attribute must not be present for such modules.
+    A port that ``eeprom_decode.classify`` resolves to a non-CMIS family but
+    that nonetheless carries a ``vdm_supported`` attribute is flagged as an
+    inventory misconfiguration — VDM is CMIS-only and the attribute must not be
+    present for such modules.
 
     All failures are collected and reported at the end so a single run surfaces
     every offending port instead of stopping at the first one.
@@ -91,15 +74,17 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
 
         # VDM is a CMIS-only construct. Per the plan attribute table, non-CMIS
         # transceivers must not carry vdm_supported at all; its presence on a
-        # non-CMIS port (cmis_revision unset) is an inventory misconfiguration,
-        # so flag it rather than silently honoring it.  Key presence is checked
+        # port that classifies as a non-CMIS family is an inventory
+        # misconfiguration, so flag it rather than silently honoring it.  The
+        # CMIS determination reuses the shared ``eeprom_decode.classify`` so it
+        # stays in sync with the rest of the suite.  Key presence is checked
         # (not just a non-None value) so an explicit ``vdm_supported: null`` on
         # a non-CMIS port is caught too.
-        if eeprom_attrs.get("cmis_revision") is None and "vdm_supported" in eeprom_attrs:
+        if classify(eeprom_attrs) is not ModuleFamily.CMIS and "vdm_supported" in eeprom_attrs:
             all_failures.append(
-                f"{port}: 'vdm_supported' is set on a non-CMIS transceiver "
-                f"(cmis_revision unset); VDM is CMIS-only and this attribute must "
-                f"not be present for non-CMIS modules"
+                f"{port}: 'vdm_supported' is set on a transceiver that classifies "
+                f"as non-CMIS; VDM is CMIS-only and this attribute must not be "
+                f"present for non-CMIS modules"
             )
             continue
 
@@ -118,7 +103,7 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
             )
             continue
 
-        actual_value = _parse_state_db_bool(raw_value)
+        actual_value = db_helpers.parse_state_db_bool(raw_value)
         if actual_value is None:
             all_failures.append(
                 f"{port}: STATE_DB vdm_supported has unrecognized value '{raw_value}' "

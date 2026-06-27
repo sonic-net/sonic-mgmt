@@ -38,6 +38,31 @@ logger = logging.getLogger(__name__)
 STATE_DB = "STATE_DB"
 
 
+def parse_state_db_bool(value):
+    """Parse a STATE_DB string into a Python bool, or ``None`` if unrecognized.
+
+    xcvrd (and other daemons) write Python bools into Redis as the strings
+    ``"True"`` / ``"False"`` (Redis stores everything as strings); the numeric
+    forms ``"1"`` / ``"0"`` are accepted too for robustness.
+
+    Returns ``None`` for any unrecognized value — deliberately tri-state — so a
+    caller can flag a malformed STATE_DB value as a parse failure rather than
+    silently treating it as ``False``.  This is why it is NOT the shared
+    ``str2bool`` helpers in ``tests/common``: those collapse unrecognized input
+    into a bool, which would mask exactly the malformed-value case STATE_DB
+    consistency checks need to catch.  Lives here so "how daemons encode bools
+    in Redis" sits next to the STATE_DB read helpers.
+    """
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("true", "1"):
+        return True
+    if normalized in ("false", "0"):
+        return False
+    return None
+
+
 def hgetall_dict(duthost, db, key, namespace=None):
     """Run ``sonic-db-cli [-n <ns>] <db> hgetall "<key>"`` and parse the dict literal.
 
