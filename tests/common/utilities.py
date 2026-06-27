@@ -205,6 +205,56 @@ def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
     return True
 
 
+def wait_for_arp_responder_ready(ptfhost, timeout=60):
+    """Wait until arp_responder is ready to handle ARP/NDP requests.
+
+    arp_responder writes its PID to /tmp/arp_responder.pid once all pcap L2
+    sockets are open, just before entering the scapy.sniff() loop.  We ask
+    supervisord for the current PID and poll until the file contains that PID.
+    """
+    pid = ptfhost.shell(
+        'supervisorctl pid arp_responder', module_ignore_errors=True
+    )['stdout'].strip()
+    if not pid or not pid.isdigit():
+        raise RuntimeError(
+            "Could not get arp_responder PID from supervisord (got: {!r})".format(pid)
+        )
+
+    ready_file = '/tmp/arp_responder.pid'
+
+    def _ready():
+        content = ptfhost.shell(
+            'cat {} 2>/dev/null || true'.format(ready_file),
+            module_ignore_errors=True
+        )['stdout'].strip()
+        return content == pid
+
+    if not wait_until(timeout, 1, 0, _ready):
+        raise RuntimeError(
+            "arp_responder (pid {}) did not become ready within {}s".format(pid, timeout)
+        )
+    ts = ptfhost.shell(
+        'ls --full-time {}'.format(ready_file), module_ignore_errors=True
+    )['stdout'].strip()
+    logger.info("arp_responder is ready (pid %s): %s", pid, ts)
+
+
+def restart_arp_responder(ptfhost, timeout=60):
+    """Restart arp_responder and wait until it is ready to handle ARP/NDP requests.
+
+    arp_responder reads its IP/MAC config from a JSON file and opens one pcap
+    L2 socket per interface at startup — it never reloads either dynamically.
+    A restart is therefore required whenever the test changes which IP addresses
+    PTF should respond to (e.g. after writing a new arp_responder config and
+    running 'supervisorctl reread && update').
+
+    For cases that need extra supervisord commands before the restart (e.g.
+    'reread && update'), call those first and then call this function.
+    """
+    ptfhost.shell('supervisorctl restart arp_responder')
+    wait_for_arp_responder_ready(ptfhost, timeout=timeout)
+
+
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Same as wait_until but async
