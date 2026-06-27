@@ -62,7 +62,11 @@ class SSHConsoleConn(BaseConsoleConn):
                                password=self.password,
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
-        # Attempt all sonic password
+        # Attempt all sonic password. A wrong password must not prevent a
+        # subsequent correct password in the list from succeeding, so we
+        # re-synchronise the terminal back to a fresh "login:" prompt between
+        # attempts (the failed attempt leaves a "Login incorrect" banner in the
+        # buffer that would otherwise desync the next login).
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
@@ -71,6 +75,10 @@ class SSHConsoleConn(BaseConsoleConn):
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
                     raise e
+                # Drain any leftover "Login incorrect" output and wait until the
+                # getty presents a clean login prompt before trying the next
+                # password in the list.
+                self._resync_to_login_prompt()
             else:
                 break
 
@@ -90,13 +98,44 @@ class SSHConsoleConn(BaseConsoleConn):
         time.sleep(0.3 * self.global_delay_factor)
         self.clear_buffer()
 
+    def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
+        """
+        Re-synchronise the console to a fresh "login:" prompt.
+
+        After a failed password attempt the getty prints a "Login incorrect"
+        banner followed by a new login prompt. Drain that stale output and wait
+        for a clean login prompt so the next credential in the list starts from
+        a known state (otherwise the leftover banner desyncs the next attempt).
+        """
+        delay_factor = self.select_delay_factor(delay_factor)
+        # Drop any pending "Login incorrect" / banner output.
+        self.clear_buffer()
+        i = 1
+        while i <= max_loops:
+            try:
+                self.write_channel(self.RETURN)
+                time.sleep(0.5 * delay_factor)
+                output = self.read_channel()
+                # A fresh prompt ends with "login:" (with the colon); this does
+                # not match the "Login incorrect" failure banner.
+                if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                    self.clear_buffer()
+                    return
+            except EOFError:
+                self.remote_conn.close()
+                raise NetMikoAuthenticationException(
+                    "Login failed: {}".format(self.host))
+            i += 1
+        # Best effort: leave the buffer clean for the next attempt.
+        self.clear_buffer()
+
     def login_stage_2(self,
                       username,
                       password,
                       menu_port=None,
                       pri_prompt_terminator=r".*# ",
                       alt_prompt_terminator=r".*\$ ",
-                      username_pattern=r"(?:user:|username|login|user name)",
+                      username_pattern=r"(?:user:|username|login:|user name)",
                       pwd_pattern=r"assword",
                       delay_factor=1,
                       max_loops=20
