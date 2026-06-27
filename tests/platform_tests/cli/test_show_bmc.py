@@ -147,14 +147,14 @@ class TestBmcCliCommands:
             "config chassis modules --help",
             module_ignore_errors=True
         )
-        if result['rc'] != 0:
-            logger.info("config chassis modules not available (expected on non-BMC systems)")
-            return
+        pytest_assert(result['rc'] == 0,
+                      "'config chassis modules --help' failed on BMC {} — "
+                      "command must be available on BMC topology".format(self.duthost.hostname))
 
         output = result['stdout'].lower()
         for subcmd in ['startup', 'shutdown', 'power-on-delay', 'shutdown-timeout']:
-            present = subcmd in output
-            logger.info(f"config chassis modules --help mentions '{subcmd}': {present}")
+            pytest_assert(subcmd in output,
+                          f"'config chassis modules --help' missing expected subcommand '{subcmd}'")
 
         for subcmd in ['startup', 'shutdown']:
             result = self.duthost.shell(

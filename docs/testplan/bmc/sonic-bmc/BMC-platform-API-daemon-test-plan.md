@@ -661,50 +661,42 @@ confirm the associated syslog format.
 
 ---
 
-#### Test Case #23: test_thermalctld_bmc_temperature_mirror
+#### Test Case #23: test_thermalctld_chassis_thermal_monitoring
 
 **Test Objective**:
-Verify thermalctld on the Switch-Host mirrors `TEMPERATURE_INFO` to the BMC's STATE_DB.
-To avoid asserting on stale journal/STATE_DB content, the test restarts thermalctld first
-and observes the next mirror cycle.
+Verify the end-to-end BMC chassis-thermal monitoring pipeline on the BMC (topology=`bmc`):
+
+1. Switch-Host's thermalctld mirrors `TEMPERATURE_INFO` into the BMC's STATE_DB
+   (`TemperatureUpdater._bmc_table_set()` via `db_connect_remote`).
+2. BMC's thermalctld reads those entries (`_check_switch_host_thermals()`) and logs
+   CRITICAL threshold breaches to syslog and `/host/bmc/event.log`.
+
+Both aspects are validated in a single test since they share the same data
+(`TEMPERATURE_INFO|*` in the BMC's STATE_DB) and run on the same BMC DUT.
 
 **Test Steps**:
-1. Skip if not a Switch-Host
-2. Restart thermalctld on the Switch-Host; wait for new pid
-3. Scan pmon journal since the new pid for the BMC-mirror init log (success or graceful "Failed to open remote BMC" path)
-4. Verify local `TEMPERATURE_INFO:*` is populated post-restart
-5. Resolve the paired BMC; verify mirrored `TEMPERATURE_INFO:*` appears on the BMC's STATE_DB
+1. Login to the paired Switch-Host via `get_switch_host_or_skip_test(duthost)`; skip if unreachable.
+2. Assert Switch-Host syslog contains `"Mirroring TEMPERATURE_INFO to BMC STATE_DB"`
+   (confirms `_init_bmc_temperature_table()` ran on the Switch-Host).
+3. Assert `TEMPERATURE_INFO|*` entries exist in the BMC's STATE_DB (push landed); skip if empty.
+4. Assert BMC syslog contains `"Monitoring chassis thermals.*TEMPERATURE_INFO.*CRITICAL"`
+   (confirms BMC thermalctld activated `_init_switch_host_thermal_monitor()`).
+5. Inject `TEMPERATURE_INFO|test_critical_thermal_monitor` with
+   `temperature=120.0, critical_high_threshold=80.0`.
+6. Wait up to 90 s; assert syslog contains
+   `"CRITICAL chassis thermal.*test_critical"` (transition-based, fires once on new breach).
+7. `finally`: delete injected key.
 
 **Expected Result**:
-- After restart, thermalctld logs confirm BMC mirror init or graceful degradation on unreachable BMC
-- Local `TEMPERATURE_INFO` is populated and (when BMC is reachable) the mirror is observed on the paired BMC
-- Graceful skip on non-Switch-Host platforms
+- Switch-Host syslog confirms mirror push was initiated.
+- `TEMPERATURE_INFO|*` entries are present in the BMC STATE_DB.
+- BMC syslog confirms chassis-thermal monitoring is active.
+- Injected 120 °C > 80 °C threshold breach produces a `"CRITICAL chassis thermal"` log within 90 s.
+- Injected key is cleaned up regardless of outcome.
 
 ---
 
-#### Test Case #24: test_thermalctld_switch_host_thermal_monitoring
-
-**Test Objective**:
-Verify thermalctld on the BMC logs CRITICAL threshold breaches in `TEMPERATURE_INFO`
-to `/host/bmc/event.log`. To avoid asserting on a stale init log, the test restarts
-thermalctld first and observes the next initialization + injection cycle.
-
-**Test Steps**:
-1. Skip if not a BMC
-2. Restart thermalctld on the BMC; wait for new pid
-3. Scan pmon journal since the new pid for `Monitoring chassis thermals` init message
-4. Inject `TEMPERATURE_INFO:test_critical_thermal_monitor` with `temperature=120.0, critical_high_threshold=80.0`
-5. Wait up to 90 s for the matching CRITICAL entry in `/host/bmc/event.log` (fallback: syslog)
-6. `finally`: delete injected key
-
-**Expected Result**:
-- Post-restart init log confirms Switch-Host thermal monitoring is active
-- CRITICAL breach logs `"CRITICAL chassis thermal: <name> temperature <T>C >= critical_high_threshold <T>C"` within 90 s
-- Injected key is cleaned up regardless of outcome
-
----
-
-#### Test Case #25: test_pmon_thermalctld_running_status
+#### Test Case #24: test_pmon_thermalctld_running_status
 
 **Test Objective**: Verify thermalctld is in RUNNING state with a valid pid at test start.
 
@@ -716,7 +708,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #26: test_pmon_thermalctld_stop_and_start_status
+#### Test Case #25: test_pmon_thermalctld_stop_and_start_status
 
 **Test Objective**: Verify thermalctld stops cleanly via supervisorctl and recovers after start.
 
@@ -730,7 +722,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #27: test_pmon_thermalctld_term_and_start_status
+#### Test Case #26: test_pmon_thermalctld_term_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGTERM.
 
@@ -743,7 +735,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 ---
 
-#### Test Case #28: test_pmon_thermalctld_kill_and_start_status
+#### Test Case #27: test_pmon_thermalctld_kill_and_start_status
 
 **Test Objective**: Verify thermalctld auto-restarts after SIGKILL and remains functional afterwards.
 
@@ -767,7 +759,7 @@ thermalctld first and observes the next initialization + injection cycle.
 
 **File**: `tests/platform_tests/cli/test_show_bmc.py`
 
-#### Test Case #29: test_show_version_serial_numbers_bmc
+#### Test Case #28: test_show_version_serial_numbers_bmc
 
 **Test Objective**:
 On BMC topology, `show version` on the BMC exposes two serial fields per the SONiC BMC design ([pmon-bmc-design §2.3.2](https://github.com/sonic-net/SONiC/blob/master/doc/bmc/sonicBMC/pmon-bmc-design.md#232-show-commands)):
@@ -791,7 +783,7 @@ Verify both serials match the corresponding inventory `serial:` fields for the B
 
 ---
 
-#### Test Case #30: test_show_chassis_module_status
+#### Test Case #29: test_show_chassis_module_status
 
 **Test Objective**:
 Verify `show chassis module status` returns SWITCH-HOST entry with oper status (LC, AC).
@@ -810,7 +802,7 @@ Verify `show chassis module status` returns SWITCH-HOST entry with oper status (
 
 ---
 
-#### Test Case #31: test_show_platform_temperature
+#### Test Case #30: test_show_platform_temperature
 
 **Test Objective**:
 Verify `show platform temperature` lists thermal sensors with threshold columns (LC, AC) and, on a BMC, surfaces the paired Switch-Host's sensors as well (so a single CLI on the BMC gives a unified thermal view of both BMC-local and Switch-Host sensors).
@@ -831,7 +823,7 @@ Verify `show platform temperature` lists thermal sensors with threshold columns 
 
 ---
 
-#### Test Case #32: test_config_chassis_modules
+#### Test Case #31: test_config_chassis_modules
 
 **Test Objective**:
 Verify `config chassis modules` commands `startup`, `shutdown`, `power-on-delay`, `shutdown-timeout` (LC, AC), and that each shutdown / startup transition is functionally honoured by the paired Switch-Host.
@@ -852,7 +844,7 @@ Verify `config chassis modules` commands `startup`, `shutdown`, `power-on-delay`
 
 ---
 
-#### Test Case #33: test_liquid_cool_config_commands
+#### Test Case #32: test_liquid_cool_config_commands
 
 **Test Objective**:
 Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` on liquid-cooled (LC) platforms functionally update `LEAK_CONTROL_POLICY` and the change is reflected in `show platform leak control-policy` — the test asserts behaviour, not just help text.
@@ -873,7 +865,7 @@ Verify `config liquid-cool leak-control` and `config liquid-cool leak-action` on
 
 ---
 
-#### Test Case #34: test_show_platform_leak_commands
+#### Test Case #33: test_show_platform_leak_commands
 
 **Test Objective**:
 Verify `show platform leak` commands produce valid output on LC platforms.
@@ -900,7 +892,7 @@ There are watchdog tests which are run on BMC platforms.
 
 Add an explicit watchdog test in test_bmc_watchdog to test bmc specific characteristics,
 
-#### Test Case #35: test_watchdog_bmc_integration
+#### Test Case #34: test_watchdog_bmc_integration
 
 **Test Objective**:
 Verify BMC watchdog: `watchdogutil arm`/`disarm` round-trips correctly **and** `/host/bmc/watchdog.log` is the persistent log sink for the Aspeed `watchdog-keepalive.sh` daemon.

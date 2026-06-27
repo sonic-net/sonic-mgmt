@@ -25,6 +25,7 @@ from tests.common.helpers.sonic_db import (
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
     bmc_log_zgrep,
+    get_switch_host_or_skip_test,
     get_system_leak_status,
     inject_leak_sensor,
     make_bmc_loganalyzer,
@@ -274,122 +275,73 @@ class TestThermalctldDaemon:
         """
         pytest.skip("Not supported until generic leak injection is available")
 
-    def test_thermalctld_bmc_temperature_mirror(self):
+    def test_thermalctld_chassis_thermal_monitoring(self):
         """
-        Verify thermalctld on Switch-Host mirrors TEMPERATURE_INFO to the BMC's STATE_DB.
-
-        TemperatureUpdater._init_bmc_temperature_table() opens a
-        remote swsscommon.Table backed by the BMC's STATE_DB (db_connect_remote).
-        Every _refresh_temperature_status call tees its TEMPERATURE_INFO write to
-        this table via _bmc_table_set().
+        Verify end-to-end BMC chassis-thermal monitoring:
+          1. Switch-Host thermalctld mirrors TEMPERATURE_INFO into the BMC's STATE_DB.
+          2. BMC thermalctld reads those entries and logs CRITICAL breaches.
 
         Test Steps:
-        1. Determine if running on a Switch-Host (device_info.is_switch_host() or
-           /etc/sonic/platform_env.conf switch_host=1)
-        2. Check thermalctld startup log for "Mirroring TEMPERATURE_INFO to BMC STATE_DB"
-        3. Check pmon journal for any BMC mirror warnings
-           ("Failed to open remote BMC TEMPERATURE_INFO table")
-        4. Read local TEMPERATURE_INFO keys — verify sensors are present on Switch-Host
-
-        Expected Result:
-        - On Switch-Host: startup log shows BMC mirror initialization (or warning if BMC unreachable)
-        - Local TEMPERATURE_INFO is populated with thermal sensors
-        - Graceful skip on non-Switch-Host platforms
+        1. Login to the paired Switch-Host; assert syslog contains
+           "Mirroring TEMPERATURE_INFO to BMC STATE_DB" (push initiated).
+        2. Assert TEMPERATURE_INFO|* entries exist in BMC STATE_DB (push landed).
+        3. Assert BMC syslog contains "Monitoring chassis thermals" (daemon activated).
+        4. Inject a synthetic sensor with temperature 120C > critical_high_threshold 80C.
+        5. Assert syslog contains "CRITICAL chassis thermal" for the injected sensor.
+        6. Clean up injected entry in a finally block.
         """
-        # Determine if Switch-Host
-        result = self.duthost.shell(
-            "grep -q 'switch_host=1' /etc/sonic/platform_env.conf 2>/dev/null && echo yes || echo no",
-            module_ignore_errors=True
-        )
-        is_switch_host = result['stdout'].strip() == 'yes'
-
-        if not is_switch_host:
-            logger.info("Not a Switch-Host platform — BMC temperature mirror not active; skipping")
-            return
-
-        logger.info("Switch-Host detected — verifying BMC TEMPERATURE_INFO mirror")
-
-        # Historical startup-log scan (rotation-safe via zgrep).
-        mirror_log = bmc_log_zgrep(
-            self.duthost,
-            r"Mirroring TEMPERATURE_INFO|Failed to open remote BMC",
+        # Step 1: Login to the paired Switch-Host (via duthosts) and confirm it
+        # initiated the BMC mirror push.
+        # "Mirroring TEMPERATURE_INFO to BMC STATE_DB" is logged by
+        # TemperatureUpdater._init_bmc_temperature_table() on the Switch-Host (log_info → syslog).
+        # If absent: feature not active on this platform or log has rotated — skip.
+        switch_host = get_switch_host_or_skip_test(self.duthost)
+        mirror_init_log = bmc_log_zgrep(
+            switch_host,
+            r"Mirroring TEMPERATURE_INFO to BMC STATE_DB",
             tail=5,
         )
-        if mirror_log:
-            logger.info(f"BMC mirror log entries:\n{mirror_log}")
-            if 'Mirroring TEMPERATURE_INFO' in mirror_log:
-                logger.info("BMC TEMPERATURE_INFO mirror initialization confirmed")
-            elif 'Failed to open remote BMC' in mirror_log:
-                logger.info(
-                    "BMC mirror initialization failed (BMC unreachable or misconfigured) — "
-                    "thermalctld degrades gracefully"
-                )
-        else:
-            logger.info(
-                "No BMC mirror log found in /var/log/syslog* — thermalctld may have started earlier"
-            )
+        if not mirror_init_log:
+            pytest.skip(f"Switch-Host {switch_host.hostname} syslog has no "
+                        "'Mirroring TEMPERATURE_INFO to BMC STATE_DB' entry — "
+                        "BMC mirror not active on this platform or log has rotated")
+        logger.info(f"Switch-Host mirror push confirmed:\n{mirror_init_log}")
 
-        # Verify local TEMPERATURE_INFO is populated (source of mirror data).
-        # Keys use | separator: TEMPERATURE_INFO|<sensor_name>
+        # Step 2: Push was initiated — data MUST have landed in the BMC STATE_DB.
+        # If absent here it is a real failure (push initiated but data missing).
         count = len(redis_keys(self.duthost, STATE_DB, 'TEMPERATURE_INFO|*'))
         pytest_assert(count > 0,
-                      "No TEMPERATURE_INFO|* entries in STATE_DB — "
-                      "thermalctld has not polled thermal sensors yet")
+                      "Switch-Host initiated TEMPERATURE_INFO mirror push but "
+                      "no TEMPERATURE_INFO|* entries found in BMC STATE_DB — "
+                      "data was pushed but never landed (check BMC redis / network link)")
+        logger.info(f"Found {count} TEMPERATURE_INFO entries mirrored to BMC STATE_DB")
 
-    def test_thermalctld_switch_host_thermal_monitoring(self):
-        """
-        Verify thermalctld on BMC monitors Switch-Host TEMPERATURE_INFO for CRITICAL breaches.
-
-        Test Steps:
-        1. Determine if running on BMC (switch_bmc=1 in /etc/sonic/platform_env.conf)
-        2. Check pmon startup log for "Monitoring chassis thermals" initialization message
-        3. Read TEMPERATURE_INFO entries that have critical_high_threshold or
-           critical_low_threshold — verify schema
-        4. Check /host/bmc/event.log for any "CRITICAL chassis thermal" events
-        5. Inject a test entry with temp >= critical_high_threshold into TEMPERATURE_INFO
-           and verify event.log receives a "CRITICAL chassis thermal" entry
-
-        Expected Result:
-        - On BMC: startup log confirms Switch-Host thermal monitoring initialized
-        - TEMPERATURE_INFO entries have threshold fields when present
-        - CRITICAL breach → event.log entry of form "CRITICAL chassis thermal: <name> ..."
-        - Injected test entry is cleaned up regardless of outcome
-        - Graceful skip on non-BMC platforms
-        """
-        # Determine if running on BMC
-        result = self.duthost.shell(
-            "grep -q 'switch_bmc=1' /etc/sonic/platform_env.conf 2>/dev/null && echo yes || echo no",
-            module_ignore_errors=True
-        )
-        is_switch_bmc = result['stdout'].strip() == 'yes'
-
-        if not is_switch_bmc:
-            logger.info("Not a BMC platform — Switch-Host thermal monitoring not active; skipping")
-            return
-
-        logger.info("BMC platform detected — verifying Switch-Host thermal monitoring")
-
-        # Historical startup-log scan (rotation-safe via zgrep).
+        # Step 3: BMC syslog must confirm thermalctld activated chassis-thermal monitoring.
+        # Logged by _init_switch_host_thermal_monitor() on startup (log_info → syslog only).
         init_log = bmc_log_zgrep(
             self.duthost,
-            r"Monitoring chassis thermals|Failed to init chassis thermal",
+            r"Monitoring chassis thermals.*TEMPERATURE_INFO.*CRITICAL",
             tail=5,
         )
-        if init_log:
-            logger.info(f"Thermal monitoring init log:\n{init_log}")
+        pytest_assert(init_log,
+                      "BMC syslog missing 'Monitoring chassis thermals' — "
+                      "thermalctld may not have initialized chassis-thermal monitoring "
+                      "(check switch_bmc=1 in platform_env.conf)")
+        logger.info(f"Chassis-thermal monitoring init confirmed:\n{init_log}")
 
-        # Historical CRITICAL chassis thermal events in event.log (informational).
+        # Informational: any pre-existing CRITICAL events in event.log.
         existing = bmc_log_zgrep(
             self.duthost, r"CRITICAL chassis thermal", tail=5, files=BMC_EVENT_LOG,
         )
         if existing:
-            logger.info(f"Existing CRITICAL chassis thermal events:\n{existing}")
+            logger.info(f"Pre-existing CRITICAL chassis thermal events:\n{existing}")
 
-        # Inject a test TEMPERATURE_INFO entry with temp above critical threshold.
+        # Steps 4-6: inject a breach and verify the CRITICAL log.
         # Key uses | separator: TEMPERATURE_INFO|<sensor_name> (sonic TABLE_NAME_SEPARATOR).
+        # _check_switch_host_thermals() calls getKeys() which returns just 'test_critical_thermal_monitor'.
+        # Log format: "CRITICAL chassis thermal: test_critical_thermal_monitor temperature 120.0C ..."
         TEST_SENSOR = "TEMPERATURE_INFO|test_critical_thermal_monitor"
-        # Bracket the inject with BmcLogAnalyzer scanning syslog (live, no reboot).
-        la = make_bmc_loganalyzer(self.duthost, "thermalctld_switch_host_thermal_breach")
+        la = make_bmc_loganalyzer(self.duthost, "thermalctld_chassis_thermal_breach")
         marker = la.init(log_target='syslog')
         try:
             redis_hset(self.duthost, STATE_DB, TEST_SENSOR,
