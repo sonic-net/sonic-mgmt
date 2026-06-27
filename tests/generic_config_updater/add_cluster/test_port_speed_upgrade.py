@@ -957,7 +957,7 @@ def validate_patch_scoped_to_ports(json_patch, ports):
 
 
 def build_port_config_for_400g_upgrade(duthost, cli_namespace_prefix, selected_random_port,
-                                        port_config_100g, original_port_config):
+                                       port_config_100g, original_port_config):
     """
     Build a full 400G PORT block from the current 100G PORT config.
 
