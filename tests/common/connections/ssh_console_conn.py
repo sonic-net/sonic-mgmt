@@ -62,6 +62,13 @@ class SSHConsoleConn(BaseConsoleConn):
                                password=self.password,
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
+        # A previous console test that did not log out cleanly leaves a
+        # logged-in shell on the DUT serial line, so a new connection lands
+        # on a shell prompt instead of "login:". Sending the username then
+        # just runs it as a shell command ("admin: command not found") and the
+        # login never starts, which cascades to every later console test.
+        # Recover to a clean login prompt before attempting to log in.
+        self._recover_to_login_prompt()
         # Attempt all sonic password. A wrong password must not prevent a
         # subsequent correct password in the list from succeeding, so we
         # re-synchronise the terminal back to a fresh "login:" prompt between
@@ -96,6 +103,51 @@ class SSHConsoleConn(BaseConsoleConn):
 
         # Clear the read buffer
         time.sleep(0.3 * self.global_delay_factor)
+        self.clear_buffer()
+
+    def _recover_to_login_prompt(self, max_attempts=4, delay_factor=1):
+        """
+        Ensure the console is at a fresh "login:" prompt before logging in.
+
+        If a previous console session was left logged in (its cleanup did not
+        run or could not log out), the serial line still has an authenticated
+        shell and a new connection lands on the shell prompt instead of
+        "login:". In that case the username sent below is interpreted as a
+        shell command and the login never happens. Detect a leftover shell
+        prompt and send "exit" to return to a clean login prompt so each
+        console test is independent of the previous one's teardown.
+        """
+        shell_prompt_patterns = (
+            r'admin@.*:.*[\$#]',
+            r'root@.*:.*#',
+            r'.*@sonic.*[\$#]',
+        )
+        delay_factor = self.select_delay_factor(delay_factor)
+        for _ in range(max_attempts):
+            try:
+                self.write_channel(self.RETURN)
+                time.sleep(0.5 * delay_factor)
+                output = self.read_channel()
+            except Exception as e:
+                self.logger.warning(f"Error probing console state: {e}")
+                return
+            # Already at a login prompt -> nothing to recover.
+            if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                return
+            # Logged-in shell left over from a previous session -> log out.
+            if any(re.search(p, output) for p in shell_prompt_patterns):
+                self.logger.warning(
+                    "Console is at a leftover shell prompt; sending 'exit' to "
+                    "return to the login prompt")
+                try:
+                    self.write_channel("exit" + self.RETURN)
+                    time.sleep(1 * delay_factor)
+                except Exception as e:
+                    self.logger.warning(f"Error sending exit during recovery: {e}")
+                    return
+                continue
+            # Unknown / transient state: try once more.
+        # Best effort: clear whatever is pending so the login starts clean.
         self.clear_buffer()
 
     def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
