@@ -611,6 +611,29 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
 
+    # Try the password that actually works on the DUT first. The plain creds
+    # fixture carries the inventory 'sonicadmin_password', which may not match
+    # the DUT's current password; sending a wrong password to the serial
+    # console triggers pam_faildelay (a multi-second silent delay) and churns
+    # the getty, which desyncs the login and cascades to every later console
+    # test. Resolve the current password over the mgmt plane and move it to the
+    # front so the console login succeeds on the first attempt.
+    try:
+        current_passwd = get_dut_current_passwd(
+            duthost.mgmt_ip,
+            duthost.mgmt_ipv6,
+            creds["sonicadmin_user"],
+            [p for p in sonic_password if p],
+        )
+        if current_passwd and current_passwd in sonic_password:
+            sonic_password.remove(current_passwd)
+        if current_passwd:
+            sonic_password.insert(0, current_passwd)
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve current DUT console password, using default "
+            f"order: {e}")
+
     # Attempt to clear the console port
     try:
         duthost_clear_console_port(
