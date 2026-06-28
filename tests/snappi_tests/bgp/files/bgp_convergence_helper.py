@@ -828,19 +828,19 @@ def get_rib_in_convergence(snappi_api,
     for i in range(0, iteration):
         logger.info(
             '|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
-        """ withdraw all routes before starting traffic """
-        logger.info('Withdraw All Routes before starting traffic')
-        cs = snappi_api.control_state()
-        cs.protocol.route.names = route_names
-        cs.protocol.route.state = cs.protocol.route.WITHDRAW
-        snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Routes to be withdrawn")
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
         cs = snappi_api.control_state()
         cs.protocol.all.state = cs.protocol.all.START
         snappi_api.set_control_state(cs)
-        wait(WAIT_INTERVAL, "For Protocols To start")
+        wait(TIMEOUT, "For Protocols To start")
+        """ Withdraw all routes so DUT RIB is empty before starting traffic """
+        logger.info('Withdraw All Routes before starting traffic')
+        cs = snappi_api.control_state()
+        cs.protocol.route.names = route_names
+        cs.protocol.route.state = cs.protocol.route.WITHDRAW
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT-10, "For Routes to be withdrawn")
         """ Start Traffic """
         logger.info('Starting Traffic')
         cs = snappi_api.control_state()
