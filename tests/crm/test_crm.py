@@ -105,7 +105,7 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     # Define test cleanup commands
     RESTORE_CMDS[test_name].append("rm -rf {}".format(dut_conf_file_path))
     RESTORE_CMDS[test_name].append("acl-loader delete")
-
+    expected_used = entry_num
     if entry_num == 1:
         logger.info("Generating config for ACL rule, ACL table - DATAACL")
         duthost.template(src=os.path.join(template_dir, acl_rules_template), dest=dut_conf_file_path, force=True)
@@ -116,7 +116,7 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         for seq_id in range(2, entry_num + 2):
             acl_entry_config[str(seq_id)] = copy.deepcopy(acl_entry_template)
             acl_entry_config[str(seq_id)]["config"]["sequence-id"] = seq_id
-
+        expected_used = len(acl_entry_config.keys())
         with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
             json.dump(acl_config, fp)
             fp.flush()
@@ -144,6 +144,14 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
                   "ACL configuration did not propagate within timeout")
 
     collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
+
+    logger.info("Waiting for ACL entry counter update")
+    acl_entry_stats_cmd = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
+                            crm_stats_acl_entry_used \
+                            crm_stats_acl_entry_available"\
+                            .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=collector["acl_tbl_key"])
+    wait_for_crm_counter_update(acl_entry_stats_cmd, duthost, expected_used=expected_used, oper_used=">=",
+                                timeout=CRM_UPDATE_TIME, interval=CRM_POLLING_INTERVAL)
 
 
 def generate_mac(num):
@@ -1339,7 +1347,6 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
     acl_tbl_key = asic_collector["acl_tbl_key"]
 
     RESTORE_CMDS["crm_threshold_name"] = "acl_counter"
-
     crm_stats_acl_counter_used = 0
     crm_stats_acl_counter_available = 0
 
