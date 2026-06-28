@@ -26,6 +26,12 @@ import random
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 NAT_ENABLE_KEY = "nat_enabled_on_{}"
+# Space out console reconnect retries so that repeated agetty respawns on the
+# DUT serial line do not trip systemd's serial-getty start limit
+# (StartLimitBurst within StartLimitIntervalSec), which would leave the console
+# with no login prompt for the remainder of the run. Keep this >= the getty
+# StartLimitIntervalSec (10s by default).
+CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
@@ -632,6 +638,10 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
             )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            # Back off before reconnecting so rapid retries do not trip the DUT's
+            # serial-getty start limit and wedge the console for later tests.
+            if attempt < 3:
+                time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
