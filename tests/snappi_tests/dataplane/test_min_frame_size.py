@@ -196,4 +196,5 @@ def test_min_frame_size_no_loss(
             logger.info(summary.strip())
 
     finally:
+        start_stop(snappi_api, operation="stop", op_type="traffic")
         start_stop(snappi_api, operation="stop", op_type="protocols")
