@@ -92,7 +92,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', wait=120)
+    config_reload(duthost, config_source='minigraph', wait=120, override_config=True)
 
 # ----------------------------------------------------------------------------------
 
@@ -666,9 +666,15 @@ class TestAgentId():
 
     def testDelAgent(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
+        read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+        previous_agent_ip = duthost.shell(read_agent_cmd, module_ignore_errors=True)['stdout'].strip()
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost, status='up', agent_id='default')
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
+        # Wait for hsflowd to rewrite /etc/hsflowd.auto with the new agentIP,
+        # otherwise get_default_agent below reads the stale previous value.
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() not in ('', previous_agent_ip))
         agent_ip = get_default_agent(duthost)
         # Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
