@@ -159,7 +159,9 @@ class SSHConsoleConn(BaseConsoleConn):
         for a clean login prompt so the next credential in the list starts from
         a known state (otherwise the leftover banner desyncs the next attempt).
         """
-        delay_factor = self.select_delay_factor(delay_factor)
+        # Floor the delay factor so the wait spans the pam_faildelay window
+        # (~3s) that follows a failed login before the fresh prompt appears.
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
         # Drop any pending "Login incorrect" / banner output.
         self.clear_buffer()
         i = 1
@@ -196,6 +198,13 @@ class SSHConsoleConn(BaseConsoleConn):
         Perform a stage_2 login
         """
         delay_factor = self.select_delay_factor(delay_factor)
+        # The serial console can take a few seconds to emit the password
+        # prompt, and up to ~3s longer after a wrong password because of
+        # pam_faildelay. A small global delay factor makes the wait loop give
+        # up in ~1s, before the prompt appears, so the login fails with
+        # "Socket is closed". Floor the delay factor so the loop waits long
+        # enough (max_loops * 0.5 * delay_factor) to see the prompt.
+        delay_factor = max(delay_factor, 1)
         time.sleep(1 * delay_factor)
 
         output = ""
