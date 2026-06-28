@@ -122,12 +122,20 @@ class SSHConsoleConn(BaseConsoleConn):
             r'root@.*:.*#',
             r'.*@sonic.*[\$#]',
         )
-        delay_factor = self.select_delay_factor(delay_factor)
+        # Floor the delay factor: with a small global delay factor the probe
+        # would read back before the serial console echoes the prompt (which
+        # can lag a second or two), miss a leftover shell prompt, and leave
+        # the stale session in place.
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
             try:
                 self.write_channel(self.RETURN)
-                time.sleep(0.5 * delay_factor)
-                output = self.read_channel()
+                # Accumulate output over a couple of seconds so a lagging
+                # shell/login prompt is reliably observed.
+                output = ""
+                for _ in range(4):
+                    time.sleep(0.5 * delay_factor)
+                    output += self.read_channel()
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
                 return
