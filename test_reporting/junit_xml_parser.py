@@ -365,8 +365,12 @@ def parse_test_result(roots):
                                                                   _parse_test_metadata(root))
         test_cases = _parse_test_cases(root)
         test_result_json["test_cases"] = _update_test_cases(test_result_json["test_cases"], test_cases)
+        parsed_summary = _parse_test_summary(root)
+        # xfails is not a testsuite root attribute; derive it from the per-case
+        # results so xfailed/xpassed (native pytest marks) are surfaced instead of 0.
+        parsed_summary["xfails"] = _extract_test_summary(test_cases).get("xfails", "0")
         test_result_json["test_summary"] = _update_test_summary(test_result_json["test_summary"],
-                                                                _parse_test_summary(root))
+                                                                parsed_summary)
     print(f"Parsed {len(roots)} XML document(s) into test result JSON.")
     return test_result_json
 
@@ -482,6 +486,16 @@ def _parse_test_cases(root):
         if properties_element:
             for prop in properties_element.iterfind(PROPERTY_TAG):
                 if prop.get("name") == "xfail":
+                    xfail_case = "xfail_"
+                    break
+
+        # Native pytest xfail marks (@pytest.mark.xfail) do not emit the custom
+        # property above; pytest instead records xfailed as <skipped type="pytest.xfail">
+        # and xpassed as <failure>/<error type="pytest.xfail"> (strict) or a plain pass.
+        # Detect those so xfail results aren't miscounted as skipped/failed/error.
+        if not xfail_case:
+            for outcome in (skipped, failure, error):
+                if outcome is not None and (outcome.get("type") or "").startswith("pytest.xfail"):
                     xfail_case = "xfail_"
                     break
 

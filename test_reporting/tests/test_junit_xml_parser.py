@@ -102,7 +102,8 @@ EXPECTED_JSON_OUTPUT = {
         "failures": "2",
         "skipped": "1",
         "tests": "4",
-        "time": "213.949"
+        "time": "213.949",
+        "xfails": "0"
     }
 }
 
@@ -245,6 +246,19 @@ def test_json_output_from_archive():
 def test_xml_file_not_found():
     with pytest.raises(JUnitXMLValidationError, match="file not found"):
         validate_junit_xml_file("nonexistent.xml")
+
+
+def test_native_pytest_xfail_counted_as_xfail():
+    # pytest @pytest.mark.xfail emits <skipped type="pytest.xfail"> without the
+    # custom xfail property; ensure it is classified/counted as xfail, not skipped.
+    xml = VALID_TEST_RESULT.replace(
+        '<skipped message="test machine skipped">',
+        '<skipped type="pytest.xfail" message="expected failure">')
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "1"
+    acl_2 = [c["result"] for c in result["test_cases"]["acl"] if c["name"] == "test_acl_2"]
+    assert acl_2 == ["xfail_skipped"]
 
 
 # credit to: https://stackoverflow.com/questions/25851183/
