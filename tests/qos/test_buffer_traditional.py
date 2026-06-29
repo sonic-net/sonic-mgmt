@@ -53,12 +53,16 @@ def parse_pg_range(pg_range):
         pg_range: The PG range string from a BUFFER_PG key (e.g. '3-4' or '6')
 
     Returns:
-        A list of ints for the priority groups covered by the range
+        A list of ints for the priority groups covered by the range, or [] if the key is malformed
     """
-    if '-' in pg_range:
-        low, high = pg_range.split('-')
-        return list(range(int(low), int(high) + 1))
-    return [int(pg_range)]
+    try:
+        if '-' in pg_range:
+            low, high = pg_range.split('-')
+            return list(range(int(low), int(high) + 1))
+        return [int(pg_range)]
+    except ValueError:
+        logging.warning("Ignoring malformed BUFFER_PG range '{}'".format(pg_range))
+        return []
 
 
 def get_lossless_priorities(dut_asic, port):
@@ -79,7 +83,7 @@ def get_lossless_priorities(dut_asic, port):
         argv=['redis-cli', '-n', 4, 'hget', 'PORT_QOS_MAP|{}'.format(port), 'pfc_enable'])
     if not pfc_enable or not pfc_enable[0]:
         return None
-    return set(int(p) for p in pfc_enable[0].split(',') if p.strip() != '')
+    return set(int(p.strip()) for p in pfc_enable[0].split(',') if p.strip() != '')
 
 
 def get_lossless_buffer_pgs(dut_asic, port):
@@ -94,10 +98,11 @@ def get_lossless_buffer_pgs(dut_asic, port):
 
     Returns:
         A dict mapping the PG range key (e.g. '3-4', '2-4', '6') to the lossless profile name
+        (the extracted profile name, not the raw '[BUFFER_PROFILE|...]' string)
     """
     lossless = {}
     for key in dut_asic.run_redis_cmd(
-            argv=['redis-cli', '-n', 4, 'keys', 'BUFFER_PG|{}|*'.format(port)]):
+            argv=['redis-cli', '-n', 4, '--scan', '--pattern', 'BUFFER_PG|{}|*'.format(port)]):
         pg_range = key.split('|')[-1]
         profile = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', key, 'profile'])
         if profile and profile[0] and 'pg_lossless' in profile[0]:
@@ -289,7 +294,10 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         buffer_profile_oid = None
 
         if expected_profile:
-            # 1) Lossless PGs in CONFIG_DB must match the PFC-enabled priorities exactly
+            # 1) Lossless PGs in CONFIG_DB must match the PFC-enabled priorities exactly.
+            # This assumes priority id == PG id (identity TC->PG/PFC->PG mapping), which holds
+            # for standard SONiC. A non-identity map (two PFC priorities -> one PG) would need
+            # to consult MAP_PFC_PRIORITY_TO_PRIORITY_GROUP instead.
             if lossless_priorities is not None:
                 if not _check_condition(
                         actual_priorities == lossless_priorities,
@@ -358,6 +366,9 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                                                 port),
                                             use_assert):
                         return None, False
+            elif pg_name_map:
+                logging.warning("Port {} has no pfc_enable configured, skipping admin-down ASIC_DB PG check".format(
+                    port))
 
         return buffer_profile_oid, True
 
@@ -499,10 +510,13 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             _, _ = _check_port_buffer_info_and_get_profile_oid(dut_asic, port, None)
 
     pytest_assert(admin_up_ports, "No admin-up ports available for shutdown test")
-    port_to_shutdown = admin_up_ports.pop()
-    lossless_pg_ranges = list(get_lossless_buffer_pgs(dut_asic, port_to_shutdown).keys())
-    pytest_assert(lossless_pg_ranges,
-                  "No lossless BUFFER_PG configured on port {}".format(port_to_shutdown))
+    # Pick deterministically: smallest-named admin-up port that has a lossless BUFFER_PG
+    ports_with_lossless = sorted(p for p in admin_up_ports if get_lossless_buffer_pgs(dut_asic, p))
+    pytest_assert(ports_with_lossless, "No admin-up port has a lossless BUFFER_PG for shutdown test")
+    port_to_shutdown = ports_with_lossless[0]
+    # Sort lossless PG ranges by smallest PG id for a deterministic, version-independent choice
+    lossless_pg_ranges = sorted(get_lossless_buffer_pgs(dut_asic, port_to_shutdown).keys(),
+                                key=lambda r: min(parse_pg_range(r) or [99]))
     expected_profile = dut_asic.run_redis_cmd(
         argv=['redis-cli', '-n', 4, 'hget',
               'BUFFER_PG|{}|{}'.format(port_to_shutdown, lossless_pg_ranges[0]), 'profile'])[0]
