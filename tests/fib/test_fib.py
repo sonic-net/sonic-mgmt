@@ -145,7 +145,7 @@ def map_ptf_ports_to_dut_port(ptf_ports, all_dut_port_indices):
     return ethernet_ports_with_asic
 
 
-def filter_ports(all_port_indices, tbinfo):
+def filter_ports(all_port_indices, tbinfo, is_chassis):
     """
     Filter PTF ports that need to be skipped while picking up src_port for ptf traffic test.
 
@@ -161,7 +161,7 @@ def filter_ports(all_port_indices, tbinfo):
     # Note: this filteration is useful for multilinecard DUTs to make sure incoming traffic is
     # landing on a different linecard; NA for pizza boxes
 
-    if tbinfo['topo']['type'] != 't2' or 't2_single_node' in tbinfo['topo']['name']:
+    if tbinfo['topo']['type'] != 't2' or not is_chassis:
         return []
 
     # Collect all port indices (keys) from all_port_indices
@@ -171,7 +171,7 @@ def filter_ports(all_port_indices, tbinfo):
 
 
 def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts,
-                                     upstream_lc, tbinfo):
+                                     upstream_lc, tbinfo, is_chassis):
     """
     Get PTF port indices for a port and all its port channel members (if applicable).
 
@@ -186,7 +186,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     """
 
     # for T2(except UT2) topologies, no need to append, as we are already filtering out the whole upstream lc ports
-    if tbinfo['topo']['type'] == 't2' and 't2_single_node' not in tbinfo['topo']['name']:
+    if (tbinfo['topo']['type'] == 't2') and is_chassis:
         return []
 
     # Search all ASICs for port channel information
@@ -865,7 +865,8 @@ def test_ecmp_group_member_flap(
 
     all_port_indices = get_all_ptf_port_indices_from_mg_facts(duts_minigraph_facts[upstream_lc])
     nh_dut_ports = map_ptf_ports_to_dut_port(nh_ptf_ports, all_port_indices)
-    filtered_ports = filter_ports(all_port_indices, tbinfo)
+    is_chassis = duthosts[0].get_facts().get("modular_chassis")
+    filtered_ports = filter_ports(all_port_indices, tbinfo, is_chassis)
 
     logging.info("nh_dut_ports: {}".format(nh_dut_ports))
     logging.info("filtered_ports: {}".format(filtered_ports))
@@ -921,7 +922,7 @@ def test_ecmp_group_member_flap(
 
     # Get all PTF ports for the port and its port channel members (if applicable)
     ptf_ports_to_filter = get_port_and_portchannel_members(
-        nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo)
+        nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo, is_chassis)
 
     # Add them to filtered_ports
     filtered_ports.extend(ptf_ports_to_filter)
