@@ -5,7 +5,7 @@
 ```text
 ansible/files/transceiver/inventory/
 ├── normalization_mappings.json             # Shared vendor/PN normalization rules
-├── cdb_firmware_binaries.json              # CDB firmware manifest
+├── cdb_firmware_manifest.json              # CDB firmware manifest
 ├── cdb_firmware_base_url.json              # Optional; presence selects download vs pre-staged mode
 │
 ├── dut_info/                               # Per-DUT transceiver metadata

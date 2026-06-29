@@ -7,7 +7,7 @@ flowchart TB
     subgraph inv["Inventory files"]
         direction TB
         I_DUT["dut_info/&lt;dut_hostname&gt;.json<br/>"]
-        I_BIN["cdb_firmware_binaries.json<br/>"]
+        I_BIN["cdb_firmware_manifest.json<br/>"]
         I_URL["cdb_firmware_base_url.json<br/>(optional)"]
         I_ATTR_CAT["cdb_firmware_upgrade.json<br/>(category-level attributes)"]
         I_ATTR_PN["cdb_firmware_upgrade.json<br/>(per-PN attributes)"]
@@ -17,7 +17,7 @@ flowchart TB
         direction TB
         Q{"cdb_firmware_base_url.json<br/>present for this inventory?"}
         DOWN["Download mode:<br/>fetch from remote server"]
-        PRE["Pre-staged mode:<br/>copy binaries to destination"]
+        PRE["Pre-staged mode:<br/>copy binaries from /host/cmis_cdb_firmware/"]
         Q -- "Yes" --> DOWN
         Q -- "No" --> PRE
     end
