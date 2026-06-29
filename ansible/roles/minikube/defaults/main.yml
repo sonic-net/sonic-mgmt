@@ -1,0 +1,108 @@
+---
+# Defaults for the minikube role.
+#
+# These values are the single source of truth for the testbed-level minikube
+# k8s cluster. They mirror the constants in
+# tests/kubesonic/test_k8s_join_disjoin.py (lines 16-35); keep the two in sync
+# when bumping versions. The k8s version, minikube version and kubelet ConfigMap
+# name are interlocked: SONiC's kubeadm is pinned to k8s v1.22.2, the ConfigMap
+# name is derived from that version, and minikube v1.34.0 is pinned because other
+# releases drift on the CoreDNS skip-phase flags used below.
+
+# test_k8s_join_disjoin.py: MINIKUBE_VERSION
+minikube_version: v1.34.0
+# test_k8s_join_disjoin.py: MINIKUBE_PATH
+minikube_path: /usr/local/bin/minikube
+# test_k8s_join_disjoin.py: KUBERNETES_VERSION (must equal DUT kubeadm version)
+kubernetes_version: v1.22.2
+# test_k8s_join_disjoin.py: KUBELET_CONFIGMAP (derived from kubernetes_version)
+kubelet_configmap: kubelet-config-1.22
+# test_k8s_join_disjoin.py: MINIKUBE_VIP
+minikube_vip: control-plane.minikube.internal
+# test_k8s_join_disjoin.py: MINIKUBE_DOWNLOAD_TIMEOUT_SECOND
+minikube_download_timeout_second: 360
+
+# Control-plane apiserver bind IP. This is the testbed server's management
+# bridge address, which is also the DUT's management gateway. It is resolved at
+# runtime from the bridge on the server (see host_create.yml) rather than
+# hardcoded or read from inventory, then passed to the DUT play via hostvars.
+mgmt_bridge: br1
+minikube_apiserver_port: 6443
+
+# DaemonSet smoke workload. test_k8s_join_disjoin.py: DAEMONSET_*.
+daemonset_name: test-daemonset
+daemonset_node_label: deployDaemonset
+daemonset_pod_label: test-ds-pod
+daemonset_container_name: mock-ds-container
+
+# Pause image used by the smoke DaemonSet. test_k8s_join_disjoin.py:
+# DUT_PAUSE_IMAGE is "k8s.gcr.io/pause:3.5", which is unreachable from an offline
+# DUT. The DUT ships a mirror copy; retag it to the expected name before the
+# smoke step so kubelet (imagePullPolicy IfNotPresent) finds it locally.
+dut_pause_image: k8s.gcr.io/pause:3.5
+dut_pause_image_mirror: publicmirror.azurecr.io/pause:3.5
+
+# DUT paths. test_k8s_join_disjoin.py: DUT_CERT_DIR / DUT_HOSTS_FILE /
+# KUBELET_DEFAULT_CONFIG.
+dut_cert_dir: /etc/sonic/credentials
+dut_cert_bak: /etc/sonic/credentials.bak
+dut_hosts_file: /etc/hosts
+kubelet_default_config: /etc/default/kubelet
+kubelet_default_config_bak: /etc/default/kubelet.bak
+
+# Local (controller) staging dir for the apiserver cert/key handed from the
+# server play to the DUT play.
+minikube_local_cert_dir: /tmp/minikube_certs
+
+# Join polling.
+join_retries: 12
+join_delay_seconds: 10
+
+# Proxy environment for minikube / kubectl. Empty by default (local KVM testbed);
+# physical/nightly hosts behind a proxy can override the proxy vars. no_proxy
+# includes minikube's default node IP (test_k8s_join_disjoin.py: NO_PROXY) and
+# the apiserver IP so kubectl talks to the control plane directly.
+minikube_http_proxy: ""
+minikube_https_proxy: ""
+minikube_default_ip: 192.168.49.2
+minikube_proxy_env:
+  http_proxy: "{{ minikube_http_proxy }}"
+  https_proxy: "{{ minikube_https_proxy }}"
+  no_proxy: "{{ minikube_default_ip }},{{ minikube_apiserver_ip }}"
+
+# SKUs whose kubelet config carries '--node-ip=::', which must be rewritten to
+# the DUT mgmt IP before join. test_k8s_join_disjoin.py:
+# is_the_sku_need_to_remove_node_ip_param.
+node_ip_param_skus:
+  - Arista-7060X6-16PE-384C-B-O128S2
+  - Arista-7060CX-32S-C32
+
+# --- Image-pull enablement (opt-in) ---------------------------------------
+# When true, create-k8s also: (1) sets up an image-pull proxy on the DUT BEFORE
+# the join (a post-join dockerd restart breaks the join), (2) creates a registry
+# imagePullSecret, and (3) runs a real ACR pull of a dummy container as the smoke
+# (instead of the pause pod) to validate the full image-delivery path.
+# Default off so the basic cluster bring-up works without registry creds.
+minikube_setup_image_pull: false
+
+# Proxy: provide an existing proxy URL, or let the role stand up tinyproxy on the
+# testbed server bound to the mgmt bridge IP (reachable by the DUT).
+minikube_image_pull_proxy: ""
+minikube_setup_host_proxy: true
+minikube_host_proxy_port: 3128
+# Effective proxy URL used by the DUT docker daemon.
+minikube_effective_proxy: "{{ minikube_image_pull_proxy if minikube_image_pull_proxy else 'http://' + minikube_apiserver_ip + ':' + (minikube_host_proxy_port | string) }}"
+
+# Registry creds for the imagePullSecret (provide via -e / vault).
+minikube_registry_server: ""
+minikube_registry_username: ""
+minikube_registry_password: ""
+minikube_image_pull_secret_name: kube-pull-secret
+
+# Dummy validation container (prod docker-dummyk8s, ACR pull smoke). Provide the
+# full image ref, e.g. soniccr1.azurecr.io/docker-dummyk8s:<tag>.
+minikube_dummy_image: ""
+minikube_dummy_daemonset_name: kube-dummy-smoke
+
+# DUT docker proxy conf path (same file container_upgrade manages).
+dut_docker_proxy_conf: /etc/systemd/system/docker.service.d/http-proxy.conf

@@ -1,0 +1,143 @@
+---
+# Host-side (testbed server / control plane) creation tasks.
+# Mirrors test_k8s_join_disjoin.py: download_minikube, setup_k8s_master,
+# update_vmhost_param, update_kubelet_config, deploy_test_daemonset, and the
+# apiserver cert extraction in prepare_cert.
+#
+# minikube uses the docker driver and must run as the (non-root) ansible_user;
+# only the binary install and the sysctl tweak use become.
+
+- name: Resolve the management bridge IPv4 (apiserver bind / DUT gateway)
+  shell: "ip -4 -o addr show {{ mgmt_bridge }} | awk '{print $4}' | cut -d/ -f1"
+  register: mgmt_bridge_addr
+  changed_when: false
+
+- name: Set the apiserver IP fact
+  set_fact:
+    minikube_apiserver_ip: "{{ mgmt_bridge_addr.stdout | trim }}"
+
+- name: Assert the apiserver IP was resolved
+  assert:
+    that: minikube_apiserver_ip | length > 0
+    fail_msg: "Could not resolve an IPv4 address on bridge {{ mgmt_bridge }} on the testbed server."
+
+- name: Check installed minikube version
+  command: "{{ minikube_path }} version --short"
+  register: minikube_installed_version
+  failed_when: false
+  changed_when: false
+
+- name: Download minikube {{ minikube_version }}
+  get_url:
+    url: "https://github.com/kubernetes/minikube/releases/download/{{ minikube_version }}/minikube-linux-amd64"
+    dest: /tmp/minikube-linux-amd64
+    timeout: "{{ minikube_download_timeout_second }}"
+    mode: "0755"
+  environment: "{{ minikube_proxy_env }}"
+  when: minikube_version not in (minikube_installed_version.stdout | default(''))
+
+- name: Install minikube to {{ minikube_path }}
+  command: "install /tmp/minikube-linux-amd64 {{ minikube_path }}"
+  become: true
+  when: minikube_version not in (minikube_installed_version.stdout | default(''))
+
+- name: Remove minikube download artifact
+  file:
+    path: /tmp/minikube-linux-amd64
+    state: absent
+
+- name: Check minikube control-plane status
+  command: "{{ minikube_path }} status -p minikube"
+  register: minikube_status
+  failed_when: false
+  changed_when: false
+
+- name: Start minikube control plane bound to {{ minikube_apiserver_ip }}
+  command: >-
+    {{ minikube_path }} start
+    --listen-address=0.0.0.0
+    --apiserver-port={{ minikube_apiserver_port }}
+    --ports={{ minikube_apiserver_port }}:{{ minikube_apiserver_port }}
+    --extra-config=kubeadm.skip-phases=addon/kube-proxy,addon/coredns
+    --install-addons=false
+    --kubernetes-version={{ kubernetes_version }}
+    --apiserver-ips={{ minikube_apiserver_ip }}
+    --force
+  environment: "{{ minikube_proxy_env }}"
+  when: "'host: Running' not in (minikube_status.stdout | default(''))"
+
+- name: Wait for the control plane node to be Ready
+  command: "{{ minikube_path }} kubectl -- wait --for=condition=Ready node/minikube --timeout=180s"
+  environment: "{{ minikube_proxy_env }}"
+  changed_when: false
+
+# minikube's CA path differs from the DUT's; kubelet on the DUT reads
+# /etc/kubernetes/pki/ca.crt, so rewrite the ConfigMap to match.
+- name: Relax fs.protected_regular for kubelet pod-log writes
+  sysctl:
+    name: fs.protected_regular
+    value: "0"
+    sysctl_set: true
+    reload: false
+  become: true
+
+- name: Fetch kubelet ConfigMap
+  command: "{{ minikube_path }} kubectl -- get cm {{ kubelet_configmap }} -n kube-system -o yaml"
+  register: kubelet_cm
+  environment: "{{ minikube_proxy_env }}"
+  changed_when: false
+
+- name: Stage kubelet ConfigMap with DUT CA path
+  copy:
+    content: "{{ kubelet_cm.stdout | regex_replace('/var/lib/minikube/certs/ca.crt', '/etc/kubernetes/pki/ca.crt') }}"
+    dest: /tmp/kubelet-config.yaml
+    mode: "0644"
+
+- name: Apply patched kubelet ConfigMap
+  command: "{{ minikube_path }} kubectl -- apply -f /tmp/kubelet-config.yaml"
+  environment: "{{ minikube_proxy_env }}"
+
+- name: Stage the smoke DaemonSet manifest
+  template:
+    src: daemonset.yaml.j2
+    dest: /tmp/daemonset.yaml
+    mode: "0644"
+  when: not (minikube_setup_image_pull | bool)
+
+- name: Apply the smoke DaemonSet
+  command: "{{ minikube_path }} kubectl -- apply -f /tmp/daemonset.yaml"
+  environment: "{{ minikube_proxy_env }}"
+  when: not (minikube_setup_image_pull | bool)
+
+- name: Set up image-pull (proxy + secret + dummy ACR smoke)
+  include_tasks: image_pull_host.yml
+  when: minikube_setup_image_pull | bool
+
+- name: Read apiserver cert from the minikube container
+  command: docker exec minikube cat /var/lib/minikube/certs/apiserver.crt
+  register: apiserver_crt
+  changed_when: false
+
+- name: Read apiserver key from the minikube container
+  command: docker exec minikube cat /var/lib/minikube/certs/apiserver.key
+  register: apiserver_key
+  changed_when: false
+
+- name: Ensure controller cert staging dir exists
+  file:
+    path: "{{ minikube_local_cert_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+
+- name: Stage apiserver cert/key on the controller for the DUT play
+  copy:
+    content: "{{ item.content }}"
+    dest: "{{ minikube_local_cert_dir }}/{{ item.name }}"
+    mode: "0600"
+  delegate_to: localhost
+  loop:
+    - {name: restapiserver.crt, content: "{{ apiserver_crt.stdout }}"}
+    - {name: restapiserver.key, content: "{{ apiserver_key.stdout }}"}
+  loop_control:
+    label: "{{ item.name }}"

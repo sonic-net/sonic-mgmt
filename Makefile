@@ -24,7 +24,7 @@ TTY         := $(shell test -t 0 && echo "-t")
 EXEC_ANSIBLE := docker exec $(TTY) -w $(ANSIBLE_DIR) $(CONTAINER)
 EXEC_TESTS   := docker exec $(TTY) -w $(TESTS_DIR) $(CONTAINER)
 
-.PHONY: help check-container shell add-topo remove-topo deploy-mg test
+.PHONY: help check-container shell add-topo remove-topo deploy-mg create-k8s destroy-k8s test
 
 help:
 	@echo "Usage: make <target> [VARIABLE=value ...]"
@@ -34,6 +34,8 @@ help:
 	@echo "  add-topo    - Deploy topology"
 	@echo "  remove-topo - Remove topology"
 	@echo "  deploy-mg   - Deploy minigraph to DUT"
+	@echo "  create-k8s  - Bring up minikube k8s cluster and join the DUT"
+	@echo "  destroy-k8s - Tear down minikube k8s cluster and disjoin the DUT"
 	@echo "  test        - Run tests (requires T=<test_path>)"
 	@echo ""
 	@echo "Variables:"
@@ -48,6 +50,8 @@ help:
 	@echo "Examples:"
 	@echo "  make add-topo"
 	@echo "  make add-topo TOPO=vms-kvm-t1"
+	@echo "  make create-k8s"
+	@echo "  make destroy-k8s"
 	@echo "  make test T=bgp/test_bgp_fact.py"
 	@echo "  make test T=bgp/test_bgp_fact.py EXTRA='-e \"--neighbor_type=sonic\"'"
 
@@ -67,6 +71,12 @@ remove-topo: check-container
 
 deploy-mg: check-container
 	$(EXEC_ANSIBLE) ./testbed-cli.sh -t $(TESTBED) -m $(INVENTORY) deploy-mg $(TOPO) $(INVENTORY) $(PASSFILE)
+
+create-k8s: check-container
+	$(EXEC_ANSIBLE) ./testbed-cli.sh -t $(TESTBED) -m $(INVENTORY) create-k8s $(TOPO) $(INVENTORY) $(PASSFILE)
+
+destroy-k8s: check-container
+	$(EXEC_ANSIBLE) ./testbed-cli.sh -t $(TESTBED) -m $(INVENTORY) destroy-k8s $(TOPO) $(INVENTORY) $(PASSFILE)
 
 test: check-container
 ifndef T

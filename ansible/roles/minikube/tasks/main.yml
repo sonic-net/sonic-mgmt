@@ -1,0 +1,38 @@
+---
+# Entry point for the minikube role. Dispatches on:
+#   minikube_role_action  : create | destroy
+#   minikube_role_target  : host (testbed server / control plane) | dut (worker)
+# The testbed_create_k8s.yml playbook runs this role twice per action: once on
+# the server host and once on the DUT.
+
+- name: Validate role parameters
+  assert:
+    that:
+      - minikube_role_action in ['create', 'destroy']
+      - minikube_role_target in ['host', 'dut']
+    fail_msg: "minikube role requires minikube_role_action (create|destroy) and minikube_role_target (host|dut)"
+  run_once: true
+
+- name: Bring up minikube control plane on the testbed server
+  include_tasks: host_create.yml
+  when:
+    - minikube_role_action == 'create'
+    - minikube_role_target == 'host'
+
+- name: Join the DUT to the cluster
+  include_tasks: dut_create.yml
+  when:
+    - minikube_role_action == 'create'
+    - minikube_role_target == 'dut'
+
+- name: Disjoin the DUT from the cluster
+  include_tasks: dut_destroy.yml
+  when:
+    - minikube_role_action == 'destroy'
+    - minikube_role_target == 'dut'
+
+- name: Tear down minikube control plane on the testbed server
+  include_tasks: host_destroy.yml
+  when:
+    - minikube_role_action == 'destroy'
+    - minikube_role_target == 'host'

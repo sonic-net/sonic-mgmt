@@ -1,0 +1,23 @@
+---
+# Bring up a single-node minikube control plane on the testbed server and join
+# the DUT(s) as worker node(s). Invoked by `testbed-cli.sh create-k8s`.
+#
+# Required extra vars (passed by testbed-cli.sh):
+#   server : testbed server (vm_host) inventory name
+#   dut    : DUT inventory name (worker to join)
+
+- name: Bring up minikube control plane on the testbed server
+  hosts: "{{ server }}:&vm_host"
+  gather_facts: false
+  roles:
+    - role: minikube
+      minikube_role_action: create
+      minikube_role_target: host
+
+- name: Join the DUT to the minikube cluster
+  hosts: "{{ dut }}"
+  gather_facts: false
+  roles:
+    - role: minikube
+      minikube_role_action: create
+      minikube_role_target: dut

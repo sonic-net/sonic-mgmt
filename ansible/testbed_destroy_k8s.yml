@@ -1,0 +1,24 @@
+---
+# Disjoin the DUT(s) and tear down the minikube control plane on the testbed
+# server. Invoked by `testbed-cli.sh destroy-k8s`. DUT disjoin runs first so the
+# worker leaves cleanly before the control plane is deleted.
+#
+# Required extra vars (passed by testbed-cli.sh):
+#   server : testbed server (vm_host) inventory name
+#   dut    : DUT inventory name (worker to disjoin)
+
+- name: Disjoin the DUT from the minikube cluster
+  hosts: "{{ dut }}"
+  gather_facts: false
+  roles:
+    - role: minikube
+      minikube_role_action: destroy
+      minikube_role_target: dut
+
+- name: Tear down minikube control plane on the testbed server
+  hosts: "{{ server }}:&vm_host"
+  gather_facts: false
+  roles:
+    - role: minikube
+      minikube_role_action: destroy
+      minikube_role_target: host
