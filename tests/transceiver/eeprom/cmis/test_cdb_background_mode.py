@@ -22,52 +22,23 @@ from tests.transceiver.common.cmis_helper import (
 
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────────────────────────────
-# LogAnalyzer suppression.  This test case deliberately exercises the I2C bus under
-# concurrent EEPROM polling and CDB firmware-version reads; transient I2C
-# error messages may appear in syslog/dmesg while the stress is running.
-# The test scans dmesg itself and applies STRESS_TEST_I2C_ERROR_THRESHOLD,
-# so let it own the failure decision — don't double-trip on loganalyzer at
-# the framework level.  Patterns are intentionally narrow (i2c only) so
-# unrelated kernel errors still surface.
-# ──────────────────────────────────────────────────────────────────────
-
-_EXPECTED_STRESS_LOG_PATTERNS = [
-    r".*i2c[-_].*(error|fail|timeout|nack).*",
-    r".*(error|fail|timeout|nack).*i2c[-_].*",
-    r".*pmon#xcvrd.*Failed to read EEPROM.*",
-]
-
-
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_i2c_errors(duthost, loganalyzer):
-    """Tell loganalyzer to ignore I2C error strings that the CDB stress test
-    intentionally tolerates (up to STRESS_TEST_I2C_ERROR_THRESHOLD).
-
-    The test owns the I2C-error pass/fail decision via its own dmesg scan;
-    framework-level loganalyzer should not double-count.
-
-    No-ops when loganalyzer is disabled (e.g. ``--disable_loganalyzer``).
-    """
-    if loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend(_EXPECTED_STRESS_LOG_PATTERNS)
-
-
 # Maximum tolerated background EEPROM read failure rate during the CDB stress
-# test.  A healthy module under CDB background mode should see essentially zero
-# background-read failures; anything above a few percent indicates structural
-# I2C bus disruption, not transient I/O noise.  The observed rate is always
-# logged in the pass line so an operator can spot drift even when under
-# threshold.
-STRESS_EEPROM_MAX_FAIL_RATE = 0.05
+# test.  The HLD's expected result is that the reads "complete successfully", so
+# this is zero-tolerance: any background-read failure fails the port.  The
+# observed rate is always logged in the pass line so an operator can confirm 0%.
+STRESS_EEPROM_MAX_FAIL_RATE = 0
 
-# Number of I2C kernel-log errors tolerated before aborting a stress-test
-# iteration loop.  A small number of transient errors can appear during normal
-# background-mode operation; only a sustained burst warrants an early abort.
-# The test result line always reports the observed count alongside this
-# threshold so an operator can distinguish "0 errors" from "≤3 errors,
-# under threshold".
-STRESS_TEST_I2C_ERROR_THRESHOLD = 3
+# Number of I2C kernel-log errors tolerated before failing a stress-test
+# iteration loop.  The HLD's expected result is "without I2C errors in kernel
+# logs", so this is zero — the loop fails on the first I2C error.  The observed
+# count is always reported in the result line.
+#
+# Note: there is intentionally NO loganalyzer ignore_regex suppression for the
+# I2C / "Failed to read EEPROM" strings.  The HLD says those must not appear, so
+# framework-level loganalyzer is left free to catch them too; suppressing them
+# would mask exactly the failures this test exists to detect (and would weaken
+# the sibling capability test via autouse over-reach).
+STRESS_TEST_I2C_ERROR_THRESHOLD = 0
 
 # dmesg ``grep -iE`` pattern for kernel I2C errors, passed to
 # dmesg_helpers.scan_new_dmesg_errors().  Embedded in a single-quoted grep
@@ -587,15 +558,14 @@ def test_cdb_background_mode_stress_test(
          stress test" case in eeprom_test_plan.md; the port fails if it is
          undefined — its default of 10 is supplied by eeprom.json defaults).
       4. After each iteration scans dmesg for new I2C errors; aborts early
-         once the cumulative count exceeds
-         ``STRESS_TEST_I2C_ERROR_THRESHOLD``.
+         on the first I2C error (``STRESS_TEST_I2C_ERROR_THRESHOLD`` is 0).
       5. Stops the background reader (joined with a 10 s timeout, always).
-      6. Reports a failure if the background EEPROM read fail rate exceeds
-         ``STRESS_EEPROM_MAX_FAIL_RATE``.
+      6. Reports a failure if any background EEPROM read failed
+         (``STRESS_EEPROM_MAX_FAIL_RATE`` is 0).
 
-    Expected result: every configured iteration completes AND the observed
-    I2C kernel-error count stays at-or-below the threshold.  The per-port
-    pass line reports the observed counters so drift below the threshold is
+    Expected result (per the HLD): every configured iteration completes, zero
+    background-read failures, and zero I2C kernel errors in dmesg.  The per-port
+    pass line reports the observed counters (expected 0) so a clean run is
     visible at a glance.  Per-port failures are aggregated into one
     ``pytest.fail`` at the end so a single run surfaces every misbehaving
     port.

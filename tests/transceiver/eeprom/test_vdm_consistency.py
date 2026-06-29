@@ -31,26 +31,24 @@ VDM_SUPPORTED_FIELD = "vdm_supported"
 def test_vdm_supported_consistency(duthost, port_attributes_dict):
     """Verify STATE_DB ``vdm_supported`` matches the configured attribute per port.
 
-    For every port that has ``EEPROM_ATTRIBUTES.vdm_supported`` configured:
+    ``vdm_supported`` is a CMIS-only field — xcvrd publishes it into STATE_DB for
+    CMIS optics only — so the contract is enforced symmetrically by family
+    (resolved via the shared ``eeprom_decode.classify``):
 
-    1. Read the expected value from ``port_attributes_dict``.
-    2. Look up ``vdm_supported`` for the port in the STATE_DB ``TRANSCEIVER_INFO``
-       table, which is read once for all ports via a single ``sonic-db-dump``.
-    3. Compare; aggregate any mismatch (or missing/malformed STATE_DB value).
+    * non-CMIS optic: ``vdm_supported`` must be ABSENT from STATE_DB; if xcvrd
+      published it anyway, that is an xcvrd/module regression and is flagged.
+      The inventory value (if any) is not validated.
+    * CMIS optic: ``vdm_supported`` is MANDATORY in inventory (missing / ``null``
+      is a failure), must be present in STATE_DB, and the two must match.
+
+    The STATE_DB ``TRANSCEIVER_INFO`` table is read once for all ports via a
+    single ``sonic-db-dump``.
 
     This test intentionally iterates ALL logical ports (no first-sub-port
     filtering), unlike the per-physical EEPROM reads in ``test_hexdump.py`` and
     ``cmis/test_cdb_background_mode.py`` that filter via ``is_first_subport``:
     STATE_DB ``TRANSCEIVER_INFO`` is populated per-logical-port, so each sub-port
     has its own ``vdm_supported`` entry that must be verified individually.
-
-    Ports without a configured ``vdm_supported`` attribute are skipped (treated
-    as "no expectation"); this is the documented behavior in the task spec.
-
-    A port that ``eeprom_decode.classify`` resolves to a non-CMIS family but
-    that nonetheless carries a ``vdm_supported`` attribute is flagged as an
-    inventory misconfiguration — VDM is CMIS-only and the attribute must not be
-    present for such modules.
 
     All failures are collected and reported at the end so a single run surfaces
     every offending port instead of stopping at the first one.
@@ -71,35 +69,39 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
             continue
 
         eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+        state_db_entry = transceiver_info.get(port, {})
 
-        # VDM is a CMIS-only construct. Per the plan attribute table, non-CMIS
-        # transceivers must not carry vdm_supported at all; its presence on a
-        # port that classifies as a non-CMIS family is an inventory
-        # misconfiguration, so flag it rather than silently honoring it.  The
-        # CMIS determination reuses the shared ``eeprom_decode.classify`` so it
-        # stays in sync with the rest of the suite.  Key presence is checked
-        # (not just a non-None value) so an explicit ``vdm_supported: null`` on
-        # a non-CMIS port is caught too.
-        if classify(eeprom_attrs) is not ModuleFamily.CMIS and "vdm_supported" in eeprom_attrs:
+        # vdm_supported is a CMIS-only field: xcvrd publishes it for CMIS optics
+        # only.  CMIS family is resolved via the shared ``eeprom_decode.classify``
+        # so this stays in sync with the rest of the suite.  For non-CMIS optics,
+        # assert the field is ABSENT from STATE_DB (a non-CMIS optic carrying it
+        # is an xcvrd/module regression) and skip the value check.
+        if classify(eeprom_attrs) is not ModuleFamily.CMIS:
+            if VDM_SUPPORTED_FIELD in state_db_entry:
+                all_failures.append(
+                    f"{port}: non-CMIS optic unexpectedly has "
+                    f"'{VDM_SUPPORTED_FIELD}' in STATE_DB "
+                    f"{STATE_DB_TRANSCEIVER_INFO}|{port}"
+                )
+            else:
+                logger.debug("Port %s is non-CMIS, skipping VDM check", port)
+            continue
+
+        # CMIS optic: vdm_supported is mandatory in inventory.
+        expected_value = eeprom_attrs.get("vdm_supported")
+        if expected_value is None:
             all_failures.append(
-                f"{port}: 'vdm_supported' is set on a transceiver that classifies "
-                f"as non-CMIS; VDM is CMIS-only and this attribute must not be "
-                f"present for non-CMIS modules"
+                f"{port}: CMIS optic has no 'vdm_supported' configured in "
+                f"inventory; it is mandatory for all CMIS optics"
             )
             continue
 
-        expected_value = eeprom_attrs.get("vdm_supported")
-        if expected_value is None:
-            logger.debug("Port %s has no vdm_supported attribute, skipping", port)
-            continue
-
-        raw_value = transceiver_info.get(port, {}).get(VDM_SUPPORTED_FIELD)
+        # ... and xcvrd must publish it in STATE_DB.
+        raw_value = state_db_entry.get(VDM_SUPPORTED_FIELD)
         if raw_value is None:
-            # Field (or the whole TRANSCEIVER_INFO|<port> entry) absent; itself a
-            # failure per Expected Result #1.
             all_failures.append(
-                f"{port}: STATE_DB {STATE_DB_TRANSCEIVER_INFO}|{port} has no "
-                f"'{VDM_SUPPORTED_FIELD}' field"
+                f"{port}: CMIS optic has no '{VDM_SUPPORTED_FIELD}' field in "
+                f"STATE_DB {STATE_DB_TRANSCEIVER_INFO}|{port}"
             )
             continue
 

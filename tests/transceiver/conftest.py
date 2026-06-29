@@ -417,11 +417,15 @@ def get_dev_transceiver_details(duthost, get_transceiver_inventory):
 
 
 @pytest.fixture(scope="module")
-def get_lport_to_pport_mapping(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def get_lport_to_pport_mapping(duthost):
     """
     Fixture to get the mapping of logical ports to physical ports.
+
+    Uses the canonical shared ``duthost`` fixture (``duthosts[session.dut_index]``)
+    so this mapping is computed against the same DUT as the rest of the suite —
+    ``port_attributes_dict``, ``lport_to_first_subport_mapping``, the prerequisite
+    gates, and the per-test health checks all resolve their DUT the same way.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     lport_to_pport_mapping = get_physical_port_indices(duthost)
 
     logging.info("Logical to Physical Port Mapping: {}".format(lport_to_pport_mapping))
