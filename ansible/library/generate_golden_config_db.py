@@ -179,6 +179,7 @@ class GenerateGoldenConfigDBModule(object):
                                     port_speeds=dict(required=False, type='dict', default=None),
                                     port_override_from_links=dict(required=False, type='bool', default=False),
                                     macsec_profile=dict(required=False, type='str', default=None),
+                                    macsec_links=dict(required=False, type='list', default=[]),
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
@@ -198,6 +199,7 @@ class GenerateGoldenConfigDBModule(object):
         self.port_speeds = self.module.params['port_speeds']
         self.port_override_from_links = self.module.params['port_override_from_links']
         self.macsec_profile = self.module.params['macsec_profile']
+        self.macsec_links = self.module.params['macsec_links']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
         self.platform, dut_hwsku = device_info.get_platform_and_hwsku()
@@ -215,6 +217,54 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
         self.enabled_dpu_indices = self.module.params['enabled_dpu_indices']
+
+    def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
+        """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
+
+        Args:
+            config: Dict with the original config db content to update.
+            table: The config table path to update, using '/' to denote nested levels.
+                   e.g. "DEVICE_METADATA/localhost" navigates to asicN -> DEVICE_METADATA -> localhost.
+            value: A dict of field-value pairs to merge at the resolved path.
+            namespaces_to_update: Specifies which namespaces to update. can be "asic" or "localhost" or "all"
+
+        Returns:
+            Updated config as a JSON string.
+        """
+
+        if namespaces_to_update == "localhost":
+            ns_to_update = ["localhost"]
+        elif namespaces_to_update == "all":
+            ns_to_update = ["localhost"] + ["asic{}".format(asic) for asic in range(self.num_asics)]
+        else:
+            ns_to_update = ["asic{}".format(asic) for asic in range(self.num_asics)]
+        path_parts = table.split("/")
+        for ns in ns_to_update:
+            ns_cfg = config.get(ns)
+            if ns_cfg is None:
+                continue
+            target = ns_cfg
+            for part in path_parts:
+                target = target.setdefault(part, {})
+            target.update(value)
+        return config
+
+    def _render_macsec_config(self):
+        if not self.macsec_profile:
+            return {}
+
+        with open(MACSEC_PROFILE_PATH) as f:
+            macsec_profiles = json.load(f)
+
+        profile = macsec_profiles.get(self.macsec_profile)
+        if not profile:
+            return {}
+
+        profile['macsec_profile'] = self.macsec_profile
+        profile['asic_cnt'] = self.num_asics
+
+        with open(GOLDEN_CONFIG_TEMPLATE_PATH) as template_file:
+            return json.loads(Template(template_file.read()).render(profile))
 
     def _update_config_db_in_ns(self, config, table, value, namespaces_to_update='asic'):
         """Update a table entry across all ASIC namespaces for multi-ASIC platforms.
@@ -956,27 +1006,172 @@ class GenerateGoldenConfigDBModule(object):
                     "peers": str(self.bgp_confd_peers).replace(' ', ';')
                 }
 
+        # Defensive: seed DEVICE_METADATA from minigraph.  get_config_from_minigraph
+        # sometimes returns only init_cfg.json data (missing hwsku/switch_type),
+        # so a sparse DEVICE_METADATA can survive into golden config.  When
+        # update_zmq_config / update_zebra_nexthop_config later tack on a single
+        # field, override-config-table then TABLE-LEVEL-REPLACES CONFIG_DB's
+        # DEVICE_METADATA with that nearly empty row, wiping hwsku/switch_type
+        # and breaking load_minigraph.
+        self._seed_device_metadata(full_config)
+
         return json.dumps(full_config, indent=4)
 
     def generate_t2_golden_config_db(self):
         with open(MACSEC_PROFILE_PATH) as f:
             macsec_profiles = json.load(f)
 
-            profile = macsec_profiles.get(self.macsec_profile)
-            if profile:
-                profile['macsec_profile'] = self.macsec_profile
+        profile = macsec_profiles.get(self.macsec_profile)
+        if profile:
+            profile['macsec_profile'] = self.macsec_profile
 
-            # Update the profile context with the asic count
-            profile['asic_cnt'] = self.num_asics
+        # Update the profile context with the asic count
+        profile['asic_cnt'] = self.num_asics
 
-            def safe_open_template(template_path):
-                with open(template_path) as template_file:
-                    return Template(template_file.read())
+        # Surface the ASIC vendor to the template.  The base template emits
+        # only priority / cipher_suite / cak / ckn / policy / send_sci; on
+        # Broadcom we also need rekey_period, enable_replay_protect and
+        # replay_window in CONFIG_DB.  Without enable_replay_protect+
+        # replay_window the SDK's anti-replay arithmetic produces LAPN=
+        # current_xpn+1 and drops every ingress frame as LATE — same root
+        # cause as the `replay_window: 4294967295` regression we already
+        # fixed in tests/common/macsec/profile.json.
+        try:
+            platform_info = device_info.get_platform_info()
+            profile['asic_type'] = platform_info.get('asic_type', '') or ''
+        except Exception:
+            profile['asic_type'] = ''
 
-            # Render the template using the profile
-            rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+        def safe_open_template(template_path):
+            with open(template_path) as template_file:
+                return Template(template_file.read())
 
-        return rendered_json
+        # Render the MACSEC_PROFILE block via Jinja2 template
+        rendered_dict = json.loads(
+            safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+        )
+
+        # Unconditionally seed DEVICE_METADATA from minigraph.  The downstream
+        # `update_zmq_config` (and on newer images `update_zebra_nexthop_config`)
+        # mutates DEVICE_METADATA.localhost.<one_field>; if our golden config
+        # doesn't already carry a DEVICE_METADATA row, those helpers create one
+        # with just that single field, and `config override-config-table` then
+        # TABLE-LEVEL-REPLACES CONFIG_DB.DEVICE_METADATA with that nearly empty
+        # row -- wiping hwsku, switch_type, etc.  hwsku=None then crashes the
+        # next step in `load_minigraph` with TypeError, and switch_type missing
+        # makes VOQ_BUFFER_QUEUE_LIST YANG validation fail.  Seeding the full
+        # minigraph DEVICE_METADATA here makes those helpers add-a-field instead
+        # of replace-with-one-field.  Must run regardless of `macsec_links`
+        # since the partial-DEVICE_METADATA problem happens unconditionally.
+        self._seed_device_metadata(rendered_dict)
+
+        # If macsec_links is supplied, also emit:
+        #   - PORT.<port>.macsec    = profile name
+        #   - PORT.<port>.mtu       = 9068 (MACsec adds 32B; ASIC MAX_FRAME limit)
+        #   - PORTCHANNEL.<pc>.mtu  = 9068 (PortChannel MTU overrides member mtu)
+        # so that `config load_minigraph --override_config` and any subsequent
+        # `config reload` restore the port binding + MTU without re-running the
+        # macsec ansible playbook.  The temporal pieces (PC member detach,
+        # MKA-wait, neighbor-side config) still live in the playbook because
+        # they're inherently dynamic.
+        if self.macsec_links:
+            self._merge_macsec_port_config(rendered_dict)
+
+        return json.dumps(rendered_dict, indent=4)
+
+    def _seed_device_metadata(self, rendered_dict):
+        """Copy DEVICE_METADATA from minigraph-derived config into golden.
+        Single-ASIC only; multi-ASIC seeding requires per-namespace queries.
+        """
+        if self.num_asics > 1:
+            return
+        try:
+            minigraph_data = json.loads(self.get_config_from_minigraph())
+        except Exception:
+            return
+        mg_dm = minigraph_data.get('DEVICE_METADATA', {}) or {}
+        if not mg_dm:
+            return
+        dm_table = rendered_dict.setdefault('DEVICE_METADATA', {})
+        for key, fields in mg_dm.items():
+            dm_table[key] = dict(fields)
+
+    def _merge_macsec_port_config(self, rendered_dict):
+        """Add PORT.<p>.macsec/mtu and PORTCHANNEL.<pc>.mtu entries for every
+        DUT port mapped (via minigraph DEVICE_NEIGHBOR) to a VM listed in
+        self.macsec_links.  Single-ASIC only; multi-ASIC requires per-namespace
+        minigraph queries (see PR #24157 get_config_from_minigraph_multiasic).
+        """
+        if self.num_asics > 1:
+            # TODO: extend to multi-ASIC once get_config_from_minigraph_multiasic
+            # lands in this branch (PR #24157).
+            return
+
+        try:
+            minigraph_data = json.loads(self.get_config_from_minigraph())
+        except Exception:
+            return
+
+        macsec_vms = set(link.get('vm') for link in self.macsec_links if link.get('vm'))
+        if not macsec_vms:
+            return
+
+        # 1. DUT ports whose DEVICE_NEIGHBOR.name matches a macsec_links vm
+        device_neighbor = minigraph_data.get('DEVICE_NEIGHBOR', {}) or {}
+        macsec_ports = sorted(
+            port for port, info in device_neighbor.items()
+            if isinstance(info, dict) and info.get('name') in macsec_vms
+        )
+        if not macsec_ports:
+            return
+
+        # 2. PortChannels containing any of those ports.  PORTCHANNEL_MEMBER
+        #    keys are emitted as 'PortChannelN|EthernetX' by sonic-cfggen.
+        pc_members = minigraph_data.get('PORTCHANNEL_MEMBER', {}) or {}
+        macsec_port_set = set(macsec_ports)
+        macsec_pcs = set()
+        for key in pc_members.keys():
+            if '|' not in key:
+                continue
+            pc_name, port_name = key.split('|', 1)
+            if port_name in macsec_port_set:
+                macsec_pcs.add(pc_name)
+
+        # 3. Merge into the rendered golden config (single-ASIC, host-level).
+        # `config override-config-table` does TABLE-LEVEL replacement for any
+        # table present in golden config — i.e. the entire PORT table in
+        # CONFIG_DB is wiped and re-populated from golden config.  That means
+        # a partial PORT block would drop every non-MACsec port (and break
+        # any reference to those ports from PORTCHANNEL_MEMBER, BGP_NEIGHBOR,
+        # BUFFER_QUEUE etc., failing YANG validation).
+        #
+        # To stay safe we seed the golden PORT (and PORTCHANNEL) tables with
+        # every row from the minigraph-derived config — preserving lanes,
+        # alias, admin_status, etc. — then layer macsec/mtu overlays only on
+        # the rows that need them.  Net effect: golden config faithfully
+        # mirrors minigraph PORT/PORTCHANNEL tables with three field-level
+        # additions, and override-config-table can replace the tables wholesale
+        # without losing data.
+        mg_ports = minigraph_data.get('PORT', {}) or {}
+        port_table = rendered_dict.setdefault('PORT', {})
+        for port, fields in mg_ports.items():
+            port_table[port] = dict(fields)
+        for port in macsec_ports:
+            port_table.setdefault(port, {})
+            port_table[port]['macsec'] = self.macsec_profile
+            port_table[port]['mtu'] = '9068'
+
+        mg_pcs = minigraph_data.get('PORTCHANNEL', {}) or {}
+        pc_table = rendered_dict.setdefault('PORTCHANNEL', {})
+        for pc, fields in mg_pcs.items():
+            pc_table[pc] = dict(fields)
+        for pc in macsec_pcs:
+            pc_table.setdefault(pc, {})
+            pc_table[pc]['mtu'] = '9068'
+
+        # DEVICE_METADATA is seeded unconditionally upstream via
+        # _seed_device_metadata() in generate_t2_golden_config_db, so no need
+        # to seed it again here.
 
     def update_dns_config(self, config):
         # Generate dns_server related configuration

@@ -37,7 +37,9 @@
         "primary_cak": "3106080a00005b554f4e007975707670725b0a54540c0252445e5d7a29252b046a",
         "primary_ckn": "6162636465666768696A6B6C6D6E6F70",
         "policy": "security",
-        "send_sci": "true"
+        "send_sci": "true",
+        "enable_replay_protect": "true",
+        "replay_window": "100"
     },
     "256_SCI": {
         "priority": 64,

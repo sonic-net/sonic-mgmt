@@ -36,14 +36,27 @@ class PTFHost(AnsibleHostBase):
         self.script(RESTART_INTERFACE_SCRIPT)
 
     def create_macsec_info(self):
+        # One STATE_DB query to find active MACsec ports — avoids O(N_ports) SSH calls
+        # that would otherwise saturate DUT management CPU and starve wpa_supplicant.
+        result = self.duthost.shell(
+            "sonic-db-cli STATE_DB KEYS 'MACSEC_PORT_TABLE|*'",
+            module_ignore_errors=True)
+        active_macsec_ports = set()
+        if result["stdout"].strip():
+            active_macsec_ports = {
+                entry.split("|", 1)[1]
+                for entry in result["stdout"].strip().splitlines()
+            }
+
         macsec_info = {}
-        for port_name, injected_port_id in \
-                list(self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"].items()):
+        ptf_indices = self.duthost.get_extended_minigraph_facts(self.tbinfo)["minigraph_ptf_indices"]
+        for port_name, injected_port_id in list(ptf_indices.items()):
+            if port_name not in active_macsec_ports:
+                continue
             try:
                 macsec_info[injected_port_id] = load_macsec_info(
                     self.duthost, port_name, force_reload=True)
             except KeyError:
-                # If key error, It means the MACsec info isn't enabled in the specified port.
                 logging.info(
                     "MACsec isn't enabled on the port {}".format(port_name))
                 continue

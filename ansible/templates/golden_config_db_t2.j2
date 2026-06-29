@@ -1,5 +1,27 @@
 {
 {%- set asic_cnt = asic_cnt|int -%}
+{#- On Broadcom DUTs, the MACsec SDK needs explicit rekey/replay settings:    -#}
+{#- without enable_replay_protect + replay_window, the anti-replay LAPN calc  -#}
+{#- collapses to LAPN = current_xpn + 1 and the engine drops every ingress    -#}
+{#- frame as LATE.  We emit those fields only when asic_type is broadcom to   -#}
+{#- avoid changing behavior on other vendors.                                 -#}
+{%- macro macsec_profile_body() -%}
+        "priority": "{{priority}}",
+        "cipher_suite": "{{cipher_suite}}",
+        "primary_cak": "{{primary_cak}}",
+        "primary_ckn": "{{primary_ckn}}",
+        "policy": "{{policy}}",
+        "send_sci": "{{send_sci}}"
+        {%- if asic_type|default('') == 'broadcom' -%}
+        ,
+        "rekey_period": "{{ rekey_period|default(0) }}",
+        "enable_replay_protect": "{{ enable_replay_protect|default('false') }}"
+        {%- if enable_replay_protect|default('false') == 'true' -%}
+        ,
+        "replay_window": "{{ replay_window|default(100) }}"
+        {%- endif -%}
+        {%- endif -%}
+{%- endmacro -%}
 {% if asic_cnt > 1 %}
   "localhost": {
     "MACSEC_PROFILE": {}
@@ -8,12 +30,7 @@
   "asic{{ns}}": {
     "MACSEC_PROFILE": {
       "{{macsec_profile}}": {
-        "priority": "{{priority}}",
-        "cipher_suite": "{{cipher_suite}}",
-        "primary_cak": "{{primary_cak}}",
-        "primary_ckn": "{{primary_ckn}}",
-        "policy": "{{policy}}",
-        "send_sci": "{{send_sci}}"
+{{ macsec_profile_body() }}
       }
     }
 {% if ns == asic_cnt-1 %}
@@ -25,12 +42,7 @@
 {% else %}
   "MACSEC_PROFILE": {
       "{{macsec_profile}}": {
-        "priority": "{{priority}}",
-        "cipher_suite": "{{cipher_suite}}",
-        "primary_cak": "{{primary_cak}}",
-        "primary_ckn": "{{primary_ckn}}",
-        "policy": "{{policy}}",
-        "send_sci": "{{send_sci}}"
+{{ macsec_profile_body() }}
       }
     }
 {%- endif -%}

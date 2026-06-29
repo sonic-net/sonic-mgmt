@@ -8,6 +8,13 @@
       device_conn[inventory_hostname].values() | selectattr('autoneg', 'defined') | selectattr('autoneg', 'in', ['on', 'off']) | list | length > 0 -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
+{%- if device_conn is defined and inventory_hostname in device_conn and
+      device_conn[inventory_hostname].values() | selectattr('macsec_profile', 'defined') | list | length > 0 -%}
+    {% set ns.link_metadata_defined = True %}
+{%- endif -%}
+{%- if topoall is defined and 'macsec_links' in topoall and topoall['macsec_links'] -%}
+    {% set ns.link_metadata_defined = True %}
+{%- endif -%}
 {% if ns.link_metadata_defined %}
 
   <LinkMetadataDeclaration>
@@ -58,6 +65,34 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if topoall is defined and 'macsec_links' in topoall and topoall['macsec_links'] %}
+{% for ml_entry in topoall['macsec_links'] %}
+{% set ml_vm = ml_entry['vm'] %}
+{% set ml_profile = ml_entry['profile'] %}
+{% if ml_vm in vm_topo_config['vm'] %}
+{% set ml_vm_intfs = vm_topo_config['vm'][ml_vm]['intfs'][dut_index|int] | sort %}
+{% set ml_dut_intfs = vm_topo_config['vm'][ml_vm]['interface_indexes'][dut_index|int] | sort %}
+{% for if_index in range(ml_vm_intfs | length) %}
+        <a:LinkMetadata>
+            <a:Name i:nil="true"/>
+            <a:Properties>
+            <a:DeviceProperty>
+                <a:Name>MacSecEnabled</a:Name>
+                <a:Reference i:nil="true"/>
+                <a:Value>True</a:Value>
+            </a:DeviceProperty>
+            <a:DeviceProperty>
+                <a:Name>MacSecProfileName</a:Name>
+                <a:Reference i:nil="true"/>
+                <a:Value>{{ ml_profile }}</a:Value>
+            </a:DeviceProperty>
+            </a:Properties>
+            <a:Key>{{ ml_vm }}:{{ ml_vm_intfs[if_index] }};{{ inventory_hostname }}:{{ port_alias[ml_dut_intfs[if_index]] }}</a:Key>
+        </a:LinkMetadata>
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
 {% if device_conn is defined and inventory_hostname in device_conn %}
 {% for iface_name in device_conn[inventory_hostname].keys() %}
 {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
@@ -96,6 +131,24 @@
             </a:DeviceProperty>
             </a:Properties>
             <a:Key>{{ device_conn[inventory_hostname][iface_name]["peerdevice"] }}:{{ device_conn[inventory_hostname][iface_name]["peerport"]}};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
+        </a:LinkMetadata>
+{% endif %}
+{% if 'macsec_profile' in device_conn[inventory_hostname][iface_name] and device_conn[inventory_hostname][iface_name]['macsec_profile'] %}
+        <a:LinkMetadata>
+            <a:Name i:nil="true"/>
+            <a:Properties>
+            <a:DeviceProperty>
+                <a:Name>MacSecEnabled</a:Name>
+                <a:Reference i:nil="true"/>
+                <a:Value>True</a:Value>
+            </a:DeviceProperty>
+            <a:DeviceProperty>
+                <a:Name>MacSecProfileName</a:Name>
+                <a:Reference i:nil="true"/>
+                <a:Value>{{ device_conn[inventory_hostname][iface_name]['macsec_profile'] }}</a:Value>
+            </a:DeviceProperty>
+            </a:Properties>
+            <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
         </a:LinkMetadata>
 {% endif %}
 {% endfor %}

@@ -944,10 +944,18 @@
         become: true
         when: "('t2' in topo) and (enable_macsec is defined)"
 
+      # Load topo vars only to access macsec_links; the include is no-op for
+      # the rest of this play because topo vars don't override anything we use
+      # in subsequent tasks.
+      - name: Load topology variables for macsec_links lookup
+        include_vars: "vars/topo_{{ topo }}.yml"
+        when: "('t2' in topo) and (macsec_profile is defined)"
+
       - name: Generate golden_config_db.json for t2
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           macsec_profile: "{{ macsec_profile }}"
+          macsec_links: "{{ macsec_links | default([]) }}"
           num_asics: "{{ num_asics }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
