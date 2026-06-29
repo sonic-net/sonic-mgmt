@@ -254,6 +254,7 @@ def send_and_verify_traffic(ptfadapter,
     except AssertionError as detail:
         if "Did not receive expected packet on any of ports" in str(detail):
             logger.error("Expected packet(s) was not received on any of the ports -> {}".format(ptf_dst_port_ids))
+        return None
 
 
 def find_queue_count_and_value(duthost, queue_val_list, dut_egress_port_list):
@@ -457,6 +458,13 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 # Sending large number of packets can cause socket buffer to be full and leads connection timeout.
                 logger.error("{}: Try reducing DEFAULT_PKT_COUNT value".format(str(e)))
                 failed_once = True
+
+            if dst_ptf_port_id_list is None:
+                logger.error("Traffic verification failed - no packets received")
+                for i in range(step):
+                    output_table.append([rotating_dscp + i, "N/A", 0, "FAILURE - NO PACKETS RECEIVED", "N/A"])
+                failed_once = True
+                continue
 
             if asic_type == 'vs':
                 logger.info("Skipping queue verification for VS platform")
