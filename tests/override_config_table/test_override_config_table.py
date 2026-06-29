@@ -4,12 +4,15 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from tests.common.utilities import backup_config, restore_config, get_running_config,\
+from tests.common.utilities import backup_config, restore_config, get_running_config, \
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
 from tests.common import mellanox_data
 from tests.common import broadcom_data
 
+# Tables known to be overriden in run-time config, which will appear different
+# if the golden config is overridden empty.
+GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT"]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -63,7 +66,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, config_source="minigraph", safe_reload=True)
+    config_reload(duthost, config_source="minigraph", safe_reload=True, wait_for_bgp=True)
     running_config = get_running_config(duthost)
 
     yield running_config
@@ -81,7 +84,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def load_minigraph_with_golden_empty_input(duthost):
@@ -93,20 +96,19 @@ def load_minigraph_with_golden_empty_input(duthost):
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     current_config = get_running_config(duthost)
+    problem_tables = []
     for table in initial_config:
-        if table in NON_USER_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
             continue
 
         if table == "ACL_TABLE":
-            pytest_assert(
-                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
-                "empty input ACL_TABLE compare fail!"
-            )
+            if not compare_dicts_ignore_list_order(initial_config[table], current_config[table]):
+                problem_tables.append(table)
         else:
-            pytest_assert(
-                initial_config[table] == current_config[table],
-                "empty input compare fail! {}".format(table)
-            )
+            if not initial_config[table] == current_config[table]:
+                problem_tables.append(table)
+
+    pytest_assert(not problem_tables, "empty input compare fail: {}".format(problem_tables))
 
 
 def load_minigraph_with_golden_partial_config(duthost):

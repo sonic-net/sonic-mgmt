@@ -1,36 +1,31 @@
 import logging
 
-import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 import time
 import threading
-import concurrent.futures
 from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from gnmi_utils import apply_messages
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
+from tests.ha.conftest import apply_dash_pl_pipeline_config
+from ha_dash_flow_utils import compare_flow_tables
 from ha_dpu_utils import dpu_power_off_for_index, dpu_power_on_for_index
+from ha_utils import wait_for_ha_scope_pmon_state, parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1-smartswitch-ha')
+    pytest.mark.topology('t1-smartswitch-ha'),
+    pytest.mark.skip_check_dut_health
 ]
 
 
-THRESHOLD_LOSS_PERCENT = 2.0
+TRAFFIC_LOSS_DURATION_CAP = 2.0
 RATE_PPS = 20
 INITIAL_SEND_COUNT = 100
-
-
-def reload_config_for_host(dpuhost):
-    logger.info(f"config reload on {dpuhost.hostname}")
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -44,58 +39,16 @@ def common_setup_teardown(
     setup_ha_config,
     setup_dash_ha_from_json_func_scope,
     setup_gnmi_server,
-    set_vxlan_udp_sport_range,
+    ensure_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
 ):
     if skip_config:
         return
 
-    for i in range(len(duthosts)):
-        duthost = duthosts[i]
-        dpuhost = dpuhosts[i]
-        base_config_messages = {
-            **pl.APPLIANCE_CONFIG,
-            **pl.ROUTING_TYPE_PL_CONFIG,
-            **pl.VNET_CONFIG,
-            **pl.ROUTE_GROUP1_CONFIG,
-            **pl.METER_POLICY_V4_CONFIG
-        }
-        logger.info(f"Starting DASH configuration on {duthost.hostname}"
-                    "dpu {dpuhost.dpu_index} with {base_config_messages}")
-
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-        route_and_mapping_messages = {
-            **pl.PE_VNET_MAPPING_CONFIG,
-            **pl.PE_SUBNET_ROUTE_CONFIG,
-            **pl.VM_SUBNET_ROUTE_CONFIG
-        }
-
-        if 'bluefield' in dpuhost.facts['asic_type']:
-            route_and_mapping_messages.update({
-                **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-            })
-
-        logger.info(route_and_mapping_messages)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
-
-        meter_rule_messages = {
-            **pl.METER_RULE1_V4_CONFIG,
-            **pl.METER_RULE2_V4_CONFIG,
-        }
-        logger.info(meter_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-        logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        # Map the reload_config_for_host function to the dpuhosts list
-        executor.map(reload_config_for_host, dpuhosts)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """
@@ -129,7 +82,10 @@ def test_ha_dpu_failure(
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     dpu_shut = "Standby DPU shut" if standby_dpu_fail else "Primary DPU shut"
     encap_proto = "vxlan"
-    dpu_id = 0
+    if standby_dpu_fail:
+        dpu_id = dpuhosts[1].dpu_index
+    else:
+        dpu_id = dpuhosts[0].dpu_index
     rate_pps = RATE_PPS
     initial_send_count = INITIAL_SEND_COUNT
     delay = 1.0 / rate_pps
@@ -139,6 +95,12 @@ def test_ha_dpu_failure(
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
 
     send_count = 0
     failed_count = 0
@@ -182,14 +144,19 @@ def test_ha_dpu_failure(
                 testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet to standby received")
+                    logger.info("First packet to standby received - compare flows")
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1], verbose=True)
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+
             else:
                 if send_count == 0:
                     logger.info("Send first packet to primary")
                 testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
-                    logger.info("First packet to primary received")
+                    logger.info("First packet to primary received - compare flows")
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
+                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
                 if send_count == 0:
@@ -207,17 +174,56 @@ def test_ha_dpu_failure(
 
     t.join()
     time.sleep(2)
-    # bring back up the DPU
+
     dut = duthosts[1] if standby_dpu_fail else duthosts[0]
     dpu_name = f"DPU{dpu_id}"
+
+    # Verify HA scope PMON state on the failed-DPU NPU reports "down" for the
+    # local vDPU (midplane / control plane / data plane) while the DPU is off.
+    failed_dut_index = 1 if standby_dpu_fail else 0
+    scope_key = (
+        f"vdpu{failed_dut_index}_"
+        f"{dpuhosts[failed_dut_index].dpu_index}:haset0_0"
+    )
+    logger.info(
+        f"Verify DASH_HA_SCOPE_STATE PMON fields are 'down' on "
+        f"{dut.hostname} scope {scope_key}"
+    )
+    down_ok, down_state = wait_for_ha_scope_pmon_state(
+        dut, scope_key, expected_state="down",
+        timeout=60, interval=5,
+    )
+    pytest_assert(
+        down_ok,
+        f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not reach "
+        f"'down' for {scope_key} while {dpu_name} was powered off. "
+        f"Observed: {down_state}"
+    )
+
     logger.info(f"Startup {dpu_name} on {dut.hostname}")
     pytest_assert(dpu_power_on_for_index(dut, dpu_id), f"Failed to bring up {dpu_name} on {dut.hostname}")
 
-    threshold_loss = THRESHOLD_LOSS_PERCENT
-    percentage_loss = (failed_count / send_count) * 100
-    if (percentage_loss < threshold_loss):
+    # Verify HA scope PMON state returns to "up" after powering the DPU back on.
+    logger.info(
+        f"Verify DASH_HA_SCOPE_STATE PMON fields recover to 'up' on "
+        f"{dut.hostname} scope {scope_key}"
+    )
+    up_ok, up_state = wait_for_ha_scope_pmon_state(
+        dut, scope_key, expected_state="up",
+        timeout=480, interval=5,
+    )
+    pytest_assert(
+        up_ok,
+        f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not recover "
+        f"to 'up' for {scope_key} after powering on {dpu_name}. "
+        f"Observed: {up_state}"
+    )
+
+    threshold_loss = TRAFFIC_LOSS_DURATION_CAP * RATE_PPS
+    measured_loss = failed_count
+    if (measured_loss < threshold_loss):
         logger.info(f"{dpu_shut} with {traffic} test OK. Sent: {send_count},"
-                    f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
+                    f" not received: {failed_count}, loss: {measured_loss}, threshold: {threshold_loss}")
     else:
         pytest.fail(f"{dpu_shut} with {traffic} test error. Sent: {send_count},"
-                    f" not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")
+                    f" not received: {failed_count} loss: {measured_loss}, threshold: {threshold_loss}")

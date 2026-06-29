@@ -127,6 +127,24 @@ def select_ingress_port(duthost):
     pytest.skip("No oper UP Ethernet interface found on the DUT to be used as ingress port.")
 
 
+def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac):
+    """
+        Returns the destination MAC the outer VxLAN packet must carry to be L3-terminated
+        (and therefore decapsulated) when it ingresses on 'ingress_intf'.
+
+        On t1 the server/downlink ports are routed (L3) interfaces, so the global router MAC
+        is the termination MAC. On t0/dualtor the server ports are VLAN member ports; routing
+        for that subnet is done by the VLAN SVI, whose MAC may differ from the router MAC
+        (on dualtor it is the shared gateway MAC). Using the router MAC on such a port leaves
+        the frame at L2 and it gets flooded in the VLAN instead of being decapsulated.
+    """
+    if tbinfo["topo"]["type"] == "t0" and ingress_intf is not None:
+        for vlan_name, vlan_info in minigraph_facts.get("minigraph_vlans", {}).items():
+            if ingress_intf in vlan_info.get("members", []):
+                return duthost.get_dut_iface_mac(vlan_name)
+    return router_mac
+
+
 def select_egress_ip_and_ports(duthost, minigraph_facts, inner_ip_version, exclude_ports=[]):
     """
         Returns a tuple of (egress_ip, egress_port_list) to be used in tests.
@@ -218,6 +236,8 @@ def get_expected_packet_mask(inner_pkt, inner_ip_version):
         return get_expected_packet_mask_ipv6(inner_pkt)
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_upper_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_lower_tor
 def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_version, inner_ip_version):  # noqa F811
     """
         In this test, the DUT acts as a VNET endpoint and decapulates VxLAN packets sent to it that match
@@ -235,9 +255,14 @@ def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_vers
     egress_port_indices = [ptf_indices[port] for port in egress_ports]
     ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_indices[ingress_port])
 
+    # On t0/dualtor the ingress port may be a VLAN member, in which case the outer packet must be
+    # addressed to the VLAN SVI MAC (the L3 termination MAC) to be decapsulated rather than flooded.
+    # The inner frame's dst MAC stays the router MAC, which is the configured vxlan_router_mac.
+    outer_dst_mac = get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_port, router_mac)
+
     inner_pkt = get_inner_packet(dst_mac=router_mac, src_mac=ptf_src_mac, ip_version=inner_ip_version,
                                  dst_ip=inner_dst_ip, ttl=2)
-    outer_pkt = get_outer_packet(eth_dst=router_mac, eth_src=ptf_src_mac, ip_version=outer_ip_version,
+    outer_pkt = get_outer_packet(eth_dst=outer_dst_mac, eth_src=ptf_src_mac, ip_version=outer_ip_version,
                                  ip_dst=vnet_endpoint, inner_pkt=inner_pkt)
 
     exp_pkt_mask = get_expected_packet_mask(inner_pkt, inner_ip_version)

@@ -8,6 +8,7 @@ import re
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.utilities import wait_until
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
@@ -389,7 +390,8 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
 @pytest.mark.disable_loganalyzer
 def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic,  # noqa F811
+                                  is_support_fan):                                                      # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -431,6 +433,11 @@ def get_system_health_config(duthost, key, default):
         cmd = 'cat {}'.format(config_file)
         output = duthost.shell(cmd)
         content = output['stdout'].strip()
+
+        # For mellanox devices, both amber and red are displayed as red in the show system-health summary output
+        if is_mellanox_device(duthost):
+            content = content.replace('amber', 'red')
+
         json_obj = json.loads(content)
         return json_obj[key]
     except Exception:

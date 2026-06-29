@@ -156,34 +156,7 @@ copp:
 #######################################
 #####           Decap             #####
 #######################################
-decap/test_decap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 decap/test_subnet_decap.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           DNS               #####
-#######################################
-dns/static_dns/test_static_dns.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-dns/test_dns_resolv_conf.py::test_dns_resolv_conf:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -202,14 +175,6 @@ drop_packets/test_configurable_drop_counters.py:
     conditions:
       - "asic_type in ['vpp']"
 
-drop_packets/test_drop_counters.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 #######################################
 #####          DUT Console        #####
 #######################################
@@ -219,7 +184,7 @@ dut_console/test_console_baud_rate.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_console_chassis_conn.py:
   skip:
@@ -227,7 +192,7 @@ dut_console/test_console_chassis_conn.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_escape_character.py:
   skip:
@@ -235,7 +200,7 @@ dut_console/test_escape_character.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 dut_console/test_idle_timeout.py:
   skip:
@@ -243,7 +208,7 @@ dut_console/test_idle_timeout.py:
             Failed/Errored: To be included
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and (not platform.startswith('arm64-c8220tg_48a_o'))"
 
 #######################################
 #####         Everflow            #####
@@ -259,29 +224,15 @@ everflow:
 #######################################
 #####           FIB               #####
 #######################################
-fib/test_fib.py::test_ipinip_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-fib/test_fib.py::test_nvgre_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-fib/test_fib.py::test_vxlan_hash:
-  skip:
-    reason: >
-            Unsupported
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+# test_ipinip_hash, test_nvgre_hash, test_vxlan_hash now PASS on sonic-vpp
+# (issue #25762). Required:
+#   - VPP: inner-aware ECMP and LAG flow hash for IPinIP and GRE/NVGRE
+#     (sonic-platform-vpp #234 / patch 0010-sonic-inner-aware-flow-hash).
+#   - libsaivs: opt the default + non-default VRFs (both AF_INET and
+#     AF_INET6) into the new VPP_IP_API_FLOW_HASH_PEEK_INNER bit
+#     (sonic-sairedis #1896, vslib/vpp/SwitchVppRif.cpp).
+#   - sonic-mgmt: test_nvgre_hash limited to inner keys['src-ip', 'dst-ip', 'src-port', 'dst-port'] for vpp
+#     (no MAC-aware hash, same as marvell-teralynx limitation).
 
 #######################################
 #####    Generic Config Updater   #####
@@ -445,28 +396,6 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
-#####           IP                #####
-#######################################
-ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####         Log Fidelity        #####
-#######################################
-log_fidelity/test_bgp_shutdown.py::test_bgp_shutdown:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
@@ -553,31 +482,7 @@ override_config_table/test_override_config_table.py::test_load_minigraph_with_go
 #######################################
 #####          PC                 #####
 #######################################
-pc/test_lag_2.py::test_lag:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pc/test_po_cleanup.py::test_po_cleanup:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-pc/test_po_cleanup.py::test_po_cleanup_after_reload:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -636,16 +541,6 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
   skip:
     reason: >
             Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####           Route             #####
-#######################################
-route/test_route_flow_counter.py:
-  skip:
-    reason: "per route counter is not supported in sonic-vpp but is supported in vpp dataplane. To be included after per route counter support is added in sonic-vpp."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"

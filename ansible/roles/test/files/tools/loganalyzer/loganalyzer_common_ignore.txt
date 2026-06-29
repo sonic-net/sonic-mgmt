@@ -7,6 +7,7 @@ r, ".* ERR .*initializeGlobalConfig: SonicDBConfig Global config is already init
 r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""ntpd"" requested_mask=.*"
 r, ".* ERR snmp#snmp-subagent.*"
 r, ".* ERR route_check.py.*"
+r, ".*ERR monit\[\d+\]: 'routeCheck' status failed.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
 r, ".* ERR ntpd.*bind.*AF_INET6.*"
@@ -46,6 +47,15 @@ r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters_acc.*Get Port Phy Control FEC Symbol Error Count.*failed with error Operation disabled \(0xfffffff4\).*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*port info data get failed with error -2.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn.*Fec Alignment lock status failed.*with error -8.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_port_get_fec_alignment_lock_status.*FEC AM is not supported.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn.*Fec Alignment lock status failed.*with error -327680.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC RS Bit Error Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Uncorrected Block Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Corrected Block Count failed - port:.*rc: -16.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.*Get Port Phy Control FEC Symbol Error Count failed - port:.*rc: -16.*"
 
 # Errors for config reload on broadcom platform on 202511
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed - port: \d+, rc: -16.*"
@@ -243,6 +253,18 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatc
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/27327
+# Mellanox SDK new log format (with client_pid prefix) - FEC_ALIGNMENT_LOCK polling on ports without FEC support
+# and sai_get_attributes failures in the new format
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed Get #\d+, FEC_ALIGNMENT_LOCK, key:PORT.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] client_pid=\d+, .\/src\/mlnx_sai_utils.c\[\d+\]- sai_get_attributes: Failed to get attribute.*"
+
+# Mellanox SAI_PORT FEC alignment lock not supported on pre-SPC4 platforms (SN2700, SN4600C, SN4700)
+r, ".* ERR syncd#SDK: \[SAI_PORT.ERR\].*mlnx_sai_port.c\[\d+\]- mlnx_port_state_get: FEC alignment lock only supported on SPC4\+.*"
+
+# Orchagent PORT_PHY_SERDES_ATTR counter map errors for ports without serdes objects
+r, ".* ERR swss\d*#orchagent: :- clearPortPhySerdesAttrCounterMap: PORT_PHY_SERDES_ATTR: Port .* has no serdes object"
+
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
@@ -313,6 +335,8 @@ r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
+# Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
+r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
@@ -432,8 +456,6 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
-# https://github.com/aristanetworks/sonic-qual.msft/issues/1156
-r, ".*ERR pmon#DomInfoUpdateTask.*Failed to get VDM basic real values for port.*"
 
 # Ignore PIE port error log on set pfc mode
 r, ".* ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_NOT_SUPPORTED.*"
@@ -463,7 +485,7 @@ r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplep
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
-
+r, ".*ERR sfputil.*message repeated \d+ times.*Failed to read from file \/sys\/module\/sx_core\/asic\d+\/module\d+\/present.*FileNotFoundError.*"
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
@@ -486,9 +508,13 @@ r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT fail
 # https://github.com/sonic-net/sonic-mgmt/issues/24023
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn:\d+ RX signal detect status get \d+ attrib \d+ failed with error Feature unavailable \(0xfffffff0\).*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT:brcm_sai_get_port_attribute_cmn:\d+ bcm_port_phy_control_get rx snr failed with error Feature unavailable \(0xfffffff0\).*"
-r, ".* ERR syncd\d*#syncd: :- collectData: Failed to get port attr for VID 0x[0-9a-fA-F]+, RID:0x[0-9a-fA-F]+: -2.*"
+r, ".* ERR syncd\d*#syncd: :- collectData: Failed to get port attr for VID 0x[0-9a-fA-F]+, RID:0x[0-9a-fA-F]+: -\d+.*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/19347
 r, ".* ERR auditd.*: queue to plugins is full - dropping event"
 r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
 r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
+
+# ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
+r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
+r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"

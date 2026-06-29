@@ -67,6 +67,12 @@ def get_asic_db_values(duthost, fields, cli_namespace_prefix):
             continue
         wred_data = ast.literal_eval(wred_data)
         values = {}
+        ecn_data = {k.replace('SAI_WRED_ATTR_', '').lower(): v for k, v in wred_data.items()
+                    if k.startswith('SAI_WRED_ATTR')}
+        delta = determine_delta_values(ecn_data, fields, True)
+        if all(delta[f] == 0 for f in fields):
+            logger.info(f"Skipping WRED object {wred_object}: all deltas are 0, no real value change possible.")
+            continue
         for field in fields:
             values[field] = int(wred_data[WRED_MAPPING[field]])
         if values:
@@ -143,7 +149,7 @@ def get_wred_profiles(duthost, cli_namespace_prefix):
 
 
 # Determines how the value of each field should change to satisfy different constraints (explained below).
-def determine_delta_values(ecn_data, fields):
+def determine_delta_values(ecn_data, fields, wred_green_enabled):
     # Extra care should be taken when changing "green_min_threshold" and "green_max_threshold". "green_min_threshold"
     # must always be less than or equal to "green_max_threshold". Also, "green_max_threshold" must be less than
     # the available buffer pool size. Note that some platforms (e.g., Mellanox) round-up the value of
@@ -151,6 +157,9 @@ def determine_delta_values(ecn_data, fields):
     # value must still be less than the buffer pool size. So to avoid potential issues, we never attempt to increase
     # "green_max_threshold".
     delta = {"green_min_threshold": 0, "green_max_threshold": 0, "green_drop_probability": 0}
+
+    if not wred_green_enabled:  # If 'wred_green_enable' is false, don't change the WRED profile.
+        return delta
 
     min_threshold = int(ecn_data["green_min_threshold"])
     max_threshold = int(ecn_data["green_max_threshold"])
@@ -197,12 +206,19 @@ def determine_delta_values(ecn_data, fields):
     return delta
 
 
+@pytest.fixture
+def create_tmpfile(duthost):
+    tmpfile = generate_tmpfile(duthost)
+    yield tmpfile
+    delete_tmpfile(duthost, tmpfile)
+
+
 @pytest.mark.parametrize("configdb_field", ["green_min_threshold", "green_max_threshold", "green_drop_probability",
                          "green_min_threshold,green_max_threshold,green_drop_probability"])
 @pytest.mark.parametrize("operation", ["replace"])
 def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation,
-                            enum_rand_one_frontend_asic_index, cli_namespace_prefix):
-    tmpfile = generate_tmpfile(duthost)
+                            enum_rand_one_frontend_asic_index, cli_namespace_prefix, create_tmpfile):  # noqa F811
+    tmpfile = create_tmpfile
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, operation))
     namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
@@ -215,37 +231,33 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
     # new_values is a dictionary from WRED profile name to its field-value mapping (with new values)
     # for the fields in configdb_field.
     new_values = {}
-    # Creating a JSON patch for all WRED profiles in CONFIG_DB.
+    # Creating a JSON patch for all WRED profiles in CONFIG_DB for which 'wred_green_enable' is true.
     for wred_profile in wred_profiles:
         ecn_data = duthost.shell("sonic-db-cli {} CONFIG_DB hgetall 'WRED_PROFILE|{}'"
                                  .format(cli_namespace_prefix, wred_profile))['stdout']
         ecn_data = ast.literal_eval(ecn_data)
-        delta = determine_delta_values(ecn_data, fields)
-        if all(delta[f] == 0 for f in fields):
-            logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
-            continue
+        wred_green_enabled = ecn_data.get("wred_green_enable", "false").lower() == "true"
+        if not wred_green_enabled:
+            logger.info(f"Not modifying the WRED profile {wred_profile} since 'wred_green_enable' is false.")
+        delta = determine_delta_values(ecn_data, fields, wred_green_enabled)
         new_values[wred_profile] = {}
         for field in fields:
             value = int(ecn_data[field])
             value += delta[field]
             new_values[wred_profile][field] = value
-
-            logger.info("value to be added to json patch: {}, operation: {}, field: {}"
-                        .format(value, operation, field))
-
-            json_patch.append(
-                              {"op": "{}".format(operation),
-                               "path": f"/WRED_PROFILE/{wred_profile}/{field}",
-                               "value": "{}".format(value)})
+            if wred_green_enabled:
+                logger.info("value to be added to json patch: {}, operation: {}, field: {}"
+                            .format(value, operation, field))
+                json_patch.append(
+                                  {"op": "{}".format(operation),
+                                   "path": f"/WRED_PROFILE/{wred_profile}/{field}",
+                                   "value": "{}".format(value)})
 
     if not json_patch:
         pytest.skip("All WRED profiles have zero deltas for the requested fields, skipping test.")
 
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
                                                  is_asic_specific=True, asic_namespaces=[namespace])
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    expect_op_success(duthost, output)
+    ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix)

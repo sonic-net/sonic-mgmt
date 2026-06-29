@@ -31,7 +31,10 @@ logger = logging.getLogger(__name__)
 
 # ---- Constants ----
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
-PLACEHOLDER_PREFIX = "192.0.2.0/32"
+# Use a /24 (not /32) — FRR rejects host-route aggregates with
+# 'will not result in any useful aggregation, disallowing'.
+# 192.0.2.0/24 is the RFC 5737 TEST-NET-1 documentation block.
+PLACEHOLDER_PREFIX = "192.0.2.0/24"
 
 # Convergence wait times
 ROUTE_PROPAGATION_WAIT = 10

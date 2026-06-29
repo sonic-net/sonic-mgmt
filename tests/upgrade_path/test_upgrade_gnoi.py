@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls, ptf_grpc, ptf_gnoi, setup_gnoi_tls_server  # noqa: F401
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
 
@@ -29,7 +29,7 @@ def gnoi_upgrade_path_lists(request):
 def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request,
-    gnoi_upgrade_path_lists, gnmi_tls,  # noqa: F811
+    gnoi_upgrade_path_lists, gnmi_tls, ptf_gnoi,  # noqa: F811
     conn_graph_facts, xcvr_skip_list
 ):
     duthost = duthosts[rand_one_dut_hostname]
@@ -55,6 +55,10 @@ def test_upgrade_via_gnoi(
     )
 
     def upgrade_path_preboot_setup():
+        # Save TLS config to disk before the reboot so it persists through it.
+        # setup_upgrade_test reboots the DUT which restores CONFIG_DB from disk,
+        # and without this save the gnmi_tls fixture's config would be wiped.
+        duthost.shell("sudo config save -y")
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 

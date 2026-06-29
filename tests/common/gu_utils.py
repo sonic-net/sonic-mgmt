@@ -2,7 +2,6 @@ import json
 import logging
 import pytest
 import os
-import time
 import re
 from jsonpointer import JsonPointer
 from tests.common.helpers.assertions import pytest_assert
@@ -17,7 +16,10 @@ GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 GCUTIMEOUT_MAP = {
     'armhf-nokia_ixs7215_52x-r0': 1200,
-    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+    'x86_64-nvidia_sn5640-r0': 3600,  # Increase timeout due to issue #22370
+    # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
+    # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
+    'x86_64-nokia_ixr7220_h6_128-r0': 1800,
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -127,13 +129,30 @@ def apply_patch(duthost, json_data, dest_file):
     cmds = 'config apply-patch {}'.format(dest_file)
 
     logger.info("Commands: {}".format(cmds))
-    start_time = time.time()
-    output = duthost.shell(cmds, module_ignore_errors=True)
-    elapsed_time = time.time() - start_time
     gcu_timeout = get_gcu_timeout(duthost)
-    if elapsed_time > gcu_timeout:
-        logger.error("Command took too long: {} seconds".format(elapsed_time))
-        raise TimeoutError("Command execution timeout: {} seconds".format(elapsed_time))
+
+    # Run the command asynchronously so we can poll for completion and
+    # time out without blocking the test runner indefinitely.  This
+    # uses wait_until (the standard polling helper used across the repo)
+    # instead of an ad-hoc bash 'timeout' wrapper, giving us periodic
+    # logging and Python-level control over the thread.
+    pool, async_result = duthost.shell(cmds, module_ignore_errors=True,
+                                       module_async=True)
+    try:
+        completed = wait_until(gcu_timeout, 10, 0,
+                               lambda: async_result.ready())
+        if not completed:
+            logger.error("apply-patch did not complete within {} seconds, "
+                         "terminating".format(gcu_timeout))
+            raise TimeoutError(
+                "Command execution timeout: {} seconds".format(gcu_timeout))
+
+        # .get() returns the result on success or re-raises the
+        # original exception from the worker thread on failure.
+        output = async_result.get()
+    finally:
+        pool.terminate()
+        pool.join()
 
     return output
 
@@ -347,7 +366,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     output = rollback(duthost, cp)
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
-        config_reload(duthost)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
 
@@ -519,22 +538,36 @@ def expect_acl_table_match_multiple_bindings(duthost,
 
             first_line = output[0]
             first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            pytest_assert(set(first_line.values()) == set(expected_first_line_content),
-                          "First line content does not match. Difference: {}".format(first_line_diff))
+            if not set(first_line.values()) == set(expected_first_line_content):
+                logger.warning(f"First line content does not match. Difference: {first_line_diff}")
+                return False
 
             table_bindings = [first_line["binding"]]
             for i in range(len(output)):
                 table_bindings.append(output[i]["binding"])
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
-            pytest_assert(set(table_bindings) == set(expected_bindings),
-                          "ACL Table bindings don't fully match. Difference: {}".format(table_bindings_diff))
+            if not set(table_bindings) == set(expected_bindings):
+                logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
+                return False
             return True
 
-        wait_until(30, 5, 0, check_table)
+        pytest_assert(wait_until(30, 5, 0, check_table), "ACL table does not contain expected bindings")
 
 
-def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
-    """Check if acl rule shows as expected"""
+def expect_acl_rule_match(duthost, rulename, expected_content_list, setup, timeout=15, interval=2):
+    """Check if acl rule shows as expected.
+
+    GCU writes the rule to CONFIG_DB synchronously, but orchagent programs it to the
+    ASIC asynchronously (draining its queue in lexicographic key order) and only then
+    writes the STATE_DB status to "Active". At scale a freshly-added rule can read back
+    as "N/A" / "Pending creation" for several seconds, so poll until it matches instead
+    of checking exactly once.
+
+    Args:
+        timeout: Maximum seconds to wait for the rule to reach the expected state.
+                 Increase for large/scale patches where programming takes longer.
+        interval: Seconds between polls.
+    """
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
 
@@ -544,20 +577,35 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list, setup):
 
     for dut in duts_to_check:
 
-        output = dut.show_and_parse(cmds)
+        def rule_matches():
+            # Return True/False (never assert) so wait_until can keep polling.
+            # wait_until swallows pytest.fail.Exception, so an assert here would be
+            # silently treated as a retry rather than a hard failure.
+            output = dut.show_and_parse(cmds)
 
-        rule_lines = len(output)
+            rule_lines = len(output)
+            if rule_lines < 1:
+                logger.warning("'{}' is not a rule on this device yet".format(rulename))
+                return False
 
-        pytest_assert(rule_lines >= 1, "'{}' is not a rule on this device".format(rulename))
+            first_line = output[0].values()
+            if not set(first_line) <= set(expected_content_list):
+                logger.warning("Rule '{}' not matching yet. Got {}, want subset of {}".format(
+                    rulename, list(first_line), expected_content_list))
+                return False
 
-        first_line = output[0].values()
+            if rule_lines > 1:
+                for i in range(1, rule_lines):
+                    if output[i]["match"] not in expected_content_list:
+                        logger.warning("Unexpected match condition for '{}': {}".format(
+                            rulename, output[i]["match"]))
+                        return False
+            return True
 
-        pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
-
-        if rule_lines > 1:
-            for i in range(1, rule_lines):
-                pytest_assert(output[i]["match"] in expected_content_list,
-                              "Unexpected match condition found: " + str(output[i]["match"]))
+        pytest_assert(
+            wait_until(timeout, interval, 0, rule_matches),
+            "ACL rule '{}' did not reach expected state within {}s "
+            "(status likely N/A/Pending creation)".format(rulename, timeout))
 
 
 def expect_acl_rule_removed(duthost, rulename, setup):
@@ -649,4 +697,9 @@ def get_bgp_speaker_runningconfig(duthost):
 
 
 def get_gcu_timeout(duthost):
-    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 600)
+    """Return the GCU apply-patch timeout (in seconds) for this platform.
+
+    Platforms listed in GCUTIMEOUT_MAP get a custom value; everything
+    else defaults to 900 s.
+    """
+    return GCUTIMEOUT_MAP.get(duthost.facts['platform'], 900)

@@ -94,10 +94,13 @@ class TestAutoTechSupport:
         self.set_test_dockers_list()
 
         logger.info('Waiting until existing(if exist) techsupport processes finish')
-        wait_until(300, 10, 0, is_techsupport_generation_in_expected_state, self.duthost, False)
+        if not wait_until(300, 10, 0, is_techsupport_generation_in_expected_state, self.duthost, False):
+            logger.warning('Existing techsupport generation processes did not finish; cleaning them up')
+            clear_techsupport_generation_processes(self.duthost)
 
         clear_auto_techsupport_history(self.duthost)
         self.duthost.shell('sudo mkdir /var/dump/', module_ignore_errors=True)
+        clear_techsupport_generation_processes(self.duthost)
         clear_folders(self.duthost)
 
         create_core_file_generator_script(self.duthost)
@@ -105,6 +108,7 @@ class TestAutoTechSupport:
         yield
 
         clear_auto_techsupport_history(self.duthost)
+        clear_techsupport_generation_processes(self.duthost)
         clear_folders(self.duthost)
 
     @pytest.fixture(autouse=True, scope='class')
@@ -687,15 +691,10 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
     :return: True in case when techsupport generation in progress
     """
     with allure.step('Checking techsupport generation process'):
-        techsupport_in_progress = False
-        processes_to_be_ignored = 2
-        get_running_tech_procs_cmd = 'ps -aux | grep "coredump_gen_handler"'
-        # Need to ignore 2 lines: one line with "grep...", another line with ansible module which call "grep..."
-        num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
+        running_processes = get_running_techsupport_generation_processes(duthost)
+        num_of_process = len(running_processes)
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
-
-        if num_of_process >= 1:
-            techsupport_in_progress = True
+        techsupport_in_progress = num_of_process >= 1
 
         is_in_expected_state = False
         if expected_in_progress:
@@ -706,6 +705,34 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
                 is_in_expected_state = True
 
         return is_in_expected_state
+
+
+def get_running_techsupport_generation_processes(duthost):
+    """
+    Get coredump handler PIDs. These handlers own auto-techsupport generation.
+    :param duthost: duthost object
+    :return: list of PIDs as strings
+    """
+    cmd = "ps -eo pid=,cmd= | awk '/[c]oredump_gen_handler.py/ {print $1}'"
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout_lines']
+    return [line.strip() for line in output if line.strip().isdigit()]
+
+
+def clear_techsupport_generation_processes(duthost):
+    """
+    Stop stale coredump handlers so a previous failed run cannot block the next one.
+    :param duthost: duthost object
+    """
+    pids = get_running_techsupport_generation_processes(duthost)
+    if not pids:
+        return
+
+    logger.warning('Stopping stale auto-techsupport generation processes: {}'.format(', '.join(pids)))
+    duthost.shell('sudo kill {}'.format(' '.join(pids)), module_ignore_errors=True)
+    if not wait_until(30, 2, 0, is_techsupport_generation_in_expected_state, duthost, False):
+        pids = get_running_techsupport_generation_processes(duthost)
+        if pids:
+            duthost.shell('sudo kill -9 {}'.format(' '.join(pids)), module_ignore_errors=True)
 
 
 def validate_core_files_inside_techsupport(duthost, techsupport_folder, expected_core_files_list):
@@ -945,7 +972,17 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
     if expected_techsupport_files:
         # ensure that creation of tar.gz file is complete by checking if the intermediate tar
         # file generated is removed
-        assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
+
+        platform = duthost.facts["platform"]
+
+        if platform in ["armhf-nokia_ixs7215_52x-r0"]:
+            # For this platform, techsupport takes more time, so increase waiting time
+            wait = 900
+        else:
+            # For other platforms, fall back to default 600 seconds
+            wait = 600
+
+        assert wait_until(wait, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
     # Do validation for history
@@ -1207,7 +1244,8 @@ def validate_expected_stub_files(duthost, validation_folder, expected_stub_files
     :param not_expected_stub_files_list: not expected files list
     :param expected_max_folder_size: expected maximum folder size
     """
-    validation_files_list = duthost.shell('sudo ls {}'.format(validation_folder))['stdout_lines']
+    validation_files_list = duthost.shell(f'sudo ls -p {validation_folder} | grep -v /',
+                                          module_ignore_errors=True)['stdout_lines']
 
     # Check that all expected stub files exist
     validate_files_in_folder(validation_files_list, expected_stub_files_list)

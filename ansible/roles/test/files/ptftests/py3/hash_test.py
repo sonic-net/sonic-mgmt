@@ -39,7 +39,8 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    RELAXED_BALANCING_RANGE = 0.80
+    RELAXED_BALANCING_RANGE = 0.8
+    RELAXED_BALANCING_RANGE_MAXTOPO = 1.5
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
@@ -543,8 +544,10 @@ class HashTest(BaseTest):
                 return (percentage, actual >= expected * 0.2)
             elif 't2' in self.topo_name:
                 # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
-                # a large number of ecmp paths so relax the hashing requirements
-                balancing_range = self.RELAXED_BALANCING_RANGE
+                # a large number of ecmp paths so relax the hashing requirements. For max port count topologies,
+                # relax the hashing requirements further
+                balancing_range = self.RELAXED_BALANCING_RANGE_MAXTOPO if "max" in self.topo_name \
+                    else self.RELAXED_BALANCING_RANGE
         return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
@@ -960,6 +963,11 @@ class VxlanHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+        # Outer IPv6 hlim may be decremented multiple times on chassis
+        # (across ingress/egress LCs); also mask inner TCP chksum.
+        if self.ignore_ttl and version == 'IPv6':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         return masked_exp_pkt
 
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
@@ -1097,6 +1105,12 @@ class NvgreHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         if version == 'IPv6':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        # Outer TTL may be decremented multiple times on chassis
+        # (across ingress/egress LCs). Mask outer IP ttl and chksum
+        # when ignore_ttl is set.
+        if self.ignore_ttl and version == 'IP':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         return masked_exp_pkt
 
     def create_pkt(

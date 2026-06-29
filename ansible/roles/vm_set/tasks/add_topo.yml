@@ -353,6 +353,13 @@
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
 
+  - name: Don't accept ipv6 router advertisements on PTF mgmt interface if it exists
+    command: >
+      docker exec -i ptf_{{ vm_set_name }}
+      sh -c 'test ! -e /proc/sys/net/ipv6/conf/mgmt/accept_ra ||
+             sysctl -w net.ipv6.conf.mgmt.accept_ra=0'
+    become: yes
+
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
     when: topo != 'fullmesh' and not (ptf_use_docker_network | default(false))
@@ -435,8 +442,9 @@
 - name: Save PTF image
   block:
   - shell: docker tag "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}" docker-ptf
-  - shell: docker save -o docker-ptf.tar docker-ptf
-  - fetch: src=docker-ptf.tar dest=docker-ptf.tar flat=yes
-  - shell: rm -f docker-ptf.tar
+  - shell: docker save -o {{ root_path }}/images/docker-ptf.tar docker-ptf
+  - fetch: src={{ root_path }}/images/docker-ptf.tar dest=docker-ptf.tar flat=yes
+  - shell: rm -f {{ root_path }}/images/docker-ptf.tar
   run_once: yes
+  become: yes
   when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

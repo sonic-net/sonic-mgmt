@@ -11,7 +11,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from bgp_helpers import update_routes
+from tests.common.helpers.bgp import namespace_cli_arg
+from tests.common2.routing.bgp.bgp_route_control import update_routes
 from tests.common.gu_utils import get_bgp_speaker_runningconfig
 from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
@@ -290,9 +291,9 @@ class BgpDualAsn:
         del_keys = " ".join('"BGP_PEER_RANGE|{}"'.format(n) for n in test_peer_ranges)
         ns_list = duthost.get_frontend_asic_namespace_list() or [None]
         for ns in ns_list:
-            ns_flag = "-n {} ".format(ns) if ns else ""
+            ns_flag = namespace_cli_arg(ns)
             duthost.shell(
-                "sonic-db-cli {}CONFIG_DB del {}".format(ns_flag, del_keys),
+                "sonic-db-cli {} CONFIG_DB del {}".format(ns_flag, del_keys),
                 module_ignore_errors=True
             )
 
