@@ -191,16 +191,26 @@ def _validate_port_eeprom_dump(
 
 def _run_per_port_eeprom_check(
     duthost, port_attributes_dict, parse_wrapper, source_label, key_mapping,
-    lport_to_first_subport,
+    lport_to_first_subport, first_subport_only=True,
 ):
-    """Iterate first sub-ports with attributes, validate via
-    ``_validate_port_eeprom_dump``, and aggregate per-port failure blocks
-    for one consolidated ``pytest.fail`` at the test level.
+    """Iterate ports with attributes, validate via ``_validate_port_eeprom_dump``,
+    and aggregate per-port failure blocks for one consolidated ``pytest.fail``
+    at the test level.
 
-    Filters to the first sub-port of each breakout group: EEPROM bytes are
-    per-physical-port, so the other sub-ports return the same data and add no
-    coverage here.  The per-subport ``sfputil`` CLI-resolution path has its own
-    dedicated test.
+    ``first_subport_only`` controls breakout filtering, which is correct for
+    one data source but not the other:
+
+      * ``True`` (sfputil variant): the command reads EEPROM bytes off the
+        physical module, so every sub-port of a breakout maps to the same
+        silicon and returns byte-identical content — testing only the first
+        sub-port adds full coverage with no duplication.  (The per-sub-port
+        logical→physical resolution path is exercised separately by
+        ``test_hexdump.py::test_sfputil_read_eeprom_per_subport_plumbing``.)
+      * ``False`` (show-CLI variant): the command reads STATE_DB
+        ``TRANSCEIVER_INFO|<port>``, which xcvrd populates per logical
+        sub-port.  Each sub-port has its own independent entry, so every
+        sub-port must be validated to catch one whose DB entry is missing or
+        diverged — an xcvrd failure mode only this DB-backed path can surface.
 
     Each port's ASIC network namespace is resolved via
     ``get_port_asic_instance`` + ``get_namespace_from_asic_id`` and forwarded to
@@ -213,7 +223,7 @@ def _run_per_port_eeprom_check(
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
-        if not is_first_subport(port, lport_to_first_subport):
+        if first_subport_only and not is_first_subport(port, lport_to_first_subport):
             logger.debug("Port %s is not the first breakout sub-port, skipping", port)
             continue
         namespace = duthost.get_namespace_from_asic_id(
@@ -251,6 +261,10 @@ def test_eeprom_content_verification_via_sfputil(
         ``sfputil show eeprom`` does not report them, so they are verified by
         the show-CLI variant instead.
 
+    Runs on the first sub-port of each breakout only
+    (``first_subport_only=True``): this command reads EEPROM bytes off the
+    physical module, so non-primary sub-ports return byte-identical content.
+
     Aggregates per-port failure blocks into one ``pytest.fail``.
     """
     all_failures = _run_per_port_eeprom_check(
@@ -259,6 +273,7 @@ def test_eeprom_content_verification_via_sfputil(
         source_label="sfputil show eeprom -p <port>",
         key_mapping=SFPUTIL_CLI_KEY_TO_INV_KEY,
         lport_to_first_subport=lport_to_first_subport_mapping,
+        first_subport_only=True,
     )
     if all_failures:
         pytest.fail("EEPROM verification failures:\n" + "\n".join(all_failures))
@@ -275,6 +290,14 @@ def test_eeprom_content_verification_via_show_cli(
     sluggish ``show interfaces`` path is caught independently of the
     sfputil variant.  This variant additionally verifies firmware versions
     (``Active Firmware`` / ``Inactive Firmware``), which only this CLI reports.
+
+    Unlike the sfputil variant, this runs on ALL sub-ports
+    (``first_subport_only=False``): it reads STATE_DB ``TRANSCEIVER_INFO``,
+    which xcvrd populates per logical sub-port, so every sub-port's entry must
+    be validated — a non-primary sub-port whose DB entry is missing or diverged
+    is an xcvrd failure mode only this DB-backed path can catch.  It is a cheap
+    STATE_DB read (no I2C), and non-primary sub-ports compare against the same
+    per-physical inventory values.
     """
     all_failures = _run_per_port_eeprom_check(
         duthost, port_attributes_dict,
@@ -282,6 +305,7 @@ def test_eeprom_content_verification_via_show_cli(
         source_label="show interfaces transceiver info <port>",
         key_mapping=SHOW_CLI_KEY_TO_INV_KEY,
         lport_to_first_subport=lport_to_first_subport_mapping,
+        first_subport_only=False,
     )
     if all_failures:
         pytest.fail("EEPROM verification failures:\n" + "\n".join(all_failures))
