@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from tests.transceiver.cmis_cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
-from tests.transceiver.cmis_cdb_firmware_upgrade.utils.firmware_utils import (
+from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
+from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     get_latest_two_firmware_metadata_for_all_transceivers,
     get_dut_firmware_base_url,
     prepare_firmware_base_directory_on_dut,
