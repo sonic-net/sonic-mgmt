@@ -1,11 +1,57 @@
 import logging
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 
+import configs.privatelink_config as pl
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
+from gnmi_utils import apply_messages
 
 logger = logging.getLogger(__name__)
+
+
+def _wait_for_dpuhost_reachable(dpuhost, timeout=300, interval=10):
+    """
+    Wait until ``dpuhost`` is reachable via the Ansible transport.
+    """
+    def _check():
+        try:
+            res = dpuhost.ping(module_ignore_errors=True)
+        except Exception as e:  # noqa: BLE001 - AnsibleConnectionFailure et al
+            logger.info(
+                f"{dpuhost.hostname} not yet reachable: "
+                f"{type(e).__name__}: {e}"
+            )
+            return False
+        if res.get("failed"):
+            logger.info(
+                f"{dpuhost.hostname} ping module reported failed: {res}"
+            )
+            return False
+        return True
+
+    return wait_until(timeout, interval, 0, _check)
+
+
+def _config_reload_dpuhost(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    if not _wait_for_dpuhost_reachable(dpuhost):
+        logger.warning(
+            f"{dpuhost.hostname} did not become reachable before "
+            f"config reload; proceeding anyway"
+        )
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def parallel_config_reload_dpuhosts(dpuhosts):
+    dpuhosts = list(dpuhosts)
+    if not dpuhosts:
+        return
+
+    with ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        list(executor.map(_config_reload_dpuhost, dpuhosts))
 
 
 def build_dash_ha_scope_args(fields):
@@ -172,14 +218,16 @@ def verify_ha_state(
     expected_state,
     timeout=120,
     interval=5,
+    ack=True
 ):
     """
     Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
         db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+        var = "local_acked_asic_ha_state" if ack else "local_ha_state"
         res = duthost.shell(
-            f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
+            f'sonic-db-cli STATE_DB HGET "{db_key}" {var}'
         )
         state = res["stdout"].strip()
         return state == expected_state
@@ -294,7 +342,7 @@ def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, 
         owner: HA owner string (e.g. "dpu" or "switch")
         expected_op_type: Expected pending operation type for activation (default: "switchover")
     """
-    disabled = disabled if not disabled else desired_ha_state == "dead"
+    disabled = disabled if disabled is not None else desired_ha_state == "dead"
     fields = {
                 "version": "1",
                 "disabled": disabled,
@@ -346,6 +394,61 @@ def wait_for_pending_operation_id(
     )
 
     return pending_id if success else None
+
+
+# PMON-derived state fields exposed in NPU STATE_DB DASH_HA_SCOPE_STATE.
+# Values are "up", "down", or "unknown".
+HA_SCOPE_PMON_STATE_FIELDS = (
+    "local_vdpu_midplane_state",
+    "local_vdpu_control_plane_state",
+    "local_vdpu_data_plane_state",
+)
+
+
+def get_ha_scope_pmon_state(duthost, scope_key):
+    """
+    Read the local vDPU PMON state fields from STATE_DB DASH_HA_SCOPE_STATE.
+
+    Args:
+        duthost: NPU DUT host object.
+        scope_key: HA scope key (e.g. "vdpu0_0:haset0_0").
+
+    Returns:
+        dict[str, str]: field name -> value ("up"/"down"/"unknown" or
+        empty string if missing).
+    """
+    db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
+    res = duthost.shell(
+        f'sonic-db-cli STATE_DB HMGET "{db_key}" '
+        f'{" ".join(HA_SCOPE_PMON_STATE_FIELDS)}',
+        module_ignore_errors=True,
+    )
+    values = res.get("stdout", "").splitlines()
+    return dict(zip(HA_SCOPE_PMON_STATE_FIELDS, [v.strip() for v in values]))
+
+
+def wait_for_ha_scope_pmon_state(duthost, scope_key, expected_state,
+                                 timeout=120, interval=5):
+    """
+    Wait until every PMON state field in DASH_HA_SCOPE_STATE on `duthost`
+    for `scope_key` equals `expected_state` (e.g. "up" or "down").
+
+    Returns:
+        tuple(bool, dict): (success, last observed state dict). The dict
+        is always returned so callers can include it in error messages.
+    """
+    last_state = {}
+
+    def _check():
+        nonlocal last_state
+        last_state = get_ha_scope_pmon_state(duthost, scope_key)
+        return all(
+            last_state.get(f) == expected_state
+            for f in HA_SCOPE_PMON_STATE_FIELDS
+        )
+
+    success = wait_until(timeout, interval, 0, _check)
+    return success, last_state
 
 
 def bfd_pin_primary(localhost, ptfhost, duthosts):
@@ -434,3 +537,42 @@ def bfd_unpin_both_sides(localhost, ptfhost, duthosts):
                 ptfhost=ptfhost,
                 messages=ha_set_messages,
             )
+
+
+def program_eni_pl_on_dpu(localhost, ptfhost, duthost, dpuhost):
+    """
+    Apply the full DASH PL pipeline configuration (appliance, routing types,
+    VNET, routes, meters and ENI) on the DPU .
+    """
+
+    base_config_messages = {
+        **pl.APPLIANCE_CONFIG,
+        **pl.ROUTING_TYPE_PL_CONFIG,
+        **pl.VNET_CONFIG,
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG
+    }
+    logger.info(
+        f"HA: Programming ENI PL on DPU: "
+        f"{duthost.hostname} dpu {dpuhost.dpu_index}"
+    )
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+    route_and_mapping_messages = {
+        **pl.PE_VNET_MAPPING_CONFIG,
+        **pl.PE_SUBNET_ROUTE_CONFIG,
+        **pl.VM_SUBNET_ROUTE_CONFIG
+    }
+    if 'bluefield' in dpuhost.facts['asic_type']:
+        route_and_mapping_messages.update({**pl.INBOUND_VNI_ROUTE_RULE_CONFIG})
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    meter_rule_messages = {
+        **pl.METER_RULE1_V4_CONFIG,
+        **pl.METER_RULE2_V4_CONFIG,
+    }
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    logger.info(f"HA: ENI programming on {dpuhost.hostname} completed")

@@ -8,6 +8,30 @@ ACL_TABLE = "ACL_LINK_DROP_TEST"
 ACL_RULE = "DROP_ALL"
 ACL_DIR = "egress"
 
+DPU_DATAPLANE_PORT = "Ethernet0"
+
+
+def shutdown_dpu_dataplane_port(dpuhost, interface=DPU_DATAPLANE_PORT):
+    """
+    Simulate a DPU dataplane link going down by administratively shutting
+    down the DPU's dataplane Ethernet interface.
+    """
+    logger.info(
+        f"{dpuhost.hostname} Shutting down DPU dataplane interface {interface}"
+    )
+    dpuhost.shell(f"config interface shutdown {interface}")
+
+
+def startup_dpu_dataplane_port(dpuhost, interface=DPU_DATAPLANE_PORT):
+    """
+    Restore the DPU dataplane link by administratively starting up the DPU's
+    dataplane Ethernet interface.
+    """
+    logger.info(
+        f"{dpuhost.hostname} Starting up DPU dataplane interface {interface}"
+    )
+    dpuhost.shell(f"config interface startup {interface}")
+
 
 def add_acl_link_drop(duthost, interface):
     """
