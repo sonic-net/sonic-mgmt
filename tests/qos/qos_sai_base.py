@@ -3336,7 +3336,7 @@ class QosSaiBase(QosBase):
         eos_restore_list = []
         fanout_restore_list = []
         acl_created_fanouts = {}  # fanout_name -> fanout_os (for cleanup dispatch)
-        sonic_lldp_stopped = set()  # fanout names where we stopped lldp container
+        sonic_lldp_stopped = {}  # fanout_name -> was_running (True if LLDP was originally running)
         lacpd_stopped = False
         acl_name = "QOS_TEST_WHITELIST"
         teamd_docker = src_asic.get_docker_name("teamd")
@@ -3525,13 +3525,16 @@ class QosSaiBase(QosBase):
         # Stop LLDP container once per fanout (covers fanout-self LLDP).
         # The 202511 fanout role only stops LLDP for marvell-teralynx;
         # broadcom SONiC fanouts still run LLDP by default.
-        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
-        # not distinguish "stopped now" from "was already stopped", so the
-        # teardown's symmetric "docker start" will start LLDP even on fanouts
-        # where it was previously off. This is acceptable for the testbeds
-        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
+        # Fix for regression from PR #24317: Check if LLDP was originally running
+        # before stopping. Only restart in teardown if it was originally running.
+        # This preserves the fanout's original LLDP state.
         if fanout_name not in sonic_lldp_stopped:
             try:
+                # Check if LLDP container was running BEFORE stopping it
+                check_result = fanout.host.shell(
+                    "docker ps -q -f name=lldp", module_ignore_errors=True)
+                was_running = bool(check_result.get('stdout', '').strip())
+
                 result = fanout.host.command(
                     "docker stop lldp", module_ignore_errors=True)
                 if result.get('failed', False) or result.get('rc', 0) != 0:
@@ -3541,10 +3544,12 @@ class QosSaiBase(QosBase):
                         "output=%s", fanout_name, result.get('rc', '?'),
                         result.get('stdout', result.get('stderr', '')))
                 else:
-                    sonic_lldp_stopped.add(fanout_name)
+                    # Store original state so we only restart if it was running
+                    sonic_lldp_stopped[fanout_name] = was_running
                     logger.info(
                         "permit_only_test_traffic_on_fanout: stopped lldp "
-                        "container on SONiC %s", fanout_name)
+                        "container on SONiC %s (was_running=%s)",
+                        fanout_name, was_running)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
@@ -3621,17 +3626,28 @@ class QosSaiBase(QosBase):
                     "permit_only_test_traffic_on_fanout: "
                     "failed to delete ACL on %s: %s", fanout_name, str(e))
 
-        # Restart LLDP container on SONiC fanouts where we stopped it
-        for fanout_name in sonic_lldp_stopped:
-            try:
-                fanout = fanouthosts[fanout_name]
-                fanout.host.command(
-                    "docker start lldp", module_ignore_errors=True)
-            except Exception as e:
-                logger.warning(
-                    "permit_only_test_traffic_on_fanout: "
-                    "failed to restart lldp on SONiC %s: %s",
-                    fanout_name, str(e))
+        # Restart LLDP container on SONiC fanouts ONLY if it was originally running
+        # This fixes the regression from PR #24317 where LLDP was restarted
+        # unconditionally, even on fanouts where it was disabled by design.
+        for fanout_name, was_running in sonic_lldp_stopped.items():
+            if was_running:
+                try:
+                    fanout = fanouthosts[fanout_name]
+                    fanout.host.command(
+                        "docker start lldp", module_ignore_errors=True)
+                    logger.info(
+                        "permit_only_test_traffic_on_fanout: restarted lldp "
+                        "container on SONiC %s (was originally running)",
+                        fanout_name)
+                except Exception as e:
+                    logger.warning(
+                        "permit_only_test_traffic_on_fanout: "
+                        "failed to restart lldp on SONiC %s: %s",
+                        fanout_name, str(e))
+            else:
+                logger.info(
+                    "permit_only_test_traffic_on_fanout: NOT restarting lldp "
+                    "on SONiC %s (was not originally running)", fanout_name)
 
         logger.info("permit_only_test_traffic_on_fanout: teardown complete")
 
