@@ -29,9 +29,9 @@ PRIO_COUNT = 8
 """ Name of the PFC storm container on MLNX-OS (Onyx) fanout switches """
 ONYX_PFC_CONTAINER_NAME = 'storm'
 """ Number of PFC frames sent per priority per port in the RX_OK isolation test """
-PFC_RX_OK_ISOLATION_PKT_COUNT = 5000
+PFC_RX_OK_ISOLATION_PKT_COUNT = 1000
 """ Allowed RX_OK/RX_DRP increase per interface to tolerate background traffic """
-RX_COUNTER_BACKGROUND_MARGIN = 500
+RX_COUNTER_BACKGROUND_MARGIN = 100
 
 
 @pytest.fixture(scope="module")
