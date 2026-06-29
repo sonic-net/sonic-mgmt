@@ -294,10 +294,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         buffer_profile_oid = None
 
         if expected_profile:
-            # 1) Lossless PGs in CONFIG_DB must match the PFC-enabled priorities exactly.
-            # This assumes priority id == PG id (identity TC->PG/PFC->PG mapping), which holds
-            # for standard SONiC. A non-identity map (two PFC priorities -> one PG) would need
-            # to consult MAP_PFC_PRIORITY_TO_PRIORITY_GROUP instead.
+            # Lossless PGs must match pfc_enable (assumes priority id == PG id, true for standard SONiC).
             if lossless_priorities is not None:
                 if not _check_condition(
                         actual_priorities == lossless_priorities,
@@ -310,7 +307,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                         port, expected_profile), use_assert):
                 return None, False
 
-            # 2) Every lossless PG must carry the expected profile
+            # Every lossless PG must carry the expected profile
             expected_profile_name = extract_profile_name(expected_profile)
             for pg_range, profile_name in actual_lossless.items():
                 if not _check_condition(
@@ -319,7 +316,7 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                             pg_range, port, expected_profile), use_assert):
                     return None, False
 
-            # 3) ASIC_DB consistency for each lossless priority
+            # ASIC_DB consistency for each lossless priority
             if pg_name_map:
                 for pg in sorted(actual_priorities):
                     pg_key = '{}:{}'.format(port, pg)
@@ -510,11 +507,10 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             _, _ = _check_port_buffer_info_and_get_profile_oid(dut_asic, port, None)
 
     pytest_assert(admin_up_ports, "No admin-up ports available for shutdown test")
-    # Pick deterministically: smallest-named admin-up port that has a lossless BUFFER_PG
+    # Deterministically pick the smallest-named admin-up port that has a lossless BUFFER_PG.
     ports_with_lossless = sorted(p for p in admin_up_ports if get_lossless_buffer_pgs(dut_asic, p))
     pytest_assert(ports_with_lossless, "No admin-up port has a lossless BUFFER_PG for shutdown test")
     port_to_shutdown = ports_with_lossless[0]
-    # Sort lossless PG ranges by smallest PG id for a deterministic, version-independent choice
     lossless_pg_ranges = sorted(get_lossless_buffer_pgs(dut_asic, port_to_shutdown).keys(),
                                 key=lambda r: min(parse_pg_range(r) or [99]))
     expected_profile = dut_asic.run_redis_cmd(
