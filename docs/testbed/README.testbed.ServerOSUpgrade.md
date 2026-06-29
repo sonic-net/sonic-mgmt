@@ -135,8 +135,6 @@ Either replace it, or comment it out and add the NOPASSWD line:
 %sudo ALL=(ALL:ALL) NOPASSWD:ALL
 ```
 
-Save and exit (in `nano`: `Ctrl+O`, `Enter`, then `Ctrl+X`).
-
 Verify (this should **not** prompt for a password):
 
 ```bash
@@ -190,7 +188,7 @@ If the rule is missing, re-add it. For a Mellanox 100G NIC:
    ens4f1 -> ../../devices/pci0000:16/0000:16:02.0/0000:17:00.1/net/ens4f1
    ```
 
-### c) Confirm netplan configuration for `ens4f0` and `ens4f1`
+### c) Confirm netplan configuration for external_port (defined in ansible/host_vars/SERVER.yml, take `ens4f0` / `ens4f1` as example)
 
 **1) Check whether `ens4f0` / `ens4f1` exist:**
 
@@ -222,10 +220,6 @@ cat /etc/netplan/<active-file>.yaml
 > `50-cloud-init.yaml`, etc. Use whichever exists on the host.
 
 **4) Edit the active netplan YAML:**
-
-```bash
-sudo nano /etc/netplan/<active-file>.yaml
-```
 
 Add the interfaces under `ethernets:` (2-space indentation), for example:
 
