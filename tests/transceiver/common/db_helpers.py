@@ -63,6 +63,33 @@ def parse_state_db_bool(value):
     return None
 
 
+def get_bool_field_from_entry(entry, field):
+    """Extract a tri-state bool ``field`` from a STATE_DB entry dict → ``(value, err)``.
+
+    ``entry`` is one port's already-dumped hash (e.g. a value from
+    :func:`get_state_db_table`), so this is a pure dict accessor — it does NOT
+    issue a DB query and composes with the single bulk ``sonic-db-dump`` rather
+    than reintroducing a per-port read.
+
+    Mirrors the module's ``(value, err)`` contract, distinguishing the two
+    failure modes a capability-flag check needs to tell apart:
+      - ``(True/False, None)`` when ``field`` is present and a recognized bool.
+      - ``(None, "no '<field>' field ...")`` when ``field`` is absent.
+      - ``(None, "'<field>' has unrecognized value ...")`` when present but not a
+        recognized bool (see :func:`parse_state_db_bool`).
+
+    The error strings are deliberately generic; callers prefix the port (and any
+    other) context and aggregate per the suite-wide per-port failure pattern.
+    """
+    raw = entry.get(field)
+    if raw is None:
+        return None, f"no '{field}' field in STATE_DB entry"
+    parsed = parse_state_db_bool(raw)
+    if parsed is None:
+        return None, f"'{field}' has unrecognized value '{raw}' (expected 'True'/'False')"
+    return parsed, None
+
+
 def hgetall_dict(duthost, db, key, namespace=None):
     """Run ``sonic-db-cli [-n <ns>] <db> hgetall "<key>"`` and parse the dict literal.
 

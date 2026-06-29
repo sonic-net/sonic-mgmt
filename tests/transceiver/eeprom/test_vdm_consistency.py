@@ -96,21 +96,12 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
             )
             continue
 
-        # ... and xcvrd must publish it in STATE_DB.
-        raw_value = state_db_entry.get(VDM_SUPPORTED_FIELD)
-        if raw_value is None:
-            all_failures.append(
-                f"{port}: CMIS optic has no '{VDM_SUPPORTED_FIELD}' field in "
-                f"STATE_DB {STATE_DB_TRANSCEIVER_INFO}|{port}"
-            )
-            continue
-
-        actual_value = db_helpers.parse_state_db_bool(raw_value)
-        if actual_value is None:
-            all_failures.append(
-                f"{port}: STATE_DB vdm_supported has unrecognized value '{raw_value}' "
-                f"(expected 'True'/'False')"
-            )
+        # ... and xcvrd must publish it in STATE_DB as a recognized bool.
+        actual_value, err = db_helpers.get_bool_field_from_entry(
+            state_db_entry, VDM_SUPPORTED_FIELD
+        )
+        if err:
+            all_failures.append(f"{port}: CMIS optic {err}")
             continue
 
         if actual_value != expected_value:
