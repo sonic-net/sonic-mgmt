@@ -50,6 +50,8 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
+DEFAULT_VRF_NAME = "default"
+MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
@@ -148,7 +150,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
