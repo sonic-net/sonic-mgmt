@@ -1,0 +1,72 @@
+# cSONiC-specific: ensure LACP slow-protocol PDUs (dst 01:80:c2:00:00:02,
+# ethertype 0x8809) are delivered deterministically between the DUT port and
+# the cSONiC neighbor port on each fan-out OVS bridge (br-<vm>-<fp_num>).
+#
+# Why this is needed for cSONiC but NOT for cEOS:
+#   - A real SONiC neighbor runs Linux teamd for LACP. Its teamd only moves
+#     PortChannel members to selected/collecting-distributing once it receives
+#     LACPDUs back from the DUT. cEOS implements LACP in EOS userspace and is far
+#     more tolerant of the default OVS forwarding set, so cEOS never needed this.
+#   - The default per-bridge flow set installed during bind forwards
+#     neighbor->DUT as a catch-all but only delivers specific protocols
+#     DUT->neighbor; LACP slow-proto multicast is not reliably flooded both ways.
+#   - The base `action=normal` rule added in add_csonic_list.yml is NOT sufficient:
+#     OVS NORMAL did not reliably deliver DUT->neighbor LACPDUs in practice, so
+#     teamd on the neighbor stayed "defaulted" and PortChannels never came up.
+#
+# This installs two explicit, directional output rules per fan-out bridge, matched
+# on the LACP multicast destination MAC, using OVS port *names* (stable across
+# runs) rather than OpenFlow port numbers (which are dynamic). It is strictly
+# additive and gated to vm_type == "csonic", so cEOS flow generation stays
+# byte-identical.
+#
+# Bridge/port discovery is empirical (read from live OVS state) rather than
+# derived from vm_offset: each cSONiC neighbor's uplink may land on any
+# br-<vm>-<fp_num> with tap <vm>-t<fp_num>; we locate the fan-out bridge(s) for
+# the VM that carry BOTH a neighbor tap (<vm>-t*) AND a DUT port (not an
+# injector inje-* and not the neighbor tap), and wire LACP between exactly those
+# two ports. This handles single- and multi-uplink neighbors.
+#
+# Host prerequisite for cSONiC neighbors: the Linux `team` driver AND its mode
+# submodule `team_mode_loadbalance` (plus roundrobin/activebackup) must be
+# loadable on the host kernel, otherwise the neighbor's teamd cannot create the
+# team device at all. See group_vars/vm_host notes / docs.
+
+- name: "csonic-lacp: discover DUT<->neighbor port pairs on each fan-out bridge"
+  become: yes
+  shell: |
+    set -e
+    for vm in {{ VM_targets | join(' ') }}; do
+      for br in $(ovs-vsctl list-br | grep -E "^br-${vm}-[0-9]+$"); do
+        ports=$(ovs-ofctl show "$br" | sed -n 's/^[[:space:]]*[0-9]\+(\([^)]*\)).*/\1/p')
+        nbr=$(echo "$ports" | grep -E "^${vm}-t[0-9]+$" | head -n 1)
+        dut=$(echo "$ports" | grep -v -E "^${vm}-t[0-9]+$" | grep -v '^inje-' | head -n 1)
+        if [ -n "$nbr" ] && [ -n "$dut" ]; then
+          echo "${br} ${dut} ${nbr}"
+        fi
+      done
+    done
+  register: csonic_lacp_pairs
+  changed_when: false
+
+- name: "csonic-lacp: show discovered DUT<->neighbor LACP port pairs"
+  debug:
+    msg: "{{ csonic_lacp_pairs.stdout_lines }}"
+
+- name: "csonic-lacp: install DUT->neighbor 0x8809 (LACP) flows"
+  become: yes
+  command: >-
+    ovs-ofctl add-flow {{ item.split()[0] }}
+    "table=0,priority=20,dl_dst=01:80:c2:00:00:02,in_port={{ item.split()[1] }},actions=output:{{ item.split()[2] }}"
+  loop: "{{ csonic_lacp_pairs.stdout_lines }}"
+  loop_control:
+    label: "{{ item.split()[0] }} ({{ item.split()[1] }} -> {{ item.split()[2] }})"
+
+- name: "csonic-lacp: install neighbor->DUT 0x8809 (LACP) flows"
+  become: yes
+  command: >-
+    ovs-ofctl add-flow {{ item.split()[0] }}
+    "table=0,priority=20,dl_dst=01:80:c2:00:00:02,in_port={{ item.split()[2] }},actions=output:{{ item.split()[1] }}"
+  loop: "{{ csonic_lacp_pairs.stdout_lines }}"
+  loop_control:
+    label: "{{ item.split()[0] }} ({{ item.split()[2] }} -> {{ item.split()[1] }})"

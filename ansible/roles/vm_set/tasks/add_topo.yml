@@ -326,6 +326,12 @@
     delay: 60
     when: enable_async
 
+  # cSONiC-only: after DUT+neighbor ports are bound to the fan-out bridges,
+  # install explicit directional LACP (0x8809) flows so the neighbor's Linux
+  # teamd can negotiate PortChannels with the DUT. No-op / not included for cEOS.
+  - include_tasks: add_csonic_lacp_flows.yml
+    when: vm_type is defined and vm_type == "csonic" and "bmc" not in topo
+
   - name: Bind topology {{ topo }} to DPUs.
     vm_topology:
       cmd: "bind"
