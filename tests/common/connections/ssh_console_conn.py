@@ -62,12 +62,7 @@ class SSHConsoleConn(BaseConsoleConn):
                                password=self.password,
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
-        # A previous console test that did not log out cleanly leaves a
-        # logged-in shell on the DUT serial line, so a new connection lands
-        # on a shell prompt instead of "login:". Sending the username then
-        # just runs it as a shell command ("admin: command not found") and the
-        # login never starts, which cascades to every later console test.
-        # Recover to a clean login prompt before attempting to log in.
+        # Exit any leftover shell from a previous test so we start at a clean login prompt.
         self._recover_to_login_prompt()
         # Attempt all sonic password. A wrong password must not prevent a
         # subsequent correct password in the list from succeeding, so we
@@ -122,16 +117,12 @@ class SSHConsoleConn(BaseConsoleConn):
             r'root@.*:.*#',
             r'.*@sonic.*[\$#]',
         )
-        # Floor the delay factor: with a small global delay factor the probe
-        # would read back before the serial console echoes the prompt (which
-        # can lag a second or two), miss a leftover shell prompt, and leave
-        # the stale session in place.
+        # Floor the delay factor so the probe waits long enough for the serial prompt to echo.
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
             try:
                 self.write_channel(self.RETURN)
-                # Accumulate output over a couple of seconds so a lagging
-                # shell/login prompt is reliably observed.
+                # Accumulate output so a lagging prompt is reliably observed.
                 output = ""
                 for _ in range(4):
                     time.sleep(0.5 * delay_factor)
@@ -167,8 +158,7 @@ class SSHConsoleConn(BaseConsoleConn):
         for a clean login prompt so the next credential in the list starts from
         a known state (otherwise the leftover banner desyncs the next attempt).
         """
-        # Floor the delay factor so the wait spans the pam_faildelay window
-        # (~3s) that follows a failed login before the fresh prompt appears.
+        # Floor the delay factor so the wait spans the ~3s pam_faildelay after a failed login.
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         # Drop any pending "Login incorrect" / banner output.
         self.clear_buffer()
@@ -206,12 +196,7 @@ class SSHConsoleConn(BaseConsoleConn):
         Perform a stage_2 login
         """
         delay_factor = self.select_delay_factor(delay_factor)
-        # The serial console can take a few seconds to emit the password
-        # prompt, and up to ~3s longer after a wrong password because of
-        # pam_faildelay. A small global delay factor makes the wait loop give
-        # up in ~1s, before the prompt appears, so the login fails with
-        # "Socket is closed". Floor the delay factor so the loop waits long
-        # enough (max_loops * 0.5 * delay_factor) to see the prompt.
+        # Floor the delay factor so the loop waits long enough for a slow/faildelayed password prompt.
         delay_factor = max(delay_factor, 1)
         time.sleep(1 * delay_factor)
 
@@ -302,12 +287,7 @@ class SSHConsoleConn(BaseConsoleConn):
             bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
         """
         try:
-            # Elicit the current prompt: after a successful login the prompt
-            # has already been consumed and the buffer is empty, so a bare
-            # read would wrongly report "not at prompt" and skip the logout,
-            # leaking a shell onto the serial line. Send a CR and accumulate
-            # the echo over a couple of seconds (serial echo can lag). A CR is
-            # harmless if the DUT is not at a shell (GRUB/ONIE won't match).
+            # Send a CR and accumulate the echo to elicit the prompt (empty after login); harmless at GRUB/ONIE.
             output = ""
             for _ in range(4):
                 self.write_channel(self.RETURN)
