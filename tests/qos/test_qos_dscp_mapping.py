@@ -20,7 +20,7 @@ from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value
     get_egress_queue_pkt_count_all_port_prio, wait_until, get_vlan_from_port
 from tests.common.helpers.assertions import pytest_assert
 from tests.qos.qos_helpers import get_upstream_exabgp_port, announce_route, collect_qos_drop_diagnostics, \
-    snapshot_qos_drop_counters
+    snapshot_qos_drop_counters, reset_qos_drop_diag_budget
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -429,6 +429,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 RunAnsibleModuleFail if ptf test fails
         """
         ptf_port_to_dut_port_map = {}
+        # Fresh on-failure-diagnostics budget per test run (module-global counter).
+        reset_qos_drop_diag_budget()
         if "backend" in tbinfo["topo"]["type"]:
             pytest.skip("Dscp-queue mapping is not supported on {}".format(tbinfo["topo"]["type"]))
 
@@ -688,6 +690,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         global output_table, packet_egressed_success
         output_table = []
         packet_egressed_success = []
+        # Fresh on-failure-diagnostics budget per test run (module-global counter).
+        reset_qos_drop_diag_budget()
 
         def check_tunnel_dscp_mode(duthost, dscp_mode):
             real_dscp_mode = duthost.shell('redis-cli hget "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL" "dscp_mode"')["stdout"]
