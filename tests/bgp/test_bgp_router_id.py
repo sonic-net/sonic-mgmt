@@ -20,11 +20,23 @@ CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
-    if neighbor_type in ("sonic", "csonic"):
+    if neighbor_type == "sonic":
         if is_v6_topo:
             cmd = "show ipv6 bgp neighbors {}".format(localip)
         else:
             cmd = "show ip bgp neighbors {}".format(localip)
+    elif neighbor_type == "csonic":
+        # cSONiC neighbors execute commands via `docker exec ... bash -c`, where the
+        # SONiC Click `show` CLI does not expose `show ip bgp neighbors` (it returns
+        # `Error: No such command 'bgp'`). Query FRR directly through vtysh, matching
+        # the idiom CsonicHost already uses for config/get_route.
+        #
+        # The router ID is address-family-independent and FRR's `show ip bgp
+        # neighbors <ip>` view emits the `BGP version 4, remote router ID ...` line
+        # the test greps for BOTH v4 and v6 neighbors. The `show bgp ipv6 unicast
+        # neighbors <ip>` view does NOT print that line, so use `show ip bgp
+        # neighbors` for the v6 topo as well.
+        cmd = "vtysh -c 'show ip bgp neighbors {}'".format(localip)
     elif neighbor_type == "eos":
         if is_v6_topo:
             cmd = "/usr/bin/Cli -c \"show ipv6 bgp peers {} vrf {}\"".format(localip, vrf)
