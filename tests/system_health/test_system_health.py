@@ -15,7 +15,7 @@ from tests.common.helpers.thermal_control_test_helper import disable_thermal_pol
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu    # noqa F401
-from tests.platform_tests.cli.util import get_skip_mod_list
+from tests.common.platform.device_utils import get_skip_mod_list
 
 pytestmark = [
     pytest.mark.topology('any'),
