@@ -23,8 +23,11 @@ from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
 
 logger = logging.getLogger(__name__)
 
-# STATE_DB table / field that publishes the xcvrd-parsed VDM capability flag.
+# STATE_DB table that publishes the xcvrd-parsed VDM capability flag.
 STATE_DB_TRANSCEIVER_INFO = "TRANSCEIVER_INFO"
+# The VDM capability flag is named identically in both namespaces — the STATE_DB
+# TRANSCEIVER_INFO field and the inventory EEPROM_ATTRIBUTES key — so a single
+# constant is used for both the STATE_DB lookup and the inventory lookup.
 VDM_SUPPORTED_FIELD = "vdm_supported"
 
 
@@ -88,11 +91,20 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
             continue
 
         # CMIS optic: vdm_supported is mandatory in inventory.
-        expected_value = eeprom_attrs.get("vdm_supported")
+        expected_value = eeprom_attrs.get(VDM_SUPPORTED_FIELD)
         if expected_value is None:
             all_failures.append(
-                f"{port}: CMIS optic has no 'vdm_supported' configured in "
+                f"{port}: CMIS optic has no '{VDM_SUPPORTED_FIELD}' configured in "
                 f"inventory; it is mandatory for all CMIS optics"
+            )
+            continue
+        # Inventory stores this as a native JSON boolean; require that explicitly
+        # so a quoted-string typo (e.g. "true") fails loudly as an inventory bug
+        # rather than silently mismatching the parsed STATE_DB bool below.
+        if not isinstance(expected_value, bool):
+            all_failures.append(
+                f"{port}: inventory '{VDM_SUPPORTED_FIELD}' must be a JSON boolean "
+                f"(true/false), got {type(expected_value).__name__} '{expected_value}'"
             )
             continue
 
