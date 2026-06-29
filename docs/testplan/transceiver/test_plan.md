@@ -1087,7 +1087,7 @@ See the [Configuration Control](#configuration-control) section above for pytest
 
 ### Transceiver Firmware Info File
 
-A `cdb_firmware_binaries.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
+A `cdb_firmware_manifest.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
 
 ### CMIS CDB Firmware Base URL File
 
