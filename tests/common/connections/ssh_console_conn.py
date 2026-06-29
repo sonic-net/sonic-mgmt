@@ -302,8 +302,17 @@ class SSHConsoleConn(BaseConsoleConn):
             bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
         """
         try:
-            # Read whatever is currently in the buffer
-            output = self.read_channel()
+            # Elicit the current prompt: after a successful login the prompt
+            # has already been consumed and the buffer is empty, so a bare
+            # read would wrongly report "not at prompt" and skip the logout,
+            # leaking a shell onto the serial line. Send a CR and accumulate
+            # the echo over a couple of seconds (serial echo can lag). A CR is
+            # harmless if the DUT is not at a shell (GRUB/ONIE won't match).
+            output = ""
+            for _ in range(4):
+                self.write_channel(self.RETURN)
+                time.sleep(0.5)
+                output += self.read_channel()
         except Exception as e:
             self.logger.warning(f"Error reading channel: {e}, assuming not at SONiC prompt")
             return False
