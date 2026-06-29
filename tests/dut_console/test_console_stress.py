@@ -9,6 +9,9 @@ pytestmark = [
     pytest.mark.disable_memory_utilization
 ]
 
+# Shell prompt terminator so send_command waits for the prompt, not a garbled serial base prompt.
+PROMPT_PATTERN = r"[#$]\s*$"
+
 
 def test_console_stress_output(duthost_console):
     """
@@ -32,7 +35,8 @@ def test_console_stress_output(duthost_console):
     num_lines = 1000
     output = duthost_console.send_command(
         f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",
-        read_timeout=300
+        read_timeout=300,
+        expect_string=PROMPT_PATTERN
     )
 
     # Parse output into lines
@@ -54,7 +58,7 @@ def test_console_stress_output(duthost_console):
                       f"Got:      '{line}'")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response, "Console not responsive after large output")
 
 
@@ -89,6 +93,6 @@ def test_console_stress_input(duthost_console):
                   f"expected {expected_hash}, console returned: {output!r}")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response,
                   "Console not responsive after large input")
