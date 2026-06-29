@@ -74,7 +74,7 @@ def pytest_runtest_setup(item):
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit monitor all")
             memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
@@ -130,7 +130,7 @@ def pytest_runtest_teardown(item, nextitem):
         if enable_monit_refresh:
             # Trigger monit to refresh its cache so subsequent collection reads fresh data
             logger.info("Triggering monit refresh on {} before collecting memory data".format(duthost.hostname))
-            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit validate")
+            validate_output = memory_monitors[duthost.hostname].execute_command("sudo monit monitor all")
             memory_monitors[duthost.hostname].record_monit_baseline_from_validate_output(validate_output)
         else:
             logger.info(
