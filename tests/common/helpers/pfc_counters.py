@@ -224,27 +224,11 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         continue
 
                     peerdev_ans = fanouthosts[peer_device]
-                    fanout_os = peerdev_ans.get_fanout_os()
-                    fanout_hwsku = enum_fanout_graph_facts[peerdev_ans.hostname]["device_info"]["HwSku"]
-                    if fanout_os == "nxos":
-                        peer_port_name = nxos_to_linux_intf(peer_port)
-                    elif fanout_os == "sonic":
-                        peer_port_name = sonic_to_linux_intf(peer_port)
-                    else:
-                        peer_port_name = eos_to_linux_intf(
-                            peer_port, hwsku=fanout_hwsku)
+                    peer_port_name, fanout_hwsku = _resolve_peer_port_name(
+                        peerdev_ans, enum_fanout_graph_facts, peer_port)
 
-                    if fanout_hwsku == "MLNX-OS":
-                        cmd = 'docker exec %s "python %s -i %s -p %d -t %d -n %d"' % (
-                            onyx_pfc_container_name, PFC_GEN_FILE_ABSOLUTE_PATH,
-                            peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        send_frames = lambda: peerdev_ans.host.config(cmd)  # noqa: E731
-                    else:
-                        cmd = "sudo python %s -i %s -p %d -t %d -n %d" % (
-                            PFC_GEN_FILE_DEST, peer_port_name, 2 ** priority, pause_time, PKT_COUNT)
-                        send_frames = lambda: peerdev_ans.host.command(cmd)  # noqa: E731
-
-                    send_frames()
+                    send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
+                                   priority, pause_time, PKT_COUNT)
 
                     pfc_rx = {}
                     for attempt in range(1, MAX_RETRIES + 1):
@@ -264,7 +248,8 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                                 "(got %s), retrying send", attempt, intf, priority,
                                 pfc_rx[intf]['Rx'][priority])
                             duthost.sonic_pfc_counters(method="clear")
-                            send_frames()
+                            send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
+                                           priority, pause_time, PKT_COUNT)
 
                 else:
                     time.sleep(5)
