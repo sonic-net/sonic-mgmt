@@ -261,6 +261,29 @@ def test_native_pytest_xfail_counted_as_xfail():
     assert acl_2 == ["xfail_skipped"]
 
 
+def test_conditional_mark_xfail_skip_not_counted_as_xfail():
+    # A conditional_mark xfail whose skip condition matched is a plain <skipped> and
+    # pytest counts it as skipped, not xfailed; the xfail property must not bump xfails.
+    xml = VALID_TEST_RESULT.replace(
+        '<skipped message="test machine skipped">',
+        '<skipped message="test machine skipped">'
+        '<property name="xfail" value="True"/>')
+    root = validate_junit_xml_stream(xml)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "0"
+    acl_2 = [c["result"] for c in result["test_cases"]["acl"] if c["name"] == "test_acl_2"]
+    assert acl_2 == ["skipped"]
+
+
+def test_xpass_not_counted_as_xfail():
+    # An xpassed test is a plain success; it must not be counted as an xfail.
+    root = validate_junit_xml_stream(VALID_TEST_RESULT)
+    result = parse_test_result([(root, "doc")])
+    assert result["test_summary"]["xfails"] == "0"
+    bgp_fact = [c["result"] for c in result["test_cases"]["bgp"] if c["name"] == "test_bgp_fact"]
+    assert bgp_fact == ["success"]
+
+
 # credit to: https://stackoverflow.com/questions/25851183/
 def ordered(obj):
     if isinstance(obj, dict):

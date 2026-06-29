@@ -479,25 +479,15 @@ def _parse_test_cases(root):
         error = test_case.find("error")
         skipped = test_case.find("skipped")
 
-        # Any test which marked as xfail will drop out a property to the report xml file.
-        # Add prefix "xfail_" to tests which are marked with xfail
-        properties_element = test_case.find(PROPERTIES_TAG)
+        # Count xfails to match pytest's own summary: only tests that actually ran and
+        # failed as expected are "xfailed", which pytest records as <skipped type="pytest.xfail">.
+        # A conditional_mark xfail whose skip condition matched is a plain <skipped> and pytest
+        # counts it as skipped, while an xpassed test is a plain success; neither is an xfail.
         xfail_case = ""
-        if properties_element:
-            for prop in properties_element.iterfind(PROPERTY_TAG):
-                if prop.get("name") == "xfail":
-                    xfail_case = "xfail_"
-                    break
-
-        # Native pytest xfail marks (@pytest.mark.xfail) do not emit the custom
-        # property above; pytest instead records xfailed as <skipped type="pytest.xfail">
-        # and xpassed as <failure>/<error type="pytest.xfail"> (strict) or a plain pass.
-        # Detect those so xfail results aren't miscounted as skipped/failed/error.
-        if not xfail_case:
-            for outcome in (skipped, failure, error):
-                if outcome is not None and (outcome.get("type") or "").startswith("pytest.xfail"):
-                    xfail_case = "xfail_"
-                    break
+        for outcome in (skipped, failure, error):
+            if outcome is not None and (outcome.get("type") or "").startswith("pytest.xfail"):
+                xfail_case = "xfail_"
+                break
 
         # NOTE: "error" is unique in that it can occur alongside a succesful, failed, or skipped test result.
         # Because of this, we track errors separately so that the error can be correlated with the stage it
