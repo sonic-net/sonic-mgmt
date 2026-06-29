@@ -131,6 +131,11 @@
 {% endif %}
 {% endif %}
     },
+    "SNMP_COMMUNITY": {
+        "{{ snmp_rocommunity | default('public') }}": {
+            "TYPE": "RO"
+        }
+    },
     "BGP_NEIGHBOR": {
 {% set bgp_comma = joiner(",") %}
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
