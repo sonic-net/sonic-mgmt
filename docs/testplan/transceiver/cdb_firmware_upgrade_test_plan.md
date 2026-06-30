@@ -40,36 +40,32 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section 
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](./test_plan.md#test-prerequisites-and-configuration-files) must be met.
 
-2. A `cdb_firmware_manifest.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file captures the firmware binary metadata for the transceiver. Each transceiver should have at least 3 firmware binaries so that firmware upgrade and downgrade can be tested. The file should follow this format:
+2. A per-PN `cdb_firmware_upgrade_manifest.json` file must exist for every transceiver that supports CMIS CDB firmware upgrade. The file lives in the same per-PN directory as the `cdb_firmware_upgrade.json` attribute shard (under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`). Each transceiver should have at least 3 firmware binaries so that firmware upgrade and downgrade can be tested. The file should follow this format:
 
 ```json
 {
-    "<NORMALIZED_VENDOR_NAME>": {
-        "<NORMALIZED_VENDOR_PN>": {
-            "<fw_version_1>": {
-                "fw_binary_name": "<firmware_binary_filename_1>",
-                "md5sum": "<md5sum_1>"
-            },
-            "<fw_version_2>": {
-                "fw_binary_name": "<firmware_binary_filename_2>",
-                "md5sum": "<md5sum_2>"
-            }
-        }
+    "<fw_version_1>": {
+        "fw_binary_name": "<firmware_binary_filename_1>",
+        "md5sum": "<md5sum_1>"
+    },
+    "<fw_version_2>": {
+        "fw_binary_name": "<firmware_binary_filename_2>",
+        "md5sum": "<md5sum_2>"
     }
 }
 ```
 
-The JSON structure is keyed by:
+The JSON keys are:
 
-- **Top-level key** (`normalized_vendor_name`): The normalized vendor name, created by applying the normalization rules described in the [Vendor Name and Part Number Normalization Rules](./test_plan.md#vendor-name-and-part-number-normalization-rules) section of the parent test plan.
-- **Second-level key** (`normalized_vendor_pn`): The normalized vendor part number, created by applying the normalization rules described in the [Vendor Name and Part Number Normalization Rules](./test_plan.md#vendor-name-and-part-number-normalization-rules) section of the parent test plan.
-- **Third-level key** (`fw_version`): The version of the firmware.
+- **Top-level key** (`fw_version`): The version of the firmware.
 - **`fw_binary_name`**: The filename of the firmware binary.
 - **`md5sum`**: The MD5 checksum of the firmware binary.
 
+The `<NORMALIZED_VENDOR_NAME>` and `<NORMALIZED_VENDOR_PN>` directory names are created by applying the normalization rules described in the [Vendor Name and Part Number Normalization Rules](./test_plan.md#vendor-name-and-part-number-normalization-rules) section.
+
 3. The framework supports two mutually-exclusive transports for getting binaries onto the DUT and only one must be configured per inventory:
 
-- **Download mode** — a `cdb_firmware_base_url.json` file (located in `ansible/files/transceiver/inventory` directory) is present and defines the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+- **Download mode** — a `cdb_firmware_upgrade_url.json` file (located in `attributes/cdb_firmware_upgrade/` directory) is present and defines the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
 
 ```json
 {
@@ -88,9 +84,9 @@ Example of the file:
 }
 ```
 
-- **Pre-staged mode** — `cdb_firmware_base_url.json` is absent, and the binaries listed in `cdb_firmware_manifest.json` are already present on the DUT under `/host/cmis_cdb_firmware/` (see [Pre-staged Firmware Binaries on the DUT](#pre-staged-firmware-binaries-on-the-dut) below).
+- **Pre-staged mode** — `cdb_firmware_upgrade_url.json` is absent, and the binaries listed in the per-PN `cdb_firmware_upgrade_manifest.json` files are already present on the DUT under `/host/cmis_cdb_firmware/` (see [Pre-staged Firmware Binaries on the DUT](#pre-staged-firmware-binaries-on-the-dut) below).
 
-The framework picks the mode at session start based on whether `cdb_firmware_base_url.json` exists for the current inventory. In both modes the test sequence is identical once the binaries are present under `/tmp/cmis_cdb_firmware/`. MD5 validation against `cdb_firmware_manifest.json` is performed in **both** modes so a stale or wrong binary is caught regardless of how it got there.
+The framework picks the mode at session start based on whether `cdb_firmware_upgrade_url.json` exists for the current inventory. In both modes the test sequence is identical once the binaries are present under `/tmp/cmis_cdb_firmware/`. MD5 validation against the per-PN manifest is performed in **both** modes so a stale or wrong binary is caught regardless of how it got there.
 
 ## Attributes
 
@@ -102,7 +98,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |-----------|------|---------|-----------|-------------|-------------|
-| ports_under_test | List | All | O | dut | A list of logical port names (e.g., `["Ethernet0", "Ethernet8"]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade test only. This attribute must exist only under the `dut` field. |
+| ports_under_test | List | All | O | dut | A list of physical port names (e.g., `[1, 2, 6]`) under `dut.dut_name` containing the ports to be tested for CMIS FW upgrade test only. This attribute must exist only under the `dut` field. |
 | firmware_versions | List | None | M | transceivers | A list containing firmware versions to be tested. The last value in the list represents the final active firmware version after the test is completed. |
 | firmware_download_timeout_minutes | Int | 30 | O | transceivers | Maximum time in minutes to wait for a firmware download to complete. |
 | restore_initial_inactive_firmware | Bool | False | O | dut | A flag indicating whether to restore the initial inactive firmware version after testing is completed. |
@@ -183,7 +179,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 
 ## Firmware Binary Storage on Remote Server
 
-> **Note:** This section applies only to **download mode** (i.e., when `cdb_firmware_base_url.json` is present). If using pre-staged mode, skip to [Pre-staged Firmware Binaries on the DUT](#pre-staged-firmware-binaries-on-the-dut).
+> **Note:** This section applies only to **download mode** (i.e., when `cdb_firmware_upgrade_url.json` is present). If using pre-staged mode, skip to [Pre-staged Firmware Binaries on the DUT](#pre-staged-firmware-binaries-on-the-dut).
 
 The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
 
@@ -191,10 +187,10 @@ The CMIS CDB firmware binaries must be stored on a remote server with the follow
 
 - Directory structure should mirror the SONiC device structure described above
 - Server must be accessible via HTTP/HTTPS protocols
-- Base URL configuration is defined in `cdb_firmware_base_url.json`
+- Base URL configuration is defined in `cdb_firmware_upgrade_url.json`
 
 **Base URL Configuration:**
-The `cdb_firmware_base_url.json` file contains the mapping between inventory files and their corresponding firmware download URLs:
+The `cdb_firmware_upgrade_url.json` file contains the mapping between inventory files and their corresponding firmware download URLs:
 
 ```json
 {
@@ -221,7 +217,7 @@ http://firmware-server.example.com/cmis_cdb_firmware/ACME_CORP/QSFP-100G-AOC-GEN
 
 ## Pre-staged Firmware Binaries on the DUT
 
-When `cdb_firmware_base_url.json` is absent, the framework expects every firmware binary listed in `cdb_firmware_manifest.json` to already exist under `/host/cmis_cdb_firmware/` on the DUT, using the **same normalized directory structure** as the remote server:
+When `cdb_firmware_upgrade_url.json` is absent, the framework expects every firmware binary listed in the per-PN `cdb_firmware_upgrade_manifest.json` files to already exist under `/host/cmis_cdb_firmware/` on the DUT, using the **same normalized directory structure** as the remote server:
 
 ```text
 /host/cmis_cdb_firmware/
@@ -241,7 +237,7 @@ When `cdb_firmware_base_url.json` is absent, the framework expects every firmwar
 **Requirements:**
 
 - The directory structure under `/host/cmis_cdb_firmware/` must follow the same normalized layout as the remote server: `<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>`.
-- The test framework resolves each `(normalized_vendor, normalized_pn, version)` it needs from `cdb_firmware_manifest.json`, locates the binary at `/host/cmis_cdb_firmware/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>`, validates its MD5 against the manifest, and copies it into `/tmp/cmis_cdb_firmware` for the test run.
+- The test framework resolves each `(normalized_vendor, normalized_pn, version)` it needs from the corresponding per-PN `cdb_firmware_upgrade_manifest.json`, locates the binary at `/host/cmis_cdb_firmware/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>`, validates its MD5 against the manifest, and copies it into `/tmp/cmis_cdb_firmware` for the test run.
 - If any required binary is missing from `/host/cmis_cdb_firmware/` or its MD5 does not match the manifest, the framework fails fast with a clear configuration error and skips the CDB firmware test suite.
 
 ## CMIS CDB Firmware Copy to DUT via sonic-mgmt Infrastructure
@@ -252,15 +248,15 @@ This section describes the automated process for copying firmware binaries to th
 
 To ensure only the necessary firmware binaries are present for each transceiver:
 
-1. **Resolve transport mode** based on Pre-requisite: if `cdb_firmware_base_url.json` exists for the current inventory, use download mode; otherwise use pre-staged mode (binaries under `/host/cmis_cdb_firmware/`).
+1. **Resolve transport mode** based on Pre-requisite: if `cdb_firmware_upgrade_url.json` exists for the current inventory, use download mode; otherwise use pre-staged mode (binaries under `/host/cmis_cdb_firmware/`).
 2. **Use `port_attributes_dict`** (built from `dut_info/<dut_hostname>.json`) to identify the transceivers present on the DUT. If `ports_under_test` attribute is specified, only those ports are considered. The normalized vendor name and part number are available in `BASE_ATTRIBUTES`.
 3. **Parse `firmware_versions` test attribute** from `CDB_FIRMWARE_UPGRADE_ATTRIBUTES` to get the firmware versions needed for the transceiver type.
-4. **Parse `cdb_firmware_manifest.json`** to obtain the firmware binary metadata for each version specified in step 3. If the firmware version exists for the normalized vendor name and part number from step 2:
+4. **Load the per-PN `cdb_firmware_upgrade_manifest.json`** to obtain the firmware binary metadata for each version specified in step 3. If the firmware version exists in the manifest:
    - **Download mode:** fetch the binary from `<fw_base_url>/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>` into the target directory structure on the DUT (`/tmp/cmis_cdb_firmware/...`).
    - **Pre-staged mode:** copy the binary from `/host/cmis_cdb_firmware/<NORMALIZED_VENDOR>/<NORMALIZED_PN>/<VERSION>/<fw_binary_name>` into the target directory structure on the DUT (`/tmp/cmis_cdb_firmware/...`).
    - Validate firmware binary integrity using MD5 checksums after staging, in both modes.
 
-Fail the test if the specified firmware version doesn't exist in `cdb_firmware_manifest.json`, or if a binary listed in the manifest is missing from the configured source.
+Fail the test if the per-PN manifest file is missing, the specified firmware version doesn't exist in `cdb_firmware_upgrade_manifest.json`, or if a binary listed in the manifest is missing from the configured source.
 
 ## Test Cases
 
@@ -272,7 +268,7 @@ Fail the test if the specified firmware version doesn't exist in `cdb_firmware_m
    - The firmware version specified by `firmware_versions` test attribute must be available.
    - All firmware versions must support the CDB protocol for proper testing.
 4. **Module capabilities:** The module must support CMIS CDB firmware operations. For dual-bank specific checks, `dual_bank_supported` must be true.
-5. **Network connectivity:** In download mode, the DUT must have network access to the firmware server specified in `cdb_firmware_base_url.json` for downloading firmware binaries. Not required in pre-staged mode.
+5. **Network connectivity:** In download mode, the DUT must have network access to the firmware server specified in `cdb_firmware_upgrade_url.json` for downloading firmware binaries. Not required in pre-staged mode.
 6. **Link state:** The port should be operationally up before firmware download starts and should remain operationally up during and after the firmware download/commit with no link flaps observed during the process.
 7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation.
 
@@ -354,14 +350,15 @@ For firmware download, run, and commit operations, the test framework must repor
 | 7 | Graceful CDB abort of firmware download | **Skip if `firmware_download_cdb_abort_support` is false.**<br><br>1. Start the firmware download and interrupt using CDB abort command. | **Firmware State Unchanged Verification** must hold. Additionally:<br>1. Advertisement register for CDB abort is set.<br>2. CDB abort command is successful. |
 | 8 | Successful firmware download after interruption | 1. Perform steps in TC #6 to leave the module in a post-interrupt state.<br>2. If `firmware_download_cdb_abort_support` is set, run the CDB abort command.<br>3. If `firmware_download_cdb_abort_support` is not set, recover the module via `sfputil reset <port>` (and wait `transceiver_reset_i2c_recover_sec`).<br>4. Perform steps in TC #2. | 1. After step 1, **Firmware State Unchanged Verification** must hold.<br>2. If executed, the CDB abort command must be successful.<br>3. If executed, `sfputil reset` must succeed and the module must be reachable.<br>4. After step 4, **Firmware Downloaded Verification** must hold. |
 | 9 | Firmware download validation post reset | 1. Perform steps in TC #2.<br>2. Execute `sfputil reset <port>` and wait `transceiver_reset_i2c_recover_sec` seconds for it to finish. | All expectations of TC #2 must be met. |
-| 10 | Firmware download stress test | 1. Perform steps in TC #2 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #2 must be met for each iteration. |
-| 11 | Firmware upgrade stress test | 1. Perform steps in TC #2, #3, and #4 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2, #3, and #4 must be met for each iteration. |
-| 12 | Firmware read stress test | 1. Perform `sfputil show fwversion <port>` CLI command `firmware_read_stress_iterations` number of times. | 1. The return code is 0.<br>2. All reported fields remain unchanged across iterations.<br>3. Active firmware version is consistent across all iterations.<br>4. If `dual_bank_supported` is true, inactive firmware version is consistent across all iterations. |
-| 13 | Firmware download in low-power mode | 1. Put the transceiver into low-power mode using CLI command. <br>2. Wait for `transceiver_reset_i2c_recover_sec` and confirm via CLI that the module is in low-power mode.<br>3. Perform steps in TC #2 with the module still in low-power mode.<br>4. After the download completes, read the module power state via CLI.<br>5. Restore the module to high-power mode. | 1. **Firmware Downloaded Verification** must hold after step 3.<br>2. The module remains in low-power mode after the firmware download completes.<br>3. After step 5 the module returns to high-power mode and the port is operationally up. |
+| 10 | Firmware download in low-power mode | 1. Put the transceiver into low-power mode using CLI command. <br>2. Wait for `transceiver_reset_i2c_recover_sec` and confirm via CLI that the module is in low-power mode.<br>3. Perform steps in TC #2 with the module still in low-power mode.<br>4. After the download completes, read the module power state via CLI.<br>5. Restore the module to high-power mode. | 1. **Firmware Downloaded Verification** must hold after step 3.<br>2. The module remains in low-power mode after the firmware download completes.<br>3. After step 5 the module returns to high-power mode and the port is operationally up. |
+| 11 | Firmware download with port in admin-down state | 1. Shutdown all interfaces that are part of the physical port using `config interface shutdown <port>`.<br>2. Verify the port is operationally down.<br>3. Perform steps in TC #2.<br>4. Verify the port remains operationally down after download completes.<br>5. Startup all interfaces using `config interface startup <port>`. | 1. After step 2, the port is operationally down.<br>2. **Firmware Downloaded Verification** must hold after step 3.<br>3. After step 5, link comes up within `port_startup_wait_sec`. |
+| 12 | Firmware download stress test | 1. Perform steps in TC #2 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #2 must be met for each iteration. |
+| 13 | Firmware upgrade stress test | 1. Perform steps in TC #2, #3, and #4 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2, #3, and #4 must be met for each iteration. |
+| 14 | Firmware read stress test | 1. Perform `sfputil show fwversion <port>` CLI command `firmware_read_stress_iterations` number of times. | 1. The return code is 0.<br>2. All reported fields remain unchanged across iterations.<br>3. Active firmware version is consistent across all iterations.<br>4. If `dual_bank_supported` is true, inactive firmware version is consistent across all iterations. |
 
 ### Cleanup
 
-- If `restore_initial_inactive_firmware` is true, the inactive firmware version recorded before testing began is restored via firmware download only if it is present in `cdb_firmware_manifest.json`.
+- If `restore_initial_inactive_firmware` is true, the inactive firmware version recorded before testing began is restored via firmware download only if it is present in the per-PN `cdb_firmware_upgrade_manifest.json`.
 - The firmware binary folder on the DUT (`/tmp/cmis_cdb_firmware/`) will be deleted after the test module run is complete to ensure a clean state for subsequent tests
 - Cleanup includes removing both the directory structure and any temporary files created during the process
 
