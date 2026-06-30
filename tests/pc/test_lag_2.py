@@ -40,7 +40,7 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
 
 
 def is_vtestbed(duthost):
-    return duthost.facts['asic_type'].lower() == "vs"
+    return duthost.facts['asic_type'].lower() in ["vs", "vpp"]
 
 
 class LagTest:
@@ -84,6 +84,30 @@ class LagTest:
 
     def __check_intf_state(self, vm_host, intf, expect):
         return vm_host.check_intf_link_state(vm_host, intf) == expect
+
+    def __resolve_vm_neighbor_intf(self, peer_device, neighbor_intf):
+        """Map minigraph neighbor port to the interface name on converged cEOS."""
+        peer_info = self.nbrhosts.get(peer_device) or {}
+        if peer_info.get('is_multi_vrf_peer') and peer_info.get('multi_vrf_data'):
+            return peer_info['multi_vrf_data']['orig_intf_map'][neighbor_intf]
+
+        props = self.tbinfo.get('topo', {}).get('properties', {})
+        convergence_data = props.get('convergence_data', {})
+        if props.get('topo_is_multi_vrf') and convergence_data.get('convergence_mapping'):
+            for primary, logical_names in convergence_data['convergence_mapping'].items():
+                if peer_device in logical_names:
+                    intf_mapping = convergence_data['converged_peers'][primary]['intf_mapping']
+                    return intf_mapping[peer_device]['orig_intf_map'][neighbor_intf]
+
+        return neighbor_intf
+
+    def __get_vm_peer_for_dut_intf(self, dut_intf):
+        """Return (vm_host, neighbor_intf_on_ceos, logical_peer_name) for a DUT interface."""
+        peer_device = self.vm_neighbors[dut_intf]['name']
+        neighbor_intf = self.vm_neighbors[dut_intf]['port']
+        vm_host = self.nbrhosts[peer_device]['host']
+        neighbor_intf = self.__resolve_vm_neighbor_intf(peer_device, neighbor_intf)
+        return vm_host, neighbor_intf, peer_device
 
     def __verify_lag_lacp_timing(self, lacp_timer, exp_iface):
         if exp_iface is None:
@@ -166,7 +190,8 @@ class LagTest:
 
         neighbor_lag_intfs = []
         for po_intf in po_interfaces:
-            neighbor_lag_intfs.append(self.vm_neighbors[po_intf]['port'])
+            port = self.vm_neighbors[po_intf]['port']
+            neighbor_lag_intfs.append(self.__resolve_vm_neighbor_intf(peer_device, port))
 
         try:
             lag_rate_current_setting = None
@@ -211,10 +236,8 @@ class LagTest:
                                       lag_facts, neighbor_intf, deselect_time=5)
 
         # Figure out remote VM and interface info for the lag member and run minlink test
-        peer_device = self.vm_neighbors[intf]['name']
-        neighbor_intf = self.vm_neighbors[intf]['port']
-        self.__verify_lag_minlink(self.nbrhosts[peer_device]['host'], lag_name,
-                                  lag_facts, neighbor_intf, deselect_time=95)
+        vm_host, neighbor_intf, _ = self.__get_vm_peer_for_dut_intf(intf)
+        self.__verify_lag_minlink(vm_host, lag_name, lag_facts, neighbor_intf, deselect_time=95)
 
     def run_lag_fallback_test(self, lag_name, lag_facts):
         logger.info("Start checking lag fall back for: %s" % lag_name)
@@ -223,9 +246,7 @@ class LagTest:
         po_fallback = lag_facts['lags'][lag_name]['po_config']['runner']['fallback']
 
         # Figure out remote VM and interface info for the lag member and run lag fallback test
-        peer_device = self.vm_neighbors[intf]['name']
-        neighbor_intf = self.vm_neighbors[intf]['port']
-        vm_host = self.nbrhosts[peer_device]['host']
+        vm_host, neighbor_intf, _ = self.__get_vm_peer_for_dut_intf(intf)
 
         wait_timeout = 120
         delay = 5
@@ -278,9 +299,6 @@ def skip_if_no_lags(duthosts):
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
              conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa: F811
-    # We can't run single_lag test on vtestbed since there is no leaffanout
-    if testcase == "single_lag" and is_vtestbed(duthosts[0]):
-        pytest.skip("Skip single_lag test on vtestbed")
     if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
         pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
 
