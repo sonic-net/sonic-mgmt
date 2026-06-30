@@ -164,8 +164,8 @@ def test_ha_dut_config_reload(
     percentage_loss = (failed_count / send_count) * 100
 
     if (percentage_loss < threshold_loss):
-        logger.info(f"{reload_dut} with {traffic} test OK. Sent: {send_count},"
+        logger.info(f"{reload_dut} with {traffic} test OK. Sent: {send_count}, "
                     f" lost: {failed_count}, loss percentage: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        pytest.fail(f"{reload_dut} with {traffic} test error. Sent: {send_count},"
+        pytest.fail(f"{reload_dut} with {traffic} test error. Sent: {send_count}, "
                     f" lost: {failed_count} loss percentage: {percentage_loss}, threshold: {threshold_loss}")
