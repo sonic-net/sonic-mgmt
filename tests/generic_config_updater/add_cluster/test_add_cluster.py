@@ -179,7 +179,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
         for table in ["BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA"]:
             cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' \
-                | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                   | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # INTERFACE
@@ -572,7 +572,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
         for table in ["BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA"]:
             cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' \
-                | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                   | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # INTERFACE
@@ -591,7 +591,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         # PORTCHANNEL_INTERFACE, PORTCHANNEL_MEMBER
         for table in ["PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER"]:
             cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' \
-                | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+                   | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
             run_and_check(json_namespace, cmd, f"Clearing table {table}")
 
         # ACL
@@ -601,7 +601,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
 
         # PORTCHANNEL
         cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'PORTCHANNEL*' \
-            | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+               | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
         run_and_check(json_namespace, cmd, "Clearing table PORTCHANNEL")
 
         # CABLE_LENGTH
@@ -620,7 +620,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                           f"Set {iface} admin down")
         # BUFFER_PG
         cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'BUFFER_PG*' \
-            | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+               | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
         run_and_check(json_namespace, cmd, "Clearing table BUFFER_PG")
 
         # PORT_QOS_MAP
@@ -1799,7 +1799,8 @@ def setup_add_cluster(tbinfo,
 # Test Definitions
 # -----------------------------
 
-def test_add_cluster(tbinfo,
+def test_add_cluster(skip_t2_isolated_topo,
+                     tbinfo,
                      duthosts,
                      initialize_random_variables,
                      ptfadapter,
