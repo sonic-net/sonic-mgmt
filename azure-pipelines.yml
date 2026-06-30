@@ -82,7 +82,8 @@ stages:
     displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -90,7 +91,8 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -99,21 +101,24 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
   - job: markers_check
     displayName: "Markers Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
       - template: .azure-pipelines/markers-check.yml
 
   - job: meta_check
     displayName: "Meta check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool:
+      vmImage: ubuntu-latest
     steps:
       - template: .azure-pipelines/meta-check.yml
 
@@ -139,8 +144,7 @@ stages:
 
     - script: |
         set -euo pipefail
-        python -m pip install --upgrade pip
-        python -m pip install pytest requests PyYAML
+        sudo uv pip install --system pytest requests PyYAML
       displayName: "Install unit test dependencies"
 
     - script: |
