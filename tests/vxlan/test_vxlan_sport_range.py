@@ -1,20 +1,20 @@
 """
-test_vxlan_sport_range.py — VXLAN Source-Port Range, Hashing & Distribution
+test_vxlan_sport_range.py — VXLAN Source-Port Range, Hash Consistency & Coverage
 
 This test configures a VXLAN tunnel on the DUT, programs a source-port range
-via SWITCH_TABLE (vxlan_sport / vxlan_mask), then invokes a PTF test that
-sends 1000 distinct TCP flows.  The PTF side verifies:
+via SWITCH_TABLE (vxlan_sport with mask=7 for 128-port range), then invokes 
+a PTF test that sends 2000 distinct TCP flows.  The PTF side verifies:
 
   1. Every encapsulated packet's outer UDP source port is within the range.
   2. The same inner 5-tuple always hashes to the same outer source port.
-  3. Traffic is distributed evenly across the range (≤ 10 % deviation).
+  3. All ports in the range receive at least some traffic (coverage).
 
 The DUT setup mirrors test_scale_ecmp.py: one VNET, one tunnel, one prefix
 with two endpoints.
 
 CLI options (from conftest.py, already registered):
-  --udp_src_port       Base port   (default here: 32768)
-  --udp_src_port_mask  Mask bits   (default here: 4  →  16-port range)
+  --udp_src_port  Base port (default: 32768, must be aligned to 128-port boundary)
+  (mask is hard-coded to 7, providing a 128-port range)
 """
 
 import json
@@ -306,14 +306,13 @@ def run_sport_ptf_test(ptfhost, params):
 
 def test_vxlan_source_port_range_and_hashing(ptfhost, sport_range_setup_teardown):
     """
-    Verify VXLAN outer-UDP source-port range, hash consistency, and
-    distribution evenness.
+    Verify VXLAN outer-UDP source-port range, hash consistency, and port coverage.
 
-    Sends 1000 distinct TCP flows through the DUT.  The DUT encapsulates
-    each into a VXLAN packet.  The PTF test checks:
+    Sends 2000 distinct TCP flows through the DUT (mask=7 for 128-port range).
+    The DUT encapsulates each into a VXLAN packet.  The PTF test checks:
       Phase 1 – every outer UDP sport is within the configured range.
       Phase 2 – re-sending the same flow yields the same sport.
-      Phase 3 – flows are evenly distributed across the range.
+      Phase 3 – all ports in the range receive at least some traffic (coverage).
     """
     setup, duthost, _ = sport_range_setup_teardown
     run_sport_ptf_test(ptfhost, setup)

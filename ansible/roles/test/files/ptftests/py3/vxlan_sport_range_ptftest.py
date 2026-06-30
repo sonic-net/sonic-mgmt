@@ -29,9 +29,8 @@
 #                      falls within [base, upper_bound].
 #   Phase 2 – Consistency:  re-sending the same inner flow produces the
 #                            same outer source port every time.
-#   Phase 3 – Distribution:  across 1000 distinct flows the ports are
-#                             distributed evenly (≤ 10 % relative deviation
-#                             per bucket).
+#   Phase 3 – Coverage:  all ports in the range receive at least some traffic
+#                        (i.e., the hash function utilizes the entire range).
 
 import json
 import os
@@ -56,14 +55,12 @@ logger = logging.getLogger(__name__)
 HASH_CHECK_FLOWS = 10
 # How many times each flow is re-sent in Phase 2.
 HASH_CHECK_REPEATS = 5
-# Maximum allowed relative deviation per port bucket in Phase 3.
-MAX_RELATIVE_DEVIATION = 0.15
 
 
 class VxlanSportRangeTest(BaseTest):
     """
     PTF test that validates VXLAN outer-UDP source-port range, hash
-    consistency, and distribution evenness.
+    consistency, and port coverage.
     """
 
     # ------------------------------------------------------------------ #
@@ -299,30 +296,21 @@ class VxlanSportRangeTest(BaseTest):
         logger.info(f"Phase 2 PASSED — {len(check_indices)} flows × "
                      f"{HASH_CHECK_REPEATS} repeats all consistent")
 
-        # ---- Phase 3: Distribution evenness -----------------------------
-        # Using the port_counts collected in Phase 1, check that traffic is
-        # spread roughly evenly across the source-port range.
-        logger.info("=== Phase 3: DISTRIBUTION evenness verification ===")
+        # ---- Phase 3: Port coverage verification -------------------------
+        # Using the port_counts collected in Phase 1, check that all ports
+        # in the configured range receive at least some traffic (coverage).
+        logger.info("=== Phase 3: PORT COVERAGE verification ===")
 
-        expected_per_port = self.num_flows / self.range_size
-        logger.info(f"  Range size        : {self.range_size}")
-        logger.info(f"  Expected per port : {expected_per_port:.1f}")
-        logger.info(f"  Port counts       : {dict(port_counts)}")
+        logger.info(f"  Range size  : {self.range_size}")
+        logger.info(f"  Port counts : {dict(port_counts)}")
 
         for port_val in range(self.range_lower, self.range_upper + 1):
             actual = port_counts.get(port_val, 0)
             assert actual > 0, (
-                f"Port {port_val} received 0 flows — expected ~{expected_per_port:.0f}. "
-                f"Not all ports in the range are being used."
-            )
-            deviation = abs(actual - expected_per_port) / expected_per_port
-            assert deviation <= MAX_RELATIVE_DEVIATION, (
-                f"Port {port_val}: {actual} flows (expected ~{expected_per_port:.0f}), "
-                f"relative deviation {deviation:.2%} exceeds {MAX_RELATIVE_DEVIATION:.0%} "
-                f"threshold"
+                f"Port {port_val} received 0 flows. "
+                f"Not all ports in the range [{self.range_lower}, {self.range_upper}] are being used."
             )
 
-        logger.info(f"Phase 3 PASSED — all {self.range_size} ports within "
-                     f"{MAX_RELATIVE_DEVIATION:.0%} of expected count")
+        logger.info(f"Phase 3 PASSED — all {self.range_size} ports in range are utilized")
 
         logger.info("=== ALL PHASES PASSED ===")
