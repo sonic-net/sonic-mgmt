@@ -561,7 +561,11 @@ def test_vxlan_fg_ecmp_mac_vni(ptfhost, common_setup_teardown):
     endpoints = generate_endpoint_list()
     # Deterministic, unique MACs (one per endpoint).
     mac_list = [
-        f"52:54:00:{i // 256:02x}:{i % 256:02x}:aa" for i in range(len(endpoints))
+        "52:54:00:{}:{}:aa".format(
+            hex(i // 256)[2:].zfill(2),
+            hex(i % 256)[2:].zfill(2),
+        )
+        for i in range(len(endpoints))
     ]
     endpoint_to_mac = dict(zip(endpoints, mac_list))
 

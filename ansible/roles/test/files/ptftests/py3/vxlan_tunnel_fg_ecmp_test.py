@@ -186,8 +186,9 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             else:
                 deviation = abs(1.0 - actual / float(exp_flows))
             logger.info(
-                f"  endpoint={endpoint}  expected={exp_flows:.1f}  "
-                f"actual={actual}  deviation={deviation:.3f}"
+                "  endpoint={}  expected={:.1f}  actual={}  deviation={:.3f}".format(
+                    endpoint, exp_flows, actual, deviation
+                )
             )
             deviation_max = max(deviation_max, deviation)
         return deviation_max
@@ -220,7 +221,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 sport, dport = self._next_ports()
                 endpoint = self._send_and_capture_endpoint(sport, dport)
                 if endpoint:
-                    flow_key = f"{sport}:{dport}"
+                    flow_key = "{}:{}".format(sport, dport)
                     flow_map[self.dst_ip][flow_key] = endpoint
                     hit_count_map[endpoint] = hit_count_map.get(endpoint, 0) + 1
                 if (i + 1) % 100 == 0:
@@ -246,12 +247,13 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 break
 
             deviation = self._check_distribution(hit_count_map)
-            logger.info(f"  max deviation={deviation:.3f} (threshold={MAX_DEVIATION})")
+            logger.info("  max deviation={:.3f} (threshold={})".format(deviation, MAX_DEVIATION))
             if deviation <= MAX_DEVIATION:
                 break
         else:
             raise AssertionError(
-                f"Flow distribution deviation {deviation:.3f} exceeds "
+                "Flow distribution deviation {:.3f} exceeds ".format(deviation)
+                +
                 f"threshold {MAX_DEVIATION} after 3 attempts.\n"
                 f"Distribution: {hit_count_map}"
             )
@@ -353,21 +355,25 @@ class VxlanTunnelFgEcmpTest(BaseTest):
 
         disruption_rate = moved_to_new / total if total > 0 else 0
         logger.info(
-            f"Addition result: {moved_to_new}/{total} flows ({disruption_rate:.1%}) "
+            "Addition result: {}/{} flows ({}) ".format(
+                moved_to_new, total, "{:.1%}".format(disruption_rate)
+            )
+            +
             f"moved to new endpoint {self.add_endpoint}."
         )
         if unexpected_moves:
             logger.warning(
                 f"  {len(unexpected_moves)} flow(s) moved to an endpoint other than "
-                f"{self.add_endpoint} (unexpected with FG ECMP):"
+                f"{self.add_endpoint} (unexpected with FG ECMP)"
             )
             for flow_key, old_ep, new_ep in unexpected_moves[:5]:
                 logger.warning(f"    flow={flow_key} {old_ep} -> {new_ep}")
 
         assert disruption_rate <= MAX_DEVIATION, (
             f"Too many flows disrupted by adding endpoint {self.add_endpoint}: "
-            f"{moved_to_new}/{total} = {disruption_rate:.1%} "
-            f"(threshold: {MAX_DEVIATION:.0%})"
+            "{}/{} = {} ".format(moved_to_new, total, "{:.1%}".format(disruption_rate))
+            +
+            "(threshold {})".format("{:.0%}".format(MAX_DEVIATION))
         )
 
     def _swap_endpoints(self, flow_map):
@@ -417,7 +423,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
 
         logger.info(
             f"Swap result: {redistributed} flows redistributed from withdrawn "
-            f"endpoints {sorted(withdrawn_set)}; added endpoint hits={added_hits}; "
+            f"endpoints {sorted(withdrawn_set)}, added endpoint hits={added_hits}, "
             f"collateral disruptions={len(collateral)}"
         )
 
@@ -494,7 +500,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 logger.error(
                     f"Packet mismatch for endpoint={outer_dst}, "
                     f"expected_mac={expected_mac}, expected_vni={self.expected_vni}.\n"
-                    f"\nExpected:\n{exp}\n\nReceived:\n{pkt}\n"
+                    f"\nExpected\n{exp}\n\nReceived\n{pkt}\n"
                 )
                 break
 
