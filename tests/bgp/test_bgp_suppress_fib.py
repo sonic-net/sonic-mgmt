@@ -406,6 +406,46 @@ def get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type='T0'):
     return port_list
 
 
+def check_vrf_bgp_peer_state(duthost, vrf, peer_ip, expected_state="Established"):
+    peer_info = json.loads(
+        duthost.shell(f"vtysh -c 'show bgp vrf {vrf} neighbors {peer_ip} json'")["stdout"]
+    )
+    peer_state = peer_info[peer_ip].get("bgpState", "Unknown")
+    if peer_state != expected_state:
+        logger.info(f"Vrf {vrf} bgp peer {peer_ip} is {peer_state}, expected {expected_state}")
+        return False
+    return True
+
+
+def _is_bgp_neighbor_entry(entry):
+    return isinstance(entry, dict) and ("asn" in entry or "admin_status" in entry)
+
+
+def check_vrf_bgp_sessions(duthost, cfg_facts):
+    for neigh, attrs in cfg_facts.get("BGP_NEIGHBOR", {}).items():
+        if _is_bgp_neighbor_entry(attrs):
+            if "|" in neigh:
+                vrf, peer_ip = neigh.split("|", 1)
+            else:
+                vrf, peer_ip = "default", neigh
+            if not check_vrf_bgp_peer_state(duthost, vrf, peer_ip):
+                return False
+        else:
+            for peer_ip in attrs:
+                if not check_vrf_bgp_peer_state(duthost, neigh, peer_ip):
+                    return False
+    return True
+
+
+def wait_for_vrf_bgp_sessions(duthost):
+    # config_facts nests "Vrf1|<ip>" as BGP_NEIGHBOR["Vrf1"][<ip>]
+    vrf_cfg = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    pytest_assert(
+        wait_until(300, 10, 0, check_vrf_bgp_sessions, duthost, vrf_cfg),
+        "Not all BGP sessions (including VRF) are established"
+    )
+
+
 def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     """
     Config vrf based configuration
@@ -429,7 +469,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('nhopself', None)
         cfg_t1['BGP_NEIGHBOR'][bgp_neighbor].pop('rrclient', None)
     port_list = get_port_connected_with_vm(duthost, tbinfo, nbrhosts)
-    vm_list = nbrhosts.keys()
+    vm_list = [vm_name for vm_name in nbrhosts.keys() if not vm_name.endswith('PT1')]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_channel_list = mg_facts['minigraph_portchannels'].keys()
     if len(port_channel_list) == 0:
@@ -445,6 +485,7 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
 
     config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer, wait_for_bgp=True)
     wait_until(120, 10, 0, check_interface_status, duthost)
+    wait_for_vrf_bgp_sessions(duthost)
 
 
 def setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer):
@@ -832,6 +873,8 @@ def param_reboot(request, duthost, localhost, loganalyzer):
         )
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
+
+    wait_for_vrf_bgp_sessions(duthost)
 
 
 def validate_route_states(duthost, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6, tbinfo, vrf=DEFAULT,
