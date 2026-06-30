@@ -400,6 +400,7 @@ class QosSaiBase(QosBase):
                     "pool": "ingress_lossless_pool",
                     "xon": "0",
                     "xoff": "0",
+                    "xon_offset": "0",  # Required for Cisco 8000 gr2/gr2x/p200 ASICs
                     "size": "0",
                     "dynamic_th": "0",
                     "pg_q_alpha": "0",
