@@ -17,7 +17,8 @@ from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 ]
 
 logger = logging.getLogger(__name__)
@@ -69,8 +70,8 @@ class TestLinkLocalIPacket:
             pytest.skip("Test is not supported, SAI_NOT_DROP_SIP_DIP_LINK_LOCAL is not equal 1 or not specified")
 
     @pytest.fixture(scope="class", autouse=True)
-    def common_params(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter, ptfhost):
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def common_params(self, duthosts, rand_one_dut_hostname, tbinfo, ptfadapter, ptfhost):
+        duthost = duthosts[rand_one_dut_hostname]
         self.check_if_test_is_supported(duthost)
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -118,13 +119,15 @@ class TestLinkLocalIPacket:
         rx_iface, tx_iface = random.sample(sorted(downlinks), 2)
         ptf_rx_idx = mg_facts["minigraph_ptf_indices"][rx_iface]
         ptf_tx_idx = mg_facts["minigraph_ptf_indices"][tx_iface]
+        downlink_router_mac = self.get_downlink_router_mac(duthost, rx_iface, ingress_router_mac)
         link_local_src = self.get_port_default_ipv6_link_local_address(ptfhost, 'eth{}'.format(ptf_rx_idx))
         link_local_dst = self.get_port_default_ipv6_link_local_address(ptfhost, 'eth{}'.format(ptf_tx_idx))
         ptf_rx_mac = ptfadapter.dataplane.get_mac(0, ptf_rx_idx).decode("utf-8")
         ptf_tx_mac = ptfadapter.dataplane.get_mac(0, ptf_tx_idx).decode("utf-8")
-        downlink_uplink_rx_info = [(ptf_pc_port_mac, ptf_pc_port_idx, dut_pc_rx_iface, rx_pc, out_rif_ifaces,
-                                    out_ifaces, out_ptf_indices),
-                                   (ptf_rx_mac, ptf_rx_idx, rx_iface, None, out_rif_ifaces, out_ifaces, out_ptf_indices)
+        downlink_uplink_rx_info = [(ptf_pc_port_mac, ingress_router_mac, ptf_pc_port_idx, dut_pc_rx_iface, rx_pc,
+                                    out_rif_ifaces, out_ifaces, out_ptf_indices),
+                                   (ptf_rx_mac, downlink_router_mac, ptf_rx_idx, rx_iface, None, out_rif_ifaces,
+                                    out_ifaces, out_ptf_indices)
                                    ]
         yield duthost, mg_facts, pc_ports_map, ptf_indices, ingress_router_mac, rx_iface, tx_iface, ptf_rx_mac, \
             ptf_rx_idx, ptf_tx_mac, ptf_tx_idx, link_local_src, link_local_dst, downlink_uplink_rx_info, rif_support
@@ -164,6 +167,17 @@ class TestLinkLocalIPacket:
         for addr_dict in mg_facts['minigraph_portchannel_interfaces']:
             if addr_dict['attachto'] == pc and int(addr_dict['prefixlen']) == prefixlen:
                 return addr_dict['peer_addr']
+
+    @staticmethod
+    def get_downlink_router_mac(duthost, member_iface, default_router_mac):
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        vlan_member = config_facts.get('VLAN_MEMBER') or {}
+        vlan_facts = config_facts.get('VLAN') or {}
+        for vlan_interface, vlan_members in vlan_member.items():
+            if member_iface in vlan_members:
+                vlan = vlan_facts.get(vlan_interface) or {}
+                return vlan.get('mac', default_router_mac)
+        return default_router_mac
 
     @staticmethod
     def is_rif_supported(duthost):
@@ -206,12 +220,12 @@ class TestLinkLocalIPacket:
          ptf_rx_mac, ptf_rx_idx, _, ptf_tx_idx, link_local_src,
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
-        for ptf_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices \
+        for ptf_mac, router_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices \
                 in downlink_uplink_rx_info:
 
             logger.info("Sending IPV4 Packet from dut interface {}, rif interface {}".format(dut_rx_iface,
                                                                                              rif_rx_iface))
-            pkt = testutils.simple_ip_packet(eth_dst=ingress_router_mac,
+            pkt = testutils.simple_ip_packet(eth_dst=router_mac,
                                              eth_src=ptf_mac,
                                              ip_src=IPV4_LINK_LOCAL_ADDRESS,
                                              ip_dst=IPV4_ROUTE)
@@ -230,11 +244,11 @@ class TestLinkLocalIPacket:
          ptf_rx_mac, ptf_rx_idx, _, ptf_tx_idx, link_local_src,
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
-        for ptf_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices\
+        for ptf_mac, router_mac, ptf_idx, dut_rx_iface, rif_rx_iface, out_rif_ifaces, out_ifaces, out_ptf_indices\
                 in downlink_uplink_rx_info:
             logger.info("Sending IPV6 Packet from dut interface {}, rif interface {}".format(dut_rx_iface,
                                                                                              rif_rx_iface))
-            pkt = testutils.simple_ipv6ip_packet(eth_dst=ingress_router_mac,
+            pkt = testutils.simple_ipv6ip_packet(eth_dst=router_mac,
                                                  eth_src=ptf_mac,
                                                  ipv6_src=IPV6_LINK_LOCAL_ADDRESS,
                                                  ipv6_dst=IPV6_ROUTE)
@@ -253,9 +267,10 @@ class TestLinkLocalIPacket:
          link_local_dst, downlink_uplink_rx_info, rif_support) = common_params
 
         dut_link_local_dst = self.get_port_default_ipv6_link_local_address(duthost, rx_iface)
+        downlink_router_mac = self.get_downlink_router_mac(duthost, rx_iface, ingress_router_mac)
 
         logger.info("Sending IPV6 Packet to dut interface {},".format(rx_iface))
-        pkt = testutils.simple_ipv6ip_packet(eth_dst=ingress_router_mac,
+        pkt = testutils.simple_ipv6ip_packet(eth_dst=downlink_router_mac,
                                              eth_src=ptf_rx_mac,
                                              ipv6_src=link_local_src,
                                              ipv6_dst=dut_link_local_dst)
