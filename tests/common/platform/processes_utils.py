@@ -14,11 +14,9 @@ logger = logging.getLogger(__name__)
 
 # Runs on the DUT to avoid clock skew; uses State.StartedAt (not `docker ps` text) for precision.
 _PMON_UPTIME_SECONDS_CMD = (
-    '{% raw %}'
-    'if [ "$(docker inspect -f \'{{.State.Running}}\' pmon 2>/dev/null)" = "true" ]; then '
-    'echo $(( $(date -u +%s) - $(date -u -d "$(docker inspect -f \'{{.State.StartedAt}}\' pmon)" +%s) )); '
+    'if [ "$(docker inspect -f \\{\\{.State.Running\\}\\} pmon 2>/dev/null)" = "true" ]; then '
+    'echo $(( $(date -u +%s) - $(date -u -d "$(docker inspect -f \\{\\{.State.StartedAt\\}\\} pmon)" +%s) )); '
     'fi'
-    '{% endraw %}'
 )
 
 
