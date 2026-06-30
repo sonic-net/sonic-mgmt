@@ -61,11 +61,10 @@ class QosParamCisco(object):
         # 3: Packet size preferred by the asic to increase test stability
         # 4: Number of packets added to the pause threshold to line up with theoretical predictions
         # 5: Number of packets added to the lossless drop threshold to line up with theoretical predictions
-        # 6: Number of packets added to the lossy drop threshold to line up with theoretical predictions
-        asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3, 0),
-                       "gr": (24576000, 18000, 384, 1350, 2, 3, 0),
-                       "gr2": (None, 2, 512, 64, 3, 4, -40),
-                       "p200": (None, 1, 512, 64, 2, 2, 0)}
+        asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3),
+                       "gr": (24576000, 18000, 384, 1350, 2, 3),
+                       "gr2": (None, 2, 512, 64, 3, 4),
+                       "p200": (None, 1, 512, 64, 2, 2)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
             # Asic dependent parameters
@@ -74,8 +73,7 @@ class QosParamCisco(object):
              self.buffer_size,
              self.preferred_packet_size,
              self.lossless_pause_tuning_pkts,
-             self.lossless_drop_tuning_pkts,
-             self.lossy_drop_tuning_pkts) = asic_params[dutAsic]
+             self.lossless_drop_tuning_pkts) = asic_params[dutAsic]
 
             self.flow_config = self.get_expected_flow_config()
 
@@ -101,8 +99,8 @@ class QosParamCisco(object):
                 profile_reserved_memory = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["size"])
                 theoretical_drop_thr = int(profile_reserved_memory +
                                            (self.egress_pool_size - egress_pool_reserved_buffer) * alpha / (1. + alpha))
-                self.lossy_drop_bytes = ((self.gr_get_hw_thr_buffs(theoretical_drop_thr // self.buffer_size, True)
-                                         + self.lossy_drop_tuning_pkts) * self.buffer_size)
+                self.lossy_drop_bytes = (self.gr_get_hw_thr_buffs(theoretical_drop_thr // self.buffer_size, True)
+                                         * self.buffer_size)
                 self.log("Lossy queue drop theoretical {} adjusted to {}".format(theoretical_drop_thr,
                                                                                  self.lossy_drop_bytes))
                 pre_pad_pause = attempted_pause
@@ -682,8 +680,6 @@ class QosParamCisco(object):
             if self.dutAsic == "gr2":
                 # Send a burst of leakout packets to optimize runtime. Expected leakout is around 250
                 params["pkts_num_leak_out"] = 200
-                # Decrease pkt_count due to lossy drop threshold inaccuracy
-                params["pkt_count"] -= 8
             self.write_params("wm_q_wm_all_ports", params)
 
     def __define_pg_drop(self):

@@ -1229,8 +1229,12 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_min": fillMin,
             "pkts_num_fill_shared": triggerDrop - 1,
-            "buf_pool_roid": buf_pool_roid
+            "buf_pool_roid": buf_pool_roid,
+            "dut_asic": dutConfig["dutAsic"]
         })
+
+        if "wm_buf_pool_lossy" in bufPool:
+            testParams["lossy_buf_pool_roid"] = egressLossyProfile["bufferPoolRoid"]
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
@@ -1244,8 +1248,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic,
-        enable_lossy_pg_headroom
+        ingressLossyProfile, egressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer,
+        blockGrpcTraffic, enable_lossy_pg_headroom
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1294,6 +1298,7 @@ class TestQosSai(QosSaiBase):
             "hwsku": dutTestParams['hwsku'],
             "ip_type": dutConfig["ip_type"],
             "dut_asic": dutConfig["dutAsic"],
+            "lossy_buf_pool_roid": egressLossyProfile["bufferPoolRoid"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1733,8 +1738,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic, clear_pg_wm,
-        iptables_drop_ipv6_tx  # noqa: F811
+        egressLossyProfile, resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer,
+        blockGrpcTraffic, clear_pg_wm, iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1804,8 +1809,12 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_fill_shared": pktsNumFillShared,
             "hwsku": dutTestParams['hwsku'],
-            "ip_type": dutConfig["ip_type"]
+            "ip_type": dutConfig["ip_type"],
+            "dut_asic": dutConfig["dutAsic"]
         })
+
+        if "wm_pg_shared_lossy" in pgProfile:
+            testParams["lossy_buf_pool_roid"] = egressLossyProfile["bufferPoolRoid"]
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
@@ -2028,8 +2037,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
-        blockGrpcTraffic, iptables_drop_ipv6_tx  # noqa: F811
+        egressLossyProfile, resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic,
+        change_lag_lacp_timer, blockGrpcTraffic, iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -2094,6 +2103,9 @@ class TestQosSai(QosSaiBase):
             "dut_asic": dutConfig["dutAsic"],
             "ip_type": dutConfig["ip_type"]
         })
+
+        if "wm_q_shared_lossy" in queueProfile:
+            testParams["lossy_buf_pool_roid"] = egressLossyProfile["bufferPoolRoid"]
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
@@ -2377,7 +2389,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, resetWatermark, _skip_watermark_multi_DUT,
-        skip_pacific_dst_asic, dut_qos_maps    # noqa: F811
+        skip_pacific_dst_asic, dut_qos_maps, egressLossyProfile    # noqa: F811
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -2455,7 +2467,9 @@ class TestQosSai(QosSaiBase):
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
-            "dscp_to_q_map": dscp_to_q_map
+            "dscp_to_q_map": dscp_to_q_map,
+            "dut_asic": dutConfig["dutAsic"],
+            "lossy_buf_pool_roid": egressLossyProfile["bufferPoolRoid"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:

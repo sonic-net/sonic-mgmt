@@ -453,6 +453,55 @@ def check_leackout_compensation_support(asic, hwsku):
     return False
 
 
+def adjust_lossy_pkts_for_cisco_gr2(test, asic_type, dut_asic, pkts_num, bytes_per_unit,
+                                    param_name='pkts_num'):
+    """
+    Cisco gr2 has pre-existing occupancy in the egress lossy buffer pool.
+    Clear the egress_lossy_pool watermark (via test.test_params['lossy_buf_pool_roid']),
+    read the base watermark (in bytes), convert it to the caller's unit using
+    bytes_per_unit, and subtract from pkts_num.
+
+    Required for lossy test cases on cisco-8000 gr2 (LossyQueueTest,
+    BufferPoolWatermarkTest with wm_buf_pool_lossy, PGSharedWatermarkTest with
+    wm_pg_shared_lossy, QSharedWatermarkTest with wm_q_shared_lossy).
+
+    bytes_per_unit: number of bytes corresponding to one unit of pkts_num.
+        - cells: pass cell_size
+        - packets: pass cell_size * cell_occupancy
+
+    'lossy_buf_pool_roid' is intentionally distinct from 'buf_pool_roid' so this
+    helper is a strict no-op for lossless variants (which may pass a different
+    pool's roid via 'buf_pool_roid').
+
+    Returns the (possibly adjusted) packet count. Returns pkts_num unchanged if
+    not cisco-8000 gr2, 'lossy_buf_pool_roid' is not in test_params, or
+    bytes_per_unit is not a positive integer.
+    """
+    if 'cisco-8000' not in asic_type or dut_asic != 'gr2':
+        return pkts_num
+    buf_pool_roid_str = test.test_params.get('lossy_buf_pool_roid')
+    if not buf_pool_roid_str:
+        return pkts_num
+    if not bytes_per_unit or bytes_per_unit <= 0:
+        log_message(
+            "cisco gr2: skip lossy adjustment for {}, invalid bytes_per_unit={}".format(
+                param_name, bytes_per_unit), level='warning', to_stderr=True)
+        return pkts_num
+    buf_pool_roid = int(buf_pool_roid_str, 0)
+    sai_thrift_clear_buffer_pool_watermark(test.dst_client, buf_pool_roid)
+    buffer_pool_wm_base_bytes = sai_thrift_read_buffer_pool_watermark(
+        test.dst_client, buf_pool_roid) or 0
+    base_units = buffer_pool_wm_base_bytes // bytes_per_unit
+    adjusted = pkts_num - base_units
+    log_message(
+        "cisco gr2: egress_lossy_pool buf_pool_roid: 0x{:x}, base watermark: {} bytes "
+        "({} units of {} bytes), adjusting {} from {} to {}".format(
+            buf_pool_roid, buffer_pool_wm_base_bytes, base_units, bytes_per_unit,
+            param_name, pkts_num, adjusted),
+        to_stderr=True)
+    return adjusted
+
+
 def get_ip_addr():
     val = 1
     while True:
@@ -5006,6 +5055,13 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+        # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
+        # base watermark from pkts_num_trig_egr_drp. The value is in cells at
+        # this point (YAML provides bytes // cell_size), so bytes_per_unit = cell_size.
+        pkts_num_trig_egr_drp = adjust_lossy_pkts_for_cisco_gr2(
+            self, asic_type, dut_asic, pkts_num_trig_egr_drp,
+            int(self.test_params.get('cell_size', 0)),
+            param_name='pkts_num_trig_egr_drp')
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
             cell_size = int(self.test_params['cell_size'])
@@ -5561,6 +5617,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         internal_hdr_size = self.test_params.get('internal_hdr_size', 0)
         platform_asic = self.test_params['platform_asic']
         margin_lower_bound = self.test_params.get('pkts_num_margin_lower_bound', 0)
+        dut_asic = self.test_params.get('dut_asic', None)
         ip_type = self.test_params.get('ip_type', 'ipv4')
         descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
@@ -5570,6 +5627,15 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             packet_length = 64
 
         cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
+
+        # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
+        # base watermark from pkts_num_fill_shared. The value is in packets at
+        # this point (YAML provides bytes // cell_size // packet_buffs), so
+        # bytes_per_unit = cell_size * cell_occupancy.
+        pkts_num_fill_shared = adjust_lossy_pkts_for_cisco_gr2(
+            self, asic_type, dut_asic, pkts_num_fill_shared,
+            cell_size * cell_occupancy,
+            param_name='pkts_num_fill_shared')
 
         # Prepare TCP packet data
         ttl = 64
@@ -6240,6 +6306,13 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
         dut_asic = self.test_params['dut_asic']
+        # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
+        # base watermark from pkts_num_trig_drp. The value is in cells at this
+        # point (YAML provides bytes // cell_size), so bytes_per_unit = cell_size.
+        pkts_num_trig_drp = adjust_lossy_pkts_for_cisco_gr2(
+            self, asic_type, dut_asic, pkts_num_trig_drp,
+            cell_size,
+            param_name='pkts_num_trig_drp')
         ip_type = self.test_params.get('ip_type', 'ipv4')
         descriptor_size = int(self.test_params.get('descriptor_size', 0))
 
@@ -6548,6 +6621,14 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_margin = int(self.test_params['pkts_num_margin'])
         if pkts_num_margin == 0:
             pkts_num_margin = 2
+        dut_asic = self.test_params.get('dut_asic', None)
+        # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
+        # base watermark from pkts_num_fill_shared. The value is in cells at this
+        # point (YAML provides bytes // cell_size), so bytes_per_unit = cell_size.
+        pkts_num_fill_shared = adjust_lossy_pkts_for_cisco_gr2(
+            self, asic_type, dut_asic, pkts_num_fill_shared,
+            cell_size,
+            param_name='pkts_num_fill_shared')
 
         print("buf_pool_roid: %s" %
               (self.test_params['buf_pool_roid']), file=sys.stderr)
@@ -6953,6 +7034,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkt_count = int(self.test_params['pkt_count'])
         cell_size = int(self.test_params['cell_size'])
+        dut_asic = self.test_params.get('dut_asic', None)
         prio_list = dscp_to_q_map.keys()
         queue_list = [dscp_to_q_map[p] for p in prio_list]
         prio_list = [int(x) for x in prio_list]
@@ -6961,6 +7043,14 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_leak_out = self.test_params.get('pkts_num_leak_out', 0)
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
+        # base watermark from pkt_count. The value is in packets at this point
+        # (YAML provides bytes // cell_size // packet_buffs), so
+        # bytes_per_unit = cell_size * cell_occupancy.
+        pkt_count = adjust_lossy_pkts_for_cisco_gr2(
+            self, asic_type, dut_asic, pkt_count,
+            cell_size * cell_occupancy,
+            param_name='pkt_count')
         ttl = 64
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, dst_port_ids)
 
