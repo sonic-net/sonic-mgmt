@@ -155,6 +155,8 @@ class AttributeManager:
             for fname in sorted(files):
                 if not fname.endswith('.json'):
                     continue
+                if fname != expected_filename and fname.startswith(f"{category_name}_"):
+                    continue
                 full = os.path.join(root, fname)
                 shards.append(self._classify_shard(category_name, expected_filename, parts, fname, full))
         return shards
@@ -173,7 +175,7 @@ class AttributeManager:
             if len(parts) == 2:
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('platform', full_path, {'platform': parts[1]})
@@ -188,14 +190,14 @@ class AttributeManager:
             if len(parts) == 3:
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('vendor', full_path, {'vendor': parts[2]})
             if len(parts) == 5 and parts[3] == 'part_numbers':
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('pn', full_path, {'vendor': parts[2], 'pn': parts[4]})

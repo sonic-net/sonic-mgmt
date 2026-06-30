@@ -5,8 +5,9 @@ import os
 
 logger = logging.getLogger(__name__)
 
-TRANSCEIVER_FIRMWARE_INFO_FILE = "cdb_firmware_binaries.json"
-CMIS_CDB_FIRMWARE_BASE_URL_FILE = "cdb_firmware_base_url.json"
+CDB_FIRMWARE_UPGRADE_MANIFEST_FILE = "cdb_firmware_upgrade_manifest.json"
+CDB_FIRMWARE_UPGRADE_URL_FILE = "cdb_firmware_upgrade_url.json"
+CDB_FIRMWARE_UPGRADE_ATTRIBUTES_DIR = "attributes/cdb_firmware_upgrade"
 
 
 class TransceiverFirmwareInfoParser:
@@ -15,7 +16,10 @@ class TransceiverFirmwareInfoParser:
         self.transceiver_inventory_path = os.path.join(
             self.ansible_path, "files/transceiver/inventory/"
         )
-        self.transceiver_firmware_info = self.parse_firmware_json()
+        self.cdb_firmware_upgrade_path = os.path.join(
+            self.transceiver_inventory_path, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_DIR
+        )
+        self.transceiver_firmware_info = self.parse_all_firmware_manifests()
         if not self.transceiver_firmware_info:
             logger.warning("No transceiver firmware information found.")
         else:
@@ -23,62 +27,84 @@ class TransceiverFirmwareInfoParser:
 
         self.firmware_base_url_dict = self.parse_firmware_base_url()
         if not self.firmware_base_url_dict:
-            logger.warning(f"No firmware base URL found in {CMIS_CDB_FIRMWARE_BASE_URL_FILE}")
+            logger.warning(f"No firmware base URL found in {CDB_FIRMWARE_UPGRADE_URL_FILE}")
         else:
             logger.info(f"Firmware Base URL is: {self.firmware_base_url_dict}")
 
-    def parse_firmware_json(self):
+    def parse_all_firmware_manifests(self):
         """
-        Parses the cdb_firmware_binaries.json file and returns a dictionary
-        with (normalized_vendor_name, normalized_vendor_pn) as keys.
+        Discovers and parses all per-PN cdb_firmware_upgrade_manifest.json files and
+        returns a dictionary with (normalized_vendor_name, normalized_vendor_pn) as keys.
         The values are lists of dictionaries containing firmware version,
         binary filename, and md5sum information.
 
-        Returns an empty dict if file is missing or invalid.
+        Returns an empty dict if no manifests are found.
         """
-        firmware_info_file = os.path.join(
-            self.transceiver_inventory_path, TRANSCEIVER_FIRMWARE_INFO_FILE
+        vendors_path = os.path.join(
+            self.cdb_firmware_upgrade_path, "transceivers", "vendors"
         )
         firmware_data = defaultdict(list)
 
-        if not os.path.exists(firmware_info_file):
-            logger.error(f"Firmware info file does not exist: {firmware_info_file}")
+        if not os.path.isdir(vendors_path):
+            logger.error(f"Vendors directory does not exist: {vendors_path}")
             return {}
 
-        try:
-            with open(firmware_info_file) as jsonfile:
-                data = json.load(jsonfile)
-        except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Error reading firmware info JSON: {e}")
-            return {}
+        for vendor_name in os.listdir(vendors_path):
+            pn_path = os.path.join(vendors_path, vendor_name, "part_numbers")
+            if not os.path.isdir(pn_path):
+                continue
 
-        for vendor_name, part_numbers in data.items():
-            for vendor_pn, versions in part_numbers.items():
-                key = (vendor_name, vendor_pn)
-                for fw_version, metadata in versions.items():
-                    fw_binary_name = metadata.get('fw_binary_name')
-                    md5sum = metadata.get('md5sum')
-                    if not fw_binary_name or not md5sum:
-                        logger.warning(
-                            f"Missing fw_binary_name or md5sum for version '{fw_version}' "
-                            f"under '{vendor_name}/{vendor_pn}', skipping."
-                        )
-                        continue
-                    firmware_data[key].append({
-                        'version': fw_version,
-                        'binary': fw_binary_name,
-                        'md5sum': md5sum
-                    })
+            for vendor_pn in os.listdir(pn_path):
+                manifest_file = os.path.join(
+                    pn_path, vendor_pn, CDB_FIRMWARE_UPGRADE_MANIFEST_FILE
+                )
+                if not os.path.isfile(manifest_file):
+                    continue
+
+                fw_versions = self.parse_single_manifest(manifest_file, vendor_name, vendor_pn)
+                if fw_versions:
+                    firmware_data[(vendor_name, vendor_pn)] = fw_versions
 
         return firmware_data
 
+    def parse_single_manifest(self, manifest_file, vendor_name, vendor_pn):
+        """
+        Parses a single per-PN cdb_firmware_upgrade_manifest.json file.
+
+        Returns a list of firmware entry dicts, or empty list on error.
+        """
+        try:
+            with open(manifest_file) as jsonfile:
+                data = json.load(jsonfile)
+        except (json.JSONDecodeError, IOError) as e:
+            logger.error(f"Error reading firmware manifest {manifest_file}: {e}")
+            return []
+
+        fw_versions = []
+        for fw_version, metadata in data.items():
+            fw_binary_name = metadata.get('fw_binary_name')
+            md5sum = metadata.get('md5sum')
+            if not fw_binary_name or not md5sum:
+                logger.warning(
+                    f"Missing fw_binary_name or md5sum for version '{fw_version}' "
+                    f"in '{vendor_name}/{vendor_pn}', skipping."
+                )
+                continue
+            fw_versions.append({
+                'version': fw_version,
+                'binary': fw_binary_name,
+                'md5sum': md5sum
+            })
+
+        return fw_versions
+
     def parse_firmware_base_url(self):
         """
-        Parses the cdb_firmware_base_url.json file and returns a dictionary
+        Parses the cdb_firmware_upgrade_url.json file and returns a dictionary
         mapping inventory names to firmware base URLs.
         """
         firmware_base_url_file = os.path.join(
-            self.transceiver_inventory_path, CMIS_CDB_FIRMWARE_BASE_URL_FILE
+            self.cdb_firmware_upgrade_path, CDB_FIRMWARE_UPGRADE_URL_FILE
         )
 
         if not os.path.exists(firmware_base_url_file):
