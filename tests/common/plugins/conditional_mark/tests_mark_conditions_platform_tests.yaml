@@ -963,6 +963,15 @@ platform_tests/broadcom/test_ser.py:
 ##############################################
 #####  cli/test_show_chassis_module.py  #####
 ##############################################
+platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_chassis_module_status:
+  skip:
+    reason: Discrepancy between the pmon and pmon test design
+    conditions:
+      - https://github.com/sonic-net/SONiC/issues/2410
+
+##############################################
+#####  cli/test_show_chassis_module.py  #####
+##############################################
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
