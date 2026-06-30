@@ -2,6 +2,7 @@
 
 import collections
 import logging
+from contextlib import contextmanager
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
@@ -104,6 +105,25 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
 
+@contextmanager
+def _feature_monitor_paused(duthost):
+    """Pause the `featured` daemon for the duration of the block, always restoring it.
+
+    Swss/syncd graceful shutdown can take ~30s. The `featured` daemon, if used, 
+    might restart any feature whose state is 'enabled' as soon as it observes the 
+    container is down, racing against the swap shutdown check and causing 
+    "Docker and/or BGP failed to shut down in 30s". So we pause it.
+    This is a no-op on platforms/images that do not ship `featured`.
+    """
+    logger.info("Pausing featured to prevent container restart during syncd swap")
+    duthost.command("systemctl stop featured.timer featured", module_ignore_errors=True)
+    try:
+        yield
+    finally:
+        logger.info("Resuming featured after syncd swap")
+        duthost.command("systemctl start featured.timer featured", module_ignore_errors=True)
+
+
 def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     """Replaces the running syncd container with the RPC version of it.
 
@@ -134,58 +154,61 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     # Force image download to go through mgmt network
     duthost.command("config bgp shutdown all")
 
-    for asic in asics_list:
-        asic.stop_service("swss")
-        asic.delete_container("syncd")
+    # Pause the featured daemon so it cannot restart swss/syncd while they are torn
+    # down for the swap. Always restored when the block exits, even on failure.
+    with _feature_monitor_paused(duthost):
+        for asic in asics_list:
+            asic.stop_service("swss")
+            asic.delete_container("syncd")
 
-    # Set sysctl RCVBUF parameter for tests
-    duthost.command("sysctl -w net.core.rmem_max=609430500")
+        # Set sysctl RCVBUF parameter for tests
+        duthost.command("sysctl -w net.core.rmem_max=609430500")
 
-    # Set sysctl SENDBUF parameter for tests
-    duthost.command("sysctl -w net.core.wmem_max=609430500")
+        # Set sysctl SENDBUF parameter for tests
+        duthost.command("sysctl -w net.core.wmem_max=609430500")
 
-    for asic in asics_list:
-        _perform_swap_syncd_shutdown_check(asic)
+        for asic in asics_list:
+            _perform_swap_syncd_shutdown_check(asic)
 
-    is_syncdrpc_present_locally = duthost.command('docker image inspect ' + docker_rpc_image,
-                                                  module_ignore_errors=True)['rc'] == 0
+        is_syncdrpc_present_locally = duthost.command('docker image inspect ' + docker_rpc_image,
+                                                      module_ignore_errors=True)['rc'] == 0
 
-    if is_syncdrpc_present_locally:
-        tag_image(
-            duthost,
-            "{}:latest".format(docker_syncd_name),
-            docker_rpc_image,
-            'latest'
-        )
-    else:
-        # After swss stops, the management plane (PortChannel default route) may be
-        # unavailable for ~60s. Poll until the registry responds before docker login.
-        registry_host = creds.get("docker_registry_host", "")
+        if is_syncdrpc_present_locally:
+            tag_image(
+                duthost,
+                "{}:latest".format(docker_syncd_name),
+                docker_rpc_image,
+                'latest'
+            )
+        else:
+            # After swss stops, the management plane (PortChannel default route) may be
+            # unavailable for ~60s. Poll until the registry responds before docker login.
+            registry_host = creds.get("docker_registry_host", "")
 
-        def mgmt_plane_ready():
-            cmd = ("curl -s -o /dev/null -w '%{http_code}' --max-time 5 "
-                   "https://" + registry_host + "/v2/")
-            result = duthost.command(cmd, module_ignore_errors=True)
-            return result["rc"] == 0
+            def mgmt_plane_ready():
+                cmd = ("curl -s -o /dev/null -w '%{http_code}' --max-time 5 "
+                       "https://" + registry_host + "/v2/")
+                result = duthost.command(cmd, module_ignore_errors=True)
+                return result["rc"] == 0
 
-        if registry_host:
-            logger.info("Waiting for management plane to recover before docker login...")
-            if not wait_until(120, 5, 0, mgmt_plane_ready):
-                logger.warning("Management plane did not recover within 120s — proceeding to docker login anyway")
-        registry = load_docker_registry_info(duthost, creds)
-        download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+            if registry_host:
+                logger.info("Waiting for management plane to recover before docker login...")
+                if not wait_until(120, 5, 0, mgmt_plane_ready):
+                    logger.warning("Management plane did not recover within 120s — proceeding to docker login anyway")
+            registry = load_docker_registry_info(duthost, creds)
+            download_image(duthost, registry, docker_rpc_image, duthost.os_version)
 
-        tag_image(
-            duthost,
-            "{}:latest".format(docker_syncd_name),
-            "{}/{}".format(registry.host, docker_rpc_image),
-            duthost.os_version
-        )
+            tag_image(
+                duthost,
+                "{}:latest".format(docker_syncd_name),
+                "{}/{}".format(registry.host, docker_rpc_image),
+                duthost.os_version
+            )
 
-    logger.info("Reloading config and restarting swss...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
-    for asic in asics_list:
-        _perform_syncd_liveness_check(asic)
+        logger.info("Reloading config and restarting swss...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        for asic in asics_list:
+            _perform_syncd_liveness_check(asic)
 
 
 def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
@@ -210,19 +233,20 @@ def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     elif duthost.facts.get("platform_asic") == "broadcom-legacy-th":
         docker_syncd_name = docker_syncd_name + "-legacy-th"
 
-    for asic in asics_list:
-        asic.stop_service("swss")
-        asic.delete_container("syncd")
+    with _feature_monitor_paused(duthost):
+        for asic in asics_list:
+            asic.stop_service("swss")
+            asic.delete_container("syncd")
 
-    tag_image(
-        duthost,
-        "{}:latest".format(docker_syncd_name),
-        docker_syncd_name,
-        duthost.os_version
-    )
+        tag_image(
+            duthost,
+            "{}:latest".format(docker_syncd_name),
+            docker_syncd_name,
+            duthost.os_version
+        )
 
-    logger.info("Reloading config and restarting swss...")
-    config_reload(duthost)
+        logger.info("Reloading config and restarting swss...")
+        config_reload(duthost)
 
     # Remove the RPC image from the duthost
     docker_rpc_image = docker_syncd_name + "-rpc"
