@@ -305,6 +305,10 @@ def common_setup_teardown(
     request,
 ):
     duthost = duthosts[rand_one_dut_hostname]
+
+    if "dualtor" in tbinfo["topo"]["name"].lower():
+        pytest.skip("Skip VXLAN FG ECMP tests on Cisco dualtor topology")
+
     duthost.shell(f"cp {CONFIG_DB_PATH} {CONFIG_DB_PATH}.bak")
 
     setup_params = None
