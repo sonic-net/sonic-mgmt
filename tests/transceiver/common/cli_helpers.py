@@ -64,7 +64,7 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-CONFIG_INTERFACE = "config interface"
+
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
 # the terminal; 200 chars is enough to carry the actual error line (e.g.
@@ -96,19 +96,6 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 def _ns_flag(namespace):
     """Return ``" -n <namespace>"`` for a truthy namespace, else ``""``."""
     return f" -n {namespace}" if namespace else ""
-
-
-def _join_ports(ports):
-    """Render the interface argument for ``config interface shutdown``/``startup``.
-
-    ``config interface shutdown``/``startup`` accept a comma-separated interface
-    list, so a list/tuple is joined with commas (order preserved) to shut/start
-    many ports in a single command (e.g. ``Ethernet0,Ethernet64,Ethernet128``);
-    a plain string passes through unchanged.
-    """
-    if isinstance(ports, (list, tuple)):
-        return ",".join(ports)
-    return ports
 
 
 def _as_decimal_int(value):
@@ -190,24 +177,6 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
     if port:
         cmd += f" {port}"
     return cmd
-
-
-def config_interface_shutdown_cmd(port, namespace=None):
-    """Return ``config interface [-n <ns>] shutdown <port>``.
-
-    ``port`` is a single name or a list/tuple of names (joined with commas to
-    shut many ports in one command — see :func:`_join_ports`).
-    """
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {_join_ports(port)}"
-
-
-def config_interface_startup_cmd(port, namespace=None):
-    """Return ``config interface [-n <ns>] startup <port>``.
-
-    ``port`` is a single name or a list/tuple of names (joined with commas to
-    start many ports in one command — see :func:`_join_ports`).
-    """
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {_join_ports(port)}"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -315,48 +284,3 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
 # failure" rule does not apply.  These return only ``err`` (``None`` on
 # success) — there is nothing to parse.
 # ──────────────────────────────────────────────────────────────────────
-
-
-def _run_config_mutation(duthost, cmd):
-    """Run a state-mutating config command → ``err`` (``None`` on success).
-
-    Only the rc is inspected: a successful ``config interface`` invocation prints
-    nothing, so an empty stdout is the SUCCESS case here (the opposite of
-    ``_run_and_parse``).  On a non-zero rc the returned string echoes ``cmd`` plus
-    truncated stdout/stderr, matching the failure-message shape the other
-    wrappers use so callers can aggregate per-port failures uniformly.
-    """
-    result = duthost.command(cmd, module_ignore_errors=True)
-    if result.get("rc", RC_FAILURE) != 0:
-        stdout = " ".join(result.get("stdout_lines") or []).strip()
-        stderr = (result.get("stderr") or "").strip()
-        parts = []
-        if stdout:
-            parts.append(f"stdout: {stdout[:200]}")
-        if stderr:
-            parts.append(f"stderr: {stderr[:200]}")
-        detail = "; ".join(parts) if parts else "no stdout/stderr"
-        return f"{cmd} failed with rc={result.get('rc')} ({detail})"
-    return None
-
-
-def config_interface_shutdown(duthost, port, namespace=None):
-    """Run ``config interface [-n <ns>] shutdown <port>`` → ``err`` (``None`` on success).
-
-    ``port`` may be a single name or a list/tuple of names to shut a whole batch
-    in one command.
-    """
-    return _run_config_mutation(
-        duthost, config_interface_shutdown_cmd(port, namespace=namespace)
-    )
-
-
-def config_interface_startup(duthost, port, namespace=None):
-    """Run ``config interface [-n <ns>] startup <port>`` → ``err`` (``None`` on success).
-
-    ``port`` may be a single name or a list/tuple of names to start a whole batch
-    in one command.
-    """
-    return _run_config_mutation(
-        duthost, config_interface_startup_cmd(port, namespace=namespace)
-    )

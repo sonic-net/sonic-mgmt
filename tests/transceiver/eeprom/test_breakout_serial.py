@@ -1,44 +1,62 @@
 import logging
 import re
+from collections import Counter
+
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.eeprom_decode import is_first_subport
 
 logger = logging.getLogger(__name__)
 
 
-def test_serial_number_pattern_validation_for_breakout_ports(duthost, port_attributes_dict):
+def test_serial_number_pattern_validation_for_breakout_ports(
+    duthost, port_attributes_dict, lport_to_first_subport_mapping
+):
     """Validate transceiver serial numbers against breakout deployment regex patterns.
 
-    In a breakout deployment one physical cable is split into multiple logical ports
-    (leaf ports) that share a common stem transceiver.  Each leaf or stem port carries
-    a serial number whose format identifies which side of the cable it belongs to.
+    Breakout model (e.g. a 2x100G breakout cable): the *stem* is the aggregated
+    end that occupies ONE physical cage and is split into multiple logical
+    sub-ports, while each *leaf* is a separate physical cage carrying a single
+    logical port.  The serial number is a property of each physical connector —
+    one stem EEPROM plus one EEPROM per leaf.
 
-    This test intentionally iterates ALL logical ports (no stem filtering): the
-    serial-number pattern is per-logical-port — leaf and stem serials differ — so
-    every sub-port must be validated individually.
+    Iteration is per physical connector (first sub-port), not per logical port:
+    the stem's logical sub-ports all read the SAME stem EEPROM, so validating
+    every sub-port would re-issue a redundant ``sfputil show eeprom`` per extra
+    stem sub-port for an identical serial.  Filtering to the first sub-port of
+    each breakout group (``is_first_subport``) checks the stem once and each
+    single-port leaf once — every connector validated exactly once.
+
+    Stem vs leaf is a TOPOLOGY property, derived from the same first-sub-port
+    mapping rather than from which attribute happens to be present: a connector
+    whose breakout group has >1 logical sub-port is the stem; a single-sub-port
+    connector that still carries breakout attributes is a leaf.  (This assumes a
+    leaf is always a single logical port, which is the deployment model here.)
 
     Attribute lookup (EEPROM_ATTRIBUTES only — both patterns live under
     ``transceivers`` per the plan's attribute table):
-        breakout_serial_number_pattern       — present on leaf ports (e.g. ".*-A$")
-        breakout_stem_serial_number_pattern  — present on stem ports
+        breakout_serial_number_pattern       — leaf serial pattern (e.g. ".*-A$")
+        breakout_stem_serial_number_pattern  — stem serial pattern
 
-    Per-port logic:
-    - If neither attribute is found the port is silently skipped (not a breakout port).
-    - If breakout_serial_number_pattern is defined  → leaf port; use that pattern.
-    - If breakout_stem_serial_number_pattern only    → stem port; use that pattern.
-    - If both are defined on the same port           → AMBIGUOUS: the port role
-      cannot be determined heuristically and is reported as a failure. Resolve
-      by setting only the pattern matching the port's actual role in inventory.
+    Both patterns being present on a port is the NORMAL shared-Vendor-PN case
+    (eeprom.json is sharded per-PN, so when the stem and leaf ends share a PN,
+    both patterns land on every port of the cable).  The role decides which one
+    applies — there is no ambiguity to flag.
+
+    Per-connector logic:
+    - Resolve the role from topology, then select the matching pattern
+      (stem → breakout_stem_serial_number_pattern, leaf →
+      breakout_serial_number_pattern).
+    - If the role's pattern is not defined, the connector is skipped (not a
+      breakout port of that role).
     - The serial number is retrieved from 'sfputil show eeprom -p <port>'
-      (field 'Vendor SN') and matched with re.fullmatch against the chosen pattern.
+      (field 'Vendor SN') and matched with re.fullmatch against the pattern.
     - The retrieved serial number is always logged at INFO level for traceability.
 
-    Test-level skip: if no port in port_attributes_dict carries either attribute, the
-    test is skipped (not failed) — the DUT is simply not a breakout deployment.
-
-    Aggregates all failures for final reporting.
+    Test-level skip: if no connector carries the pattern for its role, the test
+    is skipped (not failed) — the DUT is simply not a breakout deployment.
 
     Example patterns:
         Leaf A  : ".*-A$"   — serial number must end with '-A'
@@ -46,50 +64,49 @@ def test_serial_number_pattern_validation_for_breakout_ports(duthost, port_attri
         Stem    : "^IDPA[A-Z]{2}[0-9]{6}[A-Z]?$" or similar — no leaf suffix present
     """
     all_failures = []
-    any_port_tested = False   # becomes True when at least one port has a pattern defined
+    any_port_tested = False   # becomes True when at least one connector is validated
+
+    # Sub-ports per physical connector: count how many logical ports map to each
+    # first sub-port.  A first sub-port whose group size is >1 is a stem; a
+    # group size of 1 is a (single-port) leaf.
+    subport_counts = Counter(lport_to_first_subport_mapping.values())
 
     for port, port_attrs in port_attributes_dict.items():
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
 
+        # One validation per physical connector: skip the stem's non-first
+        # sub-ports (they read the identical stem EEPROM); each leaf is its own
+        # first sub-port.
+        if not is_first_subport(port, lport_to_first_subport_mapping):
+            logger.debug("Port %s is not the first breakout sub-port, skipping", port)
+            continue
+
         eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
 
-        # Step 1 - Resolve which breakout pattern applies to this port. Both
-        # breakout_serial_number_pattern (leaf) and
-        # breakout_stem_serial_number_pattern (stem) live under
-        # EEPROM_ATTRIBUTES per the plan's attribute table, so look there only.
+        # Step 1 - Resolve the role from topology, then pick the matching pattern.
+        # Both breakout_serial_number_pattern (leaf) and
+        # breakout_stem_serial_number_pattern (stem) live under EEPROM_ATTRIBUTES
+        # per the plan's attribute table, so look there only.
         leaf_pattern = eeprom_attrs.get("breakout_serial_number_pattern")
         stem_pattern = eeprom_attrs.get("breakout_stem_serial_number_pattern")
 
-        if leaf_pattern is None and stem_pattern is None:
+        if subport_counts.get(port, 1) > 1:
+            port_role = "stem"
+            pattern = stem_pattern
+        else:
+            port_role = "leaf"
+            pattern = leaf_pattern
+
+        if pattern is None:
             logger.debug(
-                "Port %s: no breakout serial number pattern defined, skipping", port
+                "Port %s: no %s breakout serial number pattern defined, skipping",
+                port, port_role,
             )
             continue
 
         any_port_tested = True
-
-        # When both attributes resolve on the same port the role is genuinely
-        # ambiguous — silently picking one would mask an inventory bug where a
-        # defaults block sets both patterns globally.  Surface it as a hard
-        # failure so the inventory gets corrected instead of the wrong pattern
-        # being applied port-after-port.
-        if leaf_pattern is not None and stem_pattern is not None:
-            all_failures.append(
-                f"{port}: both 'breakout_serial_number_pattern' (leaf) and "
-                f"'breakout_stem_serial_number_pattern' (stem) resolved on the "
-                f"same port — role is ambiguous. Configure only the pattern "
-                f"matching this port's actual role in inventory."
-            )
-            continue
-
-        if leaf_pattern is not None:
-            pattern = leaf_pattern
-            port_role = "leaf"
-        else:
-            pattern = stem_pattern
-            port_role = "stem"
 
         logger.debug(
             "Port %s: %s port — expected serial number regex: '%s'",
