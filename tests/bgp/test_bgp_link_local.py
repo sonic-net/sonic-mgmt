@@ -617,26 +617,39 @@ def configure_unnumbered_bgp(request, setup_info):
     # FRR numbered fallback. Use the actual prefix length captured from
     # config_facts during setup so the remove command matches what was
     # configured (don't rely on module_ignore_errors to mask a mismatch).
-    dut_ipv4_prefixlen = setup_info.get('dut_ipv4_prefixlen')
-    dut_ipv6_prefixlen = setup_info.get('dut_ipv6_prefixlen')
-    if dut_ipv4:
-        pytest_assert(dut_ipv4_prefixlen,
-                      "IPv4 prefix length missing from config_facts for {}".format(dut_intf))
-        result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
-            dut_intf, dut_ipv4, dut_ipv4_prefixlen))
-        pytest_assert(result['rc'] == 0,
-                      "Failed to remove IPv4 {}/{} from {}: {}".format(
-                          dut_ipv4, dut_ipv4_prefixlen, dut_intf,
-                          result.get('stderr', '')))
-    if dut_ipv6:
-        pytest_assert(dut_ipv6_prefixlen,
-                      "IPv6 prefix length missing from config_facts for {}".format(dut_intf))
-        result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
-            dut_intf, dut_ipv6, dut_ipv6_prefixlen))
-        pytest_assert(result['rc'] == 0,
-                      "Failed to remove IPv6 {}/{} from {}: {}".format(
-                          dut_ipv6, dut_ipv6_prefixlen, dut_intf,
-                          result.get('stderr', '')))
+    #
+    # Only the portchannel variant needs this: the DUT L3 IPs sit on the
+    # Port-Channel, and here dut_intf is that Port-Channel. For the ethernet
+    # variant, break_lag_to_ethernet() already ran "config portchannel del",
+    # which removes the Port-Channel's IPs as a side effect; dut_intf is the
+    # freed member Ethernet that never carried those IPs, so issuing
+    # "config interface ip remove <member> <pc_ip>/<prefix>" would fail with a
+    # non-zero rc and trip the assert below. Skip the block for ethernet.
+    if intf_type != 'ethernet':
+        dut_ipv4_prefixlen = setup_info.get('dut_ipv4_prefixlen')
+        dut_ipv6_prefixlen = setup_info.get('dut_ipv6_prefixlen')
+        if dut_ipv4:
+            pytest_assert(dut_ipv4_prefixlen,
+                          "IPv4 prefix length missing from config_facts for {}".format(dut_intf))
+            result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
+                dut_intf, dut_ipv4, dut_ipv4_prefixlen))
+            pytest_assert(result['rc'] == 0,
+                          "Failed to remove IPv4 {}/{} from {}: {}".format(
+                              dut_ipv4, dut_ipv4_prefixlen, dut_intf,
+                              result.get('stderr', '')))
+        if dut_ipv6:
+            pytest_assert(dut_ipv6_prefixlen,
+                          "IPv6 prefix length missing from config_facts for {}".format(dut_intf))
+            result = duthost.shell("sudo config interface ip remove {} {}/{}".format(
+                dut_intf, dut_ipv6, dut_ipv6_prefixlen))
+            pytest_assert(result['rc'] == 0,
+                          "Failed to remove IPv6 {}/{} from {}: {}".format(
+                              dut_ipv6, dut_ipv6_prefixlen, dut_intf,
+                              result.get('stderr', '')))
+    else:
+        logger.info("Skipping DUT IP removal on %s: Port-Channel deletion in "
+                    "break_lag_to_ethernet already cleared the L3 addresses",
+                    dut_intf)
 
     # Configure unnumbered BGP on DUT
     if stop_bgpcfgd:
