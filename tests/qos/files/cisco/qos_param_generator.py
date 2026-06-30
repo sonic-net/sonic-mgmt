@@ -164,9 +164,11 @@ class QosParamCisco(object):
 
             # Hysteresis calculations depending on asic
             if dutAsic in ["gr2", "gr2x", "p200"]:
-                assert "xon_offset" in lossless_prof, \
-                    "{} missing xon_offset from lossless buffer profile".format(dutAsic)
-                xon_offset = int(lossless_prof["xon_offset"])
+                # G200X (gr2x) pg_profile_lookup.ini may lack xon_offset column.
+                # Default to 0 if missing; see sonic-mgmt-auto errata for details.
+                if "xon_offset" not in lossless_prof:
+                    logger.warning("{} buffer profile missing xon_offset, defaulting to 0".format(dutAsic))
+                xon_offset = int(lossless_prof.get("xon_offset", "0"))
                 self.log("Pre-pad hysteresis bytes: {}".format(xon_offset))
                 # Determine difference between pause thr and hysteresis thr.
                 # Use raw pause thr for calculation.
