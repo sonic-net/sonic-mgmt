@@ -245,6 +245,21 @@ INBOUND_VNI_ROUTE_RULE_CONFIG = {
     }
 }
 
+# Steer inbound GRE (ENCAP_VNI) traffic through tunnel-decap + PA validation so that an
+# inbound packet whose outer source PA is not a configured tunnel endpoint is dropped on
+# PA validation (incrementing SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS) rather than
+# falling through to a generic routing/longest-prefix drop. The broad 0.0.0.0/0 source-PA
+# match catches the test packets, and ``pa_validation`` validates the outer source PA
+# against the mapping table of ``vnet`` (VNET1), which only permits the valid PE underlay.
+INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:0.0.0.0/0": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0,
+        "pa_validation": True,
+        "vnet": VNET1,
+    }
+}
+
 # For floating NIC, outbound packet will pass through inbound pipeline first before going to the outbound pipeline
 # Need this route rule entry to prevent the packet from being dropped in the inbound pipeline
 TRUSTED_VNI_ROUTE_RULE_CONFIG = {

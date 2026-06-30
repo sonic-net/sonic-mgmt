@@ -131,6 +131,32 @@ def read_dpu_vxlan_udp_dport(dpuhost):
     return int(vxlan_port) if vxlan_port else DEFAULT_VXLAN_UDP_DPORT
 
 
+@pytest.fixture
+def inbound_pa_validation_route_rule(
+    localhost, duthost, ptfhost, dpuhosts, dpu_index, skip_config, skip_cleanup
+):
+    """Program an inbound route rule that enables PA validation on the GRE encap VNI.
+
+    The default privatelink config only programs a ``{PE_PA}/32`` inbound route rule, so a
+    packet with an unknown outer source PA misses it and is dropped generically rather than
+    on PA validation. This fixture adds a broad ``0.0.0.0/0`` route rule with
+    ``pa_validation`` enabled against VNET1 so that the invalid-source-PA packet is steered
+    to PA validation and increments SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS.
+    """
+    if skip_config:
+        yield
+        return
+    dpuhost = dpuhosts[dpu_index]
+    apply_dash_configs(
+        localhost, duthost, ptfhost, dpuhost.dpu_index,
+        pl.INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG)
+    yield
+    if not skip_cleanup:
+        apply_dash_configs(
+            localhost, duthost, ptfhost, dpuhost.dpu_index,
+            pl.INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG, set_db=False)
+
+
 class TestEniCounter:
 
     @pytest.fixture(autouse=True)
@@ -431,7 +457,8 @@ class TestEniCounter:
         self.send_packet_and_verify_dash_eni_counter(
             dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
 
-    def test_inbound_pa_validation_fail_drop_counter(self, dash_pl_config, inner_packet_type):
+    def test_inbound_pa_validation_fail_drop_counter(
+            self, dash_pl_config, inner_packet_type, inbound_pa_validation_route_rule):
         """
         Verify SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS (new in SAI#2251).
 
