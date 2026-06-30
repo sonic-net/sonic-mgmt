@@ -169,6 +169,15 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
     duthost.shell(f"config vlan member del all {ingress_if} || true")
 
     dut_vtep = get_loopback_ip(cfg_facts)
+    
+    # --- VXLAN UDP port + source-port range (single SWITCH_TABLE SET) ---
+    configure_vxlan_source_port_range(duthost, vxlan_port, source_port,
+                                      source_port_mask)
+
+    # Verify the config landed in APPDB
+    switch_table = duthost.shell(
+        'redis-cli -n 0 hgetall "SWITCH_TABLE:switch"')["stdout"]
+    logger.info(f"SWITCH_TABLE:switch after config:\n{switch_table}")
 
     # --- VXLAN tunnel + VNET ---
     apply_chunk(duthost,
@@ -207,15 +216,6 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "route_tunnel",
     )
     time.sleep(5)
-
-    # --- VXLAN UDP port + source-port range (single SWITCH_TABLE SET) ---
-    configure_vxlan_source_port_range(duthost, vxlan_port, source_port,
-                                      source_port_mask)
-
-    # Verify the config landed in APPDB
-    switch_table = duthost.shell(
-        "redis-cli -n 0 hgetall SWITCH_TABLE:switch")["stdout"]
-    logger.info(f"SWITCH_TABLE:switch after config:\n{switch_table}")
 
     return {
         "dut_vtep": dut_vtep,
