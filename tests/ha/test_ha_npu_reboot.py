@@ -269,8 +269,8 @@ def test_ha_npu_reboot(
     threshold_loss = THRESHOLD_LOSS_PERCENT
     percentage_loss = (failed_count / send_count) * 100
     if (percentage_loss < threshold_loss):
-        logger.info(f"{npu_reboot} with {traffic} test OK. Sent: {send_count},"
-                    f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
+        logger.info(f"{npu_reboot} with {traffic} test OK. Sent: {send_count}, "
+                    f"not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        pytest.fail(f"{npu_reboot} with {traffic} test error. Sent: {send_count},"
-                    f" not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")
+        pytest.fail(f"{npu_reboot} with {traffic} test error. Sent: {send_count}, "
+                    f"not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")

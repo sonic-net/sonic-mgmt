@@ -98,7 +98,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         return power_status == "on"
     else:
         logger.warning(
-            f"'{dpu_name}' status on {duthost.hostname} is neither 'online' nor "
-            f"'offline'; stdout={stdout!r}"
+            f"{dpu_name} status on {duthost.hostname} is neither online nor "
+            f"offline. stdout={stdout!r}"
         )
         return False
