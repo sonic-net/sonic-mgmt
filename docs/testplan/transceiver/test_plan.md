@@ -133,8 +133,8 @@ A "-" entry means the category intentionally does not consume that gate; the tra
 
 An autouse fixture in the top-level `conftest.py` runs before and after **every** transceiver test:
 
-- **Before**: verify `xcvrd` is `RUNNING` and record its PID along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
-- **After**: verify `xcvrd` is still `RUNNING` with an unchanged PID and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
+- **Before**: verify `xcvrd`, `syncd` and `orchagent` are `RUNNING` and record their PIDs along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
+- **After**: verify `xcvrd`, `syncd` and `orchagent` are still `RUNNING` with unchanged PIDs and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
 
 The action for each phase is configurable so a user can keep a run going through health-check failures (e.g. when triaging a specific failure scenario):
 

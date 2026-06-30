@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 # Key = process name, value = container name.
 DEFAULT_MONITORED_PROCESSES = {
     "xcvrd": "pmon",
+    "syncd": "syncd",
+    "orchagent": "swss",
 }
 
 # Shell snippet used by both capture_baseline and verify_health to list files
