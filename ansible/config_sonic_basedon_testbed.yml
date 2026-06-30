@@ -930,7 +930,7 @@
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
           enabled_dpu_indices: "{{ (testbed_facts.enabled_dpus[inventory_hostname] | map(attribute='dpu_index') | list) if (testbed_facts.enabled_dpus is defined and inventory_hostname in testbed_facts.enabled_dpus) else omit }}"
         become: true
-        when: enable_macsec is not defined
+        when: enable_macsec is not defined and init_cfg_profile is not defined
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -1178,7 +1178,7 @@
             become: true
             command: chronyc makestep
 
-        when: chrony_service.status.LoadState != "not-found"
+        when: chrony_service.status.LoadState != "not-found" and init_cfg_profile is not defined
 
       - name: Check if "config bmp" is supported
         shell: "config -h | grep 'BMP-related configuration'"
