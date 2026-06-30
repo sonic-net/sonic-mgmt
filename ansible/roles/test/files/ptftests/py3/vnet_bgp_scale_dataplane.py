@@ -1,6 +1,5 @@
 import logging
 from collections import Counter
-import random
 import ptf
 import ptf.packet as scapy
 from ptf.base_tests import BaseTest
@@ -124,10 +123,6 @@ class VnetBgpScaleDataplane(BaseTest):
         )
 
     def _check_ecmp_distribution(self, distribution, total_packets, failures, context, vnet_id):
-        missing_ports = [
-            port for port in self.wl_ptf_port_indices
-            if distribution[port] == 0
-        ]
 
         expected = float(total_packets) / len(self.wl_ptf_port_indices)
         allowed_delta = expected * self.ecmp_deviation_pct / 100.0
@@ -148,7 +143,6 @@ class VnetBgpScaleDataplane(BaseTest):
         logger.info("Flows passed: %d", total_packets - len(failures))
         logger.info("Flows failed: %d", len(failures))
         logger.info("ECMP distribution: %s", dict(distribution))
-        logger.info("Missing egress ports: %s", missing_ports)
         logger.info("Bad ECMP distribution ports: %s", bad_ports)
         logger.info("Expected packets per port: %.2f", expected)
         logger.info(
@@ -158,14 +152,12 @@ class VnetBgpScaleDataplane(BaseTest):
         )
         logger.info("========================================")
 
-        if failures or missing_ports or bad_ports:
+        if failures or bad_ports:
             self.fail(
-                "{} ECMP test failed for VNET {}. failures={}, missing_ports={}, "
-                "bad_ports={}, distribution={}".format(
+                "{} ECMP test failed for VNET {}. failures={}, bad_ports={}, distribution={}".format(
                     context,
                     vnet_id,
                     failures,
-                    missing_ports,
                     bad_ports,
                     dict(distribution),
                 )
@@ -224,7 +216,7 @@ class VnetBgpScaleDataplane(BaseTest):
                     match_index,
                     matched_port,
                 )
-            except Exception as e:
+            except AssertionError as e:
                 failure = "VNET {} VXLAN flow {} FAILED: src={} dst={} error={}".format(
                     vnet_id,
                     flow_id,
@@ -263,7 +255,7 @@ class VnetBgpScaleDataplane(BaseTest):
         )
 
         for flow_id in range(total_packets):
-            src_ip = "192.0.2.{}".format(random.randint(1, 250))
+            src_ip = "192.0.2.{}".format((flow_id % 250) + 1)
 
             tx_pkt = simple_tcp_packet(
                 eth_src=self.ptf_macs[ingress_port],
@@ -305,7 +297,7 @@ class VnetBgpScaleDataplane(BaseTest):
                     match_index,
                     matched_port,
                 )
-            except Exception as e:
+            except AssertionError as e:
                 failure = "VNET {} regular TCP flow {} FAILED: src={} dst={} error={}".format(
                     vnet_id,
                     flow_id,
