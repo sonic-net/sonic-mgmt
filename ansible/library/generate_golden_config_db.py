@@ -1358,6 +1358,13 @@ class GenerateGoldenConfigDBModule(object):
         if self.has_otel_image():
             config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
+        # Enable the mpls feature on the sonic-vpp testbeds so the MPLS data-plane
+        # tests (tests/mpls) are not skipped by the "'mpls' not in feature_status"
+        # condition in tests_mark_conditions.yaml. The VPP SAI implementation
+        # supports MPLS (INSEG disposition/imposition).
+        if "vpp" in self.topo_name:
+            config = self.overwrite_feature_golden_config_db_singleasic(config, "mpls")
+
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
             config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
