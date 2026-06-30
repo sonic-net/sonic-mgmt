@@ -739,6 +739,12 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     conditions:
       - "not is_multi_asic"
 
+cacl/test_cacl_function.py:
+  xfail:
+    reason: "BMC test does not have sufficient delay for hold for extra 40s. Timeout 210s, and the script sleeps for 250s"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25759 and topo_type in ['bmc']"
+
 cacl/test_ebtables_application.py:
   skip:
     reason: "Ebtables shouldn't be installed in KVM which blocks L2 forwarding, skip in PR testing"
