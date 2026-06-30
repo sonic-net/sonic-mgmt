@@ -280,6 +280,10 @@ def test_disable_rsyslog_rate_limit(duthosts):
                 continue
             if feature_name == "frr_bmp":
                 continue
+            if feature_name == "mpls":
+                # mpls is a config flag rather than a containerized service, so
+                # there is no "mpls" docker to configure rsyslog in.
+                continue
             if feature_name == "telemetry":
                 # Skip telemetry if there's no docker image
                 output = dut.shell("docker images", module_ignore_errors=True)['stdout']
