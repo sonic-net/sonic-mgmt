@@ -5,7 +5,7 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
-from utils import get_crm_resource_status, check_queue_status, sleep_to_wait
+from utils import get_crm_resource_status, check_queue_status, sleep_to_wait, wait_crm_route_counts_stabilized
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -57,28 +57,34 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     logger.info("withdraw existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    result = wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
-    if not result:
-        logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
-
-    ipv4_route_used_before = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
-    ipv6_route_used_before = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
-
-    def routes_stable():
-        nonlocal ipv4_route_used_before, ipv6_route_used_before
-        ipv4_route_used_now = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
-        ipv6_route_used_now = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
-        ipv4_stable = ipv4_route_used_now == ipv4_route_used_before
-        ipv6_stable = ipv6_route_used_now == ipv6_route_used_before
-        ipv4_route_used_before = ipv4_route_used_now
-        ipv6_route_used_before = ipv6_route_used_now
-        return ipv4_stable and ipv6_stable
-
-    full_wait_time = MAX_WAIT_TIME + CRM_POLLING_INTERVAL * 100
-    result = wait_until(full_wait_time, CRM_POLLING_INTERVAL, CRM_POLLING_INTERVAL, routes_stable)
-    if not result:
-        pytest.fail("Routes failed to withdraw in {} seconds".format(full_wait_time))
-
+    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
+    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    # BGP queues can be idle while CRM/orch still reflects bulk route removal; baseline must be post-settle.
+    crm_stable_timeout = 600 if str(topo_name).startswith("lt2") else 240
+    logger.info(
+        "Waiting up to {}s for CRM ipv4/ipv6 route used to stabilize before baseline capture".format(
+            crm_stable_timeout,
+        )
+    )
+    crm_wait_kwargs = dict(
+        max_wait=crm_stable_timeout,
+        poll_interval=10,
+        stability_delta=10,
+    )
+    if str(topo_name).startswith("lt2"):
+        # lt2: CRM can drain for many minutes after BGP queues go idle; require a long flat window of
+        # stable-step samples so baseline is not taken on a temporary window of samples
+        crm_wait_kwargs.update(
+            consecutive_stable_required=3,
+            min_elapsed_before_stable_sec=120,
+            flat_window_samples=12,
+            flat_window_delta=25,
+        )
+    ipv4_route_used_before, ipv6_route_used_before = wait_crm_route_counts_stabilized(
+        duthost,
+        namespace,
+        **crm_wait_kwargs
+    )
     logger.info("ipv4 route used {}".format(ipv4_route_used_before))
     logger.info("ipv6 route used {}".format(ipv6_route_used_before))
 
