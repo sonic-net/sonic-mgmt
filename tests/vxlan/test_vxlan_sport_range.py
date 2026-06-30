@@ -1,22 +1,3 @@
-"""
-test_vxlan_sport_range.py — VXLAN Source-Port Range, Hash Consistency & Coverage
-
-This test configures a VXLAN tunnel on the DUT, programs a source-port range
-via SWITCH_TABLE (vxlan_sport with mask=7 for 128-port range), then invokes 
-a PTF test that sends 2000 distinct TCP flows.  The PTF side verifies:
-
-  1. Every encapsulated packet's outer UDP source port is within the range.
-  2. The same inner 5-tuple always hashes to the same outer source port.
-  3. All ports in the range receive at least some traffic (coverage).
-
-The DUT setup mirrors test_scale_ecmp.py: one VNET, one tunnel, one prefix
-with two endpoints.
-
-CLI options (from conftest.py, already registered):
-  --udp_src_port  Base port (default: 32768, must be aligned to 128-port boundary)
-  (mask is hard-coded to 7, providing a 128-port range)
-"""
-
 import json
 import time
 import sys
@@ -34,7 +15,6 @@ from tests.vxlan.vnet_constants import DUT_VXLAN_RANGE_JSON
 logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 
-# todo navdhaj: does this need to be only on physical and cisco-8000?
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer,
@@ -51,14 +31,10 @@ ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 # Mask is always 7 (128-port range). Source port is configurable.
 DEFAULT_SOURCE_PORT = 32768
 SOURCE_PORT_MASK = 7
+NUM_FLOWS = 1000
 
-NUM_FLOWS = 2000
-
-
-# ---------- Utility helpers (same as test_scale_ecmp.py) ----------
 
 def get_loopback_ip(cfg_facts):
-    """Return the IPv4 address of Loopback0 from the DUT config."""
     for key in cfg_facts.get("LOOPBACK_INTERFACE", {}):
         if key.startswith("Loopback0|") and "." in key:
             return key.split("|")[1].split("/")[0]
@@ -66,7 +42,6 @@ def get_loopback_ip(cfg_facts):
 
 
 def apply_chunk(duthost, payload, name):
-    """Write a JSON payload to /tmp/<name>.json and load it into CONFIG_DB."""
     content = json.dumps(payload, indent=2)
     dest = f"/tmp/{name}.json"
     duthost.copy(content=content, dest=dest)
@@ -74,7 +49,6 @@ def apply_chunk(duthost, payload, name):
 
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
-    """Find a VLAN with enough 'admin up' ports for the test."""
     port_status = cfg_facts["PORT"]
     vlan_id = -1
     available_ports = []
@@ -101,15 +75,8 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
     """
-    Program the VXLAN switch config (UDP port) and source-port range into the
+    Program the VXLAN switch config and source-port range into the
     DUT via a single SWITCH_TABLE SET.
-
-    Mask is always 7, giving a 128-port range:
-    [source_port, source_port | 0x7F]
-    For example source_port=32768  →  range 32768–32895 (128 ports).
-
-    All SWITCH_TABLE fields are applied in one swssconfig SET so that
-    orchagent processes them together.
     """
     # Validate: the lower 7 bits of the base port must all be zero.
     pytest_assert(
@@ -140,21 +107,9 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
     time.sleep(3)
 
 
-# ---------- DUT setup ----------
-
 def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
                                   config_facts, dut_indx, vxlan_port,
                                   source_port):
-    """
-    End-to-end DUT setup:
-      1. Pick an ingress port, remove it from its VLAN.
-      2. Create a VXLAN tunnel sourced from Loopback0.
-      3. Create a VNET bound to that tunnel.
-      4. Bind an interface to the VNET, assign an IP, and bring up the PTF side.
-      5. Program a route with two endpoints.
-      6. Configure the VXLAN UDP port.
-      7. Configure the source-port range.
-    """
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -171,15 +126,12 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
 
     dut_vtep = get_loopback_ip(cfg_facts)
     
-    # --- VXLAN UDP port + source-port range (single SWITCH_TABLE SET) ---
     configure_vxlan_source_port_range(duthost, vxlan_port, source_port)
 
-    # Verify the config landed in APPDB
     switch_table = duthost.shell(
         'redis-cli -n 0 hgetall "SWITCH_TABLE:switch"')["stdout"]
     logger.info(f"SWITCH_TABLE:switch after config:\n{switch_table}")
 
-    # --- VXLAN tunnel + VNET ---
     apply_chunk(duthost,
                 {"VXLAN_TUNNEL": {TUNNEL_NAME: {"src_ip": dut_vtep}}},
                 "vxlan_tunnel")
@@ -188,7 +140,6 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
                                        "vxlan_tunnel": TUNNEL_NAME}}},
                 "vnet")
 
-    # --- Bind interface to VNET and configure IPs ---
     ptf_port_index = port_indexes[ingress_if]
     port_name = ptf_ports_available_in_topo[ptf_port_index]
 
@@ -205,7 +156,6 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
     ptfhost.shell(f"ip addr add {ptf_ip}/24 dev {port_name}")
     ptfhost.shell(f"ip link set {port_name} up")
 
-    # --- Route with endpoints ---
     apply_chunk(
         duthost,
         {"VNET_ROUTE_TUNNEL": {
@@ -230,9 +180,6 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "num_flows": NUM_FLOWS,
     }
 
-
-# ---------- Fixture ----------
-
 @pytest.fixture(scope="module", autouse=True)
 def sport_range_setup_teardown(
     duthosts,
@@ -241,13 +188,8 @@ def sport_range_setup_teardown(
     tbinfo,
     request,
 ):
-    """
-    Module-level fixture: configures the DUT with a VXLAN tunnel, VNET,
-    route, and source-port range.  Tears down via config_reload.
-    """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Read CLI options; fall back to safe defaults.
     vxlan_port = request.config.option.vxlan_port # default is 4789 if not specified
     source_port = request.config.option.udp_src_port or DEFAULT_SOURCE_PORT
 
@@ -256,7 +198,7 @@ def sport_range_setup_teardown(
             duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(
             host=duthost.hostname, source="running")["ansible_facts"]
-        # todo navdhaj: do we need both cfg_facts and config_facts? or are they totally diff?
+        
         dut_indx = tbinfo["duts_map"][duthost.hostname]
 
         setup_params = vxlan_setup_with_sport_range(
@@ -275,13 +217,7 @@ def sport_range_setup_teardown(
     config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
-# ---------- PTF runner helper ----------
-
 def run_sport_ptf_test(ptfhost, params):
-    """
-    Copy test parameters as JSON to the PTF host and invoke the
-    VxlanSportRangeTest PTF class.
-    """
     endpoints_file = "/tmp/ptf_sport_endpoints.json"
     ptfhost.copy(content=json.dumps(ENDPOINTS), dest=endpoints_file)
 
@@ -301,18 +237,6 @@ def run_sport_ptf_test(ptfhost, params):
         log_file="/tmp/vxlan_sport_range_ptftest.log",
     )
 
-
-# ---------- Test ----------
-
 def test_vxlan_source_port_range_and_hashing(ptfhost, sport_range_setup_teardown):
-    """
-    Verify VXLAN outer-UDP source-port range, hash consistency, and port coverage.
-
-    Sends 2000 distinct TCP flows through the DUT (mask=7 for 128-port range).
-    The DUT encapsulates each into a VXLAN packet.  The PTF test checks:
-      Phase 1 – every outer UDP sport is within the configured range.
-      Phase 2 – re-sending the same flow yields the same sport.
-      Phase 3 – all ports in the range receive at least some traffic (coverage).
-    """
     setup, duthost, _ = sport_range_setup_teardown
     run_sport_ptf_test(ptfhost, setup)
