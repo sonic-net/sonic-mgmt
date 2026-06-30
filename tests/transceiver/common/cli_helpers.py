@@ -2,7 +2,6 @@
 
 Lives at the location reserved by
 ``docs/testplan/transceiver/diagrams/file_organization.md`` for
-"CLI command wrappers (sfputil, config interface)".
 
 Two layers, both driven from the same source of truth for command spelling:
 
@@ -76,8 +75,8 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 # ──────────────────────────────────────────────────────────────────────
 # Multi-ASIC namespace support
 #
-# The DB-backed ``show interfaces transceiver`` commands and ``config interface
-# shutdown``/``startup`` take a namespace; they accept a ``namespace`` kwarg and
+# The DB-backed ``show interfaces transceiver`` command takes a namespace;
+# they accept a ``namespace`` kwarg and
 # emit ``-n <ns>`` when it is truthy (``asicN``, from e.g.
 # ``duthost.get_namespace_from_asic_id`` / ``asichost.namespace``).  On a
 # single-ASIC DUT the value is ``None``/``""`` and no flag is emitted, so the
@@ -274,13 +273,3 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     """Run ``show interfaces transceiver info [-n <ns>] [<port>]`` → ``({port: {field: value}}, err)``."""
     cmd = show_interfaces_transceiver_info_cmd(port, namespace=namespace)
     return _run_and_parse(duthost, cmd, parse_eeprom)
-
-
-# ──────────────────────────────────────────────────────────────────────
-# State-mutating config wrappers (run + rc check → err)
-#
-# Unlike the parsed wrappers above, ``config interface shutdown``/``startup``
-# produce NO stdout on success, so ``_run_and_parse``'s "empty output is a
-# failure" rule does not apply.  These return only ``err`` (``None`` on
-# success) — there is nothing to parse.
-# ──────────────────────────────────────────────────────────────────────
