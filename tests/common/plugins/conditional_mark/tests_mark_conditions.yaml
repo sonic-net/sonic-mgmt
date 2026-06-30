@@ -261,8 +261,6 @@ arp/test_wr_arp.py:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
-      - "'isolated' in topo_name"
-      - *lossyTopos
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
 
@@ -587,7 +585,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
-      - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
+      - "'backend' in topo_name or 'mgmttor' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'f2' in topo_name"
 
@@ -3075,7 +3073,6 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
 
@@ -3395,12 +3392,11 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-Non
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. Warm reboot is not supported on x86_64-nvidia_sn5640-r0.'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'marvell-teralynx']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -4214,17 +4210,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/test_advanced_reboot.py:
-  skip:
-    reason: "Advanced reboot tests are not supported on lossy topologies."
+platform_tests/counterpoll/test_counterpoll_watermark.py:
+  xfail:
+    reason: "Testcase fails sporadically due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/24900"
     conditions:
-      - *lossyTopos
-
-platform_tests/test_cont_warm_reboot.py:
-  skip:
-    reason: "Continuous warm reboot tests are not supported on lossy topologies."
-    conditions:
-      - *lossyTopos
+    - "https://github.com/sonic-net/sonic-mgmt/issues/24900 and 'ptf' in topo_name and 'sn5640' in platform"
 
 platform_tests/test_intf_fec.py::test_verify_fec_stats_counters:
   skip:
@@ -5063,11 +5053,10 @@ sflow/test_sflow.py::TestReboot::testFastreboot:
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform."
+    reason: "Dualtor topology doesn't support advanced-reboot"
     conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-      - "platform in ['x86_64-nvidia_sn5640-r0']"
   xfail:
     reason: "testWarmreboot sflow failure: VS SAI warm reboot bug (sonic-net/sonic-buildimage#26594)"
     conditions:
