@@ -88,11 +88,17 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
     """
     output_dpu_status = duthost.shell(
         'show chassis module status | grep %s' % (dpu_name), module_ignore_errors=True)
-    stdout = output_dpu_status.get("stdout", "")
+    stdout = output_dpu_status.get("stdout", "").lower()
 
-    if "offline" in stdout.lower():
+    if "offline" in stdout:
         logger.info(f"'{dpu_name}' is offline on {duthost.hostname}")
         return power_status == "off"
-    else:
+    elif "online" in stdout:
         logger.info(f"'{dpu_name}' is online on {duthost.hostname}")
         return power_status == "on"
+    else:
+        logger.warning(
+            f"'{dpu_name}' status on {duthost.hostname} is neither 'online' nor "
+            f"'offline'; stdout={stdout!r}"
+        )
+        return False

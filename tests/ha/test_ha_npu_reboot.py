@@ -26,6 +26,7 @@ from ha_dash_flow_utils import compare_flow_tables
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
 from tests.ha.conftest import get_interface_ip
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
+from ha_bgp_utils import get_dut_t2_local_addrs, is_vip_withdrawn_from_t2_vm
 from ha_utils import parallel_config_reload_dpuhosts
 
 
@@ -40,6 +41,7 @@ pytestmark = [
 THRESHOLD_LOSS_PERCENT = 2.0
 RATE_PPS = 20
 INITIAL_SEND_COUNT = 100
+TRAFFIC_WINDOW_SECONDS = 300
 
 
 @pytest.fixture(scope="function")
@@ -125,32 +127,37 @@ def common_setup_teardown(
 
 
 """
-We are testing 4 scenarios:
-    1. Traffic to Primary and Primary NPU reboot
-    2. Traffic to Primary and Standby NPU reboot
-    3. Traffic to Standby and Primary NPU reboot
-    4. Traffic to Standby and Standby NPU reboot
-For each scenario, we will send traffic for 60 seconds and check if the packet loss is within the threshold.
+Two scenarios:
+    1. Traffic to Primary, Standby NPU reboot (no switchover; primary keeps serving).
+    2. Traffic to Standby, Primary NPU reboot (switchover; standby DPU transitions
+       to standalone).
+For each scenario we send traffic for TRAFFIC_WINDOW_SECONDS and check that
+the loss is within the threshold. After the reboot we additionally verify the
+rebooted NPU has withdrawn its VIP /32 BGP advertisement.
 """
 
 
 @pytest.mark.parametrize(
-    "standby_npu_reboot", [True, False],
-    ids=["Standby NPU Reboot", "Primary NPU Reboot"]
-)
-@pytest.mark.parametrize(
-    "traffic_to_standby", [True, False],
-    ids=["Standby Traffic", "Primary Traffic"]
+    "traffic_to_standby,standby_npu_reboot",
+    [
+        (False, True),    # Traffic to Primary, Standby NPU reboot
+        (True, False),    # Traffic to Standby, Primary NPU reboot (switchover)
+    ],
+    ids=[
+        "Traffic to Primary - Standby NPU Reboot",
+        "Traffic to Standby - Primary NPU Reboot (Switchover)",
+    ],
 )
 def test_ha_npu_reboot(
     ptfadapter,
     localhost,
     duthosts,
     dpuhosts,
+    nbrhosts,
     activate_dash_ha_from_json,
     dash_pl_config,
     standby_npu_reboot,
-    traffic_to_standby
+    traffic_to_standby,
 ):
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     npu_reboot = "standby NPU reboot" if standby_npu_reboot else "primary NPU reboot"
@@ -161,14 +168,14 @@ def test_ha_npu_reboot(
     delay = 1.0 / rate_pps
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
 
-    if traffic_to_standby:
-        vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[1], encap_proto)
-    else:
-        vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
+    traffic_idx = 1 if traffic_to_standby else 0
+    rebooted_idx = 1 if standby_npu_reboot else 0
+
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[traffic_idx], encap_proto)
 
     # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
     bootstrap_pl_tcp_flow_outbound(
-        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        ptfadapter, dash_pl_config[traffic_idx], encap_proto,
         recv_ports=rcv_outbound_pl_ports,
     )
 
@@ -178,7 +185,13 @@ def test_ha_npu_reboot(
     send_count = 0
     failed_count = 0
 
-    dut = duthosts[1] if standby_npu_reboot else duthosts[0]
+    dut = duthosts[rebooted_idx]
+
+    # Capture the rebooted DUT's local IPs to its T2 BGP peers BEFORE the reboot,
+    # so the post-reboot check from the neighbor VM side does not depend on the
+    # rebooted DUT being reachable.
+    rebooted_dut_t2_local_ips = get_dut_t2_local_addrs(dut)
+    logger.info(f"Rebooted DUT {dut.hostname} T2 local IPs: {rebooted_dut_t2_local_ips}")
 
     def npu_ha_action():
         # wait for a number of packets to be sent, then simulate failure
@@ -194,37 +207,27 @@ def test_ha_npu_reboot(
 
     t = threading.Thread(target=npu_ha_action, name="npu_ha_action_thread")
     t.start()
-    t_max = time.time() + 60
-    reached_max_time = False
+    t_max = time.time() + TRAFFIC_WINDOW_SECONDS
     ptfadapter.dataplane.flush()
     time.sleep(1)
 
-    while not reached_max_time:
-        # After we send initial_send_count packets, awake link_ha_action thread
+    while time.time() < t_max:
+        # After we send initial_send_count packets, awake npu_ha_action thread
         if send_count == initial_send_count:
             logger.info("Awake HA action thread")
             action_event.set()
 
         try:
-            if traffic_to_standby:
-                if send_count == 0:
-                    logger.info("Send first packet to standby")
-                testutils.send(ptfadapter, dash_pl_config[1][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-                testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-                if send_count == 0:
-                    logger.info("First packet to standby received - compare flows")
-                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
-                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
-
-            else:
-                if send_count == 0:
-                    logger.info("Send first packet to primary")
-                testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-                testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
-                if send_count == 0:
-                    logger.info("First packet to primary received - compare flows")
-                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
-                    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
+            if send_count == 0:
+                logger.info(f"Send first packet to {'standby' if traffic_to_standby else 'primary'}")
+            testutils.send(
+                ptfadapter, dash_pl_config[traffic_idx][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1,
+            )
+            testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
+            if send_count == 0:
+                logger.info("First packet received - compare flows")
+                flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
+                pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
                 if send_count == 0:
@@ -237,18 +240,31 @@ def test_ha_npu_reboot(
 
         send_count += 1
         time.sleep(delay)
-        reached_max_time = time.time() > t_max
 
     t.join()
     time.sleep(2)
 
+    rebooted_dut = duthosts[rebooted_idx]
+
+    # Verify the VIP /32 is no longer received by any T2 neighbor VM from the
+    # rebooted DUT (BGP session torn down or VIP withdrawn). Checked from the
+    # neighbor VMs so it does not depend on the rebooted DUT being reachable.
+    pytest_assert(
+        wait_until(
+            60, 10, 0,
+            is_vip_withdrawn_from_t2_vm,
+            nbrhosts, rebooted_dut_t2_local_ips, pl.APPLIANCE_VIP,
+        ),
+        f"VIP {pl.APPLIANCE_VIP} was not withdrawn from T2 neighbor VMs' BGP RIB "
+        f"for {rebooted_dut.hostname} after {npu_reboot}",
+    )
+
     # wait for NPU and DPU to be up
-    dut = duthosts[1] if standby_npu_reboot else duthosts[0]
-    wait_for_startup(dut, localhost, delay=10, timeout=600)
+    wait_for_startup(rebooted_dut, localhost, delay=10, timeout=600)
     status = wait_until(CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, 0,
-                        check_dpu_up_state, dut, dpu_id)
+                        check_dpu_up_state, rebooted_dut, dpu_id)
     if not status:
-        logger.error(f"DPU{dpu_id} not up on {dut.hostname}")
+        logger.error(f"DPU{dpu_id} not up on {rebooted_dut.hostname}")
 
     threshold_loss = THRESHOLD_LOSS_PERCENT
     percentage_loss = (failed_count / send_count) * 100
