@@ -4,6 +4,7 @@ Platform Dependency Code (PD) - ECMP Hash Platform Handler
 This module contains all platform-specific logic for ECMP hash testing.
 """
 
+import json
 import logging
 import pytest
 from abc import ABC, abstractmethod
@@ -200,12 +201,12 @@ class VPPPlatformHandler(ECMPHashPlatformHandler):
     """Platform handler for sonic-vpp (VPP-backed virtual SONiC).
 
     Reports basic ECMP test capability (5-tuple-based packet distribution)
-    on t0/t1 topologies. The hash-offset-modification capability used by
-    ``test_udp_packets_ecmp`` is NOT implemented: VPP does not yet expose
-    a per-switch SAI hash-seed setter, so any call to the offset helpers
-    raises ``NotImplementedError``. The ``test_udp_packets_ecmp`` variant
-    is explicitly skipped via conditional_mark for sonic-vpp; the base
-    ``test_udp_packets`` runs and exercises the 5-tuple ECMP path.
+    on t0/t1 topologies, and drives the ECMP hash seed used by
+    ``test_udp_packets_ecmp`` through the standard SONiC config path:
+    the ``ecmp_hash_seed`` field of ``SWITCH_TABLE:switch`` (APPL_DB), which
+    orchagent maps to ``SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED``. saivpp in
+    turn maps that onto VPP's global ECMP flow-hash router-id, so changing
+    the seed re-distributes ECMP path selection.
 
     Unlike the Broadcom / Mellanox handlers, sonic-vpp's ECMP behaviour is
     driven purely by VPP (SAI -> VPP wire-level), so the emulated DUT HWSKU
@@ -213,6 +214,12 @@ class VPPPlatformHandler(ECMPHashPlatformHandler):
     """
 
     SUPPORTED_SKUS = []  # No SKU restriction: any sonic-vpp testbed works.
+
+    # ECMP hash seed values (SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED is a u32).
+    # Two distinct seeds so test_udp_packets_ecmp can prove the seed actually
+    # changes path distribution.
+    DEFAULT_SEED = "0"
+    TEST_SEED = "10"
 
     def get_supported_skus(self):
         return self.SUPPORTED_SKUS
@@ -239,29 +246,52 @@ class VPPPlatformHandler(ECMPHashPlatformHandler):
         return True
 
     def get_hash_offset_command(self, action="get", value=None):
-        """VPP does not expose a SAI per-switch hash-seed setter today.
+        """Get the command to read or set the ECMP hash seed on sonic-vpp.
 
-        Tests that need to mutate the ECMP hash offset must be excluded
-        via conditional_mark for asic_type=='vpp'. See
-        ``tests_mark_conditions_sonic_vpp.yaml`` for the explicit skip
-        on ``ecmp/test_ecmp_balance.py::test_udp_packets_ecmp``.
+        The seed is exchanged through ``SWITCH_TABLE:switch`` in APPL_DB
+        (orchagent -> ``SAI_SWITCH_ATTR_ECMP_DEFAULT_HASH_SEED`` -> saivpp ->
+        VPP). ``get`` reads the configured value back from APPL_DB; ``set``
+        pushes a new value via ``swssconfig`` so orchagent programs it.
         """
-        raise NotImplementedError(
-            "sonic-vpp lacks SAI ECMP hash-seed setter; "
-            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
-        )
+        if action == "get":
+            return 'redis-cli -n 0 hget "SWITCH_TABLE:switch" "ecmp_hash_seed"'
+        elif action == "set" and value is not None:
+            payload = json.dumps(
+                [{"SWITCH_TABLE:switch": {"ecmp_hash_seed": str(value)}, "OP": "SET"}]
+            )
+            # Embed the JSON inside a single-quoted `bash -c` script, escaping
+            # the JSON's double quotes for the inner `echo "..."`. swssconfig
+            # then feeds it to orchagent. (set_ecmp_offset runs this via the
+            # ansible command module, i.e. a single argv invocation.)
+            escaped = payload.replace('"', '\\"')
+            return (
+                "docker exec swss bash -c "
+                "'echo \"{}\" > /tmp/ecmp_hash_seed.json && "
+                "swssconfig /tmp/ecmp_hash_seed.json'".format(escaped)
+            )
+        else:
+            raise ValueError(f"Invalid action '{action}' or missing value for set operation")
 
     def parse_hash_offset_output(self, output):
-        raise NotImplementedError(
-            "sonic-vpp lacks SAI ECMP hash-seed setter; "
-            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
-        )
+        """Parse the ECMP hash seed value from the redis-cli output."""
+        if output.get("rc") != 0:
+            logger.warning("Command failed to read ECMP hash seed")
+            return None
+
+        for line in output.get("stdout_lines", []):
+            line = line.strip()
+            if line:
+                return line
+        # Empty result means the seed has not been configured yet.
+        return None
 
     def get_default_offset_value(self):
-        raise NotImplementedError(
-            "sonic-vpp lacks SAI ECMP hash-seed setter; "
-            "use conditional_mark to skip hash-offset tests for asic_type='vpp'"
-        )
+        """Default ECMP hash seed (used as the restore value)."""
+        return self.DEFAULT_SEED
+
+    def get_test_offset_value(self):
+        """Test ECMP hash seed: distinct from default so distribution changes."""
+        return self.TEST_SEED
 
 
 class PlatformHandlerFactory:
