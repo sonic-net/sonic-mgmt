@@ -328,26 +328,20 @@ def test_system_health_summary(duthosts, dpuhosts,
                                     re.IGNORECASE))
 
     logging.info("Checking show system-health summary on Switch")
-
     output_health_summary = duthost.command("show system-health summary")
     result = parse_system_health_summary(output_health_summary['stdout'])
 
     pytest_assert(result, "Switch health status is not ok")
 
-
     for index in range(len(dpu_on_list)):
         dpu_name = dpu_on_list[index]
         dpu_id = int(re.search(r'\d+', dpu_name).group())
-        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
-        if dpuhost is None:
-            logging.warning("DPU%d not in dpuhosts (len=%d); skipping health summary check", dpu_id, len(dpuhosts))
-            continue
 
         logging.info("Checking show system-health summary on {}"
                      .format(dpu_name))
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                                  check_dpu_system_health_summary, dpuhosts,
-                                 index, dpu_name),
+                                 dpu_id, dpu_name),
                                 "{} health status is not ok"
                                 .format(dpu_name))
 

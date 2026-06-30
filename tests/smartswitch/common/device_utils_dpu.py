@@ -369,19 +369,23 @@ def parse_system_health_summary(output_health_summary):
     return result
 
 
-def check_dpu_system_health_summary(dpuhosts, index, dpu_name):
+def check_dpu_system_health_summary(dpuhosts, dpu_id, dpu_name):
     """
     Check dpu system health summary
     Args:
         dpuhosts: Host handle
-        index   : DPU index
+        dpu_id  : DPU ID (numeric)
         dpu_name: DPU name
     Return:
        True : Health summary is ok
        False: Health summary is not ok
     """
     logging.info(f"Check DPU {dpu_name} system health summary")
-    output_health_summary = dpuhosts[index].command(
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning("DPU%d not in dpuhosts (len=%d); skipping health summary check", dpu_id, len(dpuhosts))
+        return True
+    output_health_summary = dpuhost.command(
                                 "sudo show system-health summary")['stdout']
 
     logging.info(output_health_summary)
