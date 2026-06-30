@@ -1,6 +1,7 @@
 import json
 import logging
 
+from tests.common.devices.eos import EosHost
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -54,6 +55,104 @@ def check_vip_advertised_to_t2(duthosts, vip):
                   "VIP {} not advertised to T2 peers: {}".format(vip_prefix, missing))
     logger.info("VIP %s advertised to all T2 peers on %s",
                 vip_prefix, [d.hostname for d in duts])
+
+
+def get_dut_t2_local_addrs(duthost):
+    """Return the DUT's local IPv4 BGP addresses used to peer with its T2 neighbors.
+
+    These are the IPs the T2 VMs see as the remote peer for their BGP session
+    with this DUT, i.e. what `peerId` / `peerAddr` would show on the T2 side.
+    """
+    cfg = duthost.get_running_config_facts()
+    addrs = []
+    for peer_cfg in cfg.get("BGP_NEIGHBOR", {}).values():
+        if not peer_cfg.get("name", "").endswith("T2"):
+            continue
+        local = peer_cfg.get("local_addr") or ""
+        if local and ":" not in local:
+            addrs.append(local)
+    return addrs
+
+
+def _vip_path_peer_ids_on_vm(host, vip_prefix):
+    """Return the set of BGP peer IPs from which a neighbor VM has received `vip_prefix`.
+
+    Dispatches on host type (Arista cEOS vs vsonic/FRR). Empty set means the
+    prefix isn't in the VM's BGP RIB at all, or the query failed.
+    """
+    peer_ids = set()
+    try:
+        if isinstance(host, EosHost):
+            cmd = "show ip bgp {} | json".format(vip_prefix)
+            out = host.eos_command(commands=[cmd], module_ignore_errors=True)
+            stdouts = out.get("stdout", [])
+            if not stdouts:
+                return peer_ids
+            data = stdouts[0]
+            if isinstance(data, str):
+                data = json.loads(data)
+            for vrf in data.get("vrfs", {}).values():
+                for entry in vrf.get("bgpRouteEntries", {}).values():
+                    for path in entry.get("bgpRoutePaths", []):
+                        peer = path.get("peerEntry", {}).get("peerAddr")
+                        if peer:
+                            peer_ids.add(peer)
+        else:
+            cmd = 'vtysh -c "show ip bgp {} json"'.format(vip_prefix)
+            res = host.shell(cmd, module_ignore_errors=True)
+            if res.get("failed"):
+                return peer_ids
+            try:
+                data = json.loads(res.get("stdout", ""))
+            except ValueError:
+                return peer_ids
+            for path in data.get("paths", []):
+                peer = path.get("peerId")
+                if peer:
+                    peer_ids.add(peer)
+    except Exception as e:
+        logger.info("BGP query on %s failed: %s",
+                    getattr(host, "hostname", host), e)
+    return peer_ids
+
+
+def is_vip_withdrawn_from_t2_vm(nbrhosts, rebooted_dut_t2_local_ips, vip):
+    """Return True iff no T2 neighbor VM still has `vip`/32 received from any
+    of the rebooted DUT's local BGP IPs.
+
+    Args:
+        nbrhosts: pytest nbrhosts dict (vm_name -> {"host": ..., ...}).
+        rebooted_dut_t2_local_ips: list of IPs that T2 VMs use as the peer
+            address for their BGP session with the rebooted DUT (collected
+            BEFORE reboot via get_dut_t2_local_addrs()).
+        vip: VIP address (no prefix length).
+    """
+    vip_prefix = "{}/32".format(vip)
+    rebooted_ips = set(rebooted_dut_t2_local_ips)
+    if not rebooted_ips:
+        logger.warning("No rebooted-DUT T2 local IPs provided; nothing to check")
+        return True
+
+    saw_via_rebooted = False
+    for vm_name, info in nbrhosts.items():
+        if "T2" not in vm_name:
+            continue
+        host = info.get("host") if isinstance(info, dict) else None
+        if host is None:
+            continue
+
+        peer_ids = _vip_path_peer_ids_on_vm(host, vip_prefix)
+        overlap = peer_ids & rebooted_ips
+        if overlap:
+            logger.info("VM %s still has VIP %s received from rebooted-DUT IP(s) %s",
+                        vm_name, vip_prefix, sorted(overlap))
+            saw_via_rebooted = True
+        else:
+            other = peer_ids - rebooted_ips
+            logger.info("VM %s: VIP %s no longer received from rebooted-DUT IPs "
+                        "(other sources=%s)", vm_name, vip_prefix, sorted(other))
+
+    return not saw_via_rebooted
 
 
 def _ha_bgp_oper(duthost, start=True):
