@@ -66,7 +66,13 @@
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
     become: yes
-    when: not enable_async and "bmc" not in topo
+    # Portless (BMC) topos have no VMs, but unbind must still detach the PTF mgmt port from
+    # the Linux mgmt bridge for a clean teardown (vm_topology handles 0-VM gracefully).
+    # Skip only when the PTF is attached to the bridge via a Docker network. The async unbind
+    # below loops over VM_hosts (empty for BMC), so BMC must use this non-async unbind.
+    when: >-
+      (not enable_async and 'bmc' not in topo)
+      or ('bmc' in topo and not (ptf_use_docker_network | default(false)))
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_hosts | flatten(levels=1) }}"
