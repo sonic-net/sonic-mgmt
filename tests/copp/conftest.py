@@ -1,5 +1,6 @@
 import pytest
 from tests.common import constants
+from tests.common.utilities import str2bool
 
 """
     Pytest configuration used by the COPP tests.
@@ -13,8 +14,9 @@ def pytest_addoption(parser):
 
     parser.addoption(
         "--copp_swap_syncd",
-        action="store_true",
-        default=False,
+        action="store",
+        type=str2bool,
+        default=True,
         help="Swap syncd container with syncd-rpc container",
     )
     parser.addoption(
