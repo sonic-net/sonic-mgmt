@@ -43,16 +43,6 @@ def get_lldp_neighbors(duthost):
 def get_corefiles(duthost):
     return duthost.shell(SEARCH_COREFILES)
 
-
-
-
-
-# def inject_xcvrd_crash(duthost):
-    # dude idk
-    # it says i need to edit the xcvrd.py file
-    # where is it??
-
-
 def get_db_port_table(duthost, port, namespace=None, attr_filter=None):
     """
     Example of UNFILTERED Output:
