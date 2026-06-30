@@ -8,6 +8,7 @@ import random
 import re
 import sys
 import shutil
+import tempfile
 
 import pytest
 import yaml
@@ -453,7 +454,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' is not in '{tbfile}'")
     return
 
 
@@ -482,7 +483,8 @@ def converge_topo_if_needed(config):
         if neighbor_type not in ("eos", "ceos"):
             logger.info(
                 f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
-                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
+                f"'{neighbor_type}' is not cEOS "
+                f"skipping converge (converged peer "
                 f"model is cEOS-only)")
             return
 
@@ -525,7 +527,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}: {original_gid}")
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -1407,7 +1409,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             logging.debug(
                 f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                f"{fanout_host}: {fanout_port} (baud={link_info.get('baud_rate', '9600')})"
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -3843,7 +3845,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}: \n{result.stdout}")
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -3948,7 +3950,11 @@ def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
         golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
                         .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
 
-    duthost.copy(content=json.dumps(golden_config_db, indent=4), dest=GOLDEN_CONFIG_DB_PATH)
+    tmp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+    json.dump(golden_config_db, tmp_file, indent=4)
+    tmp_file.flush()
+    tmp_file.close()
+    duthost.copy(src=tmp_file.name, dest=GOLDEN_CONFIG_DB_PATH)
 
 
 @pytest.fixture(scope="module", autouse=True)
