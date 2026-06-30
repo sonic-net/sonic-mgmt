@@ -29,13 +29,13 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
->**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method`. 
+>**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method`.
 
 3. `remote_reseat.json` files under `ansible/files/transceiver/inventory/attributes/remote_reseat` directory are used to define the attributes for the remote reseat tests. Per-PN body contains transceiver specific defaults, while DUT specific overrides are defined in the category-level shard; see [File Organization](test_plan.md#file-organization) for the shard contract. Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| ports_under_test | List | [] | No | dut | A list under `dut.dut_name` containing the indices of physical ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
+| ports_under_test | List | [] | No | dut | A list under `dut.dut_name` containing the indices of physical ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. |
 | remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in minutes to wait for the remote reseat process to complete. |
 | remote_reseat_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the remote reseat process. |
 | monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
@@ -120,7 +120,7 @@ This table lists the transceiver related DB tables with the attributes that shou
 | STATE_DB | TRANSCEIVER_PM | Rx related metrics if applicable |
 | STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx related fields |
 | STATE_DB | TRANSCEIVER_VDM_* | Rx related metrics if applicable |
- 
+
 
 ##### Transceiver flag tables
 This table lists the transceiver flag tables in STATE_DB. All the relevant fields of these tables for the local and the peer ports should be monitored during the physical OIR and remote reseat tests to ensure they are updated correctly.
