@@ -443,6 +443,13 @@ def test_lldp_entry_table_after_syncd_orchagent(
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
     # Get the ldap keys before restart syncd and swss
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    # The management interface eth0 may appear in LLDP_ENTRY_TABLE (its LLDP neighbor is the
+    # management switch), but eth0 LLDP is not controlled by syncd/orchagent and is therefore not
+    # a reliable readiness condition for front-panel LLDP entry recovery after a swss/syncd
+    # restart. Exclude it, consistent with the other LLDP_ENTRY_TABLE test cases in this file.
+    testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
+    if not testable_interfaces:
+        pytest.skip("No front-panel LLDP neighbors to verify after swss/syncd restart")
 
     logging.info("Stop and start swss and syncd on DUT")
     # It's found that restart swss container could cause swss service to go down. In most of OC tests
@@ -465,7 +472,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
         "BGP sessions did not reach Established state after swss restart",
     )
     # Wait until all interfaces are up and lldp entries are populated
-    for interface in lldp_entry_keys:
+    for interface in testable_interfaces:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, [interface])
         entry_content = get_lldp_entry_content(db_instance, interface)
         pytest_assert(
