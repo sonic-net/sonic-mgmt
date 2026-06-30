@@ -4,6 +4,11 @@ import re
 import time
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.bgp import (
+    get_asic_config_facts,
+    get_db_cli_prefix,
+    get_vtysh_cmd_for_asic,
+)
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.utilities import get_host_visible_vars
@@ -19,30 +24,9 @@ logger = logging.getLogger(__name__)
 CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
 
 
-def get_asic_namespace(duthost, enum_asic_index):
-    if enum_asic_index is None:
-        return None
-    return duthost.get_namespace_from_asic_id(enum_asic_index)
-
-
-def get_config_facts(duthost, enum_asic_index):
-    namespace = get_asic_namespace(duthost, enum_asic_index)
-    return duthost.config_facts(host=duthost.hostname, source="running", namespace=namespace)['ansible_facts']
-
-
-def get_db_cli_prefix(duthost, enum_asic_index):
-    namespace = get_asic_namespace(duthost, enum_asic_index)
-    return "sonic-db-cli {}".format("-n " + namespace if namespace else "")
-
-
 def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
     duthost.shell("{} CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
                   module_ignore_errors=module_ignore_errors)
-
-
-def get_vtysh_cmd(duthost, enum_asic_index, cmd):
-    namespace = get_asic_namespace(duthost, enum_asic_index)
-    return duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
@@ -68,7 +52,7 @@ def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_
 def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, nbrhosts, tbinfo):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
-    cmd = get_vtysh_cmd(duthost, enum_asic_index, cmd)
+    cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, cmd)
     output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
 
     # Verify router id from DUT itself
@@ -82,7 +66,7 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
         "BGP router id unexpected, expected: {}, actual: {}. "
     ).format(expected_bgp_router_id, match.group(1)))
 
-    cfg_facts = get_config_facts(duthost, enum_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_asic_index)
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     addr_char = ":" if is_v6_topo else "."
 
@@ -123,7 +107,7 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
 @pytest.fixture()
 def loopback_ip(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
-    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     loopback_ip = None
     loopback_table = cfg_facts.get("LOOPBACK_INTERFACE", {})
     for key in loopback_table.get("Loopback0", {}).keys():
@@ -136,7 +120,7 @@ def loopback_ip(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
 @pytest.fixture()
 def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip):
     duthost = duthosts[enum_frontend_dut_hostname]
-    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     dev_meta = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {})
 
     if dev_meta.get('switch_type') in ['voq', 'chassis-packet']:
@@ -152,7 +136,7 @@ def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_as
 @pytest.fixture()
 def loopback_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
-    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     loopback_ip = None
     loopback_table = cfg_facts.get("LOOPBACK_INTERFACE", {})
     for key in loopback_table.get("Loopback0", {}).keys():
@@ -236,11 +220,11 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_a
     neighbor_type = request.config.getoption("neighbor_type")
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
         if "." not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
             continue
-        cmd = get_vtysh_cmd(
+        cmd = get_vtysh_cmd_for_asic(
             duthost,
             enum_frontend_asic_index,
             "vtysh -c \"show ip bgp neighbor {} advertised-routes\"".format(remote_ip)
@@ -269,11 +253,11 @@ def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_front
     neighbor_type = request.config.getoption("neighbor_type")
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = get_config_facts(duthost, enum_frontend_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
         if ":" not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
             continue
-        cmd = get_vtysh_cmd(
+        cmd = get_vtysh_cmd_for_asic(
             duthost,
             enum_frontend_asic_index,
             "vtysh -c \"show ipv6 bgp neighbor {} advertised-routes\"".format(remote_ip)
