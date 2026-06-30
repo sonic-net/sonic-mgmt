@@ -21,7 +21,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| ports_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
+| ports_under_test | List | [] | No | dut |  A list under `dut.dut_name` containing the indices of physical ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
 | oir_method | String | manual | No | dut | The method used for OIR ("manual", "pseudo" or "automated"). |
 | physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
@@ -35,7 +35,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| ports_under_test | List | [] | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
+| ports_under_test | List | [] | No | dut | A list under `dut.dut_name` containing the indices of physical ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
 | remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in minutes to wait for the remote reseat process to complete. |
 | remote_reseat_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the remote reseat process. |
 | monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
@@ -51,20 +51,15 @@ This section outlines the test cases for validating the insertion and removal of
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Optics removal validation| 1. Physically remove the optical module under test.|1. Transceiver presence command should return "Not present" with exit code 0.<br>2. Transceiver eeprom command should return "SFP EEPROM not detected" with exit code 0.<br>3. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>4. Transceiver related db tables are not deleted.<br>5. Interface should go oper down.<br>6. Other interfaces on the device should stay up.<br>7. Peer port should go oper down.<br>8. Link flap count of the local port and the peer port should increase by 1.<br>9. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the peer  port.<br>10. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>11. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
-| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Transceiver presence command should return "Present" with exit code 0.<br>2. Transceiver eeprom show command should show the values as per the configuration file and with the exit code as 0.<br>3. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>4. Interface should go oper up after `port_startup_wait_sec` seconds.<br>5. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>6. Check that optics SI settings and media settings are as expected.<br>7. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>8. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the local and the peer port.<br>9. Peer port should become oper up.<br>10. Link flap count of the peer port should increase by 1.<br>11. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>12. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
-| 3 | Simultaneous Physical OIR | 1. Physically remove all optical modules under test simultaneously if `simultaneous_oir` attribute is `True`.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
+| 1 | Optics removal validation| 1. Physically remove the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Not present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should return "SFP EEPROM not detected" with exit code 0.<br>3. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>4. Interface should go oper down.<br>5. Other interfaces on the device should stay up.<br>6. Peer port should go oper down.<br>7. Link flap count of the local port and the peer ports should increase by 1.<br>8. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>9. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>10. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
+| 2 | Optics insertion validation| 1. Insert the optical module under test.|1. Show transceiver presence and sfputil presence commands should return "Present" with exit code 0.<br>2. Show transceiver eeprom, show transceiver info and sfputil eeprom commands should show the values as per the configuration file and with the exit code as 0.<br>3. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>4. Check if the port has recovered as per [system test plan](./system_test_plan.md#standard-port-recovery-and-verification-procedure).<br>5. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>6. Peer port should become oper up.<br>7. Link flap count of the peer port should increase by 1.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set. |
+| 3 | Simultaneous Physical OIR | Perform the following steps if `simultaneous_oir` attribute is `True`. Skip the test otherwise.<br>1. Physically remove all optical modules under test simultaneously.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
 | 4 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
 
-> Note: List of transceiver related DB tables can be found at [transceiver related DB tables](https://github.com/sonic-net/sonic-platform-daemons/blob/master/sonic-xcvrd/xcvrd/xcvrd_utilities/xcvr_table_helper.py#L11C1-L46C40).
+> Note: List of transceiver related DB tables can be found at [transceiver related DB tables](https://github.com/sonic-net/sonic-platform-daemons/blob/33c0d5e8236d99f870136731a2c3914888207749/sonic-xcvrd/xcvrd/xcvrd_utilities/xcvr_table_helper.py#L11-L47).
 
 ##### 1.1.2 Remote reseat Tests
 Remote reseat involves simulating the insertion and removal of optical modules by resetting the optics and restarting the interface. This method is useful for testing the system's response to optics insertion and removal without physically handling the hardware.
-
-| TC No. | Test | Steps | Expected Results |
-|------|------|------|------------------|
-| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up after `port_startup_wait_sec` seconds.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly for the local and the peer port.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>9. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
-| 2 | Remote reseat stress test| 1. Perform the remote reseat process `remote_reseat_stress_iteration` times.| 1. All the expected results from TC#1 after the last remote reseat.|
 
 To perform remote reseat on a module, following steps are taken in a sequential order:
 | Step No. | Step | Expected Result |
@@ -77,33 +72,67 @@ To perform remote reseat on a module, following steps are taken in a sequential 
 |6 | Issue CLI command to startup the port | Ensure that the port is linked up and is seen in the LLDP table |
 |7 | Issue CLI command to enable DOM monitoring for the port | Ensure that the DOM monitoring is enabled for the port |
 
+The following table lists the test cases for validating the remote reseat of optics in SONiC.
 
-##### Transceiver info tables
-This table lists the transceiver related DB tables with the attributes that should be monitored during the physical OIR and remote reseat tests to ensure they are not deleted or corrupted.
-
-| Table name | Attributes to Monitor |
-|------------|----------------------|
-| TRANSCEIVER INFO TABLE | cmis_rev, model, type, connector, manufacturer |
-| TRANSCEIVER FIRMWARE INFO TABLE | active firmware |
-| TRANSCEIVER DOM SENSOR TABLE | everything |
-| TRANSCEIVER DOM FLAG TABLE | everything |
-| TRANSCEIVER VDM REAL VALUE TABLE | everything |
-| TRANSCEIVER STATUS TABLE | everything |
-| TRANSCEIVER STATUS FLAG TABLE | everything |
-| APPL_DB | link related info, admin status, oper status, fec should be rs. |
+| TC No. | Test | Steps | Expected Results |
+|------|------|------|------------------|
+| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Show transceiver eeprom and sfputil eeprom commands should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up after `port_startup_wait_sec` seconds.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Ensure that [transceiver state tables](#transceiver-state-tables) and [transceiver flag change tables](#transceiver-flag-tables) are updated correctly for the local and the peer ports.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>9. Critical process such as `xcvrd`, `syncd`, `orchagent` does not crash/restart. |
+| 2 | Remote reseat stress test| 1. Perform the remote reseat process `remote_reseat_stress_iteration` times.| 1. All the expected results from TC#1 after the last remote reseat.|
 
 
-##### Transceiver flag change tables
-This table lists the transceiver flag change count DB tables that should be monitored during the physical OIR and remote reseat tests to ensure they are updated correctly.
+
+##### Transceiver state tables
+This table lists the transceiver related DB tables with the attributes that should be monitored during the physical OIR and remote reseat tests to ensure they are updated correctly.
+
+###### Local port tables to monitor after insertion
+| DB Name | Table Name(s) | Attributes to Monitor |
+|---------|---------------|-----------------------|
+| APPL_DB | PORT_TABLE | link related info, admin status, oper status, fec. |
+| STATE_DB | TRANSCEIVER_DOM_* | everything |
+| STATE_DB | TRANSCEIVER_FIRMWARE_INFO | active firmware |
+| STATE_DB | TRANSCEIVER_INFO | cmis_rev, model, type, connector, manufacturer |
+| STATE_DB | TRANSCEIVER_PM | everything if applicable |
+| STATE_DB | TRANSCEIVER_STATUS | everything |
+| STATE_DB | TRANSCEIVER_STATUS_FLAG* | everything |
+| STATE_DB | TRANSCEIVER_STATUS_SW | Should be updated with `{'cmis_state': 'READY', 'status': '1', 'error': 'N/A'}`|
+| STATE_DB | TRANSCEIVER_VDM_* | everything |
+
+
+##### Local port tables to monitor after removal
+| DB Name | Table Name(s) | Table Status |
+|---------|---------------|--------------|
+| APPL_DB | PORT_TABLE | link related info, admin status, oper status should be updated. |
+| STATE_DB | TRANSCEIVER_DOM_* | Deleted |
+| STATE_DB | TRANSCEIVER_FIRMWARE_INFO | Deleted |
+| STATE_DB | TRANSCEIVER_INFO | Deleted |
+| STATE_DB | TRANSCEIVER_PM | Deleted |
+| STATE_DB | TRANSCEIVER_STATUS | Deleted |
+| STATE_DB | TRANSCEIVER_STATUS_FLAG* | Deleted |
+| STATE_DB | TRANSCEIVER_STATUS_SW | Should be updated with `{'cmis_state': 'REMOVED', 'status': '0', 'error': 'N/A'}`|
+| STATE_DB | TRANSCEIVER_VDM_* | Deleted |
+
+
+##### Peer port tables to monitor after insertion or removal
+| DB Name | Table Name(s) | Attributes to Monitor |
+|---------|---------------|-----------------------|
+| APPL_DB | PORT_TABLE | link related info, oper status, flap count |
+| STATE_DB | TRANSCEIVER_DOM_SENSOR | Rx power |
+| STATE_DB | TRANSCEIVER_PM | Rx related metrics if applicable |
+| STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx related fields |
+| STATE_DB | TRANSCEIVER_VDM_* | Rx related metrics if applicable |
+ 
+
+##### Transceiver flag tables
+This table lists the transceiver flag tables in STATE_DB. All the relevant fields of these tables for the local and the peer ports should be monitored during the physical OIR and remote reseat tests to ensure they are updated correctly.
 
 | Table name |
 |------------|
-| TRANSCEIVER STATUS FLAG CHANGE COUNT |
-| TRANSCEIVER DOM FLAG CHANGE COUNT |
-| TRANSCEIVER VDM HALARM FLAG CHANGE COUNT |
-| TRANSCEIVER VDM LALARM FLAG CHANGE COUNT |
-| TRANSCEIVER VDM HWARN FLAG CHANGE COUNT |
-| TRANSCEIVER VDM LWARN FLAG CHANGE COUNT |
+| TRANSCEIVER_STATUS_FLAG* |
+| TRANSCEIVER_DOM_FLAG* |
+| TRANSCEIVER_VDM_HALARM_FLAG* |
+| TRANSCEIVER_VDM_LALARM_FLAG* |
+| TRANSCEIVER_VDM_HWARN_FLAG* |
+| TRANSCEIVER_VDM_LWARN_FLAG* |
 
 
 ## Physical OIR API
