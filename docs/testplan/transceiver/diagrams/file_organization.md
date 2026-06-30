@@ -5,8 +5,6 @@
 ```text
 ansible/files/transceiver/inventory/
 ├── normalization_mappings.json             # Shared vendor/PN normalization rules
-├── cdb_firmware_manifest.json              # CDB firmware manifest
-├── cdb_firmware_base_url.json              # Optional; presence selects download vs pre-staged mode
 │
 ├── dut_info/                               # Per-DUT transceiver metadata
 │   ├── sonic-device-01.json                # DUT 1 port configurations
@@ -36,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_firmware_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/

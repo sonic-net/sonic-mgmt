@@ -278,7 +278,7 @@ Example of `normalization_mappings.json`:
 
 #### Vendor Name and Part Number Normalization Rules
 
-This section defines the shared normalization rules referenced by the `normalization_mappings.json` file above and by all per-category test plans that need filesystem-safe representations of vendor names and part numbers (for example, the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md) uses these rules for its firmware binary directory layout).
+This section defines the shared normalization rules referenced by the `normalization_mappings.json` file above and by all per-category test plans that need filesystem-safe representations of vendor names and part numbers (for example, the [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md) uses these rules for its firmware binary directory layout).
 
 To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
 
@@ -1087,11 +1087,11 @@ See the [Configuration Control](#configuration-control) section above for pytest
 
 ### Transceiver Firmware Info File
 
-A `cdb_firmware_manifest.json` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
+Per-PN `cdb_firmware_upgrade_manifest.json` files (located in per-PN directory under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`) must exist for every transceiver that supports CMIS CDB firmware upgrade. See the [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
 
 ### CMIS CDB Firmware Base URL File
 
-A `cdb_firmware_base_url.json` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. See the [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
+A `cdb_firmware_upgrade_url.json` file (located in `attributes/cdb_firmware_upgrade/` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. See the [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md#pre-requisites) for the full file format specification and examples.
 
 ## Detailed Test Plans
 
@@ -1103,7 +1103,7 @@ The following child test plans provide comprehensive, attribute-driven test case
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 | [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
-| [CDB Firmware Upgrade Test Plan](cdb_fw_upgrade_test_plan.md) | CMIS CDB firmware upgrade/downgrade testing including stress tests, and EEPROM integrity validation |
+| [CDB Firmware Upgrade Test Plan](cdb_firmware_upgrade_test_plan.md) | CMIS CDB firmware upgrade/downgrade testing including stress tests, and EEPROM integrity validation |
 
 ### Document Relationships
 
