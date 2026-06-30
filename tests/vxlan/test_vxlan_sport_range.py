@@ -48,11 +48,11 @@ VNI = 10000
 PREFIX = "150.0.3.1/32"
 ENDPOINTS = ["100.0.1.10", "100.0.2.10"]
 
-# Defaults intentionally different from production values (64128 / 7).
+# Mask is always 7 (128-port range). Source port is configurable.
 DEFAULT_SOURCE_PORT = 32768
-DEFAULT_SOURCE_PORT_MASK = 4
+SOURCE_PORT_MASK = 7
 
-NUM_FLOWS = 1000
+NUM_FLOWS = 2000
 
 
 # ---------- Utility helpers (same as test_scale_ecmp.py) ----------
@@ -99,37 +99,38 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 # ---------- Source-port range configuration ----------
 
-def configure_vxlan_source_port_range(duthost, vxlan_port, source_port,
-                                      source_port_mask):
+def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
     """
     Program the VXLAN switch config (UDP port) and source-port range into the
     DUT via a single SWITCH_TABLE SET.
 
-    The range is [source_port, source_port | (0xFF >> (8 - mask))].
-    For example source_port=32768, mask=4  →  range 32768–32783 (16 ports).
+    Mask is always 7, giving a 128-port range:
+    [source_port, source_port | 0x7F]
+    For example source_port=32768  →  range 32768–32895 (128 ports).
 
     All SWITCH_TABLE fields are applied in one swssconfig SET so that
     orchagent processes them together.
     """
-    # Validate: the lower 'mask' bits of the base port must all be zero.
+    # Validate: the lower 7 bits of the base port must all be zero.
     pytest_assert(
-        source_port & (0xFF >> (8 - source_port_mask)) == 0,
-        f"Mask {source_port_mask} is not valid for source port base "
-        f"{source_port} — lower {source_port_mask} bits must be zero"
+        source_port & 0x7F == 0,
+        f"Source port base {source_port} is not aligned for mask 7 — "
+        f"lower 7 bits must be zero"
     )
 
+    logger.info(f"Configuring VXLAN switch: port={vxlan_port}, "
+                f"sport base={source_port}, mask={SOURCE_PORT_MASK}")
+    
     switch_config = [{
         "SWITCH_TABLE:switch": {
             "vxlan_port": str(vxlan_port),
             "vxlan_router_mac": "aa:bb:cc:dd:ee:ff",
             "vxlan_sport": str(source_port),
-            "vxlan_mask": str(source_port_mask),
+            "vxlan_mask": str(SOURCE_PORT_MASK),
         },
         "OP": "SET",
     }]
-
-    logger.info(f"Configuring VXLAN switch: port={vxlan_port}, "
-                f"sport base={source_port}, mask={source_port_mask}")
+    
     duthost.copy(content=json.dumps(switch_config, indent=4),
                  dest=DUT_VXLAN_RANGE_JSON)
     duthost.shell(
@@ -143,7 +144,7 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port,
 
 def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
                                   config_facts, dut_indx, vxlan_port,
-                                  source_port, source_port_mask):
+                                  source_port):
     """
     End-to-end DUT setup:
       1. Pick an ingress port, remove it from its VLAN.
@@ -171,8 +172,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
     dut_vtep = get_loopback_ip(cfg_facts)
     
     # --- VXLAN UDP port + source-port range (single SWITCH_TABLE SET) ---
-    configure_vxlan_source_port_range(duthost, vxlan_port, source_port,
-                                      source_port_mask)
+    configure_vxlan_source_port_range(duthost, vxlan_port, source_port)
 
     # Verify the config landed in APPDB
     switch_table = duthost.shell(
@@ -226,7 +226,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "vxlan_port": vxlan_port,
         "vni": VNI,
         "source_port": source_port,
-        "source_port_mask": source_port_mask,
+        "source_port_mask": SOURCE_PORT_MASK,
         "num_flows": NUM_FLOWS,
     }
 
@@ -249,9 +249,7 @@ def sport_range_setup_teardown(
 
     # Read CLI options; fall back to safe defaults.
     vxlan_port = request.config.option.vxlan_port # default is 4789 if not specified
-    # todo navdhaj: add that here as well instead of as default in fn
     source_port = request.config.option.udp_src_port or DEFAULT_SOURCE_PORT
-    source_port_mask = request.config.option.udp_src_port_mask or DEFAULT_SOURCE_PORT_MASK
 
     try:
         cfg_facts = json.loads(
@@ -263,7 +261,7 @@ def sport_range_setup_teardown(
 
         setup_params = vxlan_setup_with_sport_range(
             duthost, ptfhost, tbinfo, cfg_facts, config_facts,
-            dut_indx, vxlan_port, source_port, source_port_mask,
+            dut_indx, vxlan_port, source_port,
         )
     except Exception as e:
         logger.error(f"Exception raised in setup: {repr(e)}")

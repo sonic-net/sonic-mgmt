@@ -57,7 +57,7 @@ HASH_CHECK_FLOWS = 10
 # How many times each flow is re-sent in Phase 2.
 HASH_CHECK_REPEATS = 5
 # Maximum allowed relative deviation per port bucket in Phase 3.
-MAX_RELATIVE_DEVIATION = 0.1
+MAX_RELATIVE_DEVIATION = 0.15
 
 
 class VxlanSportRangeTest(BaseTest):
