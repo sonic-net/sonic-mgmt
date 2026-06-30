@@ -116,17 +116,19 @@ def sfputil_show_eeprom_hexdump_cmd(port, page=None):
 
 
 def sfputil_read_eeprom_cmd(port, *, offset, size, page=None, wire_addr=None):
-    """Return ``sfputil read-eeprom -p <port> [-n <page> | --wire-addr <A0h|A2h>] -o <off> -s <sz>``.
+    """Return ``sfputil read-eeprom -p <port> [--wire-addr <A0h|A2h>] -n <page> -o <off> -s <sz>``.
 
-    Exactly one of ``page`` or ``wire_addr`` should be provided.  Mixed-mode
-    callers (e.g. SFF-8472 vs CMIS paged access) get one builder either way.
+    ``-n/--page`` is a ``required=True`` option on ``sfputil read-eeprom``, so it
+    is ALWAYS emitted (defaulting to page 0 when ``page`` is None) — even for a
+    ``--wire-addr`` read.  The SFF-8472 A0h/A2h path in particular needs both
+    ``--wire-addr`` and ``-n 0`` together (``get_overall_offset_sff8472``
+    requires ``page == 0``), so ``wire_addr`` and ``page`` are emitted alongside
+    each other rather than as alternatives.
     """
     cmd = f"{SFPUTIL_READ_EEPROM} -p {port}"
     if wire_addr is not None:
         cmd += f" --wire-addr {wire_addr}"
-    elif page is not None:
-        cmd += f" -n {page}"
-    cmd += f" -o {offset} -s {size}"
+    cmd += f" -n {0 if page is None else page} -o {offset} -s {size}"
     return cmd
 
 
@@ -221,13 +223,11 @@ def sfputil_show_eeprom_hexdump(duthost, port, page=None):
 def sfputil_read_eeprom(duthost, port, *, offset, size, page=None, wire_addr=None):
     """Run ``sfputil read-eeprom -p <port> ...`` → ``({offset: byte_int}, err)``.
 
-    See ``sfputil_read_eeprom_cmd`` for the argument semantics (exactly one
-    of ``page`` / ``wire_addr``).
+    See ``sfputil_read_eeprom_cmd`` for the argument semantics.  ``page`` and
+    ``wire_addr`` are NOT mutually exclusive: ``-n/--page`` is always required by
+    sfputil (defaults to 0 here), and the SFF-8472 A0h/A2h path needs both
+    ``wire_addr`` and ``page=0`` together.
     """
-    if (page is None) == (wire_addr is None):
-        return None, (
-            f"sfputil read-eeprom -p {port}: exactly one of 'page' or 'wire_addr' must be provided"
-        )
     cmd = sfputil_read_eeprom_cmd(
         port, offset=offset, size=size, page=page, wire_addr=wire_addr,
     )
