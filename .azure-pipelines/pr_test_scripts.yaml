@@ -707,6 +707,7 @@ t1-lag-vpp:
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
   - log_fidelity/test_bgp_shutdown.py
+  - mpls/test_mpls.py
   - pc/test_po_voq.py
   - pc/test_lag_member.py
   - pc/test_po_update.py
