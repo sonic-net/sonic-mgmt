@@ -51,7 +51,7 @@ def get_peer_addrs(tbinfo, tor1, dut_asn, confed_asn):
 
 
 def get_bgp_neighbor_info(duthost, asic_index, tor1, bgp_facts=None):
-    skip_hosts = set([host.lower() for host in duthost.get_asic_namespace_list()])
+    skip_hosts = set([host.lower() for host in duthost.get_asic_namespace_list() if host])
     if bgp_facts is None:
         bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neighbor_info = {
