@@ -522,10 +522,14 @@ def check_system_health_led_info(duthost):
 
     # Cache the consistent snapshot captured inside the closure to avoid a
     # re-fetch that could observe a different value on a flapping LED.
+    # last_observed is always updated so assertion messages show real state on timeout.
     consistent_snapshot = {}
+    last_observed = {}
 
     def _led_consistent():
         led, status_dict = _fetch_led_and_status(duthost)
+        last_observed['led'] = led
+        last_observed['status_dict'] = status_dict
         all_ok = all(status == "OK" for status in status_dict.values())
         if led == expected_normal if all_ok else led in not_normal:
             consistent_snapshot['led'] = led
@@ -536,8 +540,8 @@ def check_system_health_led_info(duthost):
     # LED update by system-health daemon is asynchronous; wait for it to reflect current status
     result = wait_until(WAIT_TIMEOUT, 10, 0, _led_consistent)
 
-    system_led_status = consistent_snapshot.get('led', '')
-    status_dict = consistent_snapshot.get('status_dict', {})
+    system_led_status = consistent_snapshot.get('led', last_observed.get('led', ''))
+    status_dict = consistent_snapshot.get('status_dict', last_observed.get('status_dict', {}))
     logger.info(f"System status LED is {system_led_status}")
     logger.info(f"Status dict is {status_dict}")
 
