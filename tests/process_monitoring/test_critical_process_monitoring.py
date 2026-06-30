@@ -144,7 +144,11 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
-    duthost.shell("sudo sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    # Replace the delay value with 0 rather than commenting out the line.
+    # Commenting the line causes health_checker.Config.get_bootup_timeout() to
+    # return None (implicit), which later triggers a TypeError when comparing
+    # uptime against the timeout and prevents the system-health LED from updating.
+    duthost.shell("sudo sed -i 's/with start delay 300/with start delay 0/' /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
