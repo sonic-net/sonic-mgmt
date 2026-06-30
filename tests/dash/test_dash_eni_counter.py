@@ -13,14 +13,17 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, verify_eni_counter, \
-    eni_counter_setup, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
+    eni_counter_setup, ENI_COUNTER_READY_MAX_TIME, CT_AGING_TEST_INTERVAL, \
+    get_ct_aging_interval, set_ct_aging_interval  # noqa: F401
 from tests.dash.conftest import get_interface_ip
+from tests.common.config_reload import config_reload
 
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('smartswitch')
+    pytest.mark.topology('smartswitch'),
+    pytest.mark.asic('mellanox')
 ]
 
 
@@ -54,6 +57,16 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip
     if skip_config:
         return
     dpuhost = dpuhosts[dpu_index]
+    original_tcp_aging = get_ct_aging_interval(dpuhost, use_udp=False)
+    original_udp_aging = get_ct_aging_interval(dpuhost, use_udp=True)
+    logger.info(f"Original CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
+
+    set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=False)
+    set_ct_aging_interval(dpuhost, CT_AGING_TEST_INTERVAL, use_udp=True)
+    logger.info(f"Set CT aging intervals to {CT_AGING_TEST_INTERVAL}s, restarting syncd to apply")
+
+    config_reload(dpuhost, safe_reload=True)
+
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
     base_config_messages = {
         **pl.APPLIANCE_CONFIG,
@@ -94,11 +107,12 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+
+    # Restore original CT aging intervals
+    logger.info(f"Restoring CT aging intervals - TCP: {original_tcp_aging}s, UDP: {original_udp_aging}s")
+    set_ct_aging_interval(dpuhost, original_tcp_aging, use_udp=False)
+    set_ct_aging_interval(dpuhost, original_udp_aging, use_udp=True)
+    config_reload(dpuhost, safe_reload=True)
 
 
 @pytest.fixture(scope="function", params=["vxlan", "gre"])
