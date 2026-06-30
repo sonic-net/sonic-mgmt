@@ -915,11 +915,11 @@ def check_fib_route(duthost, route_list, ip_ver=IP_VER):
 
     for route in route_list:
         if route in out:
-            logging.debug(f"Route:{route} installed into fib")
+            logging.debug("Route {} installed into fib".format(route))
         else:
-            logging.info(f"Route:{route} not found in fib")
+            logging.info("Route {} not found in fib".format(route))
             assert False
-    logging.info(f"{route_list} are installed into fib successfully")
+    logging.info("{} are installed into fib successfully".format(route_list))
 
 
 def operate_orchagent(duthost, action=ACTION_STOP):
