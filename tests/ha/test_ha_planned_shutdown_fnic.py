@@ -58,7 +58,7 @@ def common_setup_teardown(
     parallel_config_reload_dpuhosts(dpuhosts)
 
 
-def test_ha_planned_shutdown(
+def test_ha_planned_shutdown_fnic(
     ptfadapter,
     localhost,
     duthosts,
