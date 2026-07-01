@@ -125,12 +125,15 @@ def hgetall_dict(duthost, db, key, namespace=None):
     return parsed if isinstance(parsed, dict) else {}
 
 
-def get_state_db_hash_field(duthost, table, key, field, namespace=None):
-    """Read one hash field from STATE_DB.
+def get_db_hash_field(duthost, db, table, key, field, namespace=None, sep="|"):
+    """Read one hash field from ``db`` → ``(value, err)``.
 
-    Runs ``sonic-db-cli [-n <ns>] STATE_DB hget "<table>|<key>" <field>`` (the
-    Redis key is double-quoted because table keys contain ``|``, which the shell
-    would otherwise treat as a pipe).
+    Runs ``sonic-db-cli [-n <ns>] <db> hget "<table><sep><key>" <field>``.  The
+    Redis key is double-quoted because it contains ``sep``, which the shell would
+    otherwise treat as a pipe (``|``) or otherwise mangle.
+
+    ``sep`` is the table/key separator: ``"|"`` for STATE_DB and CONFIG_DB,
+    ``":"`` for APPL_DB.
 
     ``namespace`` scopes the query to one ASIC on a multi-ASIC DUT: ``-n <ns>``
     is emitted only when ``namespace`` is truthy (``asicN``, e.g. from
@@ -147,8 +150,8 @@ def get_state_db_hash_field(duthost, table, key, field, namespace=None):
       - ``(None, "<cmd> failed with rc=... stderr=...")`` on non-zero rc.
     """
     ns_flag = f" -n {namespace}" if namespace else ""
-    cmd = f'sonic-db-cli{ns_flag} {STATE_DB} hget "{table}|{key}" {field}'
-    # shell (not command) because the quoted "<table>|<key>" needs shell parsing.
+    cmd = f'sonic-db-cli{ns_flag} {db} hget "{table}{sep}{key}" {field}'
+    # shell (not command) because the quoted "<table><sep><key>" needs shell parsing.
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
@@ -157,6 +160,16 @@ def get_state_db_hash_field(duthost, table, key, field, namespace=None):
         )
     value = (result.get("stdout") or "").strip()
     return (value or None), None
+
+
+def get_state_db_hash_field(duthost, table, key, field, namespace=None):
+    """Read one hash field from STATE_DB → ``(value, err)``.
+
+    Thin wrapper over :func:`get_db_hash_field` pinned to ``STATE_DB`` (``|``
+    separator).  See that function for the ``namespace`` and ``(value, err)``
+    semantics; this preserves the existing STATE_DB call sites unchanged.
+    """
+    return get_db_hash_field(duthost, STATE_DB, table, key, field, namespace=namespace)
 
 
 def get_state_db_table(duthost, table, namespace=None):
