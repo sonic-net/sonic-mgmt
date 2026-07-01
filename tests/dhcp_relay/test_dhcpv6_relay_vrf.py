@@ -402,7 +402,9 @@ def _uplink_nexthop_and_local(duthost, saved_pc_ips):
             try:
                 uplink_ips.add(str(ipaddress.ip_interface(parts[2]).ip))
             except ValueError:
-                pass
+                # parts[2] is not an IP-bearing INTERFACE|<port>|<prefix> row
+                # (e.g. a bare INTERFACE|<port> key with no address); skip it.
+                continue
     keys_raw = duthost.shell('redis-cli -n 4 --json keys "BGP_NEIGHBOR|*"',
                              verbose=False, module_ignore_errors=True)["stdout"].strip()
     keys = json.loads(keys_raw) if keys_raw else []
