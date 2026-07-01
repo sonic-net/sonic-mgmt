@@ -80,6 +80,11 @@ def test_po_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_as
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
+# This test drives CPU to 100% and runs config_reload, which transiently spikes memory usage.
+# On the low-memory sonic-vpp KVM VM that briefly trips the monit memory_usage alarm and fails
+# the global memory_utilization teardown check, even though the test body itself passes. Skip
+# that check for this reload/stress test (consistent with other reboot/reload/stress tests).
+@pytest.mark.disable_memory_utilization
 def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
     test port channel are cleaned up correctly after config reload, with system under stress.
