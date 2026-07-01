@@ -2,6 +2,7 @@ import logging
 import re
 import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'lt2', 'ft2', 'c0'),
@@ -70,9 +71,21 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    # Poll until the LLDP local system data is populated; it can lag a snmp-subagent (re)start.
+    snmp_facts = {}
+    local_keys = ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']
+    if not duthost.facts['modular_chassis']:
+        local_keys += ['lldpLocManAddrLen', 'lldpLocManAddrIfSubtype', 'lldpLocManAddrIfId', 'lldpLocManAddrOID']
+
+    def _lldp_local_ready():
+        snmp_facts.update(get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts'])
+        lldp = snmp_facts.get('snmp_lldp', {})
+        return all(lldp.get(k) and "No Such" not in lldp[k] for k in local_keys)
+
+    assert wait_until(120, 10, 0, _lldp_local_ready), (
+        "LLDP-MIB local data not populated in time: {}".format(snmp_facts.get('snmp_lldp')))
     mg_facts = {}
     for asic_id in duthost.get_asic_ids():
         mg_facts_ns = duthost.asic_instance(
