@@ -492,7 +492,6 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     yield ip_dst
 
 
-
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
 def tx_dut_ports(request, setup, tbinfo):
     """ Fixture for getting port members of specific port group """
