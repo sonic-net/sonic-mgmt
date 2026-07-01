@@ -133,17 +133,21 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     # Wait for ACL configuration to propagate by polling for ACL table key
     logger.info("Waiting for ACL configuration to propagate...")
 
+    acl_tbl_key = None
+
     def _acl_config_applied():
+        nonlocal acl_tbl_key
         try:
-            get_acl_tbl_key(asichost)
+            acl_tbl_key = get_acl_tbl_key(asichost)
             return True
-        except Exception:
+        except BaseException:
+            acl_tbl_key = None
             return False
 
     pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
                   "ACL configuration did not propagate within timeout")
 
-    collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
+    collector["acl_tbl_key"] = acl_tbl_key
 
 
 def generate_mac(num):
@@ -226,28 +230,29 @@ def apply_fdb_config(duthost, test_name, vlan_id, iface, entry_num):
 
 
 def get_acl_tbl_key(asichost):
-    """ Get ACL entry keys """
-    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
-    acl_tbl_keys = asichost.shell(cmd)["stdout"].split()
+    """ Get ACL entry keys.
+    """
+    db_cli = asichost.sonic_db_cli
+    cmd = (
+        'keys=$({db} ASIC_DB KEYS "*SAI_OBJECT_TYPE_ACL_ENTRY*"); '
+        'for k in $keys; do '
+        '  et=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE); '
+        '  case "$et" in '
+        '    *2048*) '
+        '      tid=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_TABLE_ID); '
+        '      if [ -n "$tid" ]; then echo "$tid"; exit 0; fi ;; '
+        '  esac; '
+        'done; '
+        'exit 1'
+    ).format(db=db_cli)
 
-    # Get ethertype for ACL entry and match ACL which was configured to ethertype value
-    cmd = "{db_cli} ASIC_DB HGET {item} \"SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE\""
-    for item in acl_tbl_keys:
-        out = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, item=item))["stdout"]
-        logging.info(out)
-        if "2048" in out:
-            key = item
-            break
-    else:
-        pytest.fail("Ether type was not found in SAI ACL Entry table")
+    result = asichost.shell(cmd, module_ignore_errors=True)
+    oid = (result.get("stdout") or "").strip()
+    if result.get("rc", 1) != 0 or not oid:
+        pytest.fail("Valid ACL entry (EtherType=2048 with TABLE_ID) not found")
 
-    # Get ACL table key
-    cmd = "{db_cli} ASIC_DB HGET {key} \"SAI_ACL_ENTRY_ATTR_TABLE_ID\""
-    oid = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, key=key))["stdout"]
     logging.info(oid)
-    acl_tbl_key = "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
-
-    return acl_tbl_key
+    return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -1231,6 +1236,12 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
+
+    wait_for_crm_counter_update(
+        get_acl_entry_stats, duthost,
+        expected_used=crm_stats_acl_entry_used + 4,
+        oper_used=">=", timeout=60, interval=2,
+    )
 
     # Get new "crm_stats_acl_entry" used and available counter value
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
