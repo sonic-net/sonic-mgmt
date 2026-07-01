@@ -33,7 +33,7 @@ def restore_counter_poll(duthosts, enum_rand_one_per_hwsku_hostname):
             parsed_counterpoll_after_multi_asic[asic.asic_index] = (
                 ConterpollHelper.get_parsed_counterpoll_show(counter_poll_show))
             ConterpollHelper.restore_counterpoll_status(duthost, parsed_counterpoll_before_multi_asic[asic.asic_index],
-                                                        parsed_counterpoll_after_multi_asic[asic.asic_index])
+                                                        parsed_counterpoll_after_multi_asic[asic.asic_index], asic)
     else:
         counter_poll_show = ConterpollHelper.get_counterpoll_show_output(duthost)
         parsed_counterpoll_after = ConterpollHelper.get_parsed_counterpoll_show(counter_poll_show)

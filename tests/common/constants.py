@@ -23,7 +23,7 @@ class CounterpollConstants:
     COUNTERPOLL_SHOW = 'counterpoll show'
     COUNTERPOLL_DISABLE = 'counterpoll {} {} disable'
     COUNTERPOLL_ENABLE = 'counterpoll {} {} enable'
-    COUNTERPOLL_RESTORE = 'counterpoll {} {}'
+    COUNTERPOLL_RESTORE = 'counterpoll {} {} {}'
     COUNTERPOLL_INTERVAL_STR = 'counterpoll {} interval {}'
     COUNTERPOLL_QUEST = 'counterpoll --help'
     EXCLUDE_COUNTER_SUB_COMMAND = ['show', 'config-db', "flowcnt-trap", "tunnel"]

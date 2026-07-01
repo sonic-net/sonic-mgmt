@@ -33,15 +33,16 @@ class ConterpollHelper:
         return parsed_counterpoll
 
     @staticmethod
-    def restore_counterpoll_status(duthost, counterpoll_before, counterpoll_after):
+    def restore_counterpoll_status(duthost, counterpoll_before, counterpoll_after, asic=None):
         for counterpoll, value in list(counterpoll_after.items()):
             if counterpoll not in counterpoll_before:
                 continue
             else:
                 if counterpoll_after[counterpoll][CounterpollConstants.STATUS] \
                         != counterpoll_before[counterpoll][CounterpollConstants.STATUS]:
+                    asic_index = " -n asic{}".format(asic.asic_index) if asic else ""
                     duthost.command(CounterpollConstants.COUNTERPOLL_RESTORE.format(
-                        CounterpollConstants.COUNTERPOLL_MAPPING[counterpoll],
+                        CounterpollConstants.COUNTERPOLL_MAPPING[counterpoll], asic_index,
                         counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
