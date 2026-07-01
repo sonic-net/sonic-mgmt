@@ -490,6 +490,15 @@ pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
     conditions:
       - "asic_type in ['vpp']"
 
+pc/test_po_cleanup.py::test_po_cleanup_after_reload:
+  disable_memory_utilization:
+    reason: >
+            config_reload with CPU stress transiently raises monit memory_usage past the
+            10% increase threshold on the low-RAM sonic-vpp KVM VM; the test body passes.
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 #######################################
 #####        PFCWD                #####
 #######################################
