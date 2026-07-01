@@ -352,12 +352,27 @@ def apply_patch_change_port_cluster(config_facts,
         selected_random_port, enum_rand_one_asic_namespace))
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
 
+    # QUEUE keys — saved for both add/remove flows before building patch ops
+    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
+        'QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
+    if not queue_keys:
+        queue_prefix = f"{enum_rand_one_asic_namespace}|{selected_random_port}|"
+        queue_keys = [
+            f"QUEUE|{duthost.hostname}|{cfg_key}"
+            for cfg_key in config_facts.get("QUEUE", {}).get(duthost.hostname, {})
+            if cfg_key.startswith(queue_prefix)
+        ]
+    pytest_assert(queue_keys, f"No QUEUE keys found for port {selected_random_port}")
+
     ##############
     # Patch Operation No.1
     ##############
     json_patch = []
     # When operation == 'remove' we split port-change ('add') ops into a separate patch
     # so cluster removal and port speed change are applied in distinct patches.
+    # When operation == 'add', cluster/port updates and queue restore use one apply_patch.
     json_patch_port_change = []
     port_change_list = json_patch if operation == "add" else json_patch_port_change
 
@@ -496,16 +511,12 @@ def apply_patch_change_port_cluster(config_facts,
             })
 
     # QUEUE
-    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
-        'QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
-    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
-    pytest_assert(queue_keys, f"No QUEUE keys found for port {selected_random_port}")
-    for key in queue_keys:
-        json_patch.append({
-            "op": "remove",
-            "path": f"{json_namespace}/{key.replace('QUEUE|', 'QUEUE/')}"
-        })
+    if operation == "remove":
+        for key in queue_keys:
+            json_patch.append({
+                "op": "remove",
+                "path": f"{json_namespace}/{key.replace('QUEUE|', 'QUEUE/')}"
+            })
 
     # PORT
     admin_status_down_op = {
@@ -594,38 +605,7 @@ def apply_patch_change_port_cluster(config_facts,
     elif operation == "remove":
         json_patch = json_patch_acl + [admin_status_down_op] + json_patch
 
-    # APPLY PATCH NO.1
-    tmpfile = generate_tmpfile(duthost)
-    try:
-        logger.info(f"Applying patch to change port cluster info. Operation {operation}. Dry-run {dry_run}")
-        logger.info(f"Patch content: {json_patch}")
-        if not dry_run:
-            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    ##############
-    # Patch Operation No.1b: PORT speed change (only for 'remove' operation)
-    # When removing cluster info, the port speed/lanes/fec and CABLE_LENGTH changes are
-    # applied as a separate patch after the cluster removal patch (admin down is in patch1).
-    ##############
-    if operation == "remove" and json_patch_port_change:
-        tmpfile = generate_tmpfile(duthost)
-        try:
-            logger.info(f"Applying patch to change port speed/lanes info. Dry-run {dry_run}")
-            logger.info(f"Patch content: {json_patch_port_change}")
-            if not dry_run:
-                output = apply_patch(duthost, json_data=json_patch_port_change, dest_file=tmpfile)
-                expect_op_success(duthost, output)
-        finally:
-            delete_tmpfile(duthost, tmpfile)
-
-    ##############
-    # Patch Operation No.2: QUEUE
-    ##############
-
-    # QUEUE
+    # QUEUE re-add operations (merged into one patch for 'add'; separate patch after remove flow)
     json_patch_queues = []
     for key in queue_keys:
         json_patch_queues.append({
@@ -634,16 +614,45 @@ def apply_patch_change_port_cluster(config_facts,
             "value": config_facts["QUEUE"][duthost.hostname][key.replace(f'QUEUE|{duthost.hostname}|', '')]
         })
 
-    # APPLY PATCH NO.2
-    tmpfile = generate_tmpfile(duthost)
-    try:
-        logger.info(f"Applying patch to add queues info. Dry-run {dry_run}")
-        logger.info(f"Patch content: {json_patch_queues}")
-        if not dry_run:
-            output = apply_patch(duthost, json_data=json_patch_queues, dest_file=tmpfile)
-            expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    if operation == "add":
+        json_patch_combined = json_patch + json_patch_queues
+        tmpfile = generate_tmpfile(duthost)
+        try:
+            logger.info(
+                "Applying single patch for add (cluster/port config and queue restore). Dry-run {}".format(dry_run))
+            logger.info(f"Patch content: {json_patch_combined}")
+            if not dry_run:
+                output = apply_patch(duthost, json_data=json_patch_combined, dest_file=tmpfile)
+                expect_op_success(duthost, output)
+        finally:
+            delete_tmpfile(duthost, tmpfile)
+    else:
+        # APPLY PATCH NO.1
+        tmpfile = generate_tmpfile(duthost)
+        try:
+            logger.info(f"Applying patch to change port cluster info. Operation {operation}. Dry-run {dry_run}")
+            logger.info(f"Patch content: {json_patch}")
+            if not dry_run:
+                output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+                expect_op_success(duthost, output)
+        finally:
+            delete_tmpfile(duthost, tmpfile)
+
+        ##############
+        # Patch Operation No.1b: PORT speed change (only for 'remove' operation)
+        # When removing cluster info, the port speed/lanes/fec and CABLE_LENGTH changes are
+        # applied as a separate patch after the cluster removal patch (admin down is in patch1).
+        ##############
+        if operation == "remove" and json_patch_port_change:
+            tmpfile = generate_tmpfile(duthost)
+            try:
+                logger.info(f"Applying patch to change port speed/lanes info. Dry-run {dry_run}")
+                logger.info(f"Patch content: {json_patch_port_change}")
+                if not dry_run:
+                    output = apply_patch(duthost, json_data=json_patch_port_change, dest_file=tmpfile)
+                    expect_op_success(duthost, output)
+            finally:
+                delete_tmpfile(duthost, tmpfile)
 
 
 # -----------------------------
