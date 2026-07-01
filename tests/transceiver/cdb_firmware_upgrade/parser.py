@@ -80,8 +80,18 @@ class TransceiverFirmwareInfoParser:
             logger.error(f"Error reading firmware manifest {manifest_file}: {e}")
             return []
 
+        if not isinstance(data, dict):
+            logger.error(f"Expected JSON object in manifest file: {manifest_file}")
+            return []
+
         fw_versions = []
         for fw_version, metadata in data.items():
+            if not isinstance(metadata, dict):
+                logger.warning(
+                    f"Invalid metadata for version '{fw_version}' "
+                    f"in '{vendor_name}/{vendor_pn}', skipping."
+                )
+                continue
             fw_binary_name = metadata.get('fw_binary_name')
             md5sum = metadata.get('md5sum')
             if not fw_binary_name or not md5sum:
@@ -116,6 +126,10 @@ class TransceiverFirmwareInfoParser:
                 url_dict = json.load(jsonfile)
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error reading firmware base URL JSON: {e}")
+            return {}
+
+        if not isinstance(url_dict, dict):
+            logger.error(f"Expected JSON object in URL file: {firmware_base_url_file}")
             return {}
 
         return url_dict
