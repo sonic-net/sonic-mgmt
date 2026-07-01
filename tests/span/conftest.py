@@ -17,8 +17,10 @@ from erspan_helpers import (   # noqa F401
     ERSPAN_TTL,
     ERSPAN_GRE_TYPE,
     ERSPAN_DEFAULT_DIRECTION,
+    PROBE_UNICAST_DST_MAC,
     remove_mirror_session,
     create_erspan_session_config,
+    apply_static_fdb,
 )
 
 logger = logging.getLogger(__name__)
@@ -317,9 +319,9 @@ def erspan_ports(duthosts, rand_one_dut_hostname, cfg_facts):
     Select ports for ERSPAN tests:
       - source: VLAN member port where test traffic is injected
       - gre_egress: different VLAN member port used as next-hop for ERSPAN dst IP
-      - tx_ingress: peer VLAN member used to inject broadcast traffic that floods
-        out the source port (egress) for direction=tx/both tests; None unless the
-        VLAN has >=4 non-PortChannel members (see note below).
+      - tx_ingress: peer VLAN member used to inject unicast traffic that the DUT
+        forwards out the source port (egress) for direction=tx/both tests; None unless
+        the VLAN has >=4 non-PortChannel members (see note below).
     '''
     duthost = duthosts[rand_one_dut_hostname]
     vlans = cfg_facts['VLAN']
@@ -486,6 +488,12 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         "Mirror session {} not active or monitor_port != {}; STATE_DB: {}".format(
             ERSPAN_SESSION_NAME, expected_monitor, state_dump))
 
+    probe_dst_mac = PROBE_UNICAST_DST_MAC
+    # Pre-clean any entry leaked by a previously interrupted run, then pin the MAC.
+    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
+                     op="DEL", ignore_errors=True)
+    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac, op="SET")
+
     yield {
         'session_name': ERSPAN_SESSION_NAME,
         'source_index': erspan_ports['source']['index'],
@@ -498,6 +506,7 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         'sample_rate': sample_rate,
         'truncate_size': truncate_size,
         'direction': direction,
+        'probe_dst_mac': probe_dst_mac,
         'mirror_session_info': {
             'src_ip': ERSPAN_SRC_IP,
             'dst_ip': ERSPAN_DST_IP,
@@ -507,4 +516,6 @@ def erspan_session(request, duthosts, rand_one_dut_hostname, erspan_ports, setup
         },
     }
 
+    apply_static_fdb(duthost, erspan_ports['vlan'], src_port, probe_dst_mac,
+                     op="DEL", ignore_errors=True)
     remove_mirror_session(duthost, ERSPAN_SESSION_NAME)
