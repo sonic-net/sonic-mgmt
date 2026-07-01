@@ -12,7 +12,7 @@ Execution order::
                                         (failure skips every System test)
     `- test_system_syncd_restart
          |- <body>: restart syncd -> verify pmon restart (if expected)
-         `-                       -> verify all ports recovery
+         `-                       -> verify all ports recover
   session end
     `- _system_post_session_checks (system/conftest.py)
          |- post_state_restoration()
