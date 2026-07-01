@@ -3,17 +3,10 @@ Basic test for show int transceiver info CLI.
 This file is created to verify the parsing logic of transceiver inventory in conftest.py.
 """
 import logging
-import pytest
 
+from tests.transceiver.common import cli_helpers
 from tests.transceiver.transceiver_test_base import TransceiverTestBase
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 
-pytestmark = [
-    pytest.mark.topology('ptp-256')
-]
-
-CMD_SFP_EEPROM = "show interfaces transceiver info"
-ERROR_CHASSIS_LOAD = 2
 
 logger = logging.getLogger(__name__)
 
@@ -56,17 +49,12 @@ class TestTransceiverInfoValidator(TransceiverTestBase):
 
     def test_check_show_int_transceiver_info(self):
         """
-        @summary: Check SFP EEPROM using 'show interfaces transceiver eeprom'
+        @summary: Check SFP EEPROM using 'show interfaces transceiver info'
         """
-        logger.info("Check output of '{}'".format(CMD_SFP_EEPROM))
-        sfp_eeprom = self.duthost.command(CMD_SFP_EEPROM, module_ignore_errors=True)
-
-        # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-        if self.duthost.facts["asic_type"] == "vs" and sfp_eeprom['rc'] == ERROR_CHASSIS_LOAD:
-            return
-        assert sfp_eeprom['rc'] == 0, "Run command '{}' failed".format(CMD_SFP_EEPROM)
-
-        parsed_eeprom = parse_eeprom(sfp_eeprom["stdout_lines"])
+        # Single source of truth for command string + parser + rc-handling: the
+        # shared cli_helpers wrapper (same one the EEPROM-content tests use).
+        parsed_eeprom, err = cli_helpers.show_interfaces_transceiver_info(self.duthost)
+        assert err is None, err
 
         # Validate the parsed_eeprom against the transceiver inventory
         self.validate_parsed_eeprom(parsed_eeprom)

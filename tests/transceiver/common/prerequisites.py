@@ -10,7 +10,8 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.utils.cli_parser_helper import parse_eeprom
+from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.cli_parser_helper import parse_presence
 
 logger = logging.getLogger(__name__)
 
@@ -116,35 +117,15 @@ def check_presence_sfputil(duthost, port_attributes_dict):
             "details": f"sfputil command failed: {output.get('stderr', '')}",
         }
 
-    presence_map = _parse_sfputil_presence(output.get("stdout_lines", []))
+    presence_map = parse_presence(output.get("stdout_lines", []))
 
     return _check_presence_common(presence_map, expected_ports, "sfputil")
-
-
-def _parse_sfputil_presence(stdout_lines):
-    """Parse the fixed-width table output of ``sfputil show presence``.
-
-    Returns:
-        dict: {port_name: presence_status}
-    """
-    presence = {}
-    for line in stdout_lines:
-        stripped = line.strip()
-        # Skip header/separator lines
-        if not stripped or stripped.startswith("Port") or stripped.startswith("---"):
-            continue
-        parts = stripped.split()
-        if len(parts) >= 2:
-            # presence value can be multi-word (e.g. "Not present")
-            presence[parts[0]] = " ".join(parts[1:])
-    return presence
 
 
 # ──────────────────────────────────────────────────────────────────────
 # Gold firmware check
 # ──────────────────────────────────────────────────────────────────────
 
-CMD_SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 CLI_KEY_ACTIVE_FIRMWARE = "Active Firmware"
 
 
@@ -193,16 +174,17 @@ def check_gold_firmware(duthost, port_attributes_dict):
             "details": details,
         }
 
-    output = duthost.command(CMD_SHOW_TRANSCEIVER_INFO, module_ignore_errors=True)
-    if output.get("rc", 1) != 0:
+    # Single source of truth for command string + parser + rc-handling: the
+    # same cli_helpers wrapper the EEPROM-content tests use.
+    parsed, err = cli_helpers.show_interfaces_transceiver_info(duthost)
+    if err:
         return {
             "passed": False,
             "matched": [],
-            "failures": [f"'{CMD_SHOW_TRANSCEIVER_INFO}' failed: {output.get('stderr', '')}"],
+            "failures": [err],
             "skipped": skipped,
-            "details": f"'{CMD_SHOW_TRANSCEIVER_INFO}' failed: {output.get('stderr', '')}",
+            "details": err,
         }
-    parsed = parse_eeprom(output.get("stdout_lines", []))
 
     matched = []
     failures = []
