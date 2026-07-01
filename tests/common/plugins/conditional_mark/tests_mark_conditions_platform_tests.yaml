@@ -1322,6 +1322,7 @@ platform_tests/test_cont_warm_reboot.py:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
       - "is_smartswitch==True"
 
 #######################################
@@ -1475,6 +1476,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "is_smartswitch==True"
       - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1502,6 +1504,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
       - "'f2' in topo_name"
+      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
