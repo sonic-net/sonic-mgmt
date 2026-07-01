@@ -50,6 +50,34 @@
     msg: "Config load failed: {{ config_load_result.stderr }}"
   when: config_load_result.rc != 0 and config_load_result.rc is defined
 
+# cSONiC neighbors that emulate a SpineRouter (e.g. T2 nodes in T1/T2 topologies)
+# render DEVICE_METADATA type=SpineRouter, so sonic-py-common is_chassis() returns
+# True and bgpcfgd instantiates ChassisAppDbMgr, which calls getDbId('CHASSIS_APP_DB').
+# A cSONiC neighbor is a single container, not a real chassis, so the image's
+# start.sh strips CHASSIS_APP_DB (and the redis_chassis instance) from
+# database_config.json -> bgpcfgd crash-loops and never emits 'router bgp'.
+# Re-add CHASSIS_APP_DB pointing at the local redis instance so ChassisAppDbMgr
+# connects locally. Idempotent and harmless for non-SpineRouter neighbors.
+- name: Ensure CHASSIS_APP_DB exists so bgpcfgd works on SpineRouter cSONiC neighbors
+  become: yes
+  shell: |
+    docker exec -i csonic_{{ vm_set_name }}_{{ inventory_hostname }} python3 - <<'PYEOF'
+    import json
+    f = '/var/run/redis/sonic-db/database_config.json'
+    d = json.load(open(f))
+    d.setdefault('DATABASES', {}).setdefault(
+        'CHASSIS_APP_DB', {'id': 12, 'separator': '|', 'instance': 'redis'})
+    json.dump(d, open(f, 'w'), indent=4)
+    PYEOF
+  delegate_to: "{{ VM_host[0] }}"
+  changed_when: false
+
+- name: Restart bgpcfgd after ensuring CHASSIS_APP_DB (cSONiC)
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl restart bgpcfgd
+  delegate_to: "{{ VM_host[0] }}"
+  changed_when: false
+
 - name: Collect front panel interfaces expected from CONFIG_DB
   set_fact:
     csonic_fp_interfaces: "{{ configuration[hostname]['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"

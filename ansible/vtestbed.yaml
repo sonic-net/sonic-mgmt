@@ -83,6 +83,26 @@
   use_converged_peers: True
   comment: Tests virtual switch vm
 
+- conf-name: vms-kvm-t1-csonic
+  group-name: vms6-2
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf-02
+  ptf_ip: 10.250.0.106/24
+  ptf_ipv6: fec0::ffff:afa:6/64
+  server: server_1
+  vm_base: VM0104
+  vm_type: csonic
+  dut:
+    - vlab-03
+  inv_name: veos_vtb
+  # TODO(converged-peers): csonic neighbors are non-cEOS, so the converged
+  # (multi-VRF) peer model is gated off in conftest.py / testbed-cli.sh and
+  # never runs here. Re-enable once converged peers support csonic.
+  # use_converged_peers: True
+  auto_recover: 'False'
+  comment: Tests cSONiC virtual switch VMs on T1 LAG topology
+
 - conf-name: vms-kvm-t0-2
   group-name: vms6-3
   topo: t0
