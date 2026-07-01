@@ -30,6 +30,7 @@ DEFAULT_SAMPLE_RATE = 50000
 
 # Number of probe packets for truncation checks
 TRUNCATION_PROBE_COUNT = 1000
+SEND_BATCH_SIZE = 10000
 
 
 def _assert_mirror_len(observed_len, original_len, truncate_size):
@@ -61,7 +62,11 @@ def _send_sampled_traffic_and_collect(ptfadapter, erspan_session, inject_index,
     )
 
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, inject_index, pkt, count=total_packets)
+    remaining = total_packets
+    while remaining > 0:
+        batch = min(remaining, SEND_BATCH_SIZE)
+        testutils.send(ptfadapter, inject_index, pkt, count=batch)
+        remaining -= batch
     logger.info("Sent %d packets (pktlen=%d) from PTF port %d", total_packets, pktlen, inject_index)
 
     return collect_erspan_packets(
@@ -311,6 +316,14 @@ def test_erspan_sampling_config_high_rate(
         ({'truncate_size': 128}, 128),
         ({'truncate_size': 256}, 256),
     ],
+    ids=[
+        'truncate128-pktlen1500',
+        'truncate256-pktlen1500',
+        'truncate128-pktlen64',
+        'truncate256-pktlen64',
+        'truncate128-pktlen128',
+        'truncate256-pktlen256',
+    ],
     indirect=['erspan_session'],
 )
 def test_erspan_truncation_packet_size(
@@ -335,7 +348,7 @@ def test_erspan_truncation_packet_size(
         pktlen=pktlen, count=TRUNCATION_PROBE_COUNT, timeout=5)
     pytest_assert(
         len(packets) == TRUNCATION_PROBE_COUNT,
-        "Expected {} mirrored frames (truncate_size implies 1:1 sampling), got {}".format(
+        "Expected {} mirrored frames (truncate_size with no sample_rate implies 1:1 sampling), got {}".format(
             TRUNCATION_PROBE_COUNT, len(packets)))
 
     for pkt_bytes in packets:
@@ -346,6 +359,7 @@ def test_erspan_truncation_packet_size(
                          [{'sample_rate': 256},
                           {'sample_rate': 512},
                           {'sample_rate': 1024}],
+                         ids=['rate256', 'rate512', 'rate1024'],
                          indirect=True)
 def test_erspan_sampling_rx_direction(
         skip_if_vs_platform,
@@ -370,6 +384,7 @@ def test_erspan_sampling_rx_direction(
 
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256, 'truncate_size': 128}],
+                         ids=['rate256-truncate128'],
                          indirect=True)
 def test_erspan_sampling_rx_with_truncation(
         skip_if_vs_platform,
@@ -403,6 +418,7 @@ def test_erspan_sampling_rx_with_truncation(
                          [{'sample_rate': 256, 'direction': 'tx'},
                           {'sample_rate': 512, 'direction': 'tx'},
                           {'sample_rate': 1024, 'direction': 'tx'}],
+                         ids=['rate256', 'rate512', 'rate1024'],
                          indirect=True)
 def test_erspan_sampling_tx_direction(
         skip_if_vs_platform,
@@ -432,6 +448,7 @@ def test_erspan_sampling_tx_direction(
 
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256, 'truncate_size': 128, 'direction': 'tx'}],
+                         ids=['rate256-truncate128'],
                          indirect=True)
 def test_erspan_sampling_tx_with_truncation(
         skip_if_vs_platform,
@@ -467,6 +484,7 @@ def test_erspan_sampling_tx_with_truncation(
                          [{'sample_rate': 256, 'direction': 'both'},
                           {'sample_rate': 512, 'direction': 'both'},
                           {'sample_rate': 1024, 'direction': 'both'}],
+                         ids=['rate256', 'rate512', 'rate1024'],
                          indirect=True)
 def test_erspan_sampling_both_direction(
         skip_if_vs_platform,
@@ -501,6 +519,7 @@ def test_erspan_sampling_both_direction(
 
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256, 'truncate_size': 128, 'direction': 'both'}],
+                         ids=['rate256-truncate128'],
                          indirect=True)
 def test_erspan_sampling_both_with_truncation(
         skip_if_vs_platform,
@@ -541,6 +560,7 @@ def test_erspan_sampling_both_with_truncation(
 
 @pytest.mark.parametrize('erspan_session',
                          [{'sample_rate': 256}],
+                         ids=['rate256'],
                          indirect=True)
 def test_erspan_session_remove_stops_mirroring(
         skip_if_vs_platform,

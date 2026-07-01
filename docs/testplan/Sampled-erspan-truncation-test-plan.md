@@ -186,6 +186,13 @@ the flag.
 
 **Pass criteria:** CLI exits 0; `truncate_size` field is **not** written to CONFIG_DB.
 
+#### Test case test_erspan_sampling_config_high_rate
+**Objective:** A sample rate (`1:50000`) is accepted by CLI and stored in
+CONFIG_DB. This is a **config-only** test - dataplane verification at this rate would require
+millions of packets and is left to scale testing.
+
+**Pass criteria:** CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`.
+
 ### Show CLI
 
 #### Test case test_show_mirror_session_displays_new_columns
@@ -240,13 +247,6 @@ frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pkt
 - Collect GRE-encapsulated packets on the collector port using the 3-tuple match.
 
 **Pass criteria:** Observed mirror count is within `[950, 1050]` (`NUM_SAMPLES +- 5%`).
-
-#### Test case test_erspan_sampling_config_high_rate
-**Objective:** A sample rate (`1:50000`) is accepted by CLI and stored in
-CONFIG_DB. This is a **config-only** test - dataplane verification at this rate would require
-millions of packets and is left to scale testing.
-
-**Pass criteria:** CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`.
 
 ### Dataplane: combined sampling and truncation
 
