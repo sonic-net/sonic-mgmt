@@ -349,6 +349,27 @@ class SonicAsic(object):
             ip_ifs, tbinfo, self.namespace, intf_num=intf_num, ip_type=ip_type
         )
 
+    def get_up_ip_ports(self):
+        """
+        Get a list of all up IP interfaces for this ASIC.
+
+        This is a lightweight alternative to get_active_ip_interfaces() for tests
+        that only need interface names without BGP peer verification.
+
+        Returns:
+            list: List of interface names (e.g., ['Ethernet0', 'PortChannel0001'])
+                  that are operationally up and have IP addresses configured
+        """
+        up_ip_ports = []
+        ip_intf_facts = self.show_ip_interface()['ansible_facts']['ip_interfaces']
+        for intf in ip_intf_facts:
+            try:
+                if ip_intf_facts[intf]['oper_state'] == 'up':
+                    up_ip_ports.append(intf)
+            except KeyError:
+                pass
+        return up_ip_ports
+
     def bgp_drop_rule(self, ip_version, state="present"):
         """
         Programs iptable rule to either add or remove DROP for
