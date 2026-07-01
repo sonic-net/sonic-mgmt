@@ -1,4 +1,4 @@
-"""Shared dmesg (kernel ring-buffer) scanning helpers for transceiver tests.
+r"""Shared dmesg (kernel ring-buffer) scanning helpers for transceiver tests.
 
 Several tests need to watch the kernel log for errors emitted *during* an
 operation — e.g. the CDB background-mode stress test watches for I2C errors
@@ -15,6 +15,32 @@ line-number cursor).  We use the kernel's own monotonic timestamp (the default
 can be filtered in plain Python — no ``awk``/``date`` timestamp gymnastics — and
 so the comparison is immune to a test-runner-vs-DUT timezone mismatch or an NTP
 step that wall-clock (``dmesg -T``) timestamps would be subject to.
+
+Why a dedicated scanner instead of the autouse loganalyzer framework?
+  This is a natural "isn't this redundant?" question — it is not, for four
+  reasons.  loganalyzer structurally cannot serve as the I2C-error gate here:
+
+  1. loganalyzer actively *ignores* I2C errors.  Its common-ignore set filters
+     exactly this class of message (e.g. ``loganalyzer_common_ignore.txt``
+     ``".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"`` and the SCD
+     I2C ack-error warnings), so even an ERR-severity I2C fault that reaches
+     syslog is dropped as known noise.  This scanner is not subject to those
+     ignores.
+  2. Severity gap.  ``loganalyzer_common_match.txt`` is crash/ERR-centric
+     (``\.ERR``, ``kernel:.*panic`` …) with no i2c/nack/timeout pattern and no
+     warning-level catch-all, so bus faults emitted at warn/notice via
+     ``dev_warn`` slip through.  This scanner covers emerg..warn with an
+     I2C-specific regex.
+  3. Source gap.  loganalyzer reads ``/var/log/syslog``; this reads the kernel
+     ring buffer directly, so rate-limited / below-forwarding-threshold lines
+     that never reach rsyslog (dmesg-only) are still caught.
+  4. Granularity/ownership.  loganalyzer is whole-test, post-hoc, binary, and
+     ``--disable_loganalyzer``-able; this runs per iteration for per-port
+     attribution + early abort, making "no I2C errors during the loop" an
+     assertion the test itself owns.
+
+  There is partial overlap only for ERR-severity I2C lines that reach syslog
+  and aren't in the ignore list — not enough to drop this helper.
 """
 import re
 

@@ -93,22 +93,6 @@ def is_dac(eeprom_attrs):
     return isinstance(cable_type, str) and cable_type.strip().upper() == "DAC"
 
 
-def is_first_subport(port, lport_to_first_subport):
-    """True iff ``port`` is the first logical sub-port of its breakout group.
-
-    "First sub-port" is a DUT-local notion: among the logical ports that share
-    one physical index on this DUT, it is the lowest-numbered one — not a
-    cable root/stem-vs-branch relationship across devices.
-
-    ``lport_to_first_subport`` is the ``lport_to_first_subport_mapping`` session
-    fixture: each logical port maps to its group's first sub-port, so a port is
-    the first sub-port iff it maps to itself.  A port absent from the map is
-    treated as not-first and skipped defensively.
-    """
-    first = lport_to_first_subport.get(port)
-    return first is not None and first == port
-
-
 def extract_ascii_field(page_data, start_addr, length):
     """Extract a fixed-width ASCII string from a hexdump page byte map.
 
@@ -136,7 +120,7 @@ def check_vendor_field(label, expected, page_data, start, length, loc):
         return []
     actual = extract_ascii_field(page_data, start, length)
     if actual is None:
-        return [f"{label} bytes incomplete at {loc} byte {start} (0x{start:02X})"]
+        return [f"{label} bytes incomplete at {loc} byte {start} (0x{format(start, '02X')})"]
     if actual != expected:
         return [f"{label}: expected '{expected}', got '{actual}'"]
     return []

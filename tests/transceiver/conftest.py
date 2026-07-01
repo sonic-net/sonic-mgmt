@@ -183,7 +183,7 @@ def port_attributes_dict(request, duthost):
 
     attr_dir = os.path.join(REPO_ROOT, REL_ATTR_DIR)
     if not os.path.isdir(attr_dir):
-        pytest.skip(f"Attributes directory {attr_dir} absent; returning base attributes only")
+        pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
 
     logger.info("Merging category attributes from %s", attr_dir)
     mgr = AttributeManager(REPO_ROOT, base_dict)
@@ -269,7 +269,8 @@ def lport_to_first_subport_mapping(duthost):
 
     Resolved once per session (it hits the DUT via ansible facts / sonic-db-cli)
     and shared by every test that needs first-sub-port filtering, so the mapping
-    is not re-queried per test.  Pair with ``eeprom_decode.is_first_subport``.
+    is not re-queried per test.  Pair with
+    ``interface_utils.is_first_subport``.
     """
     return get_lport_to_first_subport_mapping(duthost)
 

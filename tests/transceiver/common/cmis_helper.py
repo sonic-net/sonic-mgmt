@@ -64,8 +64,9 @@ def check_dp_state(page_11_data, num_lanes, expected_state, state_label=None):
     Returns a list of failure description strings (empty if all lanes report
     ``expected_state``).
     """
+    expected_hex = format(expected_state, "X")
     expected_desc = (
-        f"{state_label} (0x{expected_state:X})" if state_label else f"0x{expected_state:X}"
+        f"{state_label} (0x{expected_hex})" if state_label else f"0x{expected_hex}"
     )
 
     failures = []
@@ -78,7 +79,9 @@ def check_dp_state(page_11_data, num_lanes, expected_state, state_label=None):
         addr = CMIS_DP_STATE_START + byte_idx
         byte_val = page_11_data.get(addr)
         if byte_val is None:
-            failures.append(f"DataPath state byte missing at page 11h offset 0x{addr:02X}")
+            failures.append(
+                f"DataPath state byte missing at page 11h offset 0x{format(addr, '02X')}"
+            )
             continue
         for nibble_idx in range(CMIS_DP_STATE_LANES_PER_BYTE):
             lane = byte_idx * CMIS_DP_STATE_LANES_PER_BYTE + nibble_idx + 1
@@ -88,7 +91,7 @@ def check_dp_state(page_11_data, num_lanes, expected_state, state_label=None):
             if state != expected_state:
                 failures.append(
                     f"Lane {lane}: expected {expected_desc}, "
-                    f"got 0x{state:X} at page 11h offset 0x{addr:02X}"
+                    f"got 0x{format(state, 'X')} at page 11h offset 0x{format(addr, '02X')}"
                 )
     return failures
 

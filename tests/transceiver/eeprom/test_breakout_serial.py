@@ -6,7 +6,7 @@ import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.eeprom_decode import is_first_subport
+from tests.common.platform.interface_utils import is_first_subport
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def test_serial_number_pattern_validation_for_breakout_ports(
 
     Attribute lookup (EEPROM_ATTRIBUTES only — both patterns live under
     ``transceivers`` per the plan's attribute table):
-        breakout_serial_number_pattern       — leaf serial pattern (e.g. ".*-A$")
+        breakout_leaf_serial_number_pattern       — leaf serial pattern (e.g. ".*-A$")
         breakout_stem_serial_number_pattern  — stem serial pattern
 
     Both patterns being present on a port is the NORMAL shared-Vendor-PN case
@@ -48,7 +48,7 @@ def test_serial_number_pattern_validation_for_breakout_ports(
     Per-connector logic:
     - Resolve the role from topology, then select the matching pattern
       (stem → breakout_stem_serial_number_pattern, leaf →
-      breakout_serial_number_pattern).
+      breakout_leaf_serial_number_pattern).
     - If the role's pattern is not defined, the connector is skipped (not a
       breakout port of that role).
     - The serial number is retrieved from 'sfputil show eeprom -p <port>'
@@ -86,10 +86,10 @@ def test_serial_number_pattern_validation_for_breakout_ports(
         eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
 
         # Step 1 - Resolve the role from topology, then pick the matching pattern.
-        # Both breakout_serial_number_pattern (leaf) and
+        # Both breakout_leaf_serial_number_pattern (leaf) and
         # breakout_stem_serial_number_pattern (stem) live under EEPROM_ATTRIBUTES
         # per the plan's attribute table, so look there only.
-        leaf_pattern = eeprom_attrs.get("breakout_serial_number_pattern")
+        leaf_pattern = eeprom_attrs.get("breakout_leaf_serial_number_pattern")
         stem_pattern = eeprom_attrs.get("breakout_stem_serial_number_pattern")
 
         if subport_counts.get(port, 1) > 1:
@@ -124,7 +124,7 @@ def test_serial_number_pattern_validation_for_breakout_ports(
         port_fields = port_eeprom.get(port, {})
         if not port_fields:
             all_failures.append(
-                f"{port}: transceiver not detected in sfputil show eeprom output"
+                f"{port}: no transceiver detected in sfputil show eeprom output"
             )
             continue
 
@@ -168,7 +168,7 @@ def test_serial_number_pattern_validation_for_breakout_ports(
     # ------------------------------------------------------------------ #
     if not any_port_tested:
         pytest.skip(
-            "No ports with breakout_serial_number_pattern or "
+            "No ports with breakout_leaf_serial_number_pattern or "
             "breakout_stem_serial_number_pattern found; "
             "skipping serial number pattern validation"
         )

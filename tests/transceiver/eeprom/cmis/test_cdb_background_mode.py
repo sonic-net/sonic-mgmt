@@ -6,9 +6,9 @@ import uuid
 
 import pytest
 
+from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.attribute_parser.attribute_keys import EEPROM_ATTRIBUTES_KEY
 from tests.transceiver.common import cli_helpers, dmesg_helpers
-from tests.transceiver.common.eeprom_decode import is_first_subport
 from tests.transceiver.eeprom.cmis._constants import (
     BG_READER_READ_INTERVAL_SEC,
     BG_READER_TMP_PREFIX,
@@ -113,19 +113,30 @@ class _RemoteBgReader(object):
         #    single-sourced from cli_helpers.
         # 3. Poll pgid_file for up to ~2 s and echo its contents; that value
         #    (the script's PID) is the PGID used for signal delivery in join().
+        # Built via str.format (not an f-string) so the embedded shell syntax
+        # (``[ ]`` test brackets, ``;`` separators) lives in plain string
+        # literals rather than tokenized f-string text.
         cmd = (
-            f"setsid bash '{self.script_file}' "
-            f"'{self.port}' '{self.fail_file}' '{self.total_file}' "
-            f"'{self.pgid_file}' '{cli_helpers.SFPUTIL_READ_EEPROM}' "
-            f"'{BG_READER_READ_INTERVAL_SEC}' "
-            f"</dev/null >/dev/null 2>&1 & "
-            f"for _ in $(seq 1 20); do "
-            f"if [ -s \"{self.pgid_file}\" ]; then "
-            f"cat \"{self.pgid_file}\"; exit 0; "
-            f"fi; "
-            f"sleep 0.1; "
-            f"done; "
-            f"echo \"\"; exit 1"
+            "setsid bash '{script}' "
+            "'{port}' '{fail}' '{total}' "
+            "'{pgid}' '{read_cmd}' "
+            "'{interval}' "
+            "</dev/null >/dev/null 2>&1 & "
+            "for _ in $(seq 1 20); do "
+            "if [ -s \"{pgid}\" ]; then "
+            "cat \"{pgid}\"; exit 0; "
+            "fi; "
+            "sleep 0.1; "
+            "done; "
+            "echo \"\"; exit 1"
+        ).format(
+            script=self.script_file,
+            port=self.port,
+            fail=self.fail_file,
+            total=self.total_file,
+            pgid=self.pgid_file,
+            read_cmd=cli_helpers.SFPUTIL_READ_EEPROM,
+            interval=BG_READER_READ_INTERVAL_SEC,
         )
         result = self.host.shell(cmd, module_ignore_errors=True)
         pgid_str = (result.get('stdout') or '').strip()
@@ -160,8 +171,10 @@ class _RemoteBgReader(object):
         """
         quoted = shlex.quote(self.script_file)
         self.host.shell(
-            f"pkill -TERM -f {quoted} 2>/dev/null; sleep 0.5; "
-            f"pkill -KILL -f {quoted} 2>/dev/null || true",
+            (
+                "pkill -TERM -f {q} 2>/dev/null; sleep 0.5; "
+                "pkill -KILL -f {q} 2>/dev/null || true"
+            ).format(q=quoted),
             module_ignore_errors=True,
         )
 
@@ -194,10 +207,12 @@ class _RemoteBgReader(object):
             # and skip the SIGKILL escalation below — orphaning that child (and
             # risking a kill on a reused PID once the leader's PID is freed).
             self.host.shell(
-                f"for _ in $(seq 1 {wait_iterations}); do "
-                f"pgrep -g {self.pgid} >/dev/null 2>&1 || break; "
-                f"sleep 0.1; "
-                f"done",
+                (
+                    "for _ in $(seq 1 {n}); do "
+                    "pgrep -g {pgid} >/dev/null 2>&1 || break; "
+                    "sleep 0.1; "
+                    "done"
+                ).format(n=wait_iterations, pgid=self.pgid),
                 module_ignore_errors=True,
             )
             # SIGKILL fallback — gate on whether the GROUP still has any member
@@ -205,11 +220,13 @@ class _RemoteBgReader(object):
             # leader still triggers the kill -9 on the group.  Emit a sentinel so
             # the warning below knows whether the escalation actually fired.
             kill_check = self.host.shell(
-                f"if pgrep -g {self.pgid} >/dev/null 2>&1; then "
-                f"  kill -9 -- -{self.pgid} 2>/dev/null; echo killed; "
-                f"else "
-                f"  echo exited; "
-                f"fi",
+                (
+                    "if pgrep -g {pgid} >/dev/null 2>&1; then "
+                    "  kill -9 -- -{pgid} 2>/dev/null; echo killed; "
+                    "else "
+                    "  echo exited; "
+                    "fi"
+                ).format(pgid=self.pgid),
                 module_ignore_errors=True,
             )
             if "killed" in (kill_check.get("stdout") or ""):
@@ -305,7 +322,7 @@ def test_cdb_background_mode_support_test(
         # Read CMIS Page 01h, CMIS global byte 163 (decimal) = 0xA3 (sfputil offset 0xA3)
         byte_map, err = cli_helpers.sfputil_read_eeprom(
             duthost, port,
-            page=f"0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X}",
+            page=f"0x{format(CMIS_PAGE_01_CDB_CAP_PAGE, '02X')}",
             offset=CMIS_PAGE_01_CDB_CAP_OFFSET,
             size=1,
         )
@@ -316,8 +333,8 @@ def test_cdb_background_mode_support_test(
         if not byte_map:
             all_failures.append(
                 f"{port}: no parseable byte found in sfputil read-eeprom output "
-                f"(page 0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X}, "
-                f"offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X})"
+                f"(page 0x{format(CMIS_PAGE_01_CDB_CAP_PAGE, '02X')}, "
+                f"offset 0x{format(CMIS_PAGE_01_CDB_CAP_OFFSET, '02X')})"
             )
             continue
 
@@ -325,7 +342,7 @@ def test_cdb_background_mode_support_test(
         raw_byte = byte_map.get(CMIS_PAGE_01_CDB_CAP_OFFSET)
         if raw_byte is None:
             all_failures.append(
-                f"{port}: expected byte missing at offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X} "
+                f"{port}: expected byte missing at offset 0x{format(CMIS_PAGE_01_CDB_CAP_OFFSET, '02X')} "
                 f"in parsed sfputil output (keys: {sorted(byte_map.keys())})"
             )
             continue
@@ -338,9 +355,9 @@ def test_cdb_background_mode_support_test(
                 f"expected bit {CMIS_PAGE_01_CDB_BG_MODE_BIT} = {expected_bit} "
                 f"(cdb_background_mode_supported={expected_cdb_bg_mode}), "
                 f"got bit {CMIS_PAGE_01_CDB_BG_MODE_BIT} = {actual_bit} "
-                f"(raw byte: 0x{raw_byte:02X}, "
-                f"page 0x{CMIS_PAGE_01_CDB_CAP_PAGE:02X} "
-                f"offset 0x{CMIS_PAGE_01_CDB_CAP_OFFSET:02X})"
+                f"(raw byte: 0x{format(raw_byte, '02X')}, "
+                f"page 0x{format(CMIS_PAGE_01_CDB_CAP_PAGE, '02X')} "
+                f"offset 0x{format(CMIS_PAGE_01_CDB_CAP_OFFSET, '02X')})"
             )
         else:
             logger.debug(
@@ -424,7 +441,7 @@ def _run_cdb_fwversion_stress_loop(duthost, port, iterations, start_uptime):
             iteration_failures.append(
                 f"I2C kernel errors exceeded threshold "
                 f"({len(cumulative_i2c_errors)} > {STRESS_TEST_I2C_ERROR_THRESHOLD}) "
-                f"after iteration {iteration}/{iterations}:\n    "
+                f"after iteration {iteration}/{iterations}" ":\n    "
                 + "\n    ".join(cumulative_i2c_errors[:10])
             )
             logger.warning(
@@ -457,8 +474,8 @@ def _evaluate_bg_reader_results(port, bg_reader):
         if fail_rate > STRESS_EEPROM_MAX_FAIL_RATE:
             failures.append(
                 f"Background EEPROM read failure rate too high: "
-                f"{failed}/{total} ({fail_rate * 100:.2f}%) reads failed "
-                f"(threshold: {STRESS_EEPROM_MAX_FAIL_RATE * 100:.2f}%)"
+                f"{failed}/{total} ({format(fail_rate * 100, '.2f')}%) reads failed "
+                f"(threshold: {format(STRESS_EEPROM_MAX_FAIL_RATE * 100, '.2f')}%)"
             )
     else:
         logger.warning("Port %s: background EEPROM reader made no attempts", port)
@@ -576,7 +593,7 @@ def test_cdb_background_mode_stress_test(
             continue
         port_failures = _run_cdb_stress_for_port(duthost, port, port_attrs)
         if port_failures:
-            all_failures.append(f"{port}:\n  " + "\n  ".join(port_failures))
+            all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
 
     if all_failures:
         pytest.fail(

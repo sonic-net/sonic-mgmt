@@ -5,12 +5,12 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
+from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.common import cli_helpers
 from tests.transceiver.common.eeprom_decode import (
     ModuleFamily,
     classify,
     is_dac,
-    is_first_subport,
     check_vendor_field,
     VENDOR_FIELD_LEN,
     CMIS_VENDOR_NAME_START,
@@ -145,7 +145,7 @@ def test_eeprom_hexdump_verification_via_sfputil(
             all_failures.append(f"{port}: {err}")
             continue
         if not page_data:
-            all_failures.append(f"{port}: vendor-field bytes not found in EEPROM output ({loc})")
+            all_failures.append(f"{port}: vendor-field bytes missing from EEPROM output ({loc})")
             continue
 
         # Surface an inventory gap explicitly so a missing expected value is not
@@ -187,7 +187,7 @@ def test_eeprom_hexdump_verification_via_sfputil(
                 field_failures.extend(check_dp_state_activated(upper_page_11, num_lanes))
 
         if field_failures:
-            all_failures.append(f"{port}:\n  " + "\n  ".join(field_failures))
+            all_failures.append(port + ":\n  " + "\n  ".join(field_failures))
 
     if all_failures:
         pytest.fail("EEPROM hexdump verification failures:\n" + "\n".join(all_failures))
@@ -246,12 +246,12 @@ def test_identifier_byte_verification_via_sfputil(
 
         actual_identifier = byte_map.get(0)
         if actual_identifier is None:
-            all_failures.append(f"{port}: identifier byte at offset 0 not found in sfputil output")
+            all_failures.append(f"{port}: identifier byte at offset 0 missing from sfputil output")
         elif actual_identifier != expected_identifier:
             all_failures.append(
                 f"{port}: identifier byte mismatch: "
-                f"expected 0x{expected_identifier:02X} ({expected_identifier}), "
-                f"got 0x{actual_identifier:02X} ({actual_identifier})"
+                f"expected 0x{format(expected_identifier, '02X')} ({expected_identifier}), "
+                f"got 0x{format(actual_identifier, '02X')} ({actual_identifier})"
             )
 
     if all_failures:
@@ -332,7 +332,7 @@ def test_upper_page_verification_non_cmis_via_sfputil(
             gate_b = gate_bytes.get(0x5C)
             if gate_b is None:
                 all_failures.append(
-                    f"{port}: SFF-8472 DOM gate byte at A0h/0x5C not found in sfputil output"
+                    f"{port}: SFF-8472 DOM gate byte at A0h/0x5C missing from sfputil output"
                 )
                 continue
             if not (gate_b & (1 << 6)):
@@ -360,7 +360,7 @@ def test_upper_page_verification_non_cmis_via_sfputil(
             if b_hi == 0 and b_lo == 0:
                 all_failures.append(
                     f"{port}: SFF-8472 real-time temperature (A2h/0x60-0x61) is zero "
-                    f"(0x{b_hi:02X} 0x{b_lo:02X}); DOM page reads as empty"
+                    f"(0x{format(b_hi, '02X')} 0x{format(b_lo, '02X')}) - DOM page reads as empty"
                 )
 
         elif family is ModuleFamily.QSFP_NON_CMIS:
@@ -375,7 +375,7 @@ def test_upper_page_verification_non_cmis_via_sfputil(
             if gate_b is None:
                 all_failures.append(
                     f"{port}: QSFP+ Status Indicators byte at page 0 offset 2 "
-                    f"not found in sfputil output"
+                    f"missing from sfputil output"
                 )
                 continue
             if gate_b & (1 << 2):
@@ -403,7 +403,7 @@ def test_upper_page_verification_non_cmis_via_sfputil(
             if b_hi == 0 and b_lo == 0:
                 all_failures.append(
                     f"{port}: QSFP+ page 3 temperature high-alarm threshold "
-                    f"(bytes 128-129) is zero (0x{b_hi:02X} 0x{b_lo:02X})"
+                    f"(bytes 128-129) is zero (0x{format(b_hi, '02X')} 0x{format(b_lo, '02X')})"
                 )
 
         else:

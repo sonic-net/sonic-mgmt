@@ -113,7 +113,7 @@ def _page_section_key(match):
     """
     half = match.group(1).lower()
     page_num = int(match.group(2), 16)
-    return f"{half}_page_{page_num:02x}"
+    return f"{half}_page_{format(page_num, '02x')}"
 
 
 def parse_hexdump(output_lines):

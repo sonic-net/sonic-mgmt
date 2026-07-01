@@ -95,7 +95,7 @@ def test_vdm_supported_consistency(duthost, port_attributes_dict):
         if expected_value is None:
             all_failures.append(
                 f"{port}: CMIS optic has no '{VDM_SUPPORTED_FIELD}' configured in "
-                f"inventory; it is mandatory for all CMIS optics"
+                f"inventory - it is mandatory for all CMIS optics"
             )
             continue
         # Inventory stores this as a native JSON boolean; require that explicitly

@@ -148,7 +148,7 @@ def test_absence_message_verification(duthost, port_attributes_dict):
                     f"[{label}]: expected '{expected}', got {actual!r}"
                 )
         if field_failures:
-            all_failures.append(f"{port}:\n  " + "\n  ".join(field_failures))
+            all_failures.append(port + ":\n  " + "\n  ".join(field_failures))
 
     if all_failures:
         pytest.fail("Absent port message verification failures:\n" + "\n".join(all_failures))

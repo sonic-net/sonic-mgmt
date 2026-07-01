@@ -8,9 +8,8 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
     EEPROM_ATTRIBUTES_KEY,
 )
+from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.common import cli_helpers
-from tests.transceiver.common.eeprom_decode import is_first_subport
-from tests.transceiver.eeprom._constants import DEFAULT_EEPROM_DUMP_TIMEOUT_SEC
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +144,9 @@ def _validate_port_eeprom_dump(
          is accepted for the uniform adapter signature; the sfputil adapter
          drops it (sfputil resolves the port globally).
       2. Fail the port when the call's elapsed time exceeds
-         ``EEPROM_ATTRIBUTES.eeprom_dump_timeout_sec``
-         (default ``DEFAULT_EEPROM_DUMP_TIMEOUT_SEC``).  Field validation
-         still runs so a slow-but-correct dump surfaces both signals.
+         ``EEPROM_ATTRIBUTES.eeprom_dump_timeout_sec`` (read directly; the
+         inventory ``defaults`` block guarantees it, 5 per the HLD).  Field
+         validation still runs so a slow-but-correct dump surfaces both signals.
       3. Delegate field validation to :func:`_compare_eeprom_fields`.
 
     Args:
@@ -171,9 +170,12 @@ def _validate_port_eeprom_dump(
         passed for this port.
     """
     eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
-    timeout_sec = eeprom_attrs.get(
-        "eeprom_dump_timeout_sec", DEFAULT_EEPROM_DUMP_TIMEOUT_SEC
-    )
+    # eeprom_dump_timeout_sec is owned solely by the inventory: eeprom.json's
+    # ``defaults`` block seeds it (5 per the HLD) as the lowest-priority layer on
+    # every resolved port, so it is always present.  Read it directly (no local
+    # fallback) — a missing key means the defaults JSON wasn't loaded / the port
+    # wasn't resolved for the eeprom category, which should fail loudly.
+    timeout_sec = eeprom_attrs["eeprom_dump_timeout_sec"]
 
     start = time.monotonic()
     parsed_by_port, err = parse_wrapper(duthost, port=port, namespace=namespace)
@@ -187,7 +189,7 @@ def _validate_port_eeprom_dump(
     # Timeout enforcement (Generic expected result, per eeprom_test_plan.md).
     if elapsed > timeout_sec:
         failures.append(
-            f"{source_label} took {elapsed:.2f}s, exceeding "
+            f"{source_label} took {format(elapsed, '.2f')}s, exceeding "
             f"eeprom_dump_timeout_sec={timeout_sec}s"
         )
 
@@ -238,7 +240,7 @@ def _run_per_port_eeprom_check(
             namespace=namespace,
         )
         if port_failures:
-            all_failures.append(f"{port}:\n  " + "\n  ".join(port_failures))
+            all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
     return all_failures
 
 
@@ -281,7 +283,7 @@ def _run_bulk_eeprom_check(duthost, port_attributes_dict, source_label, key_mapp
             port_attrs, parsed_by_port.get(port, {}), source_label, key_mapping,
         )
         if port_failures:
-            all_failures.append(f"{port}:\n  " + "\n  ".join(port_failures))
+            all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
     return all_failures
 
 
