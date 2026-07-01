@@ -68,7 +68,7 @@ from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
-    get_supervisor_for_linecard, create_linecard_console, reap_sai_sdk_dump_files
+    get_supervisor_for_linecard, create_linecard_console, reap_dump_files
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -105,7 +105,7 @@ HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
-SAI_SDK_DUMP_FILE_REAP_AGE_SEC = 24 * 60 * 60
+STALE_DUMP_FILE_REAP_AGE_SEC = 24 * 60 * 60
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -788,9 +788,10 @@ def duthost(duthosts, request):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def reap_old_sai_sdk_dump_files(duthosts):
+def reap_stale_dump_files(duthosts):
     for duthost in duthosts:
-        reap_sai_sdk_dump_files(duthost, age_sec=SAI_SDK_DUMP_FILE_REAP_AGE_SEC)
+        reap_dump_files(duthost, "/var/log/sdk_dbg", age_sec=STALE_DUMP_FILE_REAP_AGE_SEC)
+        reap_dump_files(duthost, "/var/log/sai_failure_dump", age_sec=STALE_DUMP_FILE_REAP_AGE_SEC)
 
 
 @pytest.fixture(scope="session")
