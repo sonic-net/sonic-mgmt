@@ -3633,17 +3633,22 @@ class QosSaiBase(QosBase):
             if was_running:
                 try:
                     fanout = fanouthosts[fanout_name]
-                    fanout.host.command(
+                    result = fanout.host.command(
                         "docker start lldp", module_ignore_errors=True)
-                    logger.info(
-                        "permit_only_test_traffic_on_fanout: restarted lldp "
-                        "container on SONiC %s (was originally running)",
-                        fanout_name)
+                    # Check return code to avoid false positive in logs
+                    if result.get('rc', 0) == 0:
+                        logger.info(
+                            "permit_only_test_traffic_on_fanout: restarted lldp "
+                            "container on SONiC %s (was originally running)", fanout_name)
+                    else:
+                        logger.warning(
+                            "permit_only_test_traffic_on_fanout: " 
+                            "docker start lldp on SONiC %s returned rc=%s, "
+                            "LLDP may not be running", fanout_name, result.get('rc', '?'))
                 except Exception as e:
                     logger.warning(
                         "permit_only_test_traffic_on_fanout: "
-                        "failed to restart lldp on SONiC %s: %s",
-                        fanout_name, str(e))
+                        "failed to restart lldp on SONiC %s: %s", fanout_name, str(e))
             else:
                 logger.info(
                     "permit_only_test_traffic_on_fanout: NOT restarting lldp "
