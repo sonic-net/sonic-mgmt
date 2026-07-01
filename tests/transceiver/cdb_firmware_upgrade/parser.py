@@ -27,7 +27,7 @@ class TransceiverFirmwareInfoParser:
 
         self.firmware_base_url_dict = self.parse_firmware_base_url()
         if not self.firmware_base_url_dict:
-            logger.warning(f"No firmware base URL found in {CDB_FIRMWARE_UPGRADE_URL_FILE}")
+            logger.info("No firmware base URL configured, using pre-staged mode.")
         else:
             logger.info(f"Firmware Base URL is: {self.firmware_base_url_dict}")
 
@@ -65,7 +65,7 @@ class TransceiverFirmwareInfoParser:
                 if fw_versions:
                     firmware_data[(vendor_name, vendor_pn)] = fw_versions
 
-        return firmware_data
+        return dict(firmware_data)
 
     def parse_single_manifest(self, manifest_file, vendor_name, vendor_pn):
         """
@@ -118,7 +118,7 @@ class TransceiverFirmwareInfoParser:
         )
 
         if not os.path.exists(firmware_base_url_file):
-            logger.error(f"Firmware base URL file does not exist: {firmware_base_url_file}")
+            logger.info(f"Firmware base URL file not found: {firmware_base_url_file} (pre-staged mode)")
             return {}
 
         try:

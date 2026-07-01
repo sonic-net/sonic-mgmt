@@ -307,6 +307,7 @@ def download_and_validate_firmware_binaries(duthost, firmware_base_url, firmware
                 firmware_base_url,
                 normalized_vendor_name,
                 normalized_vendor_pn,
+                firmware_metadata['version'],
                 firmware_metadata['binary']
             )
             fw_binary_path_on_dut = os.path.join(

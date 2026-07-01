@@ -147,6 +147,10 @@ class AttributeManager:
         deterministic across filesystems and Python versions.
         """
         expected_filename = f"{category_name}.json"
+        known_helper_files = {
+            "cdb_firmware_upgrade_manifest.json",
+            "cdb_firmware_upgrade_url.json",
+        }
         shards = []
         for root, dirs, files in os.walk(category_dir):
             dirs.sort()
@@ -155,7 +159,7 @@ class AttributeManager:
             for fname in sorted(files):
                 if not fname.endswith('.json'):
                     continue
-                if fname != expected_filename and fname.startswith(f"{category_name}_"):
+                if fname in known_helper_files:
                     continue
                 full = os.path.join(root, fname)
                 shards.append(self._classify_shard(category_name, expected_filename, parts, fname, full))
