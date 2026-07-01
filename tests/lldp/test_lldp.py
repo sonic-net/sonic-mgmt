@@ -247,10 +247,14 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             snmp_community = sonic['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
-        # during the restart window. Wait until the neighbor re-learns DUT's LLDP info.
-        assert wait_until(30, 5, 0, _neighbor_has_lldp_entry,
+        # during the restart window. The neighbor only re-learns the DUT once the DUT
+        # re-advertises, which takes up to a full LLDP transmit interval (30s) and, on
+        # physical (fanout) testbeds, sometimes several cycles. A single 30s window is
+        # therefore racy and flakes intermittently, so wait up to 120s (several
+        # transmit cycles) for the neighbor to re-learn the DUT's LLDP info.
+        assert wait_until(120, 10, 0, _neighbor_has_lldp_entry,
                           localhost, hostip, snmp_community, neighbor_interface), \
-            "Neighbor {} did not learn LLDP on interface '{}' within 30s".format(
+            "Neighbor {} did not learn LLDP on interface '{}' within 120s".format(
                 hostip, neighbor_interface)
 
         nei_lldp_facts = localhost.lldp_facts(
@@ -791,3 +795,4 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         verify_chassis_info(duthost, asic, expected_chassis_mac, "after config reload")
 
     logger.info("Test completed successfully. All LLDP checks passed after config reload.")
+
