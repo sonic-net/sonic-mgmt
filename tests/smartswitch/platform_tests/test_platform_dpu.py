@@ -4,19 +4,17 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
-import time
 import re
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.cisco_data import is_cisco_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
-    dpus_shutdown_and_check, dpus_startup_and_check,check_dpu_system_health_summary,\
+    dpus_shutdown_and_check, dpus_startup_and_check, check_dpu_system_health_summary,\
     check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup,\
     get_dpuhost_for_dpu  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
@@ -339,11 +337,12 @@ def test_system_health_summary(duthosts, dpuhosts,
 
         logging.info("Checking show system-health summary on {}"
                      .format(dpu_name))
+
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                                  check_dpu_system_health_summary, dpuhosts,
                                  dpu_id, dpu_name),
-                                "{} health status is not ok"
-                                .format(dpu_name))
+                      "{} health status is not ok"
+                      .format(dpu_name))
 
 
 def test_data_control_mid_plane_sync(dpu_setup):  # noqa: F811
