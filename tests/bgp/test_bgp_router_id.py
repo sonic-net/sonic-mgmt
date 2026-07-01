@@ -101,7 +101,12 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
         verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf=vrf)
         verified_neighbors += 1
 
-    pytest_assert(verified_neighbors > 0, "No neighbor was verified. Local IP map: {}".format(local_ip_map))
+    if verified_neighbors == 0:
+        pytest.skip(
+            "No external BGP neighbor to verify on ASIC {}. Local IP map: {}".format(
+                enum_asic_index, local_ip_map
+            )
+        )
 
 
 @pytest.fixture()
