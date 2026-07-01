@@ -412,7 +412,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
 
 
 @pytest.fixture
-def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts):
+def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fanouthosts, request):
     """Shut RIF interface and return neighbor IP address attached to this interface."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
@@ -432,10 +432,57 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     pytest_assert(ip_dst, 'Unable to find IP address for neighbor "{}"'.format(vm_name))
 
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, rif_member_iface)
+    is_link_shutdown = False
+
+    logger.info(
+        "rif_port_down selected: dut=%s rif_member_iface=%s fanout=%s fanout_intf=%s vm=%s ip_dst=%s",
+        duthost.hostname,
+        rif_member_iface,
+        getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
+        fanout_intf,
+        vm_name,
+        ip_dst,
+    )
+
+    def _restore_link():
+        if not is_link_shutdown:
+            logger.info("rif_port_down finalizer: link was not shutdown, skip restore")
+            return
+
+        logger.info(
+            "rif_port_down finalizer: restoring fanout link fanout=%s intf=%s",
+            getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
+            fanout_intf,
+        )
+        try:
+            loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
+            with loganalyzer as _:
+                if hasattr(fanout_neighbor, "startup"):
+                    fanout_neighbor.startup(fanout_intf)
+                else:
+                    fanout_neighbor.no_shutdown(fanout_intf)
+                time.sleep(PORT_STATE_UPDATE_INTERNAL)
+        except Exception:
+            logger.exception("rif_port_down finalizer: restore with loganalyzer failed, retrying best-effort")
+            try:
+                if hasattr(fanout_neighbor, "startup"):
+                    fanout_neighbor.startup(fanout_intf)
+                else:
+                    fanout_neighbor.no_shutdown(fanout_intf)
+            except Exception:
+                logger.exception(
+                    "rif_port_down finalizer: best-effort restore failed fanout=%s intf=%s",
+                    getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
+                    fanout_intf,
+                )
+
+    request.addfinalizer(_restore_link)
 
     loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_DOWN_RE.format(rif_member_iface)]
     with loganalyzer as _:
+        logger.info("rif_port_down setup: shutting down fanout intf %s", fanout_intf)
         fanout_neighbor.shutdown(fanout_intf)
+        is_link_shutdown = True
         # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
         # chance it might miss the matching log.
         time.sleep(PORT_STATE_UPDATE_INTERNAL)
@@ -444,12 +491,6 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
 
     yield ip_dst
 
-    loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
-    with loganalyzer as _:
-        fanout_neighbor.no_shutdown(fanout_intf)
-        # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
-        # chance it might miss the matching log.
-        time.sleep(PORT_STATE_UPDATE_INTERNAL)
 
 
 @pytest.fixture(params=["port_channel_members", "vlan_members", "rif_members"])
