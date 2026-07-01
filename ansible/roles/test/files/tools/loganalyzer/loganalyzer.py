@@ -262,7 +262,7 @@ class AnsibleLogAnalyzer:
 
         return False
 
-    def place_marker(self, log_file_list, marker, wait_for_marker=False, wait_for_timeout=None):
+    def place_marker(self, log_file_list, marker, wait_for_marker=False, wait_for_timeout=120):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
@@ -275,11 +275,7 @@ class AnsibleLogAnalyzer:
 
         self.place_marker_to_syslog(marker)
         if wait_for_marker:
-            if wait_for_timeout is None:
-                marker_found = self.wait_for_marker(marker)
-            else:
-                marker_found = self.wait_for_marker(marker, timeout=wait_for_timeout)
-            if marker_found is False:
+            if self.wait_for_marker(marker, timeout=wait_for_timeout) is False:
                 raise RuntimeError(
                     "cannot find marker {} in /var/log/syslog".format(marker))
 
