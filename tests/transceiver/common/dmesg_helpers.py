@@ -7,6 +7,12 @@ same class of errors during firmware writes.  The watermark + cumulative-dedup
 scan implemented here is the reusable primitive for that; callers supply their
 own ``grep -iE`` pattern so the module stays error-class agnostic.
 
+NOTE: this module is intentionally callerless in the PR that introduces it — its
+first consumer (the CDB background-mode stress test) and this module's unit tests
+land together in the follow-up PR that adds that test.  It is kept here as the
+shared primitive so the upcoming process-restart / CDB firmware-upgrade
+categories can build on it.
+
 The scan is anchored on a *seconds-since-boot* watermark (from ``/proc/uptime``)
 rather than a dmesg line number, which keeps it robust against ring-buffer wraps
 and concurrent ``dmesg -c`` invocations (both of which would invalidate a
