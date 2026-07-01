@@ -11,6 +11,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -46,21 +47,95 @@ def apply_chunk(duthost, payload, name):
     duthost.shell(f"sonic-cfggen -j {dest} --write-to-db")
 
 
+def _get_asic_route_nexthop(duthost, prefix):
+    """
+    Return the SAI next-hop(-group) OID that the given overlay prefix resolves to
+    in ASIC_DB, or an empty string if the route is not present in the ASIC.
+    """
+    route_entries = duthost.shell(
+        "sonic-db-cli ASIC_DB keys "
+        "'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*" + prefix + "*'"
+    )["stdout_lines"]
+    if not route_entries:
+        return ""
+    return duthost.shell(
+        f"sonic-db-cli ASIC_DB hget '{route_entries[0]}' SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID"
+    )["stdout"].strip()
+
+
+def _is_asic_nexthop_group(duthost, oid):
+    """Return True if the given SAI OID is a next-hop group (i.e. an ECMP route)."""
+    if not oid:
+        return False
+    nh_group_entry = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP:" + oid
+    return duthost.shell(f"sonic-db-cli ASIC_DB exists '{nh_group_entry}'")["stdout"].strip() == "1"
+
+
+def _count_asic_nexthop_group_members(duthost, group_oid):
+    """
+    Return the number of members programmed into the given next-hop group in
+    ASIC_DB. Uses a server-side redis EVAL so the whole scan runs in one call
+    instead of an HGET per member.
+    """
+    lua = (
+        "local ks=redis.call('KEYS',KEYS[1]); local c=0; "
+        "for _,k in ipairs(ks) do "
+        "if redis.call('HGET',k,ARGV[1])==ARGV[2] then c=c+1 end end; return c"
+    )
+    cmd = (
+        f'sonic-db-cli ASIC_DB EVAL "{lua}" 1 '
+        '"ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:*" '
+        '"SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_GROUP_ID" '
+        f'"{group_oid}"'
+    )
+    out = duthost.shell(cmd)["stdout"].strip()
+    return int(out) if out.isdigit() else 0
+
+
 def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni, mac_address=None):
     ep_str = ",".join(endpoints)
     logger.info(
         f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} "
         f"with {len(endpoints)} endpoints, vni={vni}, mac={mac_address}"
     )
+    route_key = f"VNET_ROUTE_TUNNEL|{vnet}|{prefix}"
+
+    # Delete any existing route first.
+    duthost.shell(f"sonic-db-cli CONFIG_DB del '{route_key}'")
+    pytest_assert(
+        wait_until(30, 2, 0, lambda: _get_asic_route_nexthop(duthost, prefix) == ""),
+        f"VNET route {prefix} was not withdrawn from ASIC_DB after deletion"
+    )
+
     cmd = (
-        f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
+        f"sonic-db-cli CONFIG_DB hmset '{route_key}' "
         f"endpoint '{ep_str}' vni '{vni}'"
     )
     if mac_address:
         cmd += f" mac_address '{mac_address}'"
 
     duthost.shell(cmd)
-    time.sleep(3)
+
+    # Verify the route is (re)programmed into the ASIC with a next-hop that
+    # matches the requested fan-out: a next-hop group whose member count equals
+    # the number of endpoints for ECMP (>1 endpoint), or a single next-hop
+    # otherwise. Checking the member count (not just "is it a group") catches a
+    # partially-programmed group, e.g. when the ASIC returns
+    # SAI_STATUS_INSUFFICIENT_RESOURCES and leaves an under-populated/stale group.
+    def _route_programmed():
+        nhid = _get_asic_route_nexthop(duthost, prefix)
+        if not nhid:
+            return False
+        if len(endpoints) > 1:
+            if not _is_asic_nexthop_group(duthost, nhid):
+                return False
+            return _count_asic_nexthop_group_members(duthost, nhid) == len(endpoints)
+        return True
+
+    pytest_assert(
+        wait_until(60, 3, 0, _route_programmed),
+        f"VNET route {prefix} was not programmed into ASIC_DB with {len(endpoints)} endpoint(s)"
+    )
 
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
@@ -288,7 +363,7 @@ def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
 
     # --- Build deterministic MAC list ---
     # 52:54:00:00:xx:yy (unique per endpoint)
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list = ["52:54:00:%02x:%02x:aa" % (i // 256, i % 256) for i in range(num_endpoints)]
     mac_list_str = ",".join(mac_list)
     updated_vni = 5001
 
@@ -442,7 +517,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
     time.sleep(5)
 
     # Step 2 — Initial MAC list
-    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num)]
+    mac_list = ["52:54:00:%02x:%02x:aa" % (i // 256, i % 256) for i in range(num)]
     mac_string = ",".join(mac_list)
 
     # Push initial MAC list
@@ -451,7 +526,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
 
     # Step 3 — Random index to modify
     mod_idx = random.randint(0, num - 1)
-    new_mac = f"52:54:99:{mod_idx//256:02x}:{mod_idx%256:02x}:cc"
+    new_mac = "52:54:99:%02x:%02x:cc" % (mod_idx // 256, mod_idx % 256)
     logger.info(f"Modifying MAC for endpoint index {mod_idx}: new MAC = {new_mac}")
 
     # Update the list
