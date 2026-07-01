@@ -64,7 +64,7 @@ class SnappiFanoutManager():
                 u'ManagementGw': u'10.36.78.54',
                 u'ManagementIp': u'10.36.78.53/32',
                 u'Type': u'DevSnappiChassis',
-                u'mgmtip': u'10.36.78.53'
+                u'ManagementIp': u'10.36.78.53'
             },
             u'device_port_vlans': {
                 u'Card9/Port1': {
@@ -140,7 +140,7 @@ class SnappiFanoutManager():
             self.fanout_list[self.last_fanout_assessed]['device_linked_ports']
 
         # Chassis ip details
-        chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['mgmtip']
+        chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['ManagementIp']
         self.ip_address = ansible_stdout_to_str(chassis_ip)
 
         # List of chassis cards and ports

@@ -555,8 +555,9 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
-                      'Ports have different link speeds')
+        pytest_require(
+            port_speed == int(snappi_ports[i]['speed']),
+            f'Ports have different link speeds:{snappi_ports}')
 
     speed_gbps = int(port_speed/1000)
 
@@ -1219,7 +1220,9 @@ def snappi_dut_base_config(duthost_list,
 
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
+    pytest_require(
+        len(set([sp['speed'] for sp in new_snappi_ports])) == 1,
+        f'Ports have different link speeds:{new_snappi_ports}')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
@@ -2566,12 +2569,16 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         speed, category = flatten_skeleton_parameter.split("-")
 
         if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+            pytest.skip(
+                f"Unsupported combination for {speed} & {category}. "
+                f"Got:snappi_port_selection:{snappi_port_selection}")
 
         snappi_ports = snappi_port_selection[float(speed)][category]
 
         if not snappi_ports:
-            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+            pytest.skip(
+                f"Unsupported combination for {speed} & {category}. "
+                f"Got:snappi_port_selection:{snappi_port_selection}")
 
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)
