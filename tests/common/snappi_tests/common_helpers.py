@@ -188,17 +188,41 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
 
 def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Efficiently yield N IPs from a subnet, skipping excluded IPs.
-    Handles large IPv6 subnets quickly.
+    Return up to ``number_of_ip`` host IP strings from ``subnet``, skipping
+    any address in ``exclude_ips``.
+
+    Excluded addresses are parsed with :func:`ipaddress.ip_address`, so IPv6
+    matches are case-insensitive and independent of textual compression
+    (e.g. ``2001:DB8::1`` matches the same host as ``2001:db8::1``).
+
+    Usable hosts follow :meth:`ipaddress.IPv4Network.hosts` /
+    :meth:`ipaddress.IPv6Network.hosts` (including RFC 3021 IPv4 /31).
+
+    Only the first ``number_of_ip`` non-excluded hosts are returned; the list
+    may be shorter if the subnet or exclusions leave fewer candidates.
+
+    Args:
+        subnet: IPv4 or IPv6 network CIDR string.
+        number_of_ip: Maximum number of addresses to return.
+        exclude_ips: Optional iterable of addresses to omit (strings or types
+            accepted by :func:`ipaddress.ip_address`).
+
+    Returns:
+        list of IP strings in the form produced by ``str()`` on the
+        corresponding address object (IPv6 lowercase compressed).
     """
     net = ipaddress.ip_network(subnet, strict=False)
-    exclude_set = set(exclude_ips) if exclude_ips else set()
-    results = []
+    exclude_set = set()
+    if exclude_ips:
+        for raw in exclude_ips:
+            if raw is None:
+                continue
+            token = raw.strip() if isinstance(raw, str) else raw
+            exclude_set.add(ipaddress.ip_address(token))
 
-    # Calculate the first usable host (for IPv4, skip network & broadcast)
-    hosts = net.hosts() if net.version == 4 else net.hosts()
-    for addr in hosts:
-        if str(addr) not in exclude_set:
+    results = []
+    for addr in net.hosts():
+        if addr not in exclude_set:
             results.append(str(addr))
             if len(results) == number_of_ip:
                 break
