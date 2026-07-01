@@ -1,16 +1,20 @@
 import logging
-from ipaddress import IPv4Address
+import json
+import itertools
+from ipaddress import IPv4Address, ip_interface
 import copy
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
-from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF, \
+    LOCAL_DUT_INTF, REMOTE_DUT_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
 from packets import outbound_pl_packets, inbound_pl_packets
+from tests.common import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
-from tests.common.dash_utils import apply_dash_configs
+from tests.common.dash_utils import apply_dash_configs, apply_swssconfig_file
 from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, verify_eni_counter, \
     eni_counter_setup, partition_supported_counters, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
 
@@ -21,8 +25,92 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
+# Base inner L4 ports for the outbound direction. Every test is assigned a unique
+# per-test offset (see ``flow_port_offset``) that is added to these so each test operates
+# on a distinct DASH flow (flows are keyed on the inner 5-tuple). This lets the DASH config
+# be programmed once per module (``common_setup_teardown`` is module-scoped) without flows
+# leaking between tests, avoiding a per-test config teardown/reapply.
+OUTBOUND_INNER_SPORT = 6789
+OUTBOUND_INNER_DPORT = 4567
 
-@pytest.fixture(autouse=True)
+# Monotonic source of per-test flow offsets, consumed once per test in ``setup_param``.
+_flow_port_offset_counter = itertools.count()
+
+
+def _get_interface_ip(duthost, interface):
+    cmd = "ip addr show {} | grep -w inet | awk '{{print $2}}'".format(interface)
+    return ip_interface(duthost.shell(cmd)["stdout"].strip())
+
+
+@pytest.fixture(scope="module")
+def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+    """Module-scoped equivalent of the shared ``set_vxlan_udp_sport_range`` fixture.
+
+    Programs the DPU's VXLAN UDP source-port range / security once per module (instead of
+    per test) so the single ``config_reload`` used to revert it runs once rather than 40x.
+    """
+    dpuhost = dpuhosts[dpu_index]
+    vxlan_sport_config = [
+        {"SWITCH_TABLE:switch": {"vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
+                                 "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK}, "OP": "SET"},
+        {"SWITCH_TABLE:switch": {"vxlan_security": "true"}, "OP": "SET"},
+    ]
+    config_path = "/tmp/vxlan_sport_config.json"
+    for config in vxlan_sport_config:
+        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    yield
+    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell(
+            "redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="module")
+def module_setup_npu_dpu(duthost, dpuhosts, dpu_index, dash_pl_config, skip_config, skip_cleanup):
+    """Module-scoped equivalent of the shared ``setup_npu_dpu`` fixture.
+
+    Programs the DPU loopback and the NPU static routes once per module (instead of per
+    test). Routes are added before any DASH config so orchagent can resolve next hops.
+    """
+    dpuhost = dpuhosts[dpu_index]
+    cleanup_cmds = []
+    if not skip_config:
+        intfs = dpuhost.shell("show ip int")["stdout"]
+        dpu_cmds = []
+        if "Loopback0" not in intfs:
+            dpu_cmds.append("config loopback add Loopback0")
+            dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
+        if dpu_cmds:
+            dpuhost.shell_cmds(cmds=dpu_cmds)
+
+        vm_nexthop_ip = _get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+        pe_nexthop_ip = _get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+        pytest_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
+        pytest_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
+
+        cmds = [
+            f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}",
+            f"config route add prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}",
+        ]
+        for tunnel_ip in pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS:
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {vm_nexthop_ip}")
+        for tunnel_ip in pl.TUNNEL3_ENDPOINT_IPS + pl.TUNNEL4_ENDPOINT_IPS:
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {pe_nexthop_ip}")
+        cmds.append(f"config route add prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
+        logger.info(f"Adding static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
+        cleanup_cmds = [cmd.replace("add", "del") for cmd in cmds]
+
+    yield
+
+    if not skip_config and not skip_cleanup:
+        duthost.shell_cmds(cmds=cleanup_cmds, continue_on_fail=True, module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module", autouse=True)
 def common_setup_teardown(
     localhost,
     duthost,
@@ -31,12 +119,9 @@ def common_setup_teardown(
     dpuhosts,
     skip_config,
     skip_cleanup,
-    # align the DPU's VXLAN UDP sport range / security with the test packets so that
-    # VXLAN-encapsulated DASH traffic is accepted (matches other DASH dataplane tests)
-    set_vxlan_udp_sport_range,
-    # manually invoke setup_npu_dpu so the NPU static routes (shared conftest fixture)
-    # are programmed before any DASH config is applied
-    setup_npu_dpu,  # noqa: F811
+    # Program the VXLAN sport range and the NPU routes once per module before the DASH config.
+    module_set_vxlan_udp_sport_range,
+    module_setup_npu_dpu,
 ):
     if skip_config:
         yield
@@ -70,6 +155,10 @@ def common_setup_teardown(
     # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/VNET) ->
     # GROUP_3 (METER_RULE) -> GROUP_4 (ENI/ROUTE_GROUP) ->
     # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+    #
+    # This fixture is module-scoped: the DASH config is programmed once and shared by every
+    # test. Tests must not leak flow state between each other -- each is assigned a unique
+    # inner 5-tuple (see ``flow_port_offset``) so flows never collide.
     apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts)
 
     yield
@@ -170,8 +259,14 @@ class TestEniCounter:
         # default VXLAN port (see ``read_dpu_vxlan_udp_dport``).
         self.vxlan_udp_dport = read_dpu_vxlan_udp_dport(dpuhost)
 
-        # ``common_setup_teardown`` programs the DASH config (incl. the ENI) per test, so
-        # wait for the flex counter to publish the ENI's OID in COUNTERS_ENI_NAME_MAP
+        # Assign this test a unique inner-port offset so it operates on its own DASH flow.
+        # ``common_setup_teardown`` is module-scoped (the DASH config is programmed once and
+        # shared), and DASH flows are keyed on the inner 5-tuple, so distinct inner ports
+        # keep each test's flows isolated without re-applying config between tests.
+        self.flow_port_offset = next(_flow_port_offset_counter)
+
+        # ``common_setup_teardown`` programs the DASH config (incl. the ENI) once per module,
+        # so wait for the flex counter to publish the ENI's OID in COUNTERS_ENI_NAME_MAP
         # before any test reads counters.
         def _eni_counter_oid_ready():
             try:
@@ -186,13 +281,20 @@ class TestEniCounter:
         )
 
     def _outbound_pl_packets(self, *args, **kwargs):
-        """``outbound_pl_packets`` with the DPU's actual VXLAN UDP dst port injected."""
+        """``outbound_pl_packets`` with the DPU's VXLAN UDP dst port and this test's unique
+        inner ports injected (so each test uses a distinct DASH flow)."""
         kwargs.setdefault("vxlan_udp_dport", self.vxlan_udp_dport)
+        kwargs.setdefault("inner_sport", OUTBOUND_INNER_SPORT + self.flow_port_offset)
+        kwargs.setdefault("inner_dport", OUTBOUND_INNER_DPORT + self.flow_port_offset)
         return outbound_pl_packets(*args, **kwargs)
 
     def _inbound_pl_packets(self, *args, **kwargs):
-        """``inbound_pl_packets`` with the DPU's actual VXLAN UDP dst port injected."""
+        """``inbound_pl_packets`` with the DPU's VXLAN UDP dst port and this test's unique
+        inner ports injected. The inner ports are the reverse of the outbound direction so
+        inbound return traffic matches the same bidirectional flow entry."""
         kwargs.setdefault("vxlan_udp_dport", self.vxlan_udp_dport)
+        kwargs.setdefault("inner_sport", OUTBOUND_INNER_DPORT + self.flow_port_offset)
+        kwargs.setdefault("inner_dport", OUTBOUND_INNER_SPORT + self.flow_port_offset)
         return inbound_pl_packets(*args, **kwargs)
 
     def test_outbound_pkt_pass_eni_counter(self, dash_pl_config, outer_encap, inner_packet_type):
