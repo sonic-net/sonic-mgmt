@@ -3642,7 +3642,7 @@ class QosSaiBase(QosBase):
                             "container on SONiC %s (was originally running)", fanout_name)
                     else:
                         logger.warning(
-                            "permit_only_test_traffic_on_fanout: " 
+                            "permit_only_test_traffic_on_fanout: "
                             "docker start lldp on SONiC %s returned rc=%s, "
                             "LLDP may not be running", fanout_name, result.get('rc', '?'))
                 except Exception as e:
