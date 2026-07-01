@@ -40,7 +40,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section 
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](./test_plan.md#test-prerequisites-and-configuration-files) must be met.
 
-2. A per-PN `cdb_firmware_upgrade_manifest.json` file must exist for every transceiver that supports CMIS CDB firmware upgrade. The file lives in the same per-PN directory as the `cdb_firmware_upgrade.json` attribute shard (under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`). Each transceiver should have at least 3 firmware binaries so that firmware upgrade and downgrade can be tested. The file should follow this format:
+2. A per-PN `cdb_firmware_upgrade_manifest.json` file must exist for every transceiver that supports CMIS CDB firmware upgrade. The file lives in the same per-PN directory as the `cdb_firmware_upgrade.json` attribute shard (under `attributes/cdb_firmware_upgrade/transceivers/vendors/<VENDOR>/part_numbers/<PN>/`). The manifest must contain at least 3 firmware versions (inclusive of the gold firmware version) so that upgrade and downgrade paths can be tested. The file should follow this format:
 
 ```json
 {
@@ -117,7 +117,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 
 > **Note:** The `transceiver_reset_i2c_recover_sec`, `port_startup_wait_sec`, and `low_power_mode_supported` attributes are defined in the [System test attributes](system_test_plan.md#attributes) and are reused here. The `firmware_download_cdb_abort_support` attribute is a CMIS feature-advertisement flag and is always auto-detected from the EEPROM at runtime. If the attribute in the per-PN shard differs from the EEPROM register, the test fails with an error. `cdb_background_mode_supported` is defined in the [EEPROM test attributes](eeprom_test_plan.md#attributes).
 
-> **Attribute invariants:** `gold_firmware_version` must equal `firmware_versions[-1]`, and (when `dual_bank_supported` is true) `inactive_firmware_version` must equal `firmware_versions[-2]`. A mismatch skips the CDB firmware test suite with a clear configuration error. The actual module firmware state is verified at runtime.
+> **Attribute invariants:** `firmware_versions` must contain at least 3 entries (including gold). `gold_firmware_version` must equal `firmware_versions[-1]`, and (when `dual_bank_supported` is true) `inactive_firmware_version` must equal `firmware_versions[-2]`. A mismatch skips the CDB firmware test suite with a clear configuration error. The actual module firmware state is verified at runtime.
 
 ## CMIS CDB Firmware Binary Management
 
@@ -166,8 +166,8 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 /tmp/cmis_cdb_firmware/
 ├── ACME_CORP/
 │   └── QSFP-100G-AOC-GENERIC_2_ENDM/
-│       └── 1.2.3/
-│           └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
+│       ├── 1.2.3/
+│       │   └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
 │       └── 1.2.4/
 │           └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ├── EXAMPLE_INC/
@@ -223,8 +223,8 @@ When `cdb_firmware_upgrade_url.json` is absent, the framework expects every firm
 /host/cmis_cdb_firmware/
 ├── ACME_CORP/
 │   └── QSFP-100G-AOC-GENERIC_2_ENDM/
-│       └── 1.2.3/
-│           └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
+│       ├── 1.2.3/
+│       │   └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
 │       └── 1.2.4/
 │           └── ACME_CORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ├── EXAMPLE_INC/
@@ -277,8 +277,8 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 These tests rely on the shared transceiver test infrastructure checks for test case verification:
 
 1. **Process health and core files** are covered by the autouse [Common Per-Test Health Checks](./test_plan.md#common-per-test-health-checks) fixture, which runs before and after every transceiver test. It verifies `xcvrd` is `RUNNING` with an unchanged PID and scans `/var/core/` for new core files.
-2. **Kernel and I2C errors in syslog** are covered by the `loganalyzer` fixture used by the transceiver test suite, which scans syslog per test and fails on unexpected matches.
-3. **I2C error treatment is gated by `cdb_background_mode_supported`**. Tests must apply the following truth table when configuring `loganalyzer` for the firmware-operation window:
+2. **Kernel and I2C errors** are detected using the `dmesg` kernel-ring-buffer scanner (see `tests/transceiver/common/dmesg_helpers.py`) during the firmware-operation window. The scanner checks for I2C errors that may indicate communication failures with the module during CDB operations.
+3. **I2C error treatment is gated by `cdb_background_mode_supported`**. Tests must apply the following truth table when configuring the dmesg scanner for the firmware-operation window:
 
 | cdb_background_mode_supported | Expected Behaviour | Treatment |
 |---|---|---|
@@ -342,7 +342,7 @@ For firmware download, run, and commit operations, the test framework must repor
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | Firmware version baseline validation | **Runs first** in the CDB firmware test sequence as a baseline check that the module starts on gold. <br><br>1. Use `sfputil show fwversion <port>`.<br>2. If `dual_bank_supported` is true, read both active and inactive firmware versions.<br>3. Compare with expected values from attributes. | 1. Active firmware version matches `gold_firmware_version` attribute value.<br>2. If `dual_bank_supported` is true, inactive firmware version matches `inactive_firmware_version` attribute value. |
-| 2 | Firmware download validation | 1. Start firmware download of the next firmware specified in `firmware_versions` using `sfputil firmware download <port>`.<br>2. Wait until CLI execution completes. | **Firmware Downloaded Verification** must hold. |
+| 2 | Firmware download validation | 1. Start firmware download of the next firmware specified in `firmware_versions` using `sfputil firmware download <port>`.<br>2. Wait until CLI execution completes.<br><br>**Note:** Version selection cycles through `firmware_versions` in round-robin order, skipping the version already present in the target bank (inactive bank for dual-bank modules, active bank for single-bank modules). | **Firmware Downloaded Verification** must hold. |
 | 3 | Firmware run validation | 1. Shut down all interfaces that are part of the physical port.<br>2. Execute firmware run.<br>3. Reset the transceiver and wait for `transceiver_reset_i2c_recover_sec` seconds.<br>4. Startup all the interfaces in Step 1. | **Firmware Activated Verification** must hold. Additionally, if `dual_bank_supported` is true, the previous active firmware should show up in the inactive bank. |
 | 4 | Firmware commit validation | 1. Execute firmware commit for an interface. | **Firmware Committed Verification** must hold. |
 | 5 | Firmware download with invalid binary | **TC 5a:**<br>1. Generate a zero-filled `.bin` file on the DUT that has no valid firmware header.<br>2. Start firmware download using `sfputil firmware download <port>`. <br><br>**TC 5b:**<br>1. Take a good firmware binary for this module and flip a few bytes in the payload region of the binary. <br>2. Start firmware download using `sfputil firmware download <port>`. | **TC 5a:**<br>1. `sfputil firmware download <port>` returns a non-zero return code.<br>2. If `dual_bank_supported` is true, inactive firmware version remains unchanged. <br>3. **Firmware State Unchanged Verification** must hold (except for inactive firmware version).<br><br>**TC 5b:**<br>1. `sfputil firmware download <port>` returns a non-zero return code.<br>2. **Firmware State Unchanged Verification** must hold. |
