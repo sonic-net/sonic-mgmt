@@ -102,7 +102,7 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
                      dest="/tmp/config_db_vnet.json")
     duthost.shell("cp /tmp/config_db_vnet.json /etc/sonic/config_db.json")
 
-    reboot(duthost, localhost)
+    reboot(duthost, localhost, safe_reboot=True)
 
     bgp_asn = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {}).get('bgp_asn', '')
     duthost.shell(
@@ -136,7 +136,7 @@ def restore_config_db(localhost, duthost):
                        search_regex='OpenSSH_[\\w\\.]+ Debian',
                        timeout=180)   # Similiar approach to increase the chance that the next line get executed.
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-    reboot(duthost, localhost)
+    reboot(duthost, localhost, safe_reboot=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
