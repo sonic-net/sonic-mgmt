@@ -59,21 +59,46 @@ def populate_fdb(ptfadapter, vlan_ports_list, vlan_intfs_dict):
                 testutils.send(ptfadapter, port_id, pkt)
 
 
-def ptf_teardown(ptfhost, ptf_lag_map):
+def ptf_teardown(ptfhost, ptf_lag_map=None):
     """
-    Restore ptf configuration
+    Restore PTF configuration
+
+    Automatically detects whether the LAG was created with teamd or kernel bonding
+    and uses the appropriate cleanup method.
 
     Args:
         ptfhost: PTF host object
-        ptf_lag_map: imformation about lag in ptf
+        ptf_lag_map: information about lag in ptf
     """
-    ptfhost.set_dev_no_master(PTF_LAG_NAME)
+    # Check if LAG was created with teamd by looking for supervisor process
+    teamd_check = ptfhost.shell(
+        "supervisorctl status portchannel-{} 2>/dev/null".format(PTF_LAG_NAME),
+        module_ignore_errors=True
+    )
+    teamd_running = teamd_check["rc"] == 0
 
-    for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
-        ptfhost.set_dev_no_master(ptf_lag_member)
-        ptfhost.set_dev_up_or_down(ptf_lag_member, True)
+    if teamd_running:
+        logging.info("Cleaning up teamd-based LAG")
+        portchannel_config = {PTF_LAG_NAME: {"intfs": []}}
+        ptfhost.ptf_portchannel(cmd="stop", portchannel_config=portchannel_config)
 
-    ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
+        if ptf_lag_map is not None:
+            for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+                ptfhost.shell("ip link set dev {} nomaster 2>/dev/null".format(ptf_lag_member),
+                              module_ignore_errors=True)
+                ptfhost.shell("ip link set dev {} up".format(ptf_lag_member), module_ignore_errors=True)
+    else:
+        logging.info("Cleaning up kernel bonding LAG")
+        ptfhost.set_dev_no_master(PTF_LAG_NAME, module_ignore_errors=True)
+
+        if ptf_lag_map is not None:
+            for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+                ptfhost.set_dev_no_master(ptf_lag_member, module_ignore_errors=True)
+                ptfhost.set_dev_up_or_down(ptf_lag_member, True)
+
+    ptfhost.shell("ip link set dev {} down 2>/dev/null".format(PTF_LAG_NAME), module_ignore_errors=True)
+    ptfhost.shell("ip link del {} 2>/dev/null".format(PTF_LAG_NAME), module_ignore_errors=True)
+
     ptfhost.ptf_nn_agent()
 
 
@@ -121,9 +146,67 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
     return lag_port_map
 
 
+def setup_ptf_lag_teamd(ptfhost, lag_name, lag_ip, port_list):
+    """
+    Setup PTF LAG using teamd (for virtual interfaces)
+
+    teamd is compatible with virtual interfaces (veth pairs) and provides
+    proper LACP negotiation without requiring hardware-level MII detection.
+
+    Args:
+        ptfhost: PTF host object
+        lag_name: name of the LAG interface
+        lag_ip: IP address to assign to LAG
+        port_list: list of port names
+    """
+    # Extract interface indices from eth<N> format for teamd config
+    port_indices = []
+    for port_name in port_list:
+        port_indices.append(int(port_name.replace("eth", "")))
+
+    portchannel_config = {
+        lag_name: {
+            "intfs": port_indices
+        }
+    }
+
+    ptfhost.ptf_portchannel(cmd="start", portchannel_config=portchannel_config)
+
+    # Add IP address to the LAG interface
+    ptfhost.shell("ip addr add {} dev {}".format(lag_ip, lag_name))
+
+
+def setup_ptf_lag_kbond(ptfhost, lag_name, lag_ip, port_list):
+    """
+    Setup PTF LAG using kernel bonding (for physical interfaces)
+
+    Traditional kernel bonding approach that works well with physical interfaces
+    that provide proper hardware-level MII detection and link state information.
+
+    Args:
+        ptfhost: PTF host object
+        lag_name: name of the LAG interface
+        lag_ip: IP address to assign to LAG
+        port_list: list of port names
+    """
+    # Create kernel bond with LACP
+    ptfhost.create_lag(lag_name, lag_ip, "802.3ad")
+
+    for port_name in port_list:
+        ptfhost.add_intf_to_lag(lag_name, port_name)
+
+    ptfhost.startup_lag(lag_name)
+
+
 def setup_ptf_lag(ptfhost, ptf_ports, vlan):
     """
-    Setup ptf lag
+    Setup PTF LAG with automatic detection of virtual vs physical interfaces
+
+    This function automatically detects whether the PTF interfaces are virtual
+    (veth pairs in containers/VMs) or physical hardware interfaces, and uses
+    the appropriate LAG implementation:
+    - teamd for virtual interfaces
+    - kernel bonding for physical interfaces
 
     Args:
         ptfhost: PTF host object
@@ -136,23 +219,32 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
     ip_splits = vlan["ip"].split("/")
     vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
     lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
-    # Add lag
-    ptfhost.create_lag(PTF_LAG_NAME, lag_ip, "802.3ad")
 
     port_list = []
-    # Add member to lag
     for _, port_name in list(ptf_ports[ATTR_PORT_BEHIND_LAG].items()):
-        ptfhost.add_intf_to_lag(PTF_LAG_NAME, port_name)
         port_list.append(port_name)
+
+    # Detect interface type: check if first port is virtual
+    first_port = port_list[0]
+    speed_result = ptfhost.shell(
+        "cat /sys/class/net/{}/speed 2>/dev/null || echo '-1'".format(first_port),
+        module_ignore_errors=True
+    )
+    # Virtual interfaces typically have speed: -1 (unknown/virtual)
+    is_virtual = speed_result["stdout"].strip() == "-1"
+
+    if is_virtual:
+        logging.info("Detected virtual interfaces, using teamd for LAG setup")
+        setup_ptf_lag_teamd(ptfhost, PTF_LAG_NAME, lag_ip, port_list)
+    else:
+        logging.info("Detected physical interfaces, using kernel bonding for LAG setup")
+        setup_ptf_lag_kbond(ptfhost, PTF_LAG_NAME, lag_ip, port_list)
 
     lag_port_map = {}
     lag_port_map[PTF_LAG_NAME] = {
         "port_list": port_list,
     }
-
-    ptfhost.startup_lag(PTF_LAG_NAME)
     ptfhost.ptf_nn_agent()
-    # Wait for lag sync
     time.sleep(10)
 
     return lag_port_map
@@ -443,7 +535,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
         return
-    ptf_lag_map = None
+
     # --------------------- Setup -----------------------
     try:
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
@@ -455,8 +547,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     # --------------------- Teardown -----------------------
     finally:
         config_reload(duthost, safe_reload=True)
-        if ptf_lag_map is not None:
-            ptf_teardown(ptfhost, ptf_lag_map)
+        ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):
