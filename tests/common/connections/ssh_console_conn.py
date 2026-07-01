@@ -62,7 +62,13 @@ class SSHConsoleConn(BaseConsoleConn):
                                password=self.password,
                                menu_port=self.menu_port,
                                pri_prompt_terminator=r".*login")
-        # Attempt all sonic password
+        # Exit any leftover shell from a previous test so we start at a clean login prompt.
+        self._recover_to_login_prompt()
+        # Attempt all sonic password. A wrong password must not prevent a
+        # subsequent correct password in the list from succeeding, so we
+        # re-synchronise the terminal back to a fresh "login:" prompt between
+        # attempts (the failed attempt leaves a "Login incorrect" banner in the
+        # buffer that would otherwise desync the next login).
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
@@ -71,6 +77,10 @@ class SSHConsoleConn(BaseConsoleConn):
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
                     raise e
+                # Drain any leftover "Login incorrect" output and wait until the
+                # getty presents a clean login prompt before trying the next
+                # password in the list.
+                self._resync_to_login_prompt()
             else:
                 break
 
@@ -90,13 +100,94 @@ class SSHConsoleConn(BaseConsoleConn):
         time.sleep(0.3 * self.global_delay_factor)
         self.clear_buffer()
 
+    def _recover_to_login_prompt(self, max_attempts=4, delay_factor=1):
+        """
+        Ensure the console is at a fresh "login:" prompt before logging in.
+
+        If a previous console session was left logged in (its cleanup did not
+        run or could not log out), the serial line still has an authenticated
+        shell and a new connection lands on the shell prompt instead of
+        "login:". In that case the username sent below is interpreted as a
+        shell command and the login never happens. Detect a leftover shell
+        prompt and send "exit" to return to a clean login prompt so each
+        console test is independent of the previous one's teardown.
+        """
+        shell_prompt_patterns = (
+            r'admin@.*:.*[\$#]',
+            r'root@.*:.*#',
+            r'.*@sonic.*[\$#]',
+        )
+        # Floor the delay factor so the probe waits long enough for the serial prompt to echo.
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        for _ in range(max_attempts):
+            try:
+                self.write_channel(self.RETURN)
+                # Accumulate output so a lagging prompt is reliably observed.
+                output = ""
+                for _ in range(4):
+                    time.sleep(0.5 * delay_factor)
+                    output += self.read_channel()
+            except Exception as e:
+                self.logger.warning(f"Error probing console state: {e}")
+                return
+            # Already at a login prompt -> nothing to recover.
+            if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                return
+            # Logged-in shell left over from a previous session -> log out.
+            if any(re.search(p, output) for p in shell_prompt_patterns):
+                self.logger.warning(
+                    "Console is at a leftover shell prompt; sending 'exit' to "
+                    "return to the login prompt")
+                try:
+                    self.write_channel("exit" + self.RETURN)
+                    time.sleep(1 * delay_factor)
+                except Exception as e:
+                    self.logger.warning(f"Error sending exit during recovery: {e}")
+                    return
+                continue
+            # Unknown / transient state: try once more.
+        # Best effort: clear whatever is pending so the login starts clean.
+        self.clear_buffer()
+
+    def _resync_to_login_prompt(self, max_loops=20, delay_factor=1):
+        """
+        Re-synchronise the console to a fresh "login:" prompt.
+
+        After a failed password attempt the getty prints a "Login incorrect"
+        banner followed by a new login prompt. Drain that stale output and wait
+        for a clean login prompt so the next credential in the list starts from
+        a known state (otherwise the leftover banner desyncs the next attempt).
+        """
+        # Floor the delay factor so the wait spans the ~3s pam_faildelay after a failed login.
+        delay_factor = max(self.select_delay_factor(delay_factor), 1)
+        # Drop any pending "Login incorrect" / banner output.
+        self.clear_buffer()
+        i = 1
+        while i <= max_loops:
+            try:
+                self.write_channel(self.RETURN)
+                time.sleep(0.5 * delay_factor)
+                output = self.read_channel()
+                # A fresh prompt ends with "login:" (with the colon); this does
+                # not match the "Login incorrect" failure banner.
+                if re.search(r"login:\s*$", output, flags=re.I | re.M):
+                    self.clear_buffer()
+                    return
+            except EOFError:
+                self.remote_conn.close()
+                raise NetMikoAuthenticationException(
+                    "Login failed: {}".format(self.host))
+            i += 1
+        # Best effort: leave the buffer clean for the next attempt.
+        self.clear_buffer()
+
     def login_stage_2(self,
                       username,
                       password,
                       menu_port=None,
                       pri_prompt_terminator=r".*# ",
                       alt_prompt_terminator=r".*\$ ",
-                      username_pattern=r"(?:user:|username|login|user name)",
+                      username_pattern=r"(?:user:|username|login:|user name)",
                       pwd_pattern=r"assword",
                       delay_factor=1,
                       max_loops=20
@@ -105,6 +196,8 @@ class SSHConsoleConn(BaseConsoleConn):
         Perform a stage_2 login
         """
         delay_factor = self.select_delay_factor(delay_factor)
+        # Floor the delay factor so the loop waits long enough for a slow/faildelayed password prompt.
+        delay_factor = max(delay_factor, 1)
         time.sleep(1 * delay_factor)
 
         output = ""
@@ -194,8 +287,12 @@ class SSHConsoleConn(BaseConsoleConn):
             bool: True if at SONiC prompt, False otherwise (including GRUB, ONIE, boot stages, etc.)
         """
         try:
-            # Read whatever is currently in the buffer
-            output = self.read_channel()
+            # Send a CR and accumulate the echo to elicit the prompt (empty after login); harmless at GRUB/ONIE.
+            output = ""
+            for _ in range(4):
+                self.write_channel(self.RETURN)
+                time.sleep(0.5)
+                output += self.read_channel()
         except Exception as e:
             self.logger.warning(f"Error reading channel: {e}, assuming not at SONiC prompt")
             return False

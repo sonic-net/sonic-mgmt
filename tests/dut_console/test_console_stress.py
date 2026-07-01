@@ -9,6 +9,9 @@ pytestmark = [
     pytest.mark.disable_memory_utilization
 ]
 
+# Shell prompt terminator so send_command waits for the prompt, not a garbled serial base prompt.
+PROMPT_PATTERN = r"[#$]\s*$"
+
 
 def test_console_stress_output(duthost_console):
     """
@@ -31,8 +34,9 @@ def test_console_stress_output(duthost_console):
     # Generate 1000 lines = 110,000 chars total
     num_lines = 1000
     output = duthost_console.send_command(
-        f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",
-        read_timeout=300
+        f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",  # noqa: E231
+        read_timeout=300,
+        expect_string=PROMPT_PATTERN
     )
 
     # Parse output into lines
@@ -47,14 +51,14 @@ def test_console_stress_output(duthost_console):
 
     # Verify exact content of each line
     for line_idx, line in enumerate(pattern_lines):
-        expected_line = f"LINE_{line_idx:04d}: " + '0123456789' * 10
+        expected_line = f"LINE_{line_idx:04d}: " + '0123456789' * 10  # noqa: E231
         pytest_assert(line == expected_line,
                       f"Line {line_idx}: Content mismatch\n"
                       f"Expected: '{expected_line}'\n"
                       f"Got:      '{line}'")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response, "Console not responsive after large output")
 
 
@@ -89,6 +93,6 @@ def test_console_stress_input(duthost_console):
                   f"expected {expected_hash}, console returned: {output!r}")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response,
                   "Console not responsive after large input")
