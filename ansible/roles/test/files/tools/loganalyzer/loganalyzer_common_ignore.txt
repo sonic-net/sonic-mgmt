@@ -519,3 +519,6 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# Ignore loganalyzer add marker logs in case the test name matches an error pattern
+r, ".*INFO.*ansible.*loganalyzer.py.*--action add.*marker.*"
