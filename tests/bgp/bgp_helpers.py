@@ -201,19 +201,29 @@ def parse_rib(host, ip_ver, asic_namespace=None):
     return routes
 
 
-def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
+def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None, expected_routes=None):
     """
     Get the routes that are not announced to bgpmon by checking dump of bgpmon on PTF.
     """
     def _dump_fie_exists(host):
         return host.stat(path=DUMP_FILE).get('stat', {}).get('exists', False)
-    pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost))
-    time.sleep(20)  # Wait until all routes announced to bgpmon
+    pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost),
+                  "bgpmon dump file is not found: {}".format(DUMP_FILE))
+
+    if expected_routes is None:
+        rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
+        rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
+        routes_to_check = list(dict(list(rib_v4.items()) + list(rib_v6.items())).keys())
+    else:
+        routes_to_check = expected_routes
+
+    def _all_routes_announced():
+        bgpmon_routes = parse_exabgp_dump(ptfhost)
+        return all(route in bgpmon_routes for route in routes_to_check)
+
+    wait_until(WAIT_TIMEOUT, 10, 0, _all_routes_announced)
     bgpmon_routes = parse_exabgp_dump(ptfhost)
-    rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
-    rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
-    routes_dut = dict(list(rib_v4.items()) + list(rib_v6.items()))
-    return [route for route in list(routes_dut.keys()) if route not in bgpmon_routes]
+    return [route for route in routes_to_check if route not in bgpmon_routes]
 
 
 def remove_bgp_neighbors(duthost, asic_index):
@@ -606,8 +616,10 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
     check_results(results)
 
 
-def checkout_bgp_mon_routes(duthost, ptfhost):
-    routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+def checkout_bgp_mon_routes(duthost, ptfhost, asic_namespace=None, expected_routes=None):
+    routes_not_announced = get_routes_not_announced_to_bgpmon(
+        duthost, ptfhost, asic_namespace=asic_namespace, expected_routes=expected_routes
+    )
     pytest_assert(routes_not_announced == [], "Not all routes are announced to bgpmon: {}".format(routes_not_announced))
 
 
