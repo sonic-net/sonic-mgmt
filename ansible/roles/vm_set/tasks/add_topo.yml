@@ -160,12 +160,14 @@
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
-      image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+      image: "{{ ptf_registry_host | default(docker_registry_host) }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
       # Set pull to 'missing' when ptf_modified is True (PR test with preloaded image)
       # to avoid pulling and overwriting the local image. For nightly tests where
       # ptf_modified is False/undefined, use 'always' to always pull the latest image.
       # The ptf_modified flag is passed from Azure Pipelines through Elastictest's
       # add_topo_params as "-e ptf_modified=True" when testing PR built docker-ptf images.
+      # ptf_registry_host can be set independently (e.g. to 'localhost') to override just
+      # the PTF image registry without affecting other images that use docker_registry_host.
       pull: "{{ 'missing' if (ptf_modified | default(false) | bool) else 'always' }}"
       state: started
       restart: no
@@ -235,41 +237,6 @@
 
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos" and "bmc" not in topo
-
-  - include_tasks: add_csonic_list.yml
-    when: vm_type is defined and (vm_type == "csonic")
-
-  - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
-    vm_topology:
-      cmd: "bind"
-      vm_set_name: "{{ vm_set_name }}"
-      topo: "{{ topology }}"
-      vm_names: "{{ VM_targets }}"
-      vm_base: "{{ VM_base }}"
-      vm_type: "{{ vm_type }}"
-      vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
-      ptf_mgmt_ip_addr: "{{ ptf_ip }}"
-      ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
-      ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
-      ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
-      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
-      ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
-      ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
-      mgmt_bridge: "{{ mgmt_bridge }}"
-      duts_fp_ports: "{{ duts_fp_ports }}"
-      duts_midplane_ports: "{{ duts_midplane_ports }}"
-      duts_inband_ports: "{{ duts_inband_ports }}"
-      duts_mgmt_port: "{{ duts_mgmt_port }}"
-      duts_name: "{{ duts_name.split(',') }}"
-      fp_mtu: "{{ fp_mtu_size }}"
-      max_fp_num: "{{ max_fp_num }}"
-      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
-      dut_interfaces: "{{ dut_interfaces | default('') }}"
-      multi_vrf: "{{ topo_is_multi_vrf }}"
-      multi_vrf_data: "{{ convergence_data|default({}) }}"
-      topo_config: "{{ configuration | default({}) }}"
-      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
-    become: yes
     when: not enable_async
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)

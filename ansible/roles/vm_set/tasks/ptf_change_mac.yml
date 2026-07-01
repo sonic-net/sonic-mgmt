@@ -34,4 +34,6 @@
 - name: Change PTF interface MAC addresses
   script: change_mac.sh
   delegate_to: "{{ ptf_host }}"
+  # change_mac.sh re-MACs the PTF data-plane ethN interfaces. A portless topo (e.g. bmc)
+  # has only the mgmt interface and no data-plane ports, so there is nothing to re-MAC.
   when: "'bmc' not in topo"
