@@ -2752,12 +2752,13 @@ class TestQosSai(QosSaiBase):
         # Run ecn_3 scenario with ecn_status off
         if ecn == "ecn_3":
             testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig, 'off')
+            if dutConfig["dstDutInstance"] != dutConfig["srcDutInstance"]:
+                testParams["ecn_queue_status"] = self.check_and_set_ecn_status(dutConfig["srcDutInstance"],
+                                                                               qosConfig, 'off')
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
             )
             self.check_and_set_ecn_status(duthost, qosConfig, 'on')
-        elif ecn == "ecn_5":
-            self.check_and_set_ecn_status(duthost, qosConfig, 'off')
 
     def set_test_params_descriptor_size(self, dutQosConfig, testParams):
         if 'descriptor_size' in dutQosConfig["param"]:
