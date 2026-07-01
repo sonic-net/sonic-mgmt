@@ -31,13 +31,13 @@ Before executing the EEPROM tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
-- `eeprom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test
+- `eeprom.json` is properly formatted and accessible; required attributes are defined for the transceivers under test (see [Attributes](#attributes) for the shard layout)
 
 System health (running daemons, fresh logs, transceiver baseline) is covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates EEPROM consumes.
 
 ## Attributes
 
-A `eeprom.json` file is used to define the attributes for the EEPROM tests for the various types of transceivers the system supports.
+A `eeprom.json` file is used to define the attributes for the EEPROM tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/eeprom/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
 The following table summarizes the key attributes used in EEPROM testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 

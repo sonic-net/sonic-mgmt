@@ -329,13 +329,15 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: 65100
-    dut_type: UpperSpineRouter
     podset_number: 400
     tor_number: 16
     tor_subnet_number: 8
     max_tor_subnet_number: 32
     tor_subnet_size: 128
+    dut_asn: 66000
+    dut_confed_asn: 65100
+    dut_confed_peers: 65300
+    dut_type: UpperSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
   core:
@@ -349,6 +351,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -372,6 +375,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -395,6 +399,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -418,6 +423,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -441,6 +447,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -464,6 +471,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -487,6 +495,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -510,6 +519,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -533,6 +543,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -556,6 +567,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -579,6 +591,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -602,6 +615,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -625,6 +639,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -648,6 +663,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -671,6 +687,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -694,6 +711,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -717,6 +735,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -740,6 +759,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -763,6 +783,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -786,6 +807,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -809,6 +831,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -832,6 +855,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -855,6 +879,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -878,6 +903,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -901,6 +927,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -924,6 +951,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -947,6 +975,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -970,6 +999,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -993,6 +1023,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -1016,6 +1047,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -1039,6 +1071,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -1062,6 +1095,7 @@ configuration:
     - common
     - core
     bgp:
+      peer_in_bgp_confed: true
       asn: 65200
       peers:
         65100:
@@ -1085,9 +1119,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64600
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.128
         - fc00::101
     interfaces:
@@ -1106,9 +1142,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64610
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.130
         - fc00::105
     interfaces:
@@ -1127,9 +1165,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64620
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.132
         - fc00::109
     interfaces:
@@ -1148,9 +1188,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64630
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.134
         - fc00::10d
     interfaces:
@@ -1169,9 +1211,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64640
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.136
         - fc00::111
     interfaces:
@@ -1190,9 +1234,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64650
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.138
         - fc00::115
     interfaces:
@@ -1211,9 +1257,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64660
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.140
         - fc00::119
     interfaces:
@@ -1232,9 +1280,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64670
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.142
         - fc00::11d
     interfaces:
@@ -1253,9 +1303,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64680
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.144
         - fc00::121
     interfaces:
@@ -1274,9 +1326,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64690
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.146
         - fc00::125
     interfaces:
@@ -1295,9 +1349,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64700
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.148
         - fc00::129
     interfaces:
@@ -1316,9 +1372,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64710
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.150
         - fc00::12d
     interfaces:
@@ -1337,9 +1395,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64720
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.152
         - fc00::131
     interfaces:
@@ -1358,9 +1418,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64730
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.154
         - fc00::135
     interfaces:
@@ -1379,9 +1441,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64740
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.156
         - fc00::139
     interfaces:
@@ -1400,9 +1464,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64750
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.158
         - fc00::13d
     interfaces:
@@ -1421,9 +1487,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64760
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.160
         - fc00::141
     interfaces:
@@ -1442,9 +1510,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64770
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.162
         - fc00::145
     interfaces:
@@ -1463,9 +1533,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64780
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.164
         - fc00::149
     interfaces:
@@ -1484,9 +1556,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64790
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.166
         - fc00::14d
     interfaces:
@@ -1505,9 +1579,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64800
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.168
         - fc00::151
     interfaces:
@@ -1526,9 +1602,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64810
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.170
         - fc00::155
     interfaces:
@@ -1547,9 +1625,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64820
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.172
         - fc00::159
     interfaces:
@@ -1568,9 +1648,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64830
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.174
         - fc00::15d
     interfaces:
@@ -1589,9 +1671,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64840
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.176
         - fc00::161
     interfaces:
@@ -1610,9 +1694,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64850
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.178
         - fc00::165
     interfaces:
@@ -1631,9 +1717,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64860
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.180
         - fc00::169
     interfaces:
@@ -1652,9 +1740,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64870
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.182
         - fc00::16d
     interfaces:
@@ -1673,9 +1763,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64880
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.184
         - fc00::171
     interfaces:
@@ -1694,9 +1786,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64890
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.186
         - fc00::175
     interfaces:
@@ -1715,9 +1809,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64900
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.188
         - fc00::179
     interfaces:
@@ -1736,9 +1832,11 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 64910
+      asn: 65300
+      confed_asn: 65100
+      confed_peers: 66000
       peers:
-        65100:
+        66000:
         - 10.0.0.190
         - fc00::17d
     interfaces:

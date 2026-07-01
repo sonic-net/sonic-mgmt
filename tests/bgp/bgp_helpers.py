@@ -13,14 +13,20 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
-    DEFAULT_ASIC_ID
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.bgp import (
+    get_db_cli_prefix,
+    get_db_cli_prefix_for_namespace,
+    get_asic_namespace,
+    namespace_cli_arg,
+)
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common.utilities import testbed_is_multi_vrf
+from tests.common.utilities import get_neighbor_exabgp_vm_offset
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
@@ -214,14 +220,13 @@ def remove_bgp_neighbors(duthost, asic_index):
     """
     Remove the bgp neigbors for a particular BGP instance
     """
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
+    namespace_prefix = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
+    db_cli = get_db_cli_prefix(duthost, asic_index)
 
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
     bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}"
                                .format(namespace_prefix, "BGP_NEIGHBOR"))["stdout"])
-    cmd = 'sudo sonic-db-cli {} CONFIG_DB keys "BGP_NEI*" | xargs sonic-db-cli {} CONFIG_DB del'\
-          .format(namespace_prefix, namespace_prefix)
+    cmd = 'sudo {db_cli} CONFIG_DB keys "BGP_NEI*" | xargs {db_cli} CONFIG_DB del'.format(db_cli=db_cli)
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
@@ -235,8 +240,7 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     """
     Restore the bgp neigbors for a particular BGP instance
     """
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
+    namespace_prefix = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
 
     # Convert the bgp_neighbors dict into json format after adding the table name.
     bgp_neigh_dict = {"BGP_NEIGHBOR": bgp_neighbors}
@@ -303,7 +307,13 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     if upstream_neighbors:
         other_neighbors += upstream_neighbors[0:2]
 
-    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    # On converged (multi-VRF) topologies ``VMs[downstream]['vm_offset']`` is the
+    # collapsed *prime* offset, which maps to a different neighbor's exabgp
+    # instance. The per-neighbor exabgp instances are keyed by the ORIGINAL
+    # offset, so use that (via get_neighbor_exabgp_vm_offset) to post the
+    # announce to the intended downstream's exabgp. On stock topologies this
+    # returns the neighbor's own vm_offset, so behavior is unchanged.
+    downstream_offset = get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, downstream)
     downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
     downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
 
@@ -402,15 +412,17 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
     duthost.copy(content=json.dumps(allow_list, indent=3), dest=allow_list_file_path)
-    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '', allow_list_file_path))
+    duthost.shell('sonic-cfggen {} -j {} -w'.format(namespace_cli_arg(namespace), allow_list_file_path))
     time.sleep(3)
 
 
 def remove_allow_list(duthost, namespace, allow_list_file_path):
-    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'
-                                    .format('-n ' + namespace if namespace else ''))['stdout_lines']
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    allow_list_keys = duthost.shell(
+        '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)
+    )['stdout_lines']
     for key in allow_list_keys:
-        duthost.shell('sonic-db-cli {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
+        duthost.shell('{} CONFIG_DB del "{}"'.format(db_cli, key))
 
     duthost.shell('rm -rf {}'.format(allow_list_file_path))
 
@@ -1016,9 +1028,10 @@ def verify_dut_configdb_tsa_value(duthost):
     tsa_config = list()
     tsa_enabled = False
     for asic_index in duthost.get_frontend_asic_ids():
-        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
-        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
-                               format(prefix))['stdout']
+        db_cli = get_db_cli_prefix(duthost, asic_index)
+        output = duthost.shell(
+            "{} CONFIG_DB HGET 'BGP_DEVICE_GLOBAL|STATE' 'tsa_enabled'".format(db_cli)
+        )['stdout']
         tsa_config.append(output)
     if 'true' in tsa_config:
         tsa_enabled = True

@@ -4,9 +4,13 @@ import logging
 import ptf.testutils as testutils
 import pytest
 import random
+import socket
 
+from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
+                      in6_getnsma, inet_pton, inet_ntop
 from tests.arp.arp_utils import (clear_dut_arp_cache, fdb_cleanup, get_dut_mac,
-                                 fdb_has_mac, get_vlan_last_ipv4, get_vlan_ipv4_for_subnet)
+                                 fdb_has_mac, get_vlan_last_ipv4, get_vlan_ipv4_for_subnet,
+                                 get_vlan_ipv6)
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -72,11 +76,14 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_in
         logger.warning("No VLAN subnet match for PTF IP %s, falling back to %s/%s",
                        ptf_interface_info['ip'], dut_ipv4, prefix_len)
 
+    vlan_name_v6, dut_ipv6 = get_vlan_ipv6(config_facts)
+
     return {
         'host': duthost,
         'mac': dut_mac,
-        'vlan_name': vlan_name,
+        'vlan_name': vlan_name or vlan_name_v6,
         'ipv4': dut_ipv4,
+        'ipv6': dut_ipv6,
         'prefix_len': prefix_len
     }
 
@@ -84,13 +91,14 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo, ptf_interface_in
 @pytest.fixture
 def clean_environment(rand_selected_dut, ptfadapter):
     """
-    Cleanup FDB and DUT ARP cache before and after test run
+    Cleanup FDB and DUT ARP/neighbor cache before and after test run
     """
     duthost = rand_selected_dut
 
-    logger.info("Setting up clean environment: clearing FDB and ARP cache")
+    logger.info("Setting up clean environment: clearing FDB and ARP/neighbor cache")
     fdb_cleanup(duthost)
     clear_dut_arp_cache(duthost)
+    clear_dut_arp_cache(duthost, is_ipv6=True)
     ptfadapter.dataplane.flush()
 
     yield
@@ -157,12 +165,16 @@ def test_kernel_asic_mac_mismatch(
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
 
-    wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip)
+    pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip),
+              f"Neighbor {target_ip} not learned on {rand_selected_dut}")
 
     neighbor_info = rand_selected_dut.shell(f"ip neigh show {target_ip}")["stdout"].split()
+    target_mac = neighbor_info[4]
+
     pt_assert(neighbor_info[2] == vlan_name)
 
-    wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, neighbor_info[4])
+    pt_assert(wait_until(5, 1, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+              f"APPL_DB not synced for vlan {vlan_name}, ip {target_ip} on {rand_selected_dut}")
 
     logger.info(f"Neighbor {target_ip} has been learned, APPL_DB and kernel are in sync")
 
@@ -173,70 +185,102 @@ def test_kernel_asic_mac_mismatch(
     asic_db_mac = rand_selected_dut.shell(
         f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
     )['stdout']
-    pt_assert(neighbor_info[4].lower() != asic_db_mac.lower(),
+    pt_assert(target_mac.lower() != asic_db_mac.lower(),
               f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
               "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
     rand_selected_dut.shell("docker exec swss supervisorctl start arp_update")
 
-    wait_until(10, 1, 0, lambda dut, ip: not neighbor_learned(dut, ip), rand_selected_dut, target_ip)
+    pt_assert(
+        wait_until(30, 2, 0, appl_db_neighbor_syncd, rand_selected_dut, vlan_name, target_ip, target_mac),
+        f"APPL_DB not re-synced to kernel MAC {target_mac} for {target_ip} on {rand_selected_dut}"
+    )
 
 
 def test_ptf_arp_learns_mac(
     ptf_interface_info,
     dut_interface_info,
     clean_environment,
-    ptfadapter,
-    tbinfo
+    ptfadapter
 ):
     """
-    After fdb_cleanup and clearing DUT ARP cache,
-    simulate ARP request from PTF to DUT,
+    After fdb_cleanup and clearing DUT ARP/neighbor cache,
+    simulate ARP request (IPv4) or NDP Neighbor Solicitation (IPv6) from PTF to DUT,
     verify DUT replies and learns PTF MAC in FDB
     """
-    # Setup PTF and DUT info
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
 
-    logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
+    if dut_info['ipv4'] is None:
+        # No IPv4 on VLAN — send NDP Neighbor Solicitation instead of ARP
+        pt_assert(dut_info['ipv6'] is not None, "No IPv6 address on DUT VLAN interface")
 
-    # Simulate ARP request from PTF to DUT
-    arp_req = testutils.simple_arp_packet(
-        pktlen=60,
-        eth_dst='ff:ff:ff:ff:ff:ff',
-        eth_src=ptf_info['mac'],
-        vlan_pcp=0,
-        arp_op=1,
-        ip_snd=ptf_info['ip'],
-        ip_tgt=str(dut_info['ipv4']),
-        hw_snd=ptf_info['mac'],
-        hw_tgt='ff:ff:ff:ff:ff:ff'
-    )
+        tgt_addr = str(dut_info['ipv6'])
+        multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
+        multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
 
-    # Expected ARP reply packet from DUT
-    arp_reply = testutils.simple_arp_packet(
-        eth_dst=ptf_info['mac'],
-        eth_src=dut_info['mac'],
-        arp_op=2,
-        ip_snd=str(dut_info['ipv4']),
-        ip_tgt=ptf_info['ip'],
-        hw_snd=dut_info['mac'],
-        hw_tgt=ptf_info['mac']
-    )
+        # Build EUI-64 link-local address from PTF MAC
+        mac_parts = ptf_info['mac'].split(':')
+        mac_parts[0] = "{:02x}".format(int(mac_parts[0], 16) ^ 0x02)
+        eui64 = "{}{}:{}ff:fe{}:{}{}".format(
+            mac_parts[0], mac_parts[1], mac_parts[2],
+            mac_parts[3], mac_parts[4], mac_parts[5]
+        )
+        src_ipv6 = "fe80::{}".format(eui64)
 
-    logger.info("Sending ARP request for target {} from PTF interface {}".format(
-        dut_info['ipv4'], ptf_info['index']))
+        ns_pkt = Ether(src=ptf_info['mac'], dst=multicast_tgt_mac)
+        ns_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr),
+                       src=src_ipv6)
+        ns_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
+        ns_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_info['mac'])
 
-    # Send ARP request and verify ARP reply
-    testutils.send_packet(ptfadapter, ptf_info['index'], arp_req)
-    testutils.verify_packet(ptfadapter, arp_reply, ptf_info['index'], timeout=PTF_TIMEOUT)
+        logger.info("Sending NDP NS for target {} from PTF interface {}".format(
+            tgt_addr, ptf_info['index']))
+        testutils.send_packet(ptfadapter, ptf_info['index'], ns_pkt)
 
-    # Confirm MAC is learned on DUT FDB
-    pt_assert(
-        wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
-        "FDB did not learn PTF MAC after ARP request"
-    )
+        # Verify DUT sends Neighbor Advertisement back (indicates it processed our NS)
+        # and learns PTF MAC in FDB
+        pt_assert(
+            wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
+            "FDB did not learn PTF MAC after NDP Neighbor Solicitation"
+        )
+    else:
+        # IPv4: send ARP request
+        logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
+
+        arp_req = testutils.simple_arp_packet(
+            pktlen=60,
+            eth_dst='ff:ff:ff:ff:ff:ff',
+            eth_src=ptf_info['mac'],
+            vlan_pcp=0,
+            arp_op=1,
+            ip_snd=ptf_info['ip'],
+            ip_tgt=str(dut_info['ipv4']),
+            hw_snd=ptf_info['mac'],
+            hw_tgt='ff:ff:ff:ff:ff:ff'
+        )
+
+        arp_reply = testutils.simple_arp_packet(
+            eth_dst=ptf_info['mac'],
+            eth_src=dut_info['mac'],
+            arp_op=2,
+            ip_snd=str(dut_info['ipv4']),
+            ip_tgt=ptf_info['ip'],
+            hw_snd=dut_info['mac'],
+            hw_tgt=ptf_info['mac']
+        )
+
+        logger.info("Sending ARP request for target {} from PTF interface {}".format(
+            dut_info['ipv4'], ptf_info['index']))
+
+        testutils.send_packet(ptfadapter, ptf_info['index'], arp_req)
+        testutils.verify_packet(ptfadapter, arp_reply, ptf_info['index'], timeout=PTF_TIMEOUT)
+
+        pt_assert(
+            wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
+            "FDB did not learn PTF MAC after ARP request"
+        )
 
 
 def test_dut_arping_learns_mac(

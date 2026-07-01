@@ -121,13 +121,13 @@ Each gate is a session-scoped pytest fixture defined in [`tests/transceiver/conf
 | System (`system.json`)                  | ✅                            | ✅                                              | ✅ |
 | Physical OIR (`physical_oir.json`)      | ✅                            | ✅                                              | ✅ |
 | Remote Reseat (`remote_reseat.json`)    | ✅                            | ✅                                              | ✅ |
-| CDB FW Upgrade (`cdb_fw_upgrade.json`)  | ✅                            | - own reportable test                           | ✅ |
+| CDB Firmware Upgrade (`cdb_firmware_upgrade.json`) | ✅                  | - own reportable test                           | ✅ |
 | DOM (`dom.json`)                        | ✅                            | ✅                                              | ✅ |
 | VDM (`vdm.json`)                        | ✅                            | ✅                                              | ✅ |
 | PM (`pm.json`)                          | ✅                            | ✅                                              | ✅ |
 | Port Config (`port_config.json`)        | - CONFIG_DB only              | - CONFIG_DB only                                | - CONFIG_DB only |
 
-A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB FW Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB FW Upgrade test failure, not a session-wide skip).
+A "-" entry means the category intentionally does not consume that gate; the trailing note explains why. EEPROM and CDB Firmware Upgrade skip the gates whose semantics they own as reportable tests (so a gold-FW mismatch surfaces as a CDB Firmware Upgrade test failure, not a session-wide skip).
 
 #### Common Per-Test Health Checks
 
@@ -343,18 +343,9 @@ Example of `normalization_mappings.json`:
 
 **Configuration Examples:**
 
-- `AOC-200-QSFPDD-2x100G_200G_SIDE-0xF-0xF` - Active Optical Cable, 200G speed, QSFP-DD form factor, 200G side of 2x100G deployment, 4 media lanes (0-3), 4 host lanes (0-3)
-- `AOC-100-QSFPDD-2x100G_100G_SIDE-0xF-0xF` - Active Optical Cable, 100G speed, QSFP-DD form factor, 100G side of 2x100G deployment, 4 media lanes (0-3), 4 host lanes (0-3)
-- `LR-1-SFP-1G_STRAIGHT-0x01-0x01` - LR specification, 1G total, SFP form factor, straight deployment, 1 media lane, 1 host lane
-- `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` - Direct Attach Cable, 400G total, OSFP form factor, straight deployment, 4 media lanes (0-3), 4 host lanes (0-3)
-- `DR-800-OSFP-4x200G_800G_SIDE-0xFF-0xFF` - DR specification, 800G speed, OSFP form factor, 800G side of 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
-- `DR-200-OSFP-4x200G_200G_SIDE-0xFF-0xFF` - DR specification, 200G speed, OSFP form factor, 200G side of 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
-
-**Purpose**: This standardized format enables:
-
-- Automatic parsing of transceiver characteristics for test frameworks
-- Deployment pattern grouping for shared attribute configurations
-- Clear identification of lane usage and deployment topology
+- `AOC-200-QSFPDD-2x100G_200G_SIDE-0xF-0xF` — Active Optical Cable, 200G speed, QSFP-DD, 200G side of 2x100G deployment, 4 media / 4 host lanes
+- `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` — Direct Attach Cable, 400G straight, OSFP, 4 media / 4 host lanes
+- `LR-1-SFP-1G_STRAIGHT-0x01-0x01` — LR optic, 1G straight, SFP, 1 media / 1 host lane
 
 #### Port Specification Formats
 
@@ -597,74 +588,131 @@ Example of a dictionary created by parsing the above file:
 
 > 🔄 **Process Flow**: See the [Data Flow Architecture Diagram](diagrams/data_flow.md) for a comprehensive view of how these files are processed and merged.
 
-Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver.
-**Note:** If a test category attribute file is absent, the corresponding test case will be skipped. This allows for selective test execution and gradual framework adoption.
+Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver. Missing category directories are silently skipped (see the File Organization rules below), enabling selective test execution.
 
 #### File Organization
 
-**Recommended JSON files:**
+Each test category owns a directory under `ansible/files/transceiver/inventory/attributes/`. Within a category directory, attributes are sharded by ownership level so vendor onboarding and per-part-number tuning happen in isolated files. Each non-category shard is **scope-rooted**: its JSON body contains only the attributes for its scope (vendor / platform / HWSKU / PN); the scope itself is encoded in the directory path. The loader merges all shards in a category into one in-memory tree before priority resolution.
 
-- `eeprom.json` (EEPROM tests)
-- `system.json` (System tests)
-- `physical_oir.json` (Physical OIR)
-- `remote_reseat.json` (remote reseat)
-- `cdb_fw_upgrade.json` (CDB FW Upgrade tests)
-- `dom.json` (DOM)
-- `vdm.json` (VDM)
-- `pm.json` (PM)
-- `port_config.json` (Port configuration tests)
+```
+attributes/
+├── eeprom/
+│   ├── eeprom.json                                    # category-level shard (mandatory, defaults, dut, deployment_configurations)
+│   ├── platforms/
+│   │   └── x86_64-acme_as7726_32x-r0/                 # one directory per platform
+│   │       ├── eeprom.json                            # platform body (optional)
+│   │       └── hwskus/
+│   │           ├── ACME-AS7726-32X.json               # HWSKU body (optional)
+│   │           └── ACME-AS7726-32X-D48C8.json
+│   └── transceivers/
+│       └── vendors/
+│           ├── ACME_CORP/
+│           │   ├── eeprom.json                            # vendor `defaults` body
+│           │   └── part_numbers/
+│           │       ├── QSFP-2X100G-AOC-GENERIC_2_ENDM/
+│           │       │   └── eeprom.json                    # per-PN body (attrs + optional firmware_overrides / platform_hwsku_overrides)
+│           │       └── QSFPDD-400G-DR4/
+│           │           └── eeprom.json
+│           └── NORTHSTAR_OPTICS/
+│               ├── eeprom.json
+│               └── part_numbers/
+│                   └── QSFP-200G-LR4/
+│                       └── eeprom.json
+├── system/
+│   └── ...                                            # same shape as eeprom/
+├── physical_oir/
+├── remote_reseat/
+├── cdb_firmware_upgrade/
+├── dom/
+├── vdm/
+├── pm/
+└── port_config/
+```
 
-**Location:** `ansible/files/transceiver/inventory/attributes/` directory
+**Shard contracts (loader-enforced):**
+
+| Shard          | Path                                                                                | Body shape (JSON object) and merged-tree slot                                                                                                                       |
+|----------------|-------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Category-level | `<category>/<category>.json`                                                        | Allowed top-level keys: `mandatory`, `defaults`, `dut`, `transceivers` (only `transceivers.deployment_configurations`)                                              |
+| Platform-level | `<category>/platforms/<PLATFORM>/<category>.json`                                    | Platform attribute body → grafted at `platforms.<PLATFORM>`                                                                                                         |
+| HWSKU-level    | `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`                                 | HWSKU attribute body → grafted at `hwskus.<PLATFORM>.<HWSKU>` (scoped by parent `<PLATFORM>` so the same `<HWSKU>` filename can appear under multiple platform directories without collision)                                    |
+| Vendor-level   | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/<category>.json`          | Vendor `defaults` body → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`                                                                        |
+| Per-PN         | `<category>/transceivers/vendors/<NORMALIZED_VENDOR_NAME>/part_numbers/<NORMALIZED_VENDOR_PN>/<category>.json` | PN body (attribute leaves + optional `firmware_overrides` / `platform_hwsku_overrides`) → grafted at `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_VENDOR_PN>` |
+
+- Vendor and PN directory names under `<category>/transceivers/vendors/<V>/part_numbers/<PN>/` **must** appear as values of the corresponding `vendor_names` / `part_numbers` map in `normalization_mappings.json`. This requirement applies only when the vendor/PN owns a shard directory; vendors and PNs that only appear in `dut_info/<host>.json` without any category-shard overrides do **not** need an entry (raw name is used as-is per the [Field Handling Rules](#field-handling-rules)). Platform and HWSKU directory names are taken from the inventory and are not normalized.
+- Only the category-level file is required; every other shard appears only when its scope contributes attributes. A category with no directory under `attributes/` is skipped entirely.
+- Because each non-category shard owns a disjoint subtree of the merged tree (`platforms.<P>`, `hwskus.<P>.<H>`, `transceivers.vendors.<V>.defaults`, `transceivers.vendors.<V>.part_numbers.<PN>`), two shards can never write the same key path — the directory IS the schema. See [Loader Validation](#loader-validation) for the remaining checks.
+
+**Design notes:**
+
+- **DUT-scope is intentionally not sharded.** DUT-specific overrides live as a `dut.<DUT_NAME>` map in the category-level shard. They are typically rare, transient lab workarounds (RMA, debug image, flaky cable) without a long-term per-DUT owner, so a directory-per-entry is not justified. Revisit if a category's `dut` block grows past a small handful of entries.
+- **`transceivers.deployment_configurations` lives in the category-level shard.** Although nested under the `transceivers` key, it is a single framework-owned, category-wide map with the same ownership profile as `mandatory`/`defaults`/`dut`. The `<category>/transceivers/vendors/` subtree is reserved exclusively for vendor- and PN-owned content.
+
+**Categories currently in scope:**
+
+- `eeprom/` (EEPROM tests)
+- `system/` (System tests)
+- `physical_oir/` (Physical OIR)
+- `remote_reseat/` (Remote reseat)
+- `cdb_firmware_upgrade/` (CDB firmware upgrade tests - see also [Transceiver Firmware Info File](#transceiver-firmware-info-file))
+- `dom/` (DOM)
+- `vdm/` (VDM)
+- `pm/` (PM)
+- `port_config/` (Port configuration tests)
+
+#### Loader Validation
+
+The loader enforces the shard contract at framework initialization and fails fast (before any test runs) on any violation. Because each non-category shard is scope-rooted and owns a disjoint subtree of the merged tree, whole classes of errors (path/payload mismatch, duplicate leaves, wrapper typos) are impossible by construction. The remaining checks all surface as immediate startup errors naming the offending file:
+
+1. **Category top-key whitelist.** The category-level shard (`<category>/<category>.json`) may only define `mandatory`, `defaults`, `dut`, and `transceivers.deployment_configurations`. Other top-level keys — e.g. `platforms`, or anything under `transceivers` other than `deployment_configurations` — belong in a scoped shard and are rejected here.
+2. **Body-shape sanity.** Every shard body must be a JSON object. For a per-PN shard, the reserved sub-slots `firmware_overrides` and `platform_hwsku_overrides`, when present, must be dict-of-dict (each variant key maps to an object of attribute overrides).
+3. **Normalization check.** Any vendor or PN that owns a shard directory under `<category>/transceivers/vendors/<V>/part_numbers/<PN>/` must appear as a value in `normalization_mappings.json` (`vendor_names` and `part_numbers` respectively); the directory name is the normalized form, so the loader needs the mapping to resolve EEPROM-reported raw names to that directory. Vendors and PNs that only appear in `dut_info/<host>.json` without category-shard content are exempt (raw name is used as-is).
+4. **Mandatory-field resolution.** After merge and priority resolution, the loader walks every port in `port_attributes_dict` and confirms each `mandatory` field resolves at some level of the hierarchy. Any unresolved mandatory field is reported with the port and field name.
+
+Because every check is fail-fast at init, a misplaced or malformed shard surfaces as a clear startup error instead of a confusing mid-run test failure.
 
 #### JSON Schema Structure
 
-All files follow a consistent schema with these main sections:
+The category-level shard carries `mandatory`, `defaults`, `dut`, and `transceivers.deployment_configurations`. The platform-, HWSKU-, vendor-, and per-PN shards each carry **only their scope's body** — no wrapping object, because the scope is encoded in the directory path and the loader grafts the body into the right slot.
+
+**Category-level file** — `<category>/<category>.json`:
 
 ```json
 {
-  "mandatory": ["field_1", "field_2", "field_3"],
-  "defaults": {
-    "field_4": "value_4",
-    "field_5": "value_5"
-  },
-  "platform": {
-    "PLATFORM_NAME": {
-      "field_4": "platform_override_value"
-    }
-  },
-  "hwsku": {
-    "HWSKU_NAME": {
-      "field_5": "hwsku_override_value"
-    }
-  },
-  "dut": {
-    "DUT_NAME": {
-      "field_1": "dut_specific_value_1"
-    }
-  },
+  "mandatory": ["field_1", "field_2"],
+  "defaults": { "field_3": "value" },
+  "dut":      { "DUT_NAME":      { "field_3": "dut_value" } },
   "transceivers": {
     "deployment_configurations": {
-      "DEPLOYMENT_NAME": {
-        "field_2": "deployment_specific_value_2"
-      }
-    },
-    "vendors": {
-      "NORMALIZED_VENDOR_NAME": {
-        "defaults": {
-          "field_6": "vendor_default_value"
-        },
-        "part_numbers": {
-          "NORMALIZED_VENDOR_PN": {
-            "field_1": "specific_value_1",
-            "platform_hwsku_overrides": {
-              "PLATFORM_NAME+HWSKU_NAME": {
-                "field_1": "highest_priority_value"
-              }
-            }
-          }
-        }
-      }
+      "DEPLOYMENT_NAME": { "field_2": "deployment_value" }
     }
+  }
+}
+```
+
+**Scope-rooted shards** — each file is just the body for its scope:
+
+```json
+// platforms/<PLATFORM>/<category>.json  → grafted at platforms.<PLATFORM>
+{ "field_3": "platform_value" }
+
+// platforms/<PLATFORM>/hwskus/<HWSKU>.json  → grafted at hwskus.<PLATFORM>.<HWSKU>
+{ "field_3": "hwsku_value" }
+
+// transceivers/vendors/<V>/<category>.json  → grafted at transceivers.vendors.<V>.defaults
+{ "field_3": "vendor_value" }
+```
+
+**Per-PN file** — `<category>/transceivers/vendors/<V>/part_numbers/<PN>/<category>.json` (showing the optional `firmware_overrides` and `platform_hwsku_overrides` slots), grafted at `transceivers.vendors.<V>.part_numbers.<PN>`:
+
+```json
+{
+  "field_1": "pn_value",
+  "firmware_overrides": {
+    "1.2.3": { "field_1": "fw_version_specific_value" }
+  },
+  "platform_hwsku_overrides": {
+    "PLATFORM_NAME+HWSKU_NAME": { "field_1": "highest_priority_value" }
   }
 }
 ```
@@ -673,33 +721,26 @@ All files follow a consistent schema with these main sections:
 
 **Main Sections:**
 
-- `mandatory`: List of mandatory fields that must be present in the attributes at some level of the hierarchy (cannot be in `defaults`)
-- `defaults`: Default values for the transceiver or test attributes
-- `platform`: Platform-specific overrides (optional)
-- `hwsku`: HWSKU-specific overrides (optional)
-- `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
-- `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure (mandatory)
-  - `deployment_configurations`: Deployment-based attribute definitions using the mandatory naming format (e.g., AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF, AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF, DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F) (optional)
-  - `vendors`: Vendor-specific configurations organized by normalized vendor name (optional)
-    - `<NORMALIZED_VENDOR_NAME>`: Individual vendor section containing defaults and part number configurations
-      - `defaults`: Vendor-level default values (optional)
-      - `part_numbers`: Part number-specific configurations organized by normalized part number (optional)
-        - `<NORMALIZED_VENDOR_PN>`: Individual part number section with specific attributes and overrides
-          - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations (optional)
+- `mandatory`: List of mandatory fields that must be present in the attributes at some level of the hierarchy (cannot be in `defaults`). Lives only in the category-level shard. Restricted to attributes that originate from category shards; fields sourced from `dut_info/<dut_hostname>.json` (e.g. `vendor_name`, `normalized_vendor_name`, `vendor_pn`, `transceiver_configuration`) belong to `BASE_ATTRIBUTES` and must not be listed here.
+- `defaults`: Default values for the transceiver or test attributes. Lives only in the category-level shard at the top level; vendor and PN scopes have their own `defaults` slots (see below).
+- `platforms`: Platform-specific overrides (optional). Platform-level shard only.
+- `hwskus`: HWSKU-specific overrides (optional). HWSKU-level shard only, scoped by the parent platform directory.
+- `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory-based hostname of the DUT. Category-level shard only (not sharded into a `dut/` folder by design — see file-organization notes).
+- `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure.
+  - `deployment_configurations`: Deployment-based attribute definitions, keyed by the `deployment` component parsed from `transceiver_configuration` (e.g., `2x100G_200G_SIDE`, `400G_STRAIGHT`). Defines common attributes once per deployment type instead of repeating them across vendors. Category-level shard only (optional).
+  - `vendors.<NORMALIZED_VENDOR_NAME>`: Vendor-specific configurations split across the vendor-level and per-PN shards.
+    - `defaults`: Vendor-level default values — vendor-level shard only (optional).
+    - `part_numbers.<NORMALIZED_VENDOR_PN>`: Part number-specific configurations — per-PN shard only (one directory per PN, containing one `<category>.json` file).
+      - `firmware_overrides.<FW_VERSION>`: Per-firmware-version overrides for this PN (optional, reserved; see Priority hierarchy below).
+      - `platform_hwsku_overrides.<PLATFORM>+<HWSKU>`: Overrides for specific platform+HWSKU combinations (optional).
 
-> Note: Each sub-section can contain its own `defaults` fields.
+> Shard paths and slot ownership for each scope are defined once in the [Shard contracts](#file-organization) table above; shard- and slot-isolation rules are enforced by the loader (see [Loader Validation](#loader-validation)).
 
 **Key Design Rules:**
 
-- **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
-- **Validation First**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
-- **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
-- **Deployment Grouping**: Similar deployment patterns share common attributes via `deployment_configurations`
-- **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
-
-#### Deployment Configurations
-
-The `deployment_configurations` feature eliminates attribute duplication by defining common attributes once per deployment type instead of repeating across vendors. The framework automatically extracts the DEPLOYMENT component from the `BASE_ATTRIBUTES` field in `port_attributes_dict` to determine which deployment configuration to apply.
+- **No Overlap (mandatory vs defaults)**: A field must never appear in both `mandatory` and `defaults`. A field cannot simultaneously require explicit specification and have a fallback value.
+- **Category Isolation**: Each category directory only contains attributes relevant to its specific test domain.
+- **Optional Sections**: Any optional section listed above may be omitted; the loader silently ignores missing slots.
 
 #### Priority-Based Attribute Resolution
 
@@ -707,22 +748,27 @@ Attributes are resolved using this hierarchy (highest to lowest priority):
 
 1. **DUT-specific**: `dut.<DUT_NAME>`
 2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
-3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
-4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
-5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `dut_info/<dut_hostname>.json`)
-6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
-7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
-8. **Global defaults**: `defaults`
+3. **Normalized Vendor Name + PN + Firmware Version**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.firmware_overrides.<FW_VERSION>` (resolved against the currently active firmware version of the module under test)
+4. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
+5. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
+6. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved against the `deployment` field in `BASE_ATTRIBUTES`, which the framework parses from `transceiver_configuration` in `dut_info/<dut_hostname>.json`)
+7. **HWSKU-specific**: `hwskus.<PLATFORM>.<HWSKU>` (from `<category>/platforms/<PLATFORM>/hwskus/<HWSKU>.json`; the merged tree is keyed by both `<PLATFORM>` and `<HWSKU>` so the same `<HWSKU>` filename under different platform directories never collides)
+8. **Platform-specific**: `platforms.<PLATFORM>` (from `<category>/platforms/<PLATFORM>/<category>.json`)
+9. **Global defaults**: `defaults`
 
 > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
+>
+> **Firmware overrides (reserved slot):** `firmware_overrides` lets a PN override specific attributes only when a particular firmware version is active (e.g. a workaround needed until a firmware bug is fixed in a later release). It is **not** required and most PN files will omit it; the loader silently ignores missing `firmware_overrides` sections. The slot is reserved now so contributors don't invent ad-hoc keys for firmware-conditional overrides.
 
-#### Example Category File
+#### Example Category Shards
 
-Example `eeprom.json` file:
+A complete `eeprom` category illustrated across the shard types:
+
+**`attributes/eeprom/eeprom.json`** (category-level):
 
 ```json
 {
-  "mandatory": ["vendor_name", "normalized_vendor_name"],
+  "mandatory": ["sff8024_identifier"],
   "defaults": {
     "vdm_supported": false,
     "cdb_backgroundmode_supported": false,
@@ -730,24 +776,47 @@ Example `eeprom.json` file:
   },
   "transceivers": {
     "deployment_configurations": {
-      "2x100G_200G_SIDE": {
-        "vdm_supported": true
-      }
-    },
-    "vendors": {
-      "NORMALIZED_VENDOR_A": {
-        "defaults": {"vdm_supported": false},
-        "part_numbers": {
-          "NORMALIZED_VENDOR_PN_ABC": {
-            "vendor_name": "Vendor A",
-            "platform_hwsku_overrides": {
-              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
-                "eeprom_dump_timeout_sec": 5
-              }
-            }
-          }
-        }
-      }
+      "2x100G_200G_SIDE": { "vdm_supported": true }
+    }
+  }
+}
+```
+
+**`attributes/eeprom/platforms/x86_64-acme_as7726_32x-r0/eeprom.json`** (platform-level, optional):
+
+```json
+{
+  "sfputil_eeprom_dump_sec": 4
+}
+```
+
+**`attributes/eeprom/platforms/x86_64-acme_as7726_32x-r0/hwskus/ACME-AS7726-32X.json`** (HWSKU-level, optional):
+
+```json
+{
+  "sfputil_eeprom_dump_sec": 5
+}
+```
+
+**`attributes/eeprom/transceivers/vendors/ACME_CORP/eeprom.json`** (vendor-level):
+
+```json
+{
+  "defaults": { "vdm_supported": false }
+}
+```
+
+**`attributes/eeprom/transceivers/vendors/ACME_CORP/part_numbers/QSFP-2X100G-AOC-GENERIC_2_ENDM/eeprom.json`** (per-PN):
+
+```json
+{
+  "sff8024_identifier": "0x18",
+  "firmware_overrides": {
+    "1.2.3": { "eeprom_dump_timeout_sec": 7 }
+  },
+  "platform_hwsku_overrides": {
+    "x86_64-acme_as7726_32x-r0+ACME-AS7726-32X": {
+      "eeprom_dump_timeout_sec": 5
     }
   }
 }
@@ -755,13 +824,13 @@ Example `eeprom.json` file:
 
 #### Framework Implementation
 
-The test framework loads and merges attributes from all relevant category files for each transceiver, using hierarchical override rules. This enables category-specific test logic to access only needed attributes while supporting platform, HWSKU, and vendor overrides.
+The test framework loads and merges attributes from all relevant category shards (category-level, vendor-level, and per-PN) for each transceiver, using hierarchical override rules. This enables category-specific test logic to access only needed attributes while supporting platform, HWSKU, vendor, PN, firmware-version, and DUT overrides.
 
 **Core Components:**
 
 1. **AttributeManager**: Central class for loading, merging, and accessing transceiver attributes
 2. **Category File Loader**: Loads JSON files for each test category
-3. **Priority Resolver**: Implements the 8-level priority hierarchy
+3. **Priority Resolver**: Implements the 9-level priority hierarchy
 4. **Validator**: Ensures mandatory fields are present
 
 **Data Structure:**
@@ -812,7 +881,7 @@ The framework builds a `port_attributes_dict` keyed by logical port name, contai
 The framework builds `port_attributes_dict` using this systematic process:
 
 1. **Initialize** port dictionary from `dut_info/<dut_hostname>.json` base attributes
-2. **For each category file**, perform priority-based merging using the 8-level hierarchy
+2. **For each category file**, perform priority-based merging using the 9-level hierarchy
 3. **Validate** mandatory fields for the current category
 4. **Store** merged attributes under category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
 5. **Expose** the complete dictionary via the session-scoped fixture `port_attributes_dict` (an autouse session fixture logs its contents for traceability).
@@ -826,8 +895,7 @@ The framework builds `port_attributes_dict` using this systematic process:
 
 #### Usage
 
-Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`
-The `port_attributes_dict` is provided directly as a session-scoped fixture and is also initialized early for logging.
+Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`. The session-scoped, autouse `port_attributes_dict` fixture is built once per session and its contents are logged at startup for traceability.
 
 **Example (inside a test):**
 

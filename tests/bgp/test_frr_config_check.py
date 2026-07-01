@@ -454,7 +454,7 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
     logger.info("Completed {} iterations of config reload and verification".format(num_iterations))
 
 
-@pytest.mark.topology('t0', 't1', 't2')
+@pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh')
 def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       get_function_completeness_level):
     """Stress test FRR config file loading with large configuration.

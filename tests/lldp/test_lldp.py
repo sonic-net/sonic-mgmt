@@ -11,7 +11,7 @@ from tests.common.helpers.dut_utils import is_virtual_platform
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
