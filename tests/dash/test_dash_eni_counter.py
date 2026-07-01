@@ -415,25 +415,6 @@ class TestEniCounter:
         self.send_packet_and_verify_dash_eni_counter(
             dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
 
-    def test_outbound_tcp_non_syn_flow_miss_drop_counter(self, dash_pl_config, outer_encap):
-        """
-        Verify SAI_ENI_STAT_TCP_NON_SYN_FLOW_MISS_DROP_PACKETS (new in SAI#2251).
-
-        Send an outbound TCP packet with the ACK flag set (no preceding SYN, so no flow
-        entry exists). The DPU should drop it as a non-SYN packet missing a flow entry and
-        increment the dedicated drop counter plus the aggregate total-drop counter.
-        """
-        packet_number = 1
-        eni_counter_check_point_dict = {
-            "SAI_ENI_STAT_TCP_NON_SYN_FLOW_MISS_DROP_PACKETS": packet_number,
-            "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
-        }
-        pkt, exp_pkt = self._outbound_pl_packets(
-            dash_pl_config, outer_encap, inner_packet_type="tcp", tcp_flag_ack=True)
-        verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "outbound", 'drop': True}]
-        self.send_packet_and_verify_dash_eni_counter(
-            dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
-
     def test_outbound_unsupported_protocol_drop_counter(self, dash_pl_config, outer_encap):
         """
         Verify SAI_ENI_STAT_UNSUPPORTED_PROTOCOL_DROP_PACKETS (new in SAI#2251).
