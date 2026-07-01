@@ -457,6 +457,35 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
 
 
+def reap_sai_sdk_dump_files(duthost, age_sec=None):
+    """
+        /var/log is a smaller partition, which can get filled by
+        SAI SDK dump files. This function cleans up dump files
+        older than age_sec (seconds).
+
+        Args:
+            duthost: Device Under Test (DUT)
+            age_sec: If specified, only remove files older than this many seconds; else remove all.
+    """
+    dump_folder = "/var/log/sdk_dbg"
+
+    res = duthost.shell("test -d '{}'".format(dump_folder), module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        return
+
+    cmd = "find '{}' -mindepth 1 -type f".format(dump_folder)
+
+    if isinstance(age_sec, int):
+        if age_sec < 0:
+            raise ValueError("age_sec must be non-negative")
+        cmd += " -mmin +{}".format(age_sec // 60)
+    elif age_sec is not None:
+        raise TypeError("age_sec must be an int or None")
+
+    logger.info("Removing SAI SDK dump files from %s on %s", dump_folder, duthost.hostname)
+    duthost.shell(cmd + " -exec rm -f -- {} +")
+
+
 def is_mellanox_devices(hwsku):
     """
     A helper function to check if a given sku is Mellanox device

@@ -221,6 +221,12 @@ class AnsibleLogAnalyzer:
         last_check_pos = 0
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
+        rate_limit_indications = [  # marker may be dropped due to rate-limiting
+            "due to rate-limiting",  # rsyslog
+            "Suppressed",  # syslog-ng
+        ]
+        rate_limit_warned = [False, False]  # warn only once for each file
+
         while wait_time <= timeout:
             # look for marker in syslog file
             if os.path.exists(syslog_file):
@@ -232,6 +238,10 @@ class AnsibleLogAnalyzer:
                     for logs in fp:
                         if marker in logs:
                             return True
+                        elif (not rate_limit_warned[0] and
+                              any(indication in logs for indication in rate_limit_indications)):
+                            print("WARNING: log rate-limiting detected, marker may be dropped")
+                            rate_limit_warned[0] = True
                     # record last search position
                     last_check_pos = fp.tell()
 
@@ -243,16 +253,21 @@ class AnsibleLogAnalyzer:
                     for logs in pfp:
                         if marker in logs:
                             return True
+                        elif (not rate_limit_warned[1] and
+                              any(indication in logs for indication in rate_limit_indications)):
+                            print("WARNING: log rate-limiting detected, marker may be dropped")
+                            rate_limit_warned[1] = True
             time.sleep(polling_interval)
             wait_time += polling_interval
 
         return False
 
-    def place_marker(self, log_file_list, marker, wait_for_marker=False):
+    def place_marker(self, log_file_list, marker, wait_for_marker=False, wait_for_timeout=None):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
         @param marker:         Marker to be placed into log files.
+        @param wait_for_timeout: Maximum seconds to wait for marker in /var/log/syslog.
         '''
 
         for log_file in log_file_list:
@@ -260,7 +275,11 @@ class AnsibleLogAnalyzer:
 
         self.place_marker_to_syslog(marker)
         if wait_for_marker:
-            if self.wait_for_marker(marker) is False:
+            if wait_for_timeout is None:
+                marker_found = self.wait_for_marker(marker)
+            else:
+                marker_found = self.wait_for_marker(marker, timeout=wait_for_timeout)
+            if marker_found is False:
                 raise RuntimeError(
                     "cannot find marker {} in /var/log/syslog".format(marker))
 
@@ -829,7 +848,8 @@ def main(argv):
 
     result = {}
     if action == "init":
-        analyzer.place_marker(log_file_list, analyzer.create_start_marker())
+        analyzer.place_marker(
+            log_file_list, analyzer.create_start_marker(), wait_for_marker=True, wait_for_timeout=30)
         return 0
     elif action == "analyze":
         match_file_list = match_files_in.split(tokenizer)
