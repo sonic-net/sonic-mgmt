@@ -671,7 +671,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         # "Unable to connect to redis - Connection refused".  Wait for both the config
         # files AND redis connectivity before running config_reload, which also waits
         # for BGP sessions to re-establish.
-        db_config_timeout = 120
+        db_config_timeout = 240
         if duthost.facts.get("modular_chassis"):
             db_config_timeout = max(db_config_timeout, 600)
 
