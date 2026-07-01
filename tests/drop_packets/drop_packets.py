@@ -457,18 +457,12 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
         try:
             loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
             with loganalyzer as _:
-                if hasattr(fanout_neighbor, "startup"):
-                    fanout_neighbor.startup(fanout_intf)
-                else:
-                    fanout_neighbor.no_shutdown(fanout_intf)
+                fanout_neighbor.no_shutdown(fanout_intf)
                 time.sleep(PORT_STATE_UPDATE_INTERNAL)
         except Exception:
             logger.exception("rif_port_down finalizer: restore with loganalyzer failed, retrying best-effort")
             try:
-                if hasattr(fanout_neighbor, "startup"):
-                    fanout_neighbor.startup(fanout_intf)
-                else:
-                    fanout_neighbor.no_shutdown(fanout_intf)
+                fanout_neighbor.no_shutdown(fanout_intf)
             except Exception:
                 logger.exception(
                     "rif_port_down finalizer: best-effort restore failed fanout=%s intf=%s",
