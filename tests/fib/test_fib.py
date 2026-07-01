@@ -655,6 +655,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                               ptfhost, ipver, tbinfo, mux_server_url, ignore_ttl, single_fib_for_duts,  # noqa: F811
                               duts_running_config_facts, duts_minigraph_facts, mux_status_from_nic_simulator,
                               request):                  # noqa: F811
+    # Only run this test on T1 or T0 (including dualtor) topologies
+    pytest_require(tbinfo['topo']['type'] in ['t1', 't0'], "The test case runs on T1 or T0 topology")
     hash_keys = ['inner_length']
     fib_files = fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts,
                                             tbinfo, request)
@@ -773,6 +775,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     # For NVGRE, default hash key is inner 5-tuple.
     # Due to current limitation, NVGRE hash keys are updated for different vendors.
     # Hash-key will be updated once we get the full support.
+    pytest_require('nokia' not in duthost.facts.get('platform', ''),
+                   "Nokia platform NVGRE inner frame hashing is not fully supported")
     hash_keys = ['src-ip', 'dst-ip', 'src-port', 'dst-port', 'src-mac', 'dst-mac']
     if duthost.facts['asic_type'] in ["cisco-8000"]:
         logging.info("Cisco: hash-key is src-mac, dst-mac")
