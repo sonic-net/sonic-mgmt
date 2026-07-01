@@ -471,11 +471,11 @@ def reap_dump_files(duthost, dump_folder, age_sec=None):
     if not dump_folder or dump_folder == "/" or not dump_folder.startswith("/"):
         raise ValueError("dump_folder must be an absolute non-root path")
 
-    res = duthost.shell("test -d '{}'".format(dump_folder), module_ignore_errors=True)
+    res = duthost.shell("sudo test -d '{}'".format(dump_folder), module_ignore_errors=True)
     if res.get("rc", 1) != 0:
         return
 
-    cmd = "find '{}' -mindepth 1 -type f".format(dump_folder)
+    cmd = "sudo find '{}' -mindepth 1 -type f".format(dump_folder)
 
     if isinstance(age_sec, int):
         if age_sec < 0:
