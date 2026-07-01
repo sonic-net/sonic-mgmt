@@ -236,10 +236,10 @@
   - debug: msg="{{ duts_mgmt_port }}"
 
   - include_tasks: add_ceos_list.yml
-    when: vm_type is defined and vm_type == "ceos"
+    when: vm_type is defined and vm_type == "ceos" and 'bmc' not in topo
 
   - include_tasks: add_csonic_list.yml
-    when: vm_type is defined and (vm_type == "csonic")
+    when: vm_type is defined and (vm_type == "csonic") and 'bmc' not in topo
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -272,7 +272,12 @@
       topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: not enable_async and "bmc" not in topo
+    # For bmc portless topo: the PTF container only needs its mgmt interface. On servers that use
+    # the Docker network mode (ptf_use_docker_network) the PTF gets mgmt directly from the docker
+    # network, so bind is skipped. On servers with a Linux mgmt bridge (default), bind must run so
+    # add_mgmt_port_to_docker attaches a veth from the bridge into the PTF netns (vms_exists is
+    # False here, so all VM/port binding inside bind is skipped — only mgmt setup happens).
+    when: not enable_async and ("bmc" not in topo or not (ptf_use_docker_network | default(false)))
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_targets|flatten(levels=1) }}"
