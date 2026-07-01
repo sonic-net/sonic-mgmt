@@ -100,7 +100,12 @@ def test_mock_liquid_leak_event(
         expected_log_messages = []
         loganalyzer.expect_regex = []
         for index in mocker.test_leakage_index_list:
-            expected_log_messages.append(f".*Liquid cooling leakage sensor leakage{index} recovered from leaking.*")
+            # thermalctld emits one of two recovery messages depending on whether
+            # the sensor reached CRITICAL severity before recovery:
+            #   - 'recovered from leaking'        (MINOR-only path; syslog)
+            #   - 'recovered from CRITICAL leak'  (was CRITICAL; event_logger -> syslog + event.log)
+            expected_log_messages.append(
+                f".*Liquid cooling leakage sensor leakage{index} recovered from (CRITICAL leak|leaking).*")
         loganalyzer.expect_regex.extend(expected_log_messages)
 
         loganalyzer.analyze(marker)

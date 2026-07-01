@@ -41,6 +41,75 @@ def extract_pool_name(pool_string):
     return pool_string.strip('[]').split('|')[-1]
 
 
+def parse_pg_range(pg_range):
+    """Expand a BUFFER_PG sub-key into the list of priority-group ids it covers.
+
+    Examples:
+        '3-4' -> [3, 4]
+        '2-4' -> [2, 3, 4]
+        '6'   -> [6]
+
+    Args:
+        pg_range: The PG range string from a BUFFER_PG key (e.g. '3-4' or '6')
+
+    Returns:
+        A list of ints for the priority groups covered by the range, or [] if the key is malformed
+    """
+    try:
+        if '-' in pg_range:
+            low, high = pg_range.split('-')
+            return list(range(int(low), int(high) + 1))
+        return [int(pg_range)]
+    except ValueError:
+        logging.warning("Ignoring malformed BUFFER_PG range '{}'".format(pg_range))
+        return []
+
+
+def get_lossless_priorities(dut_asic, port):
+    """Return the set of lossless priority groups expected for a port.
+
+    The source of truth for which priorities are lossless is PORT_QOS_MAP|<port>:pfc_enable
+    (the PFC-enabled priorities, derived from the minigraph). Every PFC-enabled priority must be
+    lossless, and for lossless PGs the priority id equals the PG id.
+
+    Args:
+        dut_asic: The DUT ASIC instance
+        port: The port name in string
+
+    Returns:
+        A set of ints (the lossless PGs), or None if pfc_enable isn't configured for the port
+    """
+    pfc_enable = dut_asic.run_redis_cmd(
+        argv=['redis-cli', '-n', 4, 'hget', 'PORT_QOS_MAP|{}'.format(port), 'pfc_enable'])
+    if not pfc_enable or not pfc_enable[0]:
+        return None
+    return set(int(p.strip()) for p in pfc_enable[0].split(',') if p.strip() != '')
+
+
+def get_lossless_buffer_pgs(dut_asic, port):
+    """Return the lossless BUFFER_PG entries configured for a port in CONFIG_DB.
+
+    Enumerates BUFFER_PG|<port>|* and keeps the entries whose profile is a lossless profile,
+    instead of assuming a fixed '3-4' range.
+
+    Args:
+        dut_asic: The DUT ASIC instance
+        port: The port name in string
+
+    Returns:
+        A dict mapping the PG range key (e.g. '3-4', '2-4', '6') to the lossless profile name
+        (the extracted profile name, not the raw '[BUFFER_PROFILE|...]' string)
+    """
+    lossless = {}
+    for key in dut_asic.run_redis_cmd(
+            argv=['redis-cli', '-n', 4, '--scan', '--pattern', 'BUFFER_PG|{}|*'.format(port)]):
+        pg_range = key.split('|')[-1]
+        profile = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', key, 'profile'])
+        if profile and profile[0] and 'pg_lossless' in profile[0]:
+            lossless[pg_range] = extract_profile_name(profile[0])
+    return lossless
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_module(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     """Setup module. Called only once when the module is initialized
@@ -118,18 +187,18 @@ def make_dict_from_output_lines(lines):
 
 
 def port_has_buffer_profile(dut_asic, port):
-    """Check if a port has a buffer profile configured for lossless PGs
+    """Check if a port has any lossless buffer profile configured.
+
+    Looks for any lossless BUFFER_PG entry (any PG range), instead of assuming a fixed '3-4' range.
 
     Args:
         dut_asic: The DUT ASIC instance
         port: The port name to check
 
     Returns:
-        bool: True if the port has a buffer profile configured, False otherwise
+        bool: True if the port has a lossless buffer profile configured, False otherwise
     """
-    profile_in_pg = dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'hget', 'BUFFER_PG|{}|3-4'.format(port), 'profile'])
-    return profile_in_pg and profile_in_pg[0] and profile_in_pg[0] != ''
+    return bool(get_lossless_buffer_pgs(dut_asic, port))
 
 
 def validate_buffer_profile_info(actual_profile_info, expected_profile_info, profile_name):
@@ -215,30 +284,44 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         Returns:
             tuple: A tuple consisting of the OID of buffer profile and whether there is any check failed
         """
-        profile_in_pg = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', 'BUFFER_PG|{}|3-4'.format(port),
-                                                     'profile'])
+        # Source of truth: the PFC-enabled priorities (lossless PGs) for this port
+        lossless_priorities = get_lossless_priorities(dut_asic, port)
+        # Actual lossless BUFFER_PG entries in CONFIG_DB: {pg_range: profile_name}
+        actual_lossless = get_lossless_buffer_pgs(dut_asic, port)
+        actual_priorities = set()
+        for pg_range in actual_lossless:
+            actual_priorities.update(parse_pg_range(pg_range))
         buffer_profile_oid = None
-        default_lossless_pgs = ['3', '4']
 
         if expected_profile:
-            if not profile_in_pg:
-                if not _check_condition(False,
-                                        "No BUFFER_PG|{}|3-4 profile configured, expected {}".format(
-                                            port, expected_profile),
-                                        use_assert):
+            # Lossless PGs must match pfc_enable (assumes priority id == PG id, true for standard SONiC).
+            if lossless_priorities is not None:
+                if not _check_condition(
+                        actual_priorities == lossless_priorities,
+                        "Lossless PGs of port {} ({}) don't match PFC-enabled priorities ({})".format(
+                            port, sorted(actual_priorities), sorted(lossless_priorities)), use_assert):
                     return None, False
-
-            expected_profile_name = extract_profile_name(expected_profile)
-            if not _check_condition(profile_in_pg[0] == expected_profile_name,
-                                    "Buffer profile of lossless PG of port {} isn't the expected ({})"
-                                    .format(port, expected_profile), use_assert):
+            elif not _check_condition(
+                    bool(actual_lossless),
+                    "No lossless BUFFER_PG configured on port {}, expected {}".format(
+                        port, expected_profile), use_assert):
                 return None, False
 
+            # Every lossless PG must carry the expected profile
+            expected_profile_name = extract_profile_name(expected_profile)
+            for pg_range, profile_name in actual_lossless.items():
+                if not _check_condition(
+                        profile_name == expected_profile_name,
+                        "Buffer profile of lossless PG {} of port {} isn't the expected ({})".format(
+                            pg_range, port, expected_profile), use_assert):
+                    return None, False
+
+            # ASIC_DB consistency for each lossless priority
             if pg_name_map:
-                for pg in default_lossless_pgs:
-                    pg_key = f'{port}:{pg}'
+                for pg in sorted(actual_priorities):
+                    pg_key = '{}:{}'.format(port, pg)
                     if pg_key not in pg_name_map:
-                        logging.info(f"Port {port} PG {pg} not found in PG_NAME_MAP, skipping ASIC_DB check")
+                        logging.info("Port {} PG {} not in PG_NAME_MAP, skipping ASIC_DB check".format(port, pg))
                         continue
                     buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = dut_asic.run_redis_cmd(
@@ -250,21 +333,21 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                         port, pg, buffer_profile_oid_in_pg))
                     if buffer_profile_oid:
                         if not _check_condition(buffer_profile_oid == buffer_profile_oid_in_pg,
-                                                "Different OIDs in PG 3 ({}) and 4 ({}) in port {}".format(
-                                                    buffer_profile_oid, buffer_profile_oid_in_pg, port),
-                                                use_assert):
+                                                "Different OIDs among lossless PGs of port {} ({} vs {})".format(
+                                                    port, buffer_profile_oid, buffer_profile_oid_in_pg), use_assert):
                             return None, False
                     else:
                         buffer_profile_oid = buffer_profile_oid_in_pg
         else:
-            if not _check_condition(not profile_in_pg,
+            # Admin-down on a reclaim platform: there must be NO lossless PG
+            if not _check_condition(not actual_lossless,
                                     "Buffer PG configured on admin down port {}".format(port), use_assert):
                 return None, False
-            if pg_name_map:
-                for pg in default_lossless_pgs:
-                    pg_key = f'{port}:{pg}'
+            if pg_name_map and lossless_priorities:
+                for pg in sorted(lossless_priorities):
+                    pg_key = '{}:{}'.format(port, pg)
                     if pg_key not in pg_name_map:
-                        logging.info(f"Port {port} PG {pg} not found in PG_NAME_MAP, skipping ASIC_DB check")
+                        logging.info("Port {} PG {} not in PG_NAME_MAP, skipping ASIC_DB check".format(port, pg))
                         continue
                     buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = dut_asic.run_redis_cmd(
@@ -280,6 +363,9 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                                                 port),
                                             use_assert):
                         return None, False
+            elif pg_name_map:
+                logging.warning("Port {} has no pfc_enable configured, skipping admin-down ASIC_DB PG check".format(
+                    port))
 
         return buffer_profile_oid, True
 
@@ -410,8 +496,8 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
                                           lossless_pool_oid))
             elif expected_profile:
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
-                              "PG {}|3-4 has different OID of profile from other PGs sharing the same profile {}"
-                              .format(port, expected_profile))
+                              "Lossless PG of port {} has a different profile OID from other PGs "
+                              "sharing the same profile {}".format(port, expected_profile))
         else:
             # Port admin down and either:
             # 1. Platform supports buffer reclaim (should have no buffer profiles), OR
@@ -421,9 +507,15 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             _, _ = _check_port_buffer_info_and_get_profile_oid(dut_asic, port, None)
 
     pytest_assert(admin_up_ports, "No admin-up ports available for shutdown test")
-    port_to_shutdown = admin_up_ports.pop()
+    # Deterministically pick the smallest-named admin-up port that has a lossless BUFFER_PG.
+    ports_with_lossless = sorted(p for p in admin_up_ports if get_lossless_buffer_pgs(dut_asic, p))
+    pytest_assert(ports_with_lossless, "No admin-up port has a lossless BUFFER_PG for shutdown test")
+    port_to_shutdown = ports_with_lossless[0]
+    lossless_pg_ranges = sorted(get_lossless_buffer_pgs(dut_asic, port_to_shutdown).keys(),
+                                key=lambda r: min(parse_pg_range(r) or [99]))
     expected_profile = dut_asic.run_redis_cmd(
-        argv=['redis-cli', '-n', 4, 'hget', 'BUFFER_PG|{}|3-4'.format(port_to_shutdown), 'profile'])[0]
+        argv=['redis-cli', '-n', 4, 'hget',
+              'BUFFER_PG|{}|{}'.format(port_to_shutdown, lossless_pg_ranges[0]), 'profile'])[0]
 
     ns = ''
     if dut_asic.namespace is not None:

@@ -10,7 +10,6 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.errors import RunAnsibleModuleFail
 from pytest_ansible.results import ModuleResult
 from tests.common.platform.ssh_utils import ssh_authorize_local_user
-from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -145,15 +144,14 @@ class SonicAsic(object):
         Returns:
             [dict]: [the output of show interface status command]
         """
-        if not is_cisco_device(self.sonichost):
-            if self.sonichost.is_supervisor_node():
-                logger.debug("Skipping show_interface on supervisor node %s asic %s",
-                             self.sonichost.hostname, self.namespace)
-                return ModuleResult(ansible_facts={
-                    "int_status": {},
-                    "int_counter": {},
-                    "ansible_interface_link_down_ports": [],
-                }, changed=False)
+        if self.sonichost.is_supervisor_node():
+            logger.debug("Skipping show_interface on supervisor node %s asic %s",
+                         self.sonichost.hostname, self.namespace)
+            return ModuleResult(ansible_facts={
+                "int_status": {},
+                "int_counter": {},
+                "ansible_interface_link_down_ports": [],
+            }, changed=False)
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_interface(*module_args, **complex_args)
 
@@ -296,7 +294,7 @@ class SonicAsic(object):
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1):
         """
@@ -318,7 +316,7 @@ class SonicAsic(object):
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel):
         mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)['ansible_facts']

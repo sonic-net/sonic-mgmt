@@ -12,7 +12,6 @@ from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 from tests.common.platform.interface_utils import get_dut_interfaces_status
-from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 
@@ -179,16 +178,14 @@ class MultiAsicSonicHost(object):
 
         On supervisor, 'show interface status' triggers 'rexec -c ... all' which
         prompts for LC passwords and hangs. Return empty ModuleResult instead.
-        Exception: cisco-8000 supervisor has its own interfaces.
         """
-        if not is_cisco_device(self.sonichost):
-            if self.sonichost.is_supervisor_node():
-                logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
-                return ModuleResult(ansible_facts={
-                    "int_status": {},
-                    "int_counter": {},
-                    "ansible_interface_link_down_ports": [],
-                }, changed=False)
+        if self.sonichost.is_supervisor_node():
+            logger.debug("Skipping show_interface on supervisor node %s", self.hostname)
+            return ModuleResult(ansible_facts={
+                "int_status": {},
+                "int_counter": {},
+                "ansible_interface_link_down_ports": [],
+            }, changed=False)
         return self._run_on_asics("show_interface", *module_args, **complex_args)
 
     def get_dut_iface_mac(self, iface_name):
@@ -370,13 +367,13 @@ class MultiAsicSonicHost(object):
         return json.loads(output['stdout'])
 
     def get_bmc_host(self):
-        """Get the SonicHost instance of the associated host (CPU) for this BMC.
+        """Get the MultiAsicSonicHost of the associated host (CPU) for this BMC.
 
         The host-side device is resolved from the 'bmc_host' field defined in
         the testbed YAML file.
 
         Returns:
-            SonicHost: A SonicHost instance representing the host (CPU) side.
+            MultiAsicSonicHost: Host-side DUT object from duthosts, with critical_services populated.
 
         Raises:
             AssertionError: If the current device is not a BMC or bmc_host is not defined.
@@ -384,7 +381,21 @@ class MultiAsicSonicHost(object):
         pytest_assert(self.sonichost.is_bmc(), "get_bmc_host() can only be called on a BMC device")
         bmc_host_hostname = self.duthosts.tbinfo.get('bmc_host')
         pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
-        return SonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname)
+        return self.duthosts[bmc_host_hostname]
+
+    def get_bmc_from_host(self):
+        """Return the MultiAsicSonicHost of the paired BMC for this switch host."""
+        pytest_assert(not self.sonichost.is_bmc(),
+                      "get_bmc_from_host() can only be called on a switch-host device")
+        my_hostname = self.sonichost.hostname
+        tbinfo = self.duthosts.tbinfo
+        pytest_assert(tbinfo.get('bmc_host') == my_hostname,
+                      "Testbed bmc_host field ({}) does not name this host ({})".format(
+                          tbinfo.get('bmc_host'), my_hostname))
+        bmc_hostnames = tbinfo.get('duts') or []
+        pytest_assert(bmc_hostnames,
+                      "No 'duts' entries in testbed YAML to resolve paired BMC")
+        return self.duthosts[bmc_hostnames[0]]
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.

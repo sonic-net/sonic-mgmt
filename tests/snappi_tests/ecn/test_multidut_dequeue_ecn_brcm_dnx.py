@@ -3,6 +3,13 @@ import random
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
+    fanout_graph_facts_multidut                                                                     # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    get_snappi_ports_single_dut, snappi_testbed_config, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, snappi_port_selection, tgen_port_info, \
+    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, disable_pfcwd  # noqa: F401
 
 from tests.snappi_tests.ecn.files.restpy_multidut_helper import run_ecn_test
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
@@ -23,19 +30,19 @@ def number_of_tx_rx_ports():
 @pytest.mark.parametrize('data_flow_pkt_count', [800, 1800, 2400])
 @pytest.mark.parametrize('pmax', [25, 50, 75, 100])
 def test_dequeue_ecn(request,
-                     snappi_api,
-                     conn_graph_facts,
-                     fanout_graph_facts_multidut,
+                     snappi_api,                    # noqa: F811
+                     conn_graph_facts,              # noqa: F811
+                     fanout_graph_facts_multidut,   # noqa: F811
                      duthosts,
-                     lossless_prio_list,
+                     lossless_prio_list,            # noqa: F811
                      data_flow_pkt_count,
                      tbinfo,
                      number_of_tx_rx_ports,
-                     get_snappi_ports,
-                     disable_pfcwd,
-                     tgen_port_info,
-                     pmax,
-                     prio_dscp_map):
+                     get_snappi_ports,              # noqa: F811
+                     disable_pfcwd,                 # noqa: F811
+                     tgen_port_info,                # noqa: F811
+                     pmax,                          # noqa: F811
+                     prio_dscp_map):                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress.
     Test uses has Kmix and Kmax set to 800000 and 2000000 respectively.
@@ -130,18 +137,18 @@ def test_dequeue_ecn(request,
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('data_flow_pkt_count', [8500])
 def test_dequeue_ecn_default(request,
-                             snappi_api,
-                             conn_graph_facts,
-                             fanout_graph_facts_multidut,
+                             snappi_api,                    # noqa: F811
+                             conn_graph_facts,              # noqa: F811
+                             fanout_graph_facts_multidut,   # noqa: F811
                              duthosts,
-                             lossless_prio_list,
+                             lossless_prio_list,            # noqa: F811
                              data_flow_pkt_count,
                              tbinfo,
                              number_of_tx_rx_ports,
-                             get_snappi_ports,
-                             disable_pfcwd,
-                             tgen_port_info,
-                             prio_dscp_map):
+                             get_snappi_ports,              # noqa: F811
+                             disable_pfcwd,                 # noqa: F811
+                             tgen_port_info,                # noqa: F811
+                             prio_dscp_map):                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress.
     Test uses default values for Kmin, Kmax and Pmax.
@@ -252,15 +259,6 @@ def verify_ecn(ip_pkts,
         - Reads the PCAP returned from the test.
         - Determines and counts if packet is ECN marked or not.
         - Determines ECN marked packet less than Kmin, between Kmin and Kmax and more than Kmax.
-
-    Args:
-        ip_pkts (list): captured IP packets
-        kmin (int): minimum ECN threshold in bytes
-        kmax (int): maximum ECN threshold in bytes
-        pmax (int): maximum ECN marking probability
-        dut_list (list): list of DUT hosts for cleanup
-        data_flow_pkt_size (int): packet size used for data flow
-        data_flow_pkt_count (int): total number of packets sent in data flow
 
     Returns:
         N/A

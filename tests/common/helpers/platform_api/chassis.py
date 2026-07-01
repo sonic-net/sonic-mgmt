@@ -199,3 +199,37 @@ def is_inband_port(port):
     if re.match(INBAND_PORT_REGEX, port):
         return True
     return False
+
+
+# ===== Liquid Cooling / Leak Sensor Methods =====
+# For sensor-level API calls (LeakageSensorBase methods), use:
+#   tests/common/helpers/platform_api/leak_sensor.py
+# For LiquidCoolingBase methods (num sensors, profiles), use:
+#   tests/common/helpers/platform_api/liquid_cooling.py
+
+def get_liquid_cooling(conn):
+    """ChassisBase.get_liquid_cooling() — returns LiquidCoolingBase or None if air-cooled"""
+    return chassis_api(conn, 'get_liquid_cooling')
+
+
+def is_liquid_cooled(conn):
+    """ChassisBase.is_liquid_cooled() — True if chassis is liquid/hybrid cooled"""
+    return chassis_api(conn, 'is_liquid_cooled')
+
+
+def is_bmc(conn):
+    """ChassisBase.is_bmc() — True if this chassis is a BMC-managed system"""
+    return chassis_api(conn, 'is_bmc')
+
+
+def get_bmc(conn):
+    """ChassisBase.get_bmc() — returns BMC object (non-None on BMC systems)"""
+    return chassis_api(conn, 'get_bmc')
+
+
+# ===== Module Methods =====
+# For module-level API calls (ModuleBase methods), use the module helper:
+#   tests/common/helpers/platform_api/module.py
+# Route: /platform/chassis/module/{index}/{method}
+# To find a module by name without using get_module_index() (which may not be implemented):
+#   Iterate: for i in range(get_num_modules()): if get_module(i).get_name() == 'MODULE-NAME': return i

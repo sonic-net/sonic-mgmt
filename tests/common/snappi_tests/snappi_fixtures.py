@@ -26,8 +26,9 @@ from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValue
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
     delete_macsec_profile
-from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
-    create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
+from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
+                                                       create_connections, create_connections_pl, create_uhdIp_list,
+                                                       create_arp_bypass, create_arp_bypass_pl, create_profiles)
 logger = logging.getLogger(__name__)
 _next_system_id = 1
 
@@ -554,9 +555,8 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         if port_speed is None:
             port_speed = int(snappi_ports[i]['speed'])
 
-        pytest_require(
-            port_speed == int(snappi_ports[i]['speed']),
-            f'Ports have different link speeds:{snappi_ports}')
+        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
+                      'Ports have different link speeds')
 
     speed_gbps = int(port_speed/1000)
 
@@ -1219,9 +1219,7 @@ def snappi_dut_base_config(duthost_list,
 
     new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
                         for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_require(
-        len(set([sp['speed'] for sp in new_snappi_ports])) == 1,
-        f'Ports have different link speeds:{new_snappi_ports}')
+    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
     speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
 
@@ -2170,10 +2168,14 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         ethpass_ports = [row for row in csv_data if row['EthernetPass'] == 'True']
         has_switchover = any(dpu.get('SwitchOverPort') == 'True' for dpu in dpu_ports)
 
+        service_type = tbinfo['service_type']
         uhdConnect_ip = tbinfo['uhd_ip']
         num_cps_cards = tbinfo['num_cps_cards']
         num_tcpbg_cards = tbinfo['num_tcpbg_cards']
         num_udpbg_cards = tbinfo['num_udpbg_cards']
+        vxlan_port = tbinfo.get('vxlan_port', 0)
+        vxlan_src_port = tbinfo.get('vxlan_src_port', 0)
+        vxlan_endpoint_vni = tbinfo.get('vxlan_endpoint_vni', 1000)
         num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
@@ -2187,7 +2189,7 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'switchover_port': has_switchover
         }
 
-        uhdSettings = NetworkConfigSettings()  # noqa: F405
+        uhdSettings = NetworkConfigSettings(vxlan_endpoint_vni)  # noqa: F405
         uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
         subnet_mask = uhdSettings.subnet_mask
@@ -2195,9 +2197,19 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
-        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
-        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
-                                              cards_dict, arp_bypass_list)
+
+        if service_type == 'vnet2vnet':
+            file_name = "tempUhdConfig_vnet2vnet.json"
+            arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict,
+                                                subnet_mask)
+            connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                                  cards_dict, arp_bypass_list, vxlan_port, vxlan_src_port)
+        else:
+            # privatelink
+            file_name = "tempUhdConfig_pl.json"
+            arp_bypass_list = create_arp_bypass_pl(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)
+            connections_list = create_connections_pl(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,
+                                                     arp_bypass_list, vxlan_port, vxlan_src_port)
 
         config = {
             "profiles": create_profiles(uhdSettings),  # noqa: F405
@@ -2209,7 +2221,6 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'Content-Type': 'application/json'
         }
 
-        file_name = "tempUhdConfig.json"
         file_location = os.getcwd()
         uhd_post_url = uhdSettings.uhd_post_url
         url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
@@ -2218,7 +2229,10 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
         uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
                        '{}').format(file_location, file_name, url)
-        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        try:
+            res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"UHD config upload failed: {e}")
 
         if not save_uhd_config:
             logger.info("Removing UHD config file")
@@ -2552,16 +2566,12 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
         speed, category = flatten_skeleton_parameter.split("-")
 
         if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-            pytest.skip(
-                f"Unsupported combination for {speed} & {category}. "
-                f"Got:snappi_port_selection:{snappi_port_selection}")
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
         snappi_ports = snappi_port_selection[float(speed)][category]
 
         if not snappi_ports:
-            pytest.skip(
-                f"Unsupported combination for {speed} & {category}. "
-                f"Got:snappi_port_selection:{snappi_port_selection}")
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
             duthosts, snappi_ports, snappi_api, setup=True)

@@ -2,31 +2,37 @@ import pytest
 import collections
 import random
 import logging
-from tabulate import tabulate
-from tests.common.helpers.assertions import pytest_assert
+from tabulate import tabulate  # noqa: F401
+from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
+    fanout_graph_facts_multidut     # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    get_snappi_ports_single_dut, snappi_testbed_config, \
+    get_snappi_ports_multi_dut, is_snappi_multidut, \
+    snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
+    lossless_prio_list   # noqa: F401
+from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.ecn.files.helper import run_ecn_test
-from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.common_helpers import packet_capture  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.snappi_fixtures import cleanup_config
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 
-@pytest.fixture(autouse=True, scope="module")
-def number_of_tx_rx_ports():
-    yield (1, 1)
-
-
+@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_red_accuracy(request,
-                      snappi_api,
-                      conn_graph_facts,
-                      fanout_graph_facts_multidut,
+                      snappi_api,                       # noqa: F811
+                      conn_graph_facts,                 # noqa: F811
+                      fanout_graph_facts_multidut,               # noqa: F811
                       duthosts,
-                      lossless_prio_list,
-                      tgen_port_info,
-                      tbinfo,
-                      prio_dscp_map):
+                      lossless_prio_list,     # noqa: F811
+                      get_snappi_ports,     # noqa: F811
+                      tbinfo,      # noqa: F811
+                      multidut_port_info,     # noqa: F811
+                      prio_dscp_map):                    # noqa: F811
     """
     Measure RED/ECN marking accuracy of the device under test (DUT).
     Dump queue length vs. ECN marking probability results into a file.
@@ -35,17 +41,46 @@ def test_red_accuracy(request,
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut (pytest fixture): fanout graph
+        fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
         lossless_prio_list (pytest fixture): list of all the lossless priorities
-        tgen_port_info (pytest fixture): Snappi testbed and port details
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         tbinfo (pytest fixture): fixture provides information about testbed
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        get_snappi_ports (pytest fixture): gets snappi ports and connected DUT port info and returns as a list
     Returns:
         N/A
     """
+    # disable_test = request.config.getoption("--disable_ecn_snappi_test")
+    # if disable_test:
+    #     pytest.skip("test_red_accuracy is disabled")
 
-    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    skip_ecn_tests(duthosts[0])
+    for testbed_subtype, rdma_ports in multidut_port_info.items():
+        tx_port_count = 1
+        rx_port_count = 1
+        snappi_port_list = get_snappi_ports
+        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
+                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+
+        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
+
+        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
+                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
+                      testbed {}, subtype {} in variables.py'.
+                       format(MULTIDUT_TESTBED, testbed_subtype))
+        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
+                                                     tx_port_count, rx_port_count, MULTIDUT_TESTBED)
+        else:
+            snappi_ports = get_snappi_ports
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(duthosts,
+                                                                                snappi_ports,
+                                                                                snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])

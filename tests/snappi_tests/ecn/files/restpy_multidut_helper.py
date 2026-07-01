@@ -46,10 +46,7 @@ def run_ecn_test(api,
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
         dut_port (str): DUT port to test
         lossless_prio (int): lossless priority
-        default_ecn (bool): use default ECN/WRED profile settings
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        iters (int): number of traffic iterations
-        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         Return captured IP packets (list of list)
