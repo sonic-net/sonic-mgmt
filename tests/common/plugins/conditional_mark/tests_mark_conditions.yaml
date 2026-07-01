@@ -505,10 +505,6 @@ bgp/test_bgp_route_neigh_learning.py::test_bgp_neighbor_route_learnning:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19915 and '-v6-' in topo_name"
 
 bgp/test_bgp_router_id.py:
-  skip:
-    reason: "Not supported on multi-asic"
-    conditions:
-      - "is_multi_asic==True"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
