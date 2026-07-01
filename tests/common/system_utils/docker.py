@@ -107,21 +107,35 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 
 @contextmanager
 def _feature_monitor_paused(duthost):
-    """Pause the `featured` daemon for the duration of the block, always restoring it.
+    """Pause the `featured` daemon for the duration of the block, restoring prior state.
 
     Swss/syncd graceful shutdown can take ~30s. The `featured` daemon, if used, 
     might restart any feature whose state is 'enabled' as soon as it observes the 
     container is down, racing against the swap shutdown check and causing 
     "Docker and/or BGP failed to shut down in 30s". So we pause it.
     This is a no-op on platforms/images that do not ship `featured`.
+
+    Only units that were active before entering the block are restarted on exit,
+    so a unit that was intentionally stopped/disabled beforehand stays stopped.
     """
+    units = ["featured.timer", "featured"]
+
+    def _is_active(unit):
+        result = duthost.command("systemctl is-active {}".format(unit), module_ignore_errors=True)
+        return result["stdout"].strip() == "active"
+
+    active_units = [unit for unit in units if _is_active(unit)]
+
     logger.info("Pausing featured to prevent container restart during syncd swap")
     duthost.command("systemctl stop featured.timer featured", module_ignore_errors=True)
     try:
         yield
     finally:
-        logger.info("Resuming featured after syncd swap")
-        duthost.command("systemctl start featured.timer featured", module_ignore_errors=True)
+        if active_units:
+            logger.info("Resuming featured after syncd swap: {}".format(" ".join(active_units)))
+            duthost.command("systemctl start {}".format(" ".join(active_units)), module_ignore_errors=True)
+        else:
+            logger.info("featured was not active before syncd swap; leaving it stopped")
 
 
 def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
