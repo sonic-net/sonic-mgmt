@@ -115,8 +115,11 @@ def _feature_monitor_paused(duthost):
     "Docker and/or BGP failed to shut down in 30s". So we pause it.
     This is a no-op on platforms/images that do not ship `featured`.
 
-    Only units that were active before entering the block are restarted on exit,
-    so a unit that was intentionally stopped/disabled beforehand stays stopped.
+    Each unit is restored to its exact pre-swap state on exit: units that were
+    active on entry are restarted, and units that were inactive on entry are
+    (re-)stopped. The latter matters because `config_reload` inside the block
+    can bring `featured` back up, so we must not leave it running when it was
+    intentionally stopped/disabled beforehand.
     """
     units = ["featured.timer", "featured"]
 
@@ -125,17 +128,22 @@ def _feature_monitor_paused(duthost):
         return result["stdout"].strip() == "active"
 
     active_units = [unit for unit in units if _is_active(unit)]
+    inactive_units = [unit for unit in units if unit not in active_units]
 
     logger.info("Pausing featured to prevent container restart during syncd swap")
     duthost.command("systemctl stop featured.timer featured", module_ignore_errors=True)
     try:
         yield
     finally:
+        # Restore each unit to its pre-swap state. config_reload may have
+        # started featured, so re-stop any unit that was inactive on entry.
         if active_units:
             logger.info("Resuming featured after syncd swap: {}".format(" ".join(active_units)))
             duthost.command("systemctl start {}".format(" ".join(active_units)), module_ignore_errors=True)
-        else:
-            logger.info("featured was not active before syncd swap; leaving it stopped")
+        if inactive_units:
+            logger.info("Re-stopping featured units inactive before syncd swap: {}".format(
+                " ".join(inactive_units)))
+            duthost.command("systemctl stop {}".format(" ".join(inactive_units)), module_ignore_errors=True)
 
 
 def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
