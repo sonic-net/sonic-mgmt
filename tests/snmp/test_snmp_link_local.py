@@ -14,7 +14,7 @@ def config_reload_after_test(duthosts, localhost, creds_all_duts,
                              enum_rand_one_per_hwsku_frontend_hostname):
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
