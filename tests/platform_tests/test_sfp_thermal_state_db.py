@@ -10,6 +10,7 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.transceiver_utils import get_passive_cable_port_list
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -361,6 +362,34 @@ class TestSfpThermalStateDb:
                 rows_with_thresholds += 1
                 if row_matched:
                     rows_verified += 1
+
+        no_numeric_dom_thresholds = not any([
+            dom_crit_high_values,
+            dom_crit_low_values,
+            dom_high_th_values,
+            dom_low_th_values
+        ])
+
+        if rows_with_thresholds == 0 and no_numeric_dom_thresholds:
+            ports_with_dom_threshold_rows = set(dom_thresholds)
+            passive_cable_ports = set(get_passive_cable_port_list(duthost))
+            non_passive_cable_ports = sorted(
+                ports_with_dom_threshold_rows - passive_cable_ports
+            )
+
+            if non_passive_cable_ports:
+                pytest_assert(
+                    False,
+                    "No numeric TRANSCEIVER_DOM_THRESHOLD temperature values available, "
+                    "but non-passive-copper/unknown transceivers are present: {}".format(
+                        non_passive_cable_ports
+                    )
+                )
+
+            pytest.skip(
+                "No numeric TRANSCEIVER_DOM_THRESHOLD temperature values available "
+                "for passive copper transceivers"
+            )
 
         logger.info("Verified %d/%d SFP rows with thresholds matched TRANSCEIVER_DOM_THRESHOLD",
                     rows_verified, rows_with_thresholds)
