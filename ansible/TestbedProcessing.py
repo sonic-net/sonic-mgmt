@@ -262,7 +262,7 @@ def makeSonicLabConsoleLinks(data, outfile):
     devices = data
     csv_file = outfile
     # folding this line inserts unwanted spaces
-    csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate"
+    csv_columns = "StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy,BaudRate,DirectSSHPort"
     console_info_template = OrderedDict({
         "start_device": "",
         "start_port": "",
@@ -270,7 +270,8 @@ def makeSonicLabConsoleLinks(data, outfile):
         "console_type": "",
         "console_menu_type": "",
         "proxy": "",
-        "baud_rate": ""})
+        "baud_rate": "",
+        "direct_ssh_port": ""})
     try:
         with open(csv_file, "w") as f:
             f.write(csv_columns + "\n")
