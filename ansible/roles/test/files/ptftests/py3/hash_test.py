@@ -369,7 +369,7 @@ class HashTest(BaseTest):
             exp_src_mac = self.ptf_test_port_map[str(
                 rcvd_port)]["target_src_mac"][0]
         actual_src_mac = scapy.Ether(rcvd_pkt).src
-        if exp_src_mac != actual_src_mac:
+        if str(exp_src_mac).lower() != str(actual_src_mac).lower():
             raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                             "but the src mac doesn't match, expected {}, got {}".
                             format(ip_src, ip_dst, src_port, rcvd_port, exp_src_mac, actual_src_mac))
