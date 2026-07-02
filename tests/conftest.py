@@ -4266,3 +4266,9 @@ def restore_counter_poll(rand_selected_dut):
         parsed_counterpoll_before,
         parsed_counterpoll_after
     )
+
+
+@pytest.fixture(scope='module')
+def skip_t2_isolated_topo(tbinfo):
+    if 't2-isolated' in tbinfo['topo']['name']:
+        pytest.skip("test is not applicable to t2-isolated topology due to T3 neighbors needed")
