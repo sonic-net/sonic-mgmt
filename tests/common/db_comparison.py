@@ -13,6 +13,7 @@ Main features:
 """
 
 from enum import Enum
+import fnmatch
 import json
 import logging
 import os
@@ -89,14 +90,45 @@ class DBType(Enum):
     STATE = 6
 
 
+# Top-level keys that are always dropped from a snapshot before comparison due
+# to their volatile nature. Patterns are fnmatch-style globs matched against
+# the full top-level key (e.g. `FOO|*` drops every `FOO|<suffix>` entry,
+# `FOO|bar` matches only that exact row).
+VOLATILE_TOP_LEVEL_KEYS = {
+    DBType.STATE: {
+        # Summary row with only 'lastupdate'; no per-container content.
+        "DOCKER_STATS|LastUpdateTime",
+        # Per-port transceiver status flag tables flip presence and
+        # timestamps every snapshot; diffing them is not useful.
+        "TRANSCEIVER_STATUS_FLAG|*",
+        "TRANSCEIVER_STATUS_FLAG_SET_TIME|*",
+        "TRANSCEIVER_STATUS_FLAG_CLEAR_TIME|*",
+        "TRANSCEIVER_STATUS_FLAG_CHANGE_COUNT|*",
+    },
+}
+
+
+def _matches_any_glob(key: str, patterns) -> bool:
+    """Return True if `key` matches any fnmatch-style glob in `patterns`."""
+    for pattern in patterns:
+        if fnmatch.fnmatchcase(key, pattern):
+            return True
+    return False
+
+
 # These are the keys/fields that are always ignored during comparison due to their volatile nature
 VOLATILE_VALUES = {
     DBType.APPL: {
         "expireat",
         "ttl",
         "last_up_time",
+        "last_down_time",
         # These are below the 'LLDP_ENTRY_TABLE:*' top-level keys
         "lldp_rem_time_mark",
+        # lldp_rem_index is a per-session counter assigned by lldpd; it is
+        # reset and re-incremented on each daemon start, so two snapshots
+        # can pick up different indices for the same neighbor.
+        "lldp_rem_index",
     },
     DBType.CONFIG: {
         "expireat",
@@ -133,6 +165,8 @@ VOLATILE_VALUES = {
         "MEM_BYTES",
         "MEM%",
         "CPU%",
+        "BLOCK_IN_BYTES",
+        "BLOCK_OUT_BYTES",
         # These are below 'TEMPERATURE_INFO|*' top-level keys
         "temperature",
         "maximum_temperature",
@@ -147,6 +181,23 @@ VOLATILE_VALUES = {
         # These are below 'FAN_INFO|*' top-level keys
         "speed",
         "speed_target",
+        # These are below 'TRANSCEIVER_DOM_SENSOR|*' top-level keys.
+        # Per-channel optical/electrical sensor readings (tx/rx bias and
+        # power) drift between snapshot moments on real hardware
+        # (e.g. tx4bias "37.136" vs "37.142"); voltage/temperature on the
+        # same row are already covered above by the shared field names.
+        "tx1bias",
+        "tx2bias",
+        "tx3bias",
+        "tx4bias",
+        "tx1power",
+        "tx2power",
+        "tx3power",
+        "tx4power",
+        "rx1power",
+        "rx2power",
+        "rx3power",
+        "rx4power",
     }
 }
 
@@ -299,7 +350,10 @@ class SnapshotDiff:
         self._label_a = label_a
         self._label_b = label_b
 
-        # Start building metrics on snapshot
+        # Start building metrics from the raw snapshots. Volatile top-level
+        # keys (VOLATILE_TOP_LEVEL_KEYS) still count toward total_keys and the
+        # _incl_volatile value totals; they are excluded only from the
+        # _excl_volatile totals and from the diff itself.
         self._metrics = DbComparisonMetrics()
         self._metrics.total_a_keys = len(self._snapshot_a)
         self._metrics.total_a_values_incl_volatile, self._metrics.total_a_values_excl_volatile = \
@@ -308,14 +362,23 @@ class SnapshotDiff:
         self._metrics.total_b_values_incl_volatile, self._metrics.total_b_values_excl_volatile = \
             _sum_total_values(db_type, self._snapshot_b)
 
+        # Drop volatile top-level keys from both snapshots before diffing so
+        # their contents are not reported as mismatches.
+        self._snapshot_a = _drop_volatile_top_level_keys(db_type, self._snapshot_a)
+        self._snapshot_b = _drop_volatile_top_level_keys(db_type, self._snapshot_b)
+
         # Build the diff
         if db_type == DBType.STATE:
-            state_db_diff = self._diff_state_db_process_stats(self._snapshot_a, self._snapshot_b)
+            process_stats_diff = self._diff_state_db_process_stats(self._snapshot_a, self._snapshot_b)
             # Remove all 'PROCESS_STATS|*' keys from the dbs since they've already been diffed
             self._snapshot_a = {k: v for k, v in self._snapshot_a.items() if not k.startswith("PROCESS_STATS|")}
             self._snapshot_b = {k: v for k, v in self._snapshot_b.items() if not k.startswith("PROCESS_STATS|")}
+            docker_stats_diff = self._diff_state_db_docker_stats(self._snapshot_a, self._snapshot_b)
+            # Remove all 'DOCKER_STATS|*' keys from the dbs since they've already been diffed
+            self._snapshot_a = {k: v for k, v in self._snapshot_a.items() if not k.startswith("DOCKER_STATS|")}
+            self._snapshot_b = {k: v for k, v in self._snapshot_b.items() if not k.startswith("DOCKER_STATS|")}
             remaining_diff = self._diff_dict(db_type, self._snapshot_a, self._snapshot_b)
-            self._diff = {**state_db_diff, **remaining_diff}
+            self._diff = {**process_stats_diff, **docker_stats_diff, **remaining_diff}
         else:
             self._diff = self._diff_dict(db_type, self._snapshot_a, self._snapshot_b)
 
@@ -332,13 +395,26 @@ class SnapshotDiff:
 
     def _diff_state_db_process_stats(self, state_db_a: dict, state_db_b: dict) -> dict:
         """Between reboots or process restarts the PID can change but there is an
-        equivalent process running. This pairs up the PROCESS_STATS entries and diffs
-        based on the process running vs not.
+        equivalent process running. This pairs up the PROCESS_STATS entries and
+        emits one synthesized top-level diff entry per unmatched CMD.
 
-        NOTE: That some PROCESS_STATS entries have a CMD: "" i.e. empty but there is still
-              a non-zero PPID. In reality these entries form a tree and should be assembled
-              into a tree structure and the trees of each compared. For now, this is simply
-              a count of process matches. So far this has been adequate.
+        Each unmatched CMD becomes a presence-style top-level key in the same
+        shape `_diff_dict` would produce for an a-only / b-only row::
+
+            "PROCESS_STATS|<seq>": {
+                self._label_a: {"value": {"CMD": "<cmd>"}},
+                self._label_b: None,
+            }
+
+        The sequence number is a single counter across both sides so keys are
+        unique without leaking which side a row came from into the key string
+        (the side is encoded by which label has the non-null payload).
+
+        NOTE: Some PROCESS_STATS entries have a CMD: "" i.e. empty but there is
+              still a non-zero PPID. In reality these entries form a tree and
+              should be assembled into a tree structure and the trees of each
+              compared. For now, this is simply a count of process matches. So
+              far this has been adequate.
         """
 
         # Extract all the CMD entries out of the DB's
@@ -359,19 +435,45 @@ class SnapshotDiff:
         if len(db_a_only_processes) == 0 and len(db_b_only_processes) == 0:
             return {}
 
-        value_dict = {}
-        # Insert the a only processes first ...
-        for i, cmd in enumerate(db_a_only_processes):
-            value_dict[f"CMD{i}"] = {self._label_a: cmd, self._label_b: None}
-        # ... followed by db_b only processes
-        for i, cmd in enumerate(db_b_only_processes, start=len(value_dict)):
-            value_dict[f"CMD{i}"] = {self._label_a: None, self._label_b: cmd}
-
-        return {
-            "PROCESS_STATS|*": {
-                "value": value_dict
+        result = {}
+        seq = 0
+        for cmd in db_a_only_processes:
+            result[f"PROCESS_STATS|{seq}"] = {
+                self._label_a: {"value": {"CMD": cmd}},
+                self._label_b: None,
             }
-        }
+            seq += 1
+        for cmd in db_b_only_processes:
+            result[f"PROCESS_STATS|{seq}"] = {
+                self._label_a: None,
+                self._label_b: {"value": {"CMD": cmd}},
+            }
+            seq += 1
+        return result
+
+    def _diff_state_db_docker_stats(self, state_db_a: dict, state_db_b: dict) -> dict:
+        """Between reboots Docker container IDs change, but NAME is stable. This
+        rekeys `DOCKER_STATS|<id>` entries to `DOCKER_STATS|<NAME>` on both
+        sides and diffs the rekeyed dicts so the ephemeral container id does not
+        masquerade as a diff.
+
+        Returns a diff dict in the same shape as `_diff_dict` output. Caller
+        is responsible for stripping `DOCKER_STATS|*` from the snapshots after
+        this runs so the generic diff pass does not re-process them.
+        """
+
+        rekeyed_a = {}
+        rekeyed_b = {}
+        for rekeyed, state_db in [(rekeyed_a, state_db_a), (rekeyed_b, state_db_b)]:
+            for key, content in state_db.items():
+                if not key.startswith("DOCKER_STATS|"):
+                    continue
+                assert "value" in content and "NAME" in content["value"], \
+                    f"Unexpected DOCKER_STATS entry: {key} : {content}"
+                name = content["value"]["NAME"]
+                rekeyed[f"DOCKER_STATS|{name}"] = content
+
+        return self._diff_dict(DBType.STATE, rekeyed_a, rekeyed_b)
 
     def _diff_dict(self, db_type: DBType, dict_a: dict, dict_b: dict) -> dict:
 
@@ -467,6 +569,7 @@ class SnapshotDiff:
             # This top level key only exists in one of the snapshots
             label_a_content = contents[self._label_a]
             label_b_content = contents[self._label_b]
+            self._metrics.num_overall_differing_keys -= 1
             if label_a_content is not None:
                 self._metrics.num_differing_keys_a -= 1
                 a_content_key_count = len(label_a_content["value"])
@@ -500,6 +603,20 @@ class SnapshotDiff:
         del self._diff[top_level_key]
 
 
+def _drop_volatile_top_level_keys(db_type: DBType, snapshot: dict) -> dict:
+    """Return a shallow copy of `snapshot` with volatile top-level keys removed.
+
+    Patterns from `VOLATILE_TOP_LEVEL_KEYS[db_type]` are fnmatch-style globs
+    matched against each top-level key, so `"DOCKER_STATS|LastUpdateTime"`
+    drops only that exact row while `"TRANSCEIVER_STATUS_FLAG|*"` drops
+    every key with that prefix.
+    """
+    patterns = VOLATILE_TOP_LEVEL_KEYS.get(db_type)
+    if not patterns:
+        return snapshot
+    return {k: v for k, v in snapshot.items() if not _matches_any_glob(k, patterns)}
+
+
 def _recursively_remove_keys_matching_pattern(d_for_removal, patterns):
     """
     Recursively remove keys from a dictionary that match any pattern in the given set.
@@ -521,15 +638,25 @@ def _recursively_remove_keys_matching_pattern(d_for_removal, patterns):
 
 
 def _sum_total_values(db_type: DBType, db_dump: dict) -> Tuple[int, int]:
-    """Summarize the number of total values in the DB dump."""
+    """Summarize the number of total values in the DB dump.
+
+    Returned tuple is `(incl_volatile, excl_volatile)`. Values under
+    volatile top-level keys (`VOLATILE_TOP_LEVEL_KEYS`) and values whose
+    field name is in `VOLATILE_VALUES` are counted toward `(incl_volatile)`
+    but excluded from `(excl_volatile)`.
+    """
     total_incl_volatile = 0
     total_excl_volatile = 0
     always_ignore_keys = VOLATILE_VALUES.get(db_type, [])
+    volatile_tl_patterns = VOLATILE_TOP_LEVEL_KEYS.get(db_type, set())
     for tl_key, content in db_dump.items():
         assert "value" in content, f"Unexpected entry in {db_type.name} DB: {tl_key} : {content}"
         value_dict = content["value"]
+        tl_is_volatile = _matches_any_glob(tl_key, volatile_tl_patterns) if volatile_tl_patterns else False
         for key in value_dict:
             total_incl_volatile += 1
+            if tl_is_volatile:
+                continue
             if key not in always_ignore_keys:
                 total_excl_volatile += 1
     return total_incl_volatile, total_excl_volatile
