@@ -15,6 +15,31 @@ from probing_observer import ProbingObserver  # noqa: E402
 from executor_registry import ExecutorRegistry  # noqa: E402
 
 
+def pytest_addoption(parser):
+    """Accept SONiC nightly runner options that are not used by these unit tests."""
+    ignored_options = [
+        ("--testbed", {"action": "store", "default": None}),
+        ("--testbed_file", {"action": "store", "default": None}),
+        ("--kube_master", {"action": "store", "default": None}),
+        ("--topology", {"action": "store", "default": None}),
+        ("--skip_pre_sanity", {"action": "store_true", "default": False}),
+        ("--post_check", {"action": "store_true", "default": False}),
+        ("--py_saithrift_url", {"action": "store", "default": None}),
+        ("--sad_case_list", {"action": "store", "default": None}),
+        ("--allow_recover", {"action": "store_true", "default": False}),
+        ("--inventory", {"action": "store", "default": None}),
+        ("--host-pattern", {"action": "store", "default": None}),
+        ("--cov", {"action": "append", "default": []}),
+        ("--cov-branch", {"action": "store_true", "default": False}),
+        ("--cov-report", {"action": "append", "default": []}),
+    ]
+    for option, kwargs in ignored_options:
+        try:
+            parser.addoption(option, help="Ignored by saitests mock unit tests", **kwargs)
+        except ValueError:
+            pass
+
+
 @pytest.fixture(autouse=True)
 def reset_executor_registry():
     """
