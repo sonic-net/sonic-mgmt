@@ -452,6 +452,175 @@ def test_po_update_io_no_loss(
             or wait_until(10, 10, 0, pc_active, asichost, pc))
 
 
+@pytest.mark.disable_loganalyzer
+def test_po_update_inter_asic_swss_restart(
+        duthosts,
+        enum_rand_one_per_hwsku_frontend_hostname,
+        enum_frontend_asic_index,
+        tbinfo,
+        ptfadapter,
+        reload_testbed_on_failed):
+    """
+    Verify inter-ASIC traffic to a temporary LAG survives SWSS restart on the destination ASIC.
+
+    1. Verify traffic is forwarded
+    2. Restart SWSS on AsicX
+    3. Repeat inter-ASIC traffic
+    4. Verify traffic is still forwarded
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if not duthost.is_multi_asic:
+        pytest.skip("Skip test as DUT is not multi-asic")
+
+    # We configure PortChannel999 on dest asic
+    out_asichost = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = out_asichost.get_extended_minigraph_facts(tbinfo)
+    dut_mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    # list<ip, peer ip, attachto, namespace>
+    peer_ip_pc_pair = [(pc["addr"], pc["peer_addr"], pc["attachto"],
+                        dut_mg_facts["minigraph_portchannels"][pc["attachto"]]['namespace'])
+                       for pc in dut_mg_facts["minigraph_portchannel_interfaces"]
+                       if ipaddress.ip_address(pc['peer_addr']).version == 4]
+
+    out_pcs = [
+        (pair[0], pair[1], pair[2], mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3])
+        for pair in peer_ip_pc_pair
+        if pair[2] in mg_facts['minigraph_portchannels']
+        and len(mg_facts["minigraph_portchannels"][pair[2]]["members"]) >= 1]
+
+    if len(out_pcs) < 1:
+        pytest.skip(
+            "Skip test as there are not enough port channels on asic {} on dut {}"
+            .format(enum_frontend_asic_index, duthost))
+
+    in_pcs = [
+        (pair[0], pair[1], pair[2], dut_mg_facts["minigraph_portchannels"][pair[2]]["members"], pair[3])
+        for pair in peer_ip_pc_pair
+        if pair[3] != out_asichost.namespace]
+
+    if not in_pcs:
+        pytest.skip(
+            "Skip test as there are no port channels on a different asic from asic {} on dut {}"
+            .format(enum_frontend_asic_index, duthost))
+
+    out_pc = random.sample(out_pcs, k=1)[0]
+    in_pc = random.sample(in_pcs, k=1)[0]
+
+    # 1. Configure PortChannel999 on dest asic
+    pc, pc_members = out_pc[2], out_pc[3]
+    tmp_pc = "PortChannel999"
+    pc_ip = out_pc[0]
+    out_peer_ip = out_pc[1]
+    in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc[3][0]]
+    out_ptf_indices = [mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
+    logging.info(
+        "in_pc=%s (namespace=%s), out_pc=%s (namespace=%s), tmp_pc=%s, in_ptf_index=%s, out_ptf_indices=%s",
+        in_pc[2], in_pc[4], out_pc[2], out_pc[4], tmp_pc, in_ptf_index, out_ptf_indices)
+
+    # track state
+    remove_pc_members = False
+    remove_pc_ip = False
+    create_tmp_pc = False
+    add_tmp_pc_members = False
+    add_tmp_pc_ip = False
+    try:
+        for member in pc_members:
+            out_asichost.config_portchannel_member(pc, member, "del")
+        remove_pc_members = True
+
+        out_asichost.config_ip_intf(pc, pc_ip + "/31", "remove")
+        remove_pc_ip = True
+        verify_no_routes_from_nexthop(duthosts, out_peer_ip)
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, out_asichost, pc, False),
+                      "Portchannel {} link did not go down".format(pc))
+        int_facts = out_asichost.interface_facts()['ansible_facts']
+        pytest_assert(not int_facts['ansible_interface_facts'][pc]['link'])
+        pytest_assert(
+            has_bgp_neighbors(duthost, pc)
+            and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            or not wait_until(10, 10, 0, pc_active, out_asichost, pc))
+
+        out_asichost.config_portchannel(tmp_pc, "add")
+        create_tmp_pc = True
+
+        for member in pc_members:
+            out_asichost.config_portchannel_member(tmp_pc, member, "add")
+        add_tmp_pc_members = True
+
+        out_asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "add")
+        add_tmp_pc_ip = True
+
+        int_facts = out_asichost.interface_facts()['ansible_facts']
+        pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['ipv4']['address'] == pc_ip)
+
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, out_asichost, tmp_pc, True),
+                      "Portchannel {} link did not come up".format(tmp_pc))
+        int_facts = out_asichost.interface_facts()['ansible_facts']
+        pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['link'])
+        pytest_assert(
+            has_bgp_neighbors(duthost, tmp_pc)
+            and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, out_asichost, tmp_pc))
+
+        out_pc_for_verify = (pc_ip, out_peer_ip, tmp_pc, pc_members, out_asichost.namespace)
+
+        # 2. Verify inter-ASIC traffic from src asic to PortChannel999 on dest asic
+        logging.info("Verify inter-ASIC traffic before SWSS restart")
+        send_and_verify_packet(in_pc, out_pc_for_verify, dut_mg_facts, duthost, ptfadapter, out_ptf_indices)
+
+        # 3. Restart SWSS on src asic
+        in_asichost = duthost.asic_instance(duthost.get_asic_id_from_namespace(in_pc[4]))
+        logging.info("Restart SWSS on src asic %s", in_asichost.asic_index)
+        duthost.shell("sudo systemctl reset-failed")
+        duthost.shell("sudo systemctl restart {}".format(in_asichost.get_service_name("swss")))
+        pytest_assert(
+            wait_until(600, 5, 30, duthost.critical_services_fully_started),
+            "Not all critical services are fully started after restarting SWSS on src asic {}"
+            .format(in_asichost.asic_index))
+        pytest_assert(
+            wait_until(120, 5, 0, pc_active, out_asichost, tmp_pc),
+            "{} is not active after SWSS restart on src asic {}"
+            .format(tmp_pc, in_asichost.asic_index))
+        pytest_assert(
+            wait_until(120, 10, 0, in_asichost.check_bgp_statistic, 'ipv4_idle', 0),
+            "BGP not converged on src asic {} after SWSS restart"
+            .format(in_asichost.asic_index))
+        pytest_assert(
+            wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0),
+            "BGP not converged on dest asic {} after SWSS restart on src asic"
+            .format(out_asichost.asic_index))
+
+        # 4. Re-Verify inter-ASIC traffic after SWSS restart
+        logging.info("Verify inter-ASIC traffic after SWSS restart")
+        send_and_verify_packet(in_pc, out_pc_for_verify, dut_mg_facts, duthost, ptfadapter, out_ptf_indices)
+    finally:
+        if add_tmp_pc_ip:
+            out_asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
+            wait_until(10, 2, 2, _check_ip_removed, out_asichost, tmp_pc)
+        if add_tmp_pc_members:
+            for member in pc_members:
+                out_asichost.config_portchannel_member(tmp_pc, member, "del")
+        _wait_until_pc_members_removed(out_asichost, tmp_pc)
+        if create_tmp_pc:
+            out_asichost.config_portchannel(tmp_pc, "del")
+        pytest_assert(
+            has_bgp_neighbors(duthost, tmp_pc)
+            and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 1)
+            or not wait_until(10, 10, 0, pc_active, out_asichost, tmp_pc))
+        if remove_pc_ip:
+            out_asichost.config_ip_intf(pc, pc_ip + "/31", "add")
+        if remove_pc_members:
+            for member in pc_members:
+                out_asichost.config_portchannel_member(pc, member, "add")
+
+        wait_until(30, 5, 5, _check_pc_link, out_asichost, pc, True)
+        pytest_assert(
+            has_bgp_neighbors(duthost, pc)
+            and wait_until(120, 10, 0, out_asichost.check_bgp_statistic, 'ipv4_idle', 0)
+            or wait_until(10, 10, 0, pc_active, out_asichost, pc))
+
+
 def increment_lag_id(duthost, upper_lagid_start):
     # Retrieve the current free LAG ID from the 'SYSTEM_LAG_IDS_FREE_LIST' in the CHASSIS_APP_DB
     current_free_lagid = int(duthost.shell("sonic-db-cli CHASSIS_APP_DB lindex 'SYSTEM_LAG_IDS_FREE_LIST' 0")['stdout'])
@@ -496,11 +665,12 @@ def send_data(dut_mg_facts, duthost, ptfadapter):
             send_and_verify_packet(in_pc, out_pc, dut_mg_facts, duthost, ptfadapter)
 
 
-def send_and_verify_packet(in_pc, out_pc, dut_mg_facts, duthost, ptfadapter):
+def send_and_verify_packet(in_pc, out_pc, dut_mg_facts, duthost, ptfadapter, out_ptf_indices=None):
     # Get the PTF interface index for the first member of the input port channel
     in_ptf_index = dut_mg_facts["minigraph_ptf_indices"][in_pc[3][0]]
     # Get the PTF interface indices for all members of the output port channel
-    out_ptf_indices = [dut_mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
+    if out_ptf_indices is None:
+        out_ptf_indices = [dut_mg_facts["minigraph_ptf_indices"][port] for port in out_pc[3]]
 
     in_peer_ip = in_pc[1]
     out_peer_ip = out_pc[1]
