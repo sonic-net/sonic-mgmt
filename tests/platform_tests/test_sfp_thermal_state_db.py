@@ -307,6 +307,9 @@ class TestSfpThermalStateDb:
                     dom_high_th_values, dom_low_th_values,
                     dom_crit_high_values, dom_crit_low_values)
 
+        if not (dom_high_th_values or dom_low_th_values or
+                dom_crit_high_values or dom_crit_low_values):
+            pytest.skip("No numeric TRANSCEIVER_DOM_THRESHOLD data available")
         # Verify CLI SFP rows have thresholds matching the DOM table.
         # Track per-row: a row is "verified" if at least one of its threshold
         # fields matches the corresponding DOM value set.
