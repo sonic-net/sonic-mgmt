@@ -75,15 +75,6 @@ CODEPOINT_VALUE = {
 DRILL_DOWN_OPTION = "Custom: (2 bits at offset 126)"
 
 TI_COLUMNS = ["frames_tx", "frames_rx", "loss", "frames_tx_rate", "frames_rx_rate"]
-SELECTED_UD_COLS = [
-    "Egress Tracking",
-    "Tx Frames",
-    "Rx Frames",
-    "Frames Delta",
-    "Loss %",
-    "Tx Frame Rate",
-    "Rx Frame Rate",
-]
 
 
 @pytest.fixture(scope="module")
