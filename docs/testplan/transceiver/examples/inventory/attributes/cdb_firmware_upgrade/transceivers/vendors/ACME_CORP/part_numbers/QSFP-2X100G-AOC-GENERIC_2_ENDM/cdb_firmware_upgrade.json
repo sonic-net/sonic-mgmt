@@ -2,5 +2,7 @@
     "firmware_versions": ["1.2.3", "1.2.4", "1.2.5"],
     "gold_firmware_version": "1.2.5",
     "inactive_firmware_version": "1.2.4",
+    "dual_bank_supported": true,
+    "firmware_download_cdb_abort_support": true,
     "firmware_download_timeout_minutes": 45
 }
