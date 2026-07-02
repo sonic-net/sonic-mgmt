@@ -107,7 +107,8 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 # ---------- Single-VNET setup ----------
 def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                         config_facts, dut_indx, vxlan_port):
+                         config_facts, dut_indx, vxlan_port,
+                         vxlan_sport=None, vxlan_mask=None):
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -154,7 +155,8 @@ def vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
     )
     time.sleep(5)
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port,
+                                      vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
 
     return {
         "dut_vtep": dut_vtep,
@@ -188,6 +190,8 @@ def one_vnet_setup_teardown(
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
         vxlan_port = request.config.option.vxlan_port
+        vxlan_sport = request.config.option.vxlan_sport
+        vxlan_mask = request.config.option.vxlan_mask
 
         # Determine platform-specific ECMP limit
         platform = duthost.facts.get("platform", "").lower()
@@ -202,7 +206,8 @@ def one_vnet_setup_teardown(
             num_endpoints = min(num_endpoints, max_ecmp_limit)
 
         setup_params = vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
-                                            config_facts, dut_indx, vxlan_port)
+                                            config_facts, dut_indx, vxlan_port,
+                                            vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
         setup_params["num_endpoints"] = num_endpoints
     except Exception as e:
         logger.error("Exception raised in setup: {}".format(repr(e)))
