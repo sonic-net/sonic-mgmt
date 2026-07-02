@@ -32,9 +32,12 @@ class ParseTestbedTopoinfo():
                 addr = ipaddress.IPNetwork(network)
                 return str(addr.ip), str(addr.netmask)
             else:
-                # ipaddress library
-                addr = ipaddress.ip_network(network, strict=False)
-                return str(addr.network_address), str(addr.netmask)
+                # ipaddress library: use ip_interface to preserve the host
+                # portion of the address. ip_network(..., strict=False) would
+                # collapse the address to the network base (e.g. 172.16.201.11/18
+                # -> 172.16.192.0), which is wrong for ptf_ip/ptf_ipv6 values.
+                addr = ipaddress.ip_interface(network)
+                return str(addr.ip), str(addr.netmask)
 
         def _read_testbed_topo_from_yaml():
             """Read yaml testbed info file."""
