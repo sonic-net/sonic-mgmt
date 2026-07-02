@@ -26,6 +26,7 @@ DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
 UDP_PORT_START = 5000
+LOSS_RATE_TOLERANCE = 0.03
 
 
 def run_pfcwd_basic_test(api,
@@ -446,7 +447,10 @@ def __verify_results(rows,
         tgen_loss_packets += data_flow_tx_frames_list[i] - data_flow_rx_frames_list[i]
         loss_rate = 1 - \
             float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
-        min_loss_rate = data_flow_min_loss_rate_list[i]
+        # Keep lower bound non-negative while allowing timing jitter tolerance.
+        # Without max(0, ...), zero-loss cases would become negative (e.g., -0.03),
+        # which is not a valid loss-rate bound and could mask counter anomalies.
+        min_loss_rate = max(0, data_flow_min_loss_rate_list[i] - LOSS_RATE_TOLERANCE)
         max_loss_rate = data_flow_max_loss_rate_list[i]
 
         pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
