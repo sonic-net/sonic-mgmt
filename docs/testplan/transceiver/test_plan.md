@@ -1041,6 +1041,7 @@ The following child test plans provide comprehensive, attribute-driven test case
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 | [Port Configuration Test Plan](port_config_test_plan.md) | Validation of per-port speed and FEC configuration in CONFIG_DB against expected values from BASE_ATTRIBUTES |
+| [Performance Monitoring (PM) Test Plan](pm_test_plan.md) | Performance Monitoring validation for CMIS / C-CMIS optics: PM data availability and freshness, statistical (min/avg/max) and operational-range checks, coherent (Page 35h) and grey (CMIS VDM) metric sets, freeze/unfreeze (Page 2Fh) control flow, and PM polling-period configuration with link-event recovery |
 
 ### Document Relationships
 
