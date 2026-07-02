@@ -82,6 +82,10 @@ def suppress_signal_registration_for_non_main_thread():
 # result dict. The keys to be removed are defined in module variable ansible.executor.task_result._IGNORE. The trick
 # of this hack is to override this pre-defined key list. When the 'failed' key is not included in the list, ansible
 # will not remove it before returning the ansible result to plugins (pytest_ansible in our case)
+#
+# NOTE: As of Ansible 2.21 (ansible-core 2.21.0), the _IGNORE patch is no longer effective.
+# Callback results are now built via UnifiedTaskResult.as_result_dict() which bypasses _IGNORE.
+# The 'failed' key is now normalized in AnsibleHostBase._run() instead.
 try:
     from ansible.executor import task_result
     task_result._IGNORE = ('skipped', )
@@ -202,7 +206,10 @@ class AnsibleHostBase(object):
         if module_async:
             def run_module(module_args, complex_args):
                 with suppress_signal_registration_for_non_main_thread():
-                    return module(*module_args, **complex_args)[self.hostname]
+                    res = module(*module_args, **complex_args)[self.hostname]
+                    if 'failed' not in res:
+                        res['failed'] = res.is_failed
+                    return res
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
@@ -219,6 +226,8 @@ class AnsibleHostBase(object):
             return
 
         hostname_res: ModuleResult = adhoc_res[self.hostname]
+        if 'failed' not in hostname_res:
+            hostname_res['failed'] = hostname_res.is_failed
         hostname_res.encoder = AnsibleHostBase.CustomEncoder
 
         if verbose:
