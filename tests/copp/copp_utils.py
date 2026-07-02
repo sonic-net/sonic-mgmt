@@ -12,6 +12,8 @@ import ast
 import random
 
 from tests.common.config_reload import config_reload
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 DEFAULT_NN_TARGET_PORT = 3
 
@@ -206,6 +208,24 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
     dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
     dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
 
+    # VS/kvm syncd does not run a ptf_nn_agent and COPP does not need one there, so this
+    # enforcement is limited to real hardware. Some syncd images (e.g. cisco-8000 chassis)
+    # ship a pynng-based ptf_nn_agent that rejects COPP's large nanomsg buffer and exits
+    # immediately, so the DUT-side agent never listens on port 10900 and the COPP PTF test
+    # blocks forever. Only when the agent fails to come up do we (re)deploy the pinned
+    # nnpy-compatible agent and restart it; on a healthy agent this whole block is a no-op.
+    if dut.facts["asic_type"] != "vs" and \
+            not wait_until(30, 5, 0, is_ptf_nn_agent_running, dut, nn_target_namespace):
+        logging.warning("ptf_nn_agent not running in syncd '%s'; deploying pinned "
+                        "nnpy-compatible agent", syncd_docker_name)
+        _deploy_pinned_ptf_nn_agent(dut, creds, syncd_docker_name)
+        dut.command("docker exec {} supervisorctl restart ptf_nn_agent".format(syncd_docker_name),
+                    module_ignore_errors=True)
+        pytest_assert(
+            wait_until(60, 5, 0, is_ptf_nn_agent_running, dut, nn_target_namespace),
+            "ptf_nn_agent failed to start in syncd '{}' after deploying the pinned nnpy "
+            "agent; the COPP PTF nanomsg path (port 10900) is unavailable".format(syncd_docker_name))
+
 
 def is_ptf_nn_agent_running(dut, nn_target_namespace):
     """
@@ -258,7 +278,7 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
                 && mkdir -p /opt && cd /opt && wget {3} \
                 && mkdir ptf && cd ptf && wget {4} && touch __init__.py \
                 && apt-get -y purge build-essential libssl-dev libffi-dev python3-dev \
-                python3-setuptools wget \
+                python3-setuptools \
                 " '''.format(http_proxy, https_proxy, syncd_docker_name,
                              _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
@@ -323,6 +343,45 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     " '''.format(http_proxy, https_proxy, syncd_docker_name,
                                  _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
         dut.command(cmd)
+
+
+def _deploy_pinned_ptf_nn_agent(dut, creds, syncd_docker_name):
+    """
+    Overwrite ptf_nn_agent.py and afpacket.py in the syncd container with the pinned,
+    nnpy-compatible PTF versions.
+
+    Some syncd images ship a newer pynng-based ptf_nn_agent.py. That agent is
+    incompatible with COPP's large nanomsg buffer sizes (nng caps the receive buffer at
+    a message count, not bytes) and exits immediately on start, so the DUT-side NN agent
+    never listens on port 10900 and the COPP PTF test blocks forever. ``configure_syncd``
+    invokes this only when the agent fails to come up, and only on real hardware, then
+    restarts it. It is best-effort: ``wget -O`` overwrites the files in place, and a
+    download failure is logged rather than raised, leaving the image's agent for the
+    caller's post-deploy guard to verify.
+
+    Note: this relies on the syncd container having egress to the pinned URLs via the
+    proxy in ``creds['proxy_env']`` (e.g. group_vars 'all' env.yml), matching the
+    assumption already made by ``_install_nano``.
+
+    Args:
+        dut (SonicHost): The target device.
+        creds (dict): Credential information according to the dut inventory.
+        syncd_docker_name (str): Name of the syncd container to deploy into.
+    """
+    http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
+    https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
+    cmd = ('docker exec -e http_proxy={} -e https_proxy={} {} bash -c '
+           '"mkdir -p /opt/ptf && touch /opt/ptf/__init__.py '
+           '&& wget -O /opt/ptf_nn_agent.py {} '
+           '&& wget -O /opt/ptf/afpacket.py {}"').format(
+        http_proxy, https_proxy, syncd_docker_name,
+        _PTF_NN_AGENT_URL, _PTF_AFPACKET_URL)
+    result = dut.command(cmd, module_ignore_errors=True)
+    if result.get("rc", 0) != 0:
+        logging.warning(
+            "Could not deploy pinned ptf_nn_agent into %s (rc=%s); leaving the agent "
+            "shipped in the image. configure_syncd verifies whether it runs. stderr: %s",
+            syncd_docker_name, result.get("rc"), str(result.get("stderr", "")).strip()[:300])
 
 
 def _map_port_number_to_interface(dut, nn_target_port):
