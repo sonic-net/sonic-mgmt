@@ -1,0 +1,21 @@
+{
+    "mandatory": ["firmware_versions", "gold_firmware_version", "firmware_download_cdb_abort_support", "dual_bank_supported"],
+    "defaults": {
+        "firmware_download_timeout_minutes": 30,
+        "firmware_run_timeout_sec": 60,
+        "firmware_commit_timeout_sec": 30,
+        "firmware_download_stress_iterations": 5,
+        "firmware_activation_stress_iterations": 1,
+        "firmware_upgrade_stress_iterations": 5,
+        "firmware_read_stress_iterations": 5,
+        "firmware_download_interrupt_method": "sigkill",
+        "firmware_download_interrupt_percentage": [10, 30, 50, 90],
+        "sleep_after_dom_disable_sec": 5,
+        "thermalctld_disabling_required": false
+    },
+    "dut": {
+        "lab-dut-01": {
+            "ports_under_test": [1, 2, 6]
+        }
+    }
+}
