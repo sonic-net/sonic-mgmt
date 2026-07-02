@@ -616,10 +616,8 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: "Not supported before release 202411."
-    conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -627,11 +625,51 @@ bgp/test_bgp_suppress_fib.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC). zebra installs a route
+             into the kernel immediately, independent of offload, so a suppress-fib-pending route the
+             kernel has installed is still forwarded and the DROP assertion (verify_no_packet) cannot
+             hold on VS. See https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress_negative_operation:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC). zebra installs a route
+             into the kernel immediately, independent of offload, so a suppress-fib-pending route the
+             kernel has installed is still forwarded and the DROP assertion (verify_no_packet) cannot
+             hold on VS. See https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
 bgp/test_bgp_suppress_fib.py::test_bgp_route_without_suppress:
   xfail:
     reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
+
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC), so the dataplane
+             credit-loop behavior cannot be reproduced: zebra installs routes into the kernel
+             immediately and traffic is forwarded regardless of offload state, so the loop_back /
+             verify_no_packet traffic assertions cannot hold on VS. See
+             https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_performance:
+  skip:
+    reason: "Skip for KVM/VS due to low performance (bulk 512+512 route relay-timing measurement)."
+    conditions:
+      - "asic_type in ['vs']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
+  skip:
+    reason: "Skip for KVM/VS due to low performance (bulk route-flap stress over 512+512 routes)."
+    conditions:
+      - "asic_type in ['vs']"
 
 bgp/test_bgp_update_replication.py:
   xfail:
