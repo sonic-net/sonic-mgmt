@@ -305,6 +305,12 @@ class ReloadTest(BaseTest):
         self.sender_thr = threading.Thread(target=self.send_in_background)
         self.sniff_thr = threading.Thread(target=self.sniff_in_background)
         self.start_sender_delay = 60
+        # Events signalling that the IO threads have begun executing. Created
+        # here (not in reboot_dut, which runs in a background thread) so they
+        # always exist when handle_advanced_reboot_health_check, running in the
+        # main thread, waits on them.
+        self.sender_started = threading.Event()
+        self.sniffer_thread_started = threading.Event()
 
         # Check if platform type is kvm
         self.platform_type = self.get_dut_platform_type()
@@ -1189,13 +1195,36 @@ class ReloadTest(BaseTest):
         self.check_alive()
         self.fails['dut'].clear()
 
-        # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
-            time.sleep(1)
+        # The IO sender/sniffer threads are only started by reboot_dut for reboot
+        # types that exercise the data plane (fast-reboot/warm-reboot). For other
+        # types such as service-warm-restart, reboot_dut restarts the service and
+        # returns without starting them, so there is no IO capture to wait for,
+        # join, or examine. Thread.ident is set only once a thread has been
+        # started, so use it to detect that case: joining an unstarted thread
+        # raises RuntimeError, and the previous is_alive() loop spun forever
+        # until the ptf test-case-timeout fired. Require both idents so a partial
+        # start (only one thread up) does not lead to join() on an unstarted one.
+        io_threads_started = (self.sniff_thr.ident is not None and
+                              self.sender_thr.ident is not None)
 
-        self.log("IO sender and sniffer threads have started, wait until completion")
-        self.sniff_thr.join()
-        self.sender_thr.join()
+        if io_threads_started:
+            # Wait until both IO threads have actually begun executing, using the
+            # explicit started-events with a bounded timeout. is_alive() returns
+            # False both before start and after finish, so it cannot be used here.
+            thread_start_timeout = 60
+            if not self.sniffer_thread_started.wait(timeout=thread_start_timeout):
+                self.log("WARNING: sniffer thread did not report start within %ds"
+                         % thread_start_timeout)
+            if not self.sender_started.wait(timeout=thread_start_timeout):
+                self.log("WARNING: sender thread did not report start within %ds"
+                         % thread_start_timeout)
+
+            self.log("IO sender and sniffer threads have started, wait until completion")
+            self.sniff_thr.join()
+            self.sender_thr.join()
+        else:
+            self.log("IO sender/sniffer threads were not started for reboot type "
+                     "'%s'; skipping data-plane flow examination." % self.reboot_type)
 
         # Stop watching DUT
         self.watching = False
@@ -1203,14 +1232,15 @@ class ReloadTest(BaseTest):
         # Wait for the Watcher stopped.
         self.watcher_is_stopped.wait(timeout=10)
 
-        examine_start = datetime.datetime.now()
-        self.log("Packet flow examine started %s after the reboot" %
-                 str(examine_start - self.reboot_start))
-        self.examine_flow()
-        self.log("Packet flow examine finished after %s" %
-                 str(datetime.datetime.now() - examine_start))
+        if io_threads_started:
+            examine_start = datetime.datetime.now()
+            self.log("Packet flow examine started %s after the reboot" %
+                     str(examine_start - self.reboot_start))
+            self.examine_flow()
+            self.log("Packet flow examine finished after %s" %
+                     str(datetime.datetime.now() - examine_start))
 
-        if self.lost_packets:
+        if io_threads_started and self.lost_packets:
             self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(
                 self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
             self.log("The longest disruption lasted %.3f seconds. %d packet(s) lost." % (
@@ -1250,7 +1280,7 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add("%s cycle must be less than graceful limit %s seconds" % (
                 self.reboot_type, self.test_params['graceful_limit']))
 
-        if self.total_disrupt_time > self.limit.total_seconds():
+        if self.total_disrupt_time is not None and self.total_disrupt_time > self.limit.total_seconds():
             self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s"
                                   % (str(self.limit), str(self.total_disrupt_time)))
 
@@ -1893,6 +1923,7 @@ class ReloadTest(BaseTest):
         """
         This method sends predefined list of packets with predefined interval.
         """
+        self.sender_started.set()
         if not packets_list:
             packets_list = self.packets_list
         self.sniffer_started.wait(timeout=self.start_sender_delay)
@@ -1956,6 +1987,7 @@ class ReloadTest(BaseTest):
         Once found, all packets are dumped to local pcap file,
         and all packets are saved to self.packets as scapy type(pcap format).
         """
+        self.sniffer_thread_started.set()
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
