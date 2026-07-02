@@ -74,7 +74,7 @@ class TransceiverFirmwareInfoParser:
         Returns a list of firmware entry dicts, or empty list on error.
         """
         try:
-            with open(manifest_file) as jsonfile:
+            with open(manifest_file, 'r', encoding='utf-8') as jsonfile:
                 data = json.load(jsonfile)
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error reading firmware manifest {manifest_file}: {e}")
@@ -122,7 +122,7 @@ class TransceiverFirmwareInfoParser:
             return {}
 
         try:
-            with open(firmware_base_url_file) as jsonfile:
+            with open(firmware_base_url_file, 'r', encoding='utf-8') as jsonfile:
                 url_dict = json.load(jsonfile)
         except (json.JSONDecodeError, IOError) as e:
             logger.error(f"Error reading firmware base URL JSON: {e}")
