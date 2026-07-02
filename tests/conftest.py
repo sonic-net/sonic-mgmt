@@ -68,7 +68,7 @@ from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
-    get_supervisor_for_linecard, create_linecard_console
+    get_supervisor_for_linecard, create_linecard_console, try_reap_dump_folder
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -105,6 +105,8 @@ HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
+STALE_DUMP_FILE_REAP_AGE_SEC = 24 * 60 * 60
+DUMP_FILE_CLEANUP_WATERMARK_MB = 768
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -453,7 +455,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning("Testbed '{}' not found in '{}'".format(tbname, tbfile))
     return
 
 
@@ -481,9 +483,9 @@ def converge_topo_if_needed(config):
         neighbor_type = config.getoption("--neighbor_type")
         if neighbor_type not in ("eos", "ceos"):
             logger.info(
-                f"use_converged_peers=True for testbed '{tbname}' but neighbor_type="
-                f"'{neighbor_type}' is not cEOS; skipping converge (converged peer "
-                f"model is cEOS-only)")
+                "use_converged_peers=True for testbed '{}' but neighbor_type="
+                "'{}' is not cEOS; skipping converge (converged peer "
+                "model is cEOS-only)".format(tbname, neighbor_type))
             return
 
         logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
@@ -525,7 +527,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info("File permissions restored to {}:{}".format(original_uid, original_gid))
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -785,6 +787,19 @@ def duthost(duthosts, request):
     duthost = duthosts[dut_index]
 
     return duthost
+
+
+@pytest.fixture(scope="session", autouse=True)
+def try_reap_stale_dump_files(duthosts):
+    for duthost in duthosts:
+        try_reap_dump_folder(
+            duthost, "/var/log/sdk_dbg",
+            age_sec=STALE_DUMP_FILE_REAP_AGE_SEC,
+            watermark_mb=DUMP_FILE_CLEANUP_WATERMARK_MB)
+        try_reap_dump_folder(
+            duthost, "/var/log/sai_failure_dump",
+            age_sec=STALE_DUMP_FILE_REAP_AGE_SEC,
+            watermark_mb=DUMP_FILE_CLEANUP_WATERMARK_MB)
 
 
 @pytest.fixture(scope="session")
@@ -1406,8 +1421,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout.add_serial_port_map(dut_name, host_port, fanout_port, baud_rate, flow_control)
 
             logging.debug(
-                f"Added serial port mapping: {dut_name} Console{host_port} -> "
-                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+                "Added serial port mapping: {} Console{} -> "
+                "{}:{} (baud={})".format(dut_name, host_port, fanout_host, fanout_port,
+                                         link_info.get('baud_rate', '9600'))
             )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
@@ -3843,7 +3859,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info("Output of {}:\n{}".format(script_path, result.stdout))
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")

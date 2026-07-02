@@ -459,6 +459,77 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     allure.attach.file(compressed_dump_file, dump_file_name, extension=".tar.gz")
 
 
+def is_folder_size_over_watermark(duthost, folder, watermark_mb):
+    """
+        Return True if a folder on the DUT exceeds watermark_mb.
+
+        Args:
+            duthost: Device Under Test (DUT)
+            folder: Directory to measure.
+            watermark_mb: Watermark in megabytes.
+    """
+    if watermark_mb is None or watermark_mb < 0:
+        logger.warning("Invalid watermark %s for folder %s", watermark_mb, folder)
+        return False
+
+    res = duthost.shell("sudo du -sm '{}'".format(folder), module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        logger.warning("Failed to get size for folder %s on %s", folder, duthost.hostname)
+        return False
+
+    try:
+        ret = int(res.get("stdout", "0").split()[0])
+    except (ValueError, IndexError):
+        logger.warning("Failed to parse size for folder %s on %s: %s",
+                       folder, duthost.hostname, res.get("stdout", ""))
+        return False
+
+    return ret > watermark_mb
+
+
+def try_reap_dump_folder(duthost, dump_folder, age_sec=None, watermark_mb=None):
+    """
+        /var/log is a smaller partition, which can get filled by
+        dump files. This function cleans up stale dump files under dump_folder
+        older than age_sec (seconds) when dump_folder exceeds watermark_mb.
+
+        Args:
+            duthost: Device Under Test (DUT)
+            dump_folder: Directory containing dump files to remove.
+            age_sec: If specified, only remove files older than this many seconds; else remove all.
+            watermark_mb: If specified, only remove files when dump_folder usage exceeds this many megabytes.
+    """
+
+    cmd = "sudo find '{}' -mindepth 1 -type f".format(dump_folder)
+    if isinstance(age_sec, int):
+        if age_sec < 0:
+            logger.warning("age_sec must be non-negative")
+            return False
+        cmd += " -mmin +{}".format((age_sec + 59) // 60)
+    elif age_sec is not None:
+        logger.warning("age_sec must be an int or None")
+        return False
+
+    res = duthost.shell("sudo test -d '{}'".format(dump_folder), module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        logger.info("Dump folder %s does not exist on %s", dump_folder, duthost.hostname)
+        return False
+
+    if watermark_mb is not None and not is_folder_size_over_watermark(duthost, dump_folder, watermark_mb):
+        logger.info(
+            "Skip removing stale dump files from %s on %s: size <= watermark %s MB",
+            dump_folder, duthost.hostname, watermark_mb)
+        return False
+
+    logger.info("Removing stale dump files from %s on %s", dump_folder, duthost.hostname)
+    res = duthost.shell(cmd + " -exec rm -f -- {} +", module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        logger.warning("Failed to remove stale dump files from %s on %s", dump_folder, duthost.hostname)
+        return False
+
+    return True
+
+
 def is_mellanox_devices(hwsku):
     """
     A helper function to check if a given sku is Mellanox device

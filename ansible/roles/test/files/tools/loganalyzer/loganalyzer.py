@@ -10,12 +10,12 @@ Description:    This file contains the log analyzer functionality in order
                 Design is available in https://github.com/sonic-net/SONiC/wiki/LogAnalyzer
 
 Usage:          Examples of how to use log analyzer
-                sudo python loganalyzer.py \
-                    --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results \
-                    --action analyze \
-                    --run_id myTest114 \
-                    --logs file3.log \
-                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \    # noqa: E501 W605
+                sudo python loganalyzer.py \\
+                    --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results \\
+                    --action analyze \\
+                    --run_id myTest114 \\
+                    --logs file3.log \\
+                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \\    # noqa: E501
                     -i ignore.file.1.log,ignore.file.2.log -v
 '''
 
@@ -32,7 +32,7 @@ import csv
 import time
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------
 # Global variables
@@ -209,6 +209,27 @@ class AnsibleLogAnalyzer:
         # can cause the marker message to be dropped (see #23562).
         time.sleep(2)
 
+    def is_recent_log_line(self, log_line, cutoff):
+        # This mirrors timestamp parsing logic from ansible/library/extract_log.py::convert_date.
+        timestamp_match = re.match(r'^\d{4}\s{1}\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', log_line)
+        if timestamp_match:
+            str_date = timestamp_match.group(0)
+        else:
+            timestamp_match = re.match(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', log_line)
+            if not timestamp_match:
+                return False
+            str_date = '{:04d} '.format(cutoff.year) + timestamp_match.group(0)
+
+        try:
+            log_time = datetime.strptime(str_date, "%Y %b %d %H:%M:%S.%f")
+        except ValueError:
+            log_time = datetime.strptime(str_date, "%Y %b %d %H:%M:%S")
+
+        if log_time < cutoff and cutoff.month == 12 and log_time.month == 1:
+            log_time = log_time.replace(year=cutoff.year + 1)
+
+        return log_time >= cutoff
+
     def wait_for_marker(self, marker, timeout=120, polling_interval=10):
         '''
         @summary: Wait the marker to appear in the /var/log/syslog file
@@ -221,38 +242,58 @@ class AnsibleLogAnalyzer:
         last_check_pos = 0
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
+
+        # when checking for rate limit messages we only care
+        # about those which occur after the marker was added, so
+        # messages older than one minute from the wait start are ignored
+        cutoff = datetime.now() - timedelta(minutes=1)
+
+        rate_limit_indications = [  # marker may be dropped due to rate-limiting
+            "due to rate-limiting",  # rsyslog
+            "Suppressed",  # syslog-ng
+        ]
+        rate_limit_warned = [False, False]  # warn only once for each file
+
+        def scan_log_file(log_file, last_pos, warned):
+            if not os.path.exists(log_file):
+                return False, 0, False
+
+            with open(log_file, 'r') as fp:
+                fp.seek(last_pos)
+                for logs in fp:
+                    if marker in logs:
+                        return True, last_pos, warned
+                    elif (not warned and
+                          any(indication in logs for indication in rate_limit_indications) and
+                          self.is_recent_log_line(logs, cutoff)):
+                        print("WARNING: log rate-limiting detected, marker may be dropped")
+                        warned = True
+                return False, fp.tell(), warned
+
         while wait_time <= timeout:
-            # look for marker in syslog file
-            if os.path.exists(syslog_file):
-                with open(syslog_file, 'r') as fp:
-                    # resume from last search position
-                    if last_check_pos:
-                        fp.seek(last_check_pos)
-                    # check if marker in the file
-                    for logs in fp:
-                        if marker in logs:
-                            return True
-                    # record last search position
-                    last_check_pos = fp.tell()
+            found_marker, last_check_pos, rate_limit_warned[0] = scan_log_file(
+                syslog_file, last_check_pos, rate_limit_warned[0])
+            if found_marker:
+                return True
 
             # logs might get rotated while waiting for marker
             # look for marker in syslog.1 file
-            if os.path.exists(prev_syslog_file):
-                with open(prev_syslog_file, 'r') as pfp:
-                    # check if marker in the file
-                    for logs in pfp:
-                        if marker in logs:
-                            return True
+            found_marker, _, rate_limit_warned[1] = scan_log_file(
+                prev_syslog_file, 0, rate_limit_warned[1])
+            if found_marker:
+                return True
+
             time.sleep(polling_interval)
             wait_time += polling_interval
 
         return False
 
-    def place_marker(self, log_file_list, marker, wait_for_marker=False):
+    def place_marker(self, log_file_list, marker, wait_for_marker=False, wait_for_timeout=120):
         '''
         @summary: Place marker into '/dev/log' and each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
         @param marker:         Marker to be placed into log files.
+        @param wait_for_timeout: Maximum seconds to wait for marker in /var/log/syslog.
         '''
 
         for log_file in log_file_list:
@@ -260,7 +301,7 @@ class AnsibleLogAnalyzer:
 
         self.place_marker_to_syslog(marker)
         if wait_for_marker:
-            if self.wait_for_marker(marker) is False:
+            if self.wait_for_marker(marker, timeout=wait_for_timeout) is False:
                 raise RuntimeError(
                     "cannot find marker {} in /var/log/syslog".format(marker))
 
@@ -829,7 +870,8 @@ def main(argv):
 
     result = {}
     if action == "init":
-        analyzer.place_marker(log_file_list, analyzer.create_start_marker())
+        analyzer.place_marker(
+            log_file_list, analyzer.create_start_marker(), wait_for_marker=True, wait_for_timeout=30)
         return 0
     elif action == "analyze":
         match_file_list = match_files_in.split(tokenizer)
