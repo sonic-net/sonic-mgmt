@@ -277,7 +277,7 @@ def test_ecn_accuracy_scheduler(
                 snappi_extra_params=snappi_extra_params,
                 create_snappi_config_fn=create_snappi_config,
                 iteration=iteration,
-            )[10:]
+            )[10:]  # Observed first 10 packets getting leaked with scheduler blocking, so ignoring them
             logger.info("Iteration %d: received %d packets : Total packets sent: %d",
                         iteration, len(ip_pkts), total_pkts)
             for i, pkt in enumerate(ip_pkts):
@@ -315,7 +315,7 @@ def test_ecn_accuracy_scheduler(
             q_mid = (total_pkts - mid_i) * FRAME_SIZE_BYTES
             expected = _theoretical_mark_prob(q_mid, kmin, kmax, pmax)
             _check_region_accuracy(
-                region_name=f"ramp bucket pkts[{lo}:{hi}] q≈{q_mid//1024}KB",
+                region_name=f"ramp bucket pkts[{lo}: {hi}] q≈{q_mid//1024}KB",
                 actual_marked=bucket_marked,
                 total=bucket_total,
                 expected_prob=expected,
