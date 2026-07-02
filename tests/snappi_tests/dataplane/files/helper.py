@@ -9,6 +9,8 @@ from tests.common.gu_utils import (
 )
 logger = logging.getLogger(__name__)
 
+BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+
 
 @dataclass
 class IxNetConfigParams:

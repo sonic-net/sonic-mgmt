@@ -44,7 +44,6 @@ FRAME_SIZE_BYTES = 1024       # 1 KB per packet – must match kmax granularity 
 OVERFLOW_PKTS = 10            # packets sent beyond kmax; these see q > kmax (100% mark)
 ITERATIONS = 1             # repetitions for statistical accuracy
 TOLERANCE = 0.15              # ±15% allowed deviation from theoretical marking rate
-BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
 
 
 @pytest.fixture(scope="module")
