@@ -6,6 +6,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.bgp import get_asic_config_facts, get_db_cli_prefix
 from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 
@@ -18,9 +19,9 @@ pytestmark = [
 
 
 @pytest.fixture
-def enable_container_autorestart(duthosts, rand_one_dut_hostname):
+def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
     # Enable autorestart for all features
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
     feature_list, _ = duthost.get_feature_status()
     feature_list.pop('frr_bmp', None)
     container_autorestart_states = duthost.get_container_autorestart_states()
@@ -37,33 +38,43 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
+          nbrhosts, fanouthosts):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_rand_one_frontend_asic_index
+    asichost = duthost.asic_instance(asic_index)
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    config_facts = get_asic_config_facts(duthost, asic_index)
     # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
-    if check_frr_mgmt_framework_config(duthost):
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-        bgp_neighbors = bgp_neighbors[vrfname]
+    if check_frr_mgmt_framework_config(duthost, asic_index):
+        all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        all_bgp_neighbors = all_bgp_neighbors[vrfname]
     else:
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = {
+        ip: details for ip, details in all_bgp_neighbors.items()
+        if details.get('name') in nbrhosts
+    }
+    if not bgp_neighbors:
+        pytest.skip(
+            "No external BGP neighbors on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
+        )
+
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
-    bgp_neighbor = list(bgp_neighbors.keys())[0]
 
     logger.debug("setup config_facts {}".format(config_facts))
     logger.debug("setup nbrhosts {}".format(nbrhosts))
     logger.debug("setup bgp_neighbors {}".format(bgp_neighbors))
     logger.debug("setup dev_nbrs {}".format(dev_nbrs))
     logger.debug("setup portchannels {}".format(portchannels))
-    logger.debug("setup test_neighbor {}".format(bgp_neighbor))
 
     # verify sessions are established
     pytest_assert(wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                   "Not all BGP sessions are established on DUT")
 
-    ip_intfs = duthost.show_and_parse('show ip interface')
-    ipv6_intfs = duthost.show_and_parse('show ipv6 interfaces')
+    ip_intfs = asichost.show_and_parse('show ip interface')
+    ipv6_intfs = asichost.show_and_parse('show ipv6 interfaces')
     logger.debug("setup ip_intfs {}".format(ip_intfs))
 
     # Create a mapping of neighbor IP to interfaces and their details
@@ -105,7 +116,7 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
     for ip, details in bgp_neighbors.items():
         logger.debug(ip)
-        if check_frr_mgmt_framework_config(duthost):
+        if check_frr_mgmt_framework_config(duthost, asic_index):
             get_ip = f"({vrfname}, '{ip}')"
         else:
             get_ip = ip
@@ -114,9 +125,24 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
         if get_ip in neighbor_ip_to_interfaces:
             details['interface'] = neighbor_ip_to_interfaces[get_ip]
 
+    bgp_neighbor = None
+    for ip, details in bgp_neighbors.items():
+        if details.get('interface'):
+            bgp_neighbor = ip
+            break
+    if bgp_neighbor is None:
+        pytest.skip(
+            "No external BGP neighbor with mapped interface on ASIC {} of DUT {}".format(
+                asic_index, duthost.hostname
+            )
+        )
+
+    logger.debug("setup test_neighbor {}".format(bgp_neighbor))
+
     setup_info = {
         'neighhosts': bgp_neighbors,
-        "test_neighbor": bgp_neighbor
+        "test_neighbor": bgp_neighbor,
+        "asic_index": asic_index,
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
@@ -141,23 +167,27 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
                       "Not all BGP sessions are established on DUT")
 
 
-def check_frr_mgmt_framework_config(duthost):
+def check_frr_mgmt_framework_config(duthost, asic_index):
     """
     Check if frr_mgmt_framework_config is set to "true" in DEVICE_METADATA
 
     Args:
         duthost: DUT host object
+        asic_index: ASIC index for namespace-scoped CONFIG_DB access
 
     Returns:
         bool: True if frr_mgmt_framework_config is "true", False otherwise
     """
-    frr_config = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
-    return frr_config == "true"
+    cmd = '{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"'.format(
+        get_db_cli_prefix(duthost, asic_index)
+    )
+    frr_config = duthost.shell(cmd)
+    return frr_config.get("stdout", "").strip() == "true"
 
 
-def verify_bgp_session_down(duthost, bgp_neighbor):
-    """Verify the bgp session to the DUT is established."""
-    bgp_facts = duthost.bgp_facts()["ansible_facts"]
+def verify_bgp_session_down(duthost, bgp_neighbor, asic_index):
+    """Verify the bgp session to the DUT is down."""
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)["ansible_facts"]
     return (
         bgp_neighbor in bgp_facts["bgp_neighbors"]
         and bgp_facts["bgp_neighbors"][bgp_neighbor]["state"] != "established"
@@ -215,7 +245,7 @@ def _restore_neighbors(nbrhosts, setup, neighbor_name, local_interfaces):
 
 
 @pytest.fixture
-def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, setup):
+def failure_injection(duthosts, enum_frontend_dut_hostname, fanouthosts, nbrhosts, setup):
     """Fixture to guarantee cleanup of injected failures.
 
     The test body calls inject() to apply the failure after skip checks pass.
@@ -223,7 +253,8 @@ def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, se
 
     See: https://github.com/sonic-net/sonic-mgmt/issues/22246
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asichost = duthost.asic_instance(setup['asic_index'])
     state = {'injected': False, 'failure_type': None}
 
     class FailureContext:
@@ -244,8 +275,8 @@ def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, se
             else:
                 raise ValueError("Unsupported failure_type: {}".format(failure_type))
 
-            duthost.shell('show ip bgp summary', module_ignore_errors=True)
-            duthost.shell('show ipv6 bgp summary', module_ignore_errors=True)
+            asichost.shell('show ip bgp summary', module_ignore_errors=True)
+            asichost.shell('show ipv6 bgp summary', module_ignore_errors=True)
 
         def restore(self):
             """Explicitly restore injected failures so the test can verify recovery.
@@ -273,7 +304,7 @@ def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, se
 @pytest.mark.parametrize("test_type", ["bgp_docker", "swss_docker", "reboot"])
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
-def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts, localhost,
+def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanouthosts, localhost,
                                     enable_container_autorestart,
                                     nbrhosts, setup, test_type, failure_type, tbinfo,
                                     failure_injection):
@@ -283,7 +314,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     4: do the test, reset bgp or swss or do the reboot
     5: Verify all bgp sessions are up
     '''
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = setup['asic_index']
+    asichost = duthost.asic_instance(asic_index)
 
     # Skip the test on dualtor with reboot test type
     pytest_require(
@@ -315,7 +348,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     # default keepalive is 60 seconds, hold time 180 seconds. Use 240 seconds to provide a safety margin
     # and avoid a race condition where BGP takes the full hold time (~180s) to go down.
     pytest_assert(
-        wait_until(240, 10, 0, verify_bgp_session_down, duthost, neighbor),
+        wait_until(240, 10, 0, verify_bgp_session_down, duthost, neighbor, asic_index),
         "neighbor {} state is still established".format(neighbor)
     )
 
@@ -326,12 +359,12 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     # - In Debian 13, this is correctly counted, causing the start limit to be reached and bgp service cannot start.
     # To avoid this issue, reset the systemd failed state counter before service restart.
     if test_type in ("bgp_docker", "swss_docker"):
-        duthost.shell("sudo systemctl reset-failed bgp.service")
+        duthost.shell("sudo systemctl reset-failed {}".format(asichost.get_service_name("bgp")))
 
     if test_type == "bgp_docker":
-        duthost.shell("systemctl restart bgp")
+        duthost.restart_service_on_asic("bgp", asic_index)
     elif test_type == "swss_docker":
-        duthost.shell("systemctl restart swss")
+        duthost.shell("sudo systemctl restart {}".format(asichost.get_service_name("swss")))
     elif test_type == "reboot":
         # Use warm reboot for t0, cold reboot for others
         topo_name = tbinfo["topo"]["name"]
