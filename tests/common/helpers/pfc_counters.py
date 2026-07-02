@@ -27,6 +27,10 @@ PKT_COUNT = 10
 PRIO_COUNT = 8
 
 
+def pfc_counter_matches(actual, expected):
+    return actual == expected or (actual == 'N/A' and expected == '0')
+
+
 @pytest.fixture(scope="module")
 def leaf_fanouts(conn_graph_facts):                                      # noqa: F811
     """
@@ -89,7 +93,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                         int_status[intf]['admin_state'] == 'up' and
                         int_status[intf]['oper_state'] == 'up' and
                         intf in conn_facts]
-    only_lossless_rx_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
+    only_lossless_rx_counters_hwskus = ["Cisco-8122", "Cisco-8223", "Arista-7260CX3"]
     only_lossless_rx_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in only_lossless_rx_counters_hwskus)
     no_xon_counters_hwskus = ["Cisco-8122", "Cisco-8223"]
     no_xon_counters = any(sku in asic.sonichost.facts["hwsku"] for sku in no_xon_counters_hwskus)
@@ -143,13 +147,14 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         """ Check results """
         counter_facts = duthost.sonic_pfc_counters(method="get")[
             'ansible_facts']
-        if only_lossless_rx_counters and asic_type != 'vs':
-            pfc_enabled_prios = [int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
         failures = []
         for intf in active_phy_intfs:
             if is_pfc and (not no_xon_counters or pause_time != 0):
                 if only_lossless_rx_counters:
-                    expected_prios = [str(PKT_COUNT if prio in pfc_enabled_prios else 0) for prio in range(PRIO_COUNT)]
+                    pfc_enabled_prios = [
+                        int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
+                    expected_prios = [str(PKT_COUNT if prio in pfc_enabled_prios else 0)
+                                      for prio in range(PRIO_COUNT)]
                 else:
                     expected_prios = [str(PKT_COUNT)] * PRIO_COUNT
             else:
@@ -157,7 +162,8 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                 # device does not support XON counters and the frame is XON.
                 expected_prios = ['0'] * PRIO_COUNT
             logger.info("Verifying PFC RX count matches {}".format(expected_prios))
-            if counter_facts[intf]['Rx'] != expected_prios:
+            if not all(pfc_counter_matches(actual, expected)
+                       for actual, expected in zip(counter_facts[intf]['Rx'], expected_prios)):
                 failures.append((counter_facts[intf]['Rx'], expected_prios))
         if asic_type != 'vs':
             for failure in failures:
@@ -243,14 +249,14 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
 
                     """check LHS priorities are 0 count"""
                     for i in range(priority):
-                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                        assert pfc_counter_matches(pfc_rx[intf]['Rx'][i], '0'), (
                             "PFC RX counter value is not zero for interface {} and priority {}. "
                             "Expected value: 0, but got {}."
                         ).format(intf, i, pfc_rx[intf]['Rx'][i])
 
                     """check RHS priorities are 0 count"""
                     for i in range(priority+1, PRIO_COUNT):
-                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                        assert pfc_counter_matches(pfc_rx[intf]['Rx'][i], '0'), (
                             "PFC RX counter value is not zero for interface {} and priority {}. "
                             "Expected value: 0, but got {}."
                         ).format(intf, i, pfc_rx[intf]['Rx'][i])
