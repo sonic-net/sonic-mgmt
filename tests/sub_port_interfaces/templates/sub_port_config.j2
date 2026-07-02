@@ -2,7 +2,8 @@
     "VLAN_SUB_INTERFACE": {
 {% for sub_port, value in sub_ports.items() %}
         "{{ sub_port }}": {
-            "admin_status" : "up"
+            "admin_status" : "up",
+            "vlan" : "{{ sub_port.split('.')[1] }}"
         },
         "{{ sub_port }}|{{ value['ip'] }}": {}{% if not loop.last %},
 {% endif %}{% endfor %}
