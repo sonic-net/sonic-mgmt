@@ -9,8 +9,7 @@ from copy import deepcopy
 
 from tests.common.utilities import wait_until
 from tests.common.reboot import SONIC_SSH_REGEX
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.firmware_helper import show_firmware
+from tests.common.helpers.firmware_helper import show_firmware, resolve_bmc_flavor, load_bmc_creds, get_bmc_ip
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +74,7 @@ def reboot(duthost, pdu_ctrl, reboot_type, pdu_delay=60):
 def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, auto_reboot=False, current=None,
                      next_image=None, timeout=TIMEOUT, pdu_delay=60):
     hn = duthost.mgmt_ip
+    component_name = component if isinstance(component, str) else ""
 
     if boot_type != "none":
         if not auto_reboot:
@@ -96,29 +96,37 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
         else:
             # For auto reboot scenario, it takes some time in ONIE to update the firmware
             logger.info("Waiting on switch to shutdown after auto reboot...")
-            if 'CPLD' in component or 'FPGA' in component:
-                # For CPLD/FPGA update, most time is spend before the reboot
-                pre_reboot_timeout = timeout
-                post_reboot_timeout = COMMON_REBOOT_TIMEOUT
+            if 'FPGA' in component_name:
+                # For FPGA update, no reboot is needed.
+                logger.info("Waiting for switch update result...")
+                res.get(timeout)
+                if res._value['failed']:
+                    pytest.fail(f"The component installation is not successful: {res._value}")
+                logger.info("FPGA update is successful")
             else:
-                # For BIOS/ONIE, most time is spend after the reboot in ONIE
-                pre_reboot_timeout = 120
-                if duthost.facts["platform"] == "x86_64-nvidia_sn4280-r0":
-                    pre_reboot_timeout += 240
-                post_reboot_timeout = timeout
-            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
-            # Wait for 30s in case there is ssh flap
-            time.sleep(30)
-            logger.info("Waiting on switch to come up in SONiC....")
-            localhost.wait_for(
-                host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=post_reboot_timeout)
+                if 'CPLD' in component_name:
+                    # For CPLD update, most time is spend before the reboot
+                    pre_reboot_timeout = timeout
+                    post_reboot_timeout = COMMON_REBOOT_TIMEOUT
+                else:
+                    # For BIOS/ONIE, most time is spend after the reboot in ONIE
+                    pre_reboot_timeout = 120
+                    if duthost.facts["platform"] == "x86_64-nvidia_sn4280-r0":
+                        pre_reboot_timeout += 240
+                    post_reboot_timeout = timeout
+                localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
+                # Wait for 30s in case there is ssh flap
+                time.sleep(30)
+                logger.info("Waiting on switch to come up in SONiC....")
+                localhost.wait_for(
+                    host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10,
+                    timeout=post_reboot_timeout)
 
-        logger.info("Waiting for docker service to start")
-        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
-                      "Docker service failed to start")
-        logger.info("Waiting on critical systems to come online...")
-        wait_until(300, 30, 0, duthost.critical_services_fully_started)
-        time.sleep(60)
+        # Only wait for critical systems when a reboot actually occurred (FPGA update does not reboot).
+        if (not auto_reboot) or ('FPGA' not in component_name):
+            logger.info("Waiting on critical systems to come online...")
+            wait_until(300, 30, 0, duthost.critical_services_fully_started)
+            time.sleep(60)
 
         # Reboot back into original image if neccesary
         if next_image and auto_reboot:
@@ -167,6 +175,18 @@ def get_install_paths(request, duthost, defined_fw, versions, chassis, target_co
     return paths
 
 
+def _resolve_flavor_components(component, defined_fw, chassis, duthost):
+    """Resolve any flavor-dict entries (e.g. BMC) into revision lists."""
+    for comp, revs in list(component.items()):
+        if comp == "BMC" and isinstance(revs, dict):
+            bmc_ip = get_bmc_ip(duthost)
+            bmc_user, bmc_password = load_bmc_creds()
+            flavor = resolve_bmc_flavor(defined_fw, chassis, duthost, bmc_ip,
+                                        bmc_user, bmc_password)
+            component[comp] = revs.get(flavor, [])
+    return component
+
+
 def get_defined_components(duthost, defined_fw, chassis):
     """
     Update the component content, in case there is a pre-definition for a specific host.
@@ -177,7 +197,7 @@ def get_defined_components(duthost, defined_fw, chassis):
     if "host" in defined_fw and duthost.hostname in defined_fw["host"]:
         for component_type in list(defined_fw["host"][duthost.hostname]["component"].keys()):
             component[component_type] = defined_fw["host"][duthost.hostname]["component"][component_type]
-    return component
+    return _resolve_flavor_components(component, defined_fw, chassis, duthost)
 
 
 def generate_config(duthost, cfg, versions):
