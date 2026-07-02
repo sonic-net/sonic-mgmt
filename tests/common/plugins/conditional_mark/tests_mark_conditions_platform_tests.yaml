@@ -1375,10 +1375,10 @@ platform_tests/test_memory_exhaustion.py:
 #######################################
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
-    reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
+    reason: "Test disabled on Mellanox and Cisco-8000 platforms as thermal control is unavailable or unstable."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
       - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
@@ -1391,11 +1391,11 @@ platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
-    reason: "Thermal control daemon is not present / Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
+    reason: "Thermal control daemon is not present / Test disabled on Mellanox and Cisco-8000 platforms as thermal control is unavailable or unstable."
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True and release in ['201911']"
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'cisco-8000']"
       - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
