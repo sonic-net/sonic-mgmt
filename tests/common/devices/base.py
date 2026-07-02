@@ -128,11 +128,32 @@ class AnsibleHostBase(object):
                 return obj.data
             return super().default(obj)
 
+    # Cache HostManager instances so the inventory is only parsed once per unique
+    # ansible_adhoc + kwargs combo. Without this, large topologies (e.g. 252 VMs)
+    # re-parse the full inventory on every __init__ call, making the nbrhosts
+    # fixture extremely slow.
+    _host_manager_cache = {}
+    _host_manager_cache_lock = threading.Lock()
+
+    @classmethod
+    def _get_host_manager(cls, ansible_adhoc, hostname, **kwargs):
+        # Exclude host_pattern from the cache key: different hostnames share the
+        # same underlying inventory, so we should reuse the same HostManager.
+        cache_key_kwargs = {k: v for k, v in kwargs.items() if k != 'host_pattern'}
+        cache_key = (id(ansible_adhoc), tuple(sorted(cache_key_kwargs.items())))
+        with cls._host_manager_cache_lock:
+            if cache_key not in cls._host_manager_cache:
+                cls._host_manager_cache[cache_key] = ansible_adhoc(
+                    host_pattern=hostname, **kwargs)
+            return cls._host_manager_cache[cache_key]
+
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
-            self.host = ansible_adhoc(become=True, host_pattern=hostname, *args, **kwargs)[hostname]
+            host_manager = self._get_host_manager(
+                ansible_adhoc, hostname, become=True, host_pattern=hostname, *args, **kwargs)
+            self.host = host_manager[hostname]
             host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
             ansible_host = host_vars.get("ansible_host")
             ansible_hostv6 = host_vars.get("ansible_hostv6")
