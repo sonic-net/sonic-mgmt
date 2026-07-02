@@ -274,9 +274,19 @@ def assert_lldp_interfaces(
             "Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interface))
         )
 
+    # lldpctl reports the management interface (eth0) and may list the same
+    # front-panel port more than once when it has multiple LLDP neighbors
+    # (e.g. fanout + T1 switch in dualtor). LLDP_ENTRY_TABLE / "show lldp table"
+    # store a single entry per physical interface and do not track eth0, so
+    # normalize the lldpctl interface set (drop eth0, dedup) before comparing.
+    lldpctl_iface_set = set(lldpctl_interfaces) - {"eth0"}
+    db_iface_set = set(lldp_entry_keys)
     pytest_assert(
-        sorted(lldp_entry_keys) == sorted(lldpctl_interfaces),
-        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes",
+        db_iface_set == lldpctl_iface_set,
+        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
+        "In DB but not in lldpctl: {}. In lldpctl but not in DB: {}".format(
+            db_iface_set - lldpctl_iface_set, lldpctl_iface_set - db_iface_set
+        ),
     )
 
 
