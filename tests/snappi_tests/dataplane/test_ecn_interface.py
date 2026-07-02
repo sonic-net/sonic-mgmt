@@ -32,9 +32,10 @@ test_mixed_ecn_codepoint
 import random
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
-    set_primary_chassis, create_traffic_items, start_stop, wait_with_message, get_stats, \
-    _normalize_stat_rows, print_ud_statistics, _rx_rate, _traffic_item, \
-    _ti_row_index, _drill_down_egress, _ud_rows_by_codepoint, _drill_and_get, _dscp_values  # noqa: F401, F403, F405, E402
+     set_primary_chassis, create_traffic_items, start_stop, wait_with_message, get_stats, \
+     _normalize_stat_rows, print_ud_statistics, _rx_rate, _traffic_item, \
+     _ti_row_index, _drill_down_egress, _ud_rows_by_codepoint, _drill_and_get, \
+     _dscp_values  # noqa: F401, F403, F405, E402
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     enable_ecn,

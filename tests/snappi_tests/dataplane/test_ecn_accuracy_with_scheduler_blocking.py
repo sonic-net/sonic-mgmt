@@ -27,7 +27,8 @@ import random
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
     get_snappi_stats, set_primary_chassis, create_traffic_items, start_stop, wait_with_message, \
-    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler, _dscp_values  # noqa: F401, F403, F405
+    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler, \
+    _dscp_values  # noqa: F401, F403, F405
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     enable_ecn,
@@ -277,7 +278,8 @@ def test_ecn_accuracy_scheduler(
                 create_snappi_config_fn=create_snappi_config,
                 iteration=iteration,
             )[10:]
-            logger.info("Iteration %d: received %d packets : Total packets sent: %d", iteration, len(ip_pkts), total_pkts)
+            logger.info("Iteration %d: received %d packets : Total packets sent: %d",
+                        iteration, len(ip_pkts), total_pkts)
             for i, pkt in enumerate(ip_pkts):
                 recv_counts[i] += 1
                 if is_ecn_marked(pkt):

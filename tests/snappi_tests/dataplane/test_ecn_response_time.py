@@ -159,6 +159,7 @@ def _configure_oversub(snappi_api,
 # ECN marking ENTER time
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("subnet_type", [ip_version])
 @pytest.mark.parametrize("lossy_prio", [0])
 def test_ecn_response_entry_time(
