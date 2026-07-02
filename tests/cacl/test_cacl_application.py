@@ -165,11 +165,13 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     file_path = "/tmp/generated_acl.json"
+    is_bmc = duthost.is_bmc()
 
     rules_data = {}
     snmp_acl_entry = {}
     ssh_acl_entry = {}
     ntp_acl_entry = {}
+    redfish_acl_entry = {}
 
     for index in range(1, 22):
         acl_entry = {}
@@ -199,35 +201,55 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         snmp_acl_entry.update(acl_entry)
         ssh_acl_entry.update(acl_entry)
         ntp_acl_entry.update(acl_entry)
+        if is_bmc:
+            redfish_acl_entry.update(acl_entry)
+
+    acl_set = {
+        "SNMP-ACL": {
+            "acl-entries": {
+                "acl-entry": snmp_acl_entry
+            },
+            "config": {
+                "name": "SNMP-ACL"
+            }
+        },
+        "ssh-only": {
+            "acl-entries": {
+                "acl-entry": ssh_acl_entry
+            },
+            "config": {
+                "name": "ssh-only"
+            }
+        },
+        "ntp-acl": {
+            "acl-entries": {
+                "acl-entry": ntp_acl_entry
+            },
+            "config": {
+                "name": "ntp-acl"
+            }
+        }
+    }
+
+    # REDFISH_ACL is only present on BMC. It is not in CONFIG_DB by default
+    # so pre-create the table via sonic-db-cli before acl-loader runs.
+    if is_bmc:
+        duthost.command(
+            "sonic-db-cli CONFIG_DB HSET 'ACL_TABLE|REDFISH_ACL' "
+            "policy_desc REDFISH_ACL type CTRLPLANE stage ingress 'services@' REDFISH"
+        )
+        acl_set["REDFISH-ACL"] = {
+            "acl-entries": {
+                "acl-entry": redfish_acl_entry
+            },
+            "config": {
+                "name": "REDFISH-ACL"
+            }
+        }
 
     rules_data['acl'] = {
         "acl-sets": {
-            "acl-set": {
-                "SNMP-ACL": {
-                    "acl-entries": {
-                        "acl-entry": snmp_acl_entry
-                    },
-                    "config": {
-                        "name": "SNMP-ACL"
-                    }
-                },
-                "ssh-only": {
-                    "acl-entries": {
-                        "acl-entry": ssh_acl_entry
-                    },
-                    "config": {
-                        "name": "ssh-only"
-                    }
-                },
-                "ntp-acl": {
-                    "acl-entries": {
-                        "acl-entry": ntp_acl_entry
-                    },
-                    "config": {
-                        "name": "ntp-acl"
-                    }
-                }
-            }
+            "acl-set": acl_set
         }
     }
 
@@ -258,6 +280,12 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
 
     logger.info(f"Deleting {file_path}...")
     duthost.file(path=file_path, state='absent')
+
+    # REDFISH_ACL is pre-created via sonic-db-cli on BMC (it is not part of the
+    # default config), so remove it explicitly.
+    if is_bmc:
+        duthost.command('sonic-db-cli CONFIG_DB DEL "ACL_TABLE|REDFISH_ACL"',
+                        module_ignore_errors=True)
 
     logger.info("Reloading config to recover original ACL configuration...")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
