@@ -194,9 +194,9 @@ class SonicPortAliasMap():
             if index != '-1':
                 indexmap[index] = name
 
-        if include_internal and card_type == "linecard":
+        if include_internal and (card_type == "linecard" or card_type == "ut2"):
             aliases.append(("Cpu0/{}".format(asic_id if asic_id is not None else 0), -1))
-        if asic_id is not None and card_type == "linecard":
+        if asic_id is not None and (card_type == "linecard" or card_type == "ut2"):
             asic_if_names["Cpu0/{}".format(asic_id)] = "Cpu0"
             asic_if_ids["Cpu0/{}".format(asic_id)] = "ASIC" + str(asic_id)
 
