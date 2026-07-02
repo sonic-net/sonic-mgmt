@@ -85,7 +85,7 @@ def test_bgp_t0_port_startup(
         logger.info("Shutting down {} port of {} dut before starting traffic ".format(port, device))
         flap_dut_obj.command("sudo config interface shutdown {}\n".format(port))
         start_stop(snappi_api, operation="start", op_type="traffic")
-        wait(20, "For traffic to stabilize")
+        wait(TIMEOUT , "For traffic to stabilize")
         flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
         pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap Up")
         logger.info("Starting Up {} port of {} dut !!".format(port, device))
@@ -169,7 +169,7 @@ def test_bgp_route_injection(
         cs.protocol.route.state = cs.protocol.route.WITHDRAW
         cs.protocol.route.names = [snappi_obj_handles["Rx"]["network_group"][1]]
         snappi_api.set_control_state(cs)
-        wait(30, "For routes to be withdrawn")
+        wait(TIMEOUT, "For routes to be withdrawn")
         start_stop(snappi_api, operation="start", op_type="traffic")
         # Route Injection
         start_time = time.time()
@@ -181,7 +181,7 @@ def test_bgp_route_injection(
         cs.protocol.route.names = [snappi_obj_handles["Rx"]["network_group"][1]]
         snappi_api.set_control_state(cs)
         end_time = time.time()
-        wait(30, "For routes to be Advertised")
+        wait(TIMEOUT, "For routes to be Advertised")
         logger.info('Time taken to apply acl and route Injection on snappi port: {} (s)'.
                     format(end_time - start_time))
 
