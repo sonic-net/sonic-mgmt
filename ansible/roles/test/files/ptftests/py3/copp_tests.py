@@ -158,42 +158,38 @@ class ControlPlaneBaseTest(BaseTest):
                 pre_send_count, rcv_pkt_cnt))
 
         send_count = 0
-        first_capture_complete = False
-        second_capture_complete = False
-        datetime_five_seconds = datetime.timedelta(seconds=5)
-        datetime_fifteen_seconds = datetime.timedelta(seconds=15)
-        self.dataplane.flush()
-        start_time = datetime.datetime.now()
+        started = False
+        delayed_start_time = datetime.timedelta(seconds=5)  # allow time for dut to reach steady state rate limiting
+        start_time = datetime.datetime.now() + delayed_start_time
         end_time = start_time + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
-        while datetime.datetime.now() < end_time + datetime_fifteen_seconds:
+        while True:
             testutils.send_packet(self, send_intf, packet)
-            send_count += 1
+            if started:  # don't start counting until after the dataplane has been flushed
+                send_count += 1
 
-            if not first_capture_complete and datetime.datetime.now() > start_time + datetime_five_seconds:
-                first_capture_complete = True
+            if not started and datetime.datetime.now() > start_time:
+                started = True
+                self.dataplane.flush()
                 pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
                 pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
                 pre_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
                 pre_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
-                first_capture_time = datetime.datetime.now()
-            elif not second_capture_complete and datetime.datetime.now() > end_time - datetime_five_seconds:
-                second_capture_complete = True
+                start_time = datetime.datetime.now()
+            elif datetime.datetime.now() > end_time:
                 post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
                 post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
                 post_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
                 post_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
-                second_capture_time = datetime.datetime.now()
+                stop_time = datetime.datetime.now()
+                break
 
             # Depending on the server/platform combination it is possible for the server to
             # overwhelm the DUT, so we add an artificial delay here to rate-limit the server.
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
-        self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
-        # Wait a little bit for all the packets to make it through
-        time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
-        recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
-        self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
+        recv_count = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0],
+                                                               self.DEFAULT_RECEIVE_WAIT_TIME)
+        measure_time = datetime.datetime.now()
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
         nn_tx_count = int(post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
@@ -201,6 +197,8 @@ class ControlPlaneBaseTest(BaseTest):
         nn_rx_count = int(post_test_nn_rx_counter[0] - pre_test_nn_rx_counter[0])
 
         self.log("", True)
+        self.log("Sent %d packets within the %ds test window" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
+        self.log("Took %d seconds to count matched receive packets" % ((measure_time - stop_time).seconds))
         self.log("Counters before the test:", True)
         self.log("If counter (0, n): %s" % str(pre_test_ptf_tx_counter), True)
         self.log("NN counter (0, n): %s" % str(pre_test_nn_tx_counter), True)
@@ -218,10 +216,10 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Recv from If on remote ptf_nn_agent:      %d" % ptf_rx_count)
         self.log("Recv from NN on from remote ptf_nn_agent: %d" % nn_rx_count)
 
-        time_delta = second_capture_time - first_capture_time
+        time_delta = stop_time - start_time
         time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 1000
         tx_pps = int(nn_tx_count / (float(time_delta_ms) / 1000))
-        rx_pps = int(nn_rx_count / (float(time_delta_ms) / 1000))
+        rx_pps = int(recv_count / (float(time_delta_ms) / 1000))
 
         return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
 
