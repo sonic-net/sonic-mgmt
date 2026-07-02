@@ -85,7 +85,7 @@ def test_bgp_t0_port_startup(
         logger.info("Shutting down {} port of {} dut before starting traffic ".format(port, device))
         flap_dut_obj.command("sudo config interface shutdown {}\n".format(port))
         start_stop(snappi_api, operation="start", op_type="traffic")
-        wait(TIMEOUT , "For traffic to stabilize")
+        wait(TIMEOUT, "For traffic to stabilize")
         flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
         pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap Up")
         logger.info("Starting Up {} port of {} dut !!".format(port, device))
