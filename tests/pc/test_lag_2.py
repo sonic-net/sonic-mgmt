@@ -113,6 +113,13 @@ class LagTest:
         if exp_iface is None:
             return
 
+        if lacp_timer == 1:
+            # EOS does not immediately send fast PDUs after 'lacp timer fast'; it waits for its
+            # current 30-second slow timer to expire first. Sleep 35s so PTF captures only fast
+            # PDUs and does not measure the transition interval.
+            logger.info("Sleeping 35s for EOS to complete transition to fast LACP rate")
+            time.sleep(35)
+
         # Check LACP timing
         params = {
             'exp_iface': exp_iface,
