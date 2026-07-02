@@ -11,6 +11,19 @@ logger = logging.getLogger(__name__)
 
 BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
 DRILL_DOWN_OPTION = "Custom: (2 bits at offset 126)"
+SELECTED_UD_COLS = [
+    "Egress Tracking",
+    "Tx Frames",
+    "Rx Frames",
+    "Frames Delta",
+    "Loss %",
+    "Tx Frame Rate",
+    "Rx Frame Rate",
+]
+ECN_NON_ECT = 0   # 00
+ECN_ECT1 = 1      # 01
+ECN_ECT0 = 2      # 10
+ECN_CE = 3        # 11
 
 
 @dataclass
