@@ -22,6 +22,7 @@ PORTCHANNEL_NAME_FMT = "PortChannel{}"
 PORTCHANNEL_SHORT_NAME_FMT = "Po{}"
 VXLAN_PORT = 4789
 VNI_BASE = 10000
+CISCO_8000_ASIC = "cisco-8000"
 
 pytestmark = [
     pytest.mark.topology("t0"),
@@ -34,6 +35,51 @@ pytestmark = [
 
 def get_cfg_facts(duthost):
     return json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
+
+
+def _mcast_tunnel_cfg_files(duthost):
+    """Cisco-8000 SAI init files that carry the mcast_tunnel_enabled device property.
+
+    asic_cfg.json is the live SAI_INIT_CONFIG_FILE read by syncd at init;
+    platform_npu_cfg.yaml is its cold-boot source. Both are updated so the
+    setting survives either a config reload or a reboot.
+    """
+    base = "/usr/share/sonic/device/{}/{}".format(
+        duthost.facts["platform"], duthost.facts["hwsku"]
+    )
+    return [
+        "{}/asic_cfg.json".format(base),
+        "{}/platform_npu_cfg.yaml".format(base),
+    ]
+
+
+def is_mcast_tunnel_enabled(duthost):
+    """Return True if mcast_tunnel_enabled is currently set true in the SAI init config."""
+    for path in _mcast_tunnel_cfg_files(duthost):
+        res = duthost.shell(
+            "grep -Eq 'mcast_tunnel_enabled\"?[[:space:]]*:[[:space:]]*true' {}".format(path),
+            module_ignore_errors=True,
+        )
+        if res["rc"] == 0:
+            return True
+    return False
+
+
+def set_mcast_tunnel_enabled(duthost, enabled):
+    """Toggle mcast_tunnel_enabled in the Cisco-8000 SAI init files (asic_cfg.json + npu yaml).
+
+    Cisco-8000 only terminates VXLAN whose outer SIP is a known remote VTEP while
+    this property is enabled; disabling it lets the ASIC decap from arbitrary SIPs.
+    A config reload is required afterwards for syncd to re-read the value.
+    """
+    new_val = "true" if enabled else "false"
+    for path in _mcast_tunnel_cfg_files(duthost):
+        duthost.shell(
+            "sudo sed -i -E "
+            "'s/(mcast_tunnel_enabled\"?[[:space:]]*:[[:space:]]*)(true|false)/\\1{}/' "
+            "{}".format(new_val, path),
+            module_ignore_errors=True,
+        )
 
 
 def calculate_wait_time(total_sessions):
@@ -429,12 +475,23 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
     t1_ptf_port_index = None
 
     duthost = None
+    mcast_tunnel_disabled = False
 
     try:
         ecmp_utils.Constants["KEEP_TEMP_FILES"] = False
         ecmp_utils.Constants["DEBUG"] = True
         duthost = duthosts[rand_one_dut_hostname]
         dut_index = tbinfo["duts"].index(rand_one_dut_hostname)
+
+        # Cisco-8000 terminates VXLAN only from known remote VTEPs while the
+        # mcast_tunnel_enabled ASIC property is set, so scale decap validation
+        # that sources traffic from arbitrary outer SIPs fails. Disable it for
+        # the duration of the test (only when currently enabled) and restore it
+        # in teardown. A config reload is needed for syncd to pick up the change.
+        if duthost.facts["asic_type"] == CISCO_8000_ASIC and is_mcast_tunnel_enabled(duthost):
+            set_mcast_tunnel_enabled(duthost, False)
+            mcast_tunnel_disabled = True
+            config_reload(duthost, safe_reload=True, yang_validate=False)
 
         cfg_facts = get_cfg_facts(duthost)
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
@@ -484,6 +541,8 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
         logger.error(json.dumps(traceback.format_exception(*sys.exc_info()), indent=2))
         cleanup_ptf_config(ptfhost, ptf_ports)
         if duthost is not None:
+            if mcast_tunnel_disabled:
+                set_mcast_tunnel_enabled(duthost, True)
             config_reload(duthost, safe_reload=True, yang_validate=False)
         pytest.fail("Vnet testing setup failed")
 
@@ -498,6 +557,8 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
     }
 
     cleanup_ptf_config(ptfhost, ptf_ports)
+    if mcast_tunnel_disabled:
+        set_mcast_tunnel_enabled(duthost, True)
     config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
