@@ -10,6 +10,7 @@ from tests.common.gu_utils import (
 logger = logging.getLogger(__name__)
 
 BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+DRILL_DOWN_OPTION = "Custom: (2 bits at offset 126)"
 
 
 @dataclass
