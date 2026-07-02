@@ -40,19 +40,21 @@ def pause_arp_update(rand_selected_dut):
 @pytest.fixture
 def ptf_interface_info(ip_and_intf_info, ptfadapter):
     """
-    Get PTF interface information
+    Get PTF interface information (IPv4 and, when available, IPv6).
     """
-    ptf_intf_ipv4_addr, _, _, _, ptf_intf_index = ip_and_intf_info
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     if isinstance(ptf_intf_mac, (bytes, bytearray)):
         ptf_intf_mac = ptf_intf_mac.decode()
 
     ptf_iface = f"eth{ptf_intf_index}"
-    ptf_ip = str(ptf_intf_ipv4_addr)
+    ptf_ip = str(ptf_intf_ipv4_addr) if ptf_intf_ipv4_addr is not None else None
+    ptf_ipv6 = str(ptf_intf_ipv6_addr) if ptf_intf_ipv6_addr is not None else None
 
     return {
         'ip': ptf_ip,
         'ipv4_addr': ptf_intf_ipv4_addr,
+        'ipv6': ptf_ipv6,
         'mac': ptf_intf_mac,
         'index': ptf_intf_index,
         'interface': ptf_iface
@@ -109,20 +111,38 @@ def clean_environment(rand_selected_dut, ptfadapter):
 @pytest.fixture
 def ptf_with_ip_config(ptf_interface_info, dut_interface_info, ptfhost):
     """
-    Configure IP on PTF interface using the correct prefix length from the DUT VLAN subnet.
+    Configure an IP on the PTF interface. Uses IPv4 if the DUT VLAN has an IPv4
+    address, otherwise falls back to IPv6 (e.g. IPv6-only topologies).
     """
     ptf_info = ptf_interface_info
-    prefix_len = dut_interface_info.get('prefix_len', 24)
+    iface = ptf_info['interface']
 
-    # Configure IP on PTF interface
-    ptfhost.shell(f"ip addr add {ptf_info['ip']}/{prefix_len} dev {ptf_info['interface']}",
-                  module_ignore_errors=True)
+    if dut_interface_info.get('ipv4') is None:
+        # No IPv4 on DUT VLAN - configure IPv6 on PTF interface instead
+        prefix_len = 64
+        ptf_addr = ptf_info['ipv6']
+        pt_assert(ptf_addr is not None, "No IPv6 address available on PTF interface")
+        ptfhost.shell(f"ip -6 addr add {ptf_addr}/{prefix_len} dev {iface}",
+                      module_ignore_errors=True)
 
-    yield ptf_info
+        yield ptf_info
 
-    # Cleanup: remove IP from PTF interface
-    ptfhost.shell(f"ip addr del {ptf_info['ip']}/{prefix_len} dev {ptf_info['interface']}",
-                  module_ignore_errors=True)
+        # Cleanup: remove IPv6 from PTF interface
+        ptfhost.shell(f"ip -6 addr del {ptf_addr}/{prefix_len} dev {iface}",
+                      module_ignore_errors=True)
+    else:
+        prefix_len = dut_interface_info.get('prefix_len', 24)
+        ptf_addr = ptf_info['ip']
+
+        # Configure IP on PTF interface
+        ptfhost.shell(f"ip addr add {ptf_addr}/{prefix_len} dev {iface}",
+                      module_ignore_errors=True)
+
+        yield ptf_info
+
+        # Cleanup: remove IP from PTF interface
+        ptfhost.shell(f"ip addr del {ptf_addr}/{prefix_len} dev {iface}",
+                      module_ignore_errors=True)
 
 
 def neighbor_learned(dut, target_ip):
@@ -290,28 +310,46 @@ def test_dut_arping_learns_mac(
     setup_vlan_arp_responder  # noqa: F811
 ):
     """
-    After fdb_cleanup and clearing DUT ARP cache,
-    enable PTF to respond to arping,
-    simulate arping from DUT to PTF,
-    verify DUT learns PTF MAC in FDB
+    After fdb_cleanup and clearing DUT ARP/neighbor cache, have PTF respond to
+    ARP (IPv4) or NDP (IPv6-only), trigger neighbor resolution from the DUT,
+    and verify the DUT learns the PTF MAC in the FDB.
+
+    On IPv6-only topologies `arping` (IPv4-only) is replaced by `ndisc6`,
+    the IPv6 NDP equivalent of arping: it sends an NDP Neighbor Solicitation
+    and waits for a Neighbor Advertisement from arp_responder on PTF.
     """
     # Setup PTF and DUT info
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
 
     # Setup PTF responder info
-    vlan_name, ipv4_base, _, ip_offset = setup_vlan_arp_responder
-    ptf_responder_ip = str(ipv4_base.ip + ip_offset)
-    logger.info("PTF responder IP (setup_vlan_arp_responder): {}".format(ptf_responder_ip))
-    logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
+    vlan_name, ipv4_base, ipv6_base, ip_offset = setup_vlan_arp_responder
 
-    # Simulate arping from DUT to PTF interface
-    dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
+    if dut_info['ipv4'] is None:
+        # No IPv4 on VLAN - trigger NDP from DUT via ping6
+        pt_assert(ipv6_base is not None,
+                  "setup_vlan_arp_responder did not provide an IPv6 base address")
+        ptf_responder_ip = str(ipv6_base.ip + ip_offset)
+        logger.info("PTF responder IPv6 (setup_vlan_arp_responder): {}".format(ptf_responder_ip))
+        logger.info("DUT VLAN IPv6: {}".format(dut_info['ipv6']))
+
+        # Simulate NDP from DUT to PTF interface (IPv6 equivalent of arping)
+        dut_info['host'].shell(
+            f"ndisc6 {ptf_responder_ip} {dut_info['vlan_name']}",
+            module_ignore_errors=True
+        )
+    else:
+        ptf_responder_ip = str(ipv4_base.ip + ip_offset)
+        logger.info("PTF responder IP (setup_vlan_arp_responder): {}".format(ptf_responder_ip))
+        logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
+
+        # Simulate arping from DUT to PTF interface
+        dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
 
     # Confirm MAC is learned on DUT FDB
     pt_assert(
         wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
-        "FDB did not learn PTF MAC after DUT arping"
+        "FDB did not learn PTF MAC after DUT neighbor resolution"
     )
 
 
@@ -322,16 +360,27 @@ def test_dut_ping_learns_mac(
     ptfhost
 ):
     """
-    Configure IP on PTF interface,
-    ping DUT from PTF,
-    then verify both sides learned MAC address
+    Configure an IP on the PTF interface (IPv4 or IPv6 depending on DUT VLAN
+    configuration), ping the DUT from PTF, and verify both sides learn the
+    peer MAC.
     """
     # Setup PTF and DUT info
     ptf_info = ptf_with_ip_config
     dut_info = dut_interface_info
 
+    # Pick the address family that matches the DUT VLAN configuration
+    if dut_info['ipv4'] is None:
+        pt_assert(dut_info['ipv6'] is not None, "No IPv6 address on DUT VLAN interface")
+        dut_addr = str(dut_info['ipv6'])
+        ping_cmd = f"ping6 -c 3 {dut_addr}"
+        neigh_cmd = f"ip -6 neigh show {dut_addr}"
+    else:
+        dut_addr = str(dut_info['ipv4'])
+        ping_cmd = f"ping -c 3 {dut_addr}"
+        neigh_cmd = f"ip neigh show {dut_addr}"
+
     # Ping DUT from PTF (3 times)
-    ping_res = ptfhost.shell(f"ping -c 3 {dut_info['ipv4']}", module_ignore_errors=True)
+    ping_res = ptfhost.shell(ping_cmd, module_ignore_errors=True)
     pt_assert(ping_res["rc"] == 0, f"PTF ping to DUT failed: {ping_res['stdout']}")
 
     # DUT learns PTF MAC
@@ -341,6 +390,6 @@ def test_dut_ping_learns_mac(
     )
 
     # PTF learns DUT MAC
-    ptf_neigh = ptfhost.shell(f"ip neigh show {dut_info['ipv4']}")["stdout"]
+    ptf_neigh = ptfhost.shell(neigh_cmd)["stdout"]
     pt_assert(dut_info['mac'].lower() in ptf_neigh.lower(),
               f"PTF did not learn DUT MAC, ip neigh: {ptf_neigh}")
