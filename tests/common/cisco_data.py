@@ -2,6 +2,7 @@ import json
 import re
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.cisco_s1_cli import CiscoS1Cli
 
 
 # =============================================================================
@@ -129,13 +130,8 @@ def run_dshell_command(duthost, command):
 
 def get_voq_quant_thresholds(duthost, interface, traffic_class):
     """
-        Return the quantized VOQ congestion thresholds (in bytes) for a given
+        Return the quantized queue watermark thresholds (in bytes) for a given
         interface and traffic class on a Cisco-8000 device.
-
-        Runs the "show platform npu voq thresholds" serviceability command and
-        parses its JSON output, returning the "cong_level_to_bytes" list. These
-        are the exact watermark values the hardware will report as queue
-        occupancy crosses each successive congestion level.
 
         Args:
             duthost: The DUT host handle.
@@ -146,9 +142,7 @@ def get_voq_quant_thresholds(duthost, interface, traffic_class):
             list[int]: The congestion-level thresholds in bytes, ordered from
                 lowest to highest.
     """
-    if duthost.facts["asic_type"] != "cisco-8000":
-        raise RuntimeError("VOQ quantized thresholds are only available on cisco-8000 platforms.")
-    cmd = "show platform npu voq thresholds -i {} -t {} -d".format(interface, traffic_class)
-    output = duthost.shell(cmd)["stdout"]
-    data = json.loads(output)
-    return [int(value) for value in data["cong_level_to_bytes"]]
+    s1cli = CiscoS1Cli(duthost)
+    port_oid = s1cli.get_port_oid(interface)
+    queue_oid = s1cli.get_queue_oid(port_oid, traffic_class)
+    return s1cli.get_queue_watermark_thresholds(queue_oid)
