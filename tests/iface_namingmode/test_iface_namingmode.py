@@ -23,6 +23,25 @@ ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
 
+def _get_missing_patterns(output, expected_patterns):
+    return [desc for pattern, desc in expected_patterns if re.search(pattern, output) is None]
+
+
+def _get_cli_output_with_retry(dut_host_guest, command, expected_patterns, timeout=20, interval=2):
+    output = dut_host_guest.shell(command)['stdout']
+    if not _get_missing_patterns(output, expected_patterns):
+        return output
+
+    last_output = {'stdout': output}
+
+    def _expected_patterns_present():
+        last_output['stdout'] = dut_host_guest.shell(command)['stdout']
+        return not _get_missing_patterns(last_output['stdout'], expected_patterns)
+
+    wait_until(timeout, interval, 0, _expected_patterns_present)
+    return last_output['stdout']
+
+
 @pytest.fixture
 def ignore_host_lane_count_loganalyzer(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     def wrapper(ignore_condition=False):
@@ -338,39 +357,30 @@ class TestShowLLDP():
                 for vrf in vrfs:
                     vrf_map[vrf] = host
 
+        expected_patterns = []
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
                 peer = minigraph_neighbors[setup['port_alias_map'][alias]]['name']
                 if multi_vrf:
                     peer = vrf_map[peer]
-                assert re.search(
-                    r'{}.*\s+{}'.format(alias, peer),
-                    lldp_table
-                ) is not None, (
-                     "Expected alias '{}' with neighbor '{}' not found in LLDP table.\n"
-                     "- LLDP Table Output: \n{}"
-                ).format(
-                    alias,
-                    peer,
-                    lldp_table
-                )
-
+                expected_patterns.append((r'{}.*\s+{}'.format(alias, peer), "{} -> {}".format(alias, peer)))
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
                 peer = minigraph_neighbors[intf]['name']
                 if multi_vrf:
                     peer = vrf_map[peer]
-                assert re.search(
-                        r'{}.*\s+{}'.format(intf, peer),
-                        lldp_table
-                ) is not None, (
-                    "Expected LLDP entry for interface '{}' with neighbor '{}' not found.\n"
-                    "- LLDP Table Output:\n{}"
-                ).format(
-                    intf,
-                    peer,
-                    lldp_table
-                )
+                expected_patterns.append((r'{}.*\s+{}'.format(intf, peer), "{} -> {}".format(intf, peer)))
+
+        lldp_table = _get_cli_output_with_retry(
+            dutHostGuest,
+            'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode),
+            expected_patterns
+        )
+        missing_patterns = _get_missing_patterns(lldp_table, expected_patterns)
+        assert not missing_patterns, (
+            "Expected LLDP entries not found: {}.\n"
+            "- LLDP Table Output:\n{}"
+        ).format(", ".join(missing_patterns), lldp_table)
 
     def test_show_lldp_neighbor(self, setup, setup_config_mode, lldp_interfaces):
         """
@@ -1567,36 +1577,28 @@ class TestNeighbors():
         arptable = duthost.switch_arptable()['ansible_facts']['arptable']
         minigraph_portchannels = setup['minigraph_facts']['minigraph_portchannels']
 
-        arp_output = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show arp'.format(ifmode))['stdout']
-        logger.info('arp_output:\n{}'.format(arp_output))
-
+        expected_patterns = []
         for item in arptable['v4']:
             # To ignore Midplane interface, added check on what is being set in setup fixture
             if (arptable['v4'][item]['interface'] in setup['port_name_map']) \
                     and (arptable['v4'][item]['interface'] not in minigraph_portchannels):
                 if mode == 'alias':
-                    assert re.search(r'{}.*\s+{}'
-                                     .format(item, setup['port_name_map'][arptable['v4'][item]['interface']]),
-                                     arp_output) is not None, (
-                                     "Expected to find ARP entry for IP '{}' with interface alias '{}' "
-                                     "in 'show arp' output, but it was not found.\n"
-                                     "- ARP Output:\n{}"
-                                 ).format(
-                                     item,
-                                     setup['port_name_map'][arptable['v4'][item]['interface']],
-                                     arp_output
-                                 )
-                elif mode == 'default':
-                    assert re.search(r'{}.*\s+{}'
-                                     .format(item, arptable['v4'][item]['interface']), arp_output) is not None, (
-                                             "Expected to find ARP entry for IP '{}' with interface '{}' in "
-                                             "'show arp' output, but it was not found.\n"
-                                             "- ARP Output:\n{}"
-                                         ).format(
-                                             item,
-                                             arptable['v4'][item]['interface'],
-                                             arp_output
-                                         )
+                    iface_name = setup['port_name_map'][arptable['v4'][item]['interface']]
+                else:
+                    iface_name = arptable['v4'][item]['interface']
+                expected_patterns.append((r'{}.*\s+{}'.format(item, iface_name), "{} -> {}".format(item, iface_name)))
+
+        arp_output = _get_cli_output_with_retry(
+            dutHostGuest,
+            'SONIC_CLI_IFACE_MODE={} show arp'.format(ifmode),
+            expected_patterns
+        )
+        logger.info('arp_output:\n{}'.format(arp_output))
+        missing_patterns = _get_missing_patterns(arp_output, expected_patterns)
+        assert not missing_patterns, (
+            "Expected ARP entries not found: {}.\n"
+            "- ARP Output:\n{}"
+        ).format(", ".join(missing_patterns), arp_output)
 
     def test_show_ndp(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, setup_config_mode):
         """
