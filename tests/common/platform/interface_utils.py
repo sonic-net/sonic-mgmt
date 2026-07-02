@@ -103,13 +103,9 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     asichost = dut.asic_instance(asic_index)
     namespace = asichost.get_asic_namespace()
     logging.info("Check interface status using cmd 'show interface'")
-    # TODO Remove this logic when minigraph facts supports namespace in multi_asic
-    mg_ports = dut.minigraph_facts(host=dut.hostname)["ansible_facts"]["minigraph_ports"]
-    if asic_index is not None:
-        portmap = get_port_map(dut, asic_index)
-        # Check if the interfaces of this AISC is present in mg_ports
-        interface_list = {k: v for k, v in list(portmap.items()) if k in mg_ports}
-        mg_ports = interface_list
+    # Expected up/down comes from the running-config PORT table for this ASIC's namespace.
+    cfg_ports = dut.config_facts(host=dut.hostname, source="running",
+                                 namespace=namespace)["ansible_facts"].get("PORT", {})
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     if dut.is_multi_asic:
@@ -121,18 +117,17 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
         {ports_presence.split()[0]: ports_presence.split()[1] for ports_presence in check_inerfaces_presence_output}
     )
     for intf in interfaces:
-        expected_oper = "up" if intf in mg_ports else "down"
-        expected_admin = "up" if intf in mg_ports else "down"
+        if intf not in cfg_ports:
+            logging.info("Interface %s is not present in the running-config PORT table (namespace '%s')"
+                         % (intf, namespace))
+            return False
+        expected_status = cfg_ports[intf].get("admin_status", "down")
         if intf not in intf_status:
             logging.info("Missing status for interface %s" % intf)
             return False
-        if intf_status[intf]["oper"] != expected_oper:
-            logging.info("Oper status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["oper"],
-                                                                               expected_oper))
-            return False
-        if intf_status[intf]["admin"] != expected_admin:
-            logging.info("Admin status of interface %s is %s, expected '%s'" % (intf, intf_status[intf]["admin"],
-                                                                                expected_admin))
+        if intf_status[intf]["oper"] != expected_status or intf_status[intf]["admin"] != expected_status:
+            logging.info("Interface %s status mismatch: oper '%s', admin '%s', expected '%s' (from running-config)"
+                         % (intf, intf_status[intf]["oper"], intf_status[intf]["admin"], expected_status))
             return False
 
         # Cross check the interface SFP presence status
@@ -143,7 +138,8 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
                 "Status is not expected, presence status: %s" % str({intf: interface_presence})
 
     logging.info("Check interface status using the interface_facts module")
-    intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
+    up_ports = [intf for intf in interfaces if cfg_ports.get(intf, {}).get("admin_status") == "up"]
+    intf_facts = dut.interface_facts(up_ports=up_ports, namespace=namespace)["ansible_facts"]
     down_ports = intf_facts["ansible_interface_link_down_ports"]
     if len(down_ports) != 0:
         logging.info("Some interfaces are down: %s" % str(down_ports))
@@ -159,10 +155,12 @@ def check_all_interface_information(dut, interfaces, xcvr_skip_list):
         interface_list = get_port_map(dut, asic_index)
         interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in interfaces}
         if not all_transceivers_detected(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
-            logging.info("Not all transceivers are detected")
+            logging.info("Transceiver check failed on asic %s: not all transceivers are detected "
+                         "(see 'Interfaces not detected' above)" % asic_index)
             return False
         if not check_interface_status(dut, asic_index, interfaces_per_asic, xcvr_skip_list):
-            logging.info("Not all interfaces are up")
+            logging.info("Interface state check failed on asic %s: one or more interfaces are not in their "
+                         "expected admin/oper state (see the per-interface line above)" % asic_index)
             return False
 
     return True
