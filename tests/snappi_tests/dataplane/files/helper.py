@@ -1,3 +1,4 @@
+import re
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
 from typing import Any, Dict
 from tabulate import tabulate
@@ -463,7 +464,33 @@ def create_traffic_items(config, snappi_extra_params):
                 ipv4.priority.dscp.phb.DEFAULT,
             ]
             ipv4.priority.dscp.phb.value = traffic["dscp_value"]
-            ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+            # ECN codepoint(s) carried in the 2 ECN bits of the IP header.
+            # Callers may pass either:
+            #   - "ecn_values": a list of codepoints transmitted as an even mix
+            #                   (used by the mixed-codepoint interference test), or
+            #   - "ecn_value":  a single codepoint. When the key is absent it
+            #                   defaults to ECT(1) so existing callers keep their
+            #                   previous behaviour; pass None (or "none") to leave
+            #                   the ECN field untouched and configure only the DSCP
+            #                   value (used for a non-ECN queue).
+            # Accepted codepoint names: "non_ect" (00), "ect0" (10),
+            # "ect1" (01) and "ce" (11).
+            ecn = ipv4.priority.dscp.ecn
+            ecn_map = {
+                "non_ect": ecn.NON_CAPABLE,               # 00
+                "ect0": ecn.CAPABLE_TRANSPORT_0,          # 10
+                "ect1": ecn.CAPABLE_TRANSPORT_1,          # 01
+                "ce": ecn.CONGESTION_ENCOUNTERED,         # 11
+            }
+            if traffic.get("ecn_values"):
+                ecn.values = [ecn_map[c] for c in traffic["ecn_values"]]
+            elif "ecn_value" in traffic:
+                codepoint = traffic["ecn_value"]
+                # None / "none" -> non-ECN flow: only the DSCP value is set.
+                if codepoint not in (None, "none"):
+                    ecn.value = ecn_map.get(codepoint, ecn.CAPABLE_TRANSPORT_1)
+            else:
+                ecn.value = ecn.CAPABLE_TRANSPORT_1
         if traffic.get("latency", False):
             # Latency Config
             test_flow.metrics.latency.enable = True
@@ -560,7 +587,7 @@ def configure_acl_for_route_withdrawl(destination_ip_list, table_name):
     return acl_dict
 
 
-def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
+def get_stats(api, stat_name, columns=None, return_type='stat_obj'):   # noqa F811
     """
     Args:
         api (pytest fixture): Snappi API
@@ -573,6 +600,7 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
         except AttributeError:
             return default
     request = api.metrics_request()
+    logger.info("Fetching {}...".format(stat_name))
     if stat_name == "Data Plane Port Statistics":
         ixnet = api._ixnetwork
         dp_metrics = StatViewAssistant(ixnet, stat_name)
@@ -605,6 +633,9 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
     ]
     tdf = pd.DataFrame(rows, columns=column_headers)
     selected_columns = columns if columns else column_headers
+    # Always surface the traffic item / flow name so per-flow rows are identifiable.
+    if stat_name == "Traffic Item Statistics" and "name" not in selected_columns:
+        selected_columns = ["name"] + list(selected_columns)
     df = tdf[selected_columns]
     if return_type == 'print':
         logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
@@ -731,60 +762,6 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
         if loss_percentage > threshold:
             return False
     return True
-
-
-def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
-    """
-    Args:
-        api (pytest fixture): Snappi API
-    """
-    def deep_getattr(obj, attr, default=None):
-        try:
-            for part in attr.split('.'):
-                obj = getattr(obj, part)
-            return obj
-        except AttributeError:
-            return default
-    request = api.metrics_request()
-    if stat_name == "Data Plane Port Statistics":
-        ixnet = api._ixnetwork
-        dp_metrics = StatViewAssistant(ixnet, stat_name)
-        df = pd.DataFrame(dp_metrics.Rows.RawData, columns=dp_metrics.ColumnHeaders)
-        df = df[columns] if columns else df
-        cols = ['Tx Frame Rate', 'Rx Frame Rate']
-        df[cols] = df[cols].apply(pd.to_numeric, errors='coerce')
-        if return_type == 'print':
-            logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
-        elif return_type == 'df':
-            return df
-    if stat_name == "Traffic Item Statistics":
-        request.flow.flow_names = []
-        stat_obj = api.get_metrics(request).flow_metrics
-        column_headers = [
-            "bytes_rx", "bytes_tx", "frames_rx", "frames_rx_rate", "frames_tx", "frames_tx_rate",
-            "loss", "name", "port_rx", "port_tx", "rx_l1_rate_bps", "rx_rate_bps", "rx_rate_bytes", "rx_rate_kbps",
-            "rx_rate_mbps", "transmit", "tx_l1_rate_bps", "tx_rate_bps", "tx_rate_bytes", "tx_rate_kbps",
-            "tx_rate_mbps", "latency.average_ns", "latency.maximum_ns", "latency.minimum_ns"
-        ]
-    elif stat_name == "Port Statistics":
-        request.port.port_names = []
-        stat_obj = api.get_metrics(request).port_metrics
-        column_headers = [
-            "bytes_rx", "bytes_rx_rate", "bytes_tx", "bytes_tx_rate", "capture", "frames_rx", "frames_rx_rate",
-            "frames_tx", "frames_tx_rate", "link", "location", "name"]
-    rows = [
-        [deep_getattr(stat, column, None) for column in column_headers]
-        for stat in stat_obj
-    ]
-    tdf = pd.DataFrame(rows, columns=column_headers)
-    selected_columns = columns if columns else column_headers
-    df = tdf[selected_columns]
-    if return_type == 'print':
-        logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
-    elif return_type == 'df':
-        return df
-    else:
-        return stat_obj
 
 
 def _normalize_stat_rows(rows: Any) -> list:
@@ -953,3 +930,85 @@ def _get_original_scheduler(duthost, port, queue):
         f"Queue {port}|{queue} is already using the blocking scheduler – DUT may be in a bad state",
     )
     return original
+
+
+def _dscp_values(config_facts, prio):
+    """Return the list of DSCP values mapped to ``prio`` in DSCP_TO_TC_MAP."""
+    return [int(dscp) for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
+            if int(tc) == prio]
+
+
+def _traffic_item(ixnet, flow_name):
+    """Return the IxNetwork Traffic Item for a snappi flow name."""
+    ti = ixnet.Traffic.TrafficItem.find(Name=flow_name)
+    pytest_assert(len(ti) == 1, "Traffic item {} not found".format(flow_name))
+    return ti
+
+
+def _ti_row_index(ixnet, flow_name):
+    """Return the row index of ``flow_name`` in the Traffic Item Statistics view."""
+    rows = _normalize_stat_rows(StatViewAssistant(ixnet, "Traffic Item Statistics").Rows)
+    for idx, row in enumerate(rows):
+        if row.get("Traffic Item") == flow_name:
+            return idx
+    pytest_assert(False, "Traffic Item {} not found in statistics".format(flow_name))
+
+
+def _drill_down_egress(ixnet, target_row_index=0):
+    """Drill the Traffic Item view down on the 2 egress ECN bits, producing the
+    per-codepoint 'User Defined Statistics' view for the given target row."""
+    tiview = ixnet.Statistics.View.find(Caption="Traffic Item Statistics")[0]
+    pytest_assert(len(tiview) == 1, "No rows found in Traffic Item Statistics view")
+    drill_down = tiview.DrillDown.find()
+    drill_down.TargetRowIndex = target_row_index
+    drill_down.TargetDrillDownOption = DRILL_DOWN_OPTION
+    drill_down.DoDrillDown()
+    wait_with_message("For drill down operation to complete:", 30)
+    logger.info("Drill Down Finished")
+
+
+def _parse_codepoint(egress_value):
+    """Extract the ECN codepoint (0-3) from a UD 'Egress Tracking' cell value."""
+    tokens = re.findall(r"0x[0-9a-fA-F]+|\d+", str(egress_value))
+    if not tokens:
+        return None
+    tok = tokens[-1]
+    val = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
+    return val if val in (ECN_NON_ECT, ECN_ECT1, ECN_ECT0, ECN_CE) else None
+
+
+def _ud_rows_by_codepoint(ixnet):
+    """Return {codepoint: row_dict} for the current User Defined Statistics view."""
+    ud = StatViewAssistant(ixnet, "User Defined Statistics")
+    print_ud_statistics(SELECTED_UD_COLS, ud)
+    mapping = {}
+    for row in _normalize_stat_rows(ud.Rows):
+        cp = _parse_codepoint(row.get("Egress Tracking", ""))
+        if cp is not None:
+            mapping[cp] = row
+    return mapping
+
+
+def _rx_rate(cp_map, codepoint):
+    """Rx Frame Rate for a codepoint row (0.0 if the codepoint is absent)."""
+    row = cp_map.get(codepoint)
+    if not row:
+        return 0.0
+    try:
+        return float(row.get("Rx Frame Rate", 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _drill_and_get(ixnet, flow_name):
+    """Drill the given flow's Traffic Item down on the egress ECN bits and return
+    its {codepoint: row_dict} User Defined Statistics mapping."""
+    _drill_down_egress(ixnet, _ti_row_index(ixnet, flow_name))
+    logger.info("Drill down on %s flow", flow_name)
+    return _ud_rows_by_codepoint(ixnet)
+
+
+def _ts_seconds(timestamp_str):
+    """Parse the seconds.milliseconds field out of an IxNetwork 'HH:MM:SS.sss'
+    timestamp string (same convention as the original response-time test)."""
+    return float(timestamp_str.split(":")[-1])

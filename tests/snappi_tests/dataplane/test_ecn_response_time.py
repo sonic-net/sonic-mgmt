@@ -29,7 +29,8 @@ import random
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
     get_snappi_stats, set_primary_chassis, create_traffic_items, start_stop, wait_with_message, \
-    get_stats, _normalize_stat_rows, print_ud_statistics, dutconfig_checkpoint  # noqa: F401, F403, F405, E402
+    get_stats, _normalize_stat_rows, print_ud_statistics, dutconfig_checkpoint, \
+    _ts_seconds, _drill_down_egress, _dscp_values  # noqa: F401, F403, F405, E402
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     enable_ecn,
@@ -101,8 +102,7 @@ def _configure_oversub(snappi_api,
         str(lossy_prio) in config_facts["DSCP_TO_TC_MAP"]["AZURE"].values(),
         "Lossy priority {} is not mapped to any DSCP in DSCP_TO_TC_MAP".format(lossy_prio),
     )
-    dscp_values = [int(dscp) for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
-                   if int(tc) == lossy_prio]
+    ecn_dscp = random.choice(_dscp_values(config_facts, lossy_prio))
 
     logger.info("Stopping PFC watchdog")
     stop_pfcwd(egress_duthost, rx_ports[0]["asic_value"])
@@ -128,7 +128,7 @@ def _configure_oversub(snappi_api,
             "rx_names": snappi_obj_handles["Rx"]["ip"],
             "traffic_duration_fixed_seconds": 1000,
             "prio": lossy_prio,
-            "dscp_value": random.choice(dscp_values),
+            "dscp_value": ecn_dscp,
         },
     ]
     config = create_traffic_items(config, snappi_extra_params)
@@ -154,26 +154,6 @@ def _configure_oversub(snappi_api,
     logger.info("Applying Traffic")
     ixnet.Traffic.Apply()
     return ixnet, trafficItem
-
-
-def _drill_down_egress(ixnet):
-    """Drill down the Traffic Item view on the 2 egress ECN bits, producing the
-    per-CE-value 'User Defined Statistics' view."""
-    tiview = ixnet.Statistics.View.find(Caption="Traffic Item Statistics")[0]
-    pytest_assert(len(tiview) == 1, "No statistics rows found in Traffic Item Statistics view")
-    drill_down = tiview.DrillDown.find()
-    drill_down.TargetRowIndex = 0
-    drill_down.TargetDrillDownOption = DRILL_DOWN_OPTION
-    drill_down.DoDrillDown()
-    wait_with_message("For drill down operation to complete:", 30)
-    logger.info("Drill Down Finished")
-
-
-def _ts_seconds(timestamp_str):
-    """Parse the seconds.milliseconds field out of an IxNetwork 'HH:MM:SS.sss'
-    timestamp string (same convention as the original response-time test)."""
-    return float(timestamp_str.split(":")[-1])
-
 
 # ---------------------------------------------------------------------------
 # ECN marking ENTER time

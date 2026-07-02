@@ -3,7 +3,7 @@ import time
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
     get_snappi_stats, set_primary_chassis, create_traffic_items, start_stop, wait_with_message, \
-    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler  # noqa: F401, F403, F405
+    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler, _dscp_values  # noqa: F401, F403, F405
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     enable_ecn,
@@ -84,11 +84,7 @@ def test_ecn_marking_lossless_queue(
             str(lossless_prio) in config_facts["DSCP_TO_TC_MAP"]["AZURE"].values(),
             f"Lossless priority {lossless_prio} is not mapped to any DSCP in DSCP_TO_TC_MAP",
         )
-        dscp_values = [
-            int(dscp)
-            for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
-            if int(tc) == lossless_prio
-        ]
+        ecn_dscp = random.choice(_dscp_values(config_facts, lossless_prio))
 
         # --- ECN setup ---
         disable_packet_aging(egress_duthost)
@@ -132,7 +128,7 @@ def test_ecn_marking_lossless_queue(
                 "rx_names": snappi_obj_handles["Rx"]["ip"],
                 "traffic_duration_fixed_packets": fixed_packet_count,
                 "prio": lossless_prio,
-                "dscp_value": random.choice(dscp_values),
+                "dscp_value": ecn_dscp,
             }
         ]
         config = create_traffic_items(config, snappi_extra_params)

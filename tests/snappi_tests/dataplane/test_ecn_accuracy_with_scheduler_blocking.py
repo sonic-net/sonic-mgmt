@@ -27,7 +27,7 @@ import random
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
     get_snappi_stats, set_primary_chassis, create_traffic_items, start_stop, wait_with_message, \
-    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler  # noqa: F401, F403, F405
+    dutconfig_checkpoint, _block_egress, _unblock_egress, _get_original_scheduler, _dscp_values  # noqa: F401, F403, F405
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     enable_ecn,
@@ -126,7 +126,7 @@ def _run_one_iteration(
             "rx_names": snappi_obj_handles["Rx"]["ip"],
             "traffic_duration_fixed_packets": total_pkts,
             "prio": lossless_prio,
-            "dscp_value": random.choice(dscp_values),
+            "dscp_value": dscp_values,
         }
     ]
     config = create_traffic_items(config, snappi_extra_params)
@@ -227,11 +227,7 @@ def test_ecn_accuracy_scheduler(
             str(lossless_prio) in config_facts["DSCP_TO_TC_MAP"]["AZURE"].values(),
             f"Lossless priority {lossless_prio} is not mapped to any DSCP in DSCP_TO_TC_MAP",
         )
-        dscp_values = [
-            int(dscp)
-            for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
-            if int(tc) == lossless_prio
-        ]
+        ecn_dscp = random.choice(_dscp_values(config_facts, lossless_prio))
 
         # --- Read WRED parameters (kmin/kmax in bytes, pmax in %) ---
         wred_profiles = config_facts.get("WRED_PROFILE", {})
@@ -272,7 +268,7 @@ def test_ecn_accuracy_scheduler(
                 tx_ports=tx_ports,
                 rx_ports=rx_ports,
                 subnet_type=subnet_type,
-                dscp_values=dscp_values,
+                dscp_values=ecn_dscp,
                 kmin=kmin,
                 kmax=kmax,
                 pmax=pmax,
