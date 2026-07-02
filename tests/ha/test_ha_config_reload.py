@@ -13,7 +13,7 @@ from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
+from ha_dash_flow_utils import compare_flow_tables
 from ha_utils import parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
@@ -132,7 +132,7 @@ def test_ha_dut_config_reload(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on standby - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -142,7 +142,7 @@ def test_ha_dut_config_reload(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on primary - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:
@@ -164,8 +164,8 @@ def test_ha_dut_config_reload(
     percentage_loss = (failed_count / send_count) * 100
 
     if (percentage_loss < threshold_loss):
-        logger.info(f"{reload_dut} with {traffic} test OK. Sent: {send_count},"
+        logger.info(f"{reload_dut} with {traffic} test OK. Sent: {send_count}, "
                     f" lost: {failed_count}, loss percentage: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        pytest.fail(f"{reload_dut} with {traffic} test error. Sent: {send_count},"
+        pytest.fail(f"{reload_dut} with {traffic} test error. Sent: {send_count}, "
                     f" lost: {failed_count} loss percentage: {percentage_loss}, threshold: {threshold_loss}")
