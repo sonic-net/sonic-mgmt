@@ -31,20 +31,30 @@ class CiscoS1Cli(object):
         self._asic_arg = ""
         if asic_index is not None and duthost.is_multi_asic:
             self._asic_arg = " --asic-num {}".format(asic_index)
+        self._cache = {}
         probe = duthost.shell("which s1-cli-sonic", module_ignore_errors=True)
         if probe["rc"] != 0:
             raise S1CliError("s1-cli-sonic is not available on {}.".format(duthost.hostname))
 
     def _run(self, command):
-        """Run an s1-cli-sonic command and return its parsed JSON payload."""
+        """Run an s1-cli-sonic command and return its parsed JSON payload.
+
+        Results are cached per instance keyed on the command, so repeated
+        lookups (e.g. resolving OIDs for many ports in a loop) do not re-invoke
+        the CLI. The queried data is static topology/hardware state.
+        """
+        if command in self._cache:
+            return self._cache[command]
         cmd = 's1-cli-sonic{} -c "{}" -j'.format(self._asic_arg, command)
         result = self._duthost.shell(cmd, module_ignore_errors=True)
         if result["rc"] != 0 or result["stderr"]:
             raise S1CliError("Command failed: {} ({})".format(cmd, result["stderr"]))
         try:
-            return json.loads(result["stdout"])
+            payload = json.loads(result["stdout"])
         except ValueError as exc:
             raise S1CliError("Could not parse JSON output of: {} ({})".format(cmd, exc))
+        self._cache[command] = payload
+        return payload
 
     @staticmethod
     def _to_oid(decimal_oid):
