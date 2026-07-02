@@ -1,6 +1,7 @@
 """
 Helper script for DPU  operations
 """
+import ast
 import logging
 import pytest
 import re
@@ -34,6 +35,13 @@ REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
+# Max time to wait for a DPU to return to ready after recovery/power-cycle.
+DPU_READY_AFTER_RECOVERY_TIMEOUT = 1200
+
+# chassisd reads dpu_auto_recovery from DEVICE_METADATA|localhost (off if absent).
+DPU_AUTO_RECOVERY_FIELD = "dpu_auto_recovery"
+DPU_AUTO_RECOVERY_ENABLE = "enable"
+DPU_AUTO_RECOVERY_DISABLE = "disable"
 
 # DPU-specific syslog error patterns to add to loganalyzer's ignore list.
 #
@@ -578,6 +586,10 @@ def pre_test_check(duthost,
                   check_dpu_ping_status, duthost, ip_address_list),
                   "Error: Not all DPUs are pingable on Pre Check")
 
+    logging.info("Checking DPU DB state (CHASSIS_STATE_DB) before the operation")
+    for dpu_name in dpu_on_list:
+        assert_dpu_db_state_ready(duthost, dpu_name)
+
     return ip_address_list, dpu_on_list, dpu_off_list
 
 
@@ -752,6 +764,9 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name,
             f"DPU {dpu_name} did not reboot: boot time is unchanged"
         )
 
+    logging.info(f"Checking {dpu_name} DB state (CHASSIS_STATE_DB) is ready post test")
+    assert_dpu_db_state_ready(duthost, dpu_name, timeout=dpu_online_timeout)
+
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
                          num_dpu_modules, reboot_cause, extra_dpu_online_timeout=0,
@@ -875,3 +890,166 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
         pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
     else:
         logging.info(f"All DPUs rebooted due to '{reason}' as expected")
+
+
+def get_dpu_auto_recovery(duthost):
+    """Return DEVICE_METADATA|localhost dpu_auto_recovery from CONFIG_DB ('' if unset)."""
+    result = duthost.shell(
+        f"sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' "
+        f"'{DPU_AUTO_RECOVERY_FIELD}'",
+        module_ignore_errors=True)
+    return result.get("stdout", "").strip()
+
+
+def set_dpu_auto_recovery(duthost, state):
+    """Set DEVICE_METADATA|localhost dpu_auto_recovery in CONFIG_DB (runtime only)."""
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' "
+        f"'{DPU_AUTO_RECOVERY_FIELD}' '{state}'")
+    logging.info("Set DEVICE_METADATA|localhost %s to '%s'",
+                 DPU_AUTO_RECOVERY_FIELD, state)
+
+
+def get_dpu_state_from_chassis_state_db(duthost, dpu_name):
+    """
+    Read DPU_STATE fields from CHASSIS_STATE_DB for a given DPU.
+    Args:
+        duthost: Host handle
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+    Returns:
+        dict with all fields from DPU_STATE|<dpu_name>, or empty dict if key
+        does not exist.
+    """
+    cmd = f"sonic-db-cli CHASSIS_STATE_DB hgetall 'DPU_STATE|{dpu_name}'"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    stdout = result.get("stdout", "").strip()
+    if not stdout or result.get("rc", 1) != 0:
+        return {}
+
+    if stdout.startswith("{"):
+        try:
+            parsed = ast.literal_eval(stdout)
+            if isinstance(parsed, dict):
+                return {str(k).strip(): str(v).strip() for k, v in parsed.items()}
+        except (ValueError, SyntaxError):
+            # Not a dict literal; fall back to line-by-line parsing below.
+            pass
+
+    lines = stdout.splitlines()
+    state = {}
+    for i in range(0, len(lines) - 1, 2):
+        state[lines[i].strip()] = lines[i + 1].strip()
+    return state
+
+
+def check_dpu_ready_state(duthost, dpu_name):
+    """
+    Verify DPU is in the fully-ready state in CHASSIS_STATE_DB:
+      - dpu_control_plane_state: up
+      - dpu_data_plane_state: up
+      - dpu_midplane_link_state: up
+      - ready_status: true
+      - recovery_status: recoverable
+
+    Args:
+        duthost: Host handle
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+    Returns:
+        True if DPU is in ready state, False otherwise
+    """
+    state = get_dpu_state_from_chassis_state_db(duthost, dpu_name)
+    if not state:
+        logging.warning("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
+        return False
+
+    checks = {
+        "dpu_control_plane_state": "up",
+        "dpu_data_plane_state": "up",
+        "dpu_midplane_link_state": "up",
+        "ready_status": "true",
+        "recovery_status": "recoverable",
+    }
+
+    all_ok = True
+    for field, expected in checks.items():
+        actual = state.get(field, "").lower()
+        if actual != expected:
+            logging.debug("%s: %s = '%s' (expected '%s')",
+                          dpu_name, field, actual, expected)
+            all_ok = False
+
+    return all_ok
+
+
+def check_dpu_not_ready_state(duthost, dpu_name):
+    """
+    Verify DPU is in a not-ready state in CHASSIS_STATE_DB:
+      - ready_status: false
+
+    Args:
+        duthost: Host handle
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+    Returns:
+        True if DPU ready_status is false, False otherwise
+    """
+    state = get_dpu_state_from_chassis_state_db(duthost, dpu_name)
+    if not state:
+        logging.warning("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
+        return False
+
+    return state.get("ready_status", "").lower() == "false"
+
+
+def assert_dpu_db_state_ready(duthost, dpu_name, timeout=DPU_MAX_ONLINE_TIMEOUT):
+    """
+    Wait for and assert that a DPU reaches the ready state in CHASSIS_STATE_DB.
+    Args:
+        duthost: Host handle
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+        timeout: Max time to wait for the DPU to become ready
+    """
+    pytest_assert(
+        wait_until(timeout, DPU_TIME_INT, 0,
+                   check_dpu_ready_state, duthost, dpu_name),
+        f"{dpu_name}: CHASSIS_STATE_DB state not ready "
+        f"(expected ready_status=true, recovery_status=recoverable, all planes up). "
+        f"Current state: {get_dpu_state_from_chassis_state_db(duthost, dpu_name)}"
+    )
+
+
+def get_testable_dpu(dpu_on_list, ip_address_list, dpuhosts):
+    """
+    Return the first online DPU that is also present in dpuhosts (has SSH access).
+    Args:
+        dpu_on_list: List of online DPU names
+        ip_address_list: Corresponding list of DPU IP addresses
+        dpuhosts: DPU host handles from pytest
+    Returns:
+        (dpu_name, dpu_ip, dpuhost) or (None, None, None) if none found.
+    """
+    for idx, dpu_name in enumerate(dpu_on_list):
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is not None:
+            return dpu_name, ip_address_list[idx], dpuhost
+    return None, None, None
+
+
+def filter_dpus_in_dpuhosts(dpu_on_list, ip_address_list, dpuhosts):
+    """
+    Filter dpu_on_list and ip_address_list to only include DPUs present in dpuhosts.
+    Args:
+        dpu_on_list: List of online DPU names
+        ip_address_list: Corresponding list of DPU IP addresses
+        dpuhosts: DPU host handles from pytest
+    Returns:
+        (filtered_dpu_list, filtered_ip_list)
+    """
+    filtered_dpus = []
+    filtered_ips = []
+    for idx, dpu_name in enumerate(dpu_on_list):
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        if get_dpuhost_for_dpu(dpuhosts, dpu_id) is not None:
+            filtered_dpus.append(dpu_name)
+            filtered_ips.append(ip_address_list[idx])
+    return filtered_dpus, filtered_ips
