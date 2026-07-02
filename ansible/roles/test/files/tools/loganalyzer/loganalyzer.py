@@ -32,7 +32,7 @@ import csv
 import time
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------
 # Global variables
@@ -209,6 +209,16 @@ class AnsibleLogAnalyzer:
         # can cause the marker message to be dropped (see #23562).
         time.sleep(2)
 
+    def is_recent_log_line(self, log_line, cutoff):
+        try:
+            # syslog datetime example: "2026 Jul  1 12:11:05.671339"
+            log_time = datetime.strptime(log_line[:20], "%Y %b %d %H:%M:%S")
+        except ValueError:
+            print(f"WARNING: failed to parse log line timestamp, ignoring line: {log_line}")
+            return False
+
+        return log_time >= cutoff
+
     def wait_for_marker(self, marker, timeout=120, polling_interval=10):
         '''
         @summary: Wait the marker to appear in the /var/log/syslog file
@@ -221,42 +231,47 @@ class AnsibleLogAnalyzer:
         last_check_pos = 0
         syslog_file = "/var/log/syslog"
         prev_syslog_file = "/var/log/syslog.1"
+
+        # when checking for rate limit messages we only care
+        # about those which occur after the marker was added, so
+        # messages older than one minute from the wait start are ignored
+        cutoff = datetime.now() - timedelta(minutes=1)
+
         rate_limit_indications = [  # marker may be dropped due to rate-limiting
             "due to rate-limiting",  # rsyslog
             "Suppressed",  # syslog-ng
         ]
         rate_limit_warned = [False, False]  # warn only once for each file
 
+        def scan_log_file(log_file, last_pos, warned):
+            if not os.path.exists(log_file):
+                return False, 0, False
+
+            with open(log_file, 'r') as fp:
+                fp.seek(last_pos)
+                for logs in fp:
+                    if marker in logs:
+                        return True, last_pos, warned
+                    elif (not warned and
+                          any(indication in logs for indication in rate_limit_indications) and
+                          self.is_recent_log_line(logs, cutoff)):
+                        print("WARNING: log rate-limiting detected, marker may be dropped")
+                        warned = True
+                return False, fp.tell(), warned
+
         while wait_time <= timeout:
-            # look for marker in syslog file
-            if os.path.exists(syslog_file):
-                with open(syslog_file, 'r') as fp:
-                    # resume from last search position
-                    if last_check_pos:
-                        fp.seek(last_check_pos)
-                    # check if marker in the file
-                    for logs in fp:
-                        if marker in logs:
-                            return True
-                        elif (not rate_limit_warned[0] and
-                              any(indication in logs for indication in rate_limit_indications)):
-                            print("WARNING: log rate-limiting detected, marker may be dropped")
-                            rate_limit_warned[0] = True
-                    # record last search position
-                    last_check_pos = fp.tell()
+            found_marker, last_check_pos, rate_limit_warned[0] = scan_log_file(
+                syslog_file, last_check_pos, rate_limit_warned[0])
+            if found_marker:
+                return True
 
             # logs might get rotated while waiting for marker
             # look for marker in syslog.1 file
-            if os.path.exists(prev_syslog_file):
-                with open(prev_syslog_file, 'r') as pfp:
-                    # check if marker in the file
-                    for logs in pfp:
-                        if marker in logs:
-                            return True
-                        elif (not rate_limit_warned[1] and
-                              any(indication in logs for indication in rate_limit_indications)):
-                            print("WARNING: log rate-limiting detected, marker may be dropped")
-                            rate_limit_warned[1] = True
+            found_marker, _, rate_limit_warned[1] = scan_log_file(
+                prev_syslog_file, 0, rate_limit_warned[1])
+            if found_marker:
+                return True
+
             time.sleep(polling_interval)
             wait_time += polling_interval
 
