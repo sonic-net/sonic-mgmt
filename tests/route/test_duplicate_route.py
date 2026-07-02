@@ -107,6 +107,7 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
         r".*ERR pidof\[\d+\]: can't read from \d+\/stat.*",
         ".*ERR.* ipv4_route_bulk_updates API returned.*Key already exists in table.*",
+        ".*ERR.* Create route entry.*Failed.*",
         ".*ERR syncd#SDK:.*mlnx_route_pre_create: Route entry already exists in the Route DB.*",
         ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: Failed to prepare route data for bulk operation. index:.*",
         ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: No valid route entries for bulk operation in chunk starting at.*"
