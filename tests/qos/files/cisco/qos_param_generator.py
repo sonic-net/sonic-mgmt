@@ -17,7 +17,8 @@ class QosParamCisco(object):
                                                             "Cisco-8101C01-V64",
                                                             "Cisco-8101C01-C28S4",
                                                             "Cisco-8101C01-C32"],
-                              "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"]}
+                              "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"],
+                              "x86_64-88_lc0_36fh-r0": ["Cisco-88-LC0-36FH-O36"]}
     VOQ_ASICS = ["gb", "gr"]
 
     LOG_PREFIX = "QosParamCisco: "

@@ -421,7 +421,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
             "hwsku": dutTestParams['hwsku'],
-            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
+            "src_dst_asic_diff": get_src_dst_asic_and_duts['src_asic'] != get_src_dst_asic_and_duts['dst_asic']
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -714,7 +714,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku": dutTestParams['hwsku'],
             "pkts_num_egr_mem": qosConfig[xonProfile].get('pkts_num_egr_mem', None),
-            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic']),
+            "src_dst_asic_diff": get_src_dst_asic_and_duts['src_asic'] != get_src_dst_asic_and_duts['dst_asic'],
             "dut_asic": dutConfig["dutAsic"]
         })
 
@@ -1162,7 +1162,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiBufferPoolWatermark(
         self, request, get_src_dst_asic_and_duts, bufPool, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         ingressLosslessProfile, egressLossyProfile, resetWatermark,
-        skip_src_dst_different_asic
+        skip_src_dst_different_asic, permit_only_test_traffic_on_fanout
     ):
         """
             Test QoS SAI Queue buffer pool watermark for lossless/lossy traffic
@@ -1357,7 +1357,8 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_src_dst_different_asic, dut_qos_maps    # noqa:  F811
+            skip_src_dst_different_asic, dut_qos_maps,       # noqa:  F811
+            permit_only_test_traffic_on_fanout       # noqa:  F811
     ):
         # NOTE: cisco 8800 will skip this test, this test only for single asic with long link
         """
@@ -1461,7 +1462,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDscpQueueMapping(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
-        tc_to_dscp_count, change_lag_lacp_timer
+        tc_to_dscp_count, change_lag_lacp_timer,
+        permit_only_test_traffic_on_fanout
     ):
         """
             Test QoS SAI DSCP to queue mapping
@@ -2119,7 +2121,8 @@ class TestQosSai(QosSaiBase):
     def testQosSaiDscpToPgMapping(
         self, get_src_dst_asic_and_duts, duthost,
         request, ptfhost, dutTestParams, dutConfig, dut_qos_maps,  # noqa: F811
-        change_lag_lacp_timer, dutQosConfig
+        change_lag_lacp_timer, dutQosConfig,
+        permit_only_test_traffic_on_fanout
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
