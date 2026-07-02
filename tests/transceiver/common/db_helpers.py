@@ -201,7 +201,7 @@ def get_state_db_table(duthost, table, namespace=None):
     ``{port: {field: value}}`` map.
     """
     ns_prefix = f"sudo ip netns exec {namespace} " if namespace else ""
-    cmd = f"{ns_prefix}sonic-db-dump -n {STATE_DB} -y -k '{table}|*'"
+    cmd = f"{ns_prefix}sonic-db-dump -n STATE_DB -y -k '{table}|*'"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
