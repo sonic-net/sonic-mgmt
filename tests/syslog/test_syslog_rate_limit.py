@@ -25,7 +25,7 @@ STP_LOG_FILE = '/var/log/stpd.log'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 # rsyslogd emits this when container rate-limit starts dropping messages.
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*imuxsock.*name: python.*begin to drop messages due to rate-limiting.*'
 
 pytestmark = [
     pytest.mark.topology("any")
