@@ -1,20 +1,22 @@
 import logging
-from ipaddress import IPv4Address
+import json
+import itertools
+from ipaddress import IPv4Address, ip_interface
 import copy
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
-from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, \
-    REMOTE_PTF_SEND_INTF
-from gnmi_utils import apply_messages
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF, \
+    LOCAL_DUT_INTF, REMOTE_DUT_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
 from packets import outbound_pl_packets, inbound_pl_packets
+from tests.common import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
+from tests.common.dash_utils import apply_dash_configs, apply_swssconfig_file
 from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, verify_eni_counter, \
-    eni_counter_setup, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
-from tests.dash.conftest import get_interface_ip
+    eni_counter_setup, partition_supported_counters, ENI_COUNTER_READY_MAX_TIME  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -23,82 +25,148 @@ pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
 
+# Base inner L4 ports for the outbound direction. Every test is assigned a unique
+# per-test offset (see ``flow_port_offset``) that is added to these so each test operates
+# on a distinct DASH flow (flows are keyed on the inner 5-tuple). This lets the DASH config
+# be programmed once per module (``common_setup_teardown`` is module-scoped) without flows
+# leaking between tests, avoiding a per-test config teardown/reapply.
+OUTBOUND_INNER_SPORT = 6789
+OUTBOUND_INNER_DPORT = 4567
 
-@pytest.fixture(scope="module", autouse=True)
-def setup_npu_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts):
+# Monotonic source of per-test flow offsets, consumed once per test in ``setup_param``.
+_flow_port_offset_counter = itertools.count()
+
+
+def _get_interface_ip(duthost, interface):
+    cmd = "ip addr show {} | grep -w inet | awk '{{print $2}}'".format(interface)
+    return ip_interface(duthost.shell(cmd)["stdout"].strip())
+
+
+@pytest.fixture(scope="module")
+def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+    """Module-scoped equivalent of the shared ``set_vxlan_udp_sport_range`` fixture.
+
+    Programs the DPU's VXLAN UDP source-port range / security once per module (instead of
+    per test) so the single ``config_reload`` used to revert it runs once rather than 40x.
+    """
     dpuhost = dpuhosts[dpu_index]
-    if not skip_config:
-        cmds = []
-        vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
-        pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+    vxlan_sport_config = [
+        {"SWITCH_TABLE:switch": {"vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
+                                 "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK}, "OP": "SET"},
+        {"SWITCH_TABLE:switch": {"vxlan_security": "true"}, "OP": "SET"},
+    ]
+    config_path = "/tmp/vxlan_sport_config.json"
+    for config in vxlan_sport_config:
+        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    yield
+    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell(
+            "redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
-        cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+
+@pytest.fixture(scope="module")
+def module_setup_npu_dpu(duthost, dpuhosts, dpu_index, dash_pl_config, skip_config, skip_cleanup):
+    """Module-scoped equivalent of the shared ``setup_npu_dpu`` fixture.
+
+    Programs the DPU loopback and the NPU static routes once per module (instead of per
+    test). Routes are added before any DASH config so orchagent can resolve next hops.
+    """
+    dpuhost = dpuhosts[dpu_index]
+    cleanup_cmds = []
+    if not skip_config:
+        intfs = dpuhost.shell("show ip int")["stdout"]
+        dpu_cmds = []
+        if "Loopback0" not in intfs:
+            dpu_cmds.append("config loopback add Loopback0")
+            dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
+        if dpu_cmds:
+            dpuhost.shell_cmds(cmds=dpu_cmds)
+
+        vm_nexthop_ip = _get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+        pe_nexthop_ip = _get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+        pytest_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
+        pytest_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
+
+        cmds = [
+            f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}",
+            f"config route add prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}",
+        ]
+        for tunnel_ip in pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS:
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {vm_nexthop_ip}")
+        for tunnel_ip in pl.TUNNEL3_ENDPOINT_IPS + pl.TUNNEL4_ENDPOINT_IPS:
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {pe_nexthop_ip}")
+        cmds.append(f"config route add prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
         logger.info(f"Adding static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
+        cleanup_cmds = [cmd.replace("add", "del") for cmd in cmds]
 
     yield
 
     if not skip_config and not skip_cleanup:
-        cmds = []
-        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
-        logger.info(f"Removing static routes: {cmds}")
-        duthost.shell_cmds(cmds=cmds)
+        duthost.shell_cmds(cmds=cleanup_cmds, continue_on_fail=True, module_ignore_errors=True)
 
 
-@pytest.fixture(autouse=True, scope="module")
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip_config):
+@pytest.fixture(scope="module", autouse=True)
+def common_setup_teardown(
+    localhost,
+    duthost,
+    ptfhost,
+    dpu_index,
+    dpuhosts,
+    skip_config,
+    skip_cleanup,
+    # Program the VXLAN sport range and the NPU routes once per module before the DASH config.
+    module_set_vxlan_udp_sport_range,
+    module_setup_npu_dpu,
+):
     if skip_config:
+        yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
-    base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG
-    }
-    logger.info(base_config_messages)
 
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-    route_and_mapping_messages = {
-        **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG
-    }
-
+    # ``INBOUND_VNI_ROUTE_RULE_CONFIG`` is only programmed on Bluefield DPUs;
+    # on other platforms ROUTE_RULE entries are skipped at the source.
+    bluefield_route_rule_configs = []
     if 'bluefield' in dpuhost.facts['asic_type']:
-        route_and_mapping_messages.update({
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
-        })
+        bluefield_route_rule_configs = [pl.INBOUND_VNI_ROUTE_RULE_CONFIG]
 
-    logger.info(route_and_mapping_messages)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+    config_dicts = [
+        pl.APPLIANCE_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.VNET_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        pl.PE_VNET_MAPPING_CONFIG,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_SUBNET_ROUTE_CONFIG,
+        *bluefield_route_rule_configs,
+        pl.METER_RULE1_V4_CONFIG,
+        pl.METER_RULE2_V4_CONFIG,
+        pl.ENI_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG,
+    ]
 
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-    logger.info(meter_rule_messages)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    # ``apply_dash_configs`` buckets entries by DASH table name and applies them in
+    # dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
+    # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/VNET) ->
+    # GROUP_3 (METER_RULE) -> GROUP_4 (ENI/ROUTE_GROUP) ->
+    # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+    #
+    # This fixture is module-scoped: the DASH config is programmed once and shared by every
+    # test. Tests must not leak flow state between each other -- each is assigned a unique
+    # inner 5-tuple (see ``flow_port_offset``) so flows never collide.
+    apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts)
 
     yield
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+
+    # Explicit delete (rather than ``config_reload``) preserves the runtime
+    # ``counterpoll eni`` enable/interval configured by ``eni_counter_setup``.
+    if not skip_cleanup:
+        apply_dash_configs(localhost, duthost, ptfhost, dpuhost.dpu_index, *config_dicts, set_db=False)
 
 
 @pytest.fixture(scope="function", params=["vxlan", "gre"])
@@ -111,14 +179,123 @@ def inner_packet_type(request):
     return request.param
 
 
+# Maps a logical TCP flag id to the ``outbound_pl_packets`` / ``inbound_pl_packets`` kwargs
+# that set it. RST has no helper kwarg and is applied directly to the inner TCP layer.
+TCP_FLAG_KWARGS = {
+    "syn": {"tcp_flag_syn": True},
+    "synack": {"tcp_flag_syn": True, "tcp_flag_ack": True},
+    "fin": {"tcp_flag_fin": True},
+    "rst": {},
+}
+
+# Maps a logical TCP flag id to the SAI_ENI_STAT_{IN,OUT}BOUND_TCP_<SUFFIX>_PACKETS suffix.
+TCP_FLAG_COUNTER_SUFFIX = {
+    "syn": "SYN",
+    "synack": "SYNACK",
+    "fin": "FIN",
+    "rst": "RST",
+}
+
+# IANA-assigned default VXLAN UDP port; used as a fallback when the DPU does not
+# advertise a VXLAN port in its APPL_DB SWITCH_TABLE.
+DEFAULT_VXLAN_UDP_DPORT = 4789
+
+
+def read_dpu_vxlan_udp_dport(dpuhost):
+    """Return the outer VXLAN UDP dst port the DPU actually programs.
+
+    DASH VXLAN-encapsulated test traffic is only accepted by the DPU when the outer
+    UDP dst port matches the DPU's configured VXLAN port (``SWITCH_TABLE:switch
+    vxlan_port`` in APPL_DB, programmed to SAI as ``SAI_SWITCH_ATTR_VXLAN_DEFAULT_PORT``).
+    Most images use the IANA default 4789, but some (e.g. the internal Bluefield builds)
+    program a non-standard value, which would otherwise cause every VXLAN test packet to
+    be silently dropped while the ENI counters stay at 0. Rather than reconfiguring the
+    device, the test reads the value at runtime and builds its packets to match -- the
+    same assumption other DASH dataplane tests make implicitly by relying on the DPU's
+    configured VXLAN port instead of forcing one.
+    """
+    vxlan_port = dpuhost.shell(
+        "redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_port", module_ignore_errors=True
+    )['stdout'].strip()
+    return int(vxlan_port) if vxlan_port else DEFAULT_VXLAN_UDP_DPORT
+
+
+@pytest.fixture
+def inbound_pa_validation_route_rule(
+    localhost, duthost, ptfhost, dpuhosts, dpu_index, skip_config, skip_cleanup
+):
+    """Program an inbound route rule that enables PA validation on the GRE encap VNI.
+
+    The default privatelink config only programs a ``{PE_PA}/32`` inbound route rule, so a
+    packet with an unknown outer source PA misses it and is dropped generically rather than
+    on PA validation. This fixture adds a broad ``0.0.0.0/0`` route rule with
+    ``pa_validation`` enabled against VNET1 so that the invalid-source-PA packet is steered
+    to PA validation and increments SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS.
+    """
+    if skip_config:
+        yield
+        return
+    dpuhost = dpuhosts[dpu_index]
+    apply_dash_configs(
+        localhost, duthost, ptfhost, dpuhost.dpu_index,
+        pl.INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG)
+    yield
+    if not skip_cleanup:
+        apply_dash_configs(
+            localhost, duthost, ptfhost, dpuhost.dpu_index,
+            pl.INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG, set_db=False)
+
+
 class TestEniCounter:
 
     @pytest.fixture(autouse=True)
-    def setup_param(self, dpuhost, ptfadapter, eni_counter_setup):  # noqa: F811
+    def setup_param(self, dpuhost, ptfadapter, eni_counter_setup, common_setup_teardown):  # noqa: F811
         self.ptfadapter = ptfadapter
         self.dpuhost = dpuhost
         self.eni = pl.ENI_ID
-        self.eni_counter_oid = get_eni_counter_oid(dpuhost, self.eni)
+
+        # Build VXLAN test packets with the outer UDP dst port the DPU actually programs so
+        # that VXLAN-encapsulated DASH traffic is accepted regardless of the platform's
+        # default VXLAN port (see ``read_dpu_vxlan_udp_dport``).
+        self.vxlan_udp_dport = read_dpu_vxlan_udp_dport(dpuhost)
+
+        # Assign this test a unique inner-port offset so it operates on its own DASH flow.
+        # ``common_setup_teardown`` is module-scoped (the DASH config is programmed once and
+        # shared), and DASH flows are keyed on the inner 5-tuple, so distinct inner ports
+        # keep each test's flows isolated without re-applying config between tests.
+        self.flow_port_offset = next(_flow_port_offset_counter)
+
+        # ``common_setup_teardown`` programs the DASH config (incl. the ENI) once per module,
+        # so wait for the flex counter to publish the ENI's OID in COUNTERS_ENI_NAME_MAP
+        # before any test reads counters.
+        def _eni_counter_oid_ready():
+            try:
+                self.eni_counter_oid = get_eni_counter_oid(dpuhost, self.eni)
+                return True
+            except KeyError:
+                return False
+
+        pytest_assert(
+            wait_until(ENI_COUNTER_READY_MAX_TIME, 2, 0, _eni_counter_oid_ready),
+            "ENI counter OID for {} was not published in COUNTERS_ENI_NAME_MAP".format(self.eni),
+        )
+
+    def _outbound_pl_packets(self, *args, **kwargs):
+        """``outbound_pl_packets`` with the DPU's VXLAN UDP dst port and this test's unique
+        inner ports injected (so each test uses a distinct DASH flow)."""
+        kwargs.setdefault("vxlan_udp_dport", self.vxlan_udp_dport)
+        kwargs.setdefault("inner_sport", OUTBOUND_INNER_SPORT + self.flow_port_offset)
+        kwargs.setdefault("inner_dport", OUTBOUND_INNER_DPORT + self.flow_port_offset)
+        return outbound_pl_packets(*args, **kwargs)
+
+    def _inbound_pl_packets(self, *args, **kwargs):
+        """``inbound_pl_packets`` with the DPU's VXLAN UDP dst port and this test's unique
+        inner ports injected. The inner ports are the reverse of the outbound direction so
+        inbound return traffic matches the same bidirectional flow entry."""
+        kwargs.setdefault("vxlan_udp_dport", self.vxlan_udp_dport)
+        kwargs.setdefault("inner_sport", OUTBOUND_INNER_DPORT + self.flow_port_offset)
+        kwargs.setdefault("inner_dport", OUTBOUND_INNER_SPORT + self.flow_port_offset)
+        return inbound_pl_packets(*args, **kwargs)
 
     def test_outbound_pkt_pass_eni_counter(self, dash_pl_config, outer_encap, inner_packet_type):
         """
@@ -145,7 +322,7 @@ class TestEniCounter:
                                         "SAI_ENI_STAT_FLOW_AGED": 1
                                         }
 
-        pkt, exp_pkt = outbound_pl_packets(
+        pkt, exp_pkt = self._outbound_pl_packets(
             dash_pl_config, outer_encap=outer_encap, inner_packet_type=inner_packet_type)
         verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "outbound"}]
         self.send_packet_and_verify_dash_eni_counter(
@@ -159,12 +336,18 @@ class TestEniCounter:
         4. Check the following counter change as follows by comparing eni_counter_before_sending_pkt
         with eni_counter_after_sending_pkt
                SAI_ENI_STAT_OUTBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS: +1
+               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1   (new in SAI#2251, aggregate forwarding drops)
+               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1        (new in SAI#2251, aggregate of all drops)
         """
         packet_number = 1
-        eni_counter_check_point_dict = {"SAI_ENI_STAT_OUTBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS": packet_number}
-        pkt, _ = outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
+        eni_counter_check_point_dict = {
+            "SAI_ENI_STAT_OUTBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_FORWARDING_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
+        }
+        pkt, exp_pkt = self._outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
         pkt[outer_encap.upper()]['IP'].dst = "10.3.3.4"
-        verify_packets = [{'send': pkt, 'exp': None, 'dir': "outbound"}]
+        verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "outbound", 'drop': True}]
         self.send_packet_and_verify_dash_eni_counter(
             dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
 
@@ -176,13 +359,19 @@ class TestEniCounter:
         4. Check the following counter change as follows by comparing eni_counter_before_sending_pkt
         with eni_counter_after_sending_pkt
                SAI_ENI_STAT_OUTBOUND_CA_PA_ENTRY_MISS_DROP_PACKETS: +1
+               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1   (new in SAI#2251, aggregate forwarding drops)
+               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1        (new in SAI#2251, aggregate of all drops)
         """
         packet_number = 1
-        eni_counter_check_point_dict = {"SAI_ENI_STAT_OUTBOUND_CA_PA_ENTRY_MISS_DROP_PACKETS": packet_number}
-        pkt, _ = outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
+        eni_counter_check_point_dict = {
+            "SAI_ENI_STAT_OUTBOUND_CA_PA_ENTRY_MISS_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_FORWARDING_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
+        }
+        pkt, exp_pkt = self._outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
         ip_with_same_outbound_route_prefix1 = format(IPv4Address(pl.PE_CA) + 1)
         pkt[outer_encap.upper()]['IP'].dst = ip_with_same_outbound_route_prefix1
-        verify_packets = [{'send': pkt, 'exp': None, 'dir': "outbound"}]
+        verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "outbound", 'drop': True}]
 
         self.send_packet_and_verify_dash_eni_counter(
             dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
@@ -204,7 +393,7 @@ class TestEniCounter:
         eni_counter_check_point_dict = {"SAI_ENI_STAT_FLOW_CREATED": flow_created_counter,
                                         "SAI_ENI_STAT_FLOW_DELETED": flow_del_counter}
 
-        pkt, _ = outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type='tcp')
+        pkt, _ = self._outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type='tcp')
         pkt_rst = copy.deepcopy(pkt)
         pkt_rst[outer_encap.upper()]["TCP"].flags = "R"
         verify_packets = [{'send': pkt, 'exp': None, 'dir': "outbound"},
@@ -240,8 +429,8 @@ class TestEniCounter:
         inbound_packet_len = 142
         packet_number = 1
 
-        vm_to_dpu_pkt, _ = outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
-        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
+        vm_to_dpu_pkt, _ = self._outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
+        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = self._inbound_pl_packets(
             dash_pl_config, inner_packet_type=inner_packet_type, vxlan_udp_src_port_mask=16)
 
         with allure.step("send outbound and inbound packet and verify the relevant eni counter"):
@@ -260,10 +449,119 @@ class TestEniCounter:
                 dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
 
         with allure.step("send the inbound packet without inbound route and verify the relevant eni counter"):
-            eni_counter_check_point_dict = {"SAI_ENI_STAT_INBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS": packet_number}
-            verify_packets = [{'send': pe_to_dpu_pkt, 'exp': None, 'dir': "inbound"}]
+            eni_counter_check_point_dict = {
+                "SAI_ENI_STAT_INBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS": packet_number,
+                # new in SAI#2251: aggregate forwarding-drop and total-drop counters
+                "SAI_ENI_STAT_FORWARDING_DROP_PACKETS": packet_number,
+                "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
+            }
+            verify_packets = [{'send': pe_to_dpu_pkt, 'exp': exp_dpu_to_vm_pkt, 'dir': "inbound", 'drop': True}]
             self.send_packet_and_verify_dash_eni_counter(
                 dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
+
+    @pytest.mark.parametrize("tcp_flag", ["syn", "synack", "fin", "rst"])
+    def test_outbound_tcp_flag_eni_counter(self, dash_pl_config, outer_encap, tcp_flag):
+        """
+        Verify the per-flag outbound TCP counters added in SAI PR opencomputeproject/SAI#2251.
+
+        1. (For non-SYN flags) send an outbound TCP SYN to establish a flow so the flagged
+           packet is processed on an existing flow instead of being treated as a flow miss.
+        2. Snapshot the eni counters, send an outbound TCP packet carrying ``tcp_flag``.
+        3. Verify the matching counter increments:
+               SAI_ENI_STAT_OUTBOUND_TCP_<FLAG>_PACKETS: +packet_number
+           where <FLAG> is one of SYN / SYNACK / FIN / RST.
+        """
+        counter_name = "SAI_ENI_STAT_OUTBOUND_TCP_{}_PACKETS".format(TCP_FLAG_COUNTER_SUFFIX[tcp_flag])
+        packet_number = 1
+        eni_counter_check_point_dict = {counter_name: packet_number}
+
+        verify_packets = []
+        if tcp_flag != "syn":
+            syn_pkt, _ = self._outbound_pl_packets(
+                dash_pl_config, outer_encap, inner_packet_type="tcp", tcp_flag_syn=True)
+            verify_packets.append({'send': syn_pkt, 'exp': None, 'dir': "outbound"})
+
+        flag_pkt, _ = self._outbound_pl_packets(
+            dash_pl_config, outer_encap, inner_packet_type="tcp", **TCP_FLAG_KWARGS[tcp_flag])
+        if tcp_flag == "rst":
+            flag_pkt[outer_encap.upper()]["TCP"].flags = "R"
+        verify_packets.append({'send': flag_pkt, 'exp': None, 'dir': "outbound"})
+
+        self.send_packet_and_verify_dash_eni_counter(
+            dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
+
+    @pytest.mark.parametrize("tcp_flag", ["syn", "synack", "fin", "rst"])
+    def test_inbound_tcp_flag_eni_counter(self, dash_pl_config, outer_encap, tcp_flag):
+        """
+        Verify the per-flag inbound TCP counters added in SAI PR opencomputeproject/SAI#2251.
+
+        1. Send an outbound TCP SYN to establish the bidirectional flow.
+        2. Snapshot the eni counters, send an inbound (PE->DPU) TCP packet carrying ``tcp_flag``.
+        3. Verify the matching counter increments:
+               SAI_ENI_STAT_INBOUND_TCP_<FLAG>_PACKETS: +packet_number
+           where <FLAG> is one of SYN / SYNACK / FIN / RST.
+        """
+        counter_name = "SAI_ENI_STAT_INBOUND_TCP_{}_PACKETS".format(TCP_FLAG_COUNTER_SUFFIX[tcp_flag])
+        packet_number = 1
+        eni_counter_check_point_dict = {counter_name: packet_number}
+
+        vm_to_dpu_syn, _ = self._outbound_pl_packets(
+            dash_pl_config, outer_encap, inner_packet_type="tcp", tcp_flag_syn=True)
+        inbound_flag_pkt, _ = self._inbound_pl_packets(
+            dash_pl_config, inner_packet_type="tcp", **TCP_FLAG_KWARGS[tcp_flag])
+        if tcp_flag == "rst":
+            inbound_flag_pkt["GRE"]["TCP"].flags = "R"
+
+        verify_packets = [{'send': vm_to_dpu_syn, 'exp': None, 'dir': "outbound"},
+                          {'send': inbound_flag_pkt, 'exp': None, 'dir': "inbound"}]
+        self.send_packet_and_verify_dash_eni_counter(
+            dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
+
+    def test_outbound_unsupported_protocol_drop_counter(self, dash_pl_config, outer_encap):
+        """
+        Verify SAI_ENI_STAT_UNSUPPORTED_PROTOCOL_DROP_PACKETS (new in SAI#2251).
+
+        Send an outbound packet whose inner IP protocol is neither TCP/UDP/ICMP (here set to
+        89 / OSPF). The DPU should drop it as an unsupported tenant protocol and increment the
+        dedicated drop counter plus the aggregate total-drop counter.
+        """
+        unsupported_ip_proto = 89  # OSPF, an arbitrary non TCP/UDP/ICMP protocol
+        packet_number = 1
+        eni_counter_check_point_dict = {
+            "SAI_ENI_STAT_UNSUPPORTED_PROTOCOL_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
+        }
+        pkt, exp_pkt = self._outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type="udp")
+        inner_ip = pkt[outer_encap.upper()]["IP"]
+        inner_ip.proto = unsupported_ip_proto
+        # force scapy to recompute the inner IP checksum after mutating the protocol field
+        inner_ip.chksum = None
+        verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "outbound", 'drop': True}]
+        self.send_packet_and_verify_dash_eni_counter(
+            dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
+
+    def test_inbound_pa_validation_fail_drop_counter(
+            self, dash_pl_config, inner_packet_type, inbound_pa_validation_route_rule):
+        """
+        Verify SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS (new in SAI#2251).
+
+        Send an inbound packet whose outer source PA is not a configured tunnel endpoint.
+        The DPU should drop it on source-PA (tunnel-endpoint) validation failure and increment
+        the dedicated drop counter plus the aggregate total-drop counter.
+        """
+        invalid_source_pa = "200.0.0.200"  # not a configured tunnel endpoint / PE PA
+        packet_number = 1
+        eni_counter_check_point_dict = {
+            "SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS": packet_number,
+            "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
+        }
+        pkt, exp_pkt = self._inbound_pl_packets(dash_pl_config, inner_packet_type=inner_packet_type)
+        outer_ip = pkt["IP"]
+        outer_ip.src = invalid_source_pa
+        outer_ip.chksum = None
+        verify_packets = [{'send': pkt, 'exp': exp_pkt, 'dir': "inbound", 'drop': True}]
+        self.send_packet_and_verify_dash_eni_counter(
+            dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets)
 
     def send_packet_and_verify_dash_eni_counter(
             self, dash_pl_config, eni_counter_check_point_dict, packet_number, verify_packets):
@@ -272,13 +570,35 @@ class TestEniCounter:
         with allure.step("get dash eni counter before sending pkt"):
             eni_counter_before_sending_pkt = get_eni_counters(self.dpuhost, self.eni_counter_oid)
 
+        # Only assert on counters the installed DPU image actually publishes (present in the
+        # baseline snapshot). Counters that are absent are not implemented/polled by this
+        # SAI + SONiC build and are skipped rather than failing with a missing-key error.
+        supported_check_point_dict, unsupported_counters = partition_supported_counters(
+            eni_counter_check_point_dict, eni_counter_before_sending_pkt)
+        if unsupported_counters:
+            logger.warning("ENI counters not published by this DPU image, skipping: %s", unsupported_counters)
+        if not supported_check_point_dict:
+            pytest.skip("None of the targeted ENI counters {} are implemented on this DPU image".format(
+                sorted(eni_counter_check_point_dict.keys())))
+
         with allure.step("sending packets"):
             for pkts in verify_packets:
                 if pkts['dir'] == "outbound":
                     testutils.send(self.ptfadapter, dash_pl_config[LOCAL_PTF_INTF], pkts['send'], packet_number)
                 else:
                     testutils.send(self.ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pkts['send'], packet_number)
-                if pkts['exp']:
+                if pkts.get('drop'):
+                    # The packet is expected to be dropped by the DPU, so in addition to the drop
+                    # counters confirm that the packet it would have produced on a valid flow
+                    # (``pkts['exp']``) never egresses toward the destination PTF port(s).
+                    with allure.step("verify the dropped packet is not forwarded"):
+                        if pkts['dir'] == "outbound":
+                            testutils.verify_no_packet_any(
+                                self.ptfadapter, pkts['exp'], dash_pl_config[REMOTE_PTF_RECV_INTF])
+                        else:
+                            testutils.verify_no_packet(
+                                self.ptfadapter, pkts['exp'], dash_pl_config[LOCAL_PTF_INTF])
+                elif pkts['exp']:
                     if pkts['dir'] == "outbound":
                         testutils.verify_packet_any_port(
                             self.ptfadapter, pkts['exp'], dash_pl_config[REMOTE_PTF_RECV_INTF])
@@ -291,7 +611,7 @@ class TestEniCounter:
 
             # compare eni_counter_after_sending_pkt with eni_counter_before_sending_pkt
             return verify_eni_counter(
-                eni_counter_check_point_dict, eni_counter_before_sending_pkt, eni_counter_after_sending_pkt)
+                supported_check_point_dict, eni_counter_before_sending_pkt, eni_counter_after_sending_pkt)
 
         pytest_assert(wait_until(ENI_COUNTER_READY_MAX_TIME, 2, 0, _verify_eni_counter),
                       "The actual eni counter is not as expected")
