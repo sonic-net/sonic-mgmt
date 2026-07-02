@@ -10,12 +10,12 @@ Description:    This file contains the log analyzer functionality in order
                 Design is available in https://github.com/sonic-net/SONiC/wiki/LogAnalyzer
 
 Usage:          Examples of how to use log analyzer
-                sudo python loganalyzer.py \
-                    --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results \
-                    --action analyze \
-                    --run_id myTest114 \
-                    --logs file3.log \
-                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \    # noqa: E501 W605
+                sudo python loganalyzer.py \\
+                    --out_dir /home/hrachya/projects/loganalyzer/log.analyzer.results \\
+                    --action analyze \\
+                    --run_id myTest114 \\
+                    --logs file3.log \\
+                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \\    # noqa: E501
                     -i ignore.file.1.log,ignore.file.2.log -v
 '''
 
@@ -210,12 +210,23 @@ class AnsibleLogAnalyzer:
         time.sleep(2)
 
     def is_recent_log_line(self, log_line, cutoff):
+        # This mirrors timestamp parsing logic from ansible/library/extract_log.py::convert_date.
+        timestamp_match = re.match(r'^\d{4}\s{1}\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', log_line)
+        if timestamp_match:
+            str_date = timestamp_match.group(0)
+        else:
+            timestamp_match = re.match(r'^\S{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.?\d*', log_line)
+            if not timestamp_match:
+                return False
+            str_date = '{:04d} '.format(cutoff.year) + timestamp_match.group(0)
+
         try:
-            # syslog datetime example: "2026 Jul  1 12:11:05.671339"
-            log_time = datetime.strptime(log_line[:20], "%Y %b %d %H:%M:%S")
+            log_time = datetime.strptime(str_date, "%Y %b %d %H:%M:%S.%f")
         except ValueError:
-            print(f"WARNING: failed to parse log line timestamp, ignoring line: {log_line}")
-            return False
+            log_time = datetime.strptime(str_date, "%Y %b %d %H:%M:%S")
+
+        if log_time < cutoff and cutoff.month == 12 and log_time.month == 1:
+            log_time = log_time.replace(year=cutoff.year + 1)
 
         return log_time >= cutoff
 

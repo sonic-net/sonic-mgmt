@@ -503,14 +503,14 @@ def try_reap_dump_folder(duthost, dump_folder, age_sec=None, watermark_mb=None):
         if age_sec < 0:
             logger.warning("age_sec must be non-negative")
             return False
-        cmd += " -mmin +{}".format(age_sec // 60)
+        cmd += " -mmin +{}".format((age_sec + 59) // 60)
     elif age_sec is not None:
         logger.warning("age_sec must be an int or None")
         return False
 
     res = duthost.shell("sudo test -d '{}'".format(dump_folder), module_ignore_errors=True)
     if res.get("rc", 1) != 0:
-        logger.warning("Dump folder %s does not exist on %s", dump_folder, duthost.hostname)
+        logger.info("Dump folder %s does not exist on %s", dump_folder, duthost.hostname)
         return False
 
     if watermark_mb is not None and not is_folder_size_over_watermark(duthost, dump_folder, watermark_mb):
@@ -520,7 +520,11 @@ def try_reap_dump_folder(duthost, dump_folder, age_sec=None, watermark_mb=None):
         return False
 
     logger.info("Removing stale dump files from %s on %s", dump_folder, duthost.hostname)
-    duthost.shell(cmd + " -exec rm -f -- {} +")
+    res = duthost.shell(cmd + " -exec rm -f -- {} +", module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        logger.warning("Failed to remove stale dump files from %s on %s", dump_folder, duthost.hostname)
+        return False
+
     return True
 
 
