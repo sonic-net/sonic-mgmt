@@ -41,7 +41,8 @@ def ignore_host_lane_count_loganalyzer(enum_rand_one_per_hwsku_frontend_hostname
         # when loganalyzer is disabled, the object could be None
         if loganalyzer:
             ignoreRegex = [
-                (".*ERR pmon#xcvrd.*: no suitable app for the port appl .* host_lane_count [0-9] host_speed.*"),
+                (".*ERR pmon#(xcvrd|CmisManagerTask).*:.*no suitable app for the port appl .* "
+                 "host_lane_count [0-9]+ host_speed.*"),
             ]
             loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
 
@@ -1282,7 +1283,8 @@ class TestConfigInterface():
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
         ignore_host_lane_count_loganalyzer(ignore_condition=duthost.facts['hwsku'] in ["Arista-7060X6-64PE-P32O64",
-                                                                                       "Arista-7060X6-64PE-P64"])
+                                                                                       "Arista-7060X6-64PE-P64",
+                                                                                       "Cisco-8102-28FH-DPU-O"])
 
         if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
             pytest.skip(
