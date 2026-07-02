@@ -166,3 +166,353 @@ To verify updates in tables
 
 Above changes were added via Test PR:
 - [Adding new Tests for Chassis/Multi-ASIC GCU](https://github.com/sonic-net/sonic-mgmt/pull/14887)
+
+### Test Case # 4 - Port Speed Change
+
+#### Test Objective
+Verify port speed change behavior on a multi-ASIC T2 platform.
+
+The test updates the following DB tables:
+<pre>
+/BUFFER_QUEUE
+/QUEUE
+/PORT
+/INTERFACE
+/BGP_NEIGHBOR
+/DEVICE_NEIGHBOR
+/DEVICE_NEIGHBOR_METADATA
+</pre>
+
+#### Test Variations:
+The test case runs in two variations to verify both:
+- Upgrade scenario
+- Downgrade scenario
+If the topology does not support one of the operations, that scenario will be skipped.
+
+#### Test Requirements:
+At least two frontend DUTs are required to generate and validate traffic.
+Configuration changes via gcu apply-patch are applied on the downstream frontend DUT.
+The scenario verifies:
+- Upstream -> Downstream traffic
+- Downstream -> Downstream traffic
+
+#### Testing Setup
+- Select a random asic namespace and a random active interface from that namespace
+- Capture initial speed for that interface (speedA), identify supported speeds for the interface and randomly select a second speed to change to (speedB)
+- Change speed via gcu apply-patch from initial speed (speedA) to intermediate speed (speedB).
+- Verify that speed changes are populated to DB. Expect setup is not fully-functional after this change.
+    Reason for that is the following:
+    In a functional setup it is expected that after this change setup will not be functional. Most probably the interface will be down as physical changes need to be performed in hw in case transceivers do not support both speeds.
+- Save configuration and do config reload. After this step the initial state for test case is ready.
+
+- Select a random ASIC namespace and a random active interface within that namespace.
+- Capture the initial speed of the interface (speedA).
+- Identify supported interface speeds and randomly select a second speed (speedB).
+- Change speed using gcu apply-patch from speedA -> speedB. Also, remove cluster information for that port.
+- Verify DB reflects the speed change.
+> The system is expected not to be fully functional at this point because physical hardware (transceivers) may not support both speeds, causing the interface to go down.
+- Save configuration and perform config reload.
+This completes the initial setup.
+
+#### Testing Steps
+- Change speed via gcu apply-patch back to the original speed (speedA). Also, add cluster information for that port.
+- Verify DB reflects the change.
+> The system is expected to be fully functional and all interfaces should be up.
+- Run data traffic toward the selected interface.
+  - Verify lossless traffic
+  - Verify ACL traffic
+
+#### Testing Teardown
+- Restore configuration with load minigraph.
+
+#### Testing Limitations
+The operation completes in two steps.
+The first patch update includes a port speed change and the addition of cluster information.
+The second patch update includes QUEUE table configuration.
+
+#### Port Speed Change Json File
+- An example of the two json files performed port speed changes is similar to below:
+
+- Patch update No.1 (add cluster + port speed change)
+<pre>
+[
+  {
+    "op": "add",
+    "path": "/localhost/BGP_NEIGHBOR/fc00::22",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "fc00::21",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/BGP_NEIGHBOR/10.0.0.17",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "10.0.0.16",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/DEVICE_NEIGHBOR/Ethernet14~11",
+    "value": {
+      "name": "ASIC0",
+      "port": "Eth104"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/DEVICE_NEIGHBOR_METADATA/ARISTA03T1",
+    "value": {
+      "hwsku": "Arista-VM",
+      "mgmt_addr": "10.250.29.56",
+      "type": "LeafRouter"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/BGP_NEIGHBOR/fc00::22",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "fc00::21",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/BGP_NEIGHBOR/10.0.0.17",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "10.0.0.16",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/DEVICE_NEIGHBOR/Ethernet104",
+    "value": {
+      "name": "ARISTA03T1",
+      "port": "Ethernet1"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/DEVICE_NEIGHBOR_METADATA/ARISTA03T1",
+    "value": {
+      "hwsku": "Arista-VM",
+      "mgmt_addr": "10.250.29.56",
+      "type": "LeafRouter"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104|10.0.0.16~131",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104|FC00::21~1126",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11|10.0.0.16~131",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11|FC00::21~1126",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/CABLE_LENGTH/AZURE/Ethernet104",
+    "value": "2000m"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|3"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|5"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|6"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|0"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|4"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|2"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|1"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/admin_status",
+    "value": "down"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/lanes",
+    "value": "32,33,34,35"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/speed",
+    "value": "100000"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/fec",
+    "value": "rs"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/BUFFER_PG/Ethernet104|0",
+    "value": {
+      "profile": "ingress_lossy_profile"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT_QOS_MAP/Ethernet104",
+    "value": {
+      "dscp_to_tc_map": "AZURE",
+      "pfc_enable": "3,4",
+      "pfc_to_queue_map": "AZURE",
+      "pfcwd_sw_enable": "3,4",
+      "tc_to_pg_map": "AZURE",
+      "tc_to_queue_map": "AZURE"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/ACL_TABLE/DATAACL/ports/-",
+    "value": "Ethernet104"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/ACL_TABLE/EVERFLOW/ports/-",
+    "value": "Ethernet104"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/ACL_TABLE/EVERFLOWV6/ports/-",
+    "value": "Ethernet104"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/admin_status",
+    "value": "up"
+  }
+]
+</pre>
+
+
+- Patch update No.2 (QUEUE configuration)
+<pre>
+[
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|3",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|5",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|6",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|0",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|4",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|2",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|1",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  }
+]
+</pre>
