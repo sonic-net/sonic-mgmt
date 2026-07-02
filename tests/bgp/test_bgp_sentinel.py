@@ -15,7 +15,6 @@ from tests.common.utilities import (
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
-from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
 from tests.common.helpers.generators import generate_ip_through_default_route
 from netaddr import IPNetwork
 
@@ -75,28 +74,6 @@ def is_bgp_sentinel_supported(duthost):
 
     # As long as BGPSentinel exist in the output, it means bgp sentinel is supported
     bgp_sentinel_pattern = r"\s+neighbor BGPSentinel\s+"
-    return False if re.search(bgp_sentinel_pattern, output['stdout']) is None else True
-
-
-def is_bgp_monv6_supported(duthost):
-    """ Get bgp monv6 config that contains src_address and ip_range
-
-    Sample output in t1:
-    ['\n neighbor BGPMON_V6 peer-group,
-     '\n neighbor BGPMON_V6 passive,
-     '\n neighbor fc00:1::32 peer-group BGPMON_V6,
-     '\n neighbor BGPMON_V6 activate,
-     '\n neighbor BGPMON_V6 addpath-tx-all-paths,
-     '\n neighbor BGPMON_V6 soft-reconfiguration inbound,
-     '\n neighbor BGPMON_V6 route-map FROM_BGPMON_V6 in,
-     '\n neighbor BGPMON_V6 route-map TO_BGPMON_V6 out,]
-    """
-    cmds = "show runningconfiguration bgp"
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
-
-    # As long as BGPMON_V6 exist in the output, it means BGPMON_V6 is supported
-    bgp_sentinel_pattern = r"\s+neighbor BGPMON_V6\s+"
     return False if re.search(bgp_sentinel_pattern, output['stdout']) is None else True
 
 
@@ -195,7 +172,7 @@ def cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6):
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
 
 
-@pytest.fixture(scope="module", params=['BGPSentinel', 'BGPMonV6'])
+@pytest.fixture(scope="module", params=['BGPSentinel'])
 def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
@@ -213,57 +190,38 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
-    if request.param == 'BGPSentinel':
-        # render template and write to DB, check running configuration for BGP_sentinel
-        if is_ipv6_only:
-            bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL)
-            duthost.copy(
-                content=bgp_sentinel_tmpl.render(
-                    v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
-                    v6_src_address=lo_ipv6_addr,
-                ),
-                dest=BGPSENTINEL_CONFIG_FILE,
-            )
-        else:
-            bgp_sentinel_tmpl = Template(BGP_SENTINEL_TMPL)
-            duthost.copy(
-                content=bgp_sentinel_tmpl.render(
-                    v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
-                    v4_src_address=lo_ipv4_addr,
-                    v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
-                    v6_src_address=lo_ipv6_addr,
-                ),
-                dest=BGPSENTINEL_CONFIG_FILE,
-            )
+    # render template and write to DB, check running configuration for BGP_sentinel
+    if is_ipv6_only:
+        bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL)
+        duthost.copy(
+            content=bgp_sentinel_tmpl.render(
+                v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                v6_src_address=lo_ipv6_addr,
+            ),
+            dest=BGPSENTINEL_CONFIG_FILE,
+        )
+    else:
+        bgp_sentinel_tmpl = Template(BGP_SENTINEL_TMPL)
+        duthost.copy(
+            content=bgp_sentinel_tmpl.render(
+                v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
+                v4_src_address=lo_ipv4_addr,
+                v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                v6_src_address=lo_ipv6_addr,
+            ),
+            dest=BGPSENTINEL_CONFIG_FILE,
+        )
 
-        duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
-
-    elif request.param == 'BGPMonV6':
-        # render template and write to DB, check running configuration for BGPMonV6
-        bgpmon_args = {
-            'db_table_name': 'BGP_MONITORS',
-            'peer_addr': ptf_bp_v6,
-            'asn': dut_asn,
-            'local_addr': "fc00:1::32",
-            'peer_name': BGP_MONITOR_NAME,
-        }
-        bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
-        duthost.copy(content=bgpmon_template.render(**bgpmon_args), dest=BGPMON_CONFIG_FILE)
-        duthost.shell("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
+    duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
 
     duthost.shell("vtysh -c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"")
 
     yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, request.param
 
-    if request.param == 'BGPSentinel':
-        # Cleanup bgp sentinel configuration
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
-        duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
-    elif request.param == 'BGPMonV6':
-        # Cleanup bgp monitorV6 configuration
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
-        duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
+    # Cleanup bgp sentinel configuration
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
 
 
 def cleanup_leftovers_exbgp_instances(ptfhost, is_ipv6_only):
@@ -279,12 +237,8 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
     if not is_ipv6_only:
-        if case_type == 'BGPSentinel':
-            if not is_bgp_sentinel_supported(duthost):
-                pytest.skip("BGP sentinel is not supported on this image")
-        elif case_type == 'BGPMonV6':
-            if not is_bgp_monv6_supported(duthost):
-                pytest.skip("BGPMonV6 is not supported on this image")
+        if not is_bgp_sentinel_supported(duthost):
+            pytest.skip("BGP sentinel is not supported on this image")
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
@@ -323,8 +277,6 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     ipv4_nh, ipv6_nh = add_route_to_dut_lo(
         ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only, ptf_bp_v6
     )
-    if case_type == 'BGPMonV6':
-        ipv4_nh = None
 
     yield lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ptf_bp_v4, ptf_bp_v6
 
