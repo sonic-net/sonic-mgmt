@@ -1038,6 +1038,7 @@ def measure_and_record_convergence(
     delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
     not_converged_msg="Traffic did not converge after event",
     rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None,
 ):
     """
     Shared measurement + assertion + metric-recording tail for the
@@ -1083,6 +1084,8 @@ def measure_and_record_convergence(
     logger.info('--------------------------   Convergence Numbers   ----------------------------------')
     logger.info("Convergence Time for {} : {} (ms)".format(event_type, pkt_loss_duration))
     logger.info('--------------------------------------------------------------------------------------')
+    pytest_assert(max_convergence_ms is None or pkt_loss_duration <= max_convergence_ms,
+                  "Convergence time {} ms exceeds max allowed {} ms".format(pkt_loss_duration, max_convergence_ms))
     start_stop(snappi_api, operation="stop", op_type="traffic")
     record_convergence_metric(
         metric, db_reporter, event_type, ip_version, snappi_extra_params, pkt_loss_duration
@@ -1106,6 +1109,7 @@ def run_bgp_convergence_event(
     delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
     not_converged_msg="Traffic did not converge after event",
     rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None
 ):
     """
     Drive one BGP convergence event end to end: create the metric, push the
@@ -1128,6 +1132,7 @@ def run_bgp_convergence_event(
             convergence=convergence, converge_timeout=converge_timeout,
             delta_zero_msg=delta_zero_msg, not_converged_msg=not_converged_msg,
             rate_varying_msg=rate_varying_msg,
+            max_convergence_ms=max_convergence_ms
         )
     finally:
         if cleanup is not None and cleanup_first:
