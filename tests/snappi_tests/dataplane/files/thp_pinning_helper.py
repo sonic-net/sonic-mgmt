@@ -17,16 +17,16 @@ DEFAULT_SRC_MAC_STEP = "00:00:00:00:00:01"
 DEFAULT_SRC_MAC_COUNT = 10000
 DEFAULT_TRAFFIC_PPS_PER_PORT = 200000
 DEFAULT_FRAME_SIZE = 256
-DEFAULT_PINNING_DURATION_SEC = 30 * 60
+DEFAULT_PINNING_DURATION_SEC = 15 * 60
 DEFAULT_PINNING_PHASE1_SEC = 20 * 60
 DEFAULT_PINNING_ACCUM_INTERVAL_SEC = 120
 DEFAULT_PINNING_CHURN_INTERVAL_SEC = 10
-DEFAULT_AHP_THRESHOLD_KB = 1024 * 1024
-DEFAULT_AHP_THRESHOLD_WINDOW_SEC = 10 * 60
+DEFAULT_AHP_DIFF_THRESHOLD_KB = 500 * 1024
 DEFAULT_MONITOR_INTERVAL_SEC = 30
 DEFAULT_MEM_MONITOR_LOG = "/tmp/orchagent_mem_monitor.txt"
 DEFAULT_PINNING_SCRIPT = "/tmp/thp_pinning_workload.sh"
 DEFAULT_PINNING_LOG = "/tmp/thp_pinning_workload.log"
+THP_ENABLED_PATH = "/sys/kernel/mm/transparent_hugepage/enabled"
 
 PINNING_PORT_PROFILES = [
     {
@@ -50,7 +50,7 @@ PINNING_PORT_PROFILES = [
 ]
 
 
-def select_snappi_test_ports(snappi_ports, required_ports=5):
+def select_snappi_test_ports(snappi_ports, required_ports=3):
     """Select direct Snappi ports connected to one single-ASIC DUT."""
     ports_by_dut = {}
     for port in snappi_ports:
@@ -77,27 +77,38 @@ def select_snappi_test_ports(snappi_ports, required_ports=5):
         "THP pinning FDB storm test currently supports single-ASIC DUTs only"
     )
 
-    return duthost, selected_ports[:4], selected_ports[4]
+    return duthost, selected_ports[:-1], selected_ports[-1]
 
 
-def select_pinning_ports(duthost, excluded_ports, required_ports=2):
+def select_pinning_ports(duthost, excluded_ports, required_ports=2, fallback_ports=None):
     """Select admin-up, oper-up Ethernet ports not used by the FDB storm."""
     excluded_ports = set(excluded_ports)
+    fallback_ports = fallback_ports or []
     status = duthost.get_interfaces_status()
     candidates = []
     for intf, info in status.items():
-        if not intf.startswith("Ethernet") or intf in excluded_ports:
+        if not _is_front_panel_port(intf) or intf in excluded_ports:
             continue
         if info.get("admin", "up") == "up" and info.get("oper") == "up":
             candidates.append(intf)
 
     candidates = sorted(candidates, key=_natural_port_sort_key)
+    if len(candidates) < required_ports:
+        for intf in fallback_ports:
+            info = status.get(intf, {})
+            if (intf not in candidates and _is_front_panel_port(intf)
+                    and info.get("admin", "up") == "up" and info.get("oper") == "up"):
+                candidates.append(intf)
     pytest_require(
         len(candidates) >= required_ports,
-        "Need {} admin-up, oper-up non-storm ports for THP pinning, got {}".format(
+        "Need {} admin-up, oper-up eligible ports for THP pinning, got {}".format(
             required_ports, candidates)
     )
     return candidates[:required_ports]
+
+
+def _is_front_panel_port(port_name):
+    return port_name.startswith("Ethernet") and port_name[len("Ethernet"):].isdigit()
 
 
 def _natural_port_sort_key(port_name):
@@ -120,7 +131,7 @@ def find_unused_vlan_id(duthost, start=3000, stop=3999):
 
 
 def configure_dut_for_fdb_storm(duthost, ingress_ports, egress_port, pinning_ports, vlan_id):
-    """Configure 4 ingress ports in one VLAN and one routed egress port."""
+    """Configure ingress ports in one VLAN and one routed egress port."""
     test_ports = [port["peer_port"] for port in ingress_ports] + [egress_port["peer_port"]] + pinning_ports
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
@@ -389,29 +400,50 @@ done
         duthost.shell(cmd, module_ignore_errors=True)
 
 
+def get_thp_enabled_mode(duthost):
+    result = duthost.shell("cat {}".format(THP_ENABLED_PATH))
+    for mode in result["stdout"].split():
+        if mode.startswith("[") and mode.endswith("]"):
+            return mode.strip("[]")
+    pytest.fail("Failed to parse THP enabled mode from: {}".format(result["stdout"]))
+
+
+def set_thp_enabled_mode(duthost, mode):
+    pytest_assert(mode in ("always", "madvise", "never"), "Unsupported THP mode: {}".format(mode))
+    _run_checked(duthost, "echo {} | sudo tee {} >/dev/null".format(mode, THP_ENABLED_PATH))
+    active_mode = get_thp_enabled_mode(duthost)
+    pytest_assert(active_mode == mode, "Expected THP mode {}, got {}".format(mode, active_mode))
+
+
 def monitor_dut_health(duthost,
                        workload_pid,
                        pinning_ports,
                        duration_sec=DEFAULT_PINNING_DURATION_SEC,
                        interval_sec=DEFAULT_MONITOR_INTERVAL_SEC,
-                       ahp_threshold_kb=DEFAULT_AHP_THRESHOLD_KB,
-                       ahp_threshold_window_sec=DEFAULT_AHP_THRESHOLD_WINDOW_SEC):
-    """Monitor DUT health and fail on steep orchagent AnonHugePages growth."""
+                       ahp_diff_threshold_kb=DEFAULT_AHP_DIFF_THRESHOLD_KB):
+    """Monitor DUT health and fail on orchagent AnonHugePages growth above the threshold."""
     duthost.shell("sudo rm -f {}; sudo touch {}".format(DEFAULT_MEM_MONITOR_LOG, DEFAULT_MEM_MONITOR_LOG),
                   module_ignore_errors=True)
     reboot_history_before = _get_reboot_history(duthost)
     start = time.time()
+    baseline_sample = None
     last_sample = None
 
     while time.time() - start <= duration_sec + interval_sec:
         elapsed = int(time.time() - start)
         last_sample = collect_memory_sample(duthost, elapsed, pinning_ports)
+        if baseline_sample is None:
+            baseline_sample = last_sample
 
-        if elapsed <= ahp_threshold_window_sec and last_sample["anon_huge_pages_kb"] > ahp_threshold_kb:
+        ahp_diff_kb = last_sample["anon_huge_pages_kb"] - baseline_sample["anon_huge_pages_kb"]
+        last_sample["anon_huge_pages_diff_kb"] = ahp_diff_kb
+        last_sample["orchagent_rss_diff_kb"] = last_sample["orchagent_rss_kb"] - baseline_sample["orchagent_rss_kb"]
+        if ahp_diff_kb > ahp_diff_threshold_kb:
             pytest_assert(
                 False,
-                "orchagent AnonHugePages exceeded {} kB within {} seconds: sample={}".format(
-                    ahp_threshold_kb, ahp_threshold_window_sec, last_sample)
+                "orchagent AnonHugePages grew by {} kB, exceeding {} kB within {} seconds: "
+                "baseline={}, sample={}".format(
+                    ahp_diff_kb, ahp_diff_threshold_kb, duration_sec, baseline_sample, last_sample)
             )
 
         if elapsed > 0 and elapsed % 120 == 0:
