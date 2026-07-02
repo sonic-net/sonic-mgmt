@@ -323,6 +323,19 @@ The following existing test suites are compatible with the BMC environment and w
 | Telemetry | `tests/telemetry/` |
 | Redfish | `tests/redfish/` |
 | CACL | `tests/cacl/` |
+| Autorestart | `tests/autorestart/` |
+| Clock | `tests/clock/` |
+| Container Checker | `tests/container_checker/` |
+| Container Hardening | `tests/container_hardening/` |
+| Container Upgrade | `tests/container_upgrade/` |
+| Disk | `tests/disk/` |
+| DNS | `tests/dns/` |
+| NTP | `tests/ntp/` |
+| SCP | `tests/scp/` |
+| Show Techsupport | `tests/show_techsupport/` |
+| SSH | `tests/ssh/` |
+| Syslog | `tests/syslog/` |
+| TACACS | `tests/tacacs/` |
 | Console | `tests/console/` |
 | Rsyslog | `tests/rsyslog/` |
 | ZTP | `tests/ztp/` |
