@@ -70,6 +70,14 @@ DB_ONLY_BAD_PREFIX = "not-a-prefix"
 BGPCFGD_RUNNING_TIMEOUT = 60
 BGPCFGD_RUNNING_INTERVAL = 5
 
+# Hard ceiling for any vtysh invocation. A raw vtysh call blocks forever when
+# FRR has accepted the VTY socket connection but is not servicing it, observed
+# on T2 multi-ASIC KVM after a config reload: the daemons stay RUNNING yet
+# every vtysh sticks in unix_stream_read, which hangs the whole test module
+# until the harness kills it (no result, no XML). Bounding vtysh turns that
+# into a fast, reported failure instead.
+VTYSH_SHELL_TIMEOUT = 60
+
 
 # ---------------------------------------------------------------------------
 # Generic helpers
@@ -169,13 +177,21 @@ def delete_config_db_key_directly(duthost, prefix_type, prefix):
         )
 
 
+def bounded_vtysh_cmd(vtysh_cmd, timeout=VTYSH_SHELL_TIMEOUT):
+    """Prefix a vtysh shell command with ``timeout`` so it can never block the
+    test indefinitely when FRR's VTY socket is unresponsive."""
+    return 'timeout {} {}'.format(timeout, vtysh_cmd)
+
+
 def fetch_vtysh_prefix_list(duthost, asic_index, ipv, name):
     """Return stdout of ``vtysh -n <n> -c 'show <ip|ipv6> prefix-list <name>'``."""
     cmd = get_vtysh_cmd_for_asic(
         duthost, asic_index,
         'vtysh -c "show {} prefix-list {}"'.format(ipv, name),
     )
-    return duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+    return duthost.shell(
+        bounded_vtysh_cmd(cmd), module_ignore_errors=True
+    )["stdout"]
 
 
 def verify_frr_prefix_list_entry(duthost, name, prefix, ipv, present=True):
@@ -289,7 +305,7 @@ def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
     indefinitely when the socket is not yet available.
     """
     vtysh_cmd = get_vtysh_cmd_for_asic(duthost, asic_index, 'vtysh -c "show version"')
-    cmd = 'timeout 10 {}'.format(vtysh_cmd)
+    cmd = bounded_vtysh_cmd(vtysh_cmd, timeout=10)
     pytest_assert(
         wait_until(timeout, 15, 0,
                    lambda c=cmd: duthost.shell(c, module_ignore_errors=True)["rc"] == 0),
@@ -1130,7 +1146,8 @@ class TestPrefixListNegative:
                 )
                 out = duthost.shell(
                     '{} | grep prefix-list '
-                    '| grep -i {} || true'.format(vtysh_cmd, UNKNOWN_TYPE),
+                    '| grep -i {} || true'.format(
+                        bounded_vtysh_cmd(vtysh_cmd), UNKNOWN_TYPE),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
@@ -1188,7 +1205,8 @@ class TestPrefixListNegative:
             )
             out = duthost.shell(
                 '{} | grep prefix-list '
-                '| grep -F {!r} || true'.format(vtysh_cmd, MALFORMED_PREFIX),
+                '| grep -F {!r} || true'.format(
+                    bounded_vtysh_cmd(vtysh_cmd), MALFORMED_PREFIX),
             )["stdout"]
             pytest_assert(
                 not out.strip(),
@@ -1217,7 +1235,8 @@ class TestPrefixListNegative:
                 )
                 out = duthost.shell(
                     '{} | grep prefix-list '
-                    '| grep -F {!r} || true'.format(vtysh_cmd, DB_ONLY_BAD_PREFIX),
+                    '| grep -F {!r} || true'.format(
+                        bounded_vtysh_cmd(vtysh_cmd), DB_ONLY_BAD_PREFIX),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
