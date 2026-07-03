@@ -20,6 +20,8 @@ GCUTIMEOUT_MAP = {
     # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
     # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
     'x86_64-nokia_ixr7220_h6_128-r0': 1800,
+    # Cisco 8000 LC: port speed GCU patches with cluster restore can exceed 900s.
+    'x86_64-88_lc0_36fh-r0': 1800,
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))

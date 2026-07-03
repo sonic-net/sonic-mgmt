@@ -34,7 +34,13 @@ The test uses platform-specific speed and lane maps defined in the test module
 `PORT_SPEED_UPGRADE_SPEED_LANES_MAP`). At present, data is defined for
 `x86_64-88_lc0_36fh-r0` (100G with 4 lanes, 400G with 8 lanes).
 
-### 2.3 Runtime port selection
+### 2.3 Expected runtime
+
+On T2 chassis-packet hardware, a full pass typically takes approximately
+40–45 minutes (GCU apply-patch, telemetry setup, four traffic scenarios, and
+minigraph config reload).
+
+### 2.4 Runtime port selection
 
 At runtime, the test selects a downstream-facing frontend linecard and one port
 that meets all of the following conditions:
@@ -83,6 +89,17 @@ tables are **not** modified during setup.
 
 The port may be **oper down** after the downgrade. The setup step verifies speed,
 lanes, and FEC through `show interface status` but does not require oper up.
+
+Only the **selected** PortChannel member is downgraded; other members on the same
+PortChannel remain at 400G. The selected port (and possibly the PortChannel) may
+be oper-down after downgrade because the physical link remains at 400G while
+CONFIG_DB speed is 100G. This is expected for the downgrade-to-upgrade scenario;
+oper-up is verified only after the 400G upgrade step.
+
+T2 minigraph PortChannels on chassis-packet testbeds do **not** configure
+`min-links`, so partial member downgrade does not drop the PortChannel solely
+due to min-links. BGP sessions on unrelated PortChannels are unaffected because
+only one member port is changed.
 
 ### 4.2 Upgrade patch: 100G to 400G
 

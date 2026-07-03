@@ -73,9 +73,16 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
             duthosts: list of DUTs.
            loganalyzer: Loganalyzer utility fixture
     """
-    # Determine which DUT hostname fixture is being used
+    # Determine which DUT hostname fixture is being used.
+    # Cluster tests: prefer downstream/context over selected_dut_hostname (pulled in
+    # by module autouse check_image_version but is not the GCU target).
     if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
         dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "port_speed_upgrade_context" in request.fixturenames:
+        ctx = request.getfixturevalue("port_speed_upgrade_context")
+        dut_hostname = ctx["enum_downstream_dut_hostname"]
+    elif "enum_downstream_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_downstream_dut_hostname")
     elif "selected_dut_hostname" in request.fixturenames:
         dut_hostname = request.getfixturevalue("selected_dut_hostname")
     elif "rand_one_dut_front_end_hostname" in request.fixturenames:

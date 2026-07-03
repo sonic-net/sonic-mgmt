@@ -73,14 +73,25 @@ ACL_RULE_DST_FILE = "/tmp/test_add_cluster_acl_rule.json"
 ACL_RULE_VERIFY_LIST = ["RULE_100", "RULE_200"]
 
 # Selective loganalyzer ignores for expected transient errors during port speed GCU apply.
+# Cluster GCU patches update PORT (speed/lanes) and dependent tables (BUFFER_PG, QoS, etc.)
+# in sequence; swss/syncd/pmon may briefly log ERR while those tables are out of sync.
+# Final state is validated by the test (interface status, CONFIG_DB/APPL_DB, buffer profiles).
 # Teardown uses blanket ignore via config_reload(..., ignore_loganalyzer=...).
 # See also: tests/generic_config_updater/test_multiasic_addcluster.py
 LOGANALYZER_IGNORE_REGEX = [
+    # Orchagent applies speed before lanes/admin_status fully propagate (100G<->400G transition).
     ".*doPortTask: Unsupported port .* speed.*",
+    # PFC watchdog restart races with port teardown/re-create during speed change.
     ".*createEntry: Failed to start PFC Watchdog on port.*",
+    # NPU media-SI sync key absent briefly while PORT_TABLE is rebuilt (Cisco-8000).
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
+    # CMIS app profile mismatch transient while optic renegotiates at the new speed.
     ".*ERR pmon#.*CmisManagerTask.*no suitable app for the port appl.*",
+    # Queue count/counters change with lane count during speed transition (100G=1 vs 400G=4).
     ".*ERR syncd[0-9]*#syncd: SAI_LOG\\|SAI_API_QUEUE: Invalid queue counter.*",
+    # BUFFER_PG applied before orchagent recreates the port at the new speed (dynamic buffer).
+    ".*ERR swss[0-9]*#orchagent: :- processPriorityGroup: Port with alias:.* not found",
+    ".*ERR swss[0-9]*#orchagent: :- doTask: Failed to process invalid buffer task",
 ]
 
 
@@ -1559,6 +1570,10 @@ def test_port_speed_upgrade(tbinfo, duthosts, ptfadapter, setup_port_speed_upgra
 
     # Capture swss/orchagent state before the 400G upgrade patch is applied.
     orchagent_pid_before = get_orchagent_pid(duthost, enum_rand_one_frontend_asic_index)
+    pytest_assert(
+        orchagent_pid_before,
+        "Failed to capture orchagent PID before 400G upgrade patch"
+    )
     swss_started_at_before = get_swss_container_started_at(
         duthost, enum_rand_one_frontend_asic_index
     )
