@@ -284,6 +284,11 @@ def test_dom_polling_enabled_in_config_db(
     checked = 0
     for port in transceiver_ports:
         host_lane_mask = _base_attrs(port_attributes_dict, port).get(const.ATTR_HOST_LANE_MASK)
+        if host_lane_mask is None:
+            all_failures.append(
+                "{}: '{}' missing in BASE_ATTRIBUTES (mandatory in dut_info)".format(port, const.ATTR_HOST_LANE_MASK)
+            )
+            continue
         if not owns_first_host_lane(host_lane_mask):
             logger.debug("Port %s does not own first host lane (mask=%r), skipping DOM polling",
                          port, host_lane_mask)

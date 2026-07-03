@@ -1,21 +1,17 @@
 """Pure helpers for Port Config value derivation (speed, lanes, subport groups).
 
-I/O-free logic kept separate from the test files and the DB reader so it can be
-unit-tested in isolation.  Covers the three derivations the Port Config tests
-need beyond a plain field compare:
+I/O-free logic kept separate from the test files and the DB reader so it stays
+easy to validate in isolation. Covers the three derivations the Port Config
+tests need beyond a plain field compare:
 
 * speed Mbps(str) -> Gbps(int)
 * "owns the first host lane" decision for the DOM-polling first-subport gate
 * grouping logical ports by physical index for the subport-field check
 """
-import logging
-
 from tests.transceiver.port_config.utils.port_config_constants import (
     MBPS_PER_GBPS,
     PORT_FIELD_SPEED,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def config_db_speed_to_gbps(port_config):
@@ -34,7 +30,10 @@ def config_db_speed_to_gbps(port_config):
         return None, "'{}' is non-integer in CONFIG_DB: {!r}".format(PORT_FIELD_SPEED, raw)
     if mbps <= 0:
         return None, "'{}' must be positive Mbps, got {}".format(PORT_FIELD_SPEED, mbps)
-    return mbps // MBPS_PER_GBPS, None
+    gbps, rem = divmod(mbps, MBPS_PER_GBPS)
+    if rem != 0:
+        return None, "'{}' must be divisible by {}, got {}".format(PORT_FIELD_SPEED, MBPS_PER_GBPS, mbps)
+    return gbps, None
 
 
 def parse_host_lane_mask(mask):

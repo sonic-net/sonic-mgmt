@@ -17,13 +17,26 @@ logger = logging.getLogger(__name__)
 def get_config_db_port_table(duthost):
     """Return the entire CONFIG_DB PORT table as ``{port_name: {field: value}}``.
 
-    Uses ``duthost.get_running_config_facts()`` (the ansible-facts view SONiC
-    exposes for the running CONFIG_DB) rather than a shell ``sonic-db-cli`` so
-    the whole table is read in one call and multi-ASIC config is already merged.
+    Uses ansible ``config_facts(source="running")`` (the SONiC running CONFIG_DB view)
+    rather than per-port ``sonic-db-cli`` calls so the whole table is read in bulk.
+    On multi-ASIC devices, merges the PORT tables from all frontend ASIC namespaces.
 
     Returns an empty dict when the PORT table is absent/empty; the caller
     decides whether that is a skip or a failure.
     """
+    if getattr(duthost, "is_multi_asic", False):
+        asics = getattr(duthost, "frontend_asics", None) or getattr(duthost, "asics", [])
+        port_table = {}
+        for asic in asics:
+            asic_facts = asic.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+            port_table.update(asic_facts.get("PORT", {}))
+        logger.info(
+            "Read CONFIG_DB PORT table from %d ASIC namespace(s): %d port(s)",
+            len(asics),
+            len(port_table),
+        )
+        return port_table
+
     config_facts = duthost.get_running_config_facts()
     port_table = config_facts.get("PORT", {})
     logger.info("Read CONFIG_DB PORT table: %d port(s)", len(port_table))
