@@ -78,6 +78,14 @@ BGPCFGD_RUNNING_INTERVAL = 5
 # into a fast, reported failure instead.
 VTYSH_SHELL_TIMEOUT = 60
 
+# Upper bound for FRR to open and start servicing its VTY socket after a
+# ``config reload`` or a BGP container restart. bgpcfgd RUNNING (and even BGP
+# sessions coming up) does NOT imply vtysh is ready: on T2 multi-ASIC KVM with
+# slow I/O and a large config, FRR can need several minutes before it accepts
+# VTY connections. Anything querying FRR through vtysh must gate on
+# wait_for_frr_ready first so it adapts to system speed instead of racing FRR.
+FRR_READY_TIMEOUT = 480
+
 
 # ---------------------------------------------------------------------------
 # Generic helpers
@@ -296,7 +304,7 @@ def start_bgp_container(duthost, service, container):
     duthost.shell("sudo docker start {}".format(container), module_ignore_errors=True)
 
 
-def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
+def wait_for_frr_ready(duthost, container, asic_index, timeout=FRR_READY_TIMEOUT):
     """Wait until FRR vtysh responds on a specific ASIC.
 
     bgpcfgd RUNNING does NOT imply FRR daemons are ready — on T2 KVM
@@ -312,6 +320,21 @@ def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
         "FRR vtysh not responsive within {}s on {} of {}".format(
             timeout, container, duthost.hostname),
     )
+
+
+def wait_for_all_frr_ready(duthost, timeout=FRR_READY_TIMEOUT):
+    """Wait until FRR's VTY socket is responsive on every frontend ASIC.
+
+    Must be called after any ``config reload`` / BGP restart before FRR is
+    queried through vtysh. On T2 multi-ASIC KVM the BGP daemons can report
+    RUNNING (and even bring their sessions up) minutes before their VTY socket
+    starts accepting connections, so a prefix-list query issued too early would
+    otherwise block. Gating here keeps every later vtysh call fast and adapts
+    to system speed (returns as soon as FRR answers on each ASIC).
+    """
+    for asic_index in duthost.get_frontend_asic_ids():
+        container = bgp_container_name(duthost, asic_index)
+        wait_for_frr_ready(duthost, container, asic_index, timeout=timeout)
 
 
 def restart_bgp_container(duthost):
@@ -659,6 +682,7 @@ class TestAnchorPrefixRegression:
             duthost.shell("sudo config save -y")
             config_reload(duthost, safe_reload=True, wait_for_bgp=True)
             wait_for_bgpcfgd(duthost)
+            wait_for_all_frr_ready(duthost)
 
             pytest_assert(
                 verify_config_db_entry(duthost, ANCHOR_TYPE, v4, present=True),
@@ -1044,6 +1068,7 @@ class TestSuppressPrefix:
             duthost.shell("sudo config save -y")
             config_reload(duthost, safe_reload=True, wait_for_bgp=True)
             wait_for_bgpcfgd(duthost)
+            wait_for_all_frr_ready(duthost)
 
             pytest_assert(
                 wait_until(
