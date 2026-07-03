@@ -37,12 +37,26 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
+def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels):
+    """Map a BGP neighbor device name to local DUT member interfaces."""
+    interfaces = {}
+    for ifname, nbr_info in dev_nbrs.items():
+        if nbr_info.get('name') != neighbor_name:
+            continue
+        if ifname in portchannels:
+            for member in portchannels[ifname]:
+                if member in dev_nbrs:
+                    interfaces[member] = dev_nbrs[member]
+        else:
+            interfaces[ifname] = nbr_info
+    return interfaces
+
+
 @pytest.fixture(scope='module')
 def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
           nbrhosts, fanouthosts):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
-    asichost = duthost.asic_instance(asic_index)
 
     config_facts = get_asic_config_facts(duthost, asic_index)
     # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
@@ -73,57 +87,12 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
     pytest_assert(wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                   "Not all BGP sessions are established on DUT")
 
-    ip_intfs = asichost.show_and_parse('show ip interface')
-    ipv6_intfs = asichost.show_and_parse('show ipv6 interfaces')
-    logger.debug("setup ip_intfs {}".format(ip_intfs))
-
-    # Create a mapping of neighbor IP to interfaces and their details
-    neighbor_ip_to_interfaces = {}
-
-    # Loop through the ip_intfs list to populate the mapping
-    for ip_intf in ip_intfs:
-        neighbor_ip = ip_intf['neighbor ip']
-        interface_name = ip_intf['interface']
-        if neighbor_ip not in neighbor_ip_to_interfaces:
-            neighbor_ip_to_interfaces[neighbor_ip] = {}
-
-        # Check if the interface is in portchannels and get the relevant devices
-        if interface_name in portchannels:
-            for dev_name in portchannels[interface_name]:
-                if dev_name in dev_nbrs and dev_nbrs[dev_name]['name'] == ip_intf['bgp neighbor']:
-                    neighbor_ip_to_interfaces[neighbor_ip][dev_name] = dev_nbrs[dev_name]
-        # If not in portchannels, check directly in dev_nbrs
-        elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ip_intf['bgp neighbor']:
-            neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
-
-    # Loop through the ip_intfs list to populate the mapping
-    for ipv6_intf in ipv6_intfs:
-        neighbor_ip = ipv6_intf['neighbor ip']
-        interface_name = ipv6_intf['interface']
-        if neighbor_ip not in neighbor_ip_to_interfaces:
-            neighbor_ip_to_interfaces[neighbor_ip] = {}
-
-        # Check if the interface is in portchannels and get the relevant devices
-        if interface_name in portchannels:
-            for dev_name in portchannels[interface_name]:
-                if dev_name in dev_nbrs and dev_nbrs[dev_name]['name'] == ipv6_intf['bgp neighbor']:
-                    neighbor_ip_to_interfaces[neighbor_ip][dev_name] = dev_nbrs[dev_name]
-        # If not in portchannels, check directly in dev_nbrs
-        elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ipv6_intf['bgp neighbor']:
-            neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
-
-    # Update bgp_neighbors with the new 'interface' key
-    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
     for ip, details in bgp_neighbors.items():
-        logger.debug(ip)
-        if check_frr_mgmt_framework_config(duthost, asic_index):
-            get_ip = f"({vrfname}, '{ip}')"
-        else:
-            get_ip = ip
-        logger.debug(neighbor_ip_to_interfaces)
-        logger.debug(neighbor_ip_to_interfaces[get_ip])
-        if get_ip in neighbor_ip_to_interfaces:
-            details['interface'] = neighbor_ip_to_interfaces[get_ip]
+        interfaces = _map_bgp_neighbor_to_interfaces(
+            details['name'], dev_nbrs, portchannels
+        )
+        if interfaces:
+            details['interface'] = interfaces
 
     bgp_neighbor = None
     for ip, details in bgp_neighbors.items():
