@@ -37,8 +37,13 @@ RC_FAILURE = 1
 # ASCII gutter.  This is what current sfputil emits (matches ``hexdump -C``), e.g.
 #     00000000 11 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 |................|
 # captures group(1)='00000000' (address) and group(2)='11 80 ... 00 ' (the
-# hex-byte text up to the ``|`` gutter).
-_HEX_LINE_RE_WITH_GUTTER = re.compile(r'^\s*([0-9a-fA-F]{8})\s+(.*?)\|')
+# hex-byte text up to the ``|`` gutter).  group(2) is constrained to hex-pair +
+# whitespace runs (mirroring the strict no-gutter branch below) rather than
+# ``.*?``, so incidental hex-looking substrings in any non-hex text before a
+# later ``|`` cannot be mistaken for bytes.
+_HEX_LINE_RE_WITH_GUTTER = re.compile(
+    r'^\s*([0-9a-fA-F]{8})\s+((?:[0-9a-fA-F]{2}\s*)+)\|'
+)
 
 # Fallback hex line shape: 8-hex-digit address followed by hex bytes but no
 # ASCII gutter, e.g. ``00000000 11 80 00`` (matches; group(1)='00000000',

@@ -122,7 +122,16 @@ def hgetall_dict(duthost, db, key, namespace=None):
     except (SyntaxError, ValueError):
         logger.warning("Failed to parse hgetall output for %s %s: %r", db, key, stdout)
         return {}
-    return parsed if isinstance(parsed, dict) else {}
+    if not isinstance(parsed, dict):
+        # Parsed cleanly but isn't a dict -- an unexpected sonic-db-cli output
+        # shape.  Warn (mirroring the parse-failure branch above) so a shape
+        # regression is visible instead of being silently swallowed as {}.
+        logger.warning(
+            "hgetall for %s %s returned non-dict %s: %r",
+            db, key, type(parsed).__name__, stdout,
+        )
+        return {}
+    return parsed
 
 
 def get_db_hash_field(duthost, db, table, key, field, namespace=None, sep="|"):

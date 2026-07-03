@@ -2,6 +2,7 @@
 
 Lives at the location reserved by
 ``docs/testplan/transceiver/diagrams/file_organization.md`` for
+"CLI command wrappers (sfputil, config interface)".
 
 Two layers, both driven from the same source of truth for command spelling:
 
@@ -201,6 +202,17 @@ def _run_and_parse(duthost, cmd, parser=None):
     therefore surfaces stdout (and stderr too, for any command that does use
     it); both are truncated because some sfputil errors dump the full 500+ port
     list.
+
+    Contract note: on rc 0 this intentionally does NOT gate on the parser
+    recognizing any rows — non-zero rc and empty stdout are the only failure
+    signals here.  A command that exits 0 while printing an unparseable error
+    banner returns ``(parser(stdout_lines), None)`` (typically an empty / rowless
+    result); catching that is the caller's responsibility via the suite-wide
+    per-port aggregation — the per-port tests treat a missing ``parsed[port]`` /
+    field as a failure, and TC8 (``test_error_handling.py``) compares the parsed
+    status against the exact ``"Not present"`` / ``"SFP EEPROM not detected"``
+    tokens.  Keeping the "recognized row" check in the callers lets this pipeline
+    stay generic across the CLIs' differing output shapes.
     """
     result = duthost.command(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
