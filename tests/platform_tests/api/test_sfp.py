@@ -327,7 +327,13 @@ class TestSfpApi(PlatformApiTestBase):
                 spec_compliance_dict = ast.literal_eval(spec)
             except (ValueError, SyntaxError):
                 return True
-            return spec_compliance_dict.get("SFP+CableTechnology") != "Passive Cable"
+            if spec_compliance_dict.get("SFP+CableTechnology") == "Passive Cable":
+                return False
+            # Copper baseT RJ45 SFP modules (e.g. 1000BASE-T, 100BASE-TX). No laser to
+            # disable; xcvrd returns "N/A" for the optics APIs on these modules.
+            if "BASE-T" in spec_compliance_dict.get("Ethernet Compliance", ""):
+                return False
+            return True
 
         # All other types use the dict-based copper check.
         spec_compliance_dict = ast.literal_eval(spec)
