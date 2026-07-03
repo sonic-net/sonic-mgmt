@@ -3,6 +3,7 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
+from _pytest.outcomes import OutcomeException
 from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -14,6 +15,12 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
+
+# Number of times to re-issue a config reload if critical services/processes do
+# not converge after a safe_reload. On virtual (KVM) DUTs this convergence check
+# occasionally misses its timeout when a prior test module left a container
+# churning; a fresh reload restarts the wedged docker and clears the transient.
+CONFIG_RELOAD_SAFE_HEALTH_RETRIES = 1
 
 
 # Timeouts for smartswitch DPU state transitions (in seconds)
@@ -200,6 +207,42 @@ def pfcwd_feature_enabled(duthost):
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
+def _reload_health_check_with_retry(sonic_host, wait, retries=CONFIG_RELOAD_SAFE_HEALTH_RETRIES):
+    """
+    Wait for critical services + processes to be healthy after a config reload,
+    re-issuing the reload on a transient convergence miss.
+
+    A single 'config reload -y -f' occasionally leaves a docker unhealthy on
+    virtual (KVM) DUTs, especially when a preceding test module left the DUT
+    churning. Re-issuing the reload restarts every docker, so re-running it (not
+    just polling longer) clears the wedged process. Bounded and logged, so a
+    genuinely broken reload still fails fast after the final attempt.
+
+    config_reload signals failure through pytest.fail(), i.e. an OutcomeException
+    (a BaseException, not a plain Exception), so that is caught explicitly here.
+    """
+    max_attempts = retries + 1
+    for attempt in range(1, max_attempts + 1):
+        try:
+            pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
+                          "All critical services should be fully started!")
+            wait_critical_processes(sonic_host)
+            return
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except (Exception, OutcomeException) as exc:
+            if attempt >= max_attempts:
+                raise
+            logger.warning("Critical services/processes not healthy after config reload "
+                           "(attempt %s/%s): %s. Re-issuing config reload and re-checking.",
+                           attempt, max_attempts, exc)
+            reload_cmd = 'config reload -y -f' if config_force_option_supported(sonic_host) else 'config reload -y'
+            sonic_host.shell(reload_cmd, executable="/bin/bash")
+            pytest_assert(
+                wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                "Database not start.")
+
+
 @support_ignore_loganalyzer
 @synchronized_config_reload
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
@@ -321,9 +364,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.sonichost.critical_services = \
                 [docker for docker in original_critical_services if docker not in safe_reload_ignored_dockers]
         try:
-            pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
-                          "All critical services should be fully started!")
-            wait_critical_processes(sonic_host)
+            _reload_health_check_with_retry(sonic_host, wait)
         finally:
             if safe_reload_ignored_dockers:
                 sonic_host.sonichost.critical_services = original_critical_services
