@@ -1306,7 +1306,7 @@ class QosSaiBase(QosBase):
             _vendor = src_dut.facts["asic_type"]
             _hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
             _th6_hwskus = "{0}_th6_hwskus".format(_vendor)
-            is_th6 = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
+            isBroadcomTH6Device = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
             for _, lag in src_mgFacts["minigraph_portchannels"].items():
@@ -1336,7 +1336,7 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-            if is_th6:
+            if isBroadcomTH6Device:
                 testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
@@ -1349,7 +1349,7 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
-            elif is_th6:
+            elif isBroadcomTH6Device:
                 intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
@@ -1359,7 +1359,7 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
-                    if is_th6:
+                    if isBroadcomTH6Device:
                         if intf in src_mgFacts["minigraph_portchannels"]:
                             intf = src_mgFacts["minigraph_portchannels"][portConfig["attachto"]]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
