@@ -20,8 +20,6 @@ This module verifies each of the four scenarios described in the HLD's
 """
 import json
 import logging
-import os
-from contextlib import contextmanager
 
 import pytest
 
@@ -31,7 +29,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('c0', 'c0-lo'),
+    pytest.mark.topology('c0'),
 ]
 
 # Time budget for the DUT to withdraw the M1 default route and re-converge on
@@ -40,29 +38,14 @@ BGP_RECONVERGE_TIMEOUT = 60
 BGP_RECONVERGE_INTERVAL = 5
 
 # Scenario 4 polls a cEOS neighbor (ARISTA01M1) via Ansible's network_cli
-# connection plugin. On lab servers without ``ansible-pylibssh`` installed the
-# plugin falls back to paramiko, which is slow enough that the default 60s
-# ``command_timeout`` (see ``ansible/ansible.cfg``) is not enough for the
-# first ``show ip bgp`` call. We raise both the per-Ansible-call timeout
-# (via ``ANSIBLE_PERSISTENT_COMMAND_TIMEOUT``) and the surrounding
-# ``wait_until`` budget for the scope of that test only.
+# connection plugin, which is slower to open its first persistent connection
+# than a DUT vtysh call. Use a wider outer budget with a longer poll interval
+# so the ambient 60s ``[persistent_connection] command_timeout`` in
+# ``ansible/ansible.cfg`` is sufficient. This mirrors the idiom used in
+# ``tests/bgp/test_bgp_gr_helper.py`` and ``tests/bgp/bgp_aggregate_helpers.py``
+# for wait-loops that poll a cEOS neighbor's BGP state.
 SCENARIO4_RECONVERGE_TIMEOUT = 180
-SCENARIO4_ANSIBLE_COMMAND_TIMEOUT_SECONDS = 180
-
-
-@contextmanager
-def _ansible_command_timeout(seconds):
-    """Temporarily raise the network-CLI per-command timeout via env var."""
-    var = "ANSIBLE_PERSISTENT_COMMAND_TIMEOUT"
-    prev = os.environ.get(var)
-    os.environ[var] = str(seconds)
-    try:
-        yield
-    finally:
-        if prev is None:
-            os.environ.pop(var, None)
-        else:
-            os.environ[var] = prev
+SCENARIO4_RECONVERGE_INTERVAL = 10
 
 
 def _get_default_route_nexthops(duthost, ip_version):
@@ -138,10 +121,12 @@ def _get_c0_link_ip_to_neighbor(tbinfo, neighbor_name, ip_version):
         "Could not find C0 (ASN {}) peer block under {} in tbinfo".format(dut_asn, neighbor_name),
     )
     want_v6 = (ip_version == 6)
-    for ip in peer_ips:
-        if (':' in ip) == want_v6:
-            return ip.lower() if want_v6 else ip
-    pytest_assert(False, "No IPv{} peer IP found for {}".format(ip_version, neighbor_name))
+    matches = [ip for ip in peer_ips if (':' in ip) == want_v6]
+    pytest_assert(
+        matches,
+        "No IPv{} peer IP found for {}".format(ip_version, neighbor_name),
+    )
+    return matches[0].lower() if want_v6 else matches[0]
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
@@ -157,8 +142,8 @@ def test_c0_bgp_scenario1_regular_data_path(duthost, ip_version):
     m1_ip = _get_neighbor_ip_by_role(duthost, 'M1', ip_version)
     nexthops = _get_default_route_nexthops(duthost, ip_version)
     pytest_assert(
-        m1_ip in nexthops,
-        "Scenario 1: expected M1 peer {} to be a default-route nexthop on C0; got {}".format(
+        nexthops == [m1_ip],
+        "Scenario 1: expected M1 peer {} to be the only default-route nexthop on C0; got {}".format(
             m1_ip, nexthops),
     )
 
@@ -170,30 +155,30 @@ def test_c0_bgp_scenario2_backup_data_path(duthost, ip_version):
 
     With the direct C0<->M1 BGP session administratively down, M1 stops
     advertising the default route to C0. C0 must then re-select the next
-    best path, which is M0 (AS-PATH "64900"), and install M0 as the
-    default-route nexthop. The M1 session is unconditionally restored at
-    teardown so the testbed is left in scenario-1 state.
+    best path, which is M0 (AS-PATH "64900"), and install M0 as the sole
+    default-route nexthop. All DUT BGP sessions are unconditionally
+    restored at teardown so the testbed is left in scenario-1 state.
     """
     m1_ip = _get_neighbor_ip_by_role(duthost, 'M1', ip_version)
     m0_ip = _get_neighbor_ip_by_role(duthost, 'M0', ip_version)
 
-    def _m0_is_default_nexthop():
-        return m0_ip in _get_default_route_nexthops(duthost, ip_version)
+    def _m0_is_only_default_nexthop():
+        return _get_default_route_nexthops(duthost, ip_version) == [m0_ip]
 
     try:
         logger.info("Scenario 2: shutting BGP neighbor M1 (%s) on DUT", m1_ip)
         _bgp_set_neighbor_admin(duthost, m1_ip, admin_up=False)
 
         pytest_assert(
-            wait_until(BGP_RECONVERGE_TIMEOUT, BGP_RECONVERGE_INTERVAL, 0, _m0_is_default_nexthop),
-            "Scenario 2: M0 peer {} did not become a default-route nexthop within {}s after "
+            wait_until(BGP_RECONVERGE_TIMEOUT, BGP_RECONVERGE_INTERVAL, 0, _m0_is_only_default_nexthop),
+            "Scenario 2: M0 peer {} did not become the only default-route nexthop within {}s after "
             "shutting M1 ({}); last seen nexthops: {}".format(
                 m0_ip, BGP_RECONVERGE_TIMEOUT, m1_ip,
                 _get_default_route_nexthops(duthost, ip_version)),
         )
     finally:
-        logger.info("Scenario 2 teardown: restoring BGP neighbor M1 (%s) on DUT", m1_ip)
-        _bgp_set_neighbor_admin(duthost, m1_ip, admin_up=True)
+        logger.info("Scenario 2 teardown: restoring all BGP neighbors on DUT")
+        duthost.shell("sudo config bgp startup all")
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
@@ -203,18 +188,18 @@ def test_c0_bgp_scenario3_provision_data_path_for_c0(duthost, ip_version):
 
     With both the direct C0<->M1 and the C0<->M0 BGP sessions
     administratively down, the only remaining default-route advertiser is
-    C1 (AS-PATH "65300 65400"), so C0 must re-select C1 as the
+    C1 (AS-PATH "65300 65400"), so C0 must re-select C1 as the sole
     default-route nexthop. This models the provisioning/recovery path
     where Primary Network is unreachable and management traffic flows via
-    C1 on the Secondary Network. M1 and M0 are unconditionally restored
-    at teardown so the testbed is left in scenario-1 state.
+    C1 on the Secondary Network. All DUT BGP sessions are unconditionally
+    restored at teardown so the testbed is left in scenario-1 state.
     """
     m1_ip = _get_neighbor_ip_by_role(duthost, 'M1', ip_version)
     m0_ip = _get_neighbor_ip_by_role(duthost, 'M0', ip_version)
     c1_ip = _get_neighbor_ip_by_role(duthost, 'C1', ip_version)
 
-    def _c1_is_default_nexthop():
-        return c1_ip in _get_default_route_nexthops(duthost, ip_version)
+    def _c1_is_only_default_nexthop():
+        return _get_default_route_nexthops(duthost, ip_version) == [c1_ip]
 
     try:
         logger.info("Scenario 3: shutting BGP neighbors M1 (%s) and M0 (%s) on DUT", m1_ip, m0_ip)
@@ -222,20 +207,15 @@ def test_c0_bgp_scenario3_provision_data_path_for_c0(duthost, ip_version):
         _bgp_set_neighbor_admin(duthost, m0_ip, admin_up=False)
 
         pytest_assert(
-            wait_until(BGP_RECONVERGE_TIMEOUT, BGP_RECONVERGE_INTERVAL, 0, _c1_is_default_nexthop),
-            "Scenario 3: C1 peer {} did not become a default-route nexthop within {}s after "
+            wait_until(BGP_RECONVERGE_TIMEOUT, BGP_RECONVERGE_INTERVAL, 0, _c1_is_only_default_nexthop),
+            "Scenario 3: C1 peer {} did not become the only default-route nexthop within {}s after "
             "shutting M1 ({}) and M0 ({}); last seen nexthops: {}".format(
                 c1_ip, BGP_RECONVERGE_TIMEOUT, m1_ip, m0_ip,
                 _get_default_route_nexthops(duthost, ip_version)),
         )
     finally:
-        # Restore both sessions independently so one failure does not mask the other.
-        logger.info("Scenario 3 teardown: restoring BGP neighbors M0 (%s) and M1 (%s) on DUT",
-                    m0_ip, m1_ip)
-        try:
-            _bgp_set_neighbor_admin(duthost, m0_ip, admin_up=True)
-        finally:
-            _bgp_set_neighbor_admin(duthost, m1_ip, admin_up=True)
+        logger.info("Scenario 3 teardown: restoring all BGP neighbors on DUT")
+        duthost.shell("sudo config bgp startup all")
 
 
 @pytest.mark.parametrize("ip_version", [4, 6])
@@ -250,10 +230,10 @@ def test_c0_bgp_scenario4_provision_data_path_for_m1(
     remaining default-route source is C1. C0 must then forward that
     default UP to M1 over the still-up C0<->M1 BGP session, acting as
     L3 transit between Secondary Network (via C1) and M1. M1 should
-    install a BGP default route whose next-hop is C0's M1-facing IP.
+    install a BGP default route whose only next-hop is C0's M1-facing IP.
 
     Teardown re-announces M1's default first (so M1 returns to its
-    scenario-1 view), then restores the C0<->M0 BGP session.
+    scenario-1 view), then restores all DUT BGP sessions.
     """
     prefix = '0.0.0.0/0' if ip_version == 4 else '::/0'
 
@@ -265,8 +245,8 @@ def test_c0_bgp_scenario4_provision_data_path_for_m1(
     ptf_nh = tbinfo['topo']['properties']['configuration_properties']['common'][nh_key]
     m1_routes_to_toggle = {'ARISTA01M1': [(prefix, ptf_nh, None)]}
 
-    def _m1_default_via_c0():
-        """Poll M1's BGP table for `prefix` with C0 as the BGP next-hop."""
+    def _m1_default_via_c0_only():
+        """Poll M1's BGP table for `prefix` with C0 as the ONLY BGP next-hop."""
         try:
             route = m1_host.get_route(prefix)
         except Exception as exc:  # noqa: BLE001 - polling loop, log and retry
@@ -277,7 +257,7 @@ def test_c0_bgp_scenario4_provision_data_path_for_m1(
         except (KeyError, TypeError):
             return False
         nexthops = [str(p.get('nextHop', '')).lower() for p in paths]
-        return c0_ip_on_m1_link.lower() in nexthops
+        return nexthops == [c0_ip_on_m1_link.lower()]
 
     try:
         logger.info("Scenario 4: shutting BGP neighbor M0 (%s) on DUT", m0_ip)
@@ -293,30 +273,29 @@ def test_c0_bgp_scenario4_provision_data_path_for_m1(
             path='../ansible',
         )
 
-        with _ansible_command_timeout(SCENARIO4_ANSIBLE_COMMAND_TIMEOUT_SECONDS):
-            # Pre-warm the M1 SSH/network_cli connection so the first
-            # polling call below does not pay the full SSH handshake cost
-            # within the wait_until budget. A failure here is non-fatal:
-            # we still try the polling loop and let it surface a real
-            # M1-unreachable case as the actual assertion message.
-            try:
-                m1_host.eos_command(commands=['show version'])
-            except Exception as exc:  # noqa: BLE001 - best-effort warm-up
-                logger.warning(
-                    "Scenario 4: M1 connection pre-warm failed: %s", exc)
+        # Pre-warm the M1 network_cli persistent connection so the first
+        # polling call below does not pay the full SSH handshake cost
+        # within a wait_until iteration. Best-effort: a failure here is
+        # non-fatal, the polling loop will still surface a real
+        # M1-unreachable case via its own assertion.
+        try:
+            m1_host.eos_command(commands=['show version'])
+        except Exception as exc:  # noqa: BLE001 - best-effort warm-up
+            logger.warning("Scenario 4: M1 connection pre-warm failed: %s", exc)
 
-            pytest_assert(
-                wait_until(SCENARIO4_RECONVERGE_TIMEOUT, BGP_RECONVERGE_INTERVAL,
-                           0, _m1_default_via_c0),
-                "Scenario 4: M1 (ARISTA01M1) did not learn default route {} with C0 ({}) "
-                "as next-hop within {}s after shutting C0<->M0 BGP ({}) and withdrawing "
-                "M1's own {} announcement.".format(
-                    prefix, c0_ip_on_m1_link, SCENARIO4_RECONVERGE_TIMEOUT, m0_ip, prefix),
-            )
+        pytest_assert(
+            wait_until(SCENARIO4_RECONVERGE_TIMEOUT, SCENARIO4_RECONVERGE_INTERVAL,
+                       0, _m1_default_via_c0_only),
+            "Scenario 4: M1 (ARISTA01M1) did not learn default route {} with C0 ({}) "
+            "as its only next-hop within {}s after shutting C0<->M0 BGP ({}) and withdrawing "
+            "M1's own {} announcement.".format(
+                prefix, c0_ip_on_m1_link, SCENARIO4_RECONVERGE_TIMEOUT, m0_ip, prefix),
+        )
     finally:
         # Re-announce M1's own default first so M1 returns to its scenario-1
-        # source-of-truth before C0<->M0 is brought back; then restore M0.
-        # Use nested try/finally so a re-announce failure does not mask M0 restore.
+        # source-of-truth before C0<->M0 is brought back; then restore all
+        # DUT BGP sessions in one call. Use nested try/finally so a
+        # re-announce failure does not mask the DUT teardown.
         logger.info("Scenario 4 teardown: re-announcing %s from ARISTA01M1 via PTF ExaBGP", prefix)
         try:
             localhost.announce_routes(
@@ -328,5 +307,5 @@ def test_c0_bgp_scenario4_provision_data_path_for_m1(
                 path='../ansible',
             )
         finally:
-            logger.info("Scenario 4 teardown: restoring BGP neighbor M0 (%s) on DUT", m0_ip)
-            _bgp_set_neighbor_admin(duthost, m0_ip, admin_up=True)
+            logger.info("Scenario 4 teardown: restoring all BGP neighbors on DUT")
+            duthost.shell("sudo config bgp startup all")
