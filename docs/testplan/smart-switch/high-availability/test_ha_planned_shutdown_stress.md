@@ -8,13 +8,11 @@
 - [Configuration (make it your own)](#configuration-make-it-your-own)
 - [Prerequisites](#prerequisites)
 - [Topology](#topology)
-- [1. Fanout: L3 routing](#1-fanout-l3-routing)
-- [2. DUT IP on the direct link](#2-dut-ip-on-the-direct-link)
-- [3. Steer GRE return + HA traffic through the fanout](#3-steer-gre-return--ha-traffic-through-the-fanout)
-- [4. IxNetwork traffic item construction](#4-ixnetwork-traffic-item-construction)
-- [5. Verification](#5-verification)
+- [IxNetwork traffic item construction](#ixnetwork-traffic-item-construction)
+- [Verification](#verification)
 - [Running the test](#running-the-test)
 - [Test Matrix](#test-matrix)
+- [Appendix: Manual bring-up (optional)](#appendix-manual-bring-up-optional)
 
 ## Intent
 
@@ -105,7 +103,8 @@ full key-by-key reference and the command to point the test at your own YAML.
 - Topology on port 3.1 (TX): IP 10.99.1.2/30, gateway 10.99.1.1
 - Topology on port 3.2 (RX): IP 10.99.4.2/30, gateway 10.99.4.1
 - Traffic item: VxLAN(VNI=2001) wrapping inner IPv4/UDP|TCP, with the inner
-  L4 ports varied by a UDF to scale DPU flows (see section 4)
+  L4 ports incremented to scale DPU flows (see
+  [IxNetwork traffic item construction](#ixnetwork-traffic-item-construction))
 
 ## Configuration (make it your own)
 
@@ -166,27 +165,6 @@ it up by hand.
      MtFuji-dut01 (NPU+DPU)       MtFuji-dut02 (NPU+DPU)
 ```
 
-Per-link /30 wiring (.1 = fanout side, .2 = device side of each /30):
-
-```
-                         +-------------------------------+
-                         |     L3 FANOUT (1.2.31.91)     |
-                         |   SONiC, routes all 4 /30s    |
-                         +---+------+--------+------+----+
-              Eth224 .1 /    Eth208 .1 |  Eth216 .1 \    \ Eth240 .1
-        10.99.1.0/30   /  10.99.2.0/30 | 10.99.3.0/30 \   \ 10.99.4.0/30
-                      /               |               \   \
-               .2    /          .2    |          .2    \   \   .2
-         +---------+        +---------+--+   +--+---------+   +---------+
-         | IXIA    |        |  DUT1      |   |  DUT2      |   | IXIA    |
-         | 3.1 TX  |        | MtFuji-01  |   | MtFuji-02  |   | 3.2 RX  |
-         |10.99.1.2|        | Eth96      |   | Eth96      |   |10.99.4.2|
-         +---------+        |10.99.2.2   |   |10.99.3.2   |   +---------+
-                            | Lo0        |   | Lo0        |
-                            | 10.1.0.32  |   | 10.1.0.33  |
-                            +------------+   +------------+
-```
-
 ### Route programming summary
 
 Each steered prefix is installed by one or both of: a **fanout** route
@@ -231,88 +209,7 @@ Ixia TX (3.1) → Fanout → ECMP to DUT1/DUT2 → DPU processes →
 GRE return → Fanout → Ixia RX (3.2)
 ```
 
-## 1. Fanout: L3 routing
-
-> **Automated by the test.** `test_ha_planned_shutdown_stress.py` SSHs
-> into the fanout (via paramiko, `FANOUT_IP = 1.2.31.91`) and configures
-> IPs + routes in `_configure_fanout_l3()`. Teardown removes them via
-> `_remove_fanout_l3()`. The commands below are only needed for manual
-> bring-up / standalone Ixia experiments.
-
-Assign IPs to the four fanout interfaces (point-to-point /30 subnets):
-
-```bash
-# fanout (ssh admin@1.2.31.91)
-sudo config interface ip add Ethernet224 10.99.1.1/30   # → Ixia TX
-sudo config interface ip add Ethernet208 10.99.2.1/30   # → DUT1
-sudo config interface ip add Ethernet216 10.99.3.1/30   # → DUT2
-sudo config interface ip add Ethernet240 10.99.4.1/30   # → Ixia RX
-```
-
-Install routes:
-
-```bash
-# ECMP to both DUTs for inbound VxLAN (APPLIANCE_VIP)
-sudo ip route replace 3.2.1.0/32 nexthop via 10.99.2.2 nexthop via 10.99.3.2
-
-# GRE return to Ixia RX
-sudo ip route replace 101.1.2.3/32 via 10.99.4.2
-
-# HA inter-DUT: peer DPU PA subnets
-sudo ip route replace 20.0.200.0/24 via 10.99.2.2   # DUT1's DPUs
-sudo ip route replace 20.0.201.0/24 via 10.99.3.2   # DUT2's DPUs
-
-# HA inter-DUT: peer NPU Loopback0
-sudo ip route replace 10.1.0.32/32 via 10.99.2.2    # DUT1 Lo0
-sudo ip route replace 10.1.0.33/32 via 10.99.3.2    # DUT2 Lo0
-```
-
-## 2. DUT IP on the direct link
-
-> **Automated by the test.** `_apply_direct_link_ips` brings the direct-link
-> interface (`direct_link.dut_interface`, Eth96 on MtFuji) admin-up and adds
-> these IPs in setup; `_remove_direct_link_ips` removes them in teardown.
-
-```bash
-# DUT1
-sudo config interface startup Ethernet96
-sudo config interface ip add Ethernet96 10.99.2.2/30
-
-# DUT2
-sudo config interface startup Ethernet96
-sudo config interface ip add Ethernet96 10.99.3.2/30
-
-# Sanity: DUTs can ping their fanout gateway
-ping -c 3 -I Ethernet96 10.99.2.1     # from DUT1
-ping -c 3 -I Ethernet96 10.99.3.1     # from DUT2
-```
-
-## 3. Steer GRE return + HA traffic through the fanout
-
-> **Automated by the test.** `_apply_ixia_steering` and
-> `_apply_direct_link_ha_steering` install these routes; teardown removes them.
-
-Each DUT routes all relevant prefixes via its fanout gateway. The fanout
-then forwards to the correct destination via its routing table. No static ARP
-is needed — the fanout is a real L3 device and responds to ARP.
-
-```bash
-# DUT1: GRE return → fanout → Ixia RX
-sudo ip route replace 101.1.2.3/32 via 10.99.2.1 dev Ethernet96
-
-# DUT1: HA traffic → fanout → DUT2
-sudo ip route replace 20.0.201.0/24 via 10.99.2.1 dev Ethernet96
-sudo ip route replace 10.1.0.33/32 via 10.99.2.1 dev Ethernet96
-
-# DUT2: GRE return → fanout → Ixia RX
-sudo ip route replace 101.1.2.3/32 via 10.99.3.1 dev Ethernet96
-
-# DUT2: HA traffic → fanout → DUT1
-sudo ip route replace 20.0.200.0/24 via 10.99.3.1 dev Ethernet96
-sudo ip route replace 10.1.0.32/32 via 10.99.3.1 dev Ethernet96
-```
-
-## 4. IxNetwork traffic item construction
+## IxNetwork traffic item construction
 
 ### IxNetwork topology (configure once, persists in .ixncfg)
 
@@ -343,8 +240,8 @@ from the topology (dst MAC = fanout Eth224 MAC, src MAC = Ixia 3.1 MAC).
 | Inner IPv4    | src      | 10.0.0.11 (VM1_CA)               |
 | Inner IPv4    | dst      | 10.2.0.100 (PE_CA)               |
 | Inner IPv4    | proto    | 17 (UDP) or 6 (TCP)              |
-| Inner L4      | sport    | UDF counter (see below)          |
-| Inner L4      | dport    | UDF counter (see below)          |
+| Inner L4      | sport    | increment 1–5000 (see below)     |
+| Inner L4      | dport    | increment 1–1000 (see below)     |
 | Payload       |          | 58 bytes incrementing (00..39)   |
 
 Inner L4 may be UDP or TCP. For TCP, set proto=6 and the control bits per
@@ -392,66 +289,28 @@ Field breakdown:
 
 > The outer src IP in this frame is 25.1.1.1; the DASH pipeline keys on the
 > inner packet + VNI, so the outer src is cosmetic. The inner UDP ports
-> (offset 0x54) are what the UDF varies to scale flows.
+> (offset 0x54) are what IxNetwork increments to scale flows.
 
-Layered view (same frame, grouped by encapsulation):
+### Flow generation (inner L4 port increments)
 
-```
-Outer Ethernet
-  dst MAC      6C:03:B5:D2:0F:D0   fanout Eth224
-  src MAC      00:11:22:33:44:55   test source
-  EtherType    0x0800              IPv4
-Outer IPv4
-  total len    136
-  TTL / proto  64 / 17 (UDP)
-  checksum     0x5C61              valid
-  src          25.1.1.1            VM1_PA
-  dst          3.2.1.0             APPLIANCE_VIP
-Outer UDP
-  sport        5155                VxLAN entropy
-  dport        4789                VxLAN
-  length       116
-VxLAN
-  flags        0x08                I-bit (valid VNI)
-  VNI          2001                VNET1_VNI
-Inner Ethernet
-  dst MAC      43:BE:65:25:FA:67   REMOTE_MAC
-  src MAC      F4:93:9F:EF:C4:7E   ENI_MAC
-  EtherType    0x0800              IPv4
-Inner IPv4
-  total len    86
-  TTL / proto  64 / 17 (UDP)
-  checksum     0x6626              valid
-  src          10.0.0.11           VM1_CA
-  dst          10.2.0.100          PE_CA
-Inner UDP
-  sport        6789                (UDF varies)
-  dport        4567                (UDF varies)
-  length       66
-  checksum     0x8F51              valid
-Payload
-  58 bytes     00 01 02 … 37 38 39 incrementing
-```
+Scale the flow count directly on the inner L4 **Source Port** and
+**Destination Port** fields in the IxNetwork frame editor. Set
+one as the primary increment and the other as the secondary (nested) increment,
+so the secondary sweeps its full range for each step of the primary:
 
+| Field                     | Mode      | Start | Count | Role      |
+| ------------------------- | --------- | ----- | ----- | --------- |
+| Inner L4 Source Port      | Increment | 1     | 5000  | primary   |
+| Inner L4 Destination Port | Increment | 1     | 1000  | secondary |
 
-### UDF for flow generation
-
-| Parameter    | Value                                        |
-| ------------ | -------------------------------------------- |
-| Offset       | 84 bytes from start of frame (inner UDP)     |
-| Size         | 32 bits (covers sport + dport)               |
-| Mode         | Counter                                      |
-| Init value   | 0                                            |
-| Step         | 1                                            |
-| Repeat count | 5,000,000                                    |
-| Result       | 5M unique 5-tuples × 2 bidir = 10M DPU flows |
+Result: 5000 × 1000 = **5M unique 5-tuples**, × 2 bidirectional = **10M DPU
+flows**.
 
 ### Send rate
 
-- Bring-up: 10 fps
-- Stress testing: 10M pps (or 1 Gbps line rate for bandwidth tests)
+- 1M cps, 10M flows, 10M pps
 
-## 5. Verification
+## Verification
 
 ### DPU flow count (pdsctl)
 
@@ -459,8 +318,9 @@ On the DPUs, check the flow table summary via `pdsctl show flow --summary`:
 
 Expected:
 
-- The flow count matches the number of unique flows generated by the UDF
-  (e.g. 10M flows for a full UDF sweep — see section 4).
+- The flow count matches the number of unique flows generated by the inner
+  L4 port increments (e.g. 10M flows for a full sweep — see
+  [IxNetwork traffic item construction](#ixnetwork-traffic-item-construction)).
 - Both the **primary** and **secondary** DPUs report the same flow count,
   confirming HA flow-sync kept the pair in sync.
 
@@ -613,3 +473,53 @@ pause #1 (HA established): start UDP stream, clear stats, continue. Let
 the test cycle the DPU pair through all 10000 planned HA shutdown/restart
 iterations. At pause #2: verify no loss via IxNetwork Flow Statistics.
 Ensure test passes.
+
+---
+
+## Appendix: Manual bring-up (optional)
+
+> **All of this is automated by the test** and undone in teardown: the fanout
+> L3 config (`_configure_fanout_l3` / `_remove_fanout_l3`), the direct-link IPs
+> (`_apply_direct_link_ips`), and the GRE/HA steering (`_apply_ixia_steering`,
+> `_apply_direct_link_ha_steering`). The commands below are only for manual
+> bring-up or standalone Ixia experiments; addresses and routes match the
+> [Topology](#topology) and [Route programming summary](#route-programming-summary).
+
+### Fanout: interface IPs + routes
+
+```bash
+# fanout (ssh admin@1.2.31.91)
+sudo config interface ip add Ethernet224 10.99.1.1/30   # → Ixia TX
+sudo config interface ip add Ethernet208 10.99.2.1/30   # → DUT1
+sudo config interface ip add Ethernet216 10.99.3.1/30   # → DUT2
+sudo config interface ip add Ethernet240 10.99.4.1/30   # → Ixia RX
+
+sudo ip route replace 3.2.1.0/32 nexthop via 10.99.2.2 nexthop via 10.99.3.2  # ECMP inbound VxLAN
+sudo ip route replace 101.1.2.3/32 via 10.99.4.2                             # GRE return → Ixia RX
+sudo ip route replace 20.0.200.0/24 via 10.99.2.2                            # DUT1 DPUs (HA)
+sudo ip route replace 20.0.201.0/24 via 10.99.3.2                            # DUT2 DPUs (HA)
+sudo ip route replace 10.1.0.32/32 via 10.99.2.2                             # DUT1 Lo0 (HA)
+sudo ip route replace 10.1.0.33/32 via 10.99.3.2                             # DUT2 Lo0 (HA)
+```
+
+### DUTs: direct-link IP + steering out the direct link
+
+Each DUT routes its steered prefixes via its fanout gateway (`.1`); the fanout
+forwards to the owning device. No static ARP is needed — the fanout is a real
+L3 device and responds to ARP.
+
+```bash
+# DUT1 (Eth96 = 10.99.2.2/30, gateway 10.99.2.1)
+sudo config interface startup Ethernet96
+sudo config interface ip add Ethernet96 10.99.2.2/30
+sudo ip route replace 101.1.2.3/32 via 10.99.2.1 dev Ethernet96   # GRE return → Ixia RX
+sudo ip route replace 20.0.201.0/24 via 10.99.2.1 dev Ethernet96  # HA → DUT2 DPUs
+sudo ip route replace 10.1.0.33/32 via 10.99.2.1 dev Ethernet96   # HA → DUT2 Lo0
+
+# DUT2 (Eth96 = 10.99.3.2/30, gateway 10.99.3.1)
+sudo config interface startup Ethernet96
+sudo config interface ip add Ethernet96 10.99.3.2/30
+sudo ip route replace 101.1.2.3/32 via 10.99.3.1 dev Ethernet96   # GRE return → Ixia RX
+sudo ip route replace 20.0.200.0/24 via 10.99.3.1 dev Ethernet96  # HA → DUT1 DPUs
+sudo ip route replace 10.1.0.32/32 via 10.99.3.1 dev Ethernet96   # HA → DUT1 Lo0
+```
