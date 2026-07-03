@@ -283,7 +283,7 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_li
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=dst_port_list)
 
 
-def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
+def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL, baseline=None):
     """
     Get Acl counter packets value
 
@@ -292,28 +292,35 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
         table_name: Acl Table name
         rule_name: Acl rule name
         timeout: Timeout for Acl counters to update
+        baseline: If set, wait until the counter increments beyond this value.
+                  Used for the post-traffic read so we wait for the counter to
+                  actually reflect the sent packets, not just for the row to exist.
 
     Returns:
         Acl counter value for packets
     """
-    def _check_acl_counter():
+    def _read_acl_counter():
         result = duthost.show_and_parse('aclshow -a')
-        if len(result) == 0:
-            return False
         for rule in result:
             if table_name == rule['table name'] and rule_name == rule['rule name']:
-                return True
-        return False
+                return int(rule['packets count'])
+        return None
 
-    # Wait for orchagent to update the ACL counters
-    if not wait_until(timeout, 2, 0, _check_acl_counter):
+    def _check_acl_counter():
+        value = _read_acl_counter()
+        if value is None:
+            return False
+        # When a baseline is given, wait for the counter to actually increment.
+        return value > baseline if baseline is not None else True
+
+    # Wait for orchagent to update the ACL counters when requested.
+    if timeout > 0 and not wait_until(timeout, 2, 0, _check_acl_counter):
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
 
-    result = duthost.show_and_parse('aclshow -a')
-    for rule in result:
-        if table_name == rule['table name'] and rule_name == rule['rule name']:
-            return int(rule['packets count'])
-    pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
+    value = _read_acl_counter()
+    if value is None:
+        pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
+    return value
 
 
 def craft_packet(src_mac, dst_mac, dst_ip, ip_version, stage, tagged_mode, vlan_id=10, outer_vlan_id=0, pkt_type=None):
@@ -573,7 +580,7 @@ class AclVlanOuterTest_Base(object):
 
             count_before = get_acl_counter(duthost, table_name, RULE_1, timeout=0)
             send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_action=action)
-            count_after = get_acl_counter(duthost, table_name, RULE_1)
+            count_after = get_acl_counter(duthost, table_name, RULE_1, baseline=count_before)
 
             logger.info("Verify Acl counter incremented {} > {}".format(count_after, count_before))
             pytest_assert(count_after >= count_before + 1,
