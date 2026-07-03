@@ -34,6 +34,7 @@ DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 MAX_COOL_OFF_TIME = 300
 EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
+MAX_DPU_DOWN_TIME_SPREAD_SECS = 20
 
 
 @pytest.fixture(params=["gnoi_based", "cli_based"])
@@ -50,17 +51,19 @@ def mellanox_dpu_shutdown_check(duthost, dpu_on_list):
     yield
 
     dpu_down_log_pattern = r"dpuctl_plat.*(dpu\d).*Total time taken = (\d+\.\d+) for going down"
-    syslog = duthost.shell("sudo cat /var/log/syslog")['stdout']
+    syslog = duthost.shell(f"grep -E '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
     matches = re.findall(dpu_down_log_pattern, syslog)
     logging.info(f"Found {len(matches)} DPU down logs")
     logging.info(f"Time taken for DPUs to shutdown: {matches}")
-    if len(matches) != len(dpu_on_list):
-        pytest_assert(False, "Didn't find expected number of DPU down logs.")
+    pytest_assert(len(matches) == len(dpu_on_list),
+                  f"Expected {len(dpu_on_list)} DPU down logs, found {len(matches)}: {matches}")
     dpu_down_times = [float(match[1]) for match in matches]
     max_dpu_down_time = max(dpu_down_times)
     min_dpu_down_time = min(dpu_down_times)
-    pytest_assert(max_dpu_down_time - min_dpu_down_time < 20,
-                  "The DPUs shutdown time should not differ too much")
+    delta = max_dpu_down_time - min_dpu_down_time
+    pytest_assert(delta < MAX_DPU_DOWN_TIME_SPREAD_SECS,
+                  f"DPU shutdown times differ too much: {matches} "
+                  f"(delta={delta:.2f}s)")  # noqa: E231
 
 
 @pytest.mark.disable_loganalyzer
