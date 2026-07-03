@@ -810,7 +810,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=self.LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=True)
-        if (self.link_selection and self.source_interface):
+        if (self.link_selection and self.source_interface) or self.dual_tor:
             dhcp_ack_packet[scapy.DHCP].options.insert(
                 dhcp_ack_packet[scapy.DHCP].options.index("end"),
                 (82, self.option82)
