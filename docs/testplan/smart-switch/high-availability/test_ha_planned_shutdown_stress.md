@@ -474,6 +474,9 @@ Expected:
 - TX rate (fps/pps) matches RX rate at steady state.
 - Loss = 0% (or within the configured tolerance during HA shutdown/restart).
 
+Alternatively, you can use the IxNetwork **Flow Statistics** Loss % to
+confirm no loss between RX and TX ports.
+
 ### NVGRE return capture
 
 On Ixia 3.2 (RX port), expected capture:
@@ -559,8 +562,8 @@ verify it runs successfully to completion.
 
 ### Test 3 — `--ha_pause_mode=ends`, UDP low
 At pause #1 (HA established): start UDP low stream, clear stats,
-continue. At pause #2: verify RX count matches TX count. Ensure test
-passes.
+continue. At pause #2: verify no loss via IxNetwork Flow Statistics.
+Ensure test passes.
 
 ### Test 4 — `--ha_pause_mode=ends`, UDP high (10 Mpps, 10M flows)
 Same as (3) but with high-rate UDP traffic.
@@ -568,7 +571,8 @@ Same as (3) but with high-rate UDP traffic.
 ### Test 5 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + ACK (10 Mpps, 10M flows)
 At pause #1: send TCP SYN stream to establish sessions at 1Mcps;
 verify `flows -summary` shows 10M flows on each primary and secondary. Start TCP
-ACK stream, clear stats, continue. At pause #2: verify RX matches TX.
+ACK stream, clear stats, continue. At pause #2: verify no loss via
+IxNetwork Flow Statistics.
 Ensure test passes.
 - **Issues:**
   - Occasionally, some sessions are not created after SYN stream.
@@ -579,20 +583,14 @@ Ensure test passes.
 Same as (5), but after ACK stream, send TCP RST stream to clear sessions;
 verify sessions are cleared.
 
-### Test 7 — `--ha_pause_mode=ends`, TCP SYN (1 Mpps, 10M flows) + FIN-ACK (1 Mpps, 10M flows)
-Same as (6), but use TCP FIN-ACK to clear sessions instead of RST.
-- **Issues:**
-  - Does not work to clear sessions.
-    TBD how to properly clear TCP sessions (we are only sending one side of traffic).
-
-### Test 8 — `--ha_pause_mode=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
+### Test 7 — `--ha_pause_mode=mid`, TCP SYN (1 Mpps, 20M flows) + ACK (20 Mpps, 20M flows)
 Same as (5) for initial 10M flows. During first mid pause (primary
 down): add another 10M flows on secondary for 20M total. Continue test;
 verify all 20M flows sync to primary with no drops.
 - **Issues:**
   - Same issues as in Test (5)
 
-### Test 9 — `--ha_pause_mode=ends`, uplink-down (single-DUT path)
+### Test 8 — `--ha_pause_mode=ends`, uplink-down (single-DUT path)
 Simulate an uplink failure by collapsing the APPLIANCE_VIP ECMP route into
 a single next-hop so all ingress traffic lands on one DUT. On the fanout,
 replace the ECMP route with a single path to DUT1 (or DUT2):
@@ -604,7 +602,14 @@ sudo ip route replace 3.2.1.0/32 nexthop via 10.99.2.2 nexthop via 10.99.3.2
 ```
 At pause #1: start traffic, confirm all flows land on the single
 chosen DUT, clear stats, continue. Run HA cycles; verify flows stay on
-(and sync from) the active DUT with no drops. At pause #2: verify RX
-matches TX, then restore the ECMP route.
+(and sync from) the active DUT with no drops. At pause #2: verify no
+loss via IxNetwork Flow Statistics, then restore the ECMP
+route.
 
-### TBD additional tests
+### Test 9 — `--ha_pause_mode=ends`, UDP long-run (10000 iterations)
+Same as (4) but run the HA stress loop for 10000 iterations
+(`--ha_stress_config` `stress.iterations=10000`) with UDP traffic. At
+pause #1 (HA established): start UDP stream, clear stats, continue. Let
+the test cycle the DPU pair through all 10000 planned HA shutdown/restart
+iterations. At pause #2: verify no loss via IxNetwork Flow Statistics.
+Ensure test passes.
