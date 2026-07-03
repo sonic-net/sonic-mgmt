@@ -1,3 +1,4 @@
+# flake8: noqa: E231
 import pytest
 import logging
 import random
