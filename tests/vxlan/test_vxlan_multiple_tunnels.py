@@ -52,9 +52,10 @@ def configure_vxlan_global(duthost):
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_DST_PORT, dutmac=router_mac)
     yield
     if prev_vxlan_port:
-        ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port), dutmac=prev_vxlan_router_mac)
+        ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port),
+                                          dutmac=prev_vxlan_router_mac or None)
     else:
-        ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac)
+        ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac or None)
         duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
     if not prev_vxlan_router_mac:
         duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
@@ -66,7 +67,8 @@ def are_all_vxlan_tunnels_in_app_db(duthost, vxlan_tunnels, check_exist=True):
         If check_exist is False, checks if none of the VxLAN tunnels in vxlan_tunnels are present in APP DB.
     """
     for vxlan_tunnel in vxlan_tunnels:
-        result = duthost.shell(f"sonic-db-cli APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"].strip()
+        result = duthost.shell(
+            f"sonic-db-cli APPL_DB KEYS 'VXLAN_TUNNEL_TABLE:{vxlan_tunnel}'")["stdout"].strip()  # noqa: E231
         if check_exist ^ bool(result):
             return False
     return True
@@ -125,6 +127,7 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     logger.info("Creating VxLAN tunnels...")
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     tunnels = {}  # From tunnel name to src IP
+    asic_type = duthost.facts["asic_type"]
 
     loopback_ipv4 = create_loopback_vxlan_tunnel(duthost, minigraph_facts, "v4")
     tunnels[LOOPBACK_V4] = loopback_ipv4
@@ -141,7 +144,7 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
     tunnels[SPECIAL_V4] = special_ipv4
 
     # We will not configure IPv6 VxLAN tunnels on Mellanox devices due to a known issue.
-    if duthost.facts["asic_type"] != "mellanox":
+    if asic_type != "mellanox":
         loopback_ipv6 = create_loopback_vxlan_tunnel(duthost, minigraph_facts, "v6")
         tunnels[LOOPBACK_V6] = loopback_ipv6
         # Create a second IPv6 tunnel with a slightly different source IP
@@ -151,9 +154,12 @@ def create_vxlan_tunnels(duthost, tbinfo, configure_vxlan_global):  # noqa F811
         else:
             loopback_ipv6_parts[-1] = "100"
         special_ipv6 = ':'.join(loopback_ipv6_parts)
-        ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, "v6",
-                                       tunnel_name=SPECIAL_V6, src_ip=special_ipv6)
-        tunnels[SPECIAL_V6] = special_ipv6
+        # Cisco-8000 SAI limits VxLAN P2MP tunnels to 3.
+        # On all other platforms the 4th tunnel (special_v6) is created normally.
+        if asic_type != "cisco-8000":
+            ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, "v6",
+                                           tunnel_name=SPECIAL_V6, src_ip=special_ipv6)
+            tunnels[SPECIAL_V6] = special_ipv6
 
     pytest_assert(wait_until(10, 2, 0, are_all_vxlan_tunnels_in_app_db, duthost, tunnels.keys(), True),
                   "VxLAN tunnels are not created in APP DB.")
@@ -172,6 +178,7 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
     """
     logger.info("Creating VNets...")
     vnets = {}
+    asic_type = duthost.facts["asic_type"]
 
     vnet_dict = ecmp_utils.create_vnets(duthost, LOOPBACK_V4, vnet_count=1, scope="default",
                                         vni_base=VNI, vnet_name_prefix=LOOPBACK_V4)
@@ -181,16 +188,19 @@ def create_vnets(duthost, create_vxlan_tunnels):  # noqa F811
                                         vni_base=VNI, vnet_name_prefix=SPECIAL_V4)
     vnets[SPECIAL_V4] = next(iter(vnet_dict))
 
-    if duthost.facts["asic_type"] != "mellanox":
+    if asic_type != "mellanox":
         vnet_dict = ecmp_utils.create_vnets(duthost, LOOPBACK_V6, vnet_count=1, scope="default",
                                             vni_base=VNI, vnet_name_prefix=LOOPBACK_V6)
         vnets[LOOPBACK_V6] = next(iter(vnet_dict))
 
-        vnet_dict = ecmp_utils.create_vnets(duthost, SPECIAL_V6, vnet_count=1, scope="default",
-                                            vni_base=VNI, vnet_name_prefix=SPECIAL_V6)
-        vnets[SPECIAL_V6] = next(iter(vnet_dict))
+        # Cisco-8000 SAI limits VxLAN P2MP tunnels to 3.
+        # On all other platforms the 4th vnet (special_v6) is created normally.
+        if asic_type != "cisco-8000":
+            vnet_dict = ecmp_utils.create_vnets(duthost, SPECIAL_V6, vnet_count=1, scope="default",
+                                                vni_base=VNI, vnet_name_prefix=SPECIAL_V6)
+            vnets[SPECIAL_V6] = next(iter(vnet_dict))
 
-    pytest_assert(wait_until(10, 2, 0, are_vxlan_tunnels_in_asic_db, duthost, 4),
+    pytest_assert(wait_until(10, 2, 0, are_vxlan_tunnels_in_asic_db, duthost, len(create_vxlan_tunnels)),
                   "VxLAN tunnels are not created in ASIC DB.")
     yield vnets
     # Clean-up
@@ -385,10 +395,13 @@ def inner_pkt_vnet_route_vxlan(request):
 
 @pytest.fixture(params=[LOOPBACK_V4, LOOPBACK_V6, SPECIAL_V4, SPECIAL_V6],
                 ids=[f"outer_{LOOPBACK_V4}", f"outer_{LOOPBACK_V6}", f"outer_{SPECIAL_V4}", f"outer_{SPECIAL_V6}"])
-def outer_pkt_vxlan(request):
+def outer_pkt_vxlan(request, duthost):
     """
         The outer packet will be crafted to match this VxLAN tunnel.
     """
+    # Cisco-8000 SAI limits VxLAN P2MP tunnels to 3.
+    if duthost.facts["asic_type"] == "cisco-8000" and request.param == SPECIAL_V6:
+        pytest.skip("SPECIAL_V6 (4th tunnel) skipped on Cisco-8000: SAI p2mp tunnel limit = 3")
     return request.param
 
 
