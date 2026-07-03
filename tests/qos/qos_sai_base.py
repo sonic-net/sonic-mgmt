@@ -1361,7 +1361,7 @@ class QosSaiBase(QosBase):
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
                     if isBroadcomTH6Device:
                         if intf in src_mgFacts["minigraph_portchannels"]:
-                            intf = src_mgFacts["minigraph_portchannels"][portConfig["attachto"]]['members'][0]
+                            intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
