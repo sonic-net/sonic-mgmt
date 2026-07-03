@@ -1353,11 +1353,10 @@ class QosSaiBase(QosBase):
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
+                if isBroadcomDevice(src_dut) and intf in src_mgFacts["minigraph_portchannels"]:
+                    intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
-                    if isBroadcomDevice(src_dut):
-                        if intf in src_mgFacts["minigraph_portchannels"]:
-                            intf = src_mgFacts["minigraph_portchannels"][portConfig["attachto"]]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
