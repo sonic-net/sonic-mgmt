@@ -16,7 +16,10 @@ logger = logging.getLogger(__name__)
 
 def get_chip_name_if_asic_pfc_storm_supported(fanout):
     hwSkuInfo = {
-        "Arista DCS-7060DX5": "Tomahawk4",`r`n        "Arista-7060DX5": "Tomahawk4",`r`n        "Arista DCS-7060PX5": "Tomahawk4",`r`n        "Arista-7060PX5": "Tomahawk4",
+        "Arista DCS-7060DX5": "Tomahawk4",
+        "Arista-7060DX5": "Tomahawk4",
+        "Arista DCS-7060PX5": "Tomahawk4",
+        "Arista-7060PX5": "Tomahawk4",
         "Arista DCS-7060X6": "Tomahawk5",
         "Arista-7060X6": "Tomahawk5",
         "Arista-7060X6-64PE-P32O64": "Tomahawk5",
@@ -156,7 +159,11 @@ class PFCStorm(object):
         if not out['stat']['exists'] or not out['stat']['isdir']:
             self.peer_device.file(path=pfc_gen_fpath, state="touch")
 
-    def _get_eos_fanout_version(self):`r`n        """`r`n        Get hwsku info for eos fanout device from inventory.`r`n        """`r`n        return [self.peer_info['hwsku']]
+    def _get_eos_fanout_version(self):
+        """
+        Get hwsku info for eos fanout device from inventory.
+        """
+        return [self.peer_info['hwsku']]
 
     def _get_sonic_fanout_hwsku(self):
         """
