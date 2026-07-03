@@ -150,7 +150,7 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         failures = []
         for intf in active_phy_intfs:
             if is_pfc and (not no_xon_counters or pause_time != 0):
-                if only_lossless_rx_counters:
+                if only_lossless_rx_counters and asic_type != 'vs':
                     pfc_enabled_prios = [
                         int(prio) for prio in config_facts["PORT_QOS_MAP"][intf]['pfc_enable'].split(',')]
                     expected_prios = [str(PKT_COUNT if prio in pfc_enabled_prios else 0)
