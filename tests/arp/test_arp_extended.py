@@ -25,6 +25,7 @@ def _check_neighbor_entry(duthost, ip, version):
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     return ip in switch_arptable['arptable'][version]
 
+
 def _has_garp_entry(duthost, arp_request_ip, arp_src_mac, vlan_intfs):
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     return ('arptable' in switch_arptable and
@@ -32,6 +33,7 @@ def _has_garp_entry(duthost, arp_request_ip, arp_src_mac, vlan_intfs):
             arp_request_ip in switch_arptable['arptable']['v4'] and
             switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower() and
             switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
+
 
 def test_arp_accept_value(rand_selected_dut, garp_enabled, config_facts):
     """
