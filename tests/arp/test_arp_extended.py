@@ -25,6 +25,13 @@ def _check_neighbor_entry(duthost, ip, version):
     switch_arptable = duthost.switch_arptable()['ansible_facts']
     return ip in switch_arptable['arptable'][version]
 
+def _has_garp_entry(duthost, arp_request_ip, arp_src_mac, vlan_intfs):
+    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    return ('arptable' in switch_arptable and
+            'v4' in switch_arptable['arptable'] and
+            arp_request_ip in switch_arptable['arptable']['v4'] and
+            switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower() and
+            switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
 
 def test_arp_accept_value(rand_selected_dut, garp_enabled, config_facts):
     """
@@ -94,9 +101,8 @@ def test_arp_garp_enabled(rand_selected_dut, garp_enabled, ip_and_intf_info, int
 
     vlan_intfs = list(config_facts['VLAN_INTERFACE'].keys())
 
-    switch_arptable = duthost.switch_arptable()['ansible_facts']
-    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['macaddress'].lower() == arp_src_mac.lower())
-    pytest_assert(switch_arptable['arptable']['v4'][arp_request_ip]['interface'] in vlan_intfs)
+    pytest_assert(wait_until(10, 1, 0, _has_garp_entry, duthost, arp_request_ip, arp_src_mac, vlan_intfs),
+                  "GARP not learned: IP {} not found with MAC {}".format(arp_request_ip, arp_src_mac))
 
 
 def test_arp_garp_out_of_subnet_not_learned(rand_selected_dut, garp_enabled, ip_and_intf_info,
