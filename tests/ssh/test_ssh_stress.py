@@ -35,6 +35,15 @@ done = False
 max_cpu = 0
 max_mem = 0
 
+# Post-test CPU/memory recovery check tunables. After the stress load stops we poll
+# several instantaneous samples and require the best (lowest) reading to be within
+# RECOVER_THRESHOLD of the pre-test baseline. Comparing the settled reading against the
+# baseline (init) -- not the in-test peak (max) -- avoids false failures when a single
+# late sample happens to be >= the recorded peak.
+RECOVER_THRESHOLD = 0.2    # allowed elevation above the pre-test baseline (fraction)
+SETTLE_POLLS = 6           # number of post-test settle samples
+SETTLE_INTERVAL = 5        # seconds between settle samples
+
 
 @pytest.fixture
 def setup_teardown(duthosts, rand_one_dut_hostname):
@@ -77,9 +86,15 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
 
 
 def get_system_stats(duthost):
-    """Gets Memory and CPU usage from DUT"""
-    stdout_lines = duthost.command("vmstat")["stdout_lines"]
-    data = list(map(float, stdout_lines[2].split()))
+    """Gets instantaneous Memory and CPU usage from DUT.
+
+    ``vmstat`` with no interval reports CPU averaged since boot, which barely moves
+    during a short test (so the in-test peak and the post-test sample look almost
+    identical). ``vmstat 1 2`` prints a second row sampled over 1 second; use that
+    last row so CPU reflects the current instantaneous load.
+    """
+    stdout_lines = duthost.command("vmstat 1 2")["stdout_lines"]
+    data = list(map(float, stdout_lines[-1].split()))
 
     total_memory = sum(data[2:6])
     used_memory = sum(data[4:6])
@@ -145,25 +160,37 @@ def work(dut_mgmt_ip, commands, baselines, username, password):
 
 
 def run_post_test_system_check(init_mem, init_cpu, duthost):
-    time.sleep(10)
+    """Verify CPU/memory return near their pre-test baseline after the stress ends.
 
-    post_mem, post_cpu = get_system_stats(duthost)
+    The SSH load is asynchronous, so the first post-test samples may still be
+    elevated. Poll several instantaneous samples, keep the best (lowest) reading,
+    and compare it against the pre-test baseline (init) rather than the in-test
+    peak (max): peak-minus-a-single-late-sample is not a reliable recovery signal
+    and produces false failures when that late sample is >= the peak.
+    """
+    best_mem, best_cpu = 1.0, 1.0
+    for _ in range(SETTLE_POLLS):
+        time.sleep(SETTLE_INTERVAL)
+        post_mem, post_cpu = get_system_stats(duthost)
+        best_mem = min(best_mem, post_mem)
+        best_cpu = min(best_cpu, post_cpu)
+        logging.info(
+            "Post-test settle sample: CPU={:.3f} MEM={:.3f} (best so far CPU={:.3f} MEM={:.3f})".format(
+                post_cpu, post_mem, best_cpu, best_mem))
+        if (best_cpu - init_cpu) < RECOVER_THRESHOLD and (best_mem - init_mem) < RECOVER_THRESHOLD:
+            break
 
-    if post_mem-init_mem >= 0.2:
-        pytest_assert(max_mem-post_mem > 0.1,
-                      "Memory increased by more than 20 points during test and did not reduce from raised value\n\
-                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
-        logging.warning(
-            "Memory usage did not reduce to original value after test. "
-            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_mem, max_mem, post_mem))
+    pytest_assert(
+        best_cpu - init_cpu < RECOVER_THRESHOLD,
+        "CPU usage stayed more than {:.0f} points above the pre-test baseline after the stress ended.\n"
+        "Initial Value: {}, Max value: {}, Best post-test Value: {}".format(
+            RECOVER_THRESHOLD * 100, init_cpu, max_cpu, best_cpu))
 
-    if post_cpu-init_cpu >= 0.2:
-        pytest_assert(max_cpu-post_cpu > 0.1,
-                      "CPU usage increased by more than 20 points during test and did not reduce from raised value\n\
-                      Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
-        logging.warning(
-            "CPU usage did not reduce to original value after test. "
-            "Initial Value: {}, Max value: {}, Post-Test Value: {}".format(init_cpu, max_cpu, post_cpu))
+    pytest_assert(
+        best_mem - init_mem < RECOVER_THRESHOLD,
+        "Memory usage stayed more than {:.0f} points above the pre-test baseline after the stress ended.\n"
+        "Initial Value: {}, Max value: {}, Best post-test Value: {}".format(
+            RECOVER_THRESHOLD * 100, init_mem, max_mem, best_mem))
 
 
 def get_baseline_time(ssh, command):
