@@ -7,6 +7,7 @@ import re
 import tempfile
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
+from .args.sfp_utils_args import add_limited_sfp_ports_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
 from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
@@ -205,6 +206,7 @@ def pytest_generate_tests(metafunc):
 
 def pytest_addoption(parser):
     add_counterpoll_cpu_usage_args(parser)
+    add_limited_sfp_ports_args(parser)
     parser.addoption("--strict_watchdog", action="store_true", default=False,
                      help="Fail the test if the hardware watchdog is not armed "
                           "(default: warn and skip the test when unarmed)")
