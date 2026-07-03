@@ -13,8 +13,13 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
-    DEFAULT_ASIC_ID
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE
+from tests.common.helpers.bgp import (
+    get_db_cli_prefix,
+    get_db_cli_prefix_for_namespace,
+    get_asic_namespace,
+    namespace_cli_arg,
+)
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
@@ -196,33 +201,42 @@ def parse_rib(host, ip_ver, asic_namespace=None):
     return routes
 
 
-def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None):
+def get_routes_not_announced_to_bgpmon(duthost, ptfhost, asic_namespace=None, expected_routes=None):
     """
     Get the routes that are not announced to bgpmon by checking dump of bgpmon on PTF.
     """
     def _dump_fie_exists(host):
         return host.stat(path=DUMP_FILE).get('stat', {}).get('exists', False)
-    pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost))
-    time.sleep(20)  # Wait until all routes announced to bgpmon
+    pytest_assert(wait_until(120, 10, 0, _dump_fie_exists, ptfhost),
+                  "bgpmon dump file is not found: {}".format(DUMP_FILE))
+
+    if expected_routes is None:
+        rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
+        rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
+        routes_to_check = list(dict(list(rib_v4.items()) + list(rib_v6.items())).keys())
+    else:
+        routes_to_check = expected_routes
+
+    def _all_routes_announced():
+        bgpmon_routes = parse_exabgp_dump(ptfhost)
+        return all(route in bgpmon_routes for route in routes_to_check)
+
+    wait_until(WAIT_TIMEOUT, 10, 0, _all_routes_announced)
     bgpmon_routes = parse_exabgp_dump(ptfhost)
-    rib_v4 = parse_rib(duthost, 4, asic_namespace=asic_namespace)
-    rib_v6 = parse_rib(duthost, 6, asic_namespace=asic_namespace)
-    routes_dut = dict(list(rib_v4.items()) + list(rib_v6.items()))
-    return [route for route in list(routes_dut.keys()) if route not in bgpmon_routes]
+    return [route for route in routes_to_check if route not in bgpmon_routes]
 
 
 def remove_bgp_neighbors(duthost, asic_index):
     """
     Remove the bgp neigbors for a particular BGP instance
     """
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
+    namespace_prefix = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
+    db_cli = get_db_cli_prefix(duthost, asic_index)
 
     # Convert the json formatted result of sonic-cfggen into bgp_neighbors dict
     bgp_neighbors = json.loads(duthost.command("sudo sonic-cfggen {} -d --var-json {}"
                                .format(namespace_prefix, "BGP_NEIGHBOR"))["stdout"])
-    cmd = 'sudo sonic-db-cli {} CONFIG_DB keys "BGP_NEI*" | xargs sonic-db-cli {} CONFIG_DB del'\
-          .format(namespace_prefix, namespace_prefix)
+    cmd = 'sudo {db_cli} CONFIG_DB keys "BGP_NEI*" | xargs {db_cli} CONFIG_DB del'.format(db_cli=db_cli)
     duthost.shell(cmd)
 
     # Restart BGP instance on that asic
@@ -236,8 +250,7 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     """
     Restore the bgp neigbors for a particular BGP instance
     """
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
+    namespace_prefix = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
 
     # Convert the bgp_neighbors dict into json format after adding the table name.
     bgp_neigh_dict = {"BGP_NEIGHBOR": bgp_neighbors}
@@ -409,15 +422,17 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
     duthost.copy(content=json.dumps(allow_list, indent=3), dest=allow_list_file_path)
-    duthost.shell('sonic-cfggen {} -j {} -w'.format('-n ' + namespace if namespace else '', allow_list_file_path))
+    duthost.shell('sonic-cfggen {} -j {} -w'.format(namespace_cli_arg(namespace), allow_list_file_path))
     time.sleep(3)
 
 
 def remove_allow_list(duthost, namespace, allow_list_file_path):
-    allow_list_keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'
-                                    .format('-n ' + namespace if namespace else ''))['stdout_lines']
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    allow_list_keys = duthost.shell(
+        '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)
+    )['stdout_lines']
     for key in allow_list_keys:
-        duthost.shell('sonic-db-cli {} CONFIG_DB del "{}"'.format('-n ' + namespace if namespace else '', key))
+        duthost.shell('{} CONFIG_DB del "{}"'.format(db_cli, key))
 
     duthost.shell('rm -rf {}'.format(allow_list_file_path))
 
@@ -601,8 +616,10 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
     check_results(results)
 
 
-def checkout_bgp_mon_routes(duthost, ptfhost):
-    routes_not_announced = get_routes_not_announced_to_bgpmon(duthost, ptfhost)
+def checkout_bgp_mon_routes(duthost, ptfhost, asic_namespace=None, expected_routes=None):
+    routes_not_announced = get_routes_not_announced_to_bgpmon(
+        duthost, ptfhost, asic_namespace=asic_namespace, expected_routes=expected_routes
+    )
     pytest_assert(routes_not_announced == [], "Not all routes are announced to bgpmon: {}".format(routes_not_announced))
 
 
@@ -1023,9 +1040,10 @@ def verify_dut_configdb_tsa_value(duthost):
     tsa_config = list()
     tsa_enabled = False
     for asic_index in duthost.get_frontend_asic_ids():
-        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
-        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
-                               format(prefix))['stdout']
+        db_cli = get_db_cli_prefix(duthost, asic_index)
+        output = duthost.shell(
+            "{} CONFIG_DB HGET 'BGP_DEVICE_GLOBAL|STATE' 'tsa_enabled'".format(db_cli)
+        )['stdout']
         tsa_config.append(output)
     if 'true' in tsa_config:
         tsa_enabled = True

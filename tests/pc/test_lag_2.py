@@ -40,7 +40,7 @@ def common_setup_teardown(copy_acstests_directory, copy_ptftests_directory, ptfh
 
 
 def is_vtestbed(duthost):
-    return duthost.facts['asic_type'].lower() == "vs"
+    return duthost.facts['asic_type'].lower() in ["vs", "vpp"]
 
 
 class LagTest:
@@ -299,9 +299,6 @@ def skip_if_no_lags(duthosts):
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
              conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa: F811
-    # We can't run single_lag test on vtestbed since there is no leaffanout
-    if testcase == "single_lag" and is_vtestbed(duthosts[0]):
-        pytest.skip("Skip single_lag test on vtestbed")
     if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
         pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
 

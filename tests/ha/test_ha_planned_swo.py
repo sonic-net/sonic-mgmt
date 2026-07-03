@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 import queue
 import random
@@ -8,7 +7,6 @@ import time
 import ptf.testutils as testutils
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.config_reload import config_reload
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from constants import (
     LOCAL_PTF_INTF,
@@ -16,9 +14,9 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from packets import outbound_pl_packets
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from ha_dash_flow_utils import compare_flow_tables
-from ha_utils import verify_ha_state, set_dash_ha_scope
+from ha_utils import verify_ha_state, set_dash_ha_scope, parallel_config_reload_dpuhosts
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +51,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-
-    def _reload(host):
-        logger.info(f"config reload on {host.hostname}")
-        config_reload(host, safe_reload=True, yang_validate=False)
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
-        list(executor.map(_reload, dpuhosts))
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 def _planned_swo_phase(
@@ -157,6 +149,7 @@ def _planned_swo_phase(
                 PLANNED_SWO_OUTER_ENCAP,
                 inner_sport=inner_sport,
                 vxlan_udp_sport=fixed_vxlan_udp_sport,
+                tcp_flag_syn=True,  # multi-flow: every iteration is a brand-new TCP flow.
             )
             testutils.send(ptfadapter, send_ptf_intf, vm_pkt, 1)
         else:
@@ -228,6 +221,11 @@ def test_ha_planned_swo(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], PLANNED_SWO_OUTER_ENCAP)
     rcv_outbound_pl_ports = dash_pl_config[0][REMOTE_PTF_RECV_INTF] + dash_pl_config[1][REMOTE_PTF_RECV_INTF]
     send_ptf_intf = dash_pl_config[0][LOCAL_PTF_INTF]
+
+    # Single-flow mode: bootstrap stateful TCP flow on the DPU so subsequent ACK packets match.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[0], PLANNED_SWO_OUTER_ENCAP, recv_ports=rcv_outbound_pl_ports
+    )
 
     _planned_swo_phase(
         ptfadapter=ptfadapter,

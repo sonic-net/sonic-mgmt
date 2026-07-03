@@ -31,8 +31,8 @@ MARK_CONDITIONS_CONSTANTS = {
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
                      'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
                      't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
-                     't2_single_node_max_64p', 't2-single-node-max-64p',
-                     't2_single_node_max_64p_v2', 'urh_min', 'lrh_min']
+                     't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
+                     'urh_min', 'lrh_min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224']
 }
 
 

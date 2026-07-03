@@ -9,12 +9,17 @@ from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
-from packets import outbound_pl_packets
-from tests.common.config_reload import config_reload
+from ha_packets import outbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from tests.common.helpers.assertions import pytest_assert
-from ha_dash_flow_utils import compare_flow_tables_pdsctl
-from ha_utils import bfd_pin_primary, bfd_unpin_primary, bfd_pin_both_sides, bfd_unpin_both_sides
+from ha_dash_flow_utils import compare_flow_tables
+from ha_utils import (
+    bfd_pin_primary,
+    bfd_unpin_primary,
+    bfd_pin_both_sides,
+    bfd_unpin_both_sides,
+    parallel_config_reload_dpuhosts,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +51,7 @@ def common_setup_teardown(
     apply_dash_pl_pipeline_config(localhost, duthosts, dpuhosts, ptfhost)
 
     yield
-    for dpuhost in dpuhosts:
-        logger.info(f"config reload on {dpuhost.hostname}")
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    parallel_config_reload_dpuhosts(dpuhosts)
 
 
 """
@@ -96,6 +99,12 @@ def test_ha_bfd_pin(
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
 
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
+
     packet_sending_flag = queue.Queue(1)
 
     send_count = 0
@@ -133,7 +142,7 @@ def test_ha_bfd_pin(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on standby - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
 
             else:
@@ -143,7 +152,7 @@ def test_ha_bfd_pin(
                 testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, rcv_outbound_pl_ports)
                 if send_count == 0:
                     logger.info("First packet verified on primary - compare flows")
-                    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+                    flow_op = compare_flow_tables(dpuhosts[0], dpuhosts[1])
                     pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
         except Exception as e:
             if failed_count == 0:

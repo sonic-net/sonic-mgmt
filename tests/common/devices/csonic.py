@@ -146,7 +146,7 @@ class CsonicHost(NeighborDevice):
                 return result['stdout']
         return {}
 
-    def config(self, lines=None, parents=None):
+    def config(self, lines=None, parents=None, **kwargs):
         """
         Configure via vtysh (loose compatibility with EOS config style).
         Translates config lines to vtysh commands.
@@ -164,7 +164,11 @@ class CsonicHost(NeighborDevice):
         for c in cmds:
             vtysh_cmd += " -c '{}'".format(c)
 
-        return self._docker_exec(vtysh_cmd)
+        return self._docker_exec(vtysh_cmd, **kwargs)
+
+    def start_bgpd(self):
+        """Start the BGP daemon inside the cSONiC container."""
+        return self._docker_exec("supervisorctl start bgpd", module_ignore_errors=True)
 
     def fetch(self, src=None, dest=None, **kwargs):
         """

@@ -4,9 +4,14 @@ import re
 import time
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
-from tests.common.helpers.bgp import run_bgp_facts
+from tests.common.helpers.bgp import (
+    get_asic_config_facts,
+    get_db_cli_prefix,
+    get_vtysh_cmd_for_asic,
+)
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.utilities import get_host_visible_vars
 from ipaddress import ip_interface
 
 
@@ -17,6 +22,11 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
+
+
+def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
+    duthost.shell("{} CONFIG_DB {}".format(get_db_cli_prefix(duthost, enum_asic_index), cmd),
+                  module_ignore_errors=module_ignore_errors)
 
 
 def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
@@ -41,7 +51,8 @@ def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_
 
 def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, nbrhosts, tbinfo):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
-    cmd = "show ipv6 bgp summary" if is_v6_topo else "show ip bgp summary"
+    cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
+    cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, cmd)
     output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
 
     # Verify router id from DUT itself
@@ -55,33 +66,53 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
         "BGP router id unexpected, expected: {}, actual: {}. "
     ).format(expected_bgp_router_id, match.group(1)))
 
-    # Verify BGP sessions are established
-    run_bgp_facts(duthost, enum_asic_index)
+    cfg_facts = get_asic_config_facts(duthost, enum_asic_index)
+    bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
+    addr_char = ":" if is_v6_topo else "."
+
+    local_ip_map = {}
+    remote_ip_map = {}
+    for remote_ip, item in cfg_facts.get("BGP_NEIGHBOR", {}).items():
+        if addr_char not in item["local_addr"] or item["name"] not in nbrhosts:
+            continue
+        local_ip_map[item["name"]] = item["local_addr"]
+        remote_ip_map[remote_ip] = item
+
+    # Verify BGP sessions are established for peers checked by this test.
+    for remote_ip in remote_ip_map:
+        pytest_assert(remote_ip in bgp_facts['bgp_neighbors'], (
+            "Cannot find BGP facts for neighbor {}. "
+            "BGP facts neighbors: {}"
+        ).format(remote_ip, bgp_facts['bgp_neighbors'].keys()))
+        pytest_assert(bgp_facts['bgp_neighbors'][remote_ip]['state'] == "established", (
+            "BGP session not established for neighbor {}. Expected 'established', got '{}'."
+        ).format(remote_ip, bgp_facts['bgp_neighbors'][remote_ip]['state']))
 
     # Verify from peer device side to check
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         logger.warning("Unsupport neighbor type for neighbor bgp check: {}".format(neighbor_type))
-    local_ip_map = {}
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    for _, item in cfg_facts.get("BGP_NEIGHBOR", {}).items():
-        addr_char = ":" if is_v6_topo else "."
-        if addr_char in item["local_addr"]:
-            local_ip_map[item["name"]] = item["local_addr"]
 
-    for neighbor_name, nbrhost in nbrhosts.items():
-        pytest_assert(neighbor_name in local_ip_map, (
-            "Cannot find local ip for {}. "
-            "Local IP map: {}"
-        ).format(neighbor_name, local_ip_map))
-        localip = local_ip_map[neighbor_name]
+    verified_neighbors = 0
+    for neighbor_name, localip in local_ip_map.items():
+        if neighbor_name not in nbrhosts:
+            continue
+        nbrhost = nbrhosts[neighbor_name]
         vrf = neighbor_name if nbrhost.get("is_multi_vrf_peer", False) else "default"
         verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf=vrf)
+        verified_neighbors += 1
+
+    if verified_neighbors == 0:
+        pytest.skip(
+            "No external BGP neighbor to verify on ASIC {}. Local IP map: {}".format(
+                enum_asic_index, local_ip_map
+            )
+        )
 
 
 @pytest.fixture()
-def loopback_ip(duthosts, enum_frontend_dut_hostname):
+def loopback_ip(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     loopback_ip = None
     loopback_table = cfg_facts.get("LOOPBACK_INTERFACE", {})
     for key in loopback_table.get("Loopback0", {}).keys():
@@ -92,9 +123,25 @@ def loopback_ip(duthosts, enum_frontend_dut_hostname):
 
 
 @pytest.fixture()
-def loopback_ipv6(duthosts, enum_frontend_dut_hostname):
+def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip):
     duthost = duthosts[enum_frontend_dut_hostname]
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
+    dev_meta = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {})
+
+    if dev_meta.get('switch_type') in ['voq', 'chassis-packet']:
+        host_vars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
+        loopback4096_ips = host_vars.get('loopback4096_ip', [])
+        if len(loopback4096_ips) > enum_frontend_asic_index:
+            yield loopback4096_ips[enum_frontend_asic_index].split("/")[0]
+            return
+
+    yield loopback_ip
+
+
+@pytest.fixture()
+def loopback_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     loopback_ip = None
     loopback_table = cfg_facts.get("LOOPBACK_INTERFACE", {})
     for key in loopback_table.get("Loopback0", {}).keys():
@@ -123,59 +170,71 @@ def restart_bgp(duthost, tbinfo):
 
 
 @pytest.fixture()
-def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, tbinfo):
+def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    duthost.shell("sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                  .format(CUSTOMIZED_BGP_ROUTER_ID), module_ignore_errors=True)
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                      .format(CUSTOMIZED_BGP_ROUTER_ID))
     restart_bgp(duthost, tbinfo)
 
     yield
 
-    duthost.shell("sonic-db-cli CONFIG_DB hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"",
-                  module_ignore_errors=True)
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
     restart_bgp(duthost, tbinfo)
 
 
 @pytest.fixture(scope="function")
-def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, loopback_ip, tbinfo):
+def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip,
+                                          tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    duthost.shell("sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                  .format(CUSTOMIZED_BGP_ROUTER_ID), module_ignore_errors=True)
-    duthost.shell("sonic-db-cli CONFIG_DB del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip))
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                      .format(CUSTOMIZED_BGP_ROUTER_ID))
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
+                      module_ignore_errors=False)
     restart_bgp(duthost, tbinfo)
 
     yield
 
-    duthost.shell("sonic-db-cli CONFIG_DB hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"",
-                  module_ignore_errors=True)
-    duthost.shell("sonic-db-cli CONFIG_DB hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
-                  .format(loopback_ip), module_ignore_errors=True)
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    run_config_db_cmd(duthost, enum_frontend_asic_index,
+                      "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
+                      .format(loopback_ip))
     restart_bgp(duthost, tbinfo)
 
 
-def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts, request, loopback_ip,
-                               tbinfo):
+def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+                               default_bgp_router_id, tbinfo):
     # Test in default config, the BGP router id should be aligned with Loopback IPv4 address
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
-    verify_bgp(enum_asic_index, duthost, loopback_ip, neighbor_type, nbrhosts, tbinfo)
+    verify_bgp(enum_frontend_asic_index, duthost, default_bgp_router_id, neighbor_type, nbrhosts, tbinfo)
 
 
-def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts, request, loopback_ip,
-                           router_id_setup_and_teardown, tbinfo):
+# BGP restart in setup/teardown can emit transient loganalyzer noise.
+@pytest.mark.disable_loganalyzer
+def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+                           loopback_ip, router_id_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv4 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv4 address should be advertised to BGP
     # neighbor
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
-    verify_bgp(enum_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
+    verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
         if "." not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
             continue
-        output = duthost.shell("show ip bgp neighbor {} advertised-routes| grep {}".format(remote_ip, loopback_ip),
-                               module_ignore_errors=True)
+        cmd = get_vtysh_cmd_for_asic(
+            duthost,
+            enum_frontend_asic_index,
+            "vtysh -c \"show ip bgp neighbor {} advertised-routes\"".format(remote_ip)
+        )
+        output = duthost.shell("{} | grep {}".format(cmd, loopback_ip), module_ignore_errors=True)
         pytest_assert(output["rc"] == 0, (
             "Failed to check whether Loopback ipv4 address has been advertised. "
             "Return code: {} "
@@ -189,21 +248,26 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_asic_index
         ).format(loopback_ip, output["stdout"]))
 
 
-def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts, request, loopback_ipv6,
-                                router_id_setup_and_teardown, tbinfo):
+@pytest.mark.disable_loganalyzer
+def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+                                loopback_ipv6, router_id_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv6 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv6 address should be advertised to BGP
     # neighbor
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
-    verify_bgp(enum_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
+    verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
         if ":" not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
             continue
-        output = duthost.shell("show ipv6 bgp neighbor {} advertised-routes| grep {}".format(remote_ip, loopback_ipv6),
-                               module_ignore_errors=True)
+        cmd = get_vtysh_cmd_for_asic(
+            duthost,
+            enum_frontend_asic_index,
+            "vtysh -c \"show ipv6 bgp neighbor {} advertised-routes\"".format(remote_ip)
+        )
+        output = duthost.shell("{} | grep {}".format(cmd, loopback_ipv6), module_ignore_errors=True)
         pytest_assert(output["rc"] == 0, (
             "Failed to check whether Loopback ipv6 address has been advertised. "
             "Return code: {} "
@@ -217,10 +281,11 @@ def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_asic_
         ).format(loopback_ipv6, output["stdout"]))
 
 
-def test_bgp_router_id_set_without_loopback(duthosts, enum_frontend_dut_hostname, enum_asic_index, nbrhosts, request,
-                                            router_id_loopback_setup_and_teardown, tbinfo):
+@pytest.mark.disable_loganalyzer
+def test_bgp_router_id_set_without_loopback(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts,
+                                            request, router_id_loopback_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id specified but Loopback IPv4 address not set, BGP could work well and the
     # actual BGP router id should be aligned with CONFIG_DB
     duthost = duthosts[enum_frontend_dut_hostname]
     neighbor_type = request.config.getoption("neighbor_type")
-    verify_bgp(enum_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
+    verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
