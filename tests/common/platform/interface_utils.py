@@ -346,6 +346,22 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     return first_subport_dict
 
 
+def is_first_subport(port, lport_to_first_subport):
+    """
+    @summary: Return True iff ``port`` is the first logical sub-port of its
+        breakout group.  "First sub-port" is a DUT-local notion: among the
+        logical ports that share one physical index, it is the lowest-numbered
+        one.  Pairs with :func:`get_lport_to_first_subport_mapping` (which builds
+        the map this predicate consumes): a port is the first sub-port iff it
+        maps to itself.  A port absent from the map is treated as not-first.
+    @param port: logical interface name (e.g. "Ethernet0").
+    @param lport_to_first_subport: mapping from
+        :func:`get_lport_to_first_subport_mapping`.
+    """
+    first = lport_to_first_subport.get(port)
+    return first is not None and first == port
+
+
 def get_xcvr_presence_data(duthost, asic_index=None):
     """
     @summary: Returns a dictionary of transceiver presence status for each interface.
