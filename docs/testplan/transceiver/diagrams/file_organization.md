@@ -120,7 +120,12 @@ tests/transceiver/
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
-│   └── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
+│   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
+│   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
+│   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
+│   └── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -244,13 +249,13 @@ tests/transceiver/
 │  health_checks.py         │  │  eeprom/conftest.py  — requests links_   │
 │  prerequisites.py         │  │                        verified only     │
 │  verification.py          │  │                        (TC 1-2 own       │
-│                           │  │                        presence/gold_fw) │
-│  state_management.py      │  │  dom/conftest.py     — requests presence,│
-│  db_helpers.py            │  │                        gold_fw, links    │
+│  state_management.py      │  │                        presence/gold_fw) │
+│  db_helpers.py            │  │  dom/conftest.py     — requests presence,│
+│  dmesg_helpers.py         │  │                        gold_fw, links    │
 │  cli_helpers.py           │  │  system/conftest.py  — requests presence,│
-│                           │  │                        gold_fw, links    │
-│                           │  │  cdb_fw/conftest.py  — requests presence,│
-│                           │  │                        links             │
+│  cli_parser_helper.py     │  │                        gold_fw, links    │
+│  cmis_helper.py           │  │  cdb_fw/conftest.py  — requests presence,│
+│  eeprom_decode.py         │  │                        links             │
 └──────────┬────────────────┘  └──────────────────┬───────────────────────┘
            │ uses                                 │ uses
            ▼                                      ▼
