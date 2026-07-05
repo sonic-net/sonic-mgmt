@@ -200,7 +200,8 @@ class PFCStorm(object):
                 dest=self._PFC_GEN_DIR[self.peer_device.os]
                 )
             if self.fanout_asic_type == 'mellanox':
-                cmd = f"docker cp {self._PFC_GEN_DIR[self.peer_device.os]}/{self.pfc_gen_file} syncd:/root/"
+                cmd = "docker cp {}/{} syncd:/root/".format(
+                    self._PFC_GEN_DIR[self.peer_device.os], self.pfc_gen_file)
                 self.peer_device.shell(cmd)
 
     def update_queue_index(self, q_idx):
@@ -464,4 +465,3 @@ class PFCMultiStorm(object):
         """
         for hndle in self.storm_handle:
             self.storm_handle[hndle].stop_storm()
-
