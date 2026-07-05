@@ -2,6 +2,7 @@ import logging
 import re
 import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 'lt2', 'ft2', 'c0'),
@@ -136,22 +137,32 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             minigraph_lldp_nei.append(k)
     logger.info('minigraph_lldp_nei: {}'.format(minigraph_lldp_nei))
 
-    # Check if lldpRemTable is present
     active_intf = []
-    for k, v in list(snmp_facts['snmp_interfaces'].items()):
-        if "lldpRemChassisIdSubtype" in v and \
-           "lldpRemChassisId" in v and \
-           "lldpRemPortIdSubtype" in v and \
-           "lldpRemPortId" in v and \
-           "lldpRemPortDesc" in v and \
-           "lldpRemSysName" in v and \
-           "lldpRemSysDesc" in v and \
-           "lldpRemSysCapSupported" in v and \
-           "lldpRemSysCapEnabled" in v:
-            active_intf.append(k)
+
+    def _lldp_rem_table_ready():
+        nonlocal snmp_facts, active_intf
+        snmp_facts = get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+            module_ignore_errors=True).get('ansible_facts', snmp_facts)
+        active_intf = []
+        for k, v in list(snmp_facts['snmp_interfaces'].items()):
+            if "lldpRemChassisIdSubtype" in v and \
+               "lldpRemChassisId" in v and \
+               "lldpRemPortIdSubtype" in v and \
+               "lldpRemPortId" in v and \
+               "lldpRemPortDesc" in v and \
+               "lldpRemSysName" in v and \
+               "lldpRemSysDesc" in v and \
+               "lldpRemSysCapSupported" in v and \
+               "lldpRemSysCapEnabled" in v:
+                active_intf.append(k)
+        return len(active_intf) >= len(minigraph_lldp_nei) * 0.8
+
+    converged = wait_until(120, 10, 0, _lldp_rem_table_ready)
     logger.info('lldpRemTable: {}'.format(active_intf))
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8, (
+    assert converged, (
         "Number of active interfaces is less than expected. "
         "Expected at least 80% of minigraph LLDP neighbors to be active. "
         "Active interfaces: {} "
