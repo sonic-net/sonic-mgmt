@@ -1005,6 +1005,12 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def set_switch_host_admin_up_config(self, config):
+        """Set switch-host admin_up by default"""
+        ori_config_db = json.loads(config)
+        ori_config_db.setdefault("CHASSIS_MODULE", {}).setdefault("SWITCH-HOST", {})["admin_status"] = "up"
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -1278,6 +1284,10 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
+
+        # set switch-host admin_up by default for BMC
+        if "bmc" in self.topo_name:
+            config = self.set_switch_host_admin_up_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
