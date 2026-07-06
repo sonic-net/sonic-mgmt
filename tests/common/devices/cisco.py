@@ -1010,7 +1010,7 @@ class CiscoHost(AnsibleHostBase):
             elif log_type == "ROLLOVER":
                 return True, "log {} not supported on device {}".format(log_type, self.hostname)
             command = "show logging last {} | include {} | include {}".format(last_count, log_type, interface)
-            output = self.commands(commands=[command])
+            output = self.commands(commands=[command])["stdout"][0]
             if not output.get("failed", False):
                 return len(output["stdout_lines"][0]) > 0, output["stdout"][0]
             return False, str(output)
