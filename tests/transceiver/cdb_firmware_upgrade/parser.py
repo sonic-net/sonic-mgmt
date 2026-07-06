@@ -3,21 +3,20 @@ import json
 import logging
 import os
 
+from tests.transceiver.attribute_parser.paths import REL_ATTR_DIR, iter_vendor_pn_dirs
+
 logger = logging.getLogger(__name__)
 
 CDB_FIRMWARE_UPGRADE_MANIFEST_FILE = "cdb_firmware_upgrade_manifest.json"
 CDB_FIRMWARE_UPGRADE_URL_FILE = "cdb_firmware_upgrade_url.json"
-CDB_FIRMWARE_UPGRADE_ATTRIBUTES_DIR = "attributes/cdb_firmware_upgrade"
+CDB_FIRMWARE_UPGRADE_CATEGORY = "cdb_firmware_upgrade"
 
 
 class TransceiverFirmwareInfoParser:
-    def __init__(self, ansible_path):
-        self.ansible_path = ansible_path
-        self.transceiver_inventory_path = os.path.join(
-            self.ansible_path, "files/transceiver/inventory/"
-        )
+    def __init__(self, repo_root):
+        self.repo_root = repo_root
         self.cdb_firmware_upgrade_path = os.path.join(
-            self.transceiver_inventory_path, CDB_FIRMWARE_UPGRADE_ATTRIBUTES_DIR
+            self.repo_root, REL_ATTR_DIR, CDB_FIRMWARE_UPGRADE_CATEGORY
         )
         self.transceiver_firmware_info = self.parse_all_firmware_manifests()
         if not self.transceiver_firmware_info:
@@ -40,30 +39,16 @@ class TransceiverFirmwareInfoParser:
 
         Returns an empty dict if no manifests are found.
         """
-        vendors_path = os.path.join(
-            self.cdb_firmware_upgrade_path, "transceivers", "vendors"
-        )
         firmware_data = defaultdict(list)
 
-        if not os.path.isdir(vendors_path):
-            logger.error(f"Vendors directory does not exist: {vendors_path}")
-            return {}
-
-        for vendor_name in os.listdir(vendors_path):
-            pn_path = os.path.join(vendors_path, vendor_name, "part_numbers")
-            if not os.path.isdir(pn_path):
+        for vendor_name, vendor_pn, pn_dir in iter_vendor_pn_dirs(self.cdb_firmware_upgrade_path):
+            manifest_file = os.path.join(pn_dir, CDB_FIRMWARE_UPGRADE_MANIFEST_FILE)
+            if not os.path.isfile(manifest_file):
                 continue
 
-            for vendor_pn in os.listdir(pn_path):
-                manifest_file = os.path.join(
-                    pn_path, vendor_pn, CDB_FIRMWARE_UPGRADE_MANIFEST_FILE
-                )
-                if not os.path.isfile(manifest_file):
-                    continue
-
-                fw_versions = self.parse_single_manifest(manifest_file, vendor_name, vendor_pn)
-                if fw_versions:
-                    firmware_data[(vendor_name, vendor_pn)] = fw_versions
+            fw_versions = self.parse_single_manifest(manifest_file, vendor_name, vendor_pn)
+            if fw_versions:
+                firmware_data[(vendor_name, vendor_pn)] = fw_versions
 
         return dict(firmware_data)
 
