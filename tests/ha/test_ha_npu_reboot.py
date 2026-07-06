@@ -194,7 +194,7 @@ def test_ha_npu_reboot(
     logger.info(f"Rebooted DUT {dut.hostname} T2 local IPs: {rebooted_dut_t2_local_ips}")
     pt_require(
         rebooted_dut_t2_local_ips,
-        f"No IPv4 T2 BGP local peer addresses on {dut.hostname}; "
+        f"No IPv4 T2 BGP local peer addresses on {dut.hostname}, "
         "skipping VIP-withdrawal verification (topology has no T2 IPv4 BGP peers).",
     )
 
