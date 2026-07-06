@@ -299,19 +299,35 @@ def test_dut_arping_learns_mac(
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
 
-    # Setup PTF responder info
-    vlan_name, ipv4_base, _, ip_offset = setup_vlan_arp_responder
-    ptf_responder_ip = str(ipv4_base.ip + ip_offset)
-    logger.info("PTF responder IP (setup_vlan_arp_responder): {}".format(ptf_responder_ip))
+    # Setup PTF responder info.
+    #
+    # setup_vlan_arp_responder configures the ARP responder for *every* VLAN
+    # member, giving each PTF port eth{idx} its own responder IP
+    # (ipv4_base.ip + idx + 1), and yields the offset of the *last* member it
+    # iterated. Using that yielded offset makes the DUT arping an IP answered by
+    # the last VLAN member's port, whose MAC is NOT ptf_info['mac'] (which is the
+    # MAC of this test's ptf_interface_info port). The assertion then only passes
+    # when the target port's MAC happens to already be in the FDB (leftover from a
+    # prior test case or relearned by background traffic within the window),
+    # which makes the test flaky.
+    #
+    # Arp the responder IP that belongs to the SAME port whose MAC we assert, so
+    # the ARP reply carries ptf_info['mac'] and the stimulus deterministically
+    # satisfies the check.
+    vlan_name, ipv4_base, _, _ = setup_vlan_arp_responder
+    ptf_responder_ip = str(ipv4_base.ip + ptf_info['index'] + 1)
+    logger.info("PTF port eth{} responder IP: {} (MAC {})".format(
+        ptf_info['index'], ptf_responder_ip, ptf_info['mac']))
     logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
 
-    # Simulate arping from DUT to PTF interface
+    # Simulate arping from DUT to the PTF port under test
     dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
 
     # Confirm MAC is learned on DUT FDB
     pt_assert(
         wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
-        "FDB did not learn PTF MAC after DUT arping"
+        "FDB did not learn PTF MAC {} after DUT arping {}".format(
+            ptf_info['mac'], ptf_responder_ip)
     )
 
 
