@@ -458,6 +458,18 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+bgp/test_bgp_link_local.py::test_bgp_link_local[ethernet]:
+  skip:
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
+bgp/test_bgp_link_local.py::test_bgp_link_local[portchannel]:
+  skip:
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
 bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
@@ -505,10 +517,6 @@ bgp/test_bgp_route_neigh_learning.py::test_bgp_neighbor_route_learnning:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19915 and '-v6-' in topo_name"
 
 bgp/test_bgp_router_id.py:
-  skip:
-    reason: "Not supported on multi-asic"
-    conditions:
-      - "is_multi_asic==True"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -738,6 +746,12 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
     conditions:
       - "not is_multi_asic"
+
+cacl/test_cacl_function.py:
+  xfail:
+    reason: "BMC test does not have sufficient delay for hold for extra 40s. Timeout 210s, and the script sleeps for 250s"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25759 and topo_type in ['bmc']"
 
 cacl/test_ebtables_application.py:
   skip:
