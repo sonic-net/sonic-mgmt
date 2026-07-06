@@ -179,8 +179,10 @@ def _resolve_flavor_components(component, defined_fw, chassis, duthost):
     """Resolve any flavor-dict entries (e.g. BMC) into revision lists."""
     for comp, revs in list(component.items()):
         if comp == "BMC" and isinstance(revs, dict):
-            bmc_ip = get_bmc_ip(duthost)
-            bmc_user, bmc_password = load_bmc_creds()
+            bmc_ip = bmc_user = bmc_password = None
+            if len(revs) > 1:
+                bmc_ip = get_bmc_ip(duthost)
+                bmc_user, bmc_password = load_bmc_creds()
             flavor = resolve_bmc_flavor(defined_fw, chassis, duthost, bmc_ip,
                                         bmc_user, bmc_password)
             component[comp] = revs.get(flavor, [])
