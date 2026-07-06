@@ -26,7 +26,7 @@ from ha_dash_flow_utils import compare_flow_tables
 from tests.common.reboot import reboot_smartswitch, wait_for_startup
 from tests.ha.conftest import get_interface_ip
 from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
-from ha_bgp_utils import get_dut_t2_local_addrs, is_vip_withdrawn_from_t2_vm
+from tests.ha.ha_bgp_utils import get_dut_t2_local_addrs, is_vip_withdrawn_from_t2_vm
 from ha_utils import parallel_config_reload_dpuhosts
 
 
@@ -192,6 +192,11 @@ def test_ha_npu_reboot(
     # rebooted DUT being reachable.
     rebooted_dut_t2_local_ips = get_dut_t2_local_addrs(dut)
     logger.info(f"Rebooted DUT {dut.hostname} T2 local IPs: {rebooted_dut_t2_local_ips}")
+    pt_require(
+        rebooted_dut_t2_local_ips,
+        f"No IPv4 T2 BGP local peer addresses on {dut.hostname}; "
+        "skipping VIP-withdrawal verification (topology has no T2 IPv4 BGP peers).",
+    )
 
     def npu_ha_action():
         # wait for a number of packets to be sent, then simulate failure

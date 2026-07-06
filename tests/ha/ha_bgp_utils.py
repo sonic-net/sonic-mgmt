@@ -78,19 +78,23 @@ def _vip_path_peer_ids_on_vm(host, vip_prefix):
     """Return the set of BGP peer IPs from which a neighbor VM has received `vip_prefix`.
 
     Dispatches on host type (Arista cEOS vs vsonic/FRR). Empty set means the
-    prefix isn't in the VM's BGP RIB at all, or the query failed.
+    prefix isn't in the VM's BGP RIB; ``None`` means the query failed.
     """
     peer_ids = set()
     try:
         if isinstance(host, EosHost):
             cmd = "show ip bgp {} | json".format(vip_prefix)
             out = host.eos_command(commands=[cmd], module_ignore_errors=True)
+            if out.get("failed"):
+                return None
             stdouts = out.get("stdout", [])
             if not stdouts:
-                return peer_ids
+                return None
             data = stdouts[0]
             if isinstance(data, str):
                 data = json.loads(data)
+            if not isinstance(data, dict):
+                return None
             for vrf in data.get("vrfs", {}).values():
                 for entry in vrf.get("bgpRouteEntries", {}).values():
                     for path in entry.get("bgpRoutePaths", []):
@@ -101,24 +105,29 @@ def _vip_path_peer_ids_on_vm(host, vip_prefix):
             cmd = 'vtysh -c "show ip bgp {} json"'.format(vip_prefix)
             res = host.shell(cmd, module_ignore_errors=True)
             if res.get("failed"):
-                return peer_ids
+                return None
             try:
                 data = json.loads(res.get("stdout", ""))
             except ValueError:
-                return peer_ids
+                return None
+            if not isinstance(data, dict):
+                return None
             for path in data.get("paths", []):
                 peer = path.get("peerId")
                 if peer:
                     peer_ids.add(peer)
     except Exception as e:
-        logger.info("BGP query on %s failed: %s",
-                    getattr(host, "hostname", host), e)
+        logger.warning("BGP query on %s failed: %s",
+                       getattr(host, "hostname", host), e)
+        return None
     return peer_ids
 
 
 def is_vip_withdrawn_from_t2_vm(nbrhosts, rebooted_dut_t2_local_ips, vip):
-    """Return True iff no T2 neighbor VM still has `vip`/32 received from any
-    of the rebooted DUT's local BGP IPs.
+    """Return True iff every T2 neighbor VM we could query no longer has
+    `vip`/32 received from any of the rebooted DUT's local BGP IPs. Fails
+    closed (returns False) if `rebooted_dut_t2_local_ips` is empty or no T2
+    VM could be queried successfully.
 
     Args:
         nbrhosts: pytest nbrhosts dict (vm_name -> {"host": ..., ...}).
@@ -127,13 +136,14 @@ def is_vip_withdrawn_from_t2_vm(nbrhosts, rebooted_dut_t2_local_ips, vip):
             BEFORE reboot via get_dut_t2_local_addrs()).
         vip: VIP address (no prefix length).
     """
-    vip_prefix = "{}/32".format(vip)
     rebooted_ips = set(rebooted_dut_t2_local_ips)
     if not rebooted_ips:
-        logger.warning("No rebooted-DUT T2 local IPs provided; nothing to check")
-        return True
+        logger.warning("No rebooted-DUT T2 local IPs provided.")
+        return False
 
+    vip_prefix = "{}/32".format(vip)
     saw_via_rebooted = False
+    queried_any = False
     for vm_name, info in nbrhosts.items():
         if "T2" not in vm_name:
             continue
@@ -142,6 +152,11 @@ def is_vip_withdrawn_from_t2_vm(nbrhosts, rebooted_dut_t2_local_ips, vip):
             continue
 
         peer_ids = _vip_path_peer_ids_on_vm(host, vip_prefix)
+        if peer_ids is None:
+            logger.warning("BGP query on T2 VM %s failed; skipping", vm_name)
+            continue
+
+        queried_any = True
         overlap = peer_ids & rebooted_ips
         if overlap:
             logger.info("VM %s still has VIP %s received from rebooted-DUT IP(s) %s",
@@ -151,6 +166,10 @@ def is_vip_withdrawn_from_t2_vm(nbrhosts, rebooted_dut_t2_local_ips, vip):
             other = peer_ids - rebooted_ips
             logger.info("VM %s: VIP %s no longer received from rebooted-DUT IPs "
                         "(other sources=%s)", vm_name, vip_prefix, sorted(other))
+
+    if not queried_any:
+        logger.warning("No T2 neighbor VM could be queried successfully.")
+        return False
 
     return not saw_via_rebooted
 
