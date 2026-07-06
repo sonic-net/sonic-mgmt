@@ -126,7 +126,7 @@ class DHCPTest(DataplaneBaseTest):
         self.relay_link_local = self.test_params['relay_link_local']
         self.relay_linkaddr = '::'
         self.vlan_ip = self.test_params['vlan_ip']
-        self.downstream_relay_ip = self.test_params['downstream_relay_ip']
+        self.downstream_relay_ip = self.test_params.get('downstream_relay_ip')
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
         self.loopback_ipv6 = self.test_params['loopback_ipv6']
@@ -461,6 +461,9 @@ class DHCPTest(DataplaneBaseTest):
         # also assume first-hop downstream VLANs, which is fundamentally incompatible
         # with making the DUT a second-or-later relay; this only models GUA return.
         # This is a hypothetical test; there is no current SONiC topology where
-        # we use the DUT this way.
-        self.server_send_relay_relay_reply()
-        self.verify_relay_relay_reply()
+        # we use the DUT this way. Only the dedicated relay-to-relay test provides
+        # downstream_relay_ip (and the PTF responder/route it needs), so run this
+        # nested path only when it is set; the plain first-hop DHCPv6 relay tests skip it.
+        if self.downstream_relay_ip:
+            self.server_send_relay_relay_reply()
+            self.verify_relay_relay_reply()
