@@ -172,7 +172,7 @@ def setup_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pairs,
     ping_commands = []
     for ip, dut_intf, ptf_index in ip_intf_pairs:
         ip_addr = ip_interface(str(ip)).ip
-        arp_responder_conf["eth{}".format(ptf_index)] = [str(ip_addr)]
+        arp_responder_conf.setdefault("eth{}".format(ptf_index), []).append(str(ip_addr))
         ping = "ping6" if ip_addr.version == 6 else "ping"
         ping_commands.append("{} -c 1 -w 1 -I {} {}".format(ping, dut_intf, ip_addr))
 
