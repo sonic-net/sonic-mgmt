@@ -449,7 +449,15 @@ class MemoryMonitor:
             )
 
         asic_type = self.ansible_host.facts['asic_type']
-        if asic_type == "vs" or (asic_type == "vpp" and name == "free"):
+        # The virtual switch (vs/vpp on the kvm platform) does not model real-hardware
+        # memory behavior. On vpp in particular, a `config reload` restarts the vpp
+        # dataplane and its containers, which produces large, non-deterministic swings in
+        # overall/system memory (as reported by `free` and `monit`). These are not real
+        # leaks, so downgrade the overall memory-usage alarms from these sources to
+        # warnings on the virtual switch instead of failing the test. Per-daemon checks
+        # (e.g. frr) are still enforced. See sonic-net/sonic-mgmt#25765.
+        vs_exempt_sources = ("free", "monit")
+        if asic_type == "vs" or (asic_type == "vpp" and name in vs_exempt_sources):
             logger.warning(message)
         else:
             logger.error(message)
