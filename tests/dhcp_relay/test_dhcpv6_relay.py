@@ -268,7 +268,7 @@ def ensure_client_reachability(duthost, vlan_name):
     logger.info(f"Ensuring client reachability on VLAN {vlan_name}")
 
     # Send multicast ping to discover all link-local addresses on the segment
-    duthost.shell(f"ping6 -I {vlan_name} -c 3 ff02::1", module_ignore_errors=True)
+    duthost.shell("ping6 -I {} -c 3 ff02::1".format(vlan_name), module_ignore_errors=True)
 
     # Wait a moment for ND table to be populated
     time.sleep(2)
