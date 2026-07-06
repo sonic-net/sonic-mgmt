@@ -11,7 +11,7 @@ ans_host = None
 
 @pytest.fixture(scope="module")
 def limited_ports(request):
-    return request.config.getoption('--limited_sfp_ports')
+    return request.config.getoption('--limited_ports')
 
 
 def teardown_module():
