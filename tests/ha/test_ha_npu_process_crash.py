@@ -462,6 +462,8 @@ class TestNpuProcessCrash:
         standby_vdpu_key,
         ha_owner
     ):
+        if process_name == "bgpd" and ha_owner != "dpu":
+            pytest.skip("BGP process crash is only tested when HA owner is 'dpu'")
         self._run(
             process_name=process_name, container=container,
             crash_duthost=primary_dut,
@@ -486,6 +488,8 @@ class TestNpuProcessCrash:
         activate_dash_ha_from_json,
         ha_owner
     ):
+        if process_name == "bgpd" and ha_owner != "dpu":
+            pytest.skip("BGP process crash is only tested when HA owner is 'dpu'")
         self._run(
             process_name=process_name, container=container,
             crash_duthost=primary_dut,
@@ -510,6 +514,8 @@ class TestNpuProcessCrash:
         activate_dash_ha_from_json,
         ha_owner
     ):
+        if process_name == "bgpd" and ha_owner != "dpu":
+            pytest.skip("BGP process crash is only tested when HA owner is 'dpu'")
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
@@ -534,6 +540,8 @@ class TestNpuProcessCrash:
         activate_dash_ha_from_json,
         ha_owner
     ):
+        if process_name == "bgpd" and ha_owner != "dpu":
+            pytest.skip("BGP process crash is only tested when HA owner is 'dpu'")
         self._run(
             process_name=process_name, container=container,
             crash_duthost=standby_dut,
