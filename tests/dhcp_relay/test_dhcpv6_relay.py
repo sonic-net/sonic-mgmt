@@ -40,6 +40,9 @@ logger = logging.getLogger(__name__)
 
 
 DHCPV6_RELAY_ARP_RESPONDER_CONF = "/tmp/dhcpv6_downstream_relay_arp_responder.json"
+# Arbitrary GUA outside the DUT VLAN prefix, used to simulate the downstream relay
+# agent (Relay A) that the RFC 8415 relay-to-relay return path forwards to.
+DOWNSTREAM_RELAY_IP = "fc02:ffff::1"
 
 
 def wait_all_bgp_up(duthost):
@@ -304,6 +307,22 @@ def get_dhcptest_expected_counters(dhcp_server_num):
     return expected_downlink, expected_uplink
 
 
+def setup_downstream_relay_responder(duthost, ptfhost, downlink_vlan, client_ptf_index):
+    """Configure PTF's ndp responder + host route for the simulated downstream relay
+    agent (Relay A, DOWNSTREAM_RELAY_IP). Its GUA is outside the DUT VLAN prefix, so a
+    host route is installed and PTF answers NDP for it, letting DUT Relay B forward the
+    RFC 8415 nested Relay-Reply back to it. Returns the responder pairs for teardown."""
+    downstream_relay_responder = [(DOWNSTREAM_RELAY_IP, downlink_vlan, client_ptf_index)]
+    setup_ptf_ip_responder(
+        duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF, downstream_relay_responder, route=True)
+    return downstream_relay_responder
+
+
+def teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder):
+    teardown_ptf_ip_responder(
+        duthost, ptfhost, DHCPV6_RELAY_ARP_RESPONDER_CONF, downstream_relay_responder, route=True)
+
+
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
     # Add vlan without dhcpv6_server, which should not be bound
     new_vlan_id = setup_and_teardown_no_servers_vlan
@@ -517,7 +536,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
 
             # Relay A's GUA is arbitrary and outside the DUT VLAN prefix; the
             # responder helper must install a route so DUT Relay B can resolve it.
-            downstream_relay_ip = "fc02:ffff::1"
+            downstream_relay_ip = DOWNSTREAM_RELAY_IP
             downlink_vlan = dhcp_relay['downlink_vlan_iface']['name']
             downstream_relay_responder = [
                 (downstream_relay_ip, downlink_vlan, dhcp_relay['client_iface']['port_idx'])]
@@ -591,6 +610,9 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
             time.sleep(5)  # wait for dhcpmon to initialize
             init_dhcpmon_counters(duthost, is_v6=True)
 
+            downstream_relay_responder = setup_downstream_relay_responder(
+                duthost, ptfhost, dhcp_relay['downlink_vlan_iface']['name'],
+                dhcp_relay['client_iface']['port_idx'])
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -607,8 +629,10 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
                                "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                               "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
                                "is_dualtor": str(dhcp_relay['is_dualtor'])},
                        log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+            teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
 
             expected_downlink_counter, expected_uplink_counter = \
                 get_dhcptest_expected_counters(dhcp_server_num)
@@ -664,6 +688,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
             time.sleep(5)  # wait for dhcpmon to initialize
             init_dhcpmon_counters(duthost, is_v6=True)
 
+            downstream_relay_responder = setup_downstream_relay_responder(
+                duthost, ptfhost, dhcp_relay['downlink_vlan_iface']['name'],
+                dhcp_relay['client_iface']['port_idx'])
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -680,8 +707,10 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                                "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                               "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
                                "is_dualtor": str(dhcp_relay['is_dualtor'])},
                        log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+            teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
 
             expected_downlink_counter, expected_uplink_counter = \
                 get_dhcptest_expected_counters(dhcp_server_num)
@@ -736,6 +765,8 @@ class TestDhcpv6RelayWithMultipleVlan:
             time.sleep(5)  # wait for dhcpmon to initialize
             init_dhcpmon_counters(duthost, is_v6=True)
 
+            downstream_relay_responder = setup_downstream_relay_responder(
+                duthost, ptfhost, vlan_name, ptf_port_index)
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -754,8 +785,10 @@ class TestDhcpv6RelayWithMultipleVlan:
                                "vlan_ip": str(exp_link_addr),
                                "uplink_mac": str(common_dhcp_relay_data['uplink_mac']),
                                "loopback_ipv6": str(common_dhcp_relay_data['loopback_ipv6']),
+                               "downstream_relay_ip": DOWNSTREAM_RELAY_IP,
                                "is_dualtor": str(common_dhcp_relay_data['is_dualtor'])},
                        log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+            teardown_downstream_relay_responder(duthost, ptfhost, downstream_relay_responder)
 
             time.sleep(36)  # dhcpmon: health check every 18s, DB write every 20s
             # Build a relay data dict for this dynamic VLAN to pass to validate_dhcpmon_counters
