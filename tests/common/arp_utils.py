@@ -1,6 +1,7 @@
 import json
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import get_ptf_eth_ports_from_minigraph_interfaces
 from tests.ptf_runner import ptf_runner
 
 # Globals
@@ -28,10 +29,15 @@ def __prepareVxlanConfigData(duthost, ptfhost, tbinfo):
         'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
         'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
         'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+        'minigraph_interfaces': mgFacts['minigraph_interfaces'],
         'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
         'vlan_facts': vlan_facts,
         'dut_mac': duthost.facts['router_mac']
     }
+    if not vxlanConfigData.get('minigraph_portchannels'):
+        vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+            vxlanConfigData['minigraph_interfaces'],
+            vxlanConfigData['minigraph_port_indices'])
     with open(VXLAN_CONFIG_FILE, 'w') as file:
         file.write(json.dumps(vxlanConfigData, indent=4))
 
