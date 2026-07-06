@@ -101,7 +101,8 @@ def send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku, priority,
     @param peerdev_ans: Fanout host ansible handle
     @param peer_port_name: Linux interface name on the fanout switch
     @param fanout_hwsku: Fanout switch HwSku (used to detect MLNX-OS/Onyx)
-    @param priority: PFC priority (0-7); encoded as a class-enable bitmap
+    @param priority: PFC priority index (0-7). Pass the index, not a bitmap; it
+                     is converted to a class-enable bitmap internally via 2 ** priority.
     @param pause_time: Pause time quanta (0-65535); 0 means unpause
     @param pkt_count: Number of frames to generate
     """
@@ -319,11 +320,12 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
     @param margin: Allowed RX_OK/RX_DRP increase per interface
     @param pause_time: Pause time quanta (0-65535) in the frame
     """
-    setup_testbed(fanouthosts, duthost, leaf_fanouts)
-    asic = duthost.asic_instance()
     asic_type = duthost.facts["asic_type"]
     if asic_type == 'vs':
         pytest.skip("PFC RX_OK isolation test is not applicable to the VS platform")
+
+    setup_testbed(fanouthosts, duthost, leaf_fanouts)
+    asic = duthost.asic_instance()
 
     conn_facts = conn_graph_facts['device_conn'].get(duthost.hostname, {})
     int_status = asic.show_interface(command="status")['ansible_facts']['int_status']
@@ -338,6 +340,7 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
     baseline = get_rx_port_counters(duthost)
 
     """ Send all PFC frames first, across all priorities and all ports """
+    tested_intfs = []
     for intf in active_phy_intfs:
         peer_device = conn_facts[intf]['peerdevice']
         peer_port = conn_facts[intf]['peerport']
@@ -351,6 +354,14 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
         for priority in range(PRIO_COUNT):
             send_pfc_frame(peerdev_ans, peer_port_name, fanout_hwsku,
                            priority, pause_time, pkt_count)
+        tested_intfs.append(intf)
+
+    """ Guard against an empty run masquerading as a pass """
+    assert len(tested_intfs) > 0, (
+        "No active physical interfaces with a reachable fanout were exercised, so "
+        "PFC RX counter isolation could not be validated. Check the testbed "
+        "topology and fanout connectivity."
+    )
 
     """ SONiC takes some time to update counters in database """
     time.sleep(5)
@@ -358,9 +369,14 @@ def run_rx_ok_isolation_test(fanouthosts, duthost, conn_graph_facts,       # noq
     """ Validate RX counters in one single retrieval swoop """
     after = get_rx_port_counters(duthost)
 
+    """ Validate every active interface, not only the ones we sent frames to """
     failures = []
     for intf in active_phy_intfs:
         if intf not in baseline or intf not in after:
+            logger.warning(
+                "Interface %s missing from the %s counter snapshot; skipping its "
+                "RX_OK/RX_DRP validation", intf,
+                "baseline" if intf not in baseline else "post-send")
             continue
         rx_ok_delta = after[intf]['RX_OK'] - baseline[intf]['RX_OK']
         rx_drp_delta = after[intf]['RX_DRP'] - baseline[intf]['RX_DRP']
