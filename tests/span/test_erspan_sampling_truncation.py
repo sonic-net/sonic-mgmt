@@ -485,13 +485,13 @@ def test_erspan_sampling_tx_with_truncation(
         ptfadapter,
         erspan_session):
     '''
-    Verify TX (egress) sampling and truncation together: same flooding setup as
-    test_erspan_sampling_tx_direction but with truncate_size and 1500B frames.
-    Mirrored count within [950, 1050] AND each frame truncated to
-    ~ENCAP_OVERHEAD + truncate_size.
+    Verify TX (egress) sampling with truncation: mirrored count within
+    [950, 1050] and each frame truncated to ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=tx; inject
-    NUM_SAMPLES x 256 1500B broadcast frames on the peer port; assert count and length.
+    NUM_SAMPLES x 256 1500B unicast frames (dst PROBE_UNICAST_DST_MAC) on the
+    tx_ingress peer port so the DUT forwards them out the source port (egress);
+    assert count and per-frame truncated length.
     '''
     sample_rate = erspan_session['sample_rate']
     truncate_size = erspan_session['truncate_size']
@@ -526,7 +526,8 @@ def test_erspan_sampling_both_direction(
     configured 1:N ratio on each leg, proving both bindings are active.
 
     RX leg: inject on the source port       -> ingress mirror.
-    TX leg: inject broadcast on a peer port -> floods out the source port -> egress mirror.
+    TX leg: inject unicast on the tx_ingress peer port
+            -> DUT forwards out the source port -> egress mirror.
     Pass: each leg's mirrored count within [950, 1050] (NUM_SAMPLES +-5%).
 
     Steps: configure sample_rate=N, direction=both; run the RX leg then the TX leg;

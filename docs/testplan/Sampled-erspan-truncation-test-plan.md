@@ -2,36 +2,39 @@
 
 ## Rev 0.1
 
-- [Revision](#revision)
-- [Definition/Abbrevation](#definitionabbrevation)
-- [Overview](#overview)
-  - [Scope](#scope)
-  - [Testbed](#testbed)
-- [Setup configuration](#setup-configuration)
-- [Test cases](#test-cases)
-  - [Capability discovery](#capability-discovery)
-  - [Configuration and CLI validation](#configuration-and-cli-validation)
-  - [Show CLI](#show-cli)
-  - [Dataplane: truncation](#dataplane-truncation)
-  - [Dataplane: sampling](#dataplane-sampling)
-  - [Dataplane: combined sampling and truncation](#dataplane-combined-sampling-and-truncation)
-  - [Dataplane: direction (RX / TX / BOTH)](#dataplane-direction-rx--tx--both)
-  - [Session lifecycle](#session-lifecycle)
-  - [Backward compatibility](#backward-compatibility)
+**Table of Contents**
 
-## Revision
+- [1 Revision](#1-revision)
+- [2 Definition/Abbreviation](#2-definitionabbreviation)
+- [3 Overview](#3-overview)
+- [4 Scope](#4-scope)
+- [5 Testbed](#5-testbed)
+- [6 Setup configuration](#6-setup-configuration)
+  - [6.1 Port roles (erspan_ports fixture)](#61-port-roles-erspan_ports-fixture)
+  - [6.2 Setup of DUT switch](#62-setup-of-dut-switch)
+  - [6.3 Unicast probe delivery](#63-unicast-probe-delivery)
+  - [6.4 Dataplane collection methodology](#64-dataplane-collection-methodology)
+- [7 Test cases](#7-test-cases)
+  - [7.1 Capability discovery](#71-capability-discovery)
+  - [7.2 Configuration and CLI validation](#72-configuration-and-cli-validation)
+  - [7.3 Show CLI](#73-show-cli)
+  - [7.4 Dataplane validation](#74-dataplane-validation)
+  - [7.5 Session lifecycle](#75-session-lifecycle)
+  - [7.6 Backward compatibility](#76-backward-compatibility)
+
+## 1 Revision
 
 | Rev |     Date    |       Author            |     Change Description                                   |
 |:---:|:-----------:|:------------------------|:--------------------------------------------------------|
 | 0.1 |  05/21/2026 | Janet Cui               | Initial version                                         |
 
-## Definition/Abbrevation
+## 2 Definition/Abbreviation
 
 | **Term**       | **Meaning**                                              |
 |----------------|----------------------------------------------------------|
 | ERSPAN         | Encapsulated Remote SPAN (GRE-encapsulated mirroring)    |
 
-## Overview
+## 3 Overview
 
 The purpose is to test the new sampled ERSPAN with truncation feature on a SONiC switch DUT.
 Two new optional parameters were added to the ERSPAN mirror session: **sample_rate** (1:N sampling)
@@ -39,7 +42,7 @@ and **truncate_size** (per-packet byte truncation). Sampling is supported in the
 **both** mirror directions. This test plan validates capability discovery, CLI/CONFIG_DB plumbing,
 and end-to-end dataplane behavior.
 
-## Scope
+## 4 Scope
 
 The test targets a running SONiC with a fully functioning configuration. It verifies that the DUT correctly:
 - Advertises sampling and truncation capabilities via STATE_DB.
@@ -49,7 +52,7 @@ The test targets a running SONiC with a fully functioning configuration. It veri
 - Mirrors only 1 of every N packets when sampling is configured, in the rx, tx, and both directions.
 - Truncates each mirrored packet to the configured byte budget, including combined with sampling.
 
-## Testbed
+## 5 Testbed
 
 Supported topologies: `t0`.
 
@@ -68,10 +71,10 @@ Capability gating (skips are implemented as fixtures in `conftest.py`):
 - `skip_if_no_tx_ingress` - skips TX/BOTH dataplane tests when the testbed VLAN does not have a
   spare peer member port to inject the TX probe traffic.
 
-## Setup configuration
+## 6 Setup configuration
 Each test (or fixture) creates an ERSPAN session with the specific parameters under test and cleans it up on teardown.
 
-### Port roles (erspan_ports fixture)
+### 6.1 Port roles (erspan_ports fixture)
 
 The dataplane tests pick three VLAN member ports:
 - **source** - the mirror source port; the session is bound to it and its traffic is mirrored.
@@ -82,7 +85,7 @@ The dataplane tests pick three VLAN member ports:
   triggering the egress mirror without flooding the VLAN.
   `None` when no spare member exists, in which case TX/BOTH tests skip.
 
-### Setup of DUT switch
+### 6.2 Setup of DUT switch
 
 Each test uses fixtures (defined in `conftest.py`):
 - `erspan_capabilities` - reads STATE_DB SWITCH_CAPABILITY once per module.
@@ -106,7 +109,7 @@ On teardown:
 sudo config mirror_session remove <name>
 ```
 
-### Unicast probe delivery
+### 6.3 Unicast probe delivery
 
 To keep the amount of probe traffic on the fabric bounded and deterministic, probe frames are sent
 as unicast to a synthetic destination MAC (`PROBE_UNICAST_DST_MAC`) that the `erspan_session`
@@ -122,7 +125,7 @@ The single static FDB entry serves both directions:
 The entry is programmed via `swssconfig` (a static `FDB_TABLE` entry in Vlan`<id>`) at session
 setup and removed at teardown.
 
-### Dataplane collection methodology
+### 6.4 Dataplane collection methodology
 
 Mirrored GRE packets are captured on the collector (gre_egress) port and identified by a 3-tuple
 match on the outer headers - `outer IP.src == session.src_ip`, `outer IP.dst == session.dst_ip`,
@@ -132,107 +135,61 @@ ERSPAN II/III header bytes between GRE and the inner frame).
 
 Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 1000` and `N = sample_rate`) so
 the expected mirrored count is `~NUM_SAMPLES = 1000` regardless of `N`, and assert the observed count
-is within `[950, 1050]` (`NUM_SAMPLES +- 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
+is within `[950, 1050]` (`NUM_SAMPLES ± 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
 
-## Test cases
+## 7 Test cases
 
-### Capability discovery
+### 7.1 Capability discovery
 
-#### Test case test_switch_capability_reported_boolean
-**Objective:** Verify STATE_DB advertises each mirror capability key defined in the HLD with a
-valid boolean value.
+Reads `STATE_DB SWITCH_CAPABILITY|switch` and checks each advertised mirror capability key.
 
-**Parametrized keys:** `PORT_INGRESS_MIRROR_CAPABLE`, `PORT_EGRESS_MIRROR_CAPABLE`,
-`PORT_INGRESS_SAMPLE_MIRROR_CAPABLE`, `PORT_EGRESS_SAMPLE_MIRROR_CAPABLE`,
-`SAMPLEPACKET_TRUNCATION_CAPABLE`.
+| Test case | Objective | Parametrization | Pass criteria |
+|-----------|-----------|-----------------|---------------|
+| `test_switch_capability_reported_boolean` | Verify STATE_DB advertises each mirror capability key defined in the HLD with a valid boolean value. | Keys: `PORT_INGRESS_MIRROR_CAPABLE`, `PORT_EGRESS_MIRROR_CAPABLE`, `PORT_INGRESS_SAMPLE_MIRROR_CAPABLE`, `PORT_EGRESS_SAMPLE_MIRROR_CAPABLE`, `SAMPLEPACKET_TRUNCATION_CAPABLE`. | Each capability key exists with a valid boolean value (`true`/`false`). |
 
-**Steps:**
-- Read `STATE_DB SWITCH_CAPABILITY|switch`.
-- For each key, assert it exists and its value is `true` or `false`.
+### 7.2 Configuration and CLI validation
 
-**Pass criteria:** Each capability key exists with a valid boolean value.
+All cases run `config mirror_session erspan add ... <src_port> <direction> [--sample_rate N] [--truncate_size B]`
+and then inspect `CONFIG_DB MIRROR_SESSION|<name>`.
 
-### Configuration and CLI validation
+| Test case | Objective | Parametrization | Pass criteria |
+|-----------|-----------|-----------------|---------------|
+| `test_create_erspan_session_config_fields` | Valid `sample_rate` and/or `truncate_size` are accepted and written to CONFIG_DB together with an explicit direction. | `create_kwargs`: `sample_rate` only / `truncate_size` only / both; each x direction `rx`/`tx`/`both`. A direction is skipped when the matching per-direction capability is absent; `truncate_size` cases are skipped when truncation is unsupported. | CLI exits 0; each configured field plus `direction` is present in CONFIG_DB with the expected value. |
+| `test_remove_erspan_session_with_sampling` | Session removal cleans up a sampling-enabled session completely. | direction `rx`/`tx`/`both`; created with `--sample_rate 256`. | `MIRROR_SESSION\|<name>` no longer exists in CONFIG_DB (redis `exists` == 0). |
+| `test_invalid_sample_rate_rejected` | Out-of-range `sample_rate` is rejected at the CLI layer. | `1` (below the valid minimum). | CLI exits non-zero; no entry written to CONFIG_DB. |
+| `test_invalid_truncate_size_rejected` | Out-of-range `truncate_size` is rejected at the CLI layer. | `32`, `63`, `9217`. | CLI exits non-zero; no entry written to CONFIG_DB. |
+| `test_sample_rate_zero_disables_sampling` | `--sample_rate 0` is accepted and semantically equivalent to omitting the flag (no sampling). | - | CLI exits 0; `sample_rate` is not written to CONFIG_DB (redis hget returns empty). |
+| `test_truncate_size_zero_disables_truncation` | `--truncate_size 0` is accepted and semantically equivalent to omitting the flag. | - | CLI exits 0; `truncate_size` is not written to CONFIG_DB. |
+| `test_erspan_sampling_config_high_rate` | A high sample rate (`1:50000`) is accepted and stored. Config-only - dataplane verification at this rate would need millions of packets. | `1:50000` | CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`. |
 
-#### Test case test_create_erspan_session_config_fields
-**Objective:** Valid `sample_rate` and/or `truncate_size` are accepted and written to CONFIG_DB
-together with an explicit mirror direction.
+### 7.3 Show CLI
 
-**Parametrized cases (`create_kwargs`):** `sample_rate` only, `truncate_size` only, and both
-together. Each case is additionally parametrized over direction `rx`/`tx`/`both`. A direction is
-skipped when the platform does not advertise the matching per-direction sampling capability
-(ingress for `rx`, egress for `tx`, both for `both`), and the `truncate_size` cases are skipped
-when truncation is unsupported.
+All cases create a session, run `show mirror_session`, and inspect the session's row.
 
-**Steps:**
-- Run `config mirror_session erspan add ... <src_port> <direction> [--sample_rate N] [--truncate_size B]`.
-- Read `CONFIG_DB MIRROR_SESSION|<name>`.
+| Test case | Objective | Parametrization | Pass criteria |
+|-----------|-----------|-----------------|---------------|
+| `test_show_mirror_session_displays_new_columns` | `show mirror_session` displays the configured sampling and truncation values. Requires both sampling and truncation support (skipped otherwise). | direction `rx`/`tx`/`both`; session created with `--sample_rate 512 --truncate_size 128`. | Exactly one row exists for the session, and its fields list `512` and `128` as whole tokens. |
 
-**Pass criteria:** CLI exits 0; each configured field plus `direction` (uppercase) is present in
-CONFIG_DB with the expected value.
+### 7.4 Dataplane validation
 
-#### Test case test_remove_erspan_session_with_sampling
-**Objective:** Session removal cleans up a sampling-enabled session completely.
+These tests validate sampled and/or truncated mirroring end-to-end on the dataplane; each subsection
+maps to exactly one test function. Traffic is generated per mirror direction:
+- **RX (ingress):** inject on the source port.
+- **TX (egress):** inject unicast frames addressed to `PROBE_UNICAST_DST_MAC` on the `tx_ingress`
+  peer port so the DUT forwards them out the source port (egress), triggering the egress mirror.
+- **BOTH:** run the RX leg and the TX leg separately, asserting each leg independently.
 
-**Steps:** Create a session with `--sample_rate 256` and a direction (parametrized `rx`/`tx`/`both`), remove it, check CONFIG_DB key existence.
+ERSPAN GRE packets are collected on the collector port using the 3-tuple match. Unless noted, the
+observed mirror count must fall within `[950, 1050]` (`NUM_SAMPLES ± 5%`), and any truncated frame
+length is checked within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
 
-**Pass criteria:** `MIRROR_SESSION|<name>` no longer exists in CONFIG_DB (redis `exists` == 0).
+#### 7.4.1 Validate ERSPAN truncation across packet sizes
+**Test:** `test_erspan_truncation_packet_size`
 
-#### Test case test_invalid_sample_rate_rejected
-**Objective:** Out-of-range `sample_rate` is rejected at the CLI layer.
-
-**Parametrized values:** `1` (below the valid minimum).
-
-**Pass criteria:** CLI exits non-zero; no entry written to CONFIG_DB.
-
-#### Test case test_invalid_truncate_size_rejected
-**Objective:** Out-of-range `truncate_size` is rejected at the CLI layer.
-
-**Parametrized values:** `32`, `63`, `9217`.
-
-**Pass criteria:** CLI exits non-zero; no entry written to CONFIG_DB.
-
-#### Test case test_sample_rate_zero_disables_sampling
-**Objective:** `--sample_rate 0` is accepted by the CLI and semantically equivalent to omitting
-the flag (orchagent treats absence as "no sampling").
-
-**Pass criteria:** CLI exits 0; `sample_rate` field is **not** written to CONFIG_DB (redis hget
-returns empty).
-
-#### Test case test_truncate_size_zero_disables_truncation
-**Objective:** `--truncate_size 0` is accepted by the CLI and semantically equivalent to omitting
-the flag.
-
-**Pass criteria:** CLI exits 0; `truncate_size` field is **not** written to CONFIG_DB.
-
-#### Test case test_erspan_sampling_config_high_rate
-**Objective:** A sample rate (`1:50000`) is accepted by CLI and stored in
-CONFIG_DB. This is a **config-only** test - dataplane verification at this rate would require
-millions of packets and is left to scale testing.
-
-**Pass criteria:** CLI exits 0; CONFIG_DB `sample_rate` field equals `50000`.
-
-### Show CLI
-
-#### Test case test_show_mirror_session_displays_new_columns
-**Objective:** `show mirror_session` displays the configured sampling and truncation values.
-
-Requires both sampling and truncation support (skipped otherwise).
-
-**Steps:**
-- Create a session with `--sample_rate 512 --truncate_size 128` and a direction (parametrized `rx`/`tx`/`both`).
-- Run `show mirror_session`.
-- Locate the row for this session and split it into fields.
-
-**Pass criteria:** Exactly one row exists for the session, and its fields list `512`
-and `128` as whole tokens.
-
-### Dataplane: truncation
-
-#### Test case test_erspan_truncation_packet_size
-**Objective:** Verify ERSPAN truncation across packet sizes relative to `truncate_size`.
-`truncate_size` with no `sample_rate` implies 1:1 sampling, so every probe packet is mirrored,
-making the per-packet length check deterministic.
+**Objective:** By sweeping multiple `truncate_size` x packet-length combinations with no `sample_rate`
+(so mirroring is 1:1 and every probe packet is mirrored), verify that each mirrored frame is truncated
+to the configured budget while frames smaller than the budget pass through untouched. The 1:1 ratio
+makes the per-packet length check deterministic.
 
 **Parametrized (truncate_size, pktlen) combinations:**
 
@@ -253,24 +210,26 @@ making the per-packet length check deterministic.
 **Pass criteria:** Exactly `TRUNCATION_PROBE_COUNT` frames are mirrored (1:1), and each mirrored
 frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
 
-### Dataplane: sampling
+#### 7.4.2 Validate RX sampled mirroring rates
+**Test:** `test_erspan_sampling_rx_direction`
 
-#### Test case test_erspan_sampling_rx_direction
-**Objective:** With `sample_rate=N` (rx/ingress), approximately 1 of every N packets is mirrored.
-
-**Parametrized rates:** `1:256`, `1:512`, `1:1024`.
+**Objective:** By replaying `NUM_SAMPLES * N` packets through the ingress pipeline at rates `1:256`,
+`1:512`, and `1:1024`, verify that RX (ingress) sampling mirrors approximately 1 of every N packets,
+landing the observed count in `[950, 1050]`.
 
 **Steps:**
 - Configure `sample_rate=N` (direction defaults to rx).
 - Send `NUM_SAMPLES * N` packets on the source port.
 - Collect GRE-encapsulated packets on the collector port using the 3-tuple match.
 
-**Pass criteria:** Observed mirror count is within `[950, 1050]` (`NUM_SAMPLES +- 5%`).
+**Pass criteria:** Observed mirror count is within `[950, 1050]` (`NUM_SAMPLES ± 5%`).
 
-### Dataplane: combined sampling and truncation
+#### 7.4.3 Validate RX sampled mirroring with truncation
+**Test:** `test_erspan_sampling_rx_with_truncation`
 
-#### Test case test_erspan_sampling_rx_with_truncation
-**Objective:** Sampling and truncation can be active simultaneously and independently (rx/ingress).
+**Objective:** By running RX (ingress) sampling with truncation, verify that both features
+take effect simultaneously: the session samples approximately 1 of every N packets while each
+mirrored copy is truncated to the configured size.
 
 **Steps:** Configure `sample_rate=256` + `truncate_size=128`; send `NUM_SAMPLES * 256` large
 (1500B) packets on the source port.
@@ -278,18 +237,12 @@ frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pkt
 **Pass criteria:** Observed mirror count within `[950, 1050]` AND each captured mirror is truncated
 to `~62B encap overhead + 128`.
 
-### Dataplane: direction (RX / TX / BOTH)
+#### 7.4.4 Validate TX sampled mirroring rates
+**Test:** `test_erspan_sampling_tx_direction`
 
-These tests validate that sampled mirroring is correctly bound for each mirror direction. The RX
-direction is already covered by `test_erspan_sampling_rx_direction` / `test_erspan_sampling_rx_with_truncation`
-above; the cases below add TX (egress) and BOTH coverage. TX traffic is generated by injecting
-unicast frames addressed to `PROBE_UNICAST_DST_MAC` on the `tx_ingress` peer port so the DUT
-forwards them out the source port (egress).
-
-#### Test case test_erspan_sampling_tx_direction
-**Objective:** TX (egress) sampled mirroring emits ERSPAN at the configured ratio.
-
-**Parametrized rates:** `1:256`, `1:512`, `1:1024` (each with `direction=tx`).
+**Objective:** By injecting unicast on the `tx_ingress` peer port so the DUT forwards frames out the
+source port (egress), verify that TX (egress) sampling mirrors approximately 1 of every N packets at
+rates `1:256`, `1:512`, and `1:1024`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=tx`.
@@ -297,10 +250,13 @@ forwards them out the source port (egress).
   port; the DUT forwards them out the source port (egress), triggering the egress mirror.
 - Collect ERSPAN GRE packets on the collector port.
 
-**Pass criteria:** Observed mirror count within `[950, 1050]` (`NUM_SAMPLES +- 5%`).
+**Pass criteria:** Observed mirror count within `[950, 1050]` (`NUM_SAMPLES ± 5%`).
 
-#### Test case test_erspan_sampling_tx_with_truncation
-**Objective:** TX (egress) sampling and truncation work together.
+#### 7.4.5 Validate TX sampled mirroring with truncation
+**Test:** `test_erspan_sampling_tx_with_truncation`
+
+**Objective:** By combining TX (egress) sampling with truncation, verify that egress-mirrored copies
+are both sampled approximately 1 of every N packets and truncated to the configured size.
 
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=tx`; inject `NUM_SAMPLES * 256`
 large (1500B) unicast frames on the `tx_ingress` peer port.
@@ -308,10 +264,13 @@ large (1500B) unicast frames on the `tx_ingress` peer port.
 **Pass criteria:** Observed mirror count within `[950, 1050]` AND each mirrored frame is truncated to
 `~62B encap overhead + 128`.
 
-#### Test case test_erspan_sampling_both_direction
-**Objective:** `direction=both` mirrors both ingress- and egress-triggered traffic.
+#### 7.4.6 Validate BOTH-direction sampled mirroring rates
+**Test:** `test_erspan_sampling_both_direction`
 
-**Parametrized rates:** `1:256`, `1:512`, `1:1024` (each with `direction=both`).
+**Objective:** By injecting on the source port (RX leg) and injecting unicast on the `tx_ingress`
+peer port so the DUT forwards frames out the source port (TX leg), verify that `direction=both`
+samples both ingress- and egress-triggered traffic, each leg mirroring approximately 1 of every N
+packets at rates `1:256`, `1:512`, and `1:1024`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=both`.
@@ -321,11 +280,15 @@ large (1500B) unicast frames on the `tx_ingress` peer port.
   the DUT forwards them out the source port (egress mirror).
 - Collect ERSPAN GRE packets on the collector port for each leg.
 
-**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` (`NUM_SAMPLES +- 5%`),
+**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` (`NUM_SAMPLES ± 5%`),
 proving both the ingress and egress bindings are active.
 
-#### Test case test_erspan_sampling_both_with_truncation
-**Objective:** `direction=both` sampling and truncation work together on both legs.
+#### 7.4.7 Validate BOTH-direction sampled mirroring with truncation
+**Test:** `test_erspan_sampling_both_with_truncation`
+
+**Objective:** By running both legs under `direction=both` with truncation enabled, verify that the
+ingress- and egress-mirrored copies are each sampled approximately 1 of every N packets and truncated
+to the configured size.
 
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=both`; run the RX leg
 (inject on the source port) and TX leg (inject on the `tx_ingress` peer port) with large (1500B)
@@ -334,20 +297,23 @@ unicast frames addressed to `PROBE_UNICAST_DST_MAC`.
 **Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` AND every mirrored frame
 on each leg is truncated to `~62B encap overhead + 128`.
 
-### Session lifecycle
+### 7.5 Session lifecycle
 
-#### Test case test_erspan_session_remove_stops_mirroring
-**Objective:** Removing the mirror session immediately stops mirroring.
+#### 7.5.1 Validate mirroring stops after ERSPAN session removal
+**Test:** `test_erspan_session_remove_stops_mirroring`
+
+**Objective:** By removing an active sampled session and then sending sustained traffic on the source
+port, verify that mirroring stops immediately and no further ERSPAN copies reach the collector.
 
 **Steps:**
-- Create a session with `sample_rate=256`, verify it is active.
+- Create a session with `sample_rate=256` and wait for it to become active.
 - Remove the session.
-- Send 1000 packets on the source port and verify no mirror copies arrive.
+- Send 1000 100B broadcast packets on the source port and verify no mirror copies arrive.
 
 **Pass criteria:** After removal, the collector receives zero GRE-encapsulated packets within the
 timeout window.
 
-### Backward compatibility
+### 7.6 Backward compatibility
 
 Backward compatibility (a session with neither `sample_rate` nor `truncate_size` behaves as a
 classic full-mirror ERSPAN session) is exercised indirectly:
