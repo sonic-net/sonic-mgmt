@@ -71,9 +71,6 @@ def apply_cert_config(duthost, vrf_name=None):
         return duthost.shell(cmd, module_ignore_errors=True)['stdout'].strip() != ""
 
     server_started = wait_until(GNMI_SERVER_START_WAIT_TIME * 2, 3, 5, _gnmi_server_listening)
-    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
-        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if not server_started:
         # Dump listening port status and gnmi log
         output = duthost.shell(f"sudo ss -ltnp | grep {env.gnmi_port}", module_ignore_errors=True)
@@ -81,6 +78,9 @@ def apply_cert_config(duthost, vrf_name=None):
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
+    if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
+        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
+        assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     return stopped_programs
 
 
