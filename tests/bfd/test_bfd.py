@@ -472,7 +472,7 @@ def test_bfd_basic(request, gnmi_connection,
         status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, neighbor_addrs,
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'All up; Wait for {neighbor_addrs} to be Up completed with'
+        logger.debug(f'All up, Wait for {neighbor_addrs} to be Up completed with'
                      f' {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         pytest_assert(
@@ -490,7 +490,7 @@ def test_bfd_basic(request, gnmi_connection,
                                                    condition_cb=lambda k, v: neighbor_addrs[update_idx] in k and v.get('state') == 'Admin_Down',  # noqa: E501
                                                    timeout=timedelta(minutes=2)
                                                    )
-        logger.debug(f'Admin check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Admin check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Admin_Down and others to be Up. Status {status}, actual time {actual_wait}')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         for idx, neighbor_addr in enumerate(neighbor_addrs):
@@ -530,7 +530,7 @@ def test_bfd_basic(request, gnmi_connection,
         status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'Reset to Up check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Reset to Up check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Up completed with {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         pytest_assert(
@@ -548,7 +548,7 @@ def test_bfd_basic(request, gnmi_connection,
                                                    [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Down',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'Suspend check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Suspend check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Down and others to be Up. Status {status}, actual time {actual_wait}')
         assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
