@@ -1,7 +1,8 @@
 {
-    "mandatory": ["firmware_versions", "gold_firmware_version", "firmware_download_cdb_abort_support"],
+    "mandatory": ["firmware_versions", "gold_firmware_version"],
     "defaults": {
         "dual_bank_supported": true,
+        "firmware_download_cdb_abort_support": true,
         "firmware_download_timeout_minutes": 30,
         "firmware_run_timeout_sec": 20,
         "firmware_commit_timeout_sec": 10,
