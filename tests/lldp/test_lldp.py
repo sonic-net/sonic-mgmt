@@ -91,37 +91,14 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
     config_facts = duthost.asic_instance(
         enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
-    # Physical testbeds insert a fanout switch between the DUT and the VM
-    # neighbors, and the fanout also advertises LLDP. A DUT port therefore
-    # reports multiple LLDP neighbors (the real VM neighbor + the fanout).
-    # The keyvalue-based lldpctl_facts collapses them into a single entry
-    # (last one wins), which intermittently keeps the fanout and flakes.
-    # Use "lldpctl -f json" (like test_lldp_syncd) so every neighbor on a port
-    # is visible, then verify the expected minigraph neighbor is among them.
-    asic_str = "" if enum_frontend_asic_index is None else str(enum_frontend_asic_index)
-    lldp_json = json.loads(duthost.shell(
-        "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic_str))['stdout'])
-    interfaces = lldp_json.get('lldp', {}).get('interface', [])
-    if isinstance(interfaces, dict):
-        interfaces = [interfaces]
-    skip_patterns = ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list
-    skip_re = re.compile("(?:%s)" % "|".join(skip_patterns)) if skip_patterns else None
-    # local_port -> list of neighbors {name, ifname, descr}
-    learned = {}
-    for iface in interfaces:
-        if not iface:
-            continue
-        local_port = list(iface.keys())[0]
-        if skip_re and skip_re.match(local_port):
-            continue
-        info = iface[local_port] or {}
-        chassis = info.get('chassis', {}) or {}
-        port = info.get('port', {}) or {}
-        learned.setdefault(local_port, []).append({
-            'name': list(chassis.keys())[0] if chassis else '',
-            'ifname': (port.get('id', {}) or {}).get('value', ''),
-            'descr': port.get('descr', '')
-        })
+    # Physical testbeds put a fanout switch between the DUT and the VM
+    # neighbors, and the fanout also advertises LLDP, so a DUT port can report
+    # multiple neighbors (the real VM + the fanout). Read via "lldpctl -f json"
+    # so all of them are visible; the keyvalue lldpctl_facts collapses a port's
+    # neighbors (last write wins), which intermittently keeps the fanout.
+    learned = _get_lldp_neighbors_by_port(
+        duthost, enum_frontend_asic_index,
+        ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)
     if not learned:
         pytest.fail("No LLDP neighbors received (lldpctl reported no interfaces)")
     for k, neighbors in learned.items():
@@ -159,6 +136,39 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 ).format(k, exp_port, match['descr'])
 
 
+def _get_lldp_neighbors_by_port(duthost, asic_index, skip_patterns):
+    """Return {local_port: [{'name', 'ifname', 'descr'}, ...]} from `lldpctl -f json`.
+
+    JSON output preserves every neighbor on a port, unlike the keyvalue
+    lldpctl_facts which collapses a port's neighbors (last write wins). On
+    physical testbeds a port can learn both the real VM neighbor and the fanout
+    switch, so callers must tolerate more than one neighbor per port.
+    """
+    asic_str = "" if asic_index is None else str(asic_index)
+    lldp_json = json.loads(duthost.shell(
+        "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic_str))['stdout'])
+    interfaces = lldp_json.get('lldp', {}).get('interface', [])
+    if isinstance(interfaces, dict):
+        interfaces = [interfaces]
+    skip_re = re.compile("(?:%s)" % "|".join(skip_patterns)) if skip_patterns else None
+    learned = {}
+    for iface in interfaces:
+        if not iface:
+            continue
+        local_port = list(iface.keys())[0]
+        if skip_re and skip_re.match(local_port):
+            continue
+        info = iface[local_port] or {}
+        chassis = info.get('chassis', {}) or {}
+        port = info.get('port', {}) or {}
+        learned.setdefault(local_port, []).append({
+            'name': list(chassis.keys())[0] if chassis else '',
+            'ifname': (port.get('id', {}) or {}).get('value', ''),
+            'descr': port.get('descr', ''),
+        })
+    return learned
+
+
 def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface):
     """Return True if the neighbor's LLDP table contains the expected interface."""
     nei_lldp_facts = localhost.lldp_facts(
@@ -176,12 +186,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             '' if asic is None else asic))
     dut_system_description = res['stdout']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
-    lldpctl_facts = duthost.lldpctl_facts(
-        asic_instance_id=asic,
-        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
     config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    if not list(lldpctl_facts['lldpctl'].items()):
-        pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
     # To be compatible with PR #3331, we keep using router MAC on T2 devices
     switch_mac = ""
@@ -196,35 +201,14 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     # Read LLDP via json so a port's multiple neighbors (the real VM neighbor +
-    # the fanout switch on physical testbeds) are all visible. The keyvalue
-    # lldpctl_facts collapses a port's neighbors field-by-field (last write
-    # wins), which can mix the VM's identity with the physical fanout's
-    # mgmt-ip; the SNMP reverse-check then queries the fanout (which does not
-    # answer SNMP) instead of the cEOS VM and times out intermittently.
-    # Verify only the minigraph neighbors, and use the minigraph-provisioned
-    # mgmt addr (the address the framework uses to reach the VM) as the SNMP
-    # target rather than any LLDP-advertised mgmt-ip.
-    lldp_json = json.loads(duthost.shell(
-        "docker exec lldp{} /usr/sbin/lldpctl -f json".format('' if asic is None else asic))['stdout'])
-    lldp_interfaces = lldp_json.get('lldp', {}).get('interface', [])
-    if isinstance(lldp_interfaces, dict):
-        lldp_interfaces = [lldp_interfaces]
-    skip_re = re.compile("(?:%s)" % "|".join(["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list))
-    learned = {}
-    for iface in lldp_interfaces:
-        if not iface:
-            continue
-        local_port = list(iface.keys())[0]
-        if skip_re.match(local_port):
-            continue
-        info = iface[local_port] or {}
-        chassis = info.get('chassis', {}) or {}
-        port = info.get('port', {}) or {}
-        cname = list(chassis.keys())[0] if chassis else ''
-        learned.setdefault(local_port, []).append({
-            'name': cname,
-            'port_id': (port.get('id', {}) or {}).get('value', ''),
-        })
+    # the fanout on physical testbeds) are all visible, then verify only the
+    # minigraph neighbors and use the minigraph-provisioned mgmt addr as the
+    # SNMP target (not any LLDP-advertised mgmt-ip, which can be the fanout's
+    # and does not answer SNMP, causing intermittent timeouts).
+    learned = _get_lldp_neighbors_by_port(
+        duthost, asic, ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)
+    if not learned:
+        pytest.fail("No LLDP neighbors received (lldpctl reported no interfaces)")
 
     for k in config_facts['DEVICE_NEIGHBOR']:
         if k not in learned:
@@ -240,7 +224,7 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
         hostip = nei_meta.get(exp_name, {}).get('mgmt_addr')
         if not hostip:
             pytest.fail("No mgmt_addr for neighbor {} in DEVICE_NEIGHBOR_METADATA".format(exp_name))
-        neighbor_interface = match['port_id']
+        neighbor_interface = match['ifname']
         if request.config.getoption("--neighbor_type") == 'eos':
             snmp_community = eos['snmp_rocommunity']
         else:
