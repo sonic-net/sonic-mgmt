@@ -3,9 +3,8 @@ import os
 import json
 import logging
 import tarfile
+import paramiko
 import yaml
-
-from tests.common.helpers.platform_api import bmc
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +15,25 @@ _BMC_SECRETS_PATH = os.path.normpath(
 
 def load_bmc_creds():
     """Load BMC credentials from ansible/group_vars/lab/secrets.yml."""
-    with open(_BMC_SECRETS_PATH) as f:
-        secrets = yaml.safe_load(f)
-    return secrets['sonic_bmc_root_user'], secrets['sonic_bmc_root_password']
+    try:
+        with open(_BMC_SECRETS_PATH) as f:
+            secrets = yaml.safe_load(f)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            "BMC secrets file not found at {}".format(_BMC_SECRETS_PATH)
+        ) from e
+
+    if not isinstance(secrets, dict):
+        raise ValueError(
+            "Invalid BMC secrets file {}: expected a mapping".format(_BMC_SECRETS_PATH)
+        )
+
+    try:
+        return secrets['sonic_bmc_root_user'], secrets['sonic_bmc_root_password']
+    except KeyError as e:
+        raise KeyError(
+            "Missing BMC credential key {} in {}".format(e, _BMC_SECRETS_PATH)
+        ) from e
 
 
 PLATFORM_COMP_PATH_TEMPLATE = '/usr/share/sonic/device/{}/platform_components.json'
@@ -49,26 +64,64 @@ def extract_fw_data(fw_pkg_path):
 
 def get_bmc_ip(duthost):
     """Read BMC IP from the DUT's bmc.json config file. Returns None if unavailable."""
-    platform = duthost.shell(
-        "sudo show platform summary | grep Platform | awk '{print $2}'"
+    try:
+        platform = duthost.shell(
+            "sudo show platform summary | grep Platform | awk '{print $2}'"
+        )["stdout"]
+        if not platform:
+            logger.warning("Failed to get platform name from %s", duthost.hostname)
+            return None
+
+        bmc_config_file = f"/usr/share/sonic/device/{platform}/bmc.json"
+        duthost.fetch(src=bmc_config_file, dest="/tmp")
+        with open(f"/tmp/{duthost.hostname}/{bmc_config_file}") as f:
+            return json.load(f).get("bmc_addr")
+    except Exception as e:
+        logger.warning("Failed to read BMC IP from %s: %s", duthost.hostname, e)
+        return None
+
+
+def _ssh_bmc_cmd(duthost, bmc_ip, bmc_user, bmc_password, cmd):
+    """
+    Run *cmd* on the BMC via SSH through the DUT. No sshpass needed.
+
+    """
+    if hasattr(duthost, 'engine'):
+        transport = duthost.engine.remote_conn.get_transport()
+        channel = transport.open_channel("direct-tcpip", (bmc_ip, 22), ("127.0.0.1", 0))
+        bmc_client = paramiko.SSHClient()
+        bmc_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            bmc_client.connect(bmc_ip, username=bmc_user, password=bmc_password,
+                               sock=channel, timeout=30)
+            _, stdout, _ = bmc_client.exec_command(cmd)
+            return stdout.read().decode().strip()
+        finally:
+            bmc_client.close()
+
+    return duthost.command(
+        f"python3 -c 'import paramiko;"
+        f"c=paramiko.SSHClient();"
+        f"c.set_missing_host_key_policy(paramiko.AutoAddPolicy());"
+        f"c.connect(\"{bmc_ip}\",username=\"{bmc_user}\",password=\"{bmc_password}\",timeout=30);"
+        f"_,o,_=c.exec_command(\"{cmd}\");"
+        f"print(o.read().decode().strip());"
+        f"c.close()'"
     )["stdout"]
-    bmc_config_file = f"/usr/share/sonic/device/{platform}/bmc.json"
-    duthost.fetch(src=bmc_config_file, dest="/tmp")
-    with open(f"/tmp/{duthost.hostname}/{bmc_config_file}") as f:
-        return json.load(f)["bmc_addr"]
 
 
 def get_bmc_flavor(duthost, bmc_ip, bmc_user, bmc_password):
     """
-    Detect BMC flavor from BMC platform API model output
+    Detect BMC flavor from ``/proc/device-tree/model``
     (e.g. ``AST2700-A1 Spc6 CPU BMC`` -> ``AST2700-A1``).
     """
-    model_output = bmc.get_model(duthost)
+    model_output = _ssh_bmc_cmd(duthost, bmc_ip, bmc_user, bmc_password,
+                                "cat /proc/device-tree/model")
 
     if not model_output:
-        raise ValueError("Empty BMC model output from platform API")
+        raise ValueError("Empty output from BMC /proc/device-tree/model")
 
-    flavor = str(model_output).split()[0]
+    flavor = model_output.split()[0]
     logger.info("Detected BMC flavor: %s (model: %s)", flavor, model_output)
     return flavor
 
@@ -108,25 +161,6 @@ def resolve_bmc_flavor(fw_pkg, chassis, duthost, bmc_ip,
         )
 
     return get_bmc_flavor(duthost, bmc_ip, bmc_user, bmc_password)
-
-
-def get_bmc_info_from_firmware_data(fw_data, chassis_name, flavor):
-    """Return ``(expected_version, firmware_path)`` or ``(None, None)``."""
-    bmc_info = fw_data.get('chassis', {}).get(chassis_name, {}).get('component', {}).get('BMC')
-    if not bmc_info:
-        return None, None
-
-    if isinstance(bmc_info, list):
-        fw_list = bmc_info
-    elif isinstance(bmc_info, dict):
-        fw_list = bmc_info.get(flavor)
-    else:
-        return None, None
-
-    if not fw_list:
-        return None, None
-
-    return fw_list[0].get('version'), fw_list[0].get('firmware')
 
 
 def parse_firmware_status(status_output):
