@@ -291,7 +291,7 @@ def wait_until_hsflowd_ready(duthost, collector_ips):
         f"Check /etc/hsflowd.auto in sflow container."
     )
     elapsed = time.time() - start_time
-    logger.info(f"hsflowd initialized with all collector(s) after {elapsed:.1f} seconds")
+    logger.info("hsflowd initialized with all collector(s) after {:.1f} seconds".format(elapsed))
 
 
 def config_sflow_collector(duthost, collector, config):
