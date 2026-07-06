@@ -792,13 +792,12 @@ class TestShowQueue():
                     # On non-T2 multi-ASIC, SonicDbCli(asic) already queries per-ASIC CONFIG_DB,
                     # keys are just BUFFER_QUEUE|Ethernet0|0-2, so fields[-3] is "BUFFER_QUEUE"
                     # and must NOT be filtered.
-                    if duthost.is_multi_asic and tbinfo["topo"]["type"] == "t2":
-                        if len(fields) == 5:
-                            if fields[-3] == asic.namespace:
-                                interfaces.add(fields[-2])
-                        else:
-                            # The output simply looks like: BUFFER_QUEUE|<interface>|<queue>
+                    if len(fields) == 5:
+                        if fields[-3] == asic.namespace:
                             interfaces.add(fields[-2])
+                    else:
+                        # The output simply looks like: BUFFER_QUEUE|<interface>|<queue>
+                        interfaces.add(fields[-2])
                 except IndexError:
                     pass
 
