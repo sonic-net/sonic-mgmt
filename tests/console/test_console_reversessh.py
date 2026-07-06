@@ -91,7 +91,7 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
         # Wait for the DUT to register the console session as BUSY (avoid
         # client/DUT race: sendline returns before picocom is spawned).
         pytest_assert(
-            wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
+            wait_until(3, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
@@ -129,7 +129,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
         # Wait for the DUT to register the console session as BUSY (avoid
         # client/DUT race: sendline returns before picocom is spawned).
         pytest_assert(
-            wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
+            wait_until(3, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
@@ -193,7 +193,7 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
         # Wait for the DUT to register the console session as BUSY (avoid
         # client/DUT race: sendline returns before picocom is spawned).
         pytest_assert(
-            wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
+            wait_until(3, 1, 0, check_target_line_status, duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
 
         # Try to send default escape sequence (ctrl-A + ctrl-X) - should NOT exit
