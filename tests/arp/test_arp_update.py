@@ -132,8 +132,9 @@ def neighbor_learned(dut, target_ip):
 
 
 def appl_db_neighbor_syncd(dut, vlan_name, target_ip, exp_mac):
-    asic_db_mac = dut.shell(f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'")['stdout']
-    logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")
+    cmd = f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+    asic_db_mac = dut.shell(cmd)['stdout']
+    logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")  # noqa: E231
     return exp_mac.lower() == asic_db_mac.lower()
 
 
@@ -163,7 +164,7 @@ def test_kernel_asic_mac_mismatch(
         else:
             target_ip = ipv6_base.ip + ip_offset
 
-    rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
+    rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")  # noqa: E702
 
     pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip),
               f"Neighbor {target_ip} not learned on {rand_selected_dut}")
@@ -180,13 +181,13 @@ def test_kernel_asic_mac_mismatch(
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"
+        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
+        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     )['stdout']
     pt_assert(target_mac.lower() != asic_db_mac.lower(),
-              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
+              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "  # noqa: E231
               "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
