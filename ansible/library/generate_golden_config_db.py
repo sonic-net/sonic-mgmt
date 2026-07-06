@@ -823,12 +823,6 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
         """
         switch_id = self.npu_index
-        if not self.duts_list or len(self.duts_list) != 2:
-            logger.warning(
-                "HA config generation skipped: duts_list must have "
-                "exactly 2 entries, got %d",
-                len(self.duts_list) if self.duts_list else 0)
-            return {}
 
         if switch_id not in (0, 1):
             logger.warning(
