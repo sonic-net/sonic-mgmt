@@ -872,19 +872,25 @@ def cacl_protocol(request):       # noqa: F811
     pytest_assert(
         original_state in ("enabled", "disabled"),
         "Could not read a valid FEATURE.redfish state (got {!r}); DUT may be in a bad state".format(original_state))
-    if original_state != "enabled":
+    if original_state == "enabled":
+        # Already enabled; nothing to change, so nothing to restore.
+        yield protocol
+        return
+
+    try:
         duthost.shell("config feature state redfish enabled")
         pytest_assert(
             wait_until(30, 2, 0, lambda: _get_redfish_feature_state(duthost) == "enabled"),
             "FEATURE.redfish did not transition to 'enabled'")
-        # Let caclmgrd process the FEATURE change and converge before tests run.
-        time.sleep(5)
 
-    yield protocol
-
-    # Restore the original feature state.
-    if original_state != "enabled":
-        duthost.shell("config feature state redfish {}".format(original_state or "disabled"))
+        yield protocol
+    finally:
+        # Always restore the original feature state, even if the enable transition
+        # assertion fails or a REDFISH-parameterized test raises after enabling.
+        # The fixture is module-scoped, so a leaked "enabled" state would corrupt
+        # every subsequent test in the module.
+        duthost.shell("config feature state redfish {}".format(original_state or "disabled"),
+                      module_ignore_errors=True)
 
 
 def test_cacl_tc1_acl_table_suite(cacl_protocol, rand_selected_front_end_dut, enum_rand_one_frontend_asic_index,
