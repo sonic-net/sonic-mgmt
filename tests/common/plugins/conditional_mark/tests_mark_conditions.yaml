@@ -5809,6 +5809,30 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
 tests/ha/test_ha_repairing_dpu.py:
   xfail:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
