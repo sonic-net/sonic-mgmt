@@ -2564,11 +2564,12 @@ generic_config_updater/add_cluster/test_port_speed_change.py:
 
 generic_config_updater/add_cluster/test_port_speed_upgrade.py:
   skip:
-    reason: "Port speed cluster upgrade test is supported only on T2 chassis-packet testbeds"
+    reason: "Port speed cluster upgrade test is supported only on T2 chassis-packet testbeds with Cisco 8000 LC hwsku"
     conditions_logical_operator: "OR"
     conditions:
       - "topo_type != 't2'"
       - "switch_type != 'chassis-packet'"
+      - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
 
 generic_config_updater/test_apply_patch_perf.py:
   xfail:

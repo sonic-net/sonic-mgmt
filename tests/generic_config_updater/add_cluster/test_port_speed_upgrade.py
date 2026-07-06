@@ -12,6 +12,7 @@ config reload after the test completes.
 
 
 import logging
+import os
 import random
 import re
 import pytest
@@ -76,14 +77,12 @@ ACL_RULE_VERIFY_LIST = ["RULE_100", "RULE_200"]
 # Cluster GCU patches update PORT (speed/lanes) and dependent tables (BUFFER_PG, QoS, etc.)
 # in sequence; swss/syncd/pmon may briefly log ERR while those tables are out of sync.
 # Final state is validated by the test (interface status, CONFIG_DB/APPL_DB, buffer profiles).
-# Teardown uses blanket ignore via config_reload(..., ignore_loganalyzer=...).
-# See also: tests/generic_config_updater/test_multiasic_addcluster.py
 LOGANALYZER_IGNORE_REGEX = [
     # Orchagent applies speed before lanes/admin_status fully propagate (100G<->400G transition).
     ".*doPortTask: Unsupported port .* speed.*",
     # PFC watchdog restart races with port teardown/re-create during speed change.
     ".*createEntry: Failed to start PFC Watchdog on port.*",
-    # NPU media-SI sync key absent briefly while PORT_TABLE is rebuilt (Cisco-8000).
+    # NPU media-SI sync key absent briefly while PORT_TABLE is rebuilt.
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
     # CMIS app profile mismatch transient while optic renegotiates at the new speed.
     ".*ERR pmon#.*CmisManagerTask.*no suitable app for the port appl.*",
@@ -223,6 +222,10 @@ def _pick_traffic_source(duthosts, test_dut_hostname, original_upstream):
     for node in duthosts.frontend_nodes:
         if node.hostname != test_dut_hostname:
             return node.hostname
+    logging.debug(
+        "No traffic-source DUT for test_dut=%s (upstream=%s, only one frontend node)",
+        test_dut_hostname, original_upstream,
+    )
     return None
 
 
@@ -548,6 +551,10 @@ def _collect_upgrade_test_options(duthosts, candidates, tbinfo, enum_upstream_du
             duthosts, candidate.hostname, enum_upstream_dut_hostname
         )
         if traffic_source is None:
+            logging.debug(
+                "Skipping %s: no traffic-source DUT (upstream=%s)",
+                candidate.hostname, enum_upstream_dut_hostname,
+            )
             continue
 
         selected_asic_index = random.choice(list(asic_options.keys()))
@@ -609,8 +616,18 @@ def get_port_lanes(duthost, cli_namespace_prefix, selected_random_port):
     Returns:
         list: Lane indices as strings.
     """
-    out = duthost.shell('sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
-        cli_namespace_prefix, selected_random_port))
+    out = duthost.shell(
+        'sonic-db-cli {} CONFIG_DB hget \'PORT|{}\' lanes'.format(
+            cli_namespace_prefix, selected_random_port),
+        module_ignore_errors=True,
+    )
+    if not out["stdout_lines"]:
+        pytest_assert(
+            False,
+            "No lanes in CONFIG_DB for port {} (rc={}, stdout={!r})".format(
+                selected_random_port, out.get("rc"), out.get("stdout"),
+            ),
+        )
     return out["stdout_lines"][0].split(',')
 
 
@@ -629,7 +646,7 @@ def get_supported_port_fecs(duthost, cli_namespace_prefix, selected_random_port)
     cmd = "sonic-db-cli {} STATE_DB HGET \"PORT_TABLE|{}\" \"supported_fecs\"".format(
         cli_namespace_prefix, selected_random_port)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    valid_fecs = output.split(',')
+    valid_fecs = [fec for fec in output.split(',') if fec]
     pytest_assert(valid_fecs, "Failed to get any valid port fec to change to.")
     return valid_fecs
 
@@ -714,6 +731,9 @@ def get_fec_for_speed(duthost, speed):
 def _escape_json_pointer_key(key):
     """
     Escape a CONFIG_DB key segment for use in a JSON patch path.
+
+    RFC 6901 requires ~ -> ~0 and / -> ~1. CONFIG_DB keys here use / only;
+    ~ is not escaped (no ~ in expected keys on tested platforms).
 
     Args:
         key: CONFIG_DB key segment.
@@ -911,15 +931,26 @@ def build_cluster_ports_restore_ops(config_facts, mg_facts, json_namespace, port
     return _dedupe_patch_ops(json_patch)
 
 
-def validate_patch_scoped_to_ports(json_patch, ports):
+def validate_patch_scoped_to_ports(json_patch, ports, mg_facts=None):
     """
     Assert selected-port table operations do not target unrelated ports.
 
     Args:
         json_patch: JSON patch operations to validate.
         ports: Selected Ethernet ports.
+        mg_facts: Optional minigraph facts to validate neighbor-keyed tables.
     """
     allowed_ports = set(ports)
+    allowed_bgp_neighbors = set()
+    allowed_neighbor_metadata = set()
+    if mg_facts is not None:
+        for port in ports:
+            neighbor_name, neighbor_addrs, _, _ = get_interface_neighbor_and_intfs(
+                mg_facts, port
+            )
+            allowed_neighbor_metadata.add(neighbor_name)
+            allowed_bgp_neighbors.update(addr.lower() for addr in neighbor_addrs)
+
     selected_port_tables = [
         "PORT",
         "INTERFACE",
@@ -938,7 +969,40 @@ def validate_patch_scoped_to_ports(json_patch, ports):
         table_index = 1 if path_parts[0].startswith(NAMESPACE_PREFIX) else 0
         if table_index >= len(path_parts):
             continue
-        if path_parts[table_index] == "CABLE_LENGTH":
+        table_name = path_parts[table_index]
+        if table_name == "BGP_NEIGHBOR":
+            if table_index + 1 >= len(path_parts):
+                continue
+            neighbor_key = path_parts[table_index + 1].replace('~1', '/').lower()
+            pytest_assert(
+                mg_facts is not None,
+                "BGP_NEIGHBOR patch op requires mg_facts for validation: {}".format(operation),
+            )
+            pytest_assert(
+                neighbor_key in allowed_bgp_neighbors,
+                "Patch operation {} targets BGP neighbor {}, expected one of {}".format(
+                    operation, neighbor_key, sorted(allowed_bgp_neighbors)
+                ),
+            )
+            continue
+        if table_name == "DEVICE_NEIGHBOR_METADATA":
+            if table_index + 1 >= len(path_parts):
+                continue
+            metadata_key = path_parts[table_index + 1].replace('~1', '/')
+            pytest_assert(
+                mg_facts is not None,
+                "DEVICE_NEIGHBOR_METADATA patch op requires mg_facts for validation: {}".format(
+                    operation
+                ),
+            )
+            pytest_assert(
+                metadata_key in allowed_neighbor_metadata,
+                "Patch operation {} targets neighbor metadata {}, expected one of {}".format(
+                    operation, metadata_key, sorted(allowed_neighbor_metadata)
+                ),
+            )
+            continue
+        if table_name == "CABLE_LENGTH":
             if len(path_parts) <= table_index + 2:
                 continue
             target_port = path_parts[table_index + 2]
@@ -1068,7 +1132,7 @@ def apply_patch_port_configs(duthost, enum_rand_one_asic_namespace, port_configs
             "path": f"{json_namespace}/PORT/{port}",
             "value": port_config,
         })
-    validate_patch_scoped_to_ports(json_patch, ports)
+    validate_patch_scoped_to_ports(json_patch, ports, mg_facts=mg_facts)
 
     tmpfile = generate_tmpfile(duthost)
     try:
@@ -1387,6 +1451,17 @@ def port_speed_upgrade_context(duthosts, tbinfo):
     Returns:
         dict: Selected test context with DUT, ASIC, port, and saved PORT config.
     """
+    seed_env = os.environ.get("PORT_SPEED_UPGRADE_RANDOM_SEED")
+    if seed_env is not None:
+        selection_seed = int(seed_env)
+    else:
+        selection_seed = random.randrange(2**31)
+    random.seed(selection_seed)
+    logging.info(
+        "Random selection seed: %s (set PORT_SPEED_UPGRADE_RANDOM_SEED to reproduce)",
+        selection_seed,
+    )
+
     primary_downstream_hostname = _pick_primary_downstream_hostname(duthosts, tbinfo)
     primary_upstream_hostname = _pick_primary_upstream_hostname(duthosts, tbinfo)
 
