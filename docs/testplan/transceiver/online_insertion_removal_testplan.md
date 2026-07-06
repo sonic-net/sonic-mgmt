@@ -2,7 +2,7 @@
 
 ## Scope
 
-This test plan outlines a comprehensive framework for testing the online insertion and removal (OIR) of CMIS compliant transceivers being onboarded to SONiC. It includes both physical OIR (where transceivers are physically inserted and removed) and remote reseat (where OIR is simulated using on-device command or script). The goal is to automate all tests listed in this document.
+This test plan outlines a comprehensive framework for testing the online insertion and removal (OIR) of the transceivers being onboarded to SONiC. It includes both physical OIR (where transceivers are physically inserted and removed) and remote reseat (where OIR is simulated using on-device command or script). The goal is to automate all tests listed in this document.
 
 **Optics Scope**:
 All the optics types mentioned in the [Transceiver Onboarding Test Plan](./test_plan.md#scope) are in scope for this test plan.
@@ -23,7 +23,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 |-----------|------|---------|------------|-------------|-------------|
 | ports_under_test | List | [] | No | dut |  A list under `dut.dut_name` containing the indices of physical ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
 | oir_method | String | manual | No | dut | The method used for OIR ("manual", "pseudo" or "automated"). |
-| physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
+| physical_oir_timeout_min | Int | 30 | No | dut or platform |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
 | physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
