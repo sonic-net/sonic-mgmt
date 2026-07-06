@@ -1,6 +1,6 @@
 {
-    "2.0.1": {
-        "fw_binary_name": "NORTHSTAR_OPTICS_QSFP-2X100G-AOC-GENERIC_2_ENDM_2.0.1.bin",
+    "3.5.7": {
+        "fw_binary_name": "NORTHSTAR_OPTICS_QSFP-2X100G-AOC-GENERIC_2_ENDM_3.5.7.bin",
         "md5sum": "1111aaaa2222bbbb3333cccc4444dddd"
     },
     "2.0.5": {

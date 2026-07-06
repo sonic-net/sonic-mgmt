@@ -1,6 +1,6 @@
 {
-    "1.2.3": {
-        "fw_binary_name": "ACME_CORP_QSFP-2X100G-AOC-GENERIC_2_ENDM_1.2.3.bin",
+    "2.3.6": {
+        "fw_binary_name": "ACME_CORP_QSFP-2X100G-AOC-GENERIC_2_ENDM_2.3.6.bin",
         "md5sum": "0123456789abcdef0123456789abcdef"
     },
     "1.2.4": {
