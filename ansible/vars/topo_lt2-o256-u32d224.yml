@@ -1008,22 +1008,6 @@ topology:
       vlans:
       - 251
       vm_offset: 251
-    ARISTA221T1:
-      vlans:
-      - 252
-      vm_offset: 252
-    ARISTA222T1:
-      vlans:
-      - 253
-      vm_offset: 253
-    ARISTA223T1:
-      vlans:
-      - 254
-      vm_offset: 254
-    ARISTA224T1:
-      vlans:
-      - 255
-      vm_offset: 255
 configuration_properties:
   common:
     dut_asn: 4200100000
@@ -1031,10 +1015,10 @@ configuration_properties:
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
-    tor_number: 224
+    tor_number: 220
     tor_subnet_number: 2
-    max_tor_subnet_number: 224
-    tor_subnet_size: 224
+    max_tor_subnet_number: 220
+    tor_subnet_size: 220
   spine:
     swrole: spine
   leaf:
@@ -6740,95 +6724,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.253/22
       ipv6: fc0a::fd/64
-  ARISTA221T1:
-    properties:
-    - common
-    - leaf
-    tornum: 221
-    bgp:
-      asn: 4200000000
-      peers:
-        4200100000:
-        - 10.0.1.248
-        - fc00::3f1
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.253/32
-        ipv6: 2064:100:0:fd::/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.1.249/31
-        ipv6: fc00::3f2/126
-    bp_interface:
-      ipv4: 10.10.246.254/22
-      ipv6: fc0a::100/64
-  ARISTA222T1:
-    properties:
-    - common
-    - leaf
-    tornum: 222
-    bgp:
-      asn: 4200000000
-      peers:
-        4200100000:
-        - 10.0.1.250
-        - fc00::3f5
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.254/32
-        ipv6: 2064:100:0:fe::/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.1.251/31
-        ipv6: fc00::3f6/126
-    bp_interface:
-      ipv4: 10.10.246.255/22
-      ipv6: fc0a::101/64
-  ARISTA223T1:
-    properties:
-    - common
-    - leaf
-    tornum: 223
-    bgp:
-      asn: 4200000000
-      peers:
-        4200100000:
-        - 10.0.1.252
-        - fc00::3f9
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.255/32
-        ipv6: 2064:100:0:ff::/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.1.253/31
-        ipv6: fc00::3fa/126
-    bp_interface:
-      ipv4: 10.10.247.2/22
-      ipv6: fc0a::102/64
-  ARISTA224T1:
-    properties:
-    - common
-    - leaf
-    tornum: 224
-    bgp:
-      asn: 4200000000
-      peers:
-        4200100000:
-        - 10.0.1.254
-        - fc00::3fd
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.1.0/32
-        ipv6: 2064:100:0:100::/128
-      Ethernet1:
-        lacp: 1
-      Port-Channel1:
-        ipv4: 10.0.1.255/31
-        ipv6: fc00::3fe/126
-    bp_interface:
-      ipv4: 10.10.247.3/22
-      ipv6: fc0a::103/64
