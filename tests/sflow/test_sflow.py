@@ -23,6 +23,9 @@ from tests.common.utilities import get_neighbor_port_list
 from tests.common.helpers.assertions import pytest_assert
 
 SFLOW_RATE_DEFAULT = 512
+# Seconds to wait for hsflowd to quiesce counter polling after it is disabled.
+# See TestSflowPolling.testDisablePolling for the rationale.
+SFLOW_DISABLE_POLL_SETTLE_TIME = 40
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx')
@@ -553,6 +556,14 @@ class TestSflowPolling():
         duthost.shell("config sflow polling-interval 0")
 
         verify_show_sflow(duthost, status='up', polling_int=0)
+        # verify_show_sflow only confirms CONFIG_DB was updated. hsflowd (host-sflow
+        # >= 2.1.26, sonic-buildimage PR #27806) applies a runtime polling-interval
+        # change asynchronously via its tick-driven reconfig state machine, so counter
+        # polling is not torn down instantly. The preceding testPolling leaves 20s
+        # counter pollers active, so wait for at least the previous polling interval
+        # plus hsflowd settling time to let any trailing counter-poll round drain
+        # before verifying that the DUT sends no counter samples.
+        time.sleep(SFLOW_DISABLE_POLL_SETTLE_TIME)
         partial_ptf_runner(
             polling_int=0,
             active_collectors="['collector0','collector1']")
