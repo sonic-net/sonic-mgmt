@@ -391,17 +391,17 @@ class MemoryMonitor:
         def fmt(val, threshold_type="value"):
             """Format value with appropriate unit based on threshold type"""
             if threshold_type == "percentage_points":
-                return f"{val:.1f}%"
+                return f"{val:.1f}%"  # noqa: E231
             else:
-                return f"{val:.1f} MB"
+                return f"{val:.1f} MB"  # noqa: E231
 
         def format_threshold_and_value(threshold, value):
             if isinstance(threshold, dict) and 'type' in threshold:
                 threshold_type = threshold['type']
                 if threshold_type == 'percentage':
-                    return f"{value:.1f}%", f"{threshold['value']}%"
+                    return f"{value:.1f}%", f"{threshold['value']}%"  # noqa: E231
                 elif threshold_type == 'percentage_points':
-                    return f"{value:.1f}%", f"{threshold['value']}%"
+                    return f"{value:.1f}%", f"{threshold['value']}%"  # noqa: E231
                 else:  # 'value' type
                     return fmt(value), fmt(float(threshold['value']))
             elif isinstance(threshold, list):
