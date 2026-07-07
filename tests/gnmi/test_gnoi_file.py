@@ -104,7 +104,6 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
 
 
 # ---------------------------------------------------------------------------
-# gNOI File.Stat e2e tests (ADO #38245965)
 # Uses gnoi_request / extract_gnoi_response over gnmi TCP transport.
 # No TLS fixture dependency — gnoi_client runs inside the gnmi container on DUT.
 # ---------------------------------------------------------------------------
@@ -246,4 +245,3 @@ def test_gnoi_file_stat_permissions_decimal_octal(
         all(d in "01234567" for d in str(permissions)),
         "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions)
     )
-    
