@@ -18,14 +18,6 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
 #######################################
 #####           BFD               #####
 #######################################
-bfd/test_bfd.py::test_bfd_multihop:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bfd/test_bfd_static_route.py:
   skip:
     reason: >
