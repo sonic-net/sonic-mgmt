@@ -40,7 +40,7 @@ def _config_reload_dpuhost(dpuhost):
     if not _wait_for_dpuhost_reachable(dpuhost):
         logger.warning(
             f"{dpuhost.hostname} did not become reachable before "
-            f"config reload; proceeding anyway"
+            f"config reload, proceeding anyway"
         )
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
@@ -84,9 +84,10 @@ def proto_utils_hset(duthost, table, key, args):
         key (str): Redis key
         args (str): Already-built proto args string
     """
+    redis_key = "{}:{}".format(table, key)
     cmd = (
         "docker exec swss python /etc/sonic/proto_utils.py hset "
-        f'"{table}:{key}" {args}'
+        f'"{redis_key}" {args}'
     )
     logger.debug(f"{duthost.hostname} running command: {cmd}")
     out = duthost.shell(cmd)
