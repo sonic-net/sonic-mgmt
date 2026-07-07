@@ -3,11 +3,14 @@ from math import ceil
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.cisco_data import is_cisco_device
+from tests.common.nexthop_data import is_nexthop_device
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
-    enable_packet_aging, start_pfcwd, sec_to_nanosec, get_pfcwd_stats                             # noqa: F401
+    get_pfcwd_timers, disable_packet_aging, enable_packet_aging, \
+    start_pfcwd, sec_to_nanosec, get_pfcwd_stats                             # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -70,33 +73,29 @@ def run_pfcwd_basic_test(api,
     ingress_duthost = tx_port["duthost"]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    if (egress_duthost.is_multi_asic):
-        enable_packet_aging(egress_duthost, rx_port['asic_value'])
-        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
-        start_pfcwd(egress_duthost, rx_port['asic_value'])
-        start_pfcwd(ingress_duthost, tx_port['asic_value'])
-    else:
-        enable_packet_aging(egress_duthost)
-        enable_packet_aging(ingress_duthost)
-        start_pfcwd(egress_duthost)
-        start_pfcwd(ingress_duthost)
+    packet_aging = disable_packet_aging if is_nexthop_device(egress_duthost) else enable_packet_aging
+
+    for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
+                                (ingress_duthost, tx_port['asic_value'])):
+        packet_aging(duthost, asic_value)
+        start_pfcwd(duthost, asic_value)
 
     ini_stats = {}
     for prio in prio_list:
         ini_stats.update(get_stats(egress_duthost, rx_port['peer_port'], prio))
 
     # Set appropriate pfcwd loss deviation - these values are based on empirical testing
-    DEVIATION = 0.35 if egress_duthost.facts['asic_type'] in ["broadcom"] or \
-        ingress_duthost.facts['asic_type'] in ["broadcom"] else 0.3
-    if "cisco-8000" in (egress_duthost.facts['asic_type'],
-                        ingress_duthost.facts['asic_type']):
+    if is_cisco_device(egress_duthost) or is_cisco_device(ingress_duthost):
         DEVIATION = 0.5
+    elif is_broadcom_device(egress_duthost) or is_broadcom_device(ingress_duthost):
+        DEVIATION = 0.35
+    else:
+        DEVIATION = 0.3
 
-    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=dut_port,
-                                            asic_value=rx_port['asic_value']) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(host_ans=egress_duthost, intf=dut_port,
-                                              asic_value=rx_port['asic_value']) / 1000.0
+    timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
+    poll_interval_sec = timers['poll_interval']
+    detect_time_sec = timers['detection_time']
+    restore_time_sec = timers['restoration_time']
 
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
     fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """

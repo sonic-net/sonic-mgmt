@@ -27,6 +27,85 @@ WAIT_TIME = 600
 INTERVAL = 40
 
 
+def _wait_lossless_pg_ready(duthost, snappi_ports):
+    """Block until lossless BUFFER_PG is reprogrammed on every test port of ``duthost``.
+
+    A port is ready once ``BUFFER_PG_TABLE:<port>:3-4`` is present in APPL_DB, i.e.
+    buffermgr/orchagent have re-pushed lossless buffer/PG state after the swss
+    restart. ``critical_services_fully_started`` only reflects systemd-level health
+    and does not guarantee QoS has been reapplied to SAI. ``run_redis_cli_cmd`` scopes
+    the query to the port's ASIC namespace on multi-asic DUTs automatically.
+    """
+    def _lossless_pg_ready(port):
+        asic = duthost.get_port_asic_instance(port)
+        out = asic.run_redis_cli_cmd("keys 'BUFFER_PG_TABLE:{}:3-4'".format(port))
+        return bool(out['stdout'].strip())
+
+    ports_on_duthost = [port for port in snappi_ports if port['duthost'] is duthost]
+    for snappi_port in ports_on_duthost:
+        peer_port = snappi_port['peer_port']
+        pytest_assert(
+            wait_until(WAIT_TIME, INTERVAL, 0, _lossless_pg_ready, peer_port),
+            "Lossless BUFFER_PG not programmed on {}:{} after swss restart".format(
+                duthost.hostname, peer_port))
+
+
+def restart_swss_and_wait_ready(snappi_ports, restart_service):
+    """Restart swss on each DUT carrying a snappi test port, then wait until it is
+    ready to carry lossless traffic again.
+
+    On multi-asic DUTs a random per-asic ``swss@<id>`` instance is restarted and
+    BGP re-establishment is additionally gated; on single-asic DUTs the
+    container-level ``restart_service`` is restarted. In both cases we wait on
+    critical services, interface up-state and the lossless BUFFER_PG row (see
+    ``_lossless_pg_ready``) on every test port before returning.
+    """
+    duthosts = list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]))
+
+    if snappi_ports[0]['duthost'].is_multi_asic:
+        ports_dict = defaultdict(list)
+        for port in snappi_ports:
+            ports_dict[port['peer_device']].append(port['asic_value'])
+
+        for k in ports_dict.keys():
+            ports_dict[k] = list(set(ports_dict[k]))
+
+        logger.info('Port dictionary:{}'.format(ports_dict))
+        for duthost in duthosts:
+            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+            # Record current state of critical services.
+            duthost.critical_services_fully_started()
+
+            asic_list = ports_dict[duthost.hostname]
+            asic = random.sample(asic_list, 1)[0]
+            asic_id = re.match(r"(asic)(\d+)", asic).group(2)
+            proc = 'swss@' + asic_id
+            logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
+            duthost.command("sudo systemctl reset-failed {}".format(proc))
+            duthost.command("sudo systemctl restart {}".format(proc))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all interfaces are up.")
+            pytest_assert(wait_until(
+                WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
+            _wait_lossless_pg_ready(duthost, snappi_ports)
+
+    else:
+        for duthost in duthosts:
+            duthost.critical_services_fully_started()
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            duthost.command("systemctl reset-failed {}".format(restart_service))
+            duthost.command("systemctl restart {}".format(restart_service))
+            logger.info("Wait until the system is stable")
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
+                          "Not all critical services are fully started")
+            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all interfaces are up.")
+            _wait_lossless_pg_ready(duthost, snappi_ports)
+
+
 @pytest.fixture(autouse=True, scope='module')
 def number_of_tx_rx_ports():
     yield (1, 1)
@@ -270,43 +349,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
 
-    if (snappi_ports[0]['duthost'].is_multi_asic):
-        ports_dict = defaultdict(list)
-        for port in snappi_ports:
-            ports_dict[port['peer_device']].append(port['asic_value'])
-
-        for k in ports_dict.keys():
-            ports_dict[k] = list(set(ports_dict[k]))
-
-        logger.info('Port dictionary:{}'.format(ports_dict))
-        for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-            # Record current state of critical services.
-            duthost.critical_services_fully_started()
-
-            asic_list = ports_dict[duthost.hostname]
-            asic = random.sample(asic_list, 1)[0]
-            asic_id = re.match(r"(asic)(\d+)", asic).group(2)
-            proc = 'swss@' + asic_id
-            logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
-            duthost.command("sudo systemctl reset-failed {}".format(proc))
-            duthost.command("sudo systemctl restart {}".format(proc))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all interfaces are up.")
-            pytest_assert(wait_until(
-                WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-
-    else:
-        for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-            duthost.command("systemctl reset-failed {}".format(restart_service))
-            duthost.command("systemctl restart {}".format(restart_service))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+    restart_swss_and_wait_ready(snappi_ports, restart_service)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -357,44 +400,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
     testbed_config, port_config_list, snappi_ports = tgen_port_info
     logger.info('Ports:{}'.format(snappi_ports))
 
-    if (snappi_ports[0]['duthost'].is_multi_asic):
-        ports_dict = defaultdict(list)
-        for port in snappi_ports:
-            ports_dict[port['peer_device']].append(port['asic_value'])
-
-        for k in ports_dict.keys():
-            ports_dict[k] = list(set(ports_dict[k]))
-
-        logger.info('Port dictionary:{}'.format(ports_dict))
-        for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-            # Record current state of critical services.
-            duthost.critical_services_fully_started()
-
-            asic_list = ports_dict[duthost.hostname]
-            asic = random.sample(asic_list, 1)[0]
-            asic_id = re.match(r"(asic)(\d+)", asic).group(2)
-            proc = 'swss@' + asic_id
-
-            logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
-            duthost.command("sudo systemctl reset-failed {}".format(proc))
-            duthost.command("sudo systemctl restart {}".format(proc))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all interfaces are up.")
-            pytest_assert(wait_until(
-                WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-
-    else:
-        for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-            duthost.command("systemctl reset-failed {}".format(restart_service))
-            duthost.command("systemctl restart {}".format(restart_service))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
+    restart_swss_and_wait_ready(snappi_ports, restart_service)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
