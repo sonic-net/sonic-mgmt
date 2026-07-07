@@ -294,7 +294,7 @@ def validate_dynamic_peer_established(bgp_summary, template):
         ), f"BGP peer {dyn_peer1} not in Established state or missing from summary"
         assert (
             dyn_peer2 not in bgp_summary['ipv4Unicast']['peers']
-        ), f"BGP peer {dyn_peer2} should not be in show bgp summary output"
+        ), f"BGP peer {dyn_peer2} should be absent from show bgp summary output"
 
 
 def modify_dynamic_peer_cfg(duthost, template):
