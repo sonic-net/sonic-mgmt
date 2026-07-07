@@ -11,6 +11,7 @@ from tests.common.snappi_tests.snappi_helpers import get_dut_port_id            
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
     get_pfcwd_timers, disable_packet_aging, enable_packet_aging, \
     start_pfcwd, sec_to_nanosec, get_pfcwd_stats                             # noqa: F401
+from tests.common.helpers.pfcwd_helper import update_pfc_poll_interval
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -29,6 +30,8 @@ DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
 UDP_PORT_START = 5000
+# Keep poll well below detection_time so a sub-detection pause can't trip pfcwd in one poll.
+PFCWD_POLL_INTERVAL_MS = 100
 
 
 def run_pfcwd_basic_test(api,
@@ -79,6 +82,8 @@ def run_pfcwd_basic_test(api,
                                 (ingress_duthost, tx_port['asic_value'])):
         packet_aging(duthost, asic_value)
         start_pfcwd(duthost, asic_value)
+        if is_nexthop_device(duthost):
+            update_pfc_poll_interval(duthost, PFCWD_POLL_INTERVAL_MS)
 
     ini_stats = {}
     for prio in prio_list:
@@ -133,6 +138,11 @@ def run_pfcwd_basic_test(api,
     cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
     number_of_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
 
+    if cisco_platform or is_nexthop_device(egress_duthost):
+        data_traffic_rate = 49.99
+    else:
+        data_traffic_rate = 100.0
+
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
@@ -148,7 +158,7 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=49.99 if cisco_platform else 100.0,
+                  traffic_rate=data_traffic_rate,
                   number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
