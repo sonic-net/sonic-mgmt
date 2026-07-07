@@ -458,17 +458,12 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
             loganalyzer.expect_regex = [LOG_EXPECT_PORT_OPER_UP_RE.format(rif_member_iface)]
             with loganalyzer as _:
                 fanout_neighbor.no_shutdown(fanout_intf)
+                # Add a delay to ensure loganalyzer can find a match in the log. Without this delay, there's a
+                # chance it might miss the matching log.
                 time.sleep(PORT_STATE_UPDATE_INTERNAL)
         except Exception:
-            logger.exception("rif_port_down finalizer: restore with loganalyzer failed, retrying best-effort")
-            try:
-                fanout_neighbor.no_shutdown(fanout_intf)
-            except Exception:
-                logger.exception(
-                    "rif_port_down finalizer: best-effort restore failed fanout=%s intf=%s",
-                    getattr(fanout_neighbor, "hostname", str(fanout_neighbor)),
-                    fanout_intf,
-                )
+            logger.exception("rif_port_down finalizer: restore with loganalyzer failed")
+            raise
 
     request.addfinalizer(_restore_link)
 
