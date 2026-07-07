@@ -292,6 +292,7 @@
   ptf_ip: 10.255.0.210/24
   ptf_ipv6: 2001:db8:1::20/64
   prober_type: hardware
+  neighbor_mode: prefix-route
   server: server_1
   vm_base: VM0100
   dut:
