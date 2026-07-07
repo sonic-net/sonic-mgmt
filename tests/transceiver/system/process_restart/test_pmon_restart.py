@@ -25,6 +25,9 @@ import logging
 import time
 import pytest
 
+from tests.transceiver.attribute_parser.attribute_keys import (
+    SYSTEM_ATTRIBUTES_KEY
+)
 from tests.transceiver.common.prerequisites import (
     check_links_up
 )
@@ -32,6 +35,7 @@ from tests.transceiver.common.verification import (
     standard_port_recovery_and_verification,
     list_core_files
 )
+from tests.common.helpers.sonic_db import AppDbCli as sdbHelp
 import tests.transceiver.common.process_restart_helpers as prh
 
 logger = logging.getLogger(__name__)
@@ -64,21 +68,25 @@ def test_system_pmon_restart(
     if not check_links_up(duthost, port_attributes_dict):
         logger.warning("Validation on Start FAILED: some ports are down")
     else:
+        appl_db = sdbHelp(duthost)
         for port in ports:
             logger.info(
                 "Recording initial link uptime: %s",
-                prh.get_db_port_table(
-                    duthost, port, attr_filter='last_up_time'
+                appl_db.hget_key_value(
+                    "PORT_TABLE:{}".format(port), "last_up_time"
                 ),
             )
 
     logger.info("Restarting pmon...")
     prh.restart_process(duthost, 'pmon')
-    pmon_wait = prh.sys_attr(
-        port_attributes_dict[ports[0]],
-        "pmon_restart_settle_sec",
-        120,
-    )
+    pmon_wait = port_attributes_dict[ports[0]].get(
+        SYSTEM_ATTRIBUTES_KEY,
+        {}
+        ).get(
+            "pmon_restart_settle_sec",
+            120
+        )
+
     # accounts for minimum timeout behavior of SPRaV
     time.sleep(pmon_wait + 60)
 
