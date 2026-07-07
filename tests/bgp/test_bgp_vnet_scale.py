@@ -74,12 +74,23 @@ def set_mcast_tunnel_enabled(duthost, enabled):
     """
     new_val = "true" if enabled else "false"
     for path in _mcast_tunnel_cfg_files(duthost):
-        duthost.shell(
+        result = duthost.shell(
             "sudo sed -i -E "
             "'s/(mcast_tunnel_enabled\"?[[:space:]]*:[[:space:]]*)(true|false)/\\1{}/' "
             "{}".format(new_val, path),
-            module_ignore_errors=True,
         )
+        pytest_assert(
+            result["rc"] == 0,
+            "sed failed updating mcast_tunnel_enabled in {}".format(path),
+        )
+
+    currently_enabled = is_mcast_tunnel_enabled(duthost)
+    pytest_assert(
+        currently_enabled == enabled,
+        "Failed to set mcast_tunnel_enabled={} in SAI init config (currently {})".format(
+            new_val, "enabled" if currently_enabled else "disabled"
+        ),
+    )
 
 
 def calculate_wait_time(total_sessions):
