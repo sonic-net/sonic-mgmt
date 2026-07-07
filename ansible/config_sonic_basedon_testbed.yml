@@ -158,6 +158,10 @@
       set_fact:
         prober_type: "{{ testbed_facts['prober_type'] | default(None) }}"
 
+    - name: set neighbor_mode
+      set_fact:
+        neighbor_mode: "{{ testbed_facts['neighbor_mode'] | default(None) }}"
+
     - name: set lit mode
       set_fact:
         is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
@@ -921,6 +925,7 @@
           hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           prober_type: "{{ prober_type | default(omit) }}"
+          neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
