@@ -1081,8 +1081,14 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     expected_iptables_rules, expected_ip6tables_rules = \
         generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby)
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"]
-    actual_iptables_rules = stdout.strip().split("\n")
+    actual_iptables_rules = []
+
+    def _iptables_rules_present():
+        actual_iptables_rules[:] = \
+            duthost.get_asic_or_sonic_host(asic_index).command("iptables -S")["stdout"].strip().split("\n")
+        return len(set(expected_iptables_rules) - set(actual_iptables_rules)) == 0
+
+    wait_until(60, 5, 0, _iptables_rules_present)
 
     # Ensure all expected iptables rules are present on the DuT
     logger.info("Number of expected iptable rules:{}, number of actual iptables rules:{}"
@@ -1104,8 +1110,14 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
     # for i in range(len(expected_iptables_rules)):
     #    pytest_assert(actual_iptables_rules[i] == expected_iptables_rules[i], "iptables rules not in expected order")
 
-    stdout = duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"]
-    actual_ip6tables_rules = stdout.strip().split("\n")
+    actual_ip6tables_rules = []
+
+    def _ip6tables_rules_present():
+        actual_ip6tables_rules[:] = \
+            duthost.get_asic_or_sonic_host(asic_index).command("ip6tables -S")["stdout"].strip().split("\n")
+        return len(set(expected_ip6tables_rules) - set(actual_ip6tables_rules)) == 0
+
+    wait_until(60, 5, 0, _ip6tables_rules_present)
 
     # Ensure all expected ip6tables rules are present on the DuT
     logger.info("Number of expected ip6table rules:{}, number of actual ip6tables rules:{}"
