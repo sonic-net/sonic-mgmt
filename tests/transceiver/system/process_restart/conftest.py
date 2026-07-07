@@ -7,6 +7,7 @@ Process Restart consumes the ``presence_verified, gold_fw_verified, links_verifi
 
 import pytest
 
+
 # Opt into the cross-category session gates this category consumes.
 @pytest.fixture(autouse=True, scope="session")
 def _category_session_prerequisites(presence_verified, gold_fw_verified, links_verified):

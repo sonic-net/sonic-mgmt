@@ -106,6 +106,6 @@ def test_system_pmon_restart(
 
     if failures:
         pytest.fail(
-            f"pmon restart recovery FAILED on {len(failures)} port(s):\n  - "
+            f"pmon restart recovery FAILED on {len(failures)} port(s): \n - "
             + "\n  - ".join(failures)
         )
