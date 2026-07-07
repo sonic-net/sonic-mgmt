@@ -861,10 +861,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            dscp=None,
                            sport=2020,
                            dport=8080,
-                           flags=0x10,
-                           pktlen=100):
+                           flags=0x10):
         pkt = testutils.simple_tcpv6_packet(
-            pktlen=pktlen,
             eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,

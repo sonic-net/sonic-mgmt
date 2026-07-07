@@ -1396,43 +1396,6 @@ class BaseEverflowTest(object):
             return False
 
     @staticmethod
-    def _get_interface_mtu(duthost, interface):
-        interface_status = duthost.show_and_parse(f"show interface status {interface}")
-        pytest_assert(interface_status, f"Failed to read MTU for interface {interface}")
-        return int(interface_status[0]["mtu"])
-
-    def _set_interface_mtu(self, duthost, interface, mtu):
-        duthost.command(f"config interface mtu {interface} {mtu}")
-        pytest_assert(
-            wait_until(30, 5, 0, lambda: self._get_interface_mtu(duthost, interface) == mtu),
-            f"Failed to update MTU {mtu} on interface {interface}"
-        )
-
-    @staticmethod
-    def _get_acl_packets_count(duthost, table_name, rule_name):
-        acl_counters = duthost.show_and_parse("aclshow -a")
-        pytest_assert(acl_counters, f"Failed to read ACL counters for {table_name}|{rule_name}")
-
-        for rule in acl_counters:
-            if rule["table name"] == table_name and rule["rule name"] == rule_name:
-                packets_count = rule["packets count"]
-                pytest_assert(
-                    packets_count != "N/A",
-                    f"ACL counter is not ready for {table_name}|{rule_name}"
-                )
-                return int(packets_count)
-
-        pytest.fail(f"ACL counter entry not found for {table_name}|{rule_name}")
-
-    @staticmethod
-    def _select_tx_port_not_in(port_info, excluded_ptf_ids, purpose):
-        for port, ptf_id in zip(port_info["dest_port"], port_info["dest_port_ptf_id"]):
-            ptf_ids = BaseEverflowTest._get_tx_port_id_list([ptf_id])
-            if not set(ptf_ids).intersection(excluded_ptf_ids):
-                return port, ptf_ids
-        pytest.skip(f"Skip test as there is no available {purpose} port.")
-
-    @staticmethod
     def _select_route_ready_tx_port(remote_dut, port_info, tbinfo, session_prefix, namespace, ip_version,
                                     route_timeout=60, route_interval=10):
         attempts = []
