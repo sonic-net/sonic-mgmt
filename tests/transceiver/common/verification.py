@@ -191,7 +191,7 @@ def _check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
     deadline = time.monotonic() + max(0, int(timeout_sec))
     while True:
         entry = db_helpers.hgetall_dict(
-            duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{port}", namespace=namespace
+            duthost, "APPL_DB", f"LLDP_ENTRY_TABLE: {port}", namespace=namespace
         )
         if entry:
             details = f"{port}: LLDP neighbor present within {timeout_sec}s"
