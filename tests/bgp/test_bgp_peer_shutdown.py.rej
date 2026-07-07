@@ -1,9 +1,0 @@
-diff a/tests/bgp/test_bgp_peer_shutdown.py b/tests/bgp/test_bgp_peer_shutdown.py	(rejected hunks)
-@@ -72,7 +77,6 @@ def common_setup_teardown(
-         neigh_type = "LowerRegionalHub"
-         if confed_asn is not None:
-             use_vtysh = True
--
-     else:
-         neigh_type = "ToRRouter"
-     logging.info(
