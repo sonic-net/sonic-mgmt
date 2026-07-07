@@ -43,11 +43,14 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     for entry in neighbor_table:
         intf = entry[0]
         if intf in ports_map:
+            # Check if this interface is part of a portchannel
             ptf_ports = [ports_map[intf]]
 
+            # Check if the interface is a member of any portchannel
             if 'minigraph_portchannels' in dut_mg_facts:
                 for pc_name, pc_info in dut_mg_facts['minigraph_portchannels'].items():
                     if intf in pc_info.get('members', []):
+                        # Found a portchannel - get PTF ports for all members
                         logger.info("Interface {} is a member of portchannel {}".format(intf, pc_name))
                         ptf_ports = []
                         for member in pc_info['members']:
@@ -57,7 +60,7 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
                                     member, ports_map[member]))
                         break
 
-            return intf, ptf_ports, entry[1]
+            return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
 
     pytest.skip("No active LLDP neighbor found for {}".format(dut))
 
@@ -171,11 +174,13 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapt
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
+    # Convert single port to list for uniform handling
     if isinstance(ptf_src_ports, int):
         ptf_src_ports_list = [ptf_src_ports]
     else:
         ptf_src_ports_list = ptf_src_ports
 
+    # Use the first port for sending packets
     ptf_src_port = ptf_src_ports_list[0]
 
     for i in range(0, 10):
@@ -727,6 +732,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     if with_srh and duthost.facts["asic_type"] == "cisco-8000":
         pytest.skip("skip, cisco-8000 does not support srh")
 
+    # Use the first port to send traffic
     first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
 
     # Verify that the ASIC DB has the SRv6 SID entries
@@ -740,6 +746,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         before_count = int(portstat[dut_port]['rx_drp'])
     elif duthost.facts["asic_type"] == "mellanox":
         before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
+    #FIXME
 
     # inject a number of packets with random payload
     pkt_count = 100
