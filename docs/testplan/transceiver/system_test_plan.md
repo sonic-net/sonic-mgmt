@@ -33,13 +33,13 @@ Before executing the system tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
-- `system.json` is properly formatted and accessible; required attributes are defined for the transceivers under test, and platform-specific settings are correctly configured
+- `system.json` is properly formatted and accessible; required attributes are defined for the transceivers under test, and platform-specific settings are correctly configured (see [Attributes](#attributes) for the shard layout)
 
 System health (running daemons, fresh logs) and transceiver baseline (presence, gold firmware, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates System consumes.
 
 ## Attributes
 
-A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports.
+A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/system/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
 The following table summarizes the key attributes used in system testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
@@ -203,7 +203,7 @@ The following tests aim to validate the link status and stability of transceiver
 
 ### Process and Service Restart Test Cases
 
-**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: the framework's PID check is overridden in this subcategory's conftest since service restarts are the subject of the test; instead, verify that each restarted service comes back up and is running before the test is considered complete. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
+**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: because the per-test PID check evaluates only the monitored processes listed in `DEFAULT_MONITORED_PROCESSES` (`tests/transceiver/common/health_checks.py`, currently only `xcvrd`), this subcategory adds the name of the *monitored* process whose restart is expected (today only `"xcvrd"`) — not the name of the restarted service — to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest. The framework's per-test PID check then treats the PID change as expected rather than a regression; the parent health check still verifies the monitored process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|

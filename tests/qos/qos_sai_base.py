@@ -51,8 +51,8 @@ class QosBase:
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
-        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
-        "t0-88-o8c80", "t0-f2-d40u8"
+        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2", "t0-isolated-d32u32s2-mix",
+        "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-f2-d10u8",
@@ -61,7 +61,7 @@ class QosBase:
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -1302,6 +1302,11 @@ class QosSaiBase(QosBase):
             pytest_assert(
                 not src_dut.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
+            # TH6 lt2 selects test ports from PortChannel members; detect via hwsku hostvars like dutAsic.
+            _vendor = src_dut.facts["asic_type"]
+            _hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            _th6_hwskus = "{0}_th6_hwskus".format(_vendor)
+            isBroadcomTH6Device = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
             for _, lag in src_mgFacts["minigraph_portchannels"].items():
@@ -1331,7 +1336,8 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-
+            if isBroadcomTH6Device:
+                testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
                            "Skip test since no ports are available for testing")
@@ -1343,6 +1349,8 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
+            elif isBroadcomTH6Device:
+                intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
 
@@ -1351,6 +1359,9 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
+                    if isBroadcomTH6Device:
+                        if intf in src_mgFacts["minigraph_portchannels"]:
+                            intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
@@ -1868,7 +1879,7 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_asic, "lldp", "enabled")
+            updateFeatureState(dst_dut, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
@@ -3182,7 +3193,7 @@ class QosSaiBase(QosBase):
             return
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             dst_dut = get_src_dst_asic_and_duts['dst_dut']
             dst_mgfacts = dst_dut.get_extended_minigraph_facts(tbinfo)
             dst_interfaces = []
@@ -3206,7 +3217,14 @@ class QosSaiBase(QosBase):
                 neighbor_lag_intfs = [vm_neighbors[po_intf]['port'] for po_intf in po_interfaces]
                 neigh_intf = next(iter(po_interfaces.keys()))
                 peer_device = vm_neighbors[neigh_intf]['name']
-                vm_host = nbrhosts[peer_device]['host']
+                peer_info = nbrhosts[peer_device]
+                vm_host = peer_info['host']
+                if peer_info['is_multi_vrf_peer']:
+                    multi_vrf_data = nbrhosts[peer_device]['multi_vrf_data']
+                    orig_port = multi_vrf_data['orig_intf_map'][neighbor_lag_intfs[0]]
+                    logger.info("original port: {}".format(orig_port))
+                    neighbor_lag_intfs = []
+                    neighbor_lag_intfs.append(orig_port)
                 vm_host_neighbor_lag_members[vm_host] = []
                 num = 600
                 for neighbor_lag_member in neighbor_lag_intfs:
@@ -3218,7 +3236,7 @@ class QosSaiBase(QosBase):
 
         yield
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "broadcom"]):
             for vm_host, neighbor_lag_intfs in vm_host_neighbor_lag_members.items():
                 for neighbor_lag_member in neighbor_lag_intfs:
                     logger.info(

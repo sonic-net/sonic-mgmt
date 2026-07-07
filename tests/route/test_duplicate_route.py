@@ -139,19 +139,17 @@ def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     if interface_types == 'Loopback':
         # Get loopback ips
         intf_ips = get_intf_ips('Loopback', cfg_facts)
-        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on Loopback0")
     else:
         # Get vlan ips
         intf_ips = get_intf_ips('Vlan', cfg_facts)
-        pytest_require((len(intf_ips['ipv4']) + len(intf_ips['ipv6'])) > 0, "No IP configured on any Vlan")
+
+    ip_key = 'ipv4' if ip_versions == 4 else 'ipv6'
+    pytest_require(len(intf_ips[ip_key]) > 0, "No {} configured on {}".format(ip_key, interface_types))
 
     # Generate interfaces and neighbors
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
         asichost, 1, ip_versions)
-    if ip_versions == 4:
-        prefixes.append(str(random.choice(intf_ips['ipv4'])).split("/")[0])
-    else:
-        prefixes.append(str(random.choice(intf_ips['ipv6'])).split("/")[0])
+    prefixes.append(str(random.choice(intf_ips[ip_key])).split("/")[0])
 
     # Setup interface IPs and neighbors
     prepare_dut(asichost, intf_neighs)

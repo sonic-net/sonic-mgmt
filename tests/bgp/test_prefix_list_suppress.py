@@ -15,12 +15,18 @@ import logging
 import random
 import re
 import time
+import uuid
 
 import pytest
 import yaml
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.bgp import (
+    get_asic_namespace,
+    get_vtysh_cmd_for_asic,
+    namespace_cli_arg,
+)
 from tests.common.utilities import wait_until
 
 
@@ -63,11 +69,6 @@ DB_ONLY_BAD_PREFIX = "not-a-prefix"
 
 BGPCFGD_RUNNING_TIMEOUT = 60
 BGPCFGD_RUNNING_INTERVAL = 5
-# Narrow journald lookback (seconds) used by TC-A5 after a fresh bgpcfgd
-# restart. Wide enough to absorb the supervisorctl restart + bgpcfgd init
-# on a slow real DUT (~30s p99), tight enough that stale lines from a
-# previous image upgrade in the same 24h cannot leak into our assertions.
-BGPCFGD_LOG_WINDOW_SECONDS = 180
 
 
 # ---------------------------------------------------------------------------
@@ -93,20 +94,6 @@ def is_upstream_spine(duthost):
 
 def has_chassisdb_conf(duthost):
     return duthost.stat(path=CHASSISDB_CONF)["stat"]["exists"]
-
-
-def asic_ns_for_db_cli(duthost, asic_index):
-    """Build the sonic-db-cli namespace flag for a given frontend asic index."""
-    if duthost.is_multi_asic and asic_index is not None:
-        return "-n asic{}".format(asic_index)
-    return ""
-
-
-def asic_ns_for_vtysh(duthost, asic_index):
-    """Build the vtysh namespace flag for a given frontend asic index."""
-    if duthost.is_multi_asic and asic_index is not None:
-        return "-n {}".format(asic_index)
-    return ""
 
 
 def op_prefix_with_cmd(duthost, prefix_type, prefix, action, ignore_error=False):
@@ -149,7 +136,7 @@ def verify_config_db_entry(duthost, prefix_type, prefix, present):
     """
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         cmd = 'sonic-db-cli {} CONFIG_DB keys "{}"'.format(ns, key).strip()
         out = duthost.shell(cmd)["stdout"].strip()
         has_key = key in out
@@ -166,7 +153,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
     """Bypass the CLI and write straight into CONFIG_DB on every frontend asic."""
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
             'sonic-db-cli {} CONFIG_DB hset "{}" NULL NULL'.format(ns, key).strip()
         )
@@ -175,7 +162,7 @@ def write_config_db_key_directly(duthost, prefix_type, prefix):
 def delete_config_db_key_directly(duthost, prefix_type, prefix):
     key = 'PREFIX_LIST|{}|{}'.format(prefix_type, prefix)
     for asic_index in duthost.get_frontend_asic_ids():
-        ns = asic_ns_for_db_cli(duthost, asic_index)
+        ns = namespace_cli_arg(get_asic_namespace(duthost, asic_index))
         duthost.shell(
             'sonic-db-cli {} CONFIG_DB DEL "{}"'.format(ns, key).strip(),
             module_ignore_errors=True,
@@ -184,8 +171,10 @@ def delete_config_db_key_directly(duthost, prefix_type, prefix):
 
 def fetch_vtysh_prefix_list(duthost, asic_index, ipv, name):
     """Return stdout of ``vtysh -n <n> -c 'show <ip|ipv6> prefix-list <name>'``."""
-    ns = asic_ns_for_vtysh(duthost, asic_index)
-    cmd = 'vtysh {} -c "show {} prefix-list {}"'.format(ns, ipv, name).strip()
+    cmd = get_vtysh_cmd_for_asic(
+        duthost, asic_index,
+        'vtysh -c "show {} prefix-list {}"'.format(ipv, name),
+    )
     return duthost.shell(cmd, module_ignore_errors=True)["stdout"]
 
 
@@ -291,26 +280,63 @@ def start_bgp_container(duthost, service, container):
     duthost.shell("sudo docker start {}".format(container), module_ignore_errors=True)
 
 
-def restart_bgp_container(duthost):
-    """Restart the bgp container on every frontend asic and wait for bgpcfgd.
+def wait_for_frr_ready(duthost, container, asic_index, timeout=480):
+    """Wait until FRR vtysh responds on a specific ASIC.
 
-    ``sudo systemctl restart bgp`` occasionally exits non-zero on real DUTs
-    when systemd races with docker (the unit's start helper returns before
-    the container has fully come up). The bgp container itself still comes
-    up correctly a few seconds later, so we tolerate a non-zero rc here and
-    rely on :func:`wait_for_bgpcfgd` to confirm that bgpcfgd is actually
-    RUNNING. On some builds a failed restart can leave the container stopped,
-    so we do a bounded start fallback before failing."""
+    bgpcfgd RUNNING does NOT imply FRR daemons are ready — on T2 KVM
+    with slow I/O and large configs, FRR can take 6-7 minutes to open
+    its VTY socket. Uses 'timeout 10' to prevent vtysh from blocking
+    indefinitely when the socket is not yet available.
+    """
+    vtysh_cmd = get_vtysh_cmd_for_asic(duthost, asic_index, 'vtysh -c "show version"')
+    cmd = 'timeout 10 {}'.format(vtysh_cmd)
+    pytest_assert(
+        wait_until(timeout, 15, 0,
+                   lambda c=cmd: duthost.shell(c, module_ignore_errors=True)["rc"] == 0),
+        "FRR vtysh not responsive within {}s on {} of {}".format(
+            timeout, container, duthost.hostname),
+    )
+
+
+def restart_bgp_container(duthost):
+    """Restart BGP containers on all frontend ASICs in parallel,
+    then verify each ASIC's readiness sequentially.
+
+    Restarts all BGP services first (parallel boot), then for each ASIC:
+    1. Waits for bgpcfgd to be RUNNING (fast — Python daemon)
+    2. Waits for FRR vtysh to respond (slower — needs VTY socket ready)
+
+    The vtysh check uses 'timeout 10' to avoid indefinite blocking and
+    adapts to system speed: fast on physical hardware (<30s), slower on
+    T2 KVM (~7 min due to slow I/O and large config).
+    """
     service_container_pairs = bgp_service_container_pairs(duthost)
+
+    # 1. Restart all ASICs in parallel
     for service, _ in service_container_pairs:
         duthost.shell(
             "sudo systemctl restart {}".format(service),
             module_ignore_errors=True,
         )
-    if not wait_until(60, BGPCFGD_RUNNING_INTERVAL, 0, bgpcfgd_running, duthost):
-        for service, container in service_container_pairs:
+
+    # 2. Verify each ASIC sequentially: bgpcfgd up → vtysh responsive
+    sonichost = getattr(duthost, "sonichost", duthost)
+    for service, container in service_container_pairs:
+        suffix = container.removeprefix("bgp")
+        asic_index = int(suffix) if suffix.isdigit() else None
+
+        # 2a. bgpcfgd running (fallback to explicit start if needed)
+        if not wait_until(60, BGPCFGD_RUNNING_INTERVAL, 0,
+                          lambda c=container: sonichost.is_service_running("bgpcfgd", c)):
             start_bgp_container(duthost, service, container)
-    wait_for_bgpcfgd(duthost, timeout=180)
+            pytest_assert(
+                wait_until(180, BGPCFGD_RUNNING_INTERVAL, 0,
+                           lambda c=container: sonichost.is_service_running("bgpcfgd", c)),
+                "bgpcfgd not running in {} on {}".format(container, duthost.hostname),
+            )
+
+        # 2b. FRR vtysh responsive
+        wait_for_frr_ready(duthost, container, asic_index)
 
 
 def apply_constants_to_bgpcfgd(duthost):
@@ -357,40 +383,34 @@ def apply_constants_to_bgpcfgd(duthost):
     )
 
 
-def restart_bgpcfgd_only(duthost):
-    """Bounce just the ``bgpcfgd`` supervisord program in every frontend
-    ASIC's bgp container and wait for it to come back RUNNING.
+def place_syslog_marker(duthost):
+    """Inject a unique marker into /var/log/syslog and return the marker string.
 
-    Cheaper and more deterministic than a full ``systemctl restart bgp``:
-    it keeps the container, zebra, bgpd and staticd alive and only
-    re-runs bgpcfgd's ``main()``/``do_work()``. The one-shot
-    ``log_notice`` startup lines (``AsPath Manager is enabled for
-    <DEVICE_TYPE>``, etc.) are re-emitted so the caller can use a
-    narrow ``--since`` window for syslog assertions.
+    Used to window syslog assertions: after placing the marker, only lines
+    after it are considered by collect_syslog_since_marker().
+    Waits until the marker is confirmed present in the syslog file to avoid
+    races with asynchronous rsyslog writes.
     """
-    for container in bgp_container_names(duthost):
-        duthost.shell(
-            "sudo docker exec {} supervisorctl restart bgpcfgd".format(container),
-            module_ignore_errors=True,
-        )
-    wait_for_bgpcfgd(duthost, timeout=180)
+    marker = "SONIC_TEST_MARKER_{}".format(uuid.uuid4().hex[:12])
+    duthost.shell("logger -t SONIC_TEST '{}'".format(marker))
+    duthost.shell(
+        "timeout 5 bash -c \"while ! grep -q '{}' /var/log/syslog; do sleep 0.1; done\"".format(marker)
+    )
+    return marker
 
 
-def collect_recent_syslog(duthost, pattern, since_seconds=120):
-    """Return matching lines from the last *since_seconds* of /var/log/syslog.
+def collect_syslog_since_marker(duthost, marker, pattern):
+    """Return lines from /var/log/syslog matching *pattern* after *marker*.
 
-    The grep filters out ansible's own audit log lines
-    (``ansible-ansible.legacy.command Invoked with _raw_params=...``), which
-    echo the journalctl command itself, including the regex pattern,
-    back into the same log we're searching. Without this filter every call
-    would appear to match its own argument and produce a false positive."""
-    # The bgpcfgd warnings flow into the host's syslog; multi-asic containers
-    # also forward their syslog to the host. We just grep the host log.
+    Works on both single-ASIC and multi-ASIC platforms because all container
+    daemons forward their logs to the host's /var/log/syslog via rsyslog.
+    Filters out ansible audit lines that echo the grep pattern back.
+    """
     cmd = (
-        "sudo journalctl --since='{}sec ago' --no-pager 2>/dev/null "
-        "| grep -v 'ansible-ansible.legacy.command Invoked with _raw_params' "
-        "| grep -E {!r} || true"
-    ).format(since_seconds, pattern)
+        "sudo sed -n '/{marker}/,$p' /var/log/syslog "
+        "| grep -v 'Invoked with _raw_params' "
+        "| grep -E {pattern!r} || true"
+    ).format(marker=marker, pattern=pattern)
     return duthost.shell(cmd)["stdout"]
 
 
@@ -654,68 +674,69 @@ class TestAnchorPrefixRegression:
         """TC-A5: PrefixListMgr is now started unconditionally; old log line
         must be gone; bgpcfgd must be healthy.
 
-        We deliberately bounce ``bgpcfgd`` at the start of this test and
-        use a narrow post-restart window (``BGPCFGD_LOG_WINDOW_SECONDS``)
-        for every syslog assertion. A 24h ``journalctl`` window would
-        otherwise surface stale lines from a *previous* image (e.g. the
-        legacy ``Prefix List Manager and AsPath Manager are enabled for
-        UpperSpineRouter/UpstreamLC`` notice or a bgpcfgd traceback that
-        happened before today's upgrade), which would make this test
-        fail spuriously on regression cycles that re-image the DUT.
-        Bouncing bgpcfgd also forces the one-shot ``log_notice`` startup
-        lines (in particular ``AsPath Manager is enabled for
-        <DEVICE_TYPE>`` on spines) to be re-emitted into the narrow
-        window, so the presence/absence checks below are deterministic.
+        We restart ``bgpcfgd`` one container at a time, placing a unique
+        syslog marker before each restart. This scopes every assertion to
+        exactly the log output from that container's fresh bgpcfgd startup,
+        eliminating false positives from stale lines in a previous image.
+        Uses /var/log/syslog (not journalctl) so it works on multi-ASIC
+        chassis where container daemons log via rsyslog.
         """
         duthost = rand_one_frontend_duthost
+        spine = is_upstream_spine(duthost)
 
-        restart_bgpcfgd_only(duthost)
-        # ``wait_for_bgpcfgd`` inside ``restart_bgpcfgd_only`` already
-        # asserts bgpcfgd is RUNNING on every frontend ASIC.
-
-        # The pre-PR notice was tied to UpperSpineRouter/UpstreamLC and
-        # should no longer appear at all -- even after a fresh bgpcfgd
-        # startup.
-        legacy = collect_recent_syslog(
-            duthost,
-            "Prefix List Manager and AsPath Manager are enabled for "
-            "UpperSpineRouter/UpstreamLC",
-            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
-        )
-        pytest_assert(
-            not legacy.strip(),
-            "Legacy 'Prefix List Manager and AsPath Manager are enabled' log "
-            "line is still produced after bgpcfgd restart on {}:\n{}".format(
-                duthost.hostname, legacy),
-        )
-
-        # On spine devices the new "AsPath Manager is enabled for <TYPE>" line
-        # must appear. On non-spine devices it must not.
-        new_line = collect_recent_syslog(
-            duthost,
-            "AsPath Manager is enabled for",
-            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
-        )
-        if is_upstream_spine(duthost):
+        for container in bgp_container_names(duthost):
+            # Place marker, restart bgpcfgd, wait for it to come back
+            marker = place_syslog_marker(duthost)
+            duthost.shell(
+                "sudo docker exec {} supervisorctl restart bgpcfgd".format(
+                    container),
+                module_ignore_errors=True,
+            )
+            sonichost = getattr(duthost, "sonichost", duthost)
             pytest_assert(
-                new_line.strip(),
-                "Expected 'AsPath Manager is enabled for <DEVICE_TYPE>' log "
-                "line on spine device {} after bgpcfgd restart".format(
-                    duthost.hostname),
+                wait_until(180, 5, 0,
+                           lambda c=container: sonichost.is_service_running(
+                               "bgpcfgd", c)),
+                "bgpcfgd not RUNNING in {} within 180s".format(container),
             )
 
-        # bgpcfgd must not have logged a traceback since the restart we
-        # just performed. We use the same narrow window so a stale
-        # traceback from a previous run cannot fail this assertion.
-        tracebacks = collect_recent_syslog(
-            duthost, "bgpcfgd.*Traceback",
-            since_seconds=BGPCFGD_LOG_WINDOW_SECONDS,
-        )
-        pytest_assert(
-            not tracebacks.strip(),
-            "bgpcfgd recorded a traceback after restart on {}:\n{}".format(
-                duthost.hostname, tracebacks),
-        )
+            # The pre-PR notice was tied to UpperSpineRouter/UpstreamLC and
+            # should no longer appear at all after a fresh bgpcfgd startup.
+            legacy = collect_syslog_since_marker(
+                duthost, marker,
+                "Prefix List Manager and AsPath Manager are enabled for "
+                "UpperSpineRouter/UpstreamLC",
+            )
+            pytest_assert(
+                not legacy.strip(),
+                "Legacy 'Prefix List Manager and AsPath Manager are enabled'"
+                " log line still produced after bgpcfgd restart in {} on"
+                " {}:\n{}".format(container, duthost.hostname, legacy),
+            )
+
+            # On spine devices the new "AsPath Manager is enabled for <TYPE>"
+            # line must appear. On non-spine devices it must not.
+            if spine:
+                new_line = collect_syslog_since_marker(
+                    duthost, marker,
+                    "AsPath Manager is enabled for",
+                )
+                pytest_assert(
+                    new_line.strip(),
+                    "Expected 'AsPath Manager is enabled for <DEVICE_TYPE>'"
+                    " log line on spine device {} after bgpcfgd restart in"
+                    " {}".format(duthost.hostname, container),
+                )
+
+            # bgpcfgd must not have logged a traceback since the restart.
+            tracebacks = collect_syslog_since_marker(
+                duthost, marker, "bgpcfgd.*Traceback",
+            )
+            pytest_assert(
+                not tracebacks.strip(),
+                "bgpcfgd recorded a traceback after restart in {} on"
+                " {}:\n{}".format(container, duthost.hostname, tracebacks),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -826,6 +847,7 @@ class TestSuppressPrefix:
 
         # --- Direct CONFIG_DB path ---
         try:
+            marker = place_syslog_marker(duthost)
             write_config_db_key_directly(duthost, SUPPRESS_TYPE, prefix)
             pytest_assert(
                 wait_until(
@@ -835,11 +857,10 @@ class TestSuppressPrefix:
                 ),
                 "SUPPRESS_PREFIX not picked up by PrefixListMgr from direct DB write",
             )
-            unwanted_warn = collect_recent_syslog(
-                duthost,
+            unwanted_warn = collect_syslog_since_marker(
+                duthost, marker,
                 "PrefixListMgr:: Device type .* not supported for {}".format(
                     SUPPRESS_TYPE),
-                since_seconds=60,
             )
             pytest_assert(
                 not unwanted_warn.strip(),
@@ -1104,10 +1125,12 @@ class TestPrefixListNegative:
             )
             # Defensive: the unknown name must not appear in any FRR prefix-list.
             for asic_index in duthost.get_frontend_asic_ids():
-                ns = asic_ns_for_vtysh(duthost, asic_index)
+                vtysh_cmd = get_vtysh_cmd_for_asic(
+                    duthost, asic_index, 'vtysh -c "show running-config"'
+                )
                 out = duthost.shell(
-                    'vtysh {} -c "show running-config" | grep prefix-list '
-                    '| grep -i {} || true'.format(ns, UNKNOWN_TYPE),
+                    '{} | grep prefix-list '
+                    '| grep -i {} || true'.format(vtysh_cmd, UNKNOWN_TYPE),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
@@ -1160,10 +1183,12 @@ class TestPrefixListNegative:
             "bgpcfgd did not return to RUNNING after CLI accepted malformed prefix",
         )
         for asic_index in duthost.get_frontend_asic_ids():
-            ns = asic_ns_for_vtysh(duthost, asic_index)
+            vtysh_cmd = get_vtysh_cmd_for_asic(
+                duthost, asic_index, 'vtysh -c "show running-config"'
+            )
             out = duthost.shell(
-                'vtysh {} -c "show running-config" | grep prefix-list '
-                '| grep -F {!r} || true'.format(ns, MALFORMED_PREFIX),
+                '{} | grep prefix-list '
+                '| grep -F {!r} || true'.format(vtysh_cmd, MALFORMED_PREFIX),
             )["stdout"]
             pytest_assert(
                 not out.strip(),
@@ -1187,10 +1212,12 @@ class TestPrefixListNegative:
                 "bgpcfgd did not return to RUNNING after malformed-prefix write",
             )
             for asic_index in duthost.get_frontend_asic_ids():
-                ns = asic_ns_for_vtysh(duthost, asic_index)
+                vtysh_cmd = get_vtysh_cmd_for_asic(
+                    duthost, asic_index, 'vtysh -c "show running-config"'
+                )
                 out = duthost.shell(
-                    'vtysh {} -c "show running-config" | grep prefix-list '
-                    '| grep -F {!r} || true'.format(ns, DB_ONLY_BAD_PREFIX),
+                    '{} | grep prefix-list '
+                    '| grep -F {!r} || true'.format(vtysh_cmd, DB_ONLY_BAD_PREFIX),
                 )["stdout"]
                 pytest_assert(
                     not out.strip(),
@@ -1207,7 +1234,7 @@ class TestPrefixListNegative:
         before = {
             asic_index: duthost.shell(
                 'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
-                    asic_ns_for_db_cli(duthost, asic_index)
+                    namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
             for asic_index in duthost.get_frontend_asic_ids()
@@ -1222,7 +1249,7 @@ class TestPrefixListNegative:
         after = {
             asic_index: duthost.shell(
                 'sonic-db-cli {} CONFIG_DB keys "PREFIX_LIST|*"'.format(
-                    asic_ns_for_db_cli(duthost, asic_index)
+                    namespace_cli_arg(get_asic_namespace(duthost, asic_index))
                 ).strip(),
             )["stdout"]
             for asic_index in duthost.get_frontend_asic_ids()
