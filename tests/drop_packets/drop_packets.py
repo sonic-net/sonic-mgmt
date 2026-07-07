@@ -350,6 +350,21 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     if tbinfo["topo"]["type"] == "ptf":
         pytest.skip("Unsupported topology {}".format(tbinfo["topo"]))
 
+    # Skip drop counter tests on VoQ topology - drop counters not tracked at ingress port level
+    try:
+        result = duthost.shell("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type' 2>/dev/null || echo ''")
+        switch_type = result.get('stdout', '').strip()
+        logger.info(f"Device switch_type from sonic-cfggen: {switch_type}")
+        if switch_type and "voq" in switch_type.lower():
+            pytest.skip("Drop counter tests not supported on VoQ (Voice of Quantum) topology - drops not tracked at ingress port level")
+    except Exception as e:
+        logger.warning(f"Unable to check switch_type: {e}")
+    
+    # Fallback: check mg_facts
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if mg_facts.get("switch_type") == "voq":
+        pytest.skip("Drop counter tests not supported on VoQ (Voice of Quantum) topology - drops not tracked at ingress port level")
+
     # Gather interface facts per asic
     for ns in duthost.get_asic_namespace_list():
         intf_per_namespace[ns if ns is not DEFAULT_NAMESPACE else ''] = \
