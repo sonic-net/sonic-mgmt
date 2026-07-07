@@ -49,12 +49,6 @@ options:
         host/hosts/anchor information.
         required: False
 
-    forced_mgmt_routes:
-        List of forced management routes (IPv4/IPv6). Will be parsed into
-        forced_mgmt_routes_v4 and forced_mgmt_routes_v6 and added to each
-        device entry in graph facts.
-        required: False
-
     Mutually exclusive options: host, hosts, anchor
 
 Ansible_facts:
@@ -116,7 +110,7 @@ LAB_GRAPHFILE_PATH = "files/"
 LAB_GRAPH_GROUPS_FILE = "graph_groups.yml"
 
 
-def find_graph(hostnames, part=False, forced_mgmt_routes=None):
+def find_graph(hostnames, part=False):
     """Find the graph file for the target device
 
     Args:
@@ -135,7 +129,7 @@ def find_graph(hostnames, part=False, forced_mgmt_routes=None):
     target_group = None
     for group in graph_groups:
         logging.debug("Looking at graph files of group {} for hosts {}".format(group, hostnames))
-        lab_graph = LabGraph(LAB_GRAPHFILE_PATH, group, forced_mgmt_routes=forced_mgmt_routes)
+        lab_graph = LabGraph(LAB_GRAPHFILE_PATH, group)
         graph_hostnames = set(lab_graph.graph_facts["devices"].keys())
         logging.debug("For graph group {}, got hostnames {}".format(group, graph_hostnames))
 
@@ -167,7 +161,6 @@ def main():
             group=dict(required=False),
             anchor=dict(required=False, type='list'),
             ignore_errors=dict(required=False, type='bool', default=False),
-            forced_mgmt_routes=dict(required=False, type='list'),
         ),
         mutually_exclusive=[['host', 'hosts', 'anchor']],
         supports_check_mode=True
@@ -191,20 +184,13 @@ def main():
             LAB_GRAPHFILE_PATH = m_args['filepath']
 
         if m_args["group"]:
-            lab_graph = LabGraph(
-                LAB_GRAPHFILE_PATH,
-                m_args["group"],
-                forced_mgmt_routes=m_args.get("forced_mgmt_routes")
-            )
+            lab_graph = LabGraph(LAB_GRAPHFILE_PATH, m_args["group"])
         else:
             # When calling passed in anchor instead of hostnames,
             # the caller is asking to return the whole graph. This
             # is needed when configuring the root fanout switch.
             target = anchor if anchor else hostnames
-            lab_graph = find_graph(
-                target,
-                forced_mgmt_routes=m_args.get("forced_mgmt_routes")
-            )
+            lab_graph = find_graph(target)
 
         if not lab_graph:
             results = {

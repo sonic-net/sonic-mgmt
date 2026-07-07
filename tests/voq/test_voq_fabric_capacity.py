@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2')
 ]
 
 # This test checks the output of the "show fabric monitor capacity" command

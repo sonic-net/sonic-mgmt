@@ -1,7 +1,7 @@
 import os
 import re
 import logging
-import datetime
+from ansible.module_utils.basic import datetime
 
 MAX_LOG_FILES_PER_MODULE = 10
 

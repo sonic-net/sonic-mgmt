@@ -128,13 +128,7 @@ scan_dbs = {
                 "post1",
                 "post2",
                 "post3",
-                "main",
-                # idriver/ipredriver are SerDes driver-strength fields that portmgrd
-                # re-applies asynchronously from media-settings after a port is
-                # re-added via `config apply-patch`. Like pre1..pre3/post1..post3/main,
-                # they are transient and not part of the configuration under test.
-                "idriver",
-                "ipredriver"
+                "main"
             }
         },
         "state-db": {

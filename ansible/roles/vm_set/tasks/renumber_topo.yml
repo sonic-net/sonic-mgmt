@@ -31,8 +31,6 @@
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: stop
-    when: "'bmc' not in topo"
-    ignore_errors: yes
 
   - name: Kill exabgp and ptf_nn_agent processes in PTF container
     ptf_control:
@@ -62,7 +60,6 @@
 
   - name: Get dut ports
     include_tasks: get_dut_port.yml
-    when: "'bmc' not in topo"
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
@@ -83,7 +80,6 @@
       max_fp_num: "{{ max_fp_num }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: "'bmc' not in topo"
 
   - name: Stop ptf container ptf_{{ vm_set_name }}
     docker_container:
@@ -121,8 +117,7 @@
       pull: yes
       state: started
       restart: yes
-      network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
-      networks: "{{ [{'name': mgmt_bridge, 'ipv4_address': ptf_ip | regex_replace('/.*', '')}] if ptf_use_docker_network | default(false) else omit }}"
+      network_mode: none
       detach: True
       capabilities:
         - net_admin
@@ -155,18 +150,10 @@
 
   - name: Create vlan ports for dut
     include_tasks: create_dut_port.yml
-    when: "external_port is defined and 'bmc' not in topo"
+    when: external_port is defined
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
-
-  - name: Set default empty port lists for portless topo
-    set_fact:
-      duts_fp_ports: {}
-      duts_mgmt_port: []
-      duts_midplane_ports: {}
-      duts_inband_ports: {}
-    when: "'bmc' in topo"
 
   - debug: msg="{{ duts_fp_ports }}"
   - debug: msg="{{ duts_mgmt_port }}"
@@ -198,7 +185,6 @@
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: "'bmc' not in topo"
 
   - name: Don't accept ipv6 router advertisements on PTF mgmt interface if it exists
     command: >
@@ -209,7 +195,7 @@
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
-    when: topo != 'fullmesh' and not (ptf_use_docker_network | default(false))
+    when: topo != 'fullmesh'
 
   - name: Send arp ping packet to gw for flusing the ARP table
     command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
@@ -223,14 +209,12 @@
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: start
-    when: "'bmc' not in topo"
 
   - name: Announce routes
     include_tasks: announce_routes.yml
     when:
       - topo != 'fullmesh'
       - not 'ptf' in topo
-      - not 'bmc' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
@@ -246,6 +230,5 @@
 
   - name: Start tacacs+ daily daemon
     include_tasks: start_tacacs_daily_daemon.yml
-    when: not (ptf_use_docker_network | default(false))
 
   when: container_type == "PTF"

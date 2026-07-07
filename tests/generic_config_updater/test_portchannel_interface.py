@@ -27,7 +27,7 @@ from tests.common.gu_utils import create_path, check_show_ip_intf
 # }
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'm1', 't2', 'lrh', 'urh'),
+    pytest.mark.topology('t0', 'm0', 'm1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ def setup_env(duthosts, enum_rand_one_per_hwsku_frontend_hostname, portchannel_t
     Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns a randomly selected frontend DuT per HwSKU
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns one DUT per hardware SKU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     create_checkpoint(duthost)

@@ -331,9 +331,6 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-        # kvm_image_build_id and kvm_image_branch are mutually exclusive; build id takes precedence
-        if kvm_image_build_id:
-            kvm_image_branch = ""
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
@@ -370,7 +367,6 @@ class TestPlanManager(object):
                 "ptf_modified": ptf_modified,
                 "image": {
                     "url": image_url,
-                    "dpu_url": kwargs.get("dpu_image_url", None),
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
@@ -871,16 +867,6 @@ if __name__ == "__main__":
         help="Image url"
     )
     parser_create.add_argument(
-        "--dpu_image_url",
-        type=str,
-        dest="dpu_image_url",
-        nargs='?',
-        const=None,
-        default=None,
-        required=False,
-        help="SONiC image url for DPU upgrade on SmartSwitch testbeds"
-    )
-    parser_create.add_argument(
         "--upgrade-image-param",
         type=str,
         dest="upgrade_image_param",
@@ -1231,7 +1217,6 @@ if __name__ == "__main__":
                     ptf_image_tag=args.ptf_image_tag,
                     ptf_modified=args.ptf_modified,
                     image_url=args.image_url,
-                    dpu_image_url=args.dpu_image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
                     test_plan_type=args.test_plan_type,

@@ -1,7 +1,6 @@
 class PacketTrimmingConfig:
     DSCP = 48
     COUNTER_DSCP = 3   # Map to queue2
-    TRIM_QUEUE = 6
 
     @staticmethod
     def get_trim_size(duthost):
@@ -29,7 +28,7 @@ class PacketTrimmingConfig:
             # not support being modified
             return th5_queue.get(duthost.facts['hwsku'], 9)
         else:
-            return PacketTrimmingConfig.TRIM_QUEUE
+            return 6
 
     @staticmethod
     def get_valid_trim_configs(duthost, asymmetric=False):

@@ -12,7 +12,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology("any"),
     pytest.mark.device_type("vs"),
-    pytest.mark.device_type("vpp"),
 ]
 
 HOSTSERVICE_RELOADING_COMMAND = "sudo systemctl restart hostcfgd.service"

@@ -9,7 +9,6 @@ import binascii
 import pytest
 import yaml
 import six
-import re
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -27,10 +26,8 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
-from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, duthost_startup_ebgp
+from tests.common.fixtures.duthost_utils import shutdown_ebgp          # noqa: F401
 import json
-
-logger = logging.getLogger(__name__)
 
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
@@ -369,49 +366,6 @@ def erspan_ip_ver(request):
     return request.param
 
 
-def clear_interface_counters(duthost):
-    """
-    Clear the interface counters for the host
-    """
-    duthost.command("portstat -c")
-
-
-def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
-    """
-    Assert that there are no tx drops on the mirror port.
-
-    Args:
-        duthost: DUT fixture
-        mirror_port: The mirror port to check for tx drops
-    """
-    def _mirror_port_counter_ready():
-        portstat = json.loads(duthost.get_port_counters(in_json=True))
-        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
-        # wait for the mirror port to appear with a numeric TX_DRP.
-        return mirror_port in portstat and portstat[mirror_port]["TX_DRP"].replace(',', '') != 'N/A'
-
-    pytest_assert(wait_until(30, 5, 0, _mirror_port_counter_ready),
-                  "TX_DRP counter on mirror port {} not ready (still 'N/A')".format(mirror_port))
-    portstat = json.loads(duthost.get_port_counters(in_json=True))
-    pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
-    tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
-    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
-
-
-def get_mirror_port(duthost, session_name):
-    mirror_port = None
-    port_re = r"Ethernet\d+"
-    cmd = "show mirror_session"
-    output = duthost.command(cmd)['stdout_lines']
-    if not output:
-        pytest_assert(False, "Failed to get mirror session information for session {}".format(session_name))
-    mirror_line = next((line for line in output if session_name in line), "")
-    mirror_port = re.search(port_re, mirror_line)
-    if not mirror_port:
-        pytest_assert(False, "Failed to get mirror port for session {}".format(session_name))
-    return mirror_port.group()
-
-
 def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
@@ -450,38 +404,9 @@ def get_queue_counters(dut, asic_ns, port, queue):
     return -1
 
 
-def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
-    """
-    Assert that there are no tx drops on the mirror port.
-
-    Args:
-        duthost: DUT fixture
-        mirror_port: The mirror port to check
-    """
-    cmd = f"show queue counters {mirror_port}"
-    output = duthost.command(cmd)['stdout']
-
-    if (not output) or mirror_port not in output:
-        pytest_assert(False, f"Mirror port {mirror_port} not in queue counters output")
-
-    output = output.splitlines()
-    queues_with_drops = []
-    for line in output:
-        if "Ethernet" not in line or "cached" in line:
-            continue
-        queue = line.split()[1]
-        drop_str = line.split()[4].replace(',', '')
-        if drop_str == 'N/A':
-            continue
-        drop = int(drop_str)
-        if drop > 30:
-            queues_with_drops.append((queue, drop))
-    msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
-    pytest_assert(not queues_with_drops, msg)
-
-
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
+               shutdown_ebgp):  # noqa: F811
     """
     Gather all required test information.
 
@@ -495,38 +420,30 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     duthost = None
     topo = tbinfo['topo']['name']
-    if 't2' in topo and len(duthosts) > 1:
-        pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
-        downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
+    if 't2' in topo:
+        if len(duthosts) == 1:
+            downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
+        else:
+            pytest_assert(len(duthosts) > 2, "Test must run on whole chassis")
+            downstream_duthost, upstream_duthost = get_t2_duthost(duthosts, tbinfo)
     else:
         downstream_duthost = upstream_duthost = duthost = duthosts[rand_one_dut_hostname]
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
-    # Disable BGP so that we don't keep on bouncing back mirror packets
-    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
-
-    ebgp_shutdown_duthosts = []
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            ebgp_shutdown_duthosts.append(dut_host)
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
-        ebgp_shutdown_duthosts.append(duthost)
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-
-    v4ebgps = {}
-    v6ebgps = {}
-    for dut_host in ebgp_shutdown_duthosts:
-        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
-        v4ebgps[dut_host.hostname] = v4_routes_count
-        v6ebgps[dut_host.hostname] = v6_routes_count
 
     yield setup_information
 
-    for dut_host in ebgp_shutdown_duthosts:
-        duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
-        dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
+    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
+        for dut_host in duthosts.frontend_nodes:
+            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
+    else:
+        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -602,28 +519,27 @@ def validate_acl_rule_rids(duthost):
     return True
 
 
-def get_acl_rule_counts(duthost):
+def validate_acl_rules_in_asic_db(duthost):
     """
-    Snapshot the number of ACL rules in CONFIG DB and ASIC DB, per frontend ASIC.
-
-    Returns a list with one (config_count, asic_count) tuple per frontend ASIC
-    (a single tuple for single-ASIC DUTs). Use this to capture a baseline before
-    applying ACL rules so the readiness check can compare deltas (see
-    validate_acl_rules_in_asic_db).
+    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
 
     Args:
         duthost: DUT host object
 
     Returns:
-        list[tuple[int, int]]: [(config_count, asic_count), ...] indexed by frontend ASIC
+        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
     """
+    # Get all frontend ASIC instances
     if duthost.is_multi_asic:
         asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
     else:
         asic_instances = [duthost]
 
-    counts = []
+    # Validate ACL rules in each ASIC
     for asic in asic_instances:
+        # Get namespace-specific command prefix
         if duthost.is_multi_asic:
             namespace = asic.get_asic_namespace()
             config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
@@ -632,93 +548,34 @@ def get_acl_rule_counts(duthost):
             config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
             asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
 
-        config_count = len(asic.shell(config_cmd)['stdout_lines'])
-        asic_count = len(asic.shell(asic_cmd)['stdout_lines'])
-        counts.append((config_count, asic_count))
+        config_rules = asic.shell(config_cmd)['stdout_lines']
+        asic_rules = asic.shell(asic_cmd)['stdout_lines']
 
-    return counts
-
-
-def validate_acl_rules_in_asic_db(duthost, baseline_counts=None):
-    """
-    Validate that the ACL rules added since a baseline have all been programmed into ASIC DB.
-    Also check that the ACL rule RIDs are not empty.
-    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
-
-    The check compares the CHANGE in entry counts rather than absolute counts: the
-    number of new ASIC_DB ACL entries must be at least the number of new CONFIG_DB
-    ACL rules since `baseline_counts` was captured. This cancels any constant,
-    pre-existing offset between the two DBs caused by ASIC ACL entries that have no
-    CONFIG_DB ACL_RULE key.
-
-    On dualtor, the standby ToR carries exactly such an entry: MuxOrch programs a
-    DROP-all-ingress-ports ACL (matching IN_PORTS + traffic-class) directly into the
-    ASIC -- not via CONFIG_DB ACL_RULE/ACL_TABLE -- to black-hole server traffic on
-    the standby side. So on the standby ToR ASIC_DB has one more ACL entry than
-    CONFIG_DB, and the old absolute-equality check spun until timeout (observed on
-    Broadcom dualtor: a stable CONFIG_DB=28, ASIC_DB=29 on the standby ToR on every
-    retry).
-
-    Args:
-        duthost: DUT host object
-        baseline_counts: optional list of (config_count, asic_count) tuples captured
-            by get_acl_rule_counts() BEFORE the rules under test were applied. When
-            None, a zero baseline is assumed, which requires ASIC_DB >= CONFIG_DB
-            (every configured rule is programmed) without assuming the two counts
-            are exactly equal.
-
-    Returns:
-        bool: True if the per-ASIC ACL delta matches and RIDs are valid in all
-        frontend ASICs, False otherwise
-    """
-    # Get all frontend ASIC instances
-    if duthost.is_multi_asic:
-        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
-    else:
-        asic_instances = [duthost]
-
-    if baseline_counts is None:
-        baseline_counts = [(0, 0)] * len(asic_instances)
-
-    current_counts = get_acl_rule_counts(duthost)
-
-    # Validate ACL rules in each ASIC by comparing deltas against the baseline
-    for index, asic in enumerate(asic_instances):
-        config_now, asic_now = current_counts[index]
-        config_base, asic_base = baseline_counts[index]
-        config_delta = config_now - config_base
-        asic_delta = asic_now - asic_base
-
-        if asic_delta < config_delta:
-            logging.warning("Not all ACL rules are programmed in ASIC {}: "
-                            "CONFIG_DB delta={}, ASIC_DB delta={} (CONFIG_DB={}, ASIC_DB={})".format(
-                                asic.asic_index if duthost.is_multi_asic else "single",
-                                config_delta, asic_delta, config_now, asic_now))
+        if len(config_rules) != len(asic_rules):
+            logging.error("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
+                asic.asic_index if duthost.is_multi_asic else "single",
+                len(config_rules), len(asic_rules)))
             return False
 
     # Validate ACL rule RIDs across all ASICs
     return validate_acl_rule_rids(duthost)
 
 
-def wait_for_acl_rules_in_asic_db(duthost, baseline_counts=None):
+def wait_for_acl_rules_in_asic_db(duthost):
     """
-    Wait until the ACL rules added since a baseline are programmed in ASIC DB and RIDs are valid.
+    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
 
     Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
     defaulting to 120 seconds if not configured.
 
     Args:
         duthost: DUT host object
-        baseline_counts: optional ACL-count baseline from get_acl_rule_counts(),
-            captured before the rules under test were applied. Passed through to
-            validate_acl_rules_in_asic_db so the readiness check compares deltas.
     """
     acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
     pytest_assert(
-        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost, baseline_counts),
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
         "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
     )
-    logging.info("Successfully validated ACL rules")
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
@@ -830,7 +687,7 @@ def load_acl_rules_config(table_name, rules_file):
 
 def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                            tx_ports, direction, queue, asic_ns, recircle_port,
-                                           erspan_ip_ver, expect_recv=True, valid_across_namespace=True):
+                                           expect_recv=True, valid_across_namespace=True):
     tx_port_ids = self._get_tx_port_id_list(tx_ports)
     default_ip = self.DEFAULT_DST_IP
     router_mac = setup[direction]["ingress_router_mac"]
@@ -853,7 +710,6 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
                 dest_ports=tx_port_ids,
                 expect_recv=expect_recv,
                 valid_across_namespace=valid_across_namespace,
-                erspan_ip_ver=erspan_ip_ver
             )
             total_pkts_sent = {k: total_pkts_sent.get(k, 0) + num_pkts_sent.get(k, 0)
                                for k in total_pkts_sent.keys() | num_pkts_sent.keys()}
@@ -918,7 +774,7 @@ class BaseEverflowTest(object):
         return duthost_set
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
+    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session for Everflow.
 
@@ -939,27 +795,7 @@ class BaseEverflowTest(object):
             if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
                 pytest.skip("Skip IPv6 mirror session on unsupported platforms")
 
-            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
-            # The CLI defaults to direction='both' when no direction is specified,
-            # which requires both PORT_INGRESS_MIRROR_CAPABLE and PORT_EGRESS_MIRROR_CAPABLE.
-            # Default to "false" when keys are absent — this matches the CLI behavior in
-            # sonic-utilities (config/main.py is_port_mirror_capability_supported) which
-            # reads STATE_DB directly and rejects when keys are missing.
-            if config_method == CONFIG_MODE_CLI:
-                switch_caps = everflow_capabilities.get(duthost.hostname, {})
-                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
-                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
-                mirror_type = self.mirror_type()
-                if mirror_type == "ingress" and ingress_capable != "true":
-                    pytest.skip("ASIC does not support ingress port mirroring")
-                elif mirror_type == "egress" and egress_capable != "true":
-                    pytest.skip("ASIC does not support egress port mirroring")
-                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
-                    pytest.skip("ASIC does not support bidirectional port mirroring")
-
-            BaseEverflowTest.apply_mirror_config(
-                duthost, session_info, config_method,
-                erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -967,7 +803,7 @@ class BaseEverflowTest(object):
             BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
+    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -986,24 +822,10 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
-
-            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
-            if config_method == CONFIG_MODE_CLI:
-                switch_caps = everflow_capabilities.get(duthost.hostname, {})
-                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
-                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
-                mirror_type = self.mirror_type()
-                if mirror_type == "ingress" and ingress_capable != "true":
-                    pytest.skip("ASIC does not support ingress port mirroring")
-                elif mirror_type == "egress" and egress_capable != "true":
-                    pytest.skip("ASIC does not support egress port mirroring")
-                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
-                    pytest.skip("ASIC does not support bidirectional port mirroring")
-
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
-                                                 erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
+                                                 erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
 
@@ -1013,122 +835,28 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def _build_erspan_cli_command(session_info, queue_num=None,
-                                  direction=None, policer=None,
-                                  use_erspan_subcmd=False,
-                                  erspan_ip_ver=4):
-        """Build the CLI command string for adding an ERSPAN mirror session.
-
-        Args:
-            session_info: Mirror session parameters dict.
-            queue_num: Optional queue number.
-            direction: Optional mirror direction (ingress/egress/both).
-            policer: Optional policer name.
-            use_erspan_subcmd: If True, use 'config mirror_session erspan add'
-                (supports direction as positional arg). If False, use the
-                legacy 'config mirror_session add'.
-            erspan_ip_ver: IP version (4 or 6).
-
-        Returns:
-            str: The CLI command string.
-        """
-        src_ip = session_info['session_src_ip'] if erspan_ip_ver == 4 \
-            else session_info['session_src_ipv6']
-        dst_ip = session_info['session_dst_ip'] if erspan_ip_ver == 4 \
-            else session_info['session_dst_ipv6']
-
-        if use_erspan_subcmd:
-            # New syntax: config mirror_session erspan add <name> <src> <dst>
-            #     <dscp> <ttl> [gre_type] [queue] [src_port] [direction]
-            command = (
-                f"config mirror_session erspan add"
-                f" {session_info['session_name']}"
-                f" {src_ip} {dst_ip}"
-                f" {session_info['session_dscp']}"
-                f" {session_info['session_ttl']}"
-                f" {session_info['session_gre']}"
-            )
-            if queue_num:
-                command += f" {queue_num}"
-            else:
-                command += " ''"
-            # src_port placeholder (not used for ERSPAN without SPAN src)
-            command += " ''"
-            if direction:
-                command += f" {direction}"
-            if policer:
-                command += f" --policer {policer}"
-        else:
-            # Legacy syntax: config mirror_session add <name> <src> <dst>
-            #     <dscp> <ttl> [gre_type] [queue]
-            # No direction support in this command.
-            command = (
-                f"config mirror_session add"
-                f" {session_info['session_name']}"
-                f" {src_ip} {dst_ip}"
-                f" {session_info['session_dscp']}"
-                f" {session_info['session_ttl']}"
-                f" {session_info['session_gre']}"
-            )
-            if queue_num:
-                command += f" {queue_num}"
-            if policer:
-                command += f" --policer {policer}"
-        return command
-
-    @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
-                            erspan_ip_ver=4, queue_num=None, direction=None):
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
         if config_method == CONFIG_MODE_CLI:
-            if direction:
-                # Try legacy command first (without direction since it
-                # does not support it), then fall back to erspan subcmd.
-                # sonic-utilities PR #4089 added capability checks but
-                # missed adding --direction to the legacy 'add' command
-                # (sonic-net/sonic-utilities#4318).
-                legacy_cmd = BaseEverflowTest._build_erspan_cli_command(
-                    session_info, queue_num=queue_num,
-                    policer=policer, use_erspan_subcmd=False,
-                    erspan_ip_ver=erspan_ip_ver
-                )
-                result = duthost.command(legacy_cmd, module_ignore_errors=True)
-                if result["rc"] != 0:
-                    logger.warning(
-                        "Legacy 'config mirror_session add' failed: %s. "
-                        "Trying 'config mirror_session erspan add' with "
-                        "direction=%s.",
-                        result.get("stderr", "").strip(), direction
-                    )
-                    erspan_cmd = BaseEverflowTest._build_erspan_cli_command(
-                        session_info, queue_num=queue_num,
-                        direction=direction, policer=policer,
-                        use_erspan_subcmd=True,
-                        erspan_ip_ver=erspan_ip_ver
-                    )
-                    result2 = duthost.command(
-                        erspan_cmd, module_ignore_errors=True
-                    )
-                    if result2["rc"] != 0:
-                        pytest.skip(
-                            "Cannot create mirror session: both "
-                            "legacy and erspan CLI commands failed. "
-                            "Legacy error: {}. ERSPAN error: {}. "
-                            "Image may not support directional "
-                            "mirroring.".format(
-                                result.get("stderr", "").strip(),
-                                result2.get("stderr", "").strip()
-                            )
-                        )
+            if erspan_ip_ver == 4:
+                command = f"config mirror_session add {session_info['session_name']} \
+                            {session_info['session_src_ip']} {session_info['session_dst_ip']} \
+                            {session_info['session_dscp']} {session_info['session_ttl']} \
+                            {session_info['session_gre']}"
+                if policer:
+                    command += f" --policer {policer}"
             else:
-                command = BaseEverflowTest._build_erspan_cli_command(
-                    session_info, queue_num=queue_num,
-                    policer=policer, use_erspan_subcmd=False,
-                    erspan_ip_ver=erspan_ip_ver
-                )
-                duthost.command(command)
+                # Adding IPv6 ERSPAN sessions from the CLI is currently not supported.
+                command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
+                            'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
+                            'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
+                            'ttl' '{session_info['session_ttl']}' 'type' 'ERSPAN'"
+                if policer:
+                    command += f" 'policer' {policer}"
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
+
+        duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
@@ -1429,8 +1157,7 @@ class BaseEverflowTest(object):
         src_port_set = set()
         src_port_metadata_map = {}
 
-        if (('t2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo'])
-                or duthost.facts.get('switch_type') == 'voq'):
+        if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
             src_port_set.add(src_port)
             src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
                                                setup[direction]['everflow_namespace'])
@@ -1519,8 +1246,9 @@ class BaseEverflowTest(object):
                     else:
                         mirror_packet_sent[packet.IPv6].hlim -= 1
 
-                    if duthost.facts['switch_type'] == "voq":
-                        mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                    if 't2' in setup['topo']:
+                        if duthost.facts['switch_type'] == "voq":
+                            mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
@@ -1682,7 +1410,6 @@ class BaseEverflowTest(object):
         session_dst_ipv6 = "2222::2:2:2:2"
         session_dscp = "8"
         session_ttl = "4"
-        session_type = "ERSPAN"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -1711,7 +1438,6 @@ class BaseEverflowTest(object):
             "session_dscp": session_dscp,
             "session_ttl": session_ttl,
             "session_gre": session_gre,
-            "session_type": session_type,
             "session_prefixes": session_prefixes,
             "session_prefixes_ipv6": session_prefixes_ipv6
         }

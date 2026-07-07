@@ -51,20 +51,13 @@ class VlanPort(object):
 
     def create_vlan_port(self, port, vlan_id):
         vlan_port = "%s.%d" % (port, vlan_id)
-        existing_vlan_intf = VlanPort.get_vlan_intf(port, vlan_id)
-        if existing_vlan_intf is not None:
-            self.destroy_vlan_port(existing_vlan_intf)
-        elif VlanPort.iface_exists(vlan_port):
-            self.destroy_vlan_port(vlan_port)
-
+        VlanPort.log_show_vlan_intf(port, vlan_id)
         try:
-            VlanPort.cmd('ip link add link %s name %s type vlan id %d' % (port, vlan_port, vlan_id))
-        except Exception as detail:
-            # Allow benign races where another process created the interface.
-            if VlanPort.iface_exists(vlan_port):
-                logging.debug("VLAN interface %s already exists after add failure: %s", vlan_port, detail)
-            else:
-                raise
+            self.destroy_vlan_port(vlan_port)
+        except Exception:
+            pass
+
+        VlanPort.cmd('vconfig add %s %d' % (port, vlan_id))
         VlanPort.iface_up(vlan_port)
 
         return
@@ -83,11 +76,7 @@ class VlanPort(object):
     def remove_vlan_ports(self):
         for vlan_id in self.vlan_ids.values():
             vlan_port = "%s.%d" % (self.external_port, vlan_id)
-            existing_vlan_intf = VlanPort.get_vlan_intf(self.external_port, vlan_id)
-            if existing_vlan_intf is not None:
-                self.destroy_vlan_port(existing_vlan_intf)
-            else:
-                self.destroy_vlan_port(vlan_port)
+            self.destroy_vlan_port(vlan_port)
 
     @staticmethod
     def ifconfig(cmdline):
@@ -122,36 +111,22 @@ class VlanPort(object):
         return bool(iface)
 
     @staticmethod
-    def get_vlan_intf(port, vlan_id):
-        out = VlanPort.cmd('cat /proc/net/vlan/config', ignore_error=True)
-        if not out.strip():
-            logging.debug(
-                "VLAN config /proc/net/vlan/config is unavailable or empty; 8021q module may not be loaded")
-            return None
-
+    def log_show_vlan_intf(port, vlan_id):
+        cmdline = r"cat /proc/net/vlan/config | grep -E '\|[[:space:]]*%s[[:space:]]*\|'" % vlan_id
+        out = VlanPort.cmd(cmdline, ignore_error=True)
         lines = out.splitlines()
-        for line in lines:
-            if '|' not in line:
-                continue
-
-            items = [item.strip() for item in line.split('|')]
-            if len(items) != 3:
-                continue
-
-            vlan_intf = items[0]
-            config_vlan_id = items[1]
-            config_port = items[2]
-
-            if config_port != port:
-                continue
-
+        if len(lines) == 0:
+            logging.debug(
+                "Port %s doesn't has vlan interface with vlan id %s" % (port, vlan_id))
+        elif len(lines) == 1:
             try:
-                if int(config_vlan_id) == int(vlan_id):
-                    return vlan_intf
-            except ValueError:
-                continue
-
-        return None
+                vlan_intf, vlan_id, port = lines[0].strip().split("|")
+                logging.debug("Port %s has vlan interface %s with vlan id %s" % (
+                    port, vlan_intf, vlan_id))
+            except Exception:
+                logging.warning("Unexpected output:\n%s", out)
+        else:
+            logging.warning("Unexpected output:\n%s", out)
 
     @staticmethod
     def iface_updown(iface_name, state, pid):
@@ -163,9 +138,8 @@ class VlanPort(object):
     @staticmethod
     def cmd(cmdline, ignore_error=False):
         logging.debug("CMD: %s", cmdline)
-        process = subprocess.Popen(  # nosemgrep: subprocess-shell-true
-            cmdline, stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)  # nosemgrep: subprocess-shell-true
+        process = subprocess.Popen(cmdline, stdout=subprocess.PIPE,
+                                   stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = process.communicate()
         ret_code = process.returncode
 

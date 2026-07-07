@@ -386,10 +386,8 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
 #######################################
 platform_tests/api/test_liquid_cooling_leakage.py:
   skip:
-    reason: "Unsupported platform API on Cisco 8000, and liquid cooling leakage tests are not applicable to m0, mx, m1, c0 topologies"
-    conditions_logical_operator: or
+    reason: "Liquid cooling leakage tests not applicable to m0, mx, m1, c0 topologies"
     conditions:
-      - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1', 'c0']"
 
 #######################################
@@ -400,7 +398,7 @@ platform_tests/api/test_module.py:
     reason: "Only support T2"
     conditions_logical_operator: or
     conditions:
-      - "topo_type not in ['t2', 'lrh', 'urh']"
+      - "topo_type not in ['t2']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
@@ -424,7 +422,7 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000', 'vs']"
-      - "topo_type not in ['t2', 'lrh', 'urh']"
+      - "topo_type not in ['t2']"
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
@@ -444,7 +442,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
@@ -466,7 +464,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
@@ -490,7 +488,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
@@ -510,7 +508,7 @@ platform_tests/api/test_psu.py::test_temperature:
     reason: "Test not supported on Mellanox Platforms."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
@@ -584,13 +582,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####        api/test_sfp.py      #####
 #######################################
-
-platform_tests/api/test_sfp.py:
-  skip:
-    reason: 'SFP API tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
   skip:
     reason: "Unsupported platform API"
@@ -648,7 +639,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
+      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
@@ -656,7 +647,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_serial:
@@ -664,7 +655,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_serial:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_status:
@@ -680,7 +671,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_temperature:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_dom_real_value:
@@ -713,7 +704,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_fault:
@@ -729,7 +720,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
@@ -737,7 +728,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_is_replaceable:
@@ -763,7 +754,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['nvidia-bluefield', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
@@ -793,7 +784,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
@@ -801,7 +792,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
+      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
@@ -812,7 +803,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_thres
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
@@ -820,7 +811,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold:
@@ -864,7 +855,6 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_model:
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
-       - "platform.startswith('arm64-c8220tg_48a_o')"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence:
   skip:
@@ -883,7 +873,6 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_serial:
     conditions:
        - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
        - "is_multi_asic==True and release in ['201911']"
-       - "platform.startswith('arm64-c8220tg_48a_o')"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_status:
   skip:
@@ -898,7 +887,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs']"
+      - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
@@ -945,7 +934,7 @@ platform_tests/api/test_watchdog.py:
 #######################################
 platform_tests/broadcom/test_ser.py:
   skip:
-    reason: "platform does not support test_ser / not available on BMC"
+    reason: "platform does not support test_ser"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-mgmt/issues/6218"
@@ -954,38 +943,25 @@ platform_tests/broadcom/test_ser.py:
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-64PE-B' in hwsku"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-16PE-384C-B' in hwsku"
-      - "'bmc' in topo_type"
   xfail:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
-##################################
-#####  cli/test_show_bmc.py  #####
-##################################
-platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_chassis_module_status:
-  skip:
-    reason: "Discrepancy between the pmon and pmon test design"
-    conditions:
-      - https://github.com/sonic-net/SONiC/issues/2410
-
-platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_platform_leak_commands:
-  skip:
-    reason: "Incorrect handling when the empty table is returned"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/25761
-
+##############################################
+#####  cli/test_show_chassis_module.py  #####
+##############################################
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
-      - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
+      - "'t2_single_node' in topo_name"
 
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
-      - "'t2_single_node' in topo_name or topo_type in ['lrh', 'urh']"
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -995,7 +971,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_fan:
     reason: "Unsupported platform API"
     conditions:
       - "is_multi_asic==True and release in ['201911']"
-      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
   skip:
@@ -1015,7 +990,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
-      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
   xfail:
@@ -1029,7 +1003,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
     conditions:
       - "'nvda_bf' in platform"
       - "platform in ['arm64-elba-asic-flash128-r0']"
-      - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
@@ -1042,14 +1015,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
 ###############################################
-
-
-platform_tests/counterpoll/:
-  skip:
-    reason: 'Counter poll tests require ASIC counters, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue_watermark_pg_drop:
   skip:
     reason: "Unsupported topology"
@@ -1088,12 +1053,6 @@ platform_tests/daemon/test_pcied.py:
     conditions:
       - "platform in ['arm64-elba-asic-flash128-r0']"
 
-platform_tests/daemon/test_thermalctld.py::TestThermalctldDaemon::test_thermalctld_leak_status:
-  skip:
-    reason: "Improperly handled redis db result"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/25760
-
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -1111,14 +1070,6 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 ############################################
 ##### link_flap/test_cont_link_flap.py #####
 ############################################
-
-
-platform_tests/link_flap/:
-  skip:
-    reason: 'Link flap tests require physical port interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
   xfail:
     reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices. Or test case has issue on the t0-isolated-d256u256s2 topo."
@@ -1150,7 +1101,6 @@ platform_tests/mellanox/test_check_sfp_eeprom.py:
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
       - "'SN4' in hwsku and (release in ['202405', '202411'])"
       - "'SN5' in hwsku and (release in ['202405', '202411'])"
-      - "'bmc' in topo_type"
 
 platform_tests/mellanox/test_check_sfp_eeprom.py::test_check_sfp_eeprom_with_option_dom:
   xfail:
@@ -1165,62 +1115,24 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
     conditions:
       - "asic_type in ['mellanox']"
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
-      - "'bmc' in topo_type"
-
-platform_tests/mellanox/test_hw_management_service.py:
-  skip:
-    reason: "Not available on BMC"
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/mellanox/test_psu_power_threshold.py:
-  skip:
-    reason: "Test is skipped on Mellanox LD platform for it doesn't have PSU Power Threshold, or not available for BMC"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
-      - "'bmc' in topo_type"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
-    reason: "Platform does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
+    reason: "Does not support platform_tests/mellanox/test_reboot_cause.py. sn4280 driver doesn't support reset_from_asic and reset_reload_bios
             / Mellanox platform tests only supported on Mellanox devices"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0', 'x86_64-nvidia_sn4280-r0']"
       - "asic_type not in ['mellanox', 'nvidia-bluefield']"
-      - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
-
-#######################################
-#####           mgmt              #####
-#######################################
-platform_tests/mgmt/test_mgmt_flap.py::test_mgmt_interface_stress_flap_console:
-  skip:
-    reason: "Skip test unless it is Cisco t2 and eth_mgmt_ctrl available"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type not in ['cisco-8000']"
-      - "topo_type not in ['t2', 'lrh', 'urh']"
-      - "eth_mgmt_ctrl_available==False"
 
 #######################################
 #####            sfp              #####
 #######################################
-
-
-platform_tests/sfp/:
-  skip:
-    reason: 'SFP tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/sfp/test_sfputil.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-      - "asic_type in ['vs']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
   xfail:
@@ -1242,7 +1154,7 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
     reason: "platform does not support sfp reset"
     conditions_logical_operator: or
     conditions:
-      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name or topo_type in ['lrh', 'urh']) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
 #######################################
@@ -1310,28 +1222,8 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "is_smartswitch==True"
 
 #######################################
-#####   test_auto_negotiation.py  #####
-#######################################
-
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: 'Auto negotiation tests require physical port interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-#######################################
-#####   test_chassis_reboot.py  #####
-#######################################
-platform_tests/test_chassis_reboot.py:
-  skip:
-    reason: "Chassis reboot test is not supported on T2 single node topology"
-    conditions:
-      - "'t2_single_node' in topo_name"
-
-#######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
-
 platform_tests/test_cont_warm_reboot.py:
   skip:
     reason: "Warm Reboot is not supported in dualtor and this test is not run on this topology currently"
@@ -1347,11 +1239,9 @@ platform_tests/test_cont_warm_reboot.py:
 #######################################
 platform_tests/test_intf_fec.py:
   skip:
-    reason: "Temporarily skip in PR testing / not available on BMC"
-    conditions_logical_operator: or
+    reason: "Temporarily skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
-      - "'bmc' in topo_type"
 
 platform_tests/test_intf_fec.py::test_verify_fec_histogram:
    xfail:
@@ -1394,18 +1284,14 @@ platform_tests/test_memory_exhaustion.py:
 platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
   skip:
     reason: "Test disabled on Mellanox platforms as it could be un-stable and interfered by the thermal algorithm."
-    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
-      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
   skip:
     reason: "Test not supported on Mellanox Platforms."
-    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
-      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_fan_status:
   skip:
@@ -1414,7 +1300,6 @@ platform_tests/test_platform_info.py::test_thermal_control_fan_status:
     conditions:
       - "is_multi_asic==True and release in ['201911']"
       - "asic_type in ['mellanox']"
-      - "'bmc' in topo_type"
 
 platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
   #Thermal policies are implemented as part of BSP layer in Cisco 8000 platform, so there is no need for loading JSON file,
@@ -1453,21 +1338,11 @@ platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
 #######################################
 #####        test_reboot.py       #####
 #######################################
-
-
-platform_tests/test_port_toggle.py:
-  skip:
-    reason: 'Port toggle tests require ASIC interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/test_power_off_reboot.py:
   skip:
-    reason: "Skip power off reboot test for Wistron/Nokia-7215, or no PSU for BMC"
-    conditions_logical_operator: or
+    reason: "Skip power off reboot test for Wistron/Nokia-7215"
     conditions:
       - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
-      - "'bmc' in topo_type"
 
 platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
@@ -1484,14 +1359,13 @@ platform_tests/test_reboot.py::test_continuous_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for M*/t1/t2/c* / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
+    reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "'isolated' in topo_name"
       - "is_smartswitch==True"
-      - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1512,10 +1386,10 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for M*/t1/t2/lt2/ft2/c*. Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot for M*/t1/t2/lt2/ft2. Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2', 'c0']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
@@ -1590,12 +1464,6 @@ platform_tests/test_sensors.py::test_sensors:
 #######################################
 ##### test_sequential_restart.py  #####
 #######################################
-platform_tests/test_sequential_restart.py::test_restart_swss:
-  skip:
-    reason: "BMC does not support swss daemon"
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
@@ -1617,10 +1485,9 @@ platform_tests/test_service_warm_restart.py:
 
 platform_tests/test_xcvr_info_in_db.py:
   skip:
-    reason: 'Transceiver info tests require SFP hardware, not available on BMC or VS platform'
+    reason: 'Transceiver info tests require SFP hardware, not available on VS platform'
     conditions_logical_operator: or
     conditions:
-      - "'bmc' in topo_type"
       - "asic_type in ['vs']"
 
 platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:

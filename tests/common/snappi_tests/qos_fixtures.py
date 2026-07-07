@@ -119,8 +119,9 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
 # is enabled by default. Since we need a definite way to start pfcwd,
 # the following functions are introduced.
 def get_pfcwd_config(duthost):
-    if not duthost.is_multi_asic:
-        return get_running_config(duthost, filter=".PFC_WD") or {}
+    config = get_running_config(duthost)
+    if "PFC_WD" in config.keys():
+        return config['PFC_WD']
     else:
         all_configs = []
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
@@ -128,9 +129,9 @@ def get_pfcwd_config(duthost):
         all_asic_list = natsorted(all_asic_list)
         all_asic_list.insert(0, None)
         for space in all_asic_list:
-            config = get_running_config(duthost, space, filter=".PFC_WD")
-            if config:
-                all_configs.append(config)
+            config = get_running_config(duthost, space)
+            if "PFC_WD" in config.keys():
+                all_configs.append(config['PFC_WD'])
             else:
                 all_configs.append({})
         return all_configs

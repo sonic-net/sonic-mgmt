@@ -1,5 +1,0 @@
-{
-    "testcases": [
-        "kubesonic/test_k8s_cleanup.py"
-    ]
-}

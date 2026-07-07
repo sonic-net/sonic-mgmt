@@ -12,9 +12,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.disable_loganalyzer
 ]
 
 ROOT_CERT_DAYS = 4850

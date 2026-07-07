@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from collections import namedtuple, Counter
+from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa: F401
 from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa: F401
 from tests.common.constants import CounterpollConstants
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
@@ -15,7 +16,8 @@ pytestmark = [
 ]
 
 
-def is_asan_image(duthost):
+def is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     asan_val_from_sonic_ver_cmd = "sonic-cfggen -y /etc/sonic/sonic_version.yml -v asan"
     asan_val = duthost.command(asan_val_from_sonic_ver_cmd)['stdout']
     is_asan = False
@@ -26,13 +28,13 @@ def is_asan_image(duthost):
 
 
 @pytest.fixture(scope='module')
-def setup_thresholds(rand_selected_dut):
-    duthost = rand_selected_dut
+def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     is_chassis = duthost.get_facts().get("modular_chassis")
     cpu_threshold = 70 if is_chassis else 50
     memory_threshold = 60
     high_cpu_consume_procs = {}
-    is_asan = is_asan_image(duthost)
+    is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
     if ('arista_7800' in duthost.facts['platform'].lower()) or duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0'):
         memory_threshold = 75
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0', 'x86_64-arista_7050_qx32s',
@@ -58,9 +60,9 @@ def setup_thresholds(rand_selected_dut):
     return memory_threshold, cpu_threshold, high_cpu_consume_procs
 
 
-def test_cpu_memory_usage(rand_selected_dut, setup_thresholds):
+def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thresholds):
     """Check DUT memory usage and process cpu usage are within threshold."""
-    duthost = rand_selected_dut
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Wait until all critical services is fully started
     pytest_assert(wait_until(360, 20, 0, duthost.critical_services_fully_started),
                   "All critical services must be fully started!{}".format(duthost.critical_services))
@@ -120,11 +122,11 @@ def counterpoll_cpu_threshold(duthosts, request):
 
 
 @pytest.fixture
-def disable_pfcwd(rand_selected_dut):
+def disable_pfcwd(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Disable PFCWD before testing, and start_default after testing
     """
-    duthost = rand_selected_dut
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     pfcwd_status = duthost.shell(
         "sonic-db-cli CONFIG_DB hget \'DEVICE_METADATA|localhost\' \'default_pfcwd_status\'")['stdout']
     if pfcwd_status != 'enable':
@@ -135,7 +137,7 @@ def disable_pfcwd(rand_selected_dut):
     duthost.shell('pfcwd start_default')
 
 
-def test_cpu_memory_usage_counterpoll(rand_selected_dut,
+def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname,
                                       setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa: F811
                                       counterpoll_cpu_threshold, disable_pfcwd):
     """Check DUT memory usage and process cpu usage are within threshold.
@@ -145,7 +147,7 @@ def test_cpu_memory_usage_counterpoll(rand_selected_dut,
     Compare the average cpu usage with the cpu threshold for the specified progress
     Restore counterpolls status
     """
-    duthost = rand_selected_dut
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     program_to_check = get_manufacturer_program_to_check(duthost)
     if program_to_check is None:
         pytest.skip("Skip no program is offered to check")

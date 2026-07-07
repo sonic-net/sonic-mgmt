@@ -194,16 +194,18 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
         if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC overheated')
             logger.info('Mocked PSU absence for {}'.format(psu_name))
-            logger.info('Waiting for mock ASIC/PSU state to appear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_system_health_info, duthost, psu_name, psu_expect_value), \
-                'Mock PSU absence, expect {}, but got {}'.format(
-                    psu_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
             if is_support_mock_asic:
                 value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-                assert value and asic_expect_value in value, \
+                assert value and asic_expect_value in value,\
                     'Mock ASIC temperature overheated, expect {}, but got {}'.format(asic_expect_value, value)
+
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert value and psu_expect_value == value,\
+                'Mock PSU absence, expect {}, but got {}'.format(psu_expect_value, value)
 
         if is_support_mock_asic:
             asic_mock_result = device_mocker.mock_asic_temperature(True)
@@ -211,14 +213,18 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
         if asic_mock_result and psu_mock_result:
             logger.info('Mocked ASIC normal temperatue')
             logger.info('Mocked PSU presence for {}'.format(psu_name))
-            logger.info('Waiting for mock ASIC/PSU state to clear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, psu_name, psu_expect_value), \
-                'Mock PSU presence, but it is still absence'
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+
             if is_support_mock_asic:
                 value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-                assert not value or asic_expect_value not in value, \
+                assert not value or asic_expect_value not in value,\
                     'Mock ASIC normal temperature, but it is still overheated'
+
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert not value or psu_expect_value != value, 'Mock PSU presence, but it is still absence'
 
         fan_mock_result, fan_name = device_mocker.mock_fan_presence(False)
         fan_expect_value = EXPECT_FAN_MISSING.format(fan_name)
@@ -227,30 +233,35 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
         if fan_mock_result and psu_mock_result:
             logger.info('Mocked fan absence {}'.format(fan_name))
             logger.info('Mocked PSU no power for {}'.format(psu_name))
-            logger.info('Waiting for mock fan/PSU state to appear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_system_health_info, duthost, fan_name, fan_expect_value), \
-                'Mock fan absence, expect {}, but got {}'.format(
-                    fan_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_system_health_info, duthost, psu_name, psu_expect_value), \
-                'Mock PSU no power, expect {}, but got {}'.format(
-                    psu_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and value == fan_expect_value,\
+                'Mock fan absence, expect {}, but got {}'.format(fan_expect_value, value)
+
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert value and psu_expect_value == value,\
+                'Mock PSU no power, expect {}, but got {}'.format(psu_expect_value, value)
 
         fan_mock_result, fan_name = device_mocker.mock_fan_presence(True)
         psu_mock_result, psu_name = device_mocker.mock_psu_status(True)
         if fan_mock_result and psu_mock_result:
             logger.info('Mocked fan presence for {}'.format(fan_name))
             logger.info('Mocked PSU good power for {}'.format(psu_name))
-            logger.info('Waiting for mock fan/PSU state to clear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, fan_name, fan_expect_value), \
-                'Mock fan presence, but it still report absence'
-            assert wait_until(THERMAL_CHECK_INTERVAL + PSU_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, psu_name, psu_expect_value), \
-                'Mock PSU power good, but it is still out of power'
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or value != fan_expect_value, 'Mock fan presence, but it still report absence'
+
+            time.sleep(PSU_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert not value or psu_expect_value != value, 'Mock PSU power good, but it is still out of power'
 
         fan_mock_result, fan_name = device_mocker.mock_fan_status(False)
         fan_expect_value = EXPECT_FAN_BROKEN.format(fan_name)
@@ -259,17 +270,18 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
         if fan_mock_result and psu_mock_result:
             logger.info('Mocked fan broken for {}'.format(fan_name))
             logger.info('Mocked PSU overheated for {}'.format(psu_name))
-            logger.info('Waiting for mock fan/PSU state to appear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_system_health_info, duthost, fan_name, fan_expect_value), \
-                'Mock fan broken, expect {}, but got {}'.format(
-                    fan_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_contains, duthost, psu_name, psu_expect_value), \
-                'Mock PSU overheated, expect {}, but got {}'.format(
-                    psu_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and value == fan_expect_value,\
+                'Mock fan broken, expect {}, but got {}'.format(fan_expect_value, value)
+
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert value and psu_expect_value in value,\
+                'Mock PSU overheated, expect {}, but got {}'.format(psu_expect_value, value)
 
         fan_mock_result, fan_name = device_mocker.mock_fan_status(True)
         psu_mock_result, psu_name = device_mocker.mock_psu_temperature(True)
@@ -277,47 +289,59 @@ def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
             logger.info('Mocked fan good for {}'.format(fan_name))
             logger.info(
                 'Mocked PSU normal temperature for {}'.format(psu_name))
-            logger.info('Waiting for mock fan/PSU state to clear in STATE_DB')
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, fan_name, fan_expect_value), \
-                'Mock fan normal, but it still report broken'
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_contains, duthost, psu_name, psu_expect_value), \
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or value != fan_expect_value, 'Mock fan normal, but it still report broken'
+
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert not value or psu_expect_value not in value,\
                 'Mock PSU normal temperature, but it is still overheated'
 
         fan_mock_result, fan_name = device_mocker.mock_fan_direction(False)
         expect_value = EXPECT_FAN_INVALID_DIRECTION.format(fan_name)
         if fan_mock_result:
-            logger.info('Mocked fan invalid direction for {}'.format(fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_contains, duthost, fan_name, expect_value), \
-                'Mock fan invalid direction, expect {}, but got {}'.format(
-                    expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name))
+            logger.info('Mocked fan invalid direction for {}, waiting {} seconds for it to take effect'.format(
+                fan_name,
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and expect_value in value, 'Mock fan invalid direction, expect {}, but got {}'.format(
+                expect_value,
+                value)
 
         fan_mock_result, fan_name = device_mocker.mock_fan_direction(True)
         if fan_mock_result:
-            logger.info('Mocked fan valid direction for {}'.format(fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_contains, duthost, fan_name, expect_value), \
-                'Mock fan valid direction, but it is still invalid'
+            logger.info('Mocked fan valid direction for {}, waiting {} seconds for it to take effect'.format(
+                fan_name,
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or expect_value not in value, 'Mock fan valid direction, but it is still invalid'
 
         mock_result, psu_name = device_mocker.mock_psu_voltage(False)
         expect_value = EXPECT_PSU_INVALID_VOLTAGE.format(psu_name)
         if mock_result:
-            logger.info('Mocked PSU bad voltage for {}'.format(psu_name))
-            assert wait_until(PSU_CHECK_INTERVAL, 5, 2,
-                              check_health_field_contains, duthost, psu_name, expect_value), \
-                'Mock PSU invalid voltage, expect {}, but got {}'.format(
-                    expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name))
+            logger.info('Mocked PSU bad voltage for {}, waiting {} seconds for it to take effect'
+                        .format(psu_name, THERMAL_CHECK_INTERVAL))
+            time.sleep(PSU_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert value and expect_value in value, 'Mock PSU invalid voltage, expect {}, but got {}'.format(
+                expect_value,
+                value)
 
         mock_result, psu_name = device_mocker.mock_psu_voltage(True)
         if mock_result:
-            logger.info('Mocked PSU good voltage for {}'.format(psu_name))
-            assert wait_until(FAST_INTERVAL, 5, 2,
-                              check_health_field_not_contains, duthost, psu_name, expect_value), \
-                'Mock PSU good voltage, but it is still invalid'
+            logger.info('Mocked PSU good voltage for {}, waiting {} seconds for it to take effect'
+                        .format(psu_name, THERMAL_CHECK_INTERVAL))
+            time.sleep(FAST_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+            assert not value or expect_value not in value, 'Mock PSU good voltage, but it is still invalid'
 
 
 def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -352,9 +376,11 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
         mock_result, fan_name = device_mocker.mock_fan_presence(False)
         expect_value = EXPECT_FAN_MISSING.format(fan_name)
         if mock_result:
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_equal, duthost, fan_name, expect_value), \
-                'Fan check is still performed after it is configured to be ignored'
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or expect_value != value, 'Fan check is still performed after it ' \
+                                                       'is configured to be ignored'
 
     logger.info(
         'Ignore ASIC check, verify there is no error information about ASIC')
@@ -364,12 +390,11 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result = device_mocker.mock_asic_temperature(False)
             expect_value = EXPECT_ASIC_HOT
             if mock_result:
-                def _check_asic_is_ignored(duthost):
-                    value = redis_get_field_value(
-                        duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-                    return not value or expect_value not in value
-                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_asic_is_ignored, duthost), \
-                    'ASIC check is still performed after it is configured to be ignored'
+                time.sleep(THERMAL_CHECK_INTERVAL)
+                value = redis_get_field_value(
+                    duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                assert not value or expect_value not in value, 'ASIC check is still performed after it ' \
+                                                               'is configured to be ignored'
 
     logger.info(
         'Ignore PSU check, verify there is no error information about psu')
@@ -379,19 +404,16 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result, psu_name = device_mocker.mock_psu_presence(False)
             expect_value = EXPECT_PSU_MISSING.format(psu_name)
             if mock_result:
-                def _check_psu_is_ignored(duthost, psu_name):
-                    value = redis_get_field_value(
-                        duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
-                    return not value or expect_value != value
-
-                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_psu_is_ignored, duthost, psu_name), \
+                time.sleep(PSU_CHECK_INTERVAL)
+                value = redis_get_field_value(
+                    duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+                assert not value or expect_value != value, \
                     'PSU check is still performed after it is configured to be ignored'
 
 
 @pytest.mark.disable_loganalyzer
 def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic,  # noqa F811
-                                  is_support_fan):                                                      # noqa F811
+                                  device_mocker_factory, disable_thermal_policy, is_support_mock_asic):  # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -405,17 +427,23 @@ def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
 
         if fan_mock_result:
             logger.info('Mocked invalid fan speed for {}'.format(fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_contains, duthost, fan_name, fan_expect_value), \
-                'Mock fan invalid speed, expect {}, but got {}'.format(
-                    fan_expect_value,
-                    redis_get_field_value(duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name))
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert value and fan_expect_value in value, \
+                'Mock fan invalid speed, expect {}, but got {}'.format(fan_expect_value, value)
 
         fan_mock_result, fan_name = device_mocker.mock_fan_speed(True)
         if fan_mock_result:
             logger.info('Mocked valid fan speed for {}'.format(fan_name))
-            assert wait_until(THERMAL_CHECK_INTERVAL, 10, 2,
-                              check_health_field_not_contains, duthost, fan_name, fan_expect_value), \
+            logger.info('Waiting {} seconds for it to take effect'.format(
+                THERMAL_CHECK_INTERVAL))
+            time.sleep(THERMAL_CHECK_INTERVAL)
+            value = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, fan_name)
+            assert not value or fan_expect_value not in value, \
                 'Mock fan valid speed, expect {}, but it still report invalid speed'.format(fan_expect_value)
 
 
@@ -483,73 +511,32 @@ def check_system_health_info(duthost, category, expected_value):
     return value == expected_value
 
 
-def check_health_field_contains(duthost, field, expected):
-    """Check that STATE_DB HEALTH_TABLE field contains expected substring."""
-    value = redis_get_field_value(
-        duthost, STATE_DB, HEALTH_TABLE_NAME, field)
-    return bool(value) and expected in value
-
-
-def check_health_field_not_contains(duthost, field, unexpected):
-    """Check that STATE_DB HEALTH_TABLE field does NOT contain substring."""
-    value = redis_get_field_value(
-        duthost, STATE_DB, HEALTH_TABLE_NAME, field)
-    return not value or unexpected not in value
-
-
-def check_health_field_not_equal(duthost, field, unexpected):
-    """Check that STATE_DB HEALTH_TABLE field is absent or != unexpected."""
-    value = redis_get_field_value(
-        duthost, STATE_DB, HEALTH_TABLE_NAME, field)
-    return not value or value != unexpected
-
-
-def _fetch_led_and_status(duthost):
-    """Fetch system health summary and return (led_color_lower, status_dict)."""
-    summary = duthost.shell('show system-health summary')['stdout']
-    # Use [\w ]+ to capture multi-word colors like "blinking green"
-    led_res = re.findall(r"System status LED\s+([\w ]+)", summary)
-    led_status = led_res[0].strip().lower() if led_res else ""
-    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", summary)
-    status_dict = {name: status for name, status in status_data}
-    return led_status, status_dict
-
-
 def check_system_health_led_info(duthost):
-    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
-    expected_normal = led_cfg["normal"].lower()
-    not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}
+    system_health_summary = duthost.shell('show system-health summary')['stdout']
 
-    # Cache the consistent snapshot captured inside the closure to avoid a
-    # re-fetch that could observe a different value on a flapping LED.
-    # last_observed is always updated so assertion messages show real state on timeout.
-    consistent_snapshot = {}
-    last_observed = {}
-
-    def _led_consistent():
-        led, status_dict = _fetch_led_and_status(duthost)
-        last_observed['led'] = led
-        last_observed['status_dict'] = status_dict
-        all_ok = all(status == "OK" for status in status_dict.values())
-        if led == expected_normal if all_ok else led in not_normal:
-            consistent_snapshot['led'] = led
-            consistent_snapshot['status_dict'] = status_dict
-            return True
-        return False
-
-    # LED update by system-health daemon is asynchronous; wait for it to reflect current status
-    result = wait_until(WAIT_TIMEOUT, 10, 0, _led_consistent)
-
-    system_led_status = consistent_snapshot.get('led', last_observed.get('led', ''))
-    status_dict = consistent_snapshot.get('status_dict', last_observed.get('status_dict', {}))
+    "System status LED  red"
+    system_led_res = re.findall(r"System status LED\s+(\w+)", system_health_summary)
+    if system_led_res:
+        system_led_status = system_led_res[0].strip()
     logger.info(f"System status LED is {system_led_status}")
+
+    # Regex to find all status names and values
+    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", system_health_summary)
+    status_dict = {name: status for name, status in status_data}
     logger.info(f"Status dict is {status_dict}")
 
+    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
+
+    system_status_lower = system_led_status.lower()
     if all(status == "OK" for status in status_dict.values()):
-        assert result and system_led_status == expected_normal, \
+        # Logic for healthy system: must match the 'normal' key value
+        expected_normal = led_cfg["normal"].lower()
+        assert system_status_lower == expected_normal, \
             f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        assert result and system_led_status in not_normal, \
+        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
+        not_normal = {color for key, color in led_cfg.items() if key != "normal"}
+        assert system_status_lower in not_normal, \
             f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
     return True

@@ -98,28 +98,6 @@ class AnsibleHostBase(object):
     on the host.
     """
 
-    # Class-level flag for IPv6-only management mode.
-    # Set by the ipv6_only_mgmt_enabled fixture in conftest.py
-    _ipv6_only_mgmt_mode = False
-
-    @classmethod
-    def set_ipv6_only_mgmt(cls, enabled: bool):
-        """Set the IPv6-only management mode flag.
-
-        Called by the ipv6_only_mgmt_enabled fixture in conftest.py.
-        """
-        cls._ipv6_only_mgmt_mode = enabled
-        if enabled:
-            logger.info("IPv6-only management mode enabled")
-
-    @classmethod
-    def is_ipv6_only_mgmt(cls) -> bool:
-        """Check if running in IPv6-only management mode.
-
-        Returns True if --ipv6_only_mgmt pytest option was passed.
-        """
-        return cls._ipv6_only_mgmt_mode
-
     class CustomEncoder(json.JSONEncoder):
         def default(self, obj):
             if isinstance(obj, bytes):
@@ -132,47 +110,31 @@ class AnsibleHostBase(object):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
-            self.host = ansible_adhoc(become=True, host_pattern=hostname, *args, **kwargs)[hostname]
-            host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
-            ansible_host = host_vars.get("ansible_host")
-            ansible_hostv6 = host_vars.get("ansible_hostv6")
-
-            # In IPv6-only management mode, use IPv6 address as the primary mgmt_ip
-            if self.is_ipv6_only_mgmt() and ansible_hostv6:
-                self.mgmt_ip = ansible_hostv6
-                self.mgmt_ipv6 = ansible_hostv6
-                # Keep IPv4 available for reference but it won't be used for connectivity
-                self._mgmt_ipv4 = ansible_host
-                logger.debug("IPv6-only management mode: using %s as mgmt_ip for %s", ansible_hostv6, hostname)
-            elif self.is_ipv6_only_mgmt():
-                logger.warning(
-                    "IPv6-only mode requested but ansible_hostv6 not defined for %s, "
-                    "falling back to IPv4.",
-                    hostname,
-                )
-                self.mgmt_ip = ansible_host
-                self.mgmt_ipv6 = None
+            self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
+            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
+            if "ansible_hostv6" in self.host.options["inventory_manager"].get_host(hostname).vars:
+                self.mgmt_ipv6 = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_hostv6"]
             else:
-                self.mgmt_ip = ansible_host
-                self.mgmt_ipv6 = ansible_hostv6
+                self.mgmt_ipv6 = None
         self.hostname = hostname
 
     def __getattr__(self, module_name):
         if self.host.has_module(module_name):
-            def _run_wrapper(*module_args, **kwargs):
-                return self._run(module_name, *module_args, **kwargs)
-            return _run_wrapper
+            self.module_name = module_name
+            self.module = getattr(self.host, module_name)
+
+            return self._run
         raise AttributeError(
             "'%s' object has no attribute '%s'" % (self.__class__, module_name)
             )
 
-    def _run(self, module_name, *module_args, **complex_args):
+    def _run(self, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
 
         verbose = complex_args.pop('verbose', True)
-        module = getattr(self.host, module_name)
+
         if verbose:
             logger.debug(
                 "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
@@ -180,7 +142,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    module_name,
+                    self.module_name,
                     json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder),
                     json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder)
                 )
@@ -192,7 +154,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    module_name
+                    self.module_name
                 )
             )
 
@@ -202,7 +164,7 @@ class AnsibleHostBase(object):
         if module_async:
             def run_module(module_args, complex_args):
                 with suppress_signal_registration_for_non_main_thread():
-                    return module(*module_args, **complex_args)[self.hostname]
+                    return self.module(*module_args, **complex_args)[self.hostname]
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
@@ -211,9 +173,9 @@ class AnsibleHostBase(object):
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
 
         with suppress_signal_registration_for_non_main_thread():
-            adhoc_res: AdHocResult = module(*module_args, **complex_args)
+            adhoc_res: AdHocResult = self.module(*module_args, **complex_args)
 
-        if module_name == "meta":
+        if self.module_name == "meta":
             # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
             # There are no per-host ModuleResults contained within it
             return
@@ -228,7 +190,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
+                    self.module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
@@ -238,14 +200,14 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    module_name,
+                    self.module_name,
                     hostname_res.is_failed,
                     hostname_res.get('rc', None)
                 )
             )
 
         if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
+            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), hostname_res)
 
         # Ensure 'failed' key is always present for backward compatibility with code that
         # accesses rc['failed'] directly. The _IGNORE hack above is no longer effective in

@@ -23,12 +23,11 @@ from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
     BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
-from tests.common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ def check_results(results):
     """
     failed_results = {}
     for node_name, node_results in list(results.items()):
-        failed_node_results = [res for res in node_results if res.get('failed', False)]
+        failed_node_results = [res for res in node_results if res['failed']]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
     if failed_results:
@@ -108,7 +107,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], (SonicHost, CsonicHost)):
+        elif isinstance(node['host'], SonicHost):
             node_results.append(node['host'].config(
                 lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -181,7 +180,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], (SonicHost, CsonicHost)):
+        elif isinstance(node['host'], SonicHost):
             node_results.append(node['host'].config(
                 lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -258,7 +257,7 @@ def _setup_arp_responder(duthost, ptfhost, tbinfo, is_v6_topo):
         "eth%s" % minigraph_ptf_indices[port]: [config[ip_type].split("/")[0]]
         for port, config in list(mux_config.items())
     }
-    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest=ARP_RESPONDER_DEFAULT_CONFIG)
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4), dest="/tmp/from_t1.json")
     ptfhost.copy(src="scripts/arp_responder.py", dest="/opt")
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2",
@@ -473,19 +472,15 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1_t2_drh(mg_facts, peer_count):
+    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
             interfaces = []
             used_subnets = set()
             asic_idx = 0
-            mg_interfaces = mg_facts["minigraph_interfaces"]
-            if mg_interfaces:
-                if tbinfo["topo"]["name"] == "t2_single_node_min":
-                    mg_interfaces = sorted(mg_facts["minigraph_interfaces"],
-                                           key=lambda x: int(x['attachto'].replace("Ethernet", "")))
-                for intf in mg_interfaces:
+            if mg_facts["minigraph_interfaces"]:
+                for intf in mg_facts["minigraph_interfaces"]:
                     if (is_matching_ip_version(intf["addr"])):
                         intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
                         if not interfaces:
@@ -623,11 +618,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh"]):
-        setup_func = _setup_interfaces_t1_t2_drh
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2"]):
+        setup_func = _setup_interfaces_t1_or_t2
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
-            setup_func = _setup_interfaces_t1_t2_drh
+            setup_func = _setup_interfaces_t1_or_t2
         else:
             setup_func = _setup_interfaces_t0_or_mx
     else:
@@ -640,7 +635,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
     duthost.shell("sonic-clear arp")
     duthost.shell('sudo config save -y')
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope="module")
@@ -709,9 +704,6 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     peer_addr = connection['neighbor_addr'].split("/")[0]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
-    confed_asn = duthost.get_bgp_confed_asn()
-    if confed_asn:
-        asn = confed_asn
     # TODO: Add a common method to load BGPMON config for test_bgpmon and test_traffic_shift
     logger.info("Configuring bgp monitor session on DUT")
     bgpmon_args = {
@@ -820,18 +812,6 @@ def pytest_addoption(parser):
         default=None,
         help="Max flap neighbor number, default is None"
     )
-    parser.addoption(
-        "--vnet_count",
-        action="store",
-        default="100",
-        help="Number of VNETs/VLANs to create"
-    )
-    parser.addoption(
-        "--subif_per_vnet",
-        action="store",
-        default="16",
-        help="Number of Subinterfaces to create per vnet"
-    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -917,16 +897,6 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
-
-
-@pytest.fixture(scope="module")
-def vnet_count(request):
-    return int(request.config.getoption("--vnet_count"))
-
-
-@pytest.fixture(scope="module")
-def subif_per_vnet(request):
-    return int(request.config.getoption("--subif_per_vnet"))
 
 
 @pytest.fixture(scope='module')

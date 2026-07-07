@@ -24,9 +24,9 @@ from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
-from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
-from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
+from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -44,7 +44,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.multi_binding_acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -204,14 +204,7 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(
-                config_reload,
-                duthost,
-                config_source="minigraph",
-                safe_reload=True,
-                override_config=True,
-                check_intf_up_ports=True
-            )
+            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True, override_config=True)
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -416,8 +409,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
         upstream_neigh_types = get_all_upstream_neigh_type(topo)
-        downstream_neigh_types = get_all_downstream_neigh_type(topo)
-        pytest_require(len(upstream_neigh_types) > 0 and len(downstream_neigh_types) > 0,
+        downstream_neigh_type = get_downstream_neigh_type(topo)
+        pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
         if tbinfo["topo"]["name"] in ("t1-isolated-d32", "t1-isolated-d128"):
@@ -436,18 +429,17 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         else:
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                for neigh_type in downstream_neigh_types:
-                    if neigh_type in neighbor["name"].upper():
-                        if topo in ["t0", "mx", "m0_vlan"]:
-                            if interface not in mg_vlans[vlan_name]["members"]:
-                                continue
+                if downstream_neigh_type in neighbor["name"].upper():
+                    if topo in ["t0", "mx", "m0_vlan"]:
+                        if interface not in mg_vlans[vlan_name]["members"]:
+                            continue
 
-                        downstream_ports[neighbor['namespace']].append(interface)
-                        downstream_port_ids.append(port_id)
-                        # Duplicate all ports to upstream port list for FT2
-                        if topo == "ft2":
-                            upstream_port_ids.append(port_id)
-                        downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+                    downstream_ports[neighbor['namespace']].append(interface)
+                    downstream_port_ids.append(port_id)
+                    # Duplicate all ports to upstream port list for FT2
+                    if topo == "ft2":
+                        upstream_port_ids.append(port_id)
+                    downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
                 for neigh_type in upstream_neigh_types:
                     if neigh_type in neighbor["name"].upper():
                         upstream_ports[neighbor['namespace']].append(interface)
@@ -618,9 +610,9 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     for port in vlan_host_map:
         arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
 
-    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
+    with open("/tmp/from_t1.json", "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
+    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
 
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
@@ -648,7 +640,7 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     # Remove the rendered arp_responder config we wrote above so it can't be
     # picked up by a stale invocation in a later test and so /tmp doesn't
     # accumulate state that mis-leads on-PTF debugging.
-    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
+    ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
     for dut in duthosts:
         dut.command("sonic-clear fdb all")
@@ -1070,10 +1062,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
-                                                 "x86_64-8122_64eh_o-r0",
-                                                 "x86_64-8122_64ehf_o-r0",
-                                                 "x86_64-8223_64e_mo-r0",
-                                                 "x86_64-8223_64ef_mo-r0"]:
+                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
@@ -1303,7 +1292,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
@@ -1336,7 +1325,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
@@ -1788,10 +1777,6 @@ class TestAclWithPortToggle(TestBasicAcl):
             if max_routes < threshold:
                 route_convergence_delay = delay
                 break
-
-        asic_type = dut.facts["asic_type"]
-        if asic_type in ["vpp"]:
-            route_convergence_delay += 60
 
         logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
 

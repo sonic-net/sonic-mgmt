@@ -174,7 +174,6 @@ class GNMIEnvironment(object):
                     if match:
                         self.gnmi_port = int(match.group(1))
                         # Check for --noTLS flag
-                        # --noTLS means no TLS; --insecure means TLS with self-signed cert (use_tls=True)
                         self.use_tls = '--noTLS' not in res['stdout']
                         logger.info(f"Detected from process: port={self.gnmi_port}, tls={self.use_tls}")
                         return
@@ -183,7 +182,7 @@ class GNMIEnvironment(object):
 
         # Final fallback: use standard defaults
         self.gnmi_port = 8080
-        self.use_tls = True  # default to insecure TLS (GNMI|certs configured in tests)
+        self.use_tls = False
         logger.info(f"Using default config: port={self.gnmi_port}, tls={self.use_tls}")
 
 
@@ -295,12 +294,12 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
 
-def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
+def create_gnmi_certs(duthost, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
     prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost, dut_ip=dut_ip)
+    prepare_server_cert(duthost, localhost)
     prepare_client_cert(localhost)
     create_revoked_cert_and_crl(localhost, ptfhost)
     copy_certificate_to_dut(duthost)
@@ -351,10 +350,10 @@ def create_root_cert(localhost, days):
     _write_pem_certificate("gnmiCA.pem", cert)
 
 
-def prepare_server_cert(duthost, localhost, days="825", dut_ip=None):
+def prepare_server_cert(duthost, localhost, days="825"):
     create_server_key(localhost)
     create_server_csr(localhost)
-    sign_server_certificate(duthost, localhost, days, dut_ip=dut_ip)
+    sign_server_certificate(duthost, localhost, days)
 
 
 def create_server_key(localhost):
@@ -371,20 +370,15 @@ def create_server_csr(localhost):
     localhost.shell(local_command)
 
 
-def sign_server_certificate(duthost, localhost, days, dut_ip=None):
-    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP).
-
-    When dut_ip is provided, it is used as the SAN IP address instead of
-    duthost.mgmt_ip. This lets callers bind the cert to the address the
-    gnmi server is actually reachable at (e.g. when bound to a non-default VRF).
-    """
+def sign_server_certificate(duthost, localhost, days):
+    """Sign gnmiserver.csr with the CA, backdated, with SAN (hostname.com + DUT mgmt IP)."""
     ca_cert = _load_pem_certificate("gnmiCA.pem")
     ca_key = _load_pem_private_key("gnmiCA.key")
     csr = _load_pem_csr("gnmiserver.csr")
     not_before, not_after = _cert_validity_period(days)
     san_entries = [
         x509.DNSName("hostname.com"),
-        x509.IPAddress(ipaddress.ip_address(dut_ip or duthost.mgmt_ip)),
+        x509.IPAddress(ipaddress.ip_address(duthost.mgmt_ip)),
     ]
     cert = (
         x509.CertificateBuilder()
@@ -542,40 +536,3 @@ def gnmi_capabilities(duthost, localhost):
         return -1, output['stderr']
     else:
         return 0, output['stdout']
-
-
-def ensure_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
-    """
-    Configure GNMI/TELEMETRY certs table in CONFIG_DB with empty cert fields.
-    This causes the startup script to use --insecure (TLS with self-signed cert)
-    instead of --noTLS (cleartext), improving security while maintaining test compatibility.
-
-    Args:
-        duthost: DUT host object
-        mode: GNMI_MODE uses GNMI|certs table; TELEMETRY_MODE uses TELEMETRY|certs
-    """
-    if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
-    else:
-        table = "TELEMETRY|certs"
-
-    logger.info(f"Configuring {table} with empty cert fields to enable --insecure mode")
-    # Include ca_crt "" to avoid jq returning string "null" for missing key,
-    # which would cause telemetry startup script to pass --ca_crt null and block port binding.
-    duthost.shell(f'sonic-db-cli CONFIG_DB hset "{table}" server_crt "" server_key "" ca_crt ""',
-                  module_ignore_errors=True)
-
-
-def cleanup_gnmi_insecure_mode(duthost, mode=GNMIEnvironment.GNMI_MODE):
-    """Remove the empty cert config added by ensure_gnmi_insecure_mode."""
-    if mode == GNMIEnvironment.GNMI_MODE:
-        table = "GNMI|certs"
-    else:
-        table = "TELEMETRY|certs"
-
-    # Only remove if no real certs are configured
-    result = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{table}" server_crt',
-                           module_ignore_errors=True)
-    if result['stdout'].strip() == "":
-        logger.info(f"Removing empty cert config from {table}")
-        duthost.shell(f'sonic-db-cli CONFIG_DB del "{table}"', module_ignore_errors=True)

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2')
 ]
 
 

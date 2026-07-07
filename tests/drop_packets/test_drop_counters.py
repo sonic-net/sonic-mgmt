@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 PKT_NUMBER = 1000
-WEAK_SERVER_PKT_NUMBER = 100
 
 # CLI commands to obtain drop counters.
 NAMESPACE_PREFIX = "sudo ip netns exec {} "
@@ -166,15 +165,11 @@ def handle_backend_acl(duthost, tbinfo):
 
 
 def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa: F811
-                      tx_dut_ports=None, skip_counter_check=False, drop_information=None,  # noqa: F811
-                      weak_server=False):  # noqa: F811
+                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa: F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
-    def get_pkt_number():
-        return WEAK_SERVER_PKT_NUMBER if weak_server else PKT_NUMBER
-
     def clear_sonic_counters(dut):
         dut.command("sonic-clear counters")
         namespace_list = dut.get_asic_namespace_list() if dut.is_multi_asic else ['']
@@ -188,8 +183,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         for duthost in duthosts.frontend_nodes:
             executor.submit(clear_sonic_counters, duthost)
 
-    pkt_number = get_pkt_number()
-    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], pkt_number)
+    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
 
     # Some test cases will not increase the drop counter consistently on certain platforms
     if skip_counter_check:
@@ -198,29 +192,29 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
 
     if discard_group == "L2":
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
-                             GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
+                             GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
-                executor.submit(ensure_no_l3_drops, duthost, packets_count=pkt_number)
+                executor.submit(ensure_no_l3_drops, duthost, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
             verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
-                                 GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
+                                 GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l3_drops, duthost, packets_count=pkt_number)
+                    executor.submit(ensure_no_l3_drops, duthost, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
             verify_drop_counters(duthosts, asic_index, tx_dut_ports[ports_info["dut_iface"]],
-                                 GET_L3_COUNTERS, L3_COL_KEY, packets_count=pkt_number)
+                                 GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l2_drops, duthost, packets_count=pkt_number)
+                    executor.submit(ensure_no_l2_drops, duthost, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -235,18 +229,18 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
                     continue
                 acl_drops += duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"][
                     drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
-        if acl_drops != pkt_number:
+        if acl_drops != PKT_NUMBER:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}"\
-                .format(tx_dut_ports[ports_info["dut_iface"]], acl_drops, pkt_number)
+                .format(tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER)
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l3_and_l2_drops, duthost, packets_count=pkt_number)
+                    executor.submit(ensure_no_l3_and_l2_drops, duthost, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
-                executor.submit(ensure_no_l2_and_l3_drops, duthost, packets_count=pkt_number)
+                executor.submit(ensure_no_l2_and_l3_drops, duthost, packets_count=PKT_NUMBER)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
@@ -330,7 +324,7 @@ def check_if_skip():
 
 
 @pytest.fixture(scope='module')
-def do_test(duthosts, weak_server):
+def do_test(duthosts):
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa: F811
                          comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
         """
@@ -350,8 +344,7 @@ def do_test(duthosts, weak_server):
 
         asic_index = ports_info["asic_index"]
         base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
-                          skip_counter_check=skip_counter_check, drop_information=drop_information,
-                          weak_server=weak_server)
+                          skip_counter_check=skip_counter_check, drop_information=drop_information)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -374,7 +367,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         pytest.skip("Test case requires explicit fanout support")
 
     # Marvell ASIC specific ACL rule injection
-    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
+    if fanouthost.facts["asic_type"] == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
@@ -452,13 +445,11 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  # noqa: F811
-                                  ptfadapter, setup, tx_dut_ports,                           # noqa: F811
-                                  pkt_fields, mtu_config, ports_info):                       # noqa: F811
+def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa: F811
+                                  pkt_fields, mtu_config, ports_info):                      # noqa: F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global L2_COL_KEY
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
@@ -485,8 +476,6 @@ def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_fro
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
-                # VPP drops the packet but does not increment the drop counter
-                skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
     finally:
         L2_COL_KEY = RX_DRP

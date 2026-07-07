@@ -24,7 +24,6 @@ pytestmark = [
 
 def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_port,
                                      neighbor_ip, ptfadapter, ptfhost, with_srh):
-    ptf_mgmt_ipv6 = ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1"
     for i in range(0, 10):
         # generate a random payload
         payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
@@ -32,7 +31,7 @@ def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_por
             injected_pkt = simple_ipv6_sr_packet(
                 eth_dst=dut_mac,
                 eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-                ipv6_src=ptf_mgmt_ipv6,
+                ipv6_src=ptfhost.mgmt_ipv6,
                 ipv6_dst="fcbb:bbbb:1:2::",
                 srh_seg_left=1,
                 srh_nh=41,
@@ -40,7 +39,7 @@ def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_por
             )
         else:
             injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-                / IPv6(src=ptf_mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
+                / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
                 / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
         expected_pkt = injected_pkt.copy()
@@ -169,7 +168,7 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
 
     setup_info = {
         "duthost": duthost,
-        "dut_mac": duthost.facts["router_mac"],
+        "dut_mac": duthost._get_router_mac(),
         "dut_port": dut_port,
         "dut_downstream_port": dut_downstream_port,
         "ptf_src_port": ptf_src_port,
@@ -223,12 +222,11 @@ def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfada
     ptfadapter.dataplane.flush()
     # generate a random payload
     payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
-    ptf_mgmt_ipv6 = ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1"
     if with_srh:
         injected_pkt = simple_ipv6_sr_packet(
             eth_dst=dut_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
-            ipv6_src=ptf_mgmt_ipv6,
+            ipv6_src=ptfhost.mgmt_ipv6,
             ipv6_dst="fcbb:bbbb:1:2::",
             srh_seg_left=0,
             srh_nh=41,
@@ -236,7 +234,7 @@ def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfada
         )
     else:
         injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
-            / IPv6(src=ptf_mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
+            / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
             / IPv6() / UDP(dport=4791) / Raw(load=payload)
 
     expected_pkt = injected_pkt.copy()

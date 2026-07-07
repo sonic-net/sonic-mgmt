@@ -5,7 +5,7 @@ import logging
 import redis
 import sys
 import time
-import defusedxml.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 from socketserver import ThreadingMixIn
 from six.moves.xmlrpc_server import SimpleXMLRPCServer

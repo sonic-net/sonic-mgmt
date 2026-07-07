@@ -5,7 +5,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('dpu', 'smartswitch')
 ]
 
 # NVIDIA Smartswitch DPU platform

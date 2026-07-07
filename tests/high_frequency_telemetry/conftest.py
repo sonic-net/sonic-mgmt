@@ -1,64 +1,8 @@
 import pytest
 import logging
 import time
-from datetime import datetime, timezone
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
-OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
-
-
-@pytest.fixture(scope="module")
-def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
-    """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
-
-    The default OTEL collector config uses a debug exporter with 'verbosity: detailed',
-    which dumps every metric (~14 lines each) to otel.log. During HFT tests with thousands
-    of counters at 10ms polling, this generates ~40 million log lines in minutes and fills
-    /var/log, causing rsyslog to drop messages (including LogAnalyzer markers).
-
-    This fixture changes the verbosity to 'basic' (one summary line per batch) before
-    HFT tests run, and restores the original config afterward.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    # Check if otel container is running
-    if not duthost.is_container_running("otel"):
-        logger.info("OTEL container is not running, skipping debug logging suppression")
-        yield
-        return
-
-    # Read the current otel config
-    result = duthost.shell(f'cat {OTEL_CONFIG_PATH}', module_ignore_errors=True)
-    if result['rc'] != 0:
-        logger.warning(f"Failed to read {OTEL_CONFIG_PATH}, skipping debug logging suppression")
-        yield
-        return
-
-    original_config = result['stdout']
-
-    if 'verbosity: detailed' not in original_config:
-        logger.info("OTEL config does not have 'verbosity: detailed', no change needed")
-        yield
-        return
-
-    # Change verbosity from detailed to basic
-    logger.info("Changing OTEL debug exporter verbosity from 'detailed' to 'basic'")
-    duthost.shell(
-        f"sed -i 's/verbosity: detailed/verbosity: basic/' {OTEL_CONFIG_PATH}",
-        module_ignore_errors=False
-    )
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
-
-    yield
-
-    # Restore original config
-    logger.info("Restoring original OTEL collector config")
-    duthost.copy(content=original_config, dest=OTEL_CONFIG_PATH)
-    duthost.shell('docker restart otel', module_ignore_errors=True)
-    wait_until(60, 2, 0, duthost.is_service_fully_started, "otel")
 
 
 @pytest.fixture(autouse=True)
@@ -101,31 +45,57 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def get_swss_uptime_seconds():
-        """Get swss container uptime in seconds via docker inspect."""
+        """Get swss container uptime in seconds from docker ps"""
         try:
-            # Step 1: Get container start time from docker inspect JSON
+            # Use docker ps to get status info - avoid template conflicts
             result = duthost.shell(
-                "docker inspect swss | grep StartedAt | head -1 | cut -d'\"' -f4",
+                'docker ps --filter "name=swss"',
                 module_ignore_errors=True
             )
-            if result['rc'] != 0 or not result['stdout'].strip():
-                return 0
-            started_at = result['stdout'].strip()
-
-            # Step 2: Convert start time to epoch seconds on DUT
-            result = duthost.shell(
-                f'date -ud "{started_at}" +%s',
-                module_ignore_errors=True
-            )
-            if result['rc'] != 0 or not result['stdout'].strip():
+            if result['rc'] != 0:
                 return 0
 
-            # Step 3: Calculate uptime = current UTC epoch - start epoch
-            started_epoch = int(result['stdout'].strip())
-            now_epoch = int(datetime.now(timezone.utc).timestamp())
-            uptime = now_epoch - started_epoch
-            logger.debug(f"swss container uptime: {uptime}s")
-            return uptime
+            stdout_lines = result['stdout_lines']
+            if len(stdout_lines) < 2:  # No container found (only header)
+                return 0
+
+            # Find the swss container line and extract status
+            for line in stdout_lines[1:]:  # Skip header
+                if 'swss' in line:
+                    # Line format: CONTAINER_ID IMAGE COMMAND
+                    # CREATED STATUS PORTS NAMES
+                    # Example: d0a33fe4d37f docker-orchagent:latest
+                    # "/usr/bin/docker-ini…" 8 days ago Up 18 minutes swss
+                    parts = line.split()
+
+                    # Find "Up" and get the next parts for time
+                    try:
+                        up_index = parts.index('Up')
+                        if up_index + 2 < len(parts):
+                            time_value = parts[up_index + 1]
+                            time_unit = parts[up_index + 2]
+
+                            logger.debug(f"swss container status: "
+                                         f"Up {time_value} {time_unit}")
+
+                            # Convert to seconds
+                            time_num = int(time_value)
+                            if 'second' in time_unit:
+                                return time_num
+                            elif 'minute' in time_unit:
+                                return time_num * 60
+                            elif 'hour' in time_unit:
+                                return time_num * 3600
+                            elif 'day' in time_unit:
+                                return time_num * 86400
+                            else:
+                                return 20  # Unknown format, assume long enough
+                    except (ValueError, IndexError):
+                        logger.warning(f"Failed to parse status line: {line}")
+                        return 0
+
+            return 0  # No swss container found
+
         except Exception as e:
             logger.warning(f"Failed to get swss uptime: {e}")
             return 0
@@ -263,8 +233,7 @@ def cleanup_high_frequency_telemetry(
 @pytest.fixture(scope="function")
 def disable_flex_counters(
     duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry,
-    suppress_otel_debug_logging
+    cleanup_high_frequency_telemetry
 ):
     """
     Function-level fixture to disable all flex counters and restore

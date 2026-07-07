@@ -10,7 +10,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'lrh', 'urh'),
+    pytest.mark.topology('t1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -29,11 +29,11 @@ def _ignore_allow_list_errlogs(duthosts, rand_one_dut_front_end_hostname, logana
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         IgnoreRegex = [
-            ".*ERR bgp[0-9]*#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
+            ".*ERR bgp#bgpcfgd: BGPAllowListMgr::Default action community value is not found.*",
         ]
         duthost = duthosts[rand_one_dut_front_end_hostname]
         """Cisco 8111-O64 has different allow list config"""
-        if duthost.facts['hwsku'] in {'Cisco-8111-O64', 'Cisco-88-LC0-36FH-M-O36', 'Cisco-88-LC0-36FH-O36'}:
+        if duthost.facts['hwsku'] == 'Cisco-8111-O64':
             loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(IgnoreRegex)
     return
 

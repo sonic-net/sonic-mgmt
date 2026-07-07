@@ -77,6 +77,15 @@ def teardown_module(duthosts, rand_one_dut_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
+@pytest.fixture
+def check_daemon_status(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    if daemon_status != "RUNNING":
+        duthost.start_pmon_daemon(daemon_name)
+        time.sleep(10)
+
+
 def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
@@ -112,8 +121,8 @@ def wait_data(duthost, expected_key_count):
             logger.info("Expected PCIE device keys :{}, Current device key count {}".format(
                 expected_key_count, device_keys_found))
         return device_keys_found == expected_key_count
-    pcied_polling_timeout = 80
-    wait_until(pcied_polling_timeout, 6, 0, _collect_data)
+    pcied_pooling_interval = 60
+    wait_until(pcied_pooling_interval, 6, 0, _collect_data)
     return shared_scope.data_after_restart
 
 
@@ -183,9 +192,6 @@ def test_pmon_pcied_stop_and_start_status(check_daemon_status, duthosts, rand_on
 
     data_after_restart = wait_data(
         duthost, len(data_before_restart['devices']))
-    if data_after_restart != data_before_restart:
-        logger.info("data_before_restart: {}".format(data_before_restart))
-        logger.info("data_after_restart: {}".format(data_after_restart))
     pytest_assert(data_after_restart == data_before_restart,
                   'DB data present before and after restart does not match')
 
@@ -210,7 +216,7 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts,
                   "{} status for SIG_TERM should not be {} with pid:{}!"
                   .format(daemon_name, daemon_status, daemon_pid))
 
-    wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
+    time.sleep(10)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     pytest_assert(post_daemon_status == expected_running_status,
@@ -223,9 +229,6 @@ def test_pmon_pcied_term_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(
         duthost, len(data_before_restart['devices']))
-    if data_after_restart != data_before_restart:
-        logger.info("data_before_restart: {}".format(data_before_restart))
-        logger.info("data_after_restart: {}".format(data_after_restart))
     pytest_assert(data_after_restart == data_before_restart,
                   'DB data present before and after restart does not match')
 
@@ -257,8 +260,5 @@ def test_pmon_pcied_kill_and_start_status(check_daemon_status, duthosts, rand_on
                   "Restarted {} pid should be bigger than {} but it is {}"
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost, len(data_before_restart['devices']))
-    if data_after_restart != data_before_restart:
-        logger.info("data_before_restart: {}".format(data_before_restart))
-        logger.info("data_after_restart: {}".format(data_after_restart))
     pytest_assert(data_after_restart == data_before_restart,
                   'DB data present before and after restart does not match')

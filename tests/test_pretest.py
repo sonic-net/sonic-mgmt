@@ -64,6 +64,35 @@ def test_cleanup_cache():
         os.system('rm -rf {}'.format(folder))
 
 
+def test_cleanup_testbed(duthosts, request, ptfhost):
+    deep_clean = request.config.getoption("--deep_clean")
+    if deep_clean:
+
+        def deep_clean_dut(dut):
+            logger.info("Deep cleaning DUT {}".format(dut.hostname))
+            # Remove old log files.
+            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
+            # Remove old core files.
+            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
+            # Remove old dump files.
+            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
+
+            # delete other log files that are more than a day old,
+            # this step is needed to remove some backup files or the debug files added by users
+            # which can create issue for log-analyzer
+            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
+                      module_ignore_errors=True, executable="/bin/bash")
+
+        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+            for duthost in duthosts:
+                executor.submit(deep_clean_dut, duthost)
+
+    # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
+    if ptfhost:
+        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
+                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
+
+
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
@@ -114,41 +143,6 @@ def collect_dut_info(dut, metadata):
     metadata[dut.hostname] = dut_info
 
 
-def update_testbed_metadata(metadata, tbname, filepath):
-    """Update or create testbed metadata JSON file.
-
-    Reads existing metadata file (if present), updates or adds testbed metadata,
-    and writes back to file. Handles missing files and JSON decode errors gracefully.
-
-    Args:
-        metadata: Dictionary containing DUT metadata to be stored.
-        tbname: Testbed name used as key in the metadata file.
-        filepath: Path to the metadata JSON file.
-
-    Returns:
-        None.
-    """
-    try:
-        with open(filepath, 'r') as yf:
-            info = json.load(yf)
-        try:
-            info[tbname].update(metadata)
-        except KeyError:
-            logger.info(f"The testbed '{tbname}' is not in the file '{filepath}', adding it.")
-            info[tbname] = metadata
-    except FileNotFoundError:
-        logger.info(f"The testbed metadata file '{filepath}' was not found, creating new file.")
-        info = {tbname: metadata}
-    except json.JSONDecodeError as e:
-        logger.warning(f"Error: Failed to decode JSON from the file '{filepath}': {e}, recreating the file.")
-        info = {tbname: metadata}
-    try:
-        with open(filepath, 'w') as yf:
-            json.dump(info, yf, indent=4)
-    except IOError as e:
-        logger.warning('Unable to create file {}: {}'.format(filepath, e))
-
-
 def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     metadata = {}
     tbname = tbinfo['conf-name']
@@ -158,11 +152,17 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
         for duthost in duthosts:
             executor.submit(collect_dut_info, duthost, metadata)
 
+    info = {tbname: metadata}
     folder = 'metadata'
-    if not os.path.exists(folder):
-        os.mkdir(folder)
     filepath = os.path.join(folder, tbname + '.json')
-    update_testbed_metadata(metadata, tbname, filepath)
+    try:
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
     prepare_autonegtest_params(duthosts, fanouthosts)
 
 
@@ -524,30 +524,13 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     if result["failed"] or "OK" not in result["msg"]:
         pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
-    # The saithrift deb installs switch_sai_thrift inside an egg dir named for the
-    # Python version it was built against (e.g. saithrift-0.9-py3.11.egg on
-    # bookworm/OS12, saithrift-0.9-py3.13.egg on trixie/OS13). The PTF runs from its
-    # own virtualenv (/root/env-python3) whose sys.path references that egg dir via
-    # easy-install.pth; dpkg does NOT update the .pth when the egg version changes,
-    # so switch_sai_thrift becomes unimportable when the image's Python version
-    # differs from the PTF's (e.g. a trixie/py3.13 deb on a bookworm/py3.11 PTF).
-    # Locate the actual egg (any py3.x) and copy switch_sai_thrift into the PTF
-    # virtualenv's site-packages, which is always on the runner's sys.path.
-    PY_PATH = "/usr/lib/python3/dist-packages"
-    egg_switch_sai = ptfhost.shell(
-        "ls -d {}/saithrift-0.9-py3.*.egg/switch_sai_thrift 2>/dev/null | head -1".format(PY_PATH),
-        module_ignore_errors=True,
-    )["stdout"].strip()
-    if egg_switch_sai:
-        # Prefer the PTF virtualenv site-packages (always on the ptf_runner sys.path);
-        # fall back to the system dist-packages if the virtualenv is absent.
-        site_dir = ptfhost.shell(
-            "/root/env-python3/bin/python -c "
-            "'import sysconfig; print(sysconfig.get_paths()[\"purelib\"])'",
-            module_ignore_errors=True,
-        )["stdout"].strip() or PY_PATH
-        ptfhost.shell("rm -rf {}/switch_sai_thrift".format(site_dir), module_ignore_errors=True)
-        ptfhost.copy(src=egg_switch_sai, dest=site_dir + "/", remote_src=True)
+    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
+    # We need to move it out to the correct location
+    PY_PATH = "/usr/lib/python3/dist-packages/"
+    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
+    DST_PATH = PY_PATH + "switch_sai_thrift"
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 

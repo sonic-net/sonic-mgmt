@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import logging
-import telnetlib  # nosemgrep: telnetlib
+import telnetlib
 import requests
 import getpass
 import subprocess
@@ -232,7 +232,7 @@ class RPS(object):
             self.logmsg(msg, lvl=logging.WARNING)
             try:
                 # nosemgrep-next-line
-                self.tn = telnetlib.Telnet(self.ip, port=self.port)  # nosemgrep: telnetlib
+                self.tn = telnetlib.Telnet(self.ip, port=self.port)
                 break
             except Exception as e:
                 msg = "connection failed {}".format(e)
@@ -650,7 +650,7 @@ class RPS(object):
         self.logmsg(msg, lvl=logging.WARNING)
         try:
             # nosemgrep-next-line
-            tn = telnetlib.Telnet(ip, port=port)  # nosemgrep: telnetlib
+            tn = telnetlib.Telnet(ip, port=port)
             tn.set_debuglevel(self.dbg_lvl)
             return tn
         except Exception as e:

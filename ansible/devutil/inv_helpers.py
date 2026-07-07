@@ -150,7 +150,7 @@ class HostManager():
             else:
                 ssh_user = ''
 
-            res['username'] = jinja2.Template(ssh_user).render(**vars)  # nosemgrep: direct-use-of-jinja2
+            res['username'] = jinja2.Template(ssh_user).render(**vars)
 
         if 'password' not in vars:
             ssh_pass = ''
@@ -161,7 +161,7 @@ class HostManager():
             else:
                 ssh_pass = ''
 
-            res['password'] = [jinja2.Template(ssh_pass).render(**vars)]  # nosemgrep: direct-use-of-jinja2
+            res['password'] = [jinja2.Template(ssh_pass).render(**vars)]
 
         # console username and password
         console_login_creds = vars.get("console_login", {})

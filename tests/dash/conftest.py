@@ -431,48 +431,19 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
                 "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
             },
             "OP": "SET"
-        },
-        {
-            "SWITCH_TABLE:switch": {
-                "vxlan_security": "true"
-            },
-            "OP": "SET"
         }
     ]
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    for config in vxlan_sport_config:
-        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
-        apply_swssconfig_file(dpuhost, config_path)
+    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
+    apply_swssconfig_file(dpuhost, config_path)
     if 'pensando' in dpuhost.facts['asic_type']:
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
-
-
-@pytest.fixture(scope="function")
-def disable_vxlan_security(dpuhosts, dpu_index):
-    """
-    Disable VXLAN security in dpu configuration.
-    Configuration is applied by swssconfig..
-    """
-    dpuhost = dpuhosts[dpu_index]
-    vxlan_security_config = [
-        {
-            "SWITCH_TABLE:switch": {
-                "vxlan_security": "false"
-            },
-            "OP": "SET"
-        }
-    ]
-    logger.info(f"Disabling VXLAN security: {vxlan_security_config}")
-    config_path = "/tmp/vxlan_security_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_security_config, indent=4),
-                 dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
 
 
 @pytest.fixture(scope="function")
@@ -499,31 +470,6 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
 @pytest.fixture(scope="module")
 def dpu_index(request):
     return request.config.getoption("--dpu_index")
-
-
-def _apply_pl_sip(sip_params):
-    encoding_ip, encoding_mask, overlay_sip, overlay_sip_mask = sip_params
-    pl.PL_ENCODING_IP = encoding_ip
-    pl.PL_ENCODING_MASK = encoding_mask
-    pl.PL_OVERLAY_SIP = overlay_sip
-    pl.PL_OVERLAY_SIP_MASK = overlay_sip_mask
-    pl_sip_encoding = f"{encoding_ip}/{encoding_mask}"
-    overlay_sip_prefix = f"{overlay_sip}/{overlay_sip_mask}"
-    for cfg in pl.PL_SIP_CONFIGS:
-        for entry in cfg.values():
-            if "pl_sip_encoding" in entry:
-                entry["pl_sip_encoding"] = pl_sip_encoding
-            if "overlay_sip_prefix" in entry:
-                entry["overlay_sip_prefix"] = overlay_sip_prefix
-
-
-@pytest.fixture(scope="module", autouse=True)
-def configure_pl_sip_for_platform(request):
-    if "dpuhosts" not in request.fixturenames:
-        return
-    dpuhost = request.getfixturevalue("dpuhosts")[request.getfixturevalue("dpu_index")]
-    sip_params = pl.PL_SIP_ALTERNATE if "bluefield" in dpuhost.facts["asic_type"] else pl.DEFAULT_PL_SIP
-    _apply_pl_sip(sip_params)
 
 
 @pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])

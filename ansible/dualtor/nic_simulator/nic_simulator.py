@@ -82,7 +82,7 @@ def run_command(cmd, check=True):
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        shell=True,  # nosemgrep: subprocess-shell-true
+        shell=True,
         check=check
     )
     result.stdout = result.stdout.decode()

@@ -8,7 +8,7 @@ from tests.common.helpers.platform_api import sfp
 from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports, get_port_indexes_with_flat_memory
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
@@ -19,7 +19,7 @@ from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
-from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled  # noqa: F401
+
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -83,8 +83,6 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
 
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
-
-    sfp_setup["indexes_with_flat_memory"] = get_port_indexes_with_flat_memory(duthost)
 
 
 @pytest.mark.usefixtures("setup")
@@ -327,13 +325,7 @@ class TestSfpApi(PlatformApiTestBase):
                 spec_compliance_dict = ast.literal_eval(spec)
             except (ValueError, SyntaxError):
                 return True
-            if spec_compliance_dict.get("SFP+CableTechnology") == "Passive Cable":
-                return False
-            # Copper baseT RJ45 SFP modules (e.g. 1000BASE-T, 100BASE-TX). No laser to
-            # disable; xcvrd returns "N/A" for the optics APIs on these modules.
-            if "BASE-T" in spec_compliance_dict.get("Ethernet Compliance", ""):
-                return False
-            return True
+            return spec_compliance_dict.get("SFP+CableTechnology") != "Passive Cable"
 
         # All other types use the dict-based copper check.
         spec_compliance_dict = ast.literal_eval(spec)
@@ -364,18 +356,15 @@ class TestSfpApi(PlatformApiTestBase):
             return 0.3
         return 0
 
-    def is_xcvr_support_lpmode(self, xcvr_info_dict, port_index=None):
+    def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
         # Amphenol 800G Backplane cartridge does not support lpmode.
         if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
             return False
 
-        if port_index is not None and port_index in self.sfp_setup["indexes_with_flat_memory"]:
-            logger.info("Skipping lpmode test for transceiver {} as it is in flat memory".format(port_index))
-            return False
-
-        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type):
+        ext_identifier = xcvr_info_dict["ext_identifier"]
+        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
 
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
@@ -413,7 +402,7 @@ class TestSfpApi(PlatformApiTestBase):
                 continue
 
             info_dict = port_index_to_info_dict[sfp_port_idx]
-            if self.is_xcvr_support_lpmode(info_dict, sfp_port_idx):
+            if self.is_xcvr_support_lpmode(info_dict):
                 logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
                 interfaces_to_flap.append(intf)
         return interfaces_to_flap
@@ -825,18 +814,12 @@ class TestSfpApi(PlatformApiTestBase):
             logger.info("No interfaces to flap after SFP reset")
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                        platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
-        if is_mellanox_device(duthost):
-            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
-        else:
-            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in port_indices_to_tested:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -859,17 +842,12 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn, is_sw_control_feature_enabled):     # noqa: F811
+                                platform_api_conn):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
-        if is_mellanox_device(duthost):
-            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
-                duthost, is_sw_control_feature_enabled)
-        else:
-            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in port_indices_to_tested:
+        for i in self.sfp_setup["sfp_test_port_indices"]:
             # First ensure that the transceiver type supports setting TX disable on individual channels
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -928,7 +906,7 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_support_lpmode(info_dict, i):
+            if not self.is_xcvr_support_lpmode(info_dict):
                 logger.warning(
                     "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))
@@ -1012,14 +990,8 @@ class TestSfpApi(PlatformApiTestBase):
         """This function tests get_error_description() API (supported on 202106 and above)"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
-        admin_up_port_set = set(duthost.get_admin_up_ports())
 
         for i in self.sfp_setup["sfp_test_port_indices"]:
-            current_ports_set = set(self.sfp_setup["index_physical_port_map"][i])
-            if admin_up_port_set.isdisjoint(current_ports_set):
-                logger.warning(f"test_get_error_description: Skipping transceiver {i} as ports are not admin up: "
-                               f"{current_ports_set}")
-                continue
             error_description = sfp.get_error_description(platform_api_conn, i)
             if self.expect(error_description is not None,
                            "Unable to retrieve transceiver {} error description".format(i)):
@@ -1058,13 +1030,3 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(thermal and thermal == thermal_list[thermal_index],
                             "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
-
-    def get_port_indices_to_tested_for_mellanox_device(self, duthost, is_sw_control_feature_enabled):  # noqa: F811
-        port_indices_to_tested = []
-        if is_sw_control_feature_enabled:
-            port_indices_to_tested = [port_index for port_index in self.sfp_setup["sfp_test_port_indices"]
-                                      if is_sw_control_enabled(duthost, port_index)]
-        if not port_indices_to_tested:
-            pytest.skip("Skipping test on Mellanox device with no port indices to test")
-        logging.info(f"Port indices to tested for Mellanox device: {port_indices_to_tested}")
-        return port_indices_to_tested

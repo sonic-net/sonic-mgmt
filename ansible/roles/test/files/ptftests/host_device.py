@@ -4,9 +4,9 @@ class HostDevice(object):
     def getHostDeviceInstance(neighbor_type, *args, **kwargs):
         import arista
         import sonic
-        if "eos" in neighbor_type:
+        if neighbor_type == "eos":
             return arista.Arista(*args, **kwargs)
-        elif "sonic" in neighbor_type:
+        elif neighbor_type == "sonic":
             return sonic.Sonic(*args, **kwargs)
         else:
             raise NotImplementedError

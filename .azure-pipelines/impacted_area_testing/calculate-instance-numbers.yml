@@ -14,8 +14,7 @@ steps:
 - script: |
     set -x
 
-    sudo apt-get -o DPkg::Lock::Timeout=600 update || true
-    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+    sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     echo "$TEST_SCRIPTS" > /tmp/ts.json
     echo "TEST_SCRIPTS value from file:"
@@ -67,7 +66,8 @@ steps:
 - script: |
     set -x
 
-    sudo uv pip install --system azure-kusto-data azure-identity
+    pip install azure-kusto-data
+    pip install azure-kusto-data azure-identity
 
     INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }} --target_pr_test_time $(TARGET_PR_TEST_TIME))
 

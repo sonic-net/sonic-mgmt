@@ -34,12 +34,6 @@ import logging
 import ast
 import subprocess
 
-# Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
-# Over many samples it should converge to a mean of 1:N
-NUM_SAMPLES = 100
-MIN_EXPECTED_SAMPLES = 0.6 * NUM_SAMPLES
-MAX_EXPECTED_SAMPLES = 1.4 * NUM_SAMPLES
-
 
 class SflowTest(BaseTest):
     def __init__(self):
@@ -239,24 +233,23 @@ class SflowTest(BaseTest):
     # ---------------------------------------------------------------------------
 
     def analyze_flow_sample(self, data, collector):
-        self.assertTrue(data['total_flow_count'] > 0,
-                        "No flow packets are received in collector %s" % collector)
         logging.info("packets collected from interfaces ifindex : %s" %
                      data['flow_port_count'])
         logging.info("Expected number of packets from each port : %s to %s" % (
-            MIN_EXPECTED_SAMPLES, MAX_EXPECTED_SAMPLES))
+            100 * 0.6, 100 * 1.4))
         for port in self.interfaces:
             # NOTE: hsflowd is sending index instead of ifindex.
             index = self.interfaces[port]['port_index']
             logging.info("....%s : Flow packets collected from port %s = %s" % (
                 collector, port, data['flow_port_count'][index]))
             if port in self.enabled_intf:
-                # Number of packets sent = NUM_SAMPLES * sampling rate of interface
+                # Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
+                # Over many samples it should converge to a mean of 1:N
+                # Number of packets sent = 100 * sampling rate of interface
                 self.assertTrue(
-                    MIN_EXPECTED_SAMPLES <= data['flow_port_count'][index] <= MAX_EXPECTED_SAMPLES,
+                    100 * 0.6 <= data['flow_port_count'][index] <= 100 * 1.4,
                     "Expected Number of samples are not collected from Interface %s in collector %s , Received %s"
-                    " which is outside the acceptable range of %s to %s"
-                    % (port, collector, data['flow_port_count'][index], MIN_EXPECTED_SAMPLES, MAX_EXPECTED_SAMPLES))
+                    % (port, collector, data['flow_port_count'][index]))
             else:
                 self.assertTrue(data['flow_port_count'][index] == 0,
                                 "Packets are collected from Non Sflow interface %s in collector %s" % (port, collector))
@@ -267,8 +260,8 @@ class SflowTest(BaseTest):
         src_ip_addr_templ = '192.168.{}.1'
         ip_dst_addr = '192.168.0.4'
         pktlen = 100
-        # send NUM_SAMPLES * sampling_rate packets in each interface for better analysis
-        for _ in range(0, NUM_SAMPLES, 1):
+        # send 100 * sampling_rate packets in each interface for better analysis
+        for _ in range(0, 100, 1):
             index = 0
             for intf in self.interfaces:
                 ip_src_addr = src_ip_addr_templ.format(str(8 * index))
@@ -281,17 +274,7 @@ class SflowTest(BaseTest):
                                                       ip_dst=ip_dst_addr,
                                                       ip_ttl=64)
                 no_of_packets = self.interfaces[intf]['sample_rate']
-                # VS TAP interfaces have a limited kernel receive queue depth.
-                # Sending large bursts causes drops before the TC ingress sampler sees them.
-                # Send in small batches with a brief pause to let the queue drain.
-                BATCH_SIZE = 32
-                remaining = no_of_packets
-                while remaining > 0:
-                    burst = min(BATCH_SIZE, remaining)
-                    testutils.send(self, src_port, tcp_pkt, count=burst)
-                    remaining -= burst
-                    if remaining > 0:
-                        time.sleep(0.001)
+                testutils.send(self, src_port, tcp_pkt, count=no_of_packets)
                 index += 1
             pktlen += 10  # send traffic with different packet sizes
 

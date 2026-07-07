@@ -83,7 +83,7 @@ if not SIM_HOST:
     def get_platform():
         cmd = "cat /host/machine.conf | grep onie_platform | cut -d '=' -f 2"
         pin = subprocess.Popen(cmd,
-                               shell=True,  # nosemgrep: subprocess-shell-true
+                               shell=True,
                                close_fds=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
@@ -100,8 +100,9 @@ if not SIM_HOST:
 
     def get_hwsku():
         dir = get_platform_path()
+        # nosemgrep-next-line
         pin = subprocess.Popen("cat " + dir + "/default_sku | cut -d ' ' -f 1",
-                               shell=True,  # nosemgrep: subprocess-shell-true
+                               shell=True,
                                close_fds=True,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
@@ -118,7 +119,8 @@ if not SIM_HOST:
         if display_cmd is True:
             print("Running command: " + command)
 
-        proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)  # nosemgrep: subprocess-shell-true
+        # nosemgrep-next-line
+        proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
 
         if len(out) > 0 and print_to_console:

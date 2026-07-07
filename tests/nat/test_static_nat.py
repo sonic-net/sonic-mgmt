@@ -40,24 +40,7 @@ from .nat_helpers import dut_interface_control
 from .nat_helpers import get_public_ip
 import tests.common.reboot as common_reboot
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 from tests.nat.conftest import nat_global_config
-
-
-def _nat_counters_incremented(duthost):
-    """Return True when NAT counters are non-empty and have incremented."""
-    nat_counters = nat_statistics(duthost, show=True)
-    if not nat_counters:
-        return False
-    return all(
-        int(nat_counters[e]["Packets"]) > 0 and int(nat_counters[e]["Bytes"]) > 0
-        for e in nat_counters
-    )
-
-
-def _iptables_match(duthost, expected_rules):
-    """Return True when iptables NAT rules match expected."""
-    return dut_nat_iptables_status(duthost) == expected_rules
 
 
 pytestmark = [
@@ -149,7 +132,7 @@ class TestStaticNat(object):
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path,
                                         protocol_type, nat_type=nat_type)
         # wait for counters update
-        wait_until(30, 5, 0, _nat_counters_incremented, duthost)
+        time.sleep(5)
         # make sure NAT counters have incremented
         nat_counters = nat_statistics(duthost, show=True)
         pytest_assert(nat_counters,
@@ -193,7 +176,7 @@ class TestStaticNat(object):
             generate_and_verify_traffic(duthost, ptfadapter, setup_data, interface_type, path,
                                         protocol_type, nat_type=nat_type)
         # wait for counters update
-        wait_until(30, 5, 0, _nat_counters_incremented, duthost)
+        time.sleep(5)
         # make sure NAT counters have incremented
         nat_counters = nat_statistics(duthost, show=True)
         pytest_assert(nat_counters,
@@ -269,7 +252,7 @@ class TestStaticNat(object):
                 pytest_assert(nat_destination == cleared_translations[entry]["Destination"],
                               "Unexpected destination translation rule for {}".format(entry))
         # wait for counters update
-        wait_until(30, 5, 0, _nat_counters_incremented, duthost)
+        time.sleep(5)
         # make sure NAT counters exist and have incremented
         nat_counters = nat_statistics(duthost, show=True)
         pytest_assert(nat_counters,
@@ -335,7 +318,7 @@ class TestStaticNat(object):
                 pytest_assert(nat_destination == cleared_translations[entry]["Destination"],
                               "Unexpected source translation rule for {}".format(entry))
         # wait for counters update
-        wait_until(30, 5, 0, _nat_counters_incremented, duthost)
+        time.sleep(5)
         # make sure NAT counters exist and have incremented
         nat_counters = nat_statistics(duthost, show=True)
         pytest_assert(nat_counters,
@@ -866,6 +849,8 @@ class TestStaticNat(object):
             dut_interface_control(duthost, "ip add",
                                   setup_data["config_portchannels"][ifname_to_disable]['members'][0], interface_ip)
             # Check that NAT entries are present in iptables after readding interface IP
+            time.sleep(90)
+            iptables_output = dut_nat_iptables_status(duthost)
             iptables_rules = {
                 "prerouting": [
                     "DNAT all -- 0.0.0.0/0 {} mark match {} to:{}".format(network_data.public_ip,
@@ -877,8 +862,6 @@ class TestStaticNat(object):
                                                                           tested_zones[zone]["exp_zone"],
                                                                           network_data.public_ip)]
                 }
-            wait_until(90, 10, 0, _iptables_match, duthost, iptables_rules)
-            iptables_output = dut_nat_iptables_status(duthost)
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}"
                           .format(iptables_output, iptables_rules))
@@ -961,7 +944,7 @@ class TestStaticNat(object):
             dut_interface_control(duthost, "enable",
                                   setup_data["config_portchannels"][ifname_to_disable]['members'][0])
             # Check that NAT entries are present in iptables after enabling interface
-            wait_until(90, 10, 0, _iptables_match, duthost, iptables_rules)
+            time.sleep(90)
             iptables_output = dut_nat_iptables_status(duthost)
             pytest_assert(iptables_rules == iptables_output,
                           "Unexpected iptables output for nat table \n Got:\n{}\n Expected:\n{}"

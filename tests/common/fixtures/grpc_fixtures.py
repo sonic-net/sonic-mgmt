@@ -5,8 +5,8 @@ This module provides coupled pytest fixtures that bundle server configuration
 with matched clients, preventing misuse from decoupled server/client setup.
 
 Primary fixtures:
-    gnmi_tls:       Function-scoped fixture that sets up TLS and yields GnmiFixture
-    gnmi_plaintext: Function-scoped fixture for plaintext mode, yields GnmiFixture
+    gnmi_tls:       Module-scoped fixture that sets up TLS and yields GnmiFixture
+    gnmi_plaintext: Module-scoped fixture for plaintext mode, yields GnmiFixture
 
 Deprecated fixtures (kept for backward compatibility):
     setup_gnoi_tls_server: Thin wrapper around gnmi_tls, yields None
@@ -25,7 +25,6 @@ from typing import Optional
 from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
@@ -44,33 +43,6 @@ _GRPCURL_ARCH_MAP = {
     "arm64": "linux_arm64",
     "armhf": "linux_armv6",
 }
-
-
-def _get_target_duthost(duthosts, request):
-    """
-    Select DUT based on test parametrization or fallback to duthosts[0].
-
-    Args:
-        duthosts: All DUT host instances
-        request: Pytest request object for introspection
-
-    Returns:
-        duthost: The selected DUT host instance
-    """
-    dut_selectors = [
-        'enum_rand_one_per_hwsku_frontend_hostname',
-        'enum_rand_one_per_hwsku_hostname',
-        'rand_one_dut_hostname'
-    ]
-
-    for selector in dut_selectors:
-        if selector in request.fixturenames:
-            dut_name = request.getfixturevalue(selector)
-            duthost = duthosts[dut_name]
-            logger.info(f"_get_target_duthost: selected DUT {duthost.hostname}")
-            return duthost
-
-    return duthosts[0]
 
 
 def _ensure_grpcurl_on_dut(duthost):
@@ -168,36 +140,10 @@ class GnmiFixture:
     gnoi: object        # PtfGnoi or DutGnoi
     gnmic: Optional[PtfGnmic]   # None for UDS transport
     transport: str = 'tls'      # 'tls' or 'uds'
-    _duthost: object = None  # For post-reboot reconfiguration
-
-    def reconfigure_after_reboot(self):
-        """
-        Reconfigure gNMI server after a DUT reboot.
-
-        After a COLD or WARM reboot, the gNMI server may start with default
-        configuration. This method re-applies the TLS configuration and
-        restarts the server so the existing client can reconnect.
-
-        Usage:
-            # After reboot completes and DUT is back up:
-            gnmi_tls.reconfigure_after_reboot()
-            # Now gNOI calls work again:
-            status = gnmi_tls.gnoi.reboot_status()
-        """
-        if self._duthost is None:
-            raise RuntimeError("GnmiFixture was not initialized with duthost reference")
-        if not self.tls:
-            logger.info("Plaintext mode - no TLS reconfiguration needed")
-            return
-
-        logger.info("Reconfiguring gNMI server after reboot")
-        _configure_gnoi_tls_server(self._duthost)
-        _restart_gnoi_server(self._duthost)
-        logger.info("Post-reboot TLS reconfiguration completed")
 
 
-@pytest.fixture(scope="function")
-def gnmi_tls(request, duthosts, ptfhost):
+@pytest.fixture(scope="module")
+def gnmi_tls(request, duthost, ptfhost):
     """
     Set up gNMI/gNOI environment and yield a coupled GnmiFixture.
 
@@ -227,8 +173,6 @@ def gnmi_tls(request, duthosts, ptfhost):
             assert isinstance(result["time"], int)
             assert gnmi_tls.port == 50052
     """
-    duthost = _get_target_duthost(duthosts, request)
-
     transport = getattr(request, 'param', 'tls')
 
     if transport == 'uds':
@@ -293,7 +237,6 @@ def gnmi_tls(request, duthosts, ptfhost):
             gnoi=gnoi_client,
             gnmic=gnmic_client,
             transport='tls',
-            _duthost=duthost,
         )
 
         logger.info("Constructed PtfGnmic client: %s", gnmic_client)
@@ -303,23 +246,11 @@ def gnmi_tls(request, duthosts, ptfhost):
     finally:
         # 6. Cleanup: rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
-        try:
-            output = rollback(duthost, checkpoint_name)
-            stdout = output.get('stdout', '')
-            if output.get('rc') or "Config rolled back successfully" not in stdout:
-                error_msg = output.get('stdout', output.get('msg', 'unknown error'))
-                logger.error("Configuration rollback failed: %s", error_msg)
-            else:
-                logger.info("Configuration rollback completed")
-        except Exception as e:
-            logger.error("Configuration rollback failed with exception: %s", e)
-
-        try:
-            logger.info("Waiting for critical processes to be healthy after rollback")
-            wait_critical_processes(duthost)
-            logger.info("All critical processes are healthy")
-        except Exception as e:
-            logger.error("Waiting for critical processes failed with exception: %s", e)
+        output = rollback(duthost, checkpoint_name)
+        if output['rc'] or "Config rolled back successfully" not in output['stdout']:
+            logger.error("Configuration rollback failed: %s", output['stdout'])
+        else:
+            logger.info("Configuration rollback completed")
 
         try:
             _delete_gnoi_certs(cert_dir)
@@ -328,8 +259,8 @@ def gnmi_tls(request, duthosts, ptfhost):
             logger.error(f"Failed to cleanup certificates: {e}")
 
 
-@pytest.fixture(scope="function")
-def gnmi_plaintext(request, duthosts, ptfhost):
+@pytest.fixture(scope="module")
+def gnmi_plaintext(duthost, ptfhost):
     """
     Plaintext gNMI/gNOI fixture — no TLS, no server reconfiguration.
 
@@ -341,8 +272,6 @@ def gnmi_plaintext(request, duthosts, ptfhost):
         def test_plaintext(gnmi_plaintext):
             services = gnmi_plaintext.grpc.list_services()
     """
-    duthost = _get_target_duthost(duthosts, request)
-
     host = duthost.mgmt_ip
     port = grpc_config.DEFAULT_PLAINTEXT_PORT
     target = f"{host}:{port}"
@@ -403,7 +332,7 @@ def _gnmi_uds_flow(duthost):
 # Deprecated fixtures — kept for backward compatibility during migration
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def setup_gnoi_tls_server(gnmi_tls):
     """
     Deprecated: use gnmi_tls instead.
@@ -416,15 +345,12 @@ def setup_gnoi_tls_server(gnmi_tls):
 
 
 @pytest.fixture
-def ptf_grpc(ptfhost, duthosts, request):
+def ptf_grpc(ptfhost, duthost):
     """
     Deprecated: use gnmi_tls.grpc or gnmi_plaintext.grpc instead.
 
     Auto-configured gRPC client using GNMIEnvironment for discovery.
     """
-
-    duthost = _get_target_duthost(duthosts, request)
-
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     client = PtfGrpc(ptfhost, env, duthost=duthost, insecure=True)
 
@@ -491,7 +417,6 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port 50052')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" user_auth cert')
 
     # Configure certificate paths using centralized config
     config_db_settings = grpc_config.get_config_db_cert_settings()

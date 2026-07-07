@@ -139,8 +139,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     # 3. Executes the py_gnmicli.py script.
     cmdFormat = '. /root/env-python3/bin/activate && cd {7}gnmi_cli_py' \
                 ' && python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
-    mgmt_ip = duthost.get_mgmt_ip()["mgmt_ip"]
-    cmd = cmdFormat.format(mgmt_ip, env.gnmi_port,
+    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port,
                            method, xpath, target, ns,
                            "ndastreamingservertest", gnxi_path)
 
@@ -235,9 +234,3 @@ def rotate_telemetry_certs(duthost, localhost):
 def execute_ptf_gnmi_cli(ptfhost, cmd):
     rc = ptfhost.shell(cmd)['rc']
     return rc == 0
-
-
-def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
-    ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0, "PTF docker did not get a response"
-    callback(ret["stdout"])

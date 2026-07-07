@@ -44,8 +44,6 @@ class ExpectReply(ACSDataplaneTest):
 
     def runTest(self):
         acs_mac = self.test_params['acs_mac']
-        no_padding = self.test_params.get('no_padding', False)
-        exp_pktlen = 42 if no_padding else 60
         pkt = simple_arp_packet(pktlen=60,
                                 eth_dst='ff:ff:ff:ff:ff:ff',
                                 eth_src='00:06:07:08:09:0a',
@@ -57,8 +55,7 @@ class ExpectReply(ACSDataplaneTest):
                                 hw_snd='00:06:07:08:09:0a',
                                 hw_tgt='ff:ff:ff:ff:ff:ff',
                                 )
-        exp_pkt = simple_arp_packet(pktlen=exp_pktlen,
-                                    eth_dst='00:06:07:08:09:0a',
+        exp_pkt = simple_arp_packet(eth_dst='00:06:07:08:09:0a',
                                     eth_src=acs_mac,
                                     arp_op=2,
                                     ip_snd='10.10.1.2',
@@ -78,8 +75,6 @@ class VerifyUnicastARPReply(ACSDataplaneTest):
 
     def runTest(self):
         acs_mac = self.test_params['acs_mac']
-        no_padding = self.test_params.get('no_padding', False)
-        exp_pktlen = 42 if no_padding else 60
         pkt = simple_arp_packet(pktlen=60,
                                 eth_dst=acs_mac,
                                 eth_src='00:06:07:08:09:00',
@@ -91,8 +86,7 @@ class VerifyUnicastARPReply(ACSDataplaneTest):
                                 hw_snd='00:06:07:08:09:00',
                                 hw_tgt=acs_mac,
                                 )
-        exp_pkt = simple_arp_packet(pktlen=exp_pktlen,
-                                    eth_dst='00:06:07:08:09:00',
+        exp_pkt = simple_arp_packet(eth_dst='00:06:07:08:09:00',
                                     eth_src=acs_mac,
                                     arp_op=2,
                                     ip_snd='10.10.1.2',

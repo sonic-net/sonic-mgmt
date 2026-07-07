@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success
@@ -10,7 +9,6 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.enable_monit_refresh,
 ]
 
 logger = logging.getLogger(__name__)
@@ -29,8 +27,6 @@ def is_policer_supported(duthost):
     """
     platform = duthost.facts.get('platform', '')
     if platform.startswith("x86_64-arista_7060x6"):
-        return False
-    if platform.startswith("x86_64-nokia_ixr7220"):
         return False
     return True
 
@@ -146,18 +142,7 @@ def verify_monitor_config(duthost, ip_netns_namespace_prefix):
     expect_res_success(duthost, rule, [
         MONITOR_CONFIG_ACL_TABLE, MONITOR_CONFIG_ACL_RULE, MONITOR_CONFIG_MIRROR_SESSION], [])
 
-    # Wait for policer to be fully programmed and visible via CLI
-    # The policer may be created in ASIC_DB but take additional time to propagate to CLI data source
-    max_retries = 10
-    retry_interval = 5
-    for attempt in range(max_retries):
-        policer = duthost.shell("{} show policer {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_POLICER))
-        if MONITOR_CONFIG_POLICER in policer['stdout']:
-            break
-        if attempt < max_retries - 1:
-            logger.info("Policer not visible yet (attempt {}/{}), waiting {} second...".format(
-                attempt + 1, max_retries, retry_interval))
-            time.sleep(retry_interval)
+    policer = duthost.shell("{} show policer {}".format(ip_netns_namespace_prefix, MONITOR_CONFIG_POLICER))
     expect_res_success(duthost, policer, [MONITOR_CONFIG_POLICER], [])
 
     mirror_session = duthost.shell("{} show mirror_session {}".format(ip_netns_namespace_prefix,

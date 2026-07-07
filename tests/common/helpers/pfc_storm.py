@@ -24,16 +24,11 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "Arista-7060X6-64PE-O128": "Tomahawk5",
         "Arista-7060X6-64PE-O128S2": "Tomahawk5",
         "Arista-7060X6-64PE-P64": "Tomahawk5",
-        "Arista-7060X6-64PE-B-P32O64": "Tomahawk5",
-        "Arista-7060X6-64PE-B-O128": "Tomahawk5",
-        "Arista-7060X6-64PE-B-P64": "Tomahawk5",
         "Arista DCS-7060CX": "Tomahawk",
         "Arista-7060CX": "Tomahawk",
         "Arista DCS-7260CX3": "Tomahawk2",
         "Arista-7260CX3": "Tomahawk2",
         "Arista-7260QX3": "Tomahawk2",
-        "M2-W6940-64X1-FR4": "Tomahawk5",
-        "Nokia-IXR7220": "Tomahawk6",
         }
 
     for sku, chip in hwSkuInfo.items():

@@ -17,7 +17,7 @@ from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm1', 'lt2', 'ft2', 'c0'),
+    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
 ]
 
 TEST_ITERATIONS = 5
@@ -47,7 +47,6 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
-    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     confed_asn = duthost.get_bgp_confed_asn()
     use_vtysh = False
@@ -70,7 +69,7 @@ def common_setup_teardown(
             # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
             use_vtysh = True
     elif dut_type in ["LowerRegionalHub"]:
-        neigh_type = "SpineRouter"  # or "UpperSpineRouter"
+        neigh_type = "SpineRouter"
         if confed_asn is not None:
             use_vtysh = True
     elif dut_type in ["UpperRegionalHub"]:
@@ -103,7 +102,6 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
-            is_ipv6_only=is_v6_topo,
             confed_asn=confed_asn,
             use_vtysh=use_vtysh
         )

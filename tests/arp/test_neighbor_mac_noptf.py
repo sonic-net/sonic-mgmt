@@ -1,3 +1,4 @@
+import json
 import logging
 import pytest
 import time
@@ -41,54 +42,25 @@ class TestNeighborMacNoPtf:
         return int(num)
 
     def _get_back_plane_port_ips(self, duthost):
-        cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        port_config = cfg_facts.get("PORT", {})
+        port_config = json.loads(duthost.shell("show runningconfiguration port",
+                                 module_ignore_errors=True, verbose=False)['stdout'])
 
-        back_plane_ports = {
+        back_plane_ports = [
             port for port, attrs in port_config.items()
             if attrs.get("role", "").lower() == "dpc"
-        }
+        ]
 
-        logger.info(f"back plane ports: {sorted(back_plane_ports)}")
-
-        # config_facts formats VLAN_MEMBER as {Vlan55: {Ethernet224: {tagging_mode: ...}}}.
-        vlan_names = set()
-        for vlan_name, members in cfg_facts.get("VLAN_MEMBER", {}).items():
-            for port in members.keys():
-                if port in back_plane_ports:
-                    vlan_names.add(vlan_name)
+        logger.info(f"back plane ports: {back_plane_ports}")
 
         back_plane_port_ips = []
-        vlan_interface = cfg_facts.get("VLAN_INTERFACE", {})
-        for vlan_name in vlan_names:
-            for addr in vlan_interface.get(vlan_name, {}):
-                if "/" not in addr:
-                    continue
-                try:
-                    iface = ip_interface(addr)
-                    if iface.version == 4:
-                        # Redis KEYS glob prefix-matches dest; filter both subnet and /32 host.
-                        # e.g. Vlan55 20.0.200.254/24 -> 20.0.200.0 and 20.0.200.254
-                        back_plane_port_ips.append(str(iface.ip))
-                        back_plane_port_ips.append(str(iface.network.network_address))
-                except ValueError as e:
-                    logger.warning(f"Error parsing VLAN {vlan_name} address {addr}: {e}")
+        for port in back_plane_ports:
+            try:
+                output = duthost.shell(f"ip addr show {port} | grep -w inet | awk '{{print $2}}'",
+                                       module_ignore_errors=True, verbose=False)["stdout"].strip()
+                back_plane_port_ips.append(str(ip_interface(output).ip))
+            except Exception as e:
+                logger.warning(f"Error getting back plane {port} IP: {e}")
 
-        # Fallback for legacy config where DPC ports had IPs directly assigned
-        if not back_plane_port_ips:
-            for port in back_plane_ports:
-                try:
-                    output = duthost.shell(
-                        f"ip addr show {port} | grep -w inet | awk '{{print $2}}'",
-                        module_ignore_errors=True, verbose=False)["stdout"].strip()
-                    if output:
-                        iface = ip_interface(output)
-                        back_plane_port_ips.append(str(iface.ip))
-                        back_plane_port_ips.append(str(iface.network.network_address))
-                except Exception as e:
-                    logger.warning(f"Error getting back plane {port} IP: {e}")
-
-        back_plane_port_ips = list(dict.fromkeys(back_plane_port_ips))
         logger.info(f"back plane port IPs: {back_plane_port_ips}")
 
         return back_plane_port_ips
@@ -137,7 +109,7 @@ class TestNeighborMacNoPtf:
         return bgp_routes == 0
 
     @pytest.fixture(scope="module", autouse=True)
-    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    def setupDutConfig(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Disabled BGP to reduce load on switch and restores DUT configuration after test completes
 
@@ -150,13 +122,8 @@ class TestNeighborMacNoPtf:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         if not duthost.get_facts().get("modular_chassis"):
             duthost.command("sudo config bgp shutdown all")
-            # BGP routes drain noticeably slower on the VPP-based virtual
-            # switch (t1-lag-vpp / vlab-vpp-01), so give it a larger budget.
-            # Keep the original 120s ceiling for all other topologies.
-            bgp_shutdown_timeout = 300 if tbinfo['topo']['name'] == 't1-lag-vpp' else 120
-            if not wait_until(bgp_shutdown_timeout, 2.0, 0, self._check_no_bgp_routes, duthost):
-                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded {} seconds.'
-                            .format(bgp_shutdown_timeout))
+            if not wait_until(120, 2.0, 0, self._check_no_bgp_routes, duthost):
+                pytest.fail('BGP Shutdown Timeout: BGP route removal exceeded 120 seconds.')
 
         yield
 

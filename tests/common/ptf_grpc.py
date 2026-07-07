@@ -6,6 +6,7 @@ enabling gNOI/gNMI operations against DUT gRPC services with proper process sepa
 """
 import json
 import logging
+import shlex
 from typing import Dict, List, Union
 from tests.common.grpc_config import grpc_config
 
@@ -59,6 +60,7 @@ class PtfGrpc:
         self.insecure = insecure
         self.ss_target_type = ss_target_type
         self.ss_target_index = ss_target_index
+
         # TLS certificate configuration
         self.ca_cert = None
         self.client_cert = None
@@ -90,10 +92,8 @@ class PtfGrpc:
         self.max_msg_size = 100 * 1024 * 1024  # 100MB in bytes
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
-        self.max_time = None        # seconds: grpcurl -max-time (overall RPC deadline)
-        self.keepalive_time = None  # seconds: grpcurl -keepalive-time (idle keepalive ping interval)
 
-    def _build_grpcurl_cmd(self, extra_args=None, service_method=None, metadata=None):
+    def _build_grpcurl_cmd(self, extra_args=None, service_method=None):
         """
         Build grpcurl command with standard options.
 
@@ -120,37 +120,18 @@ class PtfGrpc:
             if self.client_key:
                 cmd.extend(["-key", self.client_key])
 
-        timeout_arg = str(int(self.timeout))
         # Standard options (avoid unsupported flags like -max-msg-sz)
         # grpcurl -connect-timeout: some versions expect float seconds (e.g. "10"), others Go duration ("10s").
         # Use plain integer seconds for compatibility with float-format grpcurl.
+        timeout_arg = str(int(self.timeout))
         cmd.extend([
             "-connect-timeout", timeout_arg,
             "-format", "json"
         ])
 
-        # Overall RPC deadline (prevents very long operations from being cut off by client-side limits)
-        if self.max_time is not None:
-            cmd.extend(["-max-time", str(int(self.max_time))])
-
-        # Keepalive interval for idle connections (tune to avoid server GOAWAY too_many_pings)
-        if self.keepalive_time is not None:
-            cmd.extend(["-keepalive-time", str(int(self.keepalive_time))])
-
         # Inject SmartSwitch DPU routing headers if this client targets a specific DPU
-        if metadata:
-            if isinstance(metadata, dict):
-                items = metadata.items()
-            else:
-                items = metadata  # list of (k, v)
-
-            for name, value in items:
-                cmd.extend(["-H", f"{name}: {value}"])
-
-        # Auto-inject ss_target headers set via with_ss_target() so callers don't need to pass metadata
-        if self.ss_target_type:
+        if self.ss_target_type is not None and self.ss_target_index is not None:
             cmd.extend(["-H", f"x-sonic-ss-target-type: {self.ss_target_type}"])
-        if self.ss_target_index is not None:
             cmd.extend(["-H", f"x-sonic-ss-target-index: {self.ss_target_index}"])
 
         # Add custom headers
@@ -174,12 +155,6 @@ class PtfGrpc:
 
         return cmd
 
-    def configure_max_time(self, seconds: float) -> None:
-        self.max_time = float(seconds)
-
-    def configure_keepalive_time(self, seconds: float) -> None:
-        self.keepalive_time = float(seconds)
-
     def _execute_grpcurl(self, cmd: List[str], input_data: str = None) -> Dict:
         """
         Execute grpcurl command with enhanced error handling.
@@ -196,13 +171,20 @@ class PtfGrpc:
             GrpcTimeoutError: Timeout-related failures
             GrpcCallError: Other gRPC call failures
         """
-        if input_data:
-            logger.debug("Executing grpcurl argv=%r (with stdin data)", cmd)
-            result = self.ptfhost.command(argv=cmd, stdin=input_data, module_ignore_errors=True)
-        else:
-            logger.debug("Executing grpcurl argv=%r", cmd)
-            result = self.ptfhost.command(argv=cmd, module_ignore_errors=True)
+        # Use ansible command module for robust execution.
+        # IMPORTANT: We must shell-quote each argument because grpcurl headers
+        # contain spaces (e.g. "x-foo: bar"). If we join without quoting, the
+        # Ansible command module will split it into multiple args.
+        cmd_str = shlex.join(cmd)
 
+        if input_data:
+            logger.debug(f"Executing: {cmd_str} (with stdin data)")
+            result = self.ptfhost.command(cmd_str, stdin=input_data, module_ignore_errors=True)
+        else:
+            logger.debug(f"Executing: {cmd_str}")
+            result = self.ptfhost.command(cmd_str, module_ignore_errors=True)
+
+        # Analyze errors and provide specific exceptions
         if result['rc'] != 0:
             stderr = (result.get('stderr') or "").strip()
             stdout = (result.get('stdout') or "").strip()
@@ -235,11 +217,12 @@ class PtfGrpc:
 
             # Generic error
             raise PtfGrpcError(
-                "grpcurl failed: rc={} stdout='{}' stderr='{}' msg='{}'".format(
+                "grpcurl failed: rc={} stdout='{}' stderr='{}' msg='{}' cmd={}".format(
                     result.get('rc'),
                     stdout,
                     stderr,
                     msg,
+                    cmd_str,
                 )
             )
 
@@ -439,7 +422,7 @@ class PtfGrpc:
         logger.debug(f"Description for {symbol}: {description}")
         return description
 
-    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None, metadata=None) -> Dict:
+    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None) -> Dict:
         """
         Make a unary gRPC call (single request/response).
 
@@ -465,12 +448,9 @@ class PtfGrpc:
                 request_data = json.dumps(request)
             else:
                 request_data = str(request)
-
-        # Pass JSON inline instead of stdin
-        extra_args = ["-d", request_data]
-
-        cmd = self._build_grpcurl_cmd(extra_args=extra_args, service_method=service_method, metadata=metadata)
-        result = self._execute_grpcurl(cmd, None)
+        # grpcurl does not read stdin unless -d @ is used
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
+        result = self._execute_grpcurl(cmd, request_data)
 
         try:
             response = json.loads(result['stdout'].strip())
@@ -479,13 +459,7 @@ class PtfGrpc:
         except json.JSONDecodeError as e:
             raise GrpcCallError(f"Failed to parse response from {service_method}: {e}")
 
-    def call_server_streaming(
-        self,
-        service: str,
-        method: str,
-        request: Union[Dict, str] = None,
-        metadata=None,
-    ) -> List[Dict]:
+    def call_server_streaming(self, service: str, method: str, request: Union[Dict, str] = None) -> List[Dict]:
         """
         Make a server streaming gRPC call (single request, multiple responses).
 
@@ -503,7 +477,8 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
+        # grpcurl does not read stdin unless -d @ is used
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
@@ -548,7 +523,7 @@ class PtfGrpc:
         logger.info(f"Received {len(responses)} responses from streaming call {service_method}")
         return responses
 
-    def call_client_streaming(self, service: str, method: str, requests: List[Union[Dict, str]], metadata=None) -> Dict:
+    def call_client_streaming(self, service: str, method: str, requests: List[Union[Dict, str]]) -> Dict:
         """
         Make a client streaming gRPC call (multiple requests, single response).
 
@@ -556,7 +531,6 @@ class PtfGrpc:
             service: Service name
             method: Method name
             requests: List of request payloads
-            metadata: Metadata for the gRPC call
 
         Returns:
             Response dictionary
@@ -567,7 +541,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method, metadata=metadata)
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare multiple requests as newline-delimited JSON
         if not requests:

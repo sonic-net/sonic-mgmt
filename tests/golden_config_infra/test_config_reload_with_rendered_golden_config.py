@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.disable_memory_utilization,
 ]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -49,7 +48,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
     yield
 
@@ -64,7 +63,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    config_reload(duthost, safe_reload=True)
 
 
 def config_compare(golden_config, running_config):
@@ -84,11 +83,10 @@ def config_compare(golden_config, running_config):
             )
 
 
-def golden_config_override_with_general_template(duthost, safe_reload_ignored_dockers):
+def golden_config_override_with_general_template(duthost):
     # This is to copy and parse the default template: tests/common/templates/golden_config_db.j2
     config_reload_minigraph_with_rendered_golden_config_override(
-        duthost, safe_reload=True, check_intf_up_ports=True,
-        safe_reload_ignored_dockers=safe_reload_ignored_dockers
+        duthost, safe_reload=True, check_intf_up_ports=True
     )
     overrided_config = get_running_config(duthost)
     golden_config = json.loads(
@@ -98,15 +96,14 @@ def golden_config_override_with_general_template(duthost, safe_reload_ignored_do
     config_compare(golden_config, overrided_config)
 
 
-def golden_config_override_with_specific_template(duthost, safe_reload_ignored_dockers):
+def golden_config_override_with_specific_template(duthost):
     # This is to copy and parse the template: tests/golden_config_infra/templates/sample_golden_config_db.j2
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, 'templates')
     golden_config_j2 = os.path.join(template_dir, 'sample_golden_config_db.j2')
     config_reload_minigraph_with_rendered_golden_config_override(
         duthost, safe_reload=True, check_intf_up_ports=True,
-        local_golden_config_template=golden_config_j2,
-        safe_reload_ignored_dockers=safe_reload_ignored_dockers
+        local_golden_config_template=golden_config_j2
     )
     overrided_config = get_running_config(duthost)
     golden_config = json.loads(
@@ -122,11 +119,5 @@ def test_rendered_golden_config_override(duthosts, rand_one_dut_hostname, setup_
         pytest.skip("Skip this test on multi-asic platforms, \
                     since golden config format here is not compatible with multi-asics")
 
-    safe_reload_ignored_dockers = []
-    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
-        # These are the critical services that are not included in the golden config template
-        # nor the default config. After the minigraph load they will be disabled.
-        safe_reload_ignored_dockers = ["dhcp_relay", "dhcp_server"]
-
-    golden_config_override_with_general_template(duthost, safe_reload_ignored_dockers)
-    golden_config_override_with_specific_template(duthost, safe_reload_ignored_dockers)
+    golden_config_override_with_general_template(duthost)
+    golden_config_override_with_specific_template(duthost)

@@ -1,6 +1,5 @@
 import logging
 import re
-import time
 import json
 from os.path import join, split
 
@@ -10,10 +9,6 @@ logger.setLevel(logging.INFO)
 MEMORY_UTILIZATION_COMMON_JSON_FILE = join(split(__file__)[0], "memory_utilization_common.json")
 MEMORY_UTILIZATION_DEPENDENCE_JSON_FILE = join(split(__file__)[0], "memory_utilization_dependence.json")
 
-# [MemoryUtilization] tunables: how long to sleep and how many times to retry the `sudo monit status` read.
-MONIT_STATUS_FRESHNESS_WAIT_SECONDS = 60
-MONIT_STATUS_FRESHNESS_MAX_RETRIES = 3
-
 
 class MemoryMonitor:
     def __init__(self, ansible_host):
@@ -22,8 +17,6 @@ class MemoryMonitor:
         self.commands = []
         self.memory_values = {}
         self.memory_errors = []
-        # [MemoryUtilization] System-block 'data collected' timestamp captured from last `sudo monit validate`.
-        self._monit_memory_baseline_timestamp = ""
 
     def register_command(self, name, cmd, memory_params, memory_check_fn):
         """Register a command with its associated memory parameters and check function."""
@@ -48,104 +41,6 @@ class MemoryMonitor:
         except Exception as e:
             logger.warning("Error executing command '{}': {}".format(cmd, str(e)))
             return ""  # Return empty string on error
-
-    @staticmethod
-    def _parse_monit_memory_data_collected_timestamp(output):
-        """
-        Return the 'data collected' timestamp string from the monit System block
-        (the block containing 'memory usage'), or "" if no matching block is found.
-        Other blocks (Filesystem/Process/Program) are intentionally ignored -- their
-        timestamps do not advance with `sudo monit validate`.
-        """
-        if not output:
-            return ""
-
-        in_memory_block = False
-        for line in output.split('\n'):
-            stripped = line.strip()
-            # Blank line ends the current block.
-            if not stripped:
-                in_memory_block = False
-                continue
-            # 'memory usage' marks the System block; its 'data collected' follows later.
-            if stripped.lower().startswith("memory usage"):
-                in_memory_block = True
-                continue
-            if in_memory_block and stripped.lower().startswith("data collected"):
-                parts = stripped.split(None, 2)
-                if len(parts) >= 3:
-                    return parts[2]
-                return ""
-
-        return ""
-
-    def record_monit_baseline_from_validate_output(self, validate_output):
-        """
-        Store the System-block 'data collected' timestamp from a `sudo monit validate`
-        output as the baseline for the freshness check. Does NOT issue any monit command.
-        """
-        self._monit_memory_baseline_timestamp = self._parse_monit_memory_data_collected_timestamp(validate_output)
-        logger.info(
-            "[MemoryUtilization] recorded validate baseline System-block 'data collected': {}".format(
-                self._monit_memory_baseline_timestamp or "<none>"))
-
-    def read_monit_status_with_freshness_retry(self, cmd, enable_retry=False):
-        """
-        Execute `sudo monit status` and verify its System-block 'data collected' timestamp
-        differs from the validate-output baseline. If it still matches, sleep
-        MONIT_STATUS_FRESHNESS_WAIT_SECONDS and retry the status read, up to
-        MONIT_STATUS_FRESHNESS_MAX_RETRIES times. Never re-issues `monit validate`.
-        Returns the final output even when freshness cannot be confirmed.
-
-        When `enable_retry` is False (the default), the freshness-check retry
-        loop is bypassed entirely: the first `sudo monit status` output is returned
-        as-is regardless of whether its System-block timestamp matches the validate
-        baseline. This is the cheaper path for tests that tolerate potentially
-        stale monit cache data. When `enable_retry` is True, the retry loop runs
-        and may sleep up to MONIT_STATUS_FRESHNESS_WAIT_SECONDS *
-        MONIT_STATUS_FRESHNESS_MAX_RETRIES seconds per call.
-        """
-        output = self.execute_command(cmd)
-
-        if not enable_retry:
-            logger.info(
-                "[MemoryUtilization] enable_retry=False; returning monit status output "
-                "without freshness retry for '{}'".format(cmd))
-            return output
-
-        if not self._monit_memory_baseline_timestamp:
-            logger.warning(
-                "[MemoryUtilization] no validate baseline recorded; skipping freshness check for '{}'".format(cmd))
-            return output
-
-        current_ts = self._parse_monit_memory_data_collected_timestamp(output)
-        if current_ts and current_ts != self._monit_memory_baseline_timestamp:
-            logger.info(
-                "[MemoryUtilization] status data is fresh on first read (System block ts: {})".format(current_ts))
-            return output
-
-        # Stale: same timestamp as validate output. Sleep and retry, bounded.
-        for attempt in range(1, MONIT_STATUS_FRESHNESS_MAX_RETRIES + 1):
-            logger.warning(
-                "[MemoryUtilization] status System-block ts still matches validate baseline ({}); "
-                "sleeping {}s before retry {}/{} of status read".format(
-                    self._monit_memory_baseline_timestamp,
-                    MONIT_STATUS_FRESHNESS_WAIT_SECONDS,
-                    attempt, MONIT_STATUS_FRESHNESS_MAX_RETRIES))
-            time.sleep(MONIT_STATUS_FRESHNESS_WAIT_SECONDS)
-
-            output = self.execute_command(cmd)
-            current_ts = self._parse_monit_memory_data_collected_timestamp(output)
-            if current_ts and current_ts != self._monit_memory_baseline_timestamp:
-                logger.info(
-                    "[MemoryUtilization] status data refreshed on retry {}/{} (System block ts: {})".format(
-                        attempt, MONIT_STATUS_FRESHNESS_MAX_RETRIES, current_ts))
-                return output
-
-        logger.error(
-            "[MemoryUtilization] status data still stale after {} retries; "
-            "proceeding with possibly stale output".format(MONIT_STATUS_FRESHNESS_MAX_RETRIES))
-        return output
 
     def check_memory_thresholds(self, current_values, previous_values):
         """Check memory usage against thresholds. """
@@ -191,49 +86,23 @@ class MemoryMonitor:
                             previous_values, current_values, is_current=True
                         )
 
-                # Get increase thresholds: warning (soft) and fail (hard)
-                # memory_increase_threshold: warning level (log warning but don't fail)
-                # memory_increase_fail_threshold: fail level (store error, fail the test)
-                # If memory_increase_fail_threshold is not set, memory_increase_threshold acts as the fail level
-                # (backward compatible)
+                # Get increase threshold and determine if it's a percentage or absolute value
                 increase_threshold_raw = normalized_thresholds.get("memory_increase_threshold", float('inf'))
                 logger.debug("Raw increase threshold for {}:{}: {}".format(name, mem_item, increase_threshold_raw))
                 increase_threshold = self._parse_threshold(increase_threshold_raw, previous_value)
                 logger.info("Calculated increase threshold for {}:{}: {}".format(name, mem_item, increase_threshold))
 
-                increase_fail_threshold_raw = normalized_thresholds.get("memory_increase_fail_threshold", None)
-                if increase_fail_threshold_raw is not None:
-                    increase_fail_threshold = self._parse_threshold(increase_fail_threshold_raw, previous_value)
-                    logger.info("Calculated increase fail threshold for {}:{}: {}".format(
-                        name, mem_item, increase_fail_threshold))
-                else:
-                    increase_fail_threshold = None
-
                 increase = current_value - previous_value
 
-                if increase_fail_threshold is not None:
-                    # Two-tier mode: warn at lower threshold, fail at higher threshold
-                    if increase > increase_fail_threshold:
-                        # If threshold type is percentage,
-                        # Express increase value in percentage instead of MB
-                        if increase_threshold_raw['type'] == 'percentage':
-                            increase = (increase * 100)/current_value
-                        self._handle_memory_threshold_exceeded(
-                            name, mem_item, increase, increase_fail_threshold_raw,
-                            previous_values, current_values, is_increase=True
-                        )
-                    elif increase > increase_threshold:
-                        self._handle_memory_warning(
-                            name, mem_item, increase, increase_threshold_raw,
-                            previous_values, current_values
-                        )
-                else:
-                    # Legacy single-tier mode: threshold acts as fail level
-                    if increase > increase_threshold:
-                        self._handle_memory_threshold_exceeded(
-                            name, mem_item, increase, increase_threshold_raw,
-                            previous_values, current_values, is_increase=True
-                        )
+                if increase > increase_threshold:
+                    # If threshold type is percentage,
+                    # Express increase value in percentage instead of MB
+                    if increase_threshold_raw['type'] == 'percentage':
+                        increase = (increase * 100)/current_value
+                    self._handle_memory_threshold_exceeded(
+                        name, mem_item, increase, increase_threshold_raw,
+                        previous_values, current_values, is_increase=True
+                    )
 
     def _normalize_thresholds(self, thresholds):
         """
@@ -449,31 +318,13 @@ class MemoryMonitor:
             )
 
         asic_type = self.ansible_host.facts['asic_type']
-        if asic_type == "vs" or (asic_type == "vpp" and name == "free"):
+        if asic_type == "vs":
             logger.warning(message)
         else:
             logger.error(message)
             # Store error instead of failing immediately
             self.memory_errors.append(message)
             logger.debug("Stored memory error: {}".format(message))
-
-    def _handle_memory_warning(self, name, mem_item, value, threshold,
-                               previous_values, current_values):
-        """Handle memory increase that exceeds warning threshold but not fail threshold.
-
-        Logs a warning for visibility but does not store an error or fail the test.
-        This is used in two-tier mode where memory_increase_threshold is the warning level
-        and memory_increase_fail_threshold is the fail level.
-        """
-        prev_val = previous_values.get(name, {}).get(mem_item, 0)
-        curr_val = current_values.get(name, {}).get(mem_item, 0)
-
-        threshold_str = self._format_threshold_for_display(threshold)
-        logger.warning(
-            "[WARNING]: {}:{} memory usage increased by {:.1f} MB, exceeds warning threshold {} "
-            "(previous: {:.1f} MB, current: {:.1f} MB). Not failing - within fail threshold."
-            .format(name, mem_item, value, threshold_str, prev_val, curr_val)
-        )
 
     def get_memory_errors(self):
         return self.memory_errors
@@ -598,38 +449,6 @@ class MemoryMonitor:
             self.register_command(param['name'], param['cmd'], param['memory_params'], eval(param['memory_check_fn']))
 
 
-# Parse top output for sufffix.
-_RES_WITH_SUFFIX_RE = re.compile(
-    r"^\s*(?P<num>[\d.]+)\s*(?P<suf>[kKmMgGtT]?)\s*$"
-)
-
-
-def _parse_top_res_to_mib(res_str):
-    """
-    Convert top's RES column to MiB.
-
-    Plain numeric (no suffix) is treated as KiB (procps default).
-    Suffixes: k=KiB, m=MiB, g=GiB, t=TiB (case-insensitive).
-    """
-    if res_str is None:
-        raise ValueError("RES is None")
-    m = _RES_WITH_SUFFIX_RE.match(str(res_str).strip())
-    if not m:
-        raise ValueError("unrecognized RES format: {!r}".format(res_str))
-    num = float(m.group("num"))
-    suf = (m.group("suf") or "").lower()
-
-    if suf in ("", "k"):
-        return num / 1024.0
-    if suf == "m":
-        return num
-    if suf == "g":
-        return num * 1024.0
-    if suf == "t":
-        return num * 1024.0 * 1024.0
-    raise ValueError("unrecognized RES format: {!r}".format(res_str))
-
-
 def parse_top_output(output, memory_params):
     """Parse the 'top' command output to extract memory usage information."""
     memory_values = {}
@@ -652,14 +471,12 @@ def parse_top_output(output, memory_params):
 
             for mem_item, thresholds in memory_params.items():
                 if mem_item in process_info["COMMAND"]:
-                    # Fixes issue 24178
-                    res_mib = _parse_top_res_to_mib(process_info["RES"])
                     if mem_item in memory_values:
                         memory_values[mem_item] = round(
-                            memory_values[mem_item] + res_mib, 1
+                            memory_values[mem_item] + float(int(process_info["RES"]) / 1024), 1
                         )
                     else:
-                        memory_values[mem_item] = round(res_mib, 1)
+                        memory_values[mem_item] = round(float(int(process_info["RES"]) / 1024), 1)
 
     logger.debug("Parsed memory values: {}".format(memory_values))
     return memory_values

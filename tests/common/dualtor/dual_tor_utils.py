@@ -27,7 +27,6 @@ from scapy.layers.inet6 import IPv6
 from tests.common import constants
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa: F401
@@ -46,14 +45,12 @@ from tests.ptf_runner import ptf_runner
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs',
            'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor',
-           'config_active_active_dualtor_active_standby', 'config_active_active_dualtor_active_standby_module',
-           'validate_active_active_dualtor_setup',
+           'config_active_active_dualtor_active_standby', 'validate_active_active_dualtor_setup',
            'setup_standby_ports_on_rand_selected_tor',
            'setup_standby_ports_on_rand_unselected_tor',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m',
            'setup_standby_ports_on_rand_unselected_tor_unconditionally',
-           'setup_standby_ports_on_rand_unselected_tor_unconditionally_module',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
            ]
 
@@ -1661,8 +1658,7 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
             str(ipaddress.ip_interface(config_vals["SERVER"]["IPv4"]).ip),
             str(ipaddress.ip_interface(config_vals["SERVER"]["IPv6"]).ip)]
 
-    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True),
-                 dest=ARP_RESPONDER_DEFAULT_CONFIG)
+    ptfhost.copy(content=json.dumps(arp_responder_conf, indent=4, sort_keys=True), dest="/tmp/from_t1.json")
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
 
@@ -1784,32 +1780,22 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
     time.sleep(90)
 
 
-def _check_docker_status(duthost):
-    """Check if all containers on the DUT are fully started."""
-    containers = duthost.get_all_containers()
-    for container in containers:
-        if not duthost.is_service_fully_started(container):
-            return False
-    return True
-
-
-def _restore_mux_ports(duthosts, ports_to_restore):
-    """Restore mux ports to auto mode."""
-    if not ports_to_restore:
+@pytest.fixture
+def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):     # noqa: F811
+    """Config the active-active dualtor that one ToR as active and the other as standby."""
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        yield
         return
 
-    restore_cmds = []
-    for port in ports_to_restore:
-        restore_cmds.append("config mux mode auto {}".format(port))
+    def check_docker_status(duthost):
+        containers = duthost.get_all_containers()
+        for container in containers:
+            if not duthost.is_service_fully_started(container):
+                return False
+        return True
 
-    for duthost in duthosts:
-        duthost.shell_cmds(cmds=restore_cmds)
-
-
-def _create_config_active_active_dualtor_handler(active_active_ports, ports_to_restore):  # noqa: F811
-    """Create a handler function for configuring active-active dualtor."""
     def _config_active_active_dualtor_active_standby(active_tor, standby_tor, ports, unconditionally=False):
-        wait_until(300, 10, 0, _check_docker_status, standby_tor)
+        wait_until(300, 10, 0, check_docker_status, standby_tor)
         for port in ports:
             if port not in active_active_ports:
                 raise ValueError("Port {} is not in the active-active ports".format(port))
@@ -1818,48 +1804,20 @@ def _create_config_active_active_dualtor_handler(active_active_ports, ports_to_r
 
         ports_to_restore.extend(ports)
 
-    return _config_active_active_dualtor_active_standby
-
-
-@pytest.fixture(scope="module")
-def config_active_active_dualtor_active_standby_module(duthosts, active_active_ports, tbinfo):  # noqa: F811
-    """Module-level fixture: Config the active-active dualtor that one ToR as active and the other as standby."""
-    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
-        yield None
-        return
-
     ports_to_restore = []
-    handler = _create_config_active_active_dualtor_handler(active_active_ports, ports_to_restore)
 
     warnings.warn("Deprecated mux port setup fixture, please use setup_dualtor_mux_ports "
                   "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
 
-    yield handler
+    yield _config_active_active_dualtor_active_standby
 
-    _restore_mux_ports(duthosts, ports_to_restore)
+    if ports_to_restore:
+        restore_cmds = []
+        for port in ports_to_restore:
+            restore_cmds.append("config mux mode auto {}".format(port))
 
-
-@pytest.fixture
-def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):     # noqa: F811
-    """Config the active-active dualtor that one ToR as active and the other as standby.
-
-    This fixture is kept for backward compatibility. It defaults to function scope.
-    For explicit scope control, use config_active_active_dualtor_active_standby_module or
-    config_active_active_dualtor_active_standby instead.
-    """
-    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
-        yield None
-        return
-
-    ports_to_restore = []
-    handler = _create_config_active_active_dualtor_handler(active_active_ports, ports_to_restore)
-
-    warnings.warn("Deprecated mux port setup fixture, please use setup_dualtor_mux_ports "
-                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
-
-    yield handler
-
-    _restore_mux_ports(duthosts, ports_to_restore)
+        for duthost in duthosts:
+            duthost.shell_cmds(cmds=restore_cmds)
 
 
 @pytest.fixture
@@ -2042,19 +2000,6 @@ def setup_standby_ports_on_rand_unselected_tor_unconditionally(
 ):
     if active_active_ports:
         config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports, True)
-    return
-
-
-@pytest.fixture(scope='module')
-def setup_standby_ports_on_rand_unselected_tor_unconditionally_module(
-    active_active_ports,                                                   # noqa: F811
-    rand_selected_dut,
-    rand_unselected_dut,
-    config_active_active_dualtor_active_standby_module
-):
-    if active_active_ports:
-        config_active_active_dualtor_active_standby_module(rand_selected_dut, rand_unselected_dut,
-                                                           active_active_ports, True)
     return
 
 

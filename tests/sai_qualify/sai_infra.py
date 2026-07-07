@@ -14,13 +14,7 @@
 import pytest
 import logging
 import time
-
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    APSCHEDULER_AVAILABLE = True
-except ImportError:
-    APSCHEDULER_AVAILABLE = False
-    BackgroundScheduler = None
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from .conftest import DUT_WORKING_DIR
 from .conftest import USR_BIN_DIR
@@ -102,10 +96,6 @@ def start_warm_reboot_watcher(duthost, request, ptfhost):
         request: Pytest request.
         ptfhost (AnsibleHost): The PTF server.
     """
-    if not APSCHEDULER_AVAILABLE:
-        logger.error("APScheduler module is not available. Cannot start warm reboot watcher.")
-        pytest.fail("APScheduler module is required for warm reboot functionality but is not installed.")
-
     # install apscheduler before running
     logger.info("create and clean up the shared file with ptf")
     ptfhost.shell("touch {}".format("/tmp/warm_reboot"))

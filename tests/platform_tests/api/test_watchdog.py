@@ -2,6 +2,7 @@ import os
 import re
 import time
 import logging
+import yaml
 import pytest
 from tests.common.helpers.platform_api import watchdog
 from tests.common.helpers.assertions import pytest_assert
@@ -9,7 +10,8 @@ from tests.common.platform.device_utils import platform_api_conn, start_platform
       add_platform_api_server_port_nat_for_dpu, get_ansible_ssh_port    # noqa: F401
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
-from tests.platform_tests.utils import get_config_from_yaml
+
+from collections import OrderedDict
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -25,36 +27,17 @@ TEST_WAIT_TIME_SECONDS = 2
 TIMEOUT_DEVIATION = 2
 
 
-@pytest.fixture(scope="module")
-def conf(request, duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa: F811
-    """Reads the watchdog test configuration file @TEST_CONFIG_FILE and
-    results in a dictionary which holds parameters for test"""
+def ordered_load(stream, Loader=yaml.Loader, object_pairs_hook=OrderedDict):
+    class OrderedLoader(Loader):
+        pass
 
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    test_config = get_config_from_yaml(TEST_CONFIG_FILE)
-
-    config = test_config["default"]
-
-    platform = duthost.facts["platform"]
-    hwsku = duthost.facts["hwsku"]
-
-    # override test config with platform/hwsku specific configs
-    for platform_regexp in test_config:
-        if re.match(platform_regexp, platform):
-            config.update(test_config[platform_regexp].get("default", {}))
-            for hwsku_regexp in test_config[platform_regexp]:
-                if re.match(hwsku_regexp, hwsku):
-                    config.update(test_config[platform_regexp][hwsku_regexp])
-
-    pytest_assert("valid_timeout" in config, "valid_timeout is not defined in config")
-    # make sure watchdog won't reboot the system when test sleeps for @TEST_WAIT_TIME_SECONDS
-    pytest_assert(
-        config["valid_timeout"] > TEST_WAIT_TIME_SECONDS * 2,
-        "valid_timeout {} seconds is too short".format(config["valid_timeout"]),
-    )
-
-    logger.info("Test configuration for platform: {} hwksu: {}: {}".format(platform, hwsku, config))
-    return config
+    def construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping)
+    return yaml.load(stream, OrderedLoader)
 
 
 class TestWatchdogApi(PlatformApiTestBase):
@@ -70,7 +53,6 @@ class TestWatchdogApi(PlatformApiTestBase):
         if (
             duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0'
             or duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0'
-            or duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0'
             or duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
         ):
             duthost.shell("watchdogutil disarm")
@@ -86,14 +68,45 @@ class TestWatchdogApi(PlatformApiTestBase):
             watchdog.disarm(platform_api_conn)
 
             if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
-                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
-                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_c1xa-r0':
+                    duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0':
                 duthost.shell("systemctl start cpu_wdt.service")
             elif duthost.facts["platform"].startswith("x86_64-nexthop_"):
                 duthost.shell("systemctl enable watchdog.timer --now")
 
             if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
                 duthost.shell("watchdogutil arm")
+
+    @pytest.fixture(scope='module')
+    def conf(self, request,
+             duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa: F811
+        ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
+        results in a dictionary which holds parameters for test '''
+
+        test_config = None
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        with open(TEST_CONFIG_FILE) as stream:
+            test_config = ordered_load(stream)
+
+        config = test_config['default']
+
+        platform = duthost.facts['platform']
+        hwsku = duthost.facts['hwsku']
+
+        # override test config with platform/hwsku specific configs
+        for platform_regexp in test_config:
+            if re.match(platform_regexp, platform):
+                config.update(test_config[platform_regexp].get('default', {}))
+                for hwsku_regexp in test_config[platform_regexp]:
+                    if re.match(hwsku_regexp, hwsku):
+                        config.update(test_config[platform_regexp][hwsku_regexp])
+
+        pytest_assert('valid_timeout' in config, "valid_timeout is not defined in config")
+        # make sure watchdog won't reboot the system when test sleeps for @TEST_WAIT_TIME_SECONDS
+        pytest_assert(config['valid_timeout'] > TEST_WAIT_TIME_SECONDS * 2,
+                      "valid_timeout {} seconds is too short".format(config['valid_timeout']))
+
+        logger.info('Test configuration for platform: {} hwksu: {}: {}'.format(platform, hwsku, config))
+        return config
 
     @pytest.mark.dependency()
     def test_arm_disarm_states(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
@@ -260,13 +273,8 @@ class TestWatchdogApi(PlatformApiTestBase):
         if watchdog_timeout is None:
             pytest.skip('"too_big_timeout" parameter is required for this test case')
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(
-            actual_timeout == -1,
-            "{}: Watchdog should be disarmed when configured with {} seconds, "
-            "but returned timeout of {} seconds".format(
-                self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
-            ),
-        )
+        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
+                    .format(self.test_arm_too_big_timeout.__name__, watchdog_timeout))
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
@@ -275,41 +283,6 @@ class TestWatchdogApi(PlatformApiTestBase):
 
         watchdog_timeout = -1
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(
-            actual_timeout == -1,
-            "{}: Watchdog should be disarmed when configured with {} seconds, "
-            "but returned timeout of {} seconds".format(
-                self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
-            ),
-        )
-        self.assert_expectations()
-
-
-class TestWatchdogPunching(PlatformApiTestBase):
-    def test_punching_arm(self, platform_api_conn, conf):   # noqa: F811
-        """watchdog is punched periodically without explicit arm calls"""
-        punching_period = conf.get("watchdog_punching_period_seconds")
-        if punching_period is None:
-            pytest.skip("skip test for watchdog punching: watchdog_punching_period_seconds not configured")
-
-        remaining_time_before = watchdog.get_remaining_time(platform_api_conn)
-        self.expect(
-            remaining_time_before > 0,
-            "watchdog should be armed with positive remaining_time",
-        )
-
-        time.sleep(punching_period)
-
-        remaining_time_after = watchdog.get_remaining_time(platform_api_conn)
-        self.expect(
-            watchdog.is_armed(platform_api_conn) and remaining_time_after > 0,
-            "Watchdog should be re-armed by puncher",
-        )
-        self.expect(
-            remaining_time_after > remaining_time_before - punching_period,
-            "Watchdog remaining_time {} seconds should have been refreshed by puncher; "
-            "expected more than {} seconds".format(
-                remaining_time_after, remaining_time_before - punching_period
-            ),
-        )
+        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
+                    .format(self.test_arm_negative_timeout.__name__, watchdog_timeout))
         self.assert_expectations()

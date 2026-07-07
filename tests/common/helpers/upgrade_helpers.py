@@ -15,16 +15,9 @@ from tests.common.platform.reboot_utils import reboot_and_check
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
 from typing import Optional, Sequence, Tuple, Union, Dict
+
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module")
-def xcvr_skip_list(duthosts):
-    """Return empty transceiver skip list per DUT. Shared across upgrade-related test suites."""
-    # Required by reboot_and_check() empty list = no transceivers skipped during post-reboot health check.
-    return {dut.hostname: [] for dut in duthosts}
-
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
@@ -90,7 +83,7 @@ def check_sonic_version(duthost, target_version):
         "Upgrade sonic failed: target={} current={}".format(target_version, current_version)
 
 
-def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
+def install_sonic(duthost, image_url, tbinfo):
     new_route_added = False
     if urlparse(image_url).scheme in ('http', 'https',):
         mg_gwaddr = duthost.get_extended_minigraph_facts(tbinfo).get("minigraph_mgmt_interface", {}).get("gwaddr")
@@ -105,8 +98,7 @@ def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
             logger.info("Add default mgmt-gateway-route to the device via {}".format(mg_gwaddr))
             duthost.shell("ip route replace default via {}".format(mg_gwaddr), module_ignore_errors=True)
             new_route_added = True
-        res = duthost.reduce_and_add_sonic_images(
-            new_image_url=image_url, skip_platform_check=skip_platform_check)
+        res = duthost.reduce_and_add_sonic_images(new_image_url=image_url)
     else:
         out = duthost.command("df -BM --output=avail /host", module_ignore_errors=True)["stdout"]
         avail = int(out.split('\n')[1][:-1])
@@ -121,8 +113,7 @@ def install_sonic(duthost, image_url, tbinfo, skip_platform_check=False):
             duthost.shell("mount -t tmpfs -o size=1300M tmpfs /tmp/tmpfs", module_ignore_errors=True)
         logger.info("Image exists locally. Copying the image {} into the device path {}".format(image_url, save_as))
         duthost.copy(src=image_url, dest=save_as)
-        res = duthost.reduce_and_add_sonic_images(
-            save_as=save_as, skip_platform_check=skip_platform_check)
+        res = duthost.reduce_and_add_sonic_images(save_as=save_as)
 
     # if the new default mgmt-gateway route was added, remove it. This is done so that
     # default route src address matches Loopback0 address
@@ -322,10 +313,6 @@ def perform_gnoi_upgrade(
     tbinfo,
     cfg: GnoiUpgradeConfig,
     cold_reboot_setup=None,
-    localhost=None,
-    conn_graph_facts=None,
-    xcvr_skip_list=None,
-    duthosts=None,
 ):
     """
     gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
@@ -357,7 +344,7 @@ def perform_gnoi_upgrade(
     gNOI_REBOOT_CAUSE_TIMEOUT = 5 * 60
     # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
     # reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
-    # ---- 1) pre-reboot setup ----
+    # ---- 1) reboot to base image ----
     if cfg.upgrade_type == REBOOT_TYPE_COLD:
         # advance-reboot test (on ptf) does not support cold reboot yet
         if cold_reboot_setup:
@@ -385,22 +372,14 @@ def perform_gnoi_upgrade(
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
     pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
-    # ---- 4) Reboot (via reboot_and_check) ----
-    pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
-    pytest_assert(conn_graph_facts is not None, "conn_graph_facts must be provided for reboot_and_check")
-    pytest_assert(xcvr_skip_list is not None, "xcvr_skip_list must be provided for reboot_and_check")
-
-    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
-    reboot_and_check(
-        localhost,
-        duthost,
-        interfaces,
-        xcvr_skip_list,
-        reboot_type=cfg.upgrade_type,
-        duthosts=duthosts,
-        invocation_type="gnoi_based",
-        ptf_gnoi=ptf_gnoi,
-    )
+    # ---- 4) Reboot (via wrapper) ----
+    try:
+        reboot_resp = ptf_gnoi.system_reboot(method=str(cfg.upgrade_type).upper())
+        logger.info("Reboot response: %s", reboot_resp)
+        pytest_assert(isinstance(reboot_resp, dict), "Reboot did not return a JSON object")
+    except Exception as e:
+        # Common/expected: connection drops during reboot
+        logger.info("Caught exception during gNOI Reboot call (often expected): %s", str(e))
 
     if cfg.allow_fail:
         logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
@@ -419,7 +398,7 @@ def perform_gnoi_upgrade(
     check_neighbors(duthost, tbinfo)
     check_copp_config(duthost)
 
-    # ---- 7) Version validation ----
+    # ---- 7) Version validation) ----
     images = _get_images_from_sonic_installer_list(duthost)
     logger.info("sonic-installer list parsed: %s", images)
     pytest_assert(

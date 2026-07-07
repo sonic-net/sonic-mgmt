@@ -349,10 +349,7 @@ class TestChassisApi(PlatformApiTestBase):
                 pytest.skip("No fans found on device")
 
         if duthost.facts.get("chassis"):
-            fans = duthost.facts.get("chassis").get('fans')
-            expected_num_fans = (
-                sum(1 for f in fans if isinstance(f, dict) and f.get("name")) if fans else 0
-            )
+            expected_num_fans = len(duthost.facts.get("chassis").get('fans'))
             pytest_assert(num_fans == expected_num_fans,
                           "Number of fans ({}) does not match expected number ({})"
                           .format(num_fans, expected_num_fans))

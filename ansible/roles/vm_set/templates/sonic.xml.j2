@@ -39,10 +39,10 @@
 {% elif asic_type == 'vpp' %}
   <memory unit='GiB'>8</memory>
   <currentMemory unit='GiB'>8</currentMemory>
-  <vcpu placement='static'>10</vcpu>
+  <vcpu placement='static'>6</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
-    <topology sockets='1' dies='1' cores='10' threads='1'/>
+    <topology sockets='1' dies='1' cores='6' threads='1'/>
   </cpu>
 {% else %}
   <memory unit='GiB'>6</memory>
@@ -57,23 +57,10 @@
   <resource>
     <partition>/machine</partition>
   </resource>
-{% if use_uefi %}
-  <os firmware='efi'>
-    <firmware>
-      <feature enabled='yes' name='secure-boot'/>
-      <feature enabled='no' name='enrolled-keys'/>
-    </firmware>
-    <type arch='x86_64' machine='q35'>hvm</type>
-    <boot dev='hd'/>
-    <loader readonly="yes" secure="yes" type="pflash" format="raw">/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
-    <nvram template="/usr/share/OVMF/OVMF_VARS_4M.fd" templateFormat="raw" format="raw">{{ efi_vars }}</nvram>
-  </os>
-{% else %}
   <os>
     <type arch='x86_64' machine='q35'>hvm</type>
     <boot dev='hd'/>
   </os>
-{% endif %}
   <features>
     <acpi/>
     <apic/>
@@ -93,15 +80,11 @@
       <source host='127.0.0.1' mode='bind' service='{{ serial_port }}'/>
       <target port='0'/>
       <protocol type='telnet'/>
-      <log file='/var/log/libvirt/qemu/boot-serial-{{ dut_name }}.log' append='on'/>
     </serial>
     <interface type='ethernet'>
         <target dev='{{ dut_name }}-0' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
-        <driver name='vhost' tx_queue_size='1024' rx_queue_size='1024'/>
-    {% elif port_alias|length > 128 %}
-        <model type='virtio' />
     {% else %}
         <model type='e1000' />
     {% endif %}
@@ -111,9 +94,6 @@
         <target dev='{{ dut_name }}-{{ i + 1 }}' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
-        <driver name='vhost' tx_queue_size='1024' rx_queue_size='1024'/>
-    {% elif port_alias|length > 128 %}
-        <model type='virtio' />
     {% else %}
         <model type='e1000' />
     {% endif %}
@@ -126,11 +106,6 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </memballoon>
     <watchdog model='i6300esb'/>
-{% if use_uefi %}
-    <tpm model="tpm-crb">
-      <backend type="emulator"/>
-    </tpm>
-{% endif %}
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'/>
 </domain>

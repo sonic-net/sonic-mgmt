@@ -33,18 +33,26 @@ def change_service_state(duthost, service, enable):
 @pytest.mark.disable_loganalyzer
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case will mask gnmi service, then test load_minigraph and check its success
+    @summary: This test case will mask telemetry/gnmi service, then test load_minigraph and check its success
     """
     duthost = duthosts[rand_one_dut_hostname]
-    cmd = "docker images | grep -w sonic-gnmi"
+    cmd = "docker images | grep -w sonic-telemetry"
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        cmd = "docker ps | grep -w gnmi"
+        cmd = "docker ps | grep -w telemetry"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            test_service = "gnmi"
+            test_service = "telemetry"
         else:
-            pytest.fail("GNMI is not running")
+            pytest.fail("Telemetry is not running")
     else:
-        pytest.fail("Can't find gnmi image")
+        cmd = "docker images | grep -w sonic-gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            cmd = "docker ps | grep -w gnmi"
+            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                test_service = "gnmi"
+            else:
+                pytest.fail("GNMI is not running")
+        else:
+            pytest.fail("Can't find telemetry and gnmi image")
     logging.info("Bringing down {} service".format(test_service))
     service_status = duthost.critical_process_status(test_service)
 

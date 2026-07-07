@@ -11,7 +11,7 @@
     delegate_to: localhost
 
   - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
-    when: (inventory_hostname not in (testbed_facts.duts | default([])) and inventory_hostname not in (testbed_facts.l1s | default([])))
+    when: (inventory_hostname not in testbed_facts['duts'] and inventory_hostname not in testbed_facts['l1s'])
 
 - name: output testbed facts
   debug:
@@ -25,5 +25,4 @@
   conn_graph_facts:
     hosts: "{{ (testbed_facts.duts | default([])) + (testbed_facts.tgs | default([])) + (testbed_facts.l1s | default([])) }}"
     group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
-    forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
   delegate_to: localhost

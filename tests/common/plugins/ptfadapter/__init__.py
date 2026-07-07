@@ -173,6 +173,18 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
 
+            check_cmd = f"ss -tulpn | grep ':{ptf_nn_port}\\b'"
+            res = ptfhost.shell(check_cmd, module_ignore_errors=True)
+
+            # If stdout has content, it means grep found a listener -> PORT IS BUSY
+            if res['stdout'].strip():
+                logger.warning(
+                    "Setup Conflict: Port %s is ALREADY IN USE on PTF host.",
+                    ptf_nn_port
+                )
+                logger.debug("Process details: %s", res['stdout'])
+                continue
+
             # generate supervisor configuration for ptf_nn_agent
             ptfhost.host.options['variable_manager'].extra_vars.update({
                 'device_num': device_num,

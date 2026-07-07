@@ -2,7 +2,7 @@ import os
 from glob import glob
 import inspect
 import sys
-import pickle  # nosemgrep: avoid-pickle
+import pickle
 from spytest import st
 from spytest import batch
 import utilities.common as utils
@@ -199,7 +199,7 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
         for pkl_file in files:
             with open(pkl_file, "rb") as pkl_fp:
                 # nosemgrep-next-line
-                pkl_data = pickle.load(pkl_fp)  # nosemgrep: avoid-pickle
+                pkl_data = pickle.load(pkl_fp)
                 for mod in pkl_data:
                     if mod not in run_data:
                         run_data[mod] = pkl_data[mod]
@@ -422,7 +422,7 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
             filepath_pkl = os.path.join(get_logs_path(), "message_coverage", "stats.pkl")
             with open(filepath_pkl, "wb") as fp:
                 # nosemgrep-next-line
-                pickle.dump(run_data, fp)  # nosemgrep: avoid-pickle
+                pickle.dump(run_data, fp)
 
     mod_stats_rows = []
     colors = []

@@ -36,7 +36,6 @@ else:
     from pysnmp.hlapi.v3arch.asyncio import (
         cmdgen,
         UdpTransportTarget,
-        Udp6TransportTarget,
         get_cmd,
         walk_cmd,
         SnmpEngine,
@@ -337,38 +336,30 @@ def lookup_operstatus(int_operstatus):
     return operstatus_options.get(int_operstatus, "")
 
 
-def is_ipv6_address(host):
+def _create_transport_target(host, port=161, timeout=20):
+    """Create appropriate transport target based on address family."""
     try:
-        return ipaddress.ip_address(host).version == 6
+        # Try to resolve the hostname and determine if it's IPv4 or IPv6
+        addr_info = ipaddress.ip_address(host)
+        if addr_info.version == 6:
+            return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
+        else:
+            return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
     except ValueError:
+        # If host is not a direct IP, try to resolve it
         import socket
         try:
             # Try IPv4 first
             socket.inet_pton(socket.AF_INET, socket.gethostbyname(host))
-            return False
+            return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
         except (socket.error, socket.gaierror):
             try:
                 # Try IPv6
                 socket.inet_pton(socket.AF_INET6, socket.getaddrinfo(host, None, socket.AF_INET6)[0][4][0])
-                return True
+                return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
             except (socket.error, socket.gaierror):
-                return False
-
-
-async def _create_transport_target_async(host, port=161, timeout=20):
-    """Create appropriate transport target based on address family."""
-    if is_ipv6_address(host):
-        return await Udp6TransportTarget.create((host, port), timeout=timeout)
-    else:
-        return await UdpTransportTarget.create((host, port), timeout=timeout)
-
-
-def _create_transport_target(host, port=161, timeout=20):
-    """Create appropriate transport target based on address family."""
-    if is_ipv6_address(host):
-        return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
-    else:
-        return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
+                # Default to IPv4 if resolution fails
+                return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
 
 
 def decode_type(module, current_oid, val):
@@ -1184,9 +1175,9 @@ class SnmpFactsCollector:
             )
 
     async def setup(self):
-        self.transport = await _create_transport_target_async(
-                self.m_args['host'], 161,
-                timeout=self.m_args['timeout']
+        self.transport = await UdpTransportTarget.create(
+            (self.m_args['host'], 161),
+            timeout=self.m_args['timeout']
         )
 
     async def _collect_system(self):

@@ -130,24 +130,12 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     if 'DATAACL table does not exist' in output:
         pytest.skip("DATAACL does not exist")
 
-    # Wait for ACL configuration to propagate by polling for ACL table key
+    # Make sure CRM counters updated
+    # ACL configuration usually propagates in 3-5 seconds
     logger.info("Waiting for ACL configuration to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
-    acl_tbl_key = None
-
-    def _acl_config_applied():
-        nonlocal acl_tbl_key
-        try:
-            acl_tbl_key = get_acl_tbl_key(asichost)
-            return True
-        except BaseException:
-            acl_tbl_key = None
-            return False
-
-    pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
-                  "ACL configuration did not propagate within timeout")
-
-    collector["acl_tbl_key"] = acl_tbl_key
+    collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
 
 
 def generate_mac(num):
@@ -224,35 +212,35 @@ def apply_fdb_config(duthost, test_name, vlan_id, iface, entry_num):
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
 
-    # FDB entries are applied synchronously via swssconfig.
-    # CRM counter convergence is handled by callers via wait_until polling.
-    logger.info("FDB entries applied via swssconfig")
+    # Make sure CRM counters updated
+    # FDB entries typically propagate in 3-5 seconds
+    logger.info("Waiting for FDB entries to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
 
 def get_acl_tbl_key(asichost):
-    """ Get ACL entry keys.
-    """
-    db_cli = asichost.sonic_db_cli
-    cmd = (
-        'keys=$({db} ASIC_DB KEYS "*SAI_OBJECT_TYPE_ACL_ENTRY*"); '
-        'for k in $keys; do '
-        '  et=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE); '
-        '  case "$et" in '
-        '    *2048*) '
-        '      tid=$({db} ASIC_DB HGET "$k" SAI_ACL_ENTRY_ATTR_TABLE_ID); '
-        '      if [ -n "$tid" ]; then echo "$tid"; exit 0; fi ;; '
-        '  esac; '
-        'done; '
-        'exit 1'
-    ).format(db=db_cli)
+    """ Get ACL entry keys """
+    cmd = "{} ASIC_DB KEYS \"*SAI_OBJECT_TYPE_ACL_ENTRY*\"".format(asichost.sonic_db_cli)
+    acl_tbl_keys = asichost.shell(cmd)["stdout"].split()
 
-    result = asichost.shell(cmd, module_ignore_errors=True)
-    oid = (result.get("stdout") or "").strip()
-    if result.get("rc", 1) != 0 or not oid:
-        pytest.fail("Valid ACL entry (EtherType=2048 with TABLE_ID) not found")
+    # Get ethertype for ACL entry and match ACL which was configured to ethertype value
+    cmd = "{db_cli} ASIC_DB HGET {item} \"SAI_ACL_ENTRY_ATTR_FIELD_ETHER_TYPE\""
+    for item in acl_tbl_keys:
+        out = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, item=item))["stdout"]
+        logging.info(out)
+        if "2048" in out:
+            key = item
+            break
+    else:
+        pytest.fail("Ether type was not found in SAI ACL Entry table")
 
+    # Get ACL table key
+    cmd = "{db_cli} ASIC_DB HGET {key} \"SAI_ACL_ENTRY_ATTR_TABLE_ID\""
+    oid = asichost.shell(cmd.format(db_cli=asichost.sonic_db_cli, key=key))["stdout"]
     logging.info(oid)
-    return "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
+    acl_tbl_key = "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
+
+    return acl_tbl_key
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -260,13 +248,6 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
-    # Skip on virtual testbed (VS/KVM): ASIC/counters DB checks are not applicable
-    if duthost.facts["asic_type"].lower() == "vs":
-        logging.info(
-            "[CRM] Skipping verify_thresholds on VS/KVM (asic_type == 'vs'); "
-            "ASIC/counters DB checks are not applicable in virtual testbeds."
-        )
-        return
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
@@ -312,7 +293,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         with loganalyzer:
             asichost.command(cmd)
             # Make sure CRM counters updated
-            wait_until(CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, 0, lambda: True)
+            time.sleep(CRM_UPDATE_TIME)
 
 
 def get_crm_stats(cmd, duthost):
@@ -480,9 +461,9 @@ def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
     ip {{ns_prefix}} neigh replace 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}""" % (NS_PREFIX_TEMPLATE)
 
     del_template = Template(del_template)
-    neigh_template = Template(neigh_template, autoescape=True)
-    route_template = Template(route_template, autoescape=True)
-    init_template = Template(init_template, autoescape=True)
+    neigh_template = Template(neigh_template)
+    route_template = Template(route_template)
+    init_template = Template(init_template)
 
     ip_addr_list = generate_neighbors(amount + 1, "4")
     remaining_ips = ip_addr_list[1:]
@@ -616,8 +597,10 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name, unique_m
                             neigh_ip_list=ip_addr_str,
                             iface=interface,
                             namespace=asichost.namespace))
-    # CRM counter convergence for neighbors is handled by callers via wait_until polling.
-    logger.info("Neighbor entries configured; CRM counter convergence handled by caller")
+    # Make sure CRM counters updated
+    # Neighbor additions typically propagate in 3-5 seconds
+    logger.info("Waiting for neighbor entries to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
 
 def get_entries_num(used, available):
@@ -990,7 +973,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                         ip_ver=ip_ver)
     nexthop_used, nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     if is_cisco_device(duthost):
-        CISCO_8000_ADD_NEIGHBORS = min(2000, nexthop_available)
+        CISCO_8000_ADD_NEIGHBORS = nexthop_available
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
@@ -1008,11 +991,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     crm_stats_neighbor_used, crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
 
     # Add reachability to the neighbor
-    # Cisco and broadcom-dnx VOQ platforms need the host IP on the interface
-    # so the neighbor address is in-subnet and gets programmed by orchagent.
-    needs_host_ip = is_cisco_device(duthost) or \
-        duthost.facts.get("platform_asic") == "broadcom-dnx"
-    if needs_host_ip:
+    if is_cisco_device(duthost):
         asichost.config_ip_intf(crm_interface[0], host, "add")
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
@@ -1027,7 +1006,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
 
     # Remove reachability to the neighbor
-    if needs_host_ip:
+    if is_cisco_device(duthost):
         asichost.config_ip_intf(crm_interface[0], host, "remove")
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)
@@ -1241,12 +1220,6 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
 
-    wait_for_crm_counter_update(
-        get_acl_entry_stats, duthost,
-        expected_used=crm_stats_acl_entry_used + 4,
-        oper_used=">=", timeout=60, interval=2,
-    )
-
     # Get new "crm_stats_acl_entry" used and available counter value
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
     # Verify "crm_stats_acl_entry_used" counter was incremented
@@ -1455,30 +1428,18 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "docker exec -i swss supervisorctl stop arp_update"
     duthost.command(cmd)
 
-    # Remove FDB entry and wait for clear to complete
+    # Remove FDB entry
     cmd = "fdbclear"
     duthost.command(cmd)
-    fdb_clear_wait = 15 if is_cel_e1031_device(duthost) else 5
-
-    def _fdb_cleared_initial():
-        used, _ = get_crm_stats(get_fdb_stats, duthost)
-        return used == 0
-
-    # Wait for FDB clear; if it doesn't fully clear, proceed with current state
-    wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial)
+    time.sleep(5)
+    if is_cel_e1031_device(duthost):
+        # Sleep more time for E1031 device after fdbclear
+        time.sleep(10)
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
     # Generate FDB json file with one entry and apply it on DUT
     apply_fdb_config(duthost, "test_crm_fdb_entry", vlan_id, iface, 1)
-
-    # Wait for FDB entry CRM counter to update after adding entry
-    def _fdb_entry_added():
-        used, _ = get_crm_stats(get_fdb_stats, duthost)
-        return used > crm_stats_fdb_entry_used
-
-    pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _fdb_entry_added),
-                  "FDB entry CRM counter did not update after adding entry")
 
     # Get new "crm_stats_fdb_entry" used and available counter value
     new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
@@ -1512,12 +1473,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     if used_percent < 1:
         # Clear pre-set fdb entry
         duthost.command("fdbclear")
-
-        def _fdb_cleared_for_precfg():
-            used, _ = get_crm_stats(get_fdb_stats, duthost)
-            return used == 0
-
-        wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_cleared_for_precfg)
+        time.sleep(5)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
@@ -1538,22 +1494,20 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
 
-    # Wait for FDB clear to complete using wait_until polling
+    # Make sure CRM counters updated - use polling
+    # Wait for FDB clear to complete with async polling
     logger.info("Waiting for FDB clear to complete...")
-    fdb_clear_result = {'used': None, 'avail': None}
-
-    def _fdb_final_clear():
-        used, avail = get_crm_stats(get_fdb_stats, duthost)
-        fdb_clear_result['used'] = used
-        fdb_clear_result['avail'] = avail
-        if used == 0:
+    fdb_clear_timeout = FDB_CLEAR_TIMEOUT
+    new_crm_stats_fdb_entry_used = None
+    new_crm_stats_fdb_entry_available = None
+    while fdb_clear_timeout > 0:
+        # Get new "crm_stats_fdb_entry" used and available counter value
+        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
+        if new_crm_stats_fdb_entry_used == 0:
             logger.debug("FDB cleared successfully")
-            return True
-        return False
-
-    wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_final_clear)
-    new_crm_stats_fdb_entry_used = fdb_clear_result['used']
-    new_crm_stats_fdb_entry_available = fdb_clear_result['avail']
+            break
+        fdb_clear_timeout -= CRM_POLLING_INTERVAL
+        time.sleep(CRM_POLLING_INTERVAL)
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented
     pytest_assert(new_crm_stats_fdb_entry_used == 0, "FDB entry is not completely cleared. \

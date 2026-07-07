@@ -6,12 +6,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
-    NON_USER_CONFIG_TABLES
-
-# Tables known to be overriden in run-time config, which will appear different
-# if the golden config is overridden empty.
-GOLDEN_OVERRRIDDEN_TABLES = ["FEATURE", "PORT"]
+    reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -21,7 +16,7 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh', 't1'),
+    pytest.mark.topology('t2', 't1'),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -94,40 +89,27 @@ def load_minigraph_with_golden_empty_input(duthost):
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
-
-    problem_tuples = []
-
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
     for table in initial_host_config:
-        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
+        if table in NON_USER_CONFIG_TABLES:
             continue
-
-        if table == "ACL_TABLE":
-            if not compare_dicts_ignore_list_order(initial_host_config[table],
-                                                   host_current_config[table]):
-                problem_tuples.append((table, None))
-        else:
-            if not initial_host_config[table] == host_current_config[table]:
-                problem_tuples.append((table, None))
+        pytest_assert(
+            initial_host_config[table] == host_current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
 
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
-        if table in NON_USER_CONFIG_TABLES or table in GOLDEN_OVERRRIDDEN_TABLES:
+        if table in NON_USER_CONFIG_TABLES:
             continue
-
-        if table == "ACL_TABLE":
-            if not compare_dicts_ignore_list_order(initial_asic0_config[table],
-                                                   asic0_current_config[table]):
-                problem_tuples.append((table, "asic0"))
-        else:
-            if not initial_asic0_config[table] == asic0_current_config[table]:
-                problem_tuples.append((table, "asic0"))
-
-    pytest_assert(not problem_tuples, "empty input compare fail: {}".format(problem_tuples))
+        pytest_assert(
+            initial_asic0_config[table] == asic0_current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
 
 
 def load_minigraph_with_golden_partial_config(duthost):

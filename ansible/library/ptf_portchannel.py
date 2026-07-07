@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-import jinja2  # nosemgrep: direct-use-of-jinja2
+import jinja2
 import traceback
 import re
 import os
@@ -117,7 +117,7 @@ def create_teamd_conf(module, teamd_config):
     t = jinja2.Template(portchannel_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_conf_path, "{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
+            fd.write(t.render(conf))
 
 
 def remove_teamd_conf(module, teamd_config):
@@ -133,7 +133,7 @@ def create_supervisor_conf(module, teamd_config):
     t = jinja2.Template(portchannel_supervisord_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_supervisord_path, "portchannel-{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
+            fd.write(t.render(conf))
     refresh_supervisord(module)
 
 

@@ -7,7 +7,6 @@ r, ".* ERR .*initializeGlobalConfig: SonicDBConfig Global config is already init
 r, ".* NOTICE kernel:.*profile=""/usr/sbin/ntpd"" name=""sbin"" pid=.* comm=""ntpd"" requested_mask=.*"
 r, ".* ERR snmp#snmp-subagent.*"
 r, ".* ERR route_check.py.*"
-r, ".*ERR monit\[\d+\]: 'routeCheck' status failed.*"
 r, ".* INFO mgmt-framework#supervisord: rest-server.*"
 r, ".* ERR radv#radvd.* Exiting, privsep_read_loop.*"
 r, ".* ERR ntpd.*bind.*AF_INET6.*"
@@ -163,8 +162,6 @@ r, ".* ERR syncd\d*#syncd.*getSupportedBufferPoolCounters.*is not supported on b
 # https://dev.azure.com/msazure/One/_workitems/edit/14233570
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_stats_ext.*Ext Stat Get failed.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_stats.*Multi stats get failed with error.*"
-r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_serdes_attribute_cmn:\d+ RX VGA get failed with error -8.*"
-r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_serdes_attribute_cmn:\d+ Port.*TX_FIR_TAPS_LIST get failed with error -8.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233568
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unknown or unsupported stat type.*"
@@ -245,12 +242,12 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- sai_get_attribu
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_lag_or_port_get: Invalid port type - 2"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/27327
@@ -270,7 +267,6 @@ r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/25833053
 r, ".* ERR dualtor_neighbor_check.py: .*"
-r, ".* ERR monit\[\d+\]: 'dualtorNeighborCheck' status failed \(1\) -- no output.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/17683
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
@@ -336,8 +332,6 @@ r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get 
 # Ignore rsyslog librelp error if rsyslogd on host or container is down or going down
 r, ".* ERR .*#rsyslogd: librelp error 10008 forwarding to server .* - suspending.*"
 r, ".* ERR rsyslogd: imrelp.*error 'error when receiving data, session broken', object .* - input may not work as intended.*"
-# Ignore related rsyslog librelp error, which is caused by the session closed by peer when receiving data, and it will cause the input not work as intended, but it is safe to ignore the error for now to unblock the test, and we will address the root cause later. (PBI https://msazure.visualstudio.com/One/_workitems/edit/37879332)
-r, ".* ERR rsyslogd: imrelp.*error 'server closed relp session, session broken', object .* - input may not work as intended.*"
 
 # Errors for config reload/reboot on mellanox platform
 r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communication channel: Connection reset by peer.*"
@@ -411,10 +405,6 @@ r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent s
 # https://github.com/sonic-net/sonic-mgmt/issues/19790
 r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_stats_capability:\d+ stats capablity not supported for object.*"
 
-# https://github.com/sonic-net/sonic-mgmt/issues/21329
-r, ".* ERR syncd\d*#syncd: :- guard: RedisReply catches system_error:.*ERR Lua redis lib command arguments must be strings or integers.*"
-r, ".* ERR syncd\d*#syncd: :- runRedisScript: Caught exception while running Redis lua script:.*ERR Lua redis lib command arguments must be strings or integers.*"
-
 # Ignore all audisp-tacplus Accounting logs
 r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"
 
@@ -457,11 +447,8 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
-
-# Ignore PIE port error log on set pfc mode
-r, ".* ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_NOT_SUPPORTED.*"
-r, ".* ERR syncd#syncd: :- processQuadEvent: VID: oid:0x.*"
-r, ".* ERR syncd#syncd: :- processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE: SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED.*"
+# https://github.com/aristanetworks/sonic-qual.msft/issues/1156
+r, ".*ERR pmon#DomInfoUpdateTask.*Failed to get VDM basic real values for port.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
@@ -469,26 +456,20 @@ r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+
 # https://github.com/sonic-net/sonic-buildimage/issues/24966
 r, ".* ERR bgp#mgmtd.*mgmt_ds_lock: ERROR: lock already taken on DS:running by session-id.*"
 
-# https://github.com/sonic-net/sonic-mgmt/issues/16794
-r, ".* ERR bgp\d*#mgmtd.*mgmt_txn_cfg_commit_timedout.*"
-
 # This is an info log which matches the regex "kernel:.*\serr", not an err
 r, ".*ACPI.*System may be unstable or behave erratically.*"
 
 # Ignore systemd-networkd.socket not being able to be started. This is expected on non-DPU platforms.
 r, ".*ERR systemd\[1\]: Failed to listen on systemd-networkd.socket - Network Service Netlink Socket.*"
 
-# Ignore syncd error when switching global packet trimming mode
-r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
-
-# Ignore SPC6 Egress mirroring not supported failures on SPC6 mellanox platform
-r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplepacket_session_get: Egress mirroring is not supported on SPC6.*"
-
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
-r, ".*ERR sfputil.*message repeated \d+ times.*Failed to read from file \/sys\/module\/sx_core\/asic\d+\/module\d+\/present.*FileNotFoundError.*"
+
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
+
+# Ignore syncd error when switching global packet trimming mode
+r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
 
 # Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
 r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"

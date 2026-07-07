@@ -5,18 +5,16 @@ import re
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, \
+from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters, \
                                           validate_counters_and_pkts_consistency
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
-from tests.common.dhcp_relay_utils import check_dhcp_stress_status
-from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa F401
+from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
-    pytest.mark.device_type('physical'),
-    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"])
+    pytest.mark.device_type('physical')
 ]
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -43,8 +41,7 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
-def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4_relay_agent,    # noqa: F811
-                                       ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
+def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
                                        testing_config, setup_standby_ports_on_rand_unselected_tor,
                                        toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
                                        dhcp_type, clean_processes_after_stress_test,
@@ -63,10 +60,10 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_id = dhcp_relay['client_iface']['port_idx']
 
-        init_dhcpmon_counters(duthost)
+        init_dhcpcom_relay_counters(duthost)
         if testing_mode == DUAL_TOR_MODE:
             standby_duthost = rand_unselected_dut
-            init_dhcpmon_counters(standby_duthost)
+            init_dhcpcom_relay_counters(standby_duthost)
 
         params = {
             "hostname": duthost.hostname,
@@ -86,9 +83,7 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
             "testing_mode": testing_mode,
-            "kvm_support": True,
-            "relay_agent": relay_agent,
-            "downlink_vlan_iface_name": str(dhcp_relay["downlink_vlan_iface"]["name"])
+            "kvm_support": True
         }
         count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
@@ -103,8 +98,8 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
             validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_dict,
                                                    error_in_percentage=error_margin)
             if testing_mode == DUAL_TOR_MODE:
-                validate_dhcpmon_counters(dhcp_relay, standby_duthost,
-                                          {}, {}, 0)
+                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
+                                                {}, {}, 0)
 
         def get_ip_link_result(duthost):
             # Get the output of 'ip link' command and parse it to a dictionary of index: name
@@ -132,7 +127,7 @@ def test_dhcpmon_relay_counters_stress(ptfhost, relay_agent, enable_sonic_dhcpv4
         ):
             ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPStress{}Test".format(dhcp_type.capitalize()),
                        platform_dir="ptftests", params=params,
-                       log_file="/tmp/test_dhcpmon_relay_counters_stress.DHCPStressTest.log",
+                       log_file="/tmp/test_dhcpcom_relay_counters_stress.DHCPStressTest.log",
                        qlen=100000, is_python3=True, async_mode=True)
             check_dhcp_stress_status(duthost, packets_send_duration)
             pytest_assert(wait_until(600, 2, 0, _check_count_file_exists), "{} is missing".format(count_file))

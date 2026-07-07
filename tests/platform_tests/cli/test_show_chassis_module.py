@@ -10,7 +10,7 @@ from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logic
 logger = logging.getLogger('__name__')
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2')
 ]
 
 CMD_SHOW_CHASSIS_MODULE = "show chassis modules"

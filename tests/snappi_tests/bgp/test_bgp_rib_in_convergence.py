@@ -1,6 +1,5 @@
 from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
-    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports, is_snappi_multidut,
-    get_snappi_ports_single_dut, get_snappi_ports, setup_bgp_testbed)
+    snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_rib_in_convergence_test
 from tests.common.fixtures.conn_graph_facts import (                        # noqa: F401
     conn_graph_facts, fanout_graph_facts)
@@ -15,8 +14,6 @@ pytestmark = [pytest.mark.topology('tgen')]
 @pytest.mark.parametrize('route_type', ['IPv4'])
 def test_rib_in_convergence(snappi_api,                    # noqa: F811
                             duthost,
-                            setup_bgp_testbed,      # noqa: F811
-                            get_snappi_ports,       # noqa: F811
                             tgen_ports,                 # noqa: F811
                             conn_graph_facts,           # noqa: F811
                             fanout_graph_facts,         # noqa: F811

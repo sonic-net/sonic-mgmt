@@ -50,8 +50,7 @@ def is_service_hiting_start_limit(duthost, container_name):
     return False
 
 
-def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service, interfaces, xcvr_skip_list,
-                              expected_module_temp_fault_value=['0']):
+def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service, interfaces, xcvr_skip_list):
     """
     Restart specified service and check platform status
     """
@@ -93,7 +92,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
         check_hw_management_service(dut)
 
         logging.info("Check sysfs")
-        check_sysfs(dut, expected_module_temp_fault_value)
+        check_sysfs(dut)
 
     logging.info("Check that critical processes are healthy for 60 seconds")
     check_critical_processes(dut, 60)
@@ -116,13 +115,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
         all_interfaces = new_intf_dict
         logging.info("ASIC {} interface_list {}".format(enum_frontend_asic_index, all_interfaces))
 
-    if duthost.facts["asic_type"] in ["mellanox"]:
-        expected_module_temp_fault_value = ['0', '254000']
-    else:
-        expected_module_temp_fault_value = ['0']
-
-    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces, xcvr_skip_list,
-                              expected_module_temp_fault_value=expected_module_temp_fault_value)
+    restart_service_and_check(localhost, duthost, enum_frontend_asic_index, "swss", all_interfaces, xcvr_skip_list)
 
 
 def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index,

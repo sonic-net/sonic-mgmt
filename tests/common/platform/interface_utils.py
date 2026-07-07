@@ -58,11 +58,6 @@ def check_interface_status_of_up_ports(duthost):
     if duthost.facts['asic_type'] == 'vs' and duthost.is_supervisor_node():
         return True
 
-    # SONiC BMC images have no front-panel ports, so CONFIG_DB has no PORT
-    # table. Treat as "no admin-up ports to check".
-    if duthost.is_bmc():
-        return True
-
     if duthost.is_multi_asic:
         up_ports = []
         for asic in duthost.frontend_asics:
@@ -339,59 +334,9 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     """
     physical_port_indices = get_physical_port_indices(duthost, logical_intfs)
     pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
-    for sub_ports_list in pport_to_lport_mapping.values():
-        sub_ports_list.sort(key=lambda x: int(x.replace("Ethernet", "")))
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
-
-
-def is_first_subport(port, lport_to_first_subport):
-    """
-    @summary: Return True iff ``port`` is the first logical sub-port of its
-        breakout group.  "First sub-port" is a DUT-local notion: among the
-        logical ports that share one physical index, it is the lowest-numbered
-        one.  Pairs with :func:`get_lport_to_first_subport_mapping` (which builds
-        the map this predicate consumes): a port is the first sub-port iff it
-        maps to itself.  A port absent from the map is treated as not-first.
-    @param port: logical interface name (e.g. "Ethernet0").
-    @param lport_to_first_subport: mapping from
-        :func:`get_lport_to_first_subport_mapping`.
-    """
-    first = lport_to_first_subport.get(port)
-    return first is not None and first == port
-
-
-def get_xcvr_presence_data(duthost, asic_index=None):
-    """
-    @summary: Returns a dictionary of transceiver presence status for each interface.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
-    @return: A dictionary where keys are interface names and values are booleans indicating presence.
-    """
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    namespace_prefix = '-n ' + namespace if namespace else ''
-    check_intf_presence_command = 'show interface transceiver presence {}'.format(namespace_prefix)
-    interface_presence_parsed = duthost.show_and_parse(check_intf_presence_command)
-    interface_presence_dict = {}
-    for entry in interface_presence_parsed:
-        interface_presence_dict[entry['port']] = entry.get('presence', '') == 'Present'
-    return interface_presence_dict
-
-
-def get_pport_presence_data(duthost, asic_index=None):
-    """
-    @summary: Returns a dictionary of physical port presence status for each physical port index.
-    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
-    @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
-    """
-    interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)
-    physical_port_indices = get_physical_port_indices(duthost)
-    pport_presence_dict = {}
-    for intf, is_present in interface_presence_dict.items():
-        pport_index = physical_port_indices.get(intf)
-        if pport_index is not None:
-            pport_presence_dict[pport_index] = is_present
-    return pport_presence_dict
 
 
 def get_ports_with_flat_memory(dut, conn_graph_facts):

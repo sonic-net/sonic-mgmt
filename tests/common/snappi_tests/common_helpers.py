@@ -22,12 +22,13 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network
+from ipaddress import IPv6Network, IPv6Address
 import ipaddress
-from tests.common.helpers.assertions import pytest_assert
+from random import getrandbits
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -262,7 +263,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_devices = list(set(peer_devices))
     peer_snappi_devices = []
     for peer in peer_devices:
-        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
+        if 'snappi' in peer or 'ixia' in peer:
             peer_snappi_devices.append(peer)
     if len(peer_snappi_devices) >= 1:
         return peer_snappi_devices
@@ -892,8 +893,7 @@ def enable_packet_aging(duthost, asic_value=None):
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IPv6 addresses in a subnet, sequentially iterating hosts
-    and skipping excluded IPs. Consistent with get_addrs_in_subnet behavior.
+    Get N IPv6 addresses in a subnet.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
@@ -904,15 +904,18 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
-    network = IPv6Network(subnet)
-    exclude_set = set(exclude_ips) if exclude_ips else set()
-
     ipv6_list = []
-    for addr in network.hosts():
-        if str(addr) not in exclude_set:
-            ipv6_list.append(str(addr))
-            if len(ipv6_list) == number_of_ip:
-                break
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    while len(ipv6_list) < number_of_ip:
+        network = IPv6Network(subnet)
+        address = IPv6Address(
+            network.network_address + getrandbits(
+                network.max_prefixlen - network.prefixlen))
+        addr_str = str(address)
+        if addr_str in exclude_set or addr_str in ipv6_list:
+            continue
+        ipv6_list.append(addr_str)
+
     return ipv6_list
 
 
@@ -1324,13 +1327,12 @@ def start_pfcwd_fwd(duthost, asic_value=None):
                       format(asic_value))
 
 
-def clear_counters(duthost, port=None, namespace=None):
+def clear_counters(duthost, port):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
-        namespace (str): namespace name in case of multi asic duthost
     Returns:
         None
     """
@@ -1346,15 +1348,8 @@ def clear_counters(duthost, port=None, namespace=None):
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
-        pytest_assert(
-            port or namespace,
-            'Cannot clear counters in case of multi asic, either port or namespace needs to be provided.'
-            )
-        if not namespace:
-            namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
-    else:
-        duthost.command("sonic-clear dropcounters \n")
+        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
 
 
 def get_interface_stats(duthost, port):
@@ -1481,7 +1476,7 @@ def get_pfc_count(duthost, port):
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override and override_data is not None and override_data != []:
+    if is_override and override_data is not None:
         return override_data
     return default
 

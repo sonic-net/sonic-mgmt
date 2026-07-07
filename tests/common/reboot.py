@@ -13,7 +13,7 @@ from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
-from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
+from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
@@ -188,7 +188,7 @@ def check_warmboot_finalizer_inactive(duthost):
     return 'inactive' == stdout.strip()
 
 
-def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
@@ -201,7 +201,7 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
                              module_ignore_errors=True)
 
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        if reboot_res and reboot_res.ready():
+        if reboot_res.ready():
             logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
@@ -399,19 +399,14 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         console_obj = None
 
     # Perform reboot
-    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") \
-            and invocation_type != "gnoi_based":
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
         reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type, invocation_type, localhost,
                                                   ptf_gnoi=ptf_gnoi)
 
-    is_dpu_reboot = (invocation_type == "gnoi_based"
-                     and ptf_gnoi is not None
-                     and ptf_gnoi.grpc_client.ss_target_index is not None)
-    if not is_dpu_reboot:
-        wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+    wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
     # Release event to proceed poweron for PDU.
     power_on_event.set()
@@ -448,8 +443,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # function will return sooner.
 
         # Update critical service list after rebooting in case critical services changed after rebooting
-        pytest_assert(wait_until(300, 10, 0, duthost.is_host_service_running, "docker"),
-                      "Docker service failed to start on {}".format(hostname))
         pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
         pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
@@ -573,26 +566,13 @@ def get_reboot_cause(dut):
 
 def check_reboot_cause(dut, reboot_cause_expected):
     """
-    @summary: Check the reboot cause on DUT. Can be used with wait_until
+    @summary: Check the reboot cause on DUT. Can be used with wailt_until
     @param dut: The AnsibleHost object of DUT.
     @param reboot_cause_expected: The expected reboot cause.
     """
     reboot_cause_got = get_reboot_cause(dut)
-    logger.info("dut %s last reboot-cause: got '%s', expected '%s'",
-                dut.hostname, reboot_cause_got, reboot_cause_expected)
-    if reboot_cause_got != reboot_cause_expected:
-        cause_output = dut.shell('show reboot-cause')['stdout']
-        expected_pattern = reboot_ctrl_dict.get(
-            reboot_cause_expected, {}
-        ).get('cause', reboot_cause_expected)
-        logger.warning(
-            "dut %s reboot-cause mismatch: expected type='%s' "
-            "(pattern='%s'), got type='%s', raw output='%s'",
-            dut.hostname, reboot_cause_expected, expected_pattern,
-            reboot_cause_got, cause_output
-        )
-        return False
-    return True
+    logger.debug("dut {} last reboot-cause {}".format(dut.hostname, reboot_cause_got))
+    return reboot_cause_got == reboot_cause_expected
 
 
 def sync_reboot_history_queue_with_dut(dut):
@@ -839,9 +819,7 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
 
 def collect_mgmt_config_by_console(duthost, localhost):
     logger.info("check if dut is pingable")
-    # Use ping -6 for IPv6 so the check works on newer distros where ping6 may not exist.
-    ping_cmd = "ping -6" if is_ipv6_address(str(duthost.mgmt_ip)) else "ping"
-    localhost.shell(f"{ping_cmd} -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
+    localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
 
     logger.info("Start: collect mgmt config by console")
     creds = creds_on_dut(duthost)

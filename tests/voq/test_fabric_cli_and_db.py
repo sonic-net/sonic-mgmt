@@ -6,7 +6,7 @@ import random
 logger = logging.getLogger(__name__)
 # This test only runs on t2 systems.
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2')
 ]
 
 # There are 12 asic on Supervisor now.

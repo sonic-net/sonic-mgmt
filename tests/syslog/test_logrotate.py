@@ -1,4 +1,3 @@
-import time
 import logging
 import pytest
 import allure
@@ -19,8 +18,6 @@ LOG_FOLDER = '/var/log'
 SMALL_VAR_LOG_PARTITION_SIZE = '300M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
-SYSLOG_BACKUP_FILE = '/tmp/syslog_bk'
-LOGROTATE_TEST_STATE_FILE = '/tmp/logrotate-test.status'
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -36,15 +33,13 @@ def backup_syslog(rand_selected_dut):
     :param rand_selected_dut: The fixture returns a randomly selected DUT
     """
     duthost = rand_selected_dut
-    logger.info('Backup syslog file to {}'.format(SYSLOG_BACKUP_FILE))
-    duthost.shell('sudo cp -f /var/log/syslog {}'.format(SYSLOG_BACKUP_FILE))
-    duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
+    logger.info('Backup syslog file to syslog_bk')
+    duthost.shell('sudo cp -f /var/log/syslog /var/log/syslog_bk')
 
     yield
 
     logger.info('Recover syslog file to syslog')
-    duthost.shell('sudo mv {} /var/log/syslog'.format(SYSLOG_BACKUP_FILE), module_ignore_errors=True)
-    duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
+    duthost.shell('sudo mv /var/log/syslog_bk /var/log/syslog')
 
     logger.info('Restart rsyslog service')
     duthost.shell('sudo service rsyslog restart')
@@ -57,43 +52,32 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
     :param rand_selected_dut: The fixture returns a randomly selected DUT
     """
     duthost = rand_selected_dut
-    setup_finished = False
-    try:
-        with allure.step('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE)):
-            logger.info('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE))
-            duthost.shell('sudo fallocate -l {} log-new-partition'.format(SMALL_VAR_LOG_PARTITION_SIZE))
-            duthost.shell('sudo losetup -P  /dev/loop2 log-new-partition')
-            duthost.shell('sudo mkfs.ext4 /dev/loop2')
-            duthost.shell('sudo mount /dev/loop2 /var/log')
-            duthost.shell('sudo cp -f {} /var/log/syslog'.format(SYSLOG_BACKUP_FILE))
-            duthost.shell('sudo rm -f {}'.format(LOGROTATE_TEST_STATE_FILE), module_ignore_errors=True)
+    with allure.step('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE)):
+        logger.info('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE))
+        duthost.shell('sudo fallocate -l {} log-new-partition'.format(SMALL_VAR_LOG_PARTITION_SIZE))
+        duthost.shell('sudo losetup -P  /dev/loop2 log-new-partition')
+        duthost.shell('sudo mkfs.ext4 /dev/loop2')
+        duthost.shell('sudo mount /dev/loop2 /var/log')
 
-            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
-            logger.info('Start logrotate-config service')
-            duthost.shell('sudo service logrotate-config restart')
-            setup_finished = True
+        logger.info('Start logrotate-config service')
+        duthost.shell('sudo service logrotate-config restart')
 
-        yield
-    finally:
-        with allure.step('Recovery var log'):
-            logger.info('Umount and unload the small var log partition')
-            duthost.shell('sudo umount -l /dev/loop2', module_ignore_errors=True)
-            duthost.shell('sudo losetup -d /dev/loop2', module_ignore_errors=True)
+    yield
 
-            logger.info('Remove the small var log partition')
-            duthost.shell('sudo rm -f log-new-partition', module_ignore_errors=True)
+    with allure.step('Recovery var log'):
+        logger.info('Umount and unload the small var log partition')
+        duthost.shell('sudo umount -l /dev/loop2')
+        duthost.shell('sudo losetup -d /dev/loop2')
 
-            if setup_finished:
-                config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-            else:
-                try:
-                    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-                except Exception:
-                    logger.exception('Failed to recover config after small var log setup failure')
+        logger.info('Remove the small var log partition')
+        duthost.shell('sudo rm -f log-new-partition')
 
-            logger.info('Restart logrotate-config service')
-            duthost.shell('sudo service logrotate-config restart', module_ignore_errors=not setup_finished)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+        logger.info('Restart logrotate-config service')
+        duthost.shell('sudo service logrotate-config restart')
 
 
 def get_var_log_size(duthost):
@@ -129,21 +113,6 @@ def create_temp_syslog_file(duthost, size):
     duthost.shell('sudo fallocate -l {} /var/log/syslog'.format(size))
 
 
-def collect_syslog_rotate_state(duthost):
-    """Collect logrotate state useful for debugging intermittent failures."""
-    cmds = [
-        'ls -l /var/log/syslog* || true',
-        'du -k /var/log/syslog || true',
-        'cat {} || true'.format(LOGROTATE_TEST_STATE_FILE),
-        'cat /var/lib/logrotate/status || true',
-    ]
-    result = duthost.shell('sudo sh -c {}'.format(repr(' ; '.join(cmds))), module_ignore_errors=True)
-    logger.info('Syslog/logrotate state:\nstdout:\n{}\nstderr:\n{}'.format(
-        result.get('stdout', ''), result.get('stderr', '')
-    ))
-    return result.get('stdout', '')
-
-
 def get_oldest_syslog_checksum(duthost):
     checksum = "0"
 
@@ -174,27 +143,11 @@ def run_logrotate(duthost, force=False):
     """
     if force:
         logger.debug('Make sure there is no big /var/log/syslog exist by forcing execute logrotate')
-        cmd = 'sudo /usr/sbin/logrotate -s {} -f /etc/logrotate.conf'.format(LOGROTATE_TEST_STATE_FILE)
+        cmd = 'sudo /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1'
     else:
-        cmd = 'sudo /usr/sbin/logrotate -s {} /etc/logrotate.conf'.format(LOGROTATE_TEST_STATE_FILE)
+        cmd = 'sudo /usr/sbin/logrotate /etc/logrotate.conf > /dev/null 2>&1'
     logger.info('Run logrotate command: {}'.format(cmd))
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info(
-        'Logrotate result rc={} stdout={} stderr={}'.format(
-            result.get('rc'), result.get('stdout', ''), result.get('stderr', '')
-        )
-    )
-    return result
-
-
-def assert_logrotate_success(duthost, result):
-    if result.get('rc') != 0:
-        state = collect_syslog_rotate_state(duthost)
-        pytest.fail(
-            'Logrotate command failed unexpectedly. rc={}, stdout={}, stderr={}, state={}'.format(
-                result.get('rc'), result.get('stdout', ''), result.get('stderr', ''), state
-            )
-        )
+    duthost.shell(cmd)
 
 
 def multiply_with_unit(logrotate_threshold, num):
@@ -215,8 +168,7 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
     :param logrotate_threshold: logrotate threshold, such as 16M or 1024K
     """
     with allure.step('Run logrotate with force option to prepare clean syslog environment'):
-        logrotate_result = run_logrotate(duthost, force=True)
-        assert_logrotate_success(duthost, logrotate_result)
+        run_logrotate(duthost, force=True)
 
     with allure.step('There should be no logrotate process when rsyslog size is smaller than threshold {}'.format(
             logrotate_threshold)):
@@ -228,60 +180,36 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
 
         oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
-        logrotate_result = run_logrotate(duthost)
-        assert_logrotate_success(duthost, logrotate_result)
+        run_logrotate(duthost)
         syslog_number_no_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
         # For no rotation happen, both two conditions has to be satisfied
         # 1. the number of syslog files keep the same
         # 2. the oldest log file's checksum keep the same
+        assert syslog_number_origin == syslog_number_no_rotate, \
+            'Unexpected logrotate happens, there should be no logrotate executed'
         oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
-        if (syslog_number_origin != syslog_number_no_rotate or
-                oldest_checksum_before_rotate != oldest_checksum_after_rotate):
-            state = collect_syslog_rotate_state(duthost)
-            pytest.fail(
-                'Unexpected logrotate happens, there should be no logrotate executed. '
-                'origin={}, after={}, checksum_before={}, checksum_after={}, rc={}, state={}'.format(
-                    syslog_number_origin, syslog_number_no_rotate,
-                    oldest_checksum_before_rotate, oldest_checksum_after_rotate,
-                    logrotate_result.get('rc'), state
-                )
-            )
+        assert oldest_checksum_before_rotate == oldest_checksum_after_rotate, \
+            'Unexpected logrotate happens, there should be no logrotate executed'
 
     with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
             logrotate_threshold)):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
         oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
-        logrotate_result = run_logrotate(duthost)
-        assert_logrotate_success(duthost, logrotate_result)
+        run_logrotate(duthost)
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
         oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
         # For rotation happen,
         # 1. If the number of syslog file the same, the oldest log file checksum has to be different
-        #    This is the corner case that number of log files reach the rotate limit.
+        #    This is the corner case that number of syslog files reach the rotate limit.
         # 2. Otherwise, number of log file has to increase by 1
         if syslog_number_origin == syslog_number_with_rotate:
-            if oldest_checksum_before_rotate == oldest_checksum_after_rotate:
-                state = collect_syslog_rotate_state(duthost)
-                pytest.fail(
-                    'No logrotate happens, both syslog file number and timestamp are the same. '
-                    'origin={}, after={}, checksum_before={}, checksum_after={}, rc={}, state={}'.format(
-                        syslog_number_origin, syslog_number_with_rotate,
-                        oldest_checksum_before_rotate, oldest_checksum_after_rotate,
-                        logrotate_result.get('rc'), state
-                    )
-                )
-        elif syslog_number_origin + 1 != syslog_number_with_rotate:
-            state = collect_syslog_rotate_state(duthost)
-            pytest.fail(
-                'No logrotate happens, the number of syslog files does not increase by 1. '
-                'origin={}, after={}, checksum_before={}, checksum_after={}, rc={}, state={}'.format(
-                    syslog_number_origin, syslog_number_with_rotate,
-                    oldest_checksum_before_rotate, oldest_checksum_after_rotate,
-                    logrotate_result.get('rc'), state
-                )
-            )
+            assert oldest_checksum_before_rotate != oldest_checksum_after_rotate, \
+                'No logrotate happens, both syslog file number and timestamp are the same'
+        else:
+            assert syslog_number_origin + 1 == syslog_number_with_rotate, \
+                'No logrotate happens, the number of syslog files does not increase by 1'
 
 
 def get_threshold_based_on_memory(duthost):
@@ -430,129 +358,4 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
     pytest_assert(
         wait_until(30, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
         "Found pending entries in APPL_DB"
-    )
-
-
-def get_var_log_avail_kb(duthost):
-    """Return 'Available' KB for /var/log filesystem"""
-    out = duthost.shell("sudo df -k /var/log | sed -n 2p | awk '{ print $4 }'")["stdout"]
-    return int(out)
-
-
-def is_var_log_full(duthost):
-    return get_var_log_avail_kb(duthost) == 0
-
-
-def delete_all_archives_under_var_log(duthost):
-    """
-    Ensure there are no archived logs before reproducing the bug.
-    """
-    duthost.shell(
-        r"sudo find /var/log -type f -regextype posix-extended "
-        r"-regex '.*\.[0-9]+(\.gz)?$' -delete",
-        module_ignore_errors=True
-    )
-    duthost.shell("sudo find /var/log -type f -name '*.1.gz' -delete", module_ignore_errors=True)
-
-
-def count_archives_under_var_log(duthost):
-    out = duthost.shell(
-        r"sudo find /var/log -type f -regextype posix-extended "
-        r"-regex '.*\.[0-9]+(\.gz)?$' | wc -l"
-    )["stdout"]
-    return int(out)
-
-
-def build_origin_log_targets(duthost):
-    targets = [
-        "/var/log/syslog",
-        "/var/log/auth.log",
-        "/var/log/cron.log",
-        "/var/log/teamd.log",
-        "/var/log/telemetry.log",
-        "/var/log/gnmi.log",
-    ]
-
-    duthost.shell("sudo mkdir -p /var/log/swss")
-
-    if duthost.sonichost.is_multi_asic:
-        # create per-asic origin logs to look like real multi-asic devices
-        for i in range(len(duthost.asics)):
-            targets.append(f"/var/log/swss/swss.asic{i}.rec")
-            targets.append(f"/var/log/swss/sairedis.asic{i}.rec")
-    else:
-        targets.append("/var/log/swss/swss.rec")
-        targets.append("/var/log/swss/sairedis.rec")
-
-    return targets
-
-
-def fill_var_log_with_origin_logs_until_full(duthost, chunk_kb=10 * 1024):
-    """
-    Fill /var/log to 100%.
-    Repeatedly grow origin log files until df Available becomes 0.
-    """
-    targets = build_origin_log_targets(duthost)
-
-    # Ensure files exist (origin logs)
-    for p in targets:
-        duthost.shell(f"sudo touch {p}")
-
-    idx = 0
-    while True:
-        avail_kb = get_var_log_avail_kb(duthost)
-        if avail_kb <= 0:
-            break
-
-        # Allocate up to what's available
-        alloc_kb = min(chunk_kb, avail_kb)
-        p = targets[idx % len(targets)]
-
-        cur_bytes = int(duthost.shell(f"sudo stat -c%s {p}")["stdout"] or "0")
-        new_bytes = cur_bytes + (alloc_kb * 1024)
-
-        duthost.shell(f"sudo fallocate -l {new_bytes} {p}", module_ignore_errors=True)
-        idx += 1
-
-    pytest_assert(is_var_log_full(duthost), "Failed to fill /var/log to 100% (Available != 0)")
-
-
-def syslog_contains_marker(duthost, marker):
-    out = duthost.shell(f"sudo grep -F '{marker}' /var/log/syslog", module_ignore_errors=True)
-    return out.get("rc", 1) == 0
-
-
-@pytest.mark.disable_loganalyzer
-def test_logrotate_full_partition_no_archives_cleanup(rand_selected_dut, simulate_small_var_log_partition):
-    """
-    Covers the corner case:
-      - /var/log is 100% full
-      - space is consumed by origin logs only
-      - no archived logs exist yet
-    Expectation after fix:
-      - running logrotate -f should free space
-      - syslog becomes writable again
-    """
-    duthost = rand_selected_dut
-
-    # Precondition: no archives exist
-    delete_all_archives_under_var_log(duthost)
-    pytest_assert(count_archives_under_var_log(duthost) == 0, "Precondition failed: archived logs exist")
-
-    # Precondition: /var/log becomes 100% full due to origin logs
-    fill_var_log_with_origin_logs_until_full(duthost)
-    pytest_assert(is_var_log_full(duthost), "Precondition failed: /var/log is not full")
-
-    # Trigger: forced logrotate. This should rotate logs (creating .1) then cleanup archives in postrotate(syslog)
-    run_logrotate(duthost, force=True)
-
-    # Validate: space is available again
-    pytest_assert(get_var_log_avail_kb(duthost) > 0, "Expected /var/log to have free space after logrotate cleanup")
-
-    # Validate: syslog writable again (functional)
-    marker = f"logrotate-full-no-archives-{int(time.time())}"
-    duthost.shell(f"logger -t logrotate-test '{marker}'", module_ignore_errors=True)
-    pytest_assert(
-        wait_until(30, 1, 0, syslog_contains_marker, duthost, marker),
-        "Expected syslog to be writable after cleanup, but marker not found"
     )

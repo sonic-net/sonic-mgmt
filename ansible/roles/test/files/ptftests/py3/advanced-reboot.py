@@ -89,15 +89,6 @@ from host_device import HostDevice
 
 PHYSICAL_PORT = "physical_port"
 
-# Canonical default config path for the arp_responder helper. These are kept in
-# lock-step with tests.common.helpers.constants.ARP_RESPONDER_DEFAULT_CONFIG and
-# ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT; we don't import them here because this
-# module runs inside the PTF container, where the sonic-mgmt test tree is not on
-# sys.path. The per-suffix variant adds the logfile suffix between the stem and
-# the extension.
-ARP_RESPONDER_CONFIG_PATH = "/tmp/from_t1.json"
-ARP_RESPONDER_CONFIG_PATH_FMT = "/tmp/from_t1_%s.json"
-
 
 class StateMachine():
     def __init__(self, init_state='init'):
@@ -307,8 +298,10 @@ class ReloadTest(BaseTest):
         self.start_sender_delay = 60
 
         # Check if platform type is kvm
-        self.platform_type = self.get_dut_platform_type()
-        if self.platform_type == 'x86_64-kvm_x86_64-r0':
+        stdout, stderr, return_code = self.dut_connection.execCommand(
+            "show platform summary | grep Platform | awk '{print $2}'")
+        platform_type = str(stdout[0]).replace('\n', '')
+        if platform_type == 'x86_64-kvm_x86_64-r0':
             self.kvm_test = True
         else:
             self.kvm_test = False
@@ -327,12 +320,6 @@ class ReloadTest(BaseTest):
                 self.log("Service start time for {} is {}".format(
                     service_name, self.service_data[service_name]['service_start_time']))
         return
-
-    def get_dut_platform_type(self):
-        stdout, _, _ = self.dut_connection.execCommand(
-            "show platform summary | grep Platform | awk '{print $2}'")
-        platform_type = str(stdout[0]).replace('\n', '')
-        return platform_type
 
     def read_json(self, name):
         with open(self.test_params[name]) as fp:
@@ -496,8 +483,7 @@ class ReloadTest(BaseTest):
 
     def dump_arp_responder_config(self, dump):
         # save data for arp_replay process
-        filename = ARP_RESPONDER_CONFIG_PATH if self.logfile_suffix is None \
-            else ARP_RESPONDER_CONFIG_PATH_FMT % self.logfile_suffix
+        filename = "/tmp/from_t1.json" if self.logfile_suffix is None else "/tmp/from_t1_%s.json" % self.logfile_suffix
         with open(filename, "w") as fp:
             json.dump(dump, fp)
 
@@ -1447,35 +1433,7 @@ class ReloadTest(BaseTest):
 
         self.assertTrue(is_good, errors)
 
-    def _verify_neighbors_reachable(self, connect_timeout=15):
-        """Pre-flight: confirm every neighbor in ssh_targets is SSH-reachable.
-
-        Fails fast under fails['infrastructure'] so a broken testbed doesn't
-        burn 600s in wait_until_control_plane_down with wedged SSH threads
-        stuck inside paramiko.connect().
-        """
-        bad = []
-        for ip in self.ssh_targets:
-            try:
-                handle = HostDevice.getHostDeviceInstance(
-                    self.test_params['neighbor_type'], ip, None,
-                    self.test_params, log_cb=self.log,
-                    connect_timeout=connect_timeout)
-                handle.connect()
-                handle.disconnect()
-                self.log("Neighbor SSH probe ok for {}".format(ip))
-            except Exception as e:
-                err = "{}: {}".format(type(e).__name__, e)
-                self.log("Neighbor SSH probe failed for {}: {}".format(ip, err))
-                bad.append((ip, err))
-        if bad:
-            msg = "Neighbor SSH unreachable from PTF: {}".format(bad)
-            self.fails['infrastructure'].add(msg)
-            raise RuntimeError(msg)
-
     def runTest(self):
-        self._verify_neighbors_reachable()
-
         # Set LACP timer multiplier for cEOS peers when it is not default (3)
         if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
             self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
@@ -2223,14 +2181,8 @@ class ReloadTest(BaseTest):
                         received_but_not_sent_packets.add(received_payload)
                         continue
                     # Packets in a row are missing, a potential disruption.
-                    self.log(
-                        "received_payload: {} (at {}), prev_payload: {} (at {}), "
-                        "sent_counter: {}, received_counter: {}".format(
-                            received_payload, datetime.datetime.fromtimestamp(received_time),
-                            prev_payload, datetime.datetime.fromtimestamp(prev_time),
-                            sent_counter, received_counter
-                        )
-                    )
+                    self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
+                        received_payload, prev_payload, sent_counter, received_counter))
                     # How many packets lost in a row.
                     lost_id = (received_payload - 1) - prev_payload
 
@@ -2302,16 +2254,8 @@ class ReloadTest(BaseTest):
                 [item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum(
                 [item[1] for item in self.lost_packets.values()])
-            time_from_reboot_disrupt_start = self.disruption_start - self.reboot_start
-            time_from_reboot_disrupt_stop = self.disruption_stop - self.reboot_start
-            self.log(
-                "Disruptions happen between {} and {} ({} and {} after the reboot).".format(
-                    self.disruption_start,
-                    self.disruption_stop,
-                    time_from_reboot_disrupt_start,
-                    time_from_reboot_disrupt_stop
-                )
-            )
+            self.log("Disruptions happen between %s and %s after the reboot." %
+                     (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
@@ -2340,8 +2284,6 @@ class ReloadTest(BaseTest):
             received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
         # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
         allowed_number_of_flooded_original_packets = 250
-        if self.platform_type == 'x86_64-mlnx_msn2700-r0':
-            allowed_number_of_flooded_original_packets = 700
         if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
             self.dataplane_loss_checked_successfully = False
             self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "

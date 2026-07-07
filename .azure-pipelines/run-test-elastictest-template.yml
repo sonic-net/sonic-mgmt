@@ -85,10 +85,6 @@ parameters:
     type: string
     default: ""
 
-  - name: DPU_IMAGE_URL
-    type: string
-    default: ""
-
   - name: UPGRADE_IMAGE_PARAM
     type: string
     default: ""
@@ -196,10 +192,6 @@ parameters:
     type: string
     default: ""
 
-  - name: KVM_BUILD_ID
-    type: string
-    default: ""
-
   - name: EXPECTED_RESULT
     type: string
     default: ""
@@ -278,7 +270,8 @@ steps:
       set -e
       echo "Step: Trigger Test"
 
-      sudo uv pip install --system PyYAML
+
+      pip install PyYAML
 
       rm -f new_test_plan_id.txt
 
@@ -292,8 +285,8 @@ steps:
       --max-worker ${{ parameters.MAX_WORKER }} \
       --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
       --test-set ${{ parameters.TEST_SET }} \
-      --kvm-build-id ${{ parameters.KVM_BUILD_ID }} \
-      --kvm-image-branch ${{ parameters.KVM_IMAGE_BRANCH }} \
+      --kvm-build-id $(KVM_BUILD_ID) \
+      --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
@@ -307,7 +300,6 @@ steps:
       --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
       --ptf-modified ${{ parameters.PTF_MODIFIED }} \
       --image_url ${{ parameters.IMAGE_URL }} \
-      --dpu_image_url ${{ parameters.DPU_IMAGE_URL }} \
       --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
       --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \

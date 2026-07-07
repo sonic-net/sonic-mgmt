@@ -7,8 +7,3 @@ filegroup(
     name = "data",
     srcs = glob(["**"]),
 )
-
-filegroup(
-    name = "testbed",
-    srcs = ["testbeds.textproto"],
-)

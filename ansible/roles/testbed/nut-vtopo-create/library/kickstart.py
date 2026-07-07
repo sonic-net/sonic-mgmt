@@ -1,1 +1,0 @@
-../../../vm_set/library/kickstart.py

@@ -56,16 +56,11 @@ class QosParamCisco(object):
         # TODO: topo-t2 support
         # Per-asic variable description:
         # 0: Max queue depth in bytes
-        # 1: Number of packets margin for the quantized queue watermark tests.
-        # 2: Bytes per buffer
-        # 3: Packet size preferred by the asic to increase test stability
-        # 4: Number of packets added to the pause threshold to line up with theoretical predictions
-        # 5: Number of packets added to the lossless drop threshold to line up with theoretical predictions
-        # 6: Number of packets added to the lossy drop threshold to line up with theoretical predictions
+        # 1: Flow control configuration on this device, either 'separate' or 'shared'.
+        # 2: Number of packets margin for the quantized queue watermark tests.
         asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3, 0),
                        "gr": (24576000, 18000, 384, 1350, 2, 3, 0),
-                       "gr2": (None, 2, 512, 64, 3, 4, -40),
-                       "p200": (None, 1, 512, 64, 2, 2, 0)}
+                       "gr2": (None, 2, 512, 64, 3, 4, -40)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
             # Asic dependent parameters
@@ -83,7 +78,7 @@ class QosParamCisco(object):
             if "dynamic_th" in lossless_prof:
                 dynamic_th = int(lossless_prof["dynamic_th"])
                 alpha = 2 ** dynamic_th
-                if dutAsic in ["gr2", "p200"]:
+                if dutAsic == "gr2":
                     attempted_pause = int((self.ingress_pool_size - self.ingress_pool_headroom) * alpha / (1. + alpha))
                 else:
                     attempted_pause = alpha * self.ingress_pool_size
@@ -94,8 +89,7 @@ class QosParamCisco(object):
 
             # Calculate real lossless/lossy thresholds while accounting for maxes
             if max_queue_depth is None:
-                egress_pool_reserved_buffer = {"gr2": 12 * 1024 * 1024,
-                                               "p200": 5 * 1024 * 1024}.get(dutAsic, 0)
+                egress_pool_reserved_buffer = 12582912  # 12MB reserve of the pool
                 dynamic_th = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["dynamic_th"])
                 alpha = 2 ** dynamic_th
                 profile_reserved_memory = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["size"])
@@ -113,7 +107,7 @@ class QosParamCisco(object):
                 self.log("Max pause thr bytes:       {}".format(max_pause))
                 pre_pad_pause = min(attempted_pause, max_pause)
 
-            if dutAsic in ["gr", "gr2", "p200"]:
+            if dutAsic in ["gr", "gr2"]:
                 refined_pause_thr = (self.gr_get_hw_thr_buffs(pre_pad_pause // self.buffer_size) *
                                      self.buffer_size)
                 self.log("{} pre-pad pause threshold changed from {} to {}".format(dutAsic, pre_pad_pause,
@@ -136,20 +130,6 @@ class QosParamCisco(object):
                 # can divide by buffer size later to get the correct packet count.
                 advertised_hr = packets_hr * self.buffer_size
                 pre_pad_drop = pre_pad_pause + advertised_hr
-            elif dutAsic == "p200":
-                # P200 uses a variant of mantissa/exponent rounding for HR thresholds.
-                xoff_bytes = int(lossless_prof["xoff"])
-                mantissa_len = 4
-                exponent = max(xoff_bytes.bit_length() - mantissa_len, 0)
-                mantissa = xoff_bytes >> exponent
-                if (mantissa << exponent) < xoff_bytes:
-                    mantissa += 1
-                hw_hr_bytes = mantissa << exponent
-                hw_hr_buffers = hw_hr_bytes // self.buffer_size
-                self.log("P200 HR threshold: xoff {} bytes -> {} buffers (mantissa={}, exp={})".format(
-                    xoff_bytes, hw_hr_buffers, mantissa, exponent))
-                advertised_hr = hw_hr_buffers * self.buffer_size
-                pre_pad_drop = pre_pad_pause + advertised_hr
             else:
                 pre_pad_drop = pre_pad_pause + int(lossless_prof["xoff"])
 
@@ -160,9 +140,8 @@ class QosParamCisco(object):
                                                       self.buffer_size))
 
             # Hysteresis calculations depending on asic
-            if dutAsic in ["gr2", "p200"]:
-                assert "xon_offset" in lossless_prof, \
-                    "{} missing xon_offset from lossless buffer profile".format(dutAsic)
+            if dutAsic == "gr2":
+                assert "xon_offset" in lossless_prof, "gr2 missing xon_offset from lossless buffer profile"
                 xon_offset = int(lossless_prof["xon_offset"])
                 self.log("Pre-pad hysteresis bytes: {}".format(xon_offset))
                 # Determine difference between pause thr and hysteresis thr.
@@ -341,7 +320,7 @@ class QosParamCisco(object):
         mantissa_len = 5
         exponent = max(thr.bit_length() - mantissa_len, 0)
         mantissa = thr >> exponent
-        if is_lossy and self.dutAsic == "gr2":
+        if is_lossy:
             # gr2 lossy egress drop threshold is 1 off due to queue occupancy is quantized
             mantissa += 1
         return mantissa, exponent
@@ -350,7 +329,7 @@ class QosParamCisco(object):
         ''' thr must be in units of buffers '''
         if self.dutAsic == "gr":
             mantissa, exp = self.gr_get_mantissa_exp(thr)
-        elif self.dutAsic in ["gr2", "p200"]:
+        elif self.dutAsic == "gr2":
             mantissa, exp = self.gr2_get_mantissa_exp(thr, is_lossy)
         else:
             assert False, "Invalid asic {} for gr_get_hw_thr_buffs".format(self.dutAsic)
@@ -543,7 +522,7 @@ class QosParamCisco(object):
                                "packet_size": packet_size}
             if self.dutAsic == "gr2":
                 lossless_params["pkts_num_margin"] = 8
-                lossless_params["extra_cap_margin"] = 25
+                lossless_params["extra_cap_margin"] = 20
             if self.dutAsic == "gb":
                 lossless_params["pkts_num_margin"] = 6
             self.write_params("wm_buf_pool_lossless", lossless_params)

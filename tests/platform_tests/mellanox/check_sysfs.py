@@ -37,7 +37,7 @@ def skip_ignored_broken_symbolinks(broken_symbolinks):
     return broken_symbolinks_updated
 
 
-def check_sysfs(dut, expected_module_temp_fault_value=['0']):
+def check_sysfs(dut):
     """
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
@@ -65,7 +65,7 @@ def check_sysfs(dut, expected_module_temp_fault_value=['0']):
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in list(sysfs_facts['fan_info'].items()):
-        if platform_data["fans"].get("hot_swappable"):
+        if platform_data["fans"]["hot_swappable"]:
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(
                 fan_id, fan_info['status'])
 
@@ -116,7 +116,7 @@ def check_sysfs(dut, expected_module_temp_fault_value=['0']):
             cpu_temp_high_counter)
 
     logging.info("Check PSU related sysfs")
-    if platform_data["psus"].get("hot_swappable"):
+    if platform_data["psus"]["hot_swappable"]:
         for psu_id, psu_info in list(sysfs_facts['psu_info'].items()):
             psu_id = int(psu_id)
             psu_status = int(psu_info["status"])
@@ -167,7 +167,7 @@ def check_sysfs(dut, expected_module_temp_fault_value=['0']):
         if not sfp_info["temp_fault"]:
             continue
 
-        assert sfp_info["temp_fault"] in expected_module_temp_fault_value, "SFP%d temp fault" % int(sfp_id)
+        assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % int(sfp_id)
         sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
         sfp_temp_crit = float(
             sfp_info['crit_temp']) if sfp_info['crit_temp'] != '0' else 0
@@ -199,7 +199,7 @@ def check_psu_sysfs(dut, psu_id, psu_state):
                                                    psu_exist, psu_exist_content["stdout"])
     else:
         platform_data = get_platform_data(dut)
-        hot_swappable = platform_data["psus"].get("hot_swappable")
+        hot_swappable = platform_data["psus"]["hot_swappable"]
         if hot_swappable:
             psu_exist_content = dut.command("cat {}".format(psu_exist))
             logging.info("PSU state {} file {} read {}".format(
@@ -264,7 +264,7 @@ def generate_sysfs_config(dut, platform_data):
         config.append(generate_sysfs_cpu_pack_config())
     config.append(generate_sysfs_cpu_core_config(platform_data))
     config.append(generate_sysfs_fan_config(platform_data))
-    if platform_data['psus'].get("hot_swappable"):
+    if platform_data['psus']['hot_swappable']:
         config.append(generate_sysfs_psu_config(dut, platform_data))
     config.append(generate_sysfs_sfp_config(platform_data))
     if 'liquid_cooling_leakage' in platform_data and platform_data['leak_sensors']['number'] > 0:
@@ -331,7 +331,7 @@ def generate_sysfs_fan_config(platform_data):
             }
         ]
     }
-    if not platform_data['fans'].get("hot_swappable"):
+    if not platform_data['fans']['hot_swappable']:
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 
