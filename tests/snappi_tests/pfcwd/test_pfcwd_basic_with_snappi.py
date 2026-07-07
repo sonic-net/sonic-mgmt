@@ -16,6 +16,7 @@ from tests.common.reboot import reboot                              # noqa: F401
 from tests.common.utilities import wait_until                       # noqa: F401
 from tests.common.config_reload import config_reload
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.helpers.dut_utils import restart_service_with_startlimit_guard
 from tests.snappi_tests.pfcwd.files.pfcwd_basic_helper import run_pfcwd_basic_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.files.helper import reboot_duts, \
@@ -33,13 +34,13 @@ def _wait_lossless_pg_ready(duthost, snappi_ports):
     A port is ready once ``BUFFER_PG_TABLE:<port>:3-4`` is present in APPL_DB, i.e.
     buffermgr/orchagent have re-pushed lossless buffer/PG state after the swss
     restart. ``critical_services_fully_started`` only reflects systemd-level health
-    and does not guarantee QoS has been reapplied to SAI. ``run_redis_cli_cmd`` scopes
-    the query to the port's ASIC namespace on multi-asic DUTs automatically.
+    and does not guarantee QoS has been reapplied to SAI. ``asic.sonic_db_cli`` targets
+    APPL_DB explicitly and adds ``-n <namespace>`` scoping on multi-asic DUTs.
     """
     def _lossless_pg_ready(port):
         asic = duthost.get_port_asic_instance(port)
-        out = asic.run_redis_cli_cmd("keys 'BUFFER_PG_TABLE:{}:3-4'".format(port))
-        return bool(out['stdout'].strip())
+        cmd = "{} APPL_DB keys 'BUFFER_PG_TABLE:{}:3-4'".format(asic.sonic_db_cli, port)
+        return bool(duthost.shell(cmd, verbose=False)['stdout'].strip())
 
     ports_on_duthost = [port for port in snappi_ports if port['duthost'] is duthost]
     for snappi_port in ports_on_duthost:
@@ -55,55 +56,50 @@ def restart_swss_and_wait_ready(snappi_ports, restart_service):
     ready to carry lossless traffic again.
 
     On multi-asic DUTs a random per-asic ``swss@<id>`` instance is restarted and
-    BGP re-establishment is additionally gated; on single-asic DUTs the
-    container-level ``restart_service`` is restarted. In both cases we wait on
+    BGP re-establishment is additionally gated; on single-asic DUTs ``restart_service``
+    is restarted through ``restart_service_with_startlimit_guard``, which also guards the
+    systemd start-rate-limit that repeated restarts can trip. In both cases we wait on
     critical services, interface up-state and the lossless BUFFER_PG row (see
     ``_lossless_pg_ready``) on every test port before returning.
     """
     duthosts = list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]))
+    is_multi_asic = snappi_ports[0]['duthost'].is_multi_asic
 
-    if snappi_ports[0]['duthost'].is_multi_asic:
-        ports_dict = defaultdict(list)
+    ports_dict = defaultdict(list)
+    if is_multi_asic:
         for port in snappi_ports:
             ports_dict[port['peer_device']].append(port['asic_value'])
-
         for k in ports_dict.keys():
             ports_dict[k] = list(set(ports_dict[k]))
-
         logger.info('Port dictionary:{}'.format(ports_dict))
-        for duthost in duthosts:
-            up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-            # Record current state of critical services.
-            duthost.critical_services_fully_started()
 
-            asic_list = ports_dict[duthost.hostname]
-            asic = random.sample(asic_list, 1)[0]
-            asic_id = re.match(r"(asic)(\d+)", asic).group(2)
-            proc = 'swss@' + asic_id
-            logger.info("Issuing a restart of service {} on the dut {}".format(proc, duthost.hostname))
-            duthost.command("sudo systemctl reset-failed {}".format(proc))
-            duthost.command("sudo systemctl restart {}".format(proc))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all interfaces are up.")
+    for duthost in duthosts:
+        # Record current state of critical services (and BGP neighbors on multi-asic).
+        up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established") if is_multi_asic else None
+        duthost.critical_services_fully_started()
+
+        if is_multi_asic:
+            asic = random.sample(ports_dict[duthost.hostname], 1)[0]
+            asic_index = int(re.match(r"asic(\d+)", asic).group(1))
+            asic_inst = duthost.asic_instance(asic_index)
+            # asic_instance resolves the per-asic systemd unit (swss@<id>) and docker name
+            # (swss<id>) separately, which the startlimit-guard helper cannot.
+            logger.info("Issuing a restart of {} on {} of dut {}".format(restart_service, asic, duthost.hostname))
+            asic_inst.reset_service(restart_service)
+            asic_inst.restart_service(restart_service)
+        else:
+            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
+            restart_service_with_startlimit_guard(duthost, restart_service)
+
+        logger.info("Wait until the system is stable")
+        pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
+                      "Not all critical services are fully started")
+        pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
+                      "Not all interfaces are up.")
+        if is_multi_asic:
             pytest_assert(wait_until(
                 WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-            _wait_lossless_pg_ready(duthost, snappi_ports)
-
-    else:
-        for duthost in duthosts:
-            duthost.critical_services_fully_started()
-            logger.info("Issuing a restart of service {} on the dut {}".format(restart_service, duthost.hostname))
-            duthost.command("systemctl reset-failed {}".format(restart_service))
-            duthost.command("systemctl restart {}".format(restart_service))
-            logger.info("Wait until the system is stable")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, duthost.critical_services_fully_started),
-                          "Not all critical services are fully started")
-            pytest_assert(wait_until(WAIT_TIME, INTERVAL, 0, check_interface_status_of_up_ports, duthost),
-                          "Not all interfaces are up.")
-            _wait_lossless_pg_ready(duthost, snappi_ports)
+        _wait_lossless_pg_ready(duthost, snappi_ports)
 
 
 @pytest.fixture(autouse=True, scope='module')
