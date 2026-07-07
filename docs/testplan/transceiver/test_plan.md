@@ -133,8 +133,8 @@ A "-" entry means the category intentionally does not consume that gate; the tra
 
 An autouse fixture in the top-level `conftest.py` runs before and after **every** transceiver test:
 
-- **Before**: verify `xcvrd` is `RUNNING` and record its PID along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
-- **After**: verify `xcvrd` is still `RUNNING` with an unchanged PID and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
+- **Before**: verify `xcvrd`, `syncd` and `orchagent` are `RUNNING` and record their PIDs along with the `/var/core/` baseline; on failure (e.g. `xcvrd` not running), take the configured pre-test action (default: skip the test).
+- **After**: verify `xcvrd`, `syncd` and `orchagent` are still `RUNNING` with unchanged PIDs and that no new core files appeared; on failure, take the configured post-test action (default: abort the session via `pytest.exit`) so a regression surfaces cleanly.
 
 The action for each phase is configurable so a user can keep a run going through health-check failures (e.g. when triaging a specific failure scenario):
 
@@ -621,7 +621,21 @@ attributes/
 ├── system/
 │   └── ...                                            # same shape as eeprom/
 ├── physical_oir/
+│   ├── physical_oir.json                              # category-level shard
+│   └── transceivers/
+│       └── vendors/
+│           └── ACME_CORP/
+│               └── part_numbers/
+│                   └── QSFP-2X100G-AOC-GENERIC_2_ENDM/
+│                       └── physical_oir.json          # per-PN body
 ├── remote_reseat/
+│   ├── remote_reseat.json                             # category-level shard
+│   └── transceivers/
+│       └── vendors/
+│           └── ACME_CORP/
+│               └── part_numbers/
+│                   └── QSFP-2X100G-AOC-GENERIC_2_ENDM/
+│                       └── remote_reseat.json         # per-PN body
 ├── cdb_firmware_upgrade/
 ├── dom/
 ├── vdm/
@@ -1272,31 +1286,16 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
 
-#### 1.3 Remote Reseat related tests
+#### 1.3 Transceiver Specific Capabilities
 
-The following tests aim to validate the functionality of remote reseating of the transceiver module.
-All the below steps should be executed in a sequential manner.
-
-| TC No. | Step | Goal | Expected Results |
-|------|------|------|------------------|
-|1 | Issue CLI command to disable DOM monitoring | Remote reseat validation | Ensure that the DOM monitoring is disabled for the port |
-|2 | Issue CLI command to shutdown the port | Remote reseat validation | Ensure that the port is linked down |
-|3 | Reset the transceiver followed by a sleep for 5s | Transceiver reset validation | Ensure reset command executes successfully |
-|4 | Put transceiver in low power mode (if LPM supported) | Remote reseat validation | Ensure that the port is in low power mode |
-|5 | Put transceiver in high power mode (if LPM supported) | Remote reseat validation | Ensure that the port is in high power mode |
-|6 | Issue CLI command to startup the port | Remote reseat validation | Ensure that the port is linked up and is seen in the LLDP table |
-|7 | Issue CLI command to enable DOM monitoring for the port | Remote reseat validation | Ensure that the DOM monitoring is enabled for the port |
-
-#### 1.4 Transceiver Specific Capabilities
-
-##### 1.4.1 General Tests
+##### 1.3.1 General Tests
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
 | Adjust FEC mode | Validate FEC mode adjustment for transceivers supporting FEC | Ensure that the FEC mode can be adjusted to different modes and revert to original FEC mode after testing |
 | Validate FEC stats counters | Validate FEC stats counters | Ensure that FEC correctable, uncorrectable and symbol errors have integer values |
 
-##### 1.4.2 VDM specific tests
+##### 1.3.2 VDM specific tests
 
 **Prerequisites:**
 
