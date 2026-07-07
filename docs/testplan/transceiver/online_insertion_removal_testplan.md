@@ -119,7 +119,7 @@ This table lists the transceiver related DB tables with the attributes that shou
 | APPL_DB | PORT_TABLE | link related info, oper status, flap count |
 | STATE_DB | TRANSCEIVER_DOM_SENSOR | Rx power should be high negative value |
 | STATE_DB | TRANSCEIVER_PM | Rx power averages should decrease |
-| STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx LOS and Rx CDRLOL flags should be updated |  
+| STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx LOS and Rx CDRLOL flags should be updated |
 
 
 ##### Transceiver flag tables
