@@ -32,6 +32,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     neigh_name = lldp_table[1]

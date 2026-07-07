@@ -34,6 +34,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    confed_asn = duthost.get_bgp_confed_asn()
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
     tor1 = lldp_table[1]
