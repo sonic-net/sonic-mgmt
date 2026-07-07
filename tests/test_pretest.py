@@ -31,6 +31,89 @@ pytestmark = [
 
 FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
+DPU_RECOVERY_STATE_TIMEOUT = 600
+DPU_RECOVERY_STATE_INTERVAL = 30
+DPU_RECOVERY_STARTUP_RETRY_TIMEOUT = 720
+DPU_RECOVERY_STARTUP_RETRY_INTERVAL = 60
+
+
+def _parse_chassis_module_status(output):
+    """Parse 'show chassis modules status' output into module status entries."""
+    entries = []
+    for line in output.splitlines():
+        fields = line.split()
+        if not fields or not re.match(r"^DPU\d+$", fields[0]):
+            continue
+        if len(fields) < 4:
+            logger.warning("Skipping unexpected chassis module line: %s", line)
+            continue
+        entries.append({
+            "name": fields[0],
+            "oper_status": fields[-3],
+            "admin_status": fields[-2],
+        })
+    return entries
+
+
+def _show_chassis_module_status(duthost):
+    result = duthost.shell("show chassis modules status", module_ignore_errors=True)
+    return result.get("stdout", "")
+
+
+def _is_dpu_online_up(duthost, dpu_name):
+    for entry in _parse_chassis_module_status(_show_chassis_module_status(duthost)):
+        if entry["name"] == dpu_name:
+            return (entry["oper_status"].lower() == "online" and
+                    entry["admin_status"].lower() == "up")
+    return False
+
+
+def _startup_dpu_when_transition_settled(duthost, dpu_name):
+    result = duthost.shell(
+        "sudo config chassis modules startup {}".format(dpu_name),
+        module_ignore_errors=True
+    )
+    output = "{}\n{}".format(result.get("stdout", ""), result.get("stderr", ""))
+    if "state transition is already in progress" in output.lower():
+        logger.info("%s: startup of %s is still blocked by state transition",
+                    duthost.hostname, dpu_name)
+        return False
+    return True
+
+
+def _recover_admin_up_offline_dpu(duthost, dpu_name):
+    logger.warning("%s: recovering %s because admin is up but oper is not Online",
+                   duthost.hostname, dpu_name)
+    duthost.shell("sudo config chassis modules shutdown {}".format(dpu_name))
+
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STARTUP_RETRY_TIMEOUT, DPU_RECOVERY_STARTUP_RETRY_INTERVAL, 0,
+                   _startup_dpu_when_transition_settled, duthost, dpu_name),
+        "{}: {} startup was still blocked by a state transition".format(duthost.hostname, dpu_name)
+    )
+    pytest_assert(
+        wait_until(DPU_RECOVERY_STATE_TIMEOUT, DPU_RECOVERY_STATE_INTERVAL, 0,
+                   _is_dpu_online_up, duthost, dpu_name),
+        "{}: {} did not recover to Online/up".format(duthost.hostname, dpu_name)
+    )
+
+
+def test_recover_admin_up_offline_dpu_modules(duthosts, tbinfo):
+    """Recover SmartSwitch DPU modules that are admin-up but not operationally Online."""
+    topo_name = tbinfo.get("topo", {}).get("name", "")
+    if "smartswitch" not in topo_name:
+        pytest.skip("DPU module recovery is only applicable to SmartSwitch testbeds")
+
+    def recover_dpus(duthost):
+        entries = _parse_chassis_module_status(_show_chassis_module_status(duthost))
+        for entry in entries:
+            if (entry["admin_status"].lower() == "up" and
+                    entry["oper_status"].lower() != "online"):
+                _recover_admin_up_offline_dpu(duthost, entry["name"])
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(recover_dpus, duthost)
 
 
 def test_features_state(duthosts, localhost):
