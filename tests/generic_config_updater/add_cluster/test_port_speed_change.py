@@ -808,9 +808,11 @@ def test_port_speed_change(tbinfo,
                           module_ignore_errors=False)
             time.sleep(GNMI_SERVER_START_WAIT_TIME)
             logger.info("entering verifying port telemetry info Amol")
-            cmd = f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py ' \
-                  f'&& python py_gnmicli.py -g -t {duthost.mgmt_ip} -p {env.gnmi_port} ' \
-                  f'-m get -x COUNTERS/{selected_random_port} -xt COUNTERS_DB -o ndastreamingservertest'
+            cmd = (
+                f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py '
+                f'&& python py_gnmicli.py -g -t {duthost.mgmt_ip} -p {env.gnmi_port} '
+                f'-m get -x COUNTERS/{selected_random_port} -xt COUNTERS_DB -o ndastreamingservertest'
+            )
             show_gnmi_out = ptfhost.shell(cmd)['stdout']
             logger.info("GNMI Server output")
             logger.info(show_gnmi_out)

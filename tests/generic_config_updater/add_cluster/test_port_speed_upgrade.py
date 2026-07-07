@@ -1479,7 +1479,7 @@ def port_speed_upgrade_context(duthosts, tbinfo):
         f"Selected DUT={selected_context['enum_downstream_dut_hostname']} "
         f"asic={selected_context['enum_rand_one_asic_namespace']} "
         f"port={selected_context['selected_random_port']} "
-        f"({selected_context['selected_random_port_alias']}) at 400G; "
+        f"({selected_context['selected_random_port_alias']}) at 400G, "
         f"traffic_source_dut={selected_context['traffic_source_dut_hostname']}"
     )
     return selected_context
