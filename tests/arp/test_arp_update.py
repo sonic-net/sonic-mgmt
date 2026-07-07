@@ -150,7 +150,10 @@ def test_kernel_asic_mac_mismatch(
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
     tbinfo
 ):
-    vlan_name, ipv4_base, ipv6_base, ip_offset, _ = setup_vlan_arp_responder
+    # This test just needs a valid responder IP to ping; use the last configured
+    # member and pick v4/v6 by ip_version.
+    arp = setup_vlan_arp_responder
+    vlan_name = arp.vlan
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(rand_selected_dut)
         intf = random.choice(list(servers))
@@ -159,10 +162,9 @@ def test_kernel_asic_mac_mismatch(
         else:
             target_ip = servers[intf]['server_ipv6'].split('/')[0]
     else:
-        if ip_version == 4:
-            target_ip = ipv4_base.ip + ip_offset
-        else:
-            target_ip = ipv6_base.ip + ip_offset
+        responder_ips = arp.responder_cfg[list(arp.responder_cfg)[-1]]
+        # values are [ipv4, ipv6]; [ipv6] on IPv6-only topos.
+        target_ip = responder_ips[0] if ip_version == 4 else responder_ips[-1]
 
     rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")  # noqa: E702
 
@@ -302,21 +304,10 @@ def test_dut_arping_learns_mac(
 
     # Setup PTF responder info.
     #
-    # setup_vlan_arp_responder configures the ARP responder for *every* VLAN
-    # member, giving each PTF port eth{idx} its own responder IP, and exposes
-    # that mapping as arp_responder_cfg (keyed eth{idx} -> [ipv4, ipv6]). The
-    # scalar offset it also yields is only the *last* member it iterated, whose
-    # port MAC is NOT ptf_info['mac'] (the MAC of this test's ptf_interface_info
-    # port). Arping an IP answered by the wrong port makes the assertion pass
-    # only when the target port's MAC happens to already be in the FDB (leftover
-    # from a prior test case or relearned by background traffic within the
-    # window), which makes the test flaky.
-    #
-    # Look up the responder IP of the SAME port whose MAC we assert, keyed by
-    # ptf_info['interface'] (eth{idx}). This reads back the exact IP the
-    # responder was configured with, so the ARP reply carries ptf_info['mac']
-    # and the stimulus deterministically satisfies the check.
-    _, _, _, _, arp_responder_cfg = setup_vlan_arp_responder
+    # responder_cfg maps eth<idx> -> [ipv4, ipv6], each VLAN member's own
+    # responder IP. Look up the SAME port whose MAC we assert (ptf_info
+    # ['interface']) so the ARP reply carries ptf_info['mac'] and is deterministic.
+    arp_responder_cfg = setup_vlan_arp_responder.responder_cfg
     ptf_iface = ptf_info['interface']
     pt_assert(
         ptf_iface in arp_responder_cfg,

@@ -1,3 +1,4 @@
+from collections import namedtuple
 import json
 import os
 import pytest
@@ -182,6 +183,11 @@ def copy_arp_responder_py(ptfhost):
     ptfhost.file(path=os.path.join(OPT_DIR, ARP_RESPONDER_PY), state="absent")
 
 
+# responder_cfg: eth<ptf_index> -> [ipv4, ipv6] ([ipv6] on IPv6-only topos),
+# the exact IP(s) the responder answers per port.
+ArpResponderInfo = namedtuple("ArpResponderInfo", ["vlan", "responder_cfg"])
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     arp_responder_cfg = {}
@@ -254,10 +260,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    # Yield arp_responder_cfg (keyed eth<ptf_index> -> [ipv4, ipv6]) so a consumer
-    # can look up the responder IP of the specific port under test rather than
-    # relying on ip_offset, which only carries the last iterated member's offset.
-    yield vlan, ipv4_base, ipv6_base, ip_offset, arp_responder_cfg
+    yield ArpResponderInfo(vlan=vlan, responder_cfg=arp_responder_cfg)
 
     ptfhost.command('supervisorctl stop arp_responder')
     # Remove the rendered config so it can't mislead diagnostics or be picked up
