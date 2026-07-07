@@ -459,15 +459,15 @@ def standard_port_recovery_and_verification(
         if media_si:
             checks_ran.append("media SI")
             port_table = db_helpers.hgetall_dict(
-                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace
+                duthost, "APPL_DB", f"PORT_TABLE: {port}", namespace=namespace
             )
             if not port_table:
-                failures.append(f"{port}: APPL_DB PORT_TABLE:{port} missing or empty")
+                failures.append(f"{port}: APPL_DB PORT_TABLE: {port} missing or empty")
             else:
                 media_failures = []
                 for si_key, expected in media_si.items():
                     if si_key not in port_table:
-                        media_failures.append(f"media_si[{si_key}]: not present in PORT_TABLE")
+                        media_failures.append(f"media_si[{si_key}]: not in PORT_TABLE")
                         continue
                     actual = port_table[si_key]
                     exp_n = _to_int_or_none(expected)
