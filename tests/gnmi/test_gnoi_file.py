@@ -107,6 +107,8 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
 # Uses gnoi_request / extract_gnoi_response over gnmi TCP transport.
 # No TLS fixture dependency — gnoi_client runs inside the gnmi container on DUT.
 # ---------------------------------------------------------------------------
+
+
 @pytest.fixture(scope="module", autouse=False)
 def reapply_cert_config(duthosts, rand_one_dut_hostname, localhost):
     """Restore a consistent TLS cert state for gnoi_request-based tests.
@@ -123,6 +125,8 @@ def reapply_cert_config(duthosts, rand_one_dut_hostname, localhost):
     prepare_client_cert(localhost)
     copy_certificate_to_dut(duthost)
     apply_cert_config(duthost)
+
+
 def test_gnoi_file_stat_regular_file(duthosts, rand_one_dut_hostname, localhost, reapply_cert_config):  # noqa: F811
     """Stat a known regular file; verify path, size, last_modified, permissions and umask.
     PR #697: HandleStat returns exactly one StatInfo for a regular file.
@@ -154,6 +158,8 @@ def test_gnoi_file_stat_regular_file(duthosts, rand_one_dut_hostname, localhost,
     # umask is the constant defaultUmask = 0022 octal = 18 decimal (PR hardcodes this).
     pytest_assert(int(entry.get("umask", -1)) == 18,
                   "Expected umask=18 (0022 octal), got: {}".format(entry.get("umask")))
+
+
 def test_gnoi_file_stat_directory(duthosts, rand_one_dut_hostname, localhost, reapply_cert_config):  # noqa: F811
     """Stat a directory; verify non-recursive listing returns immediate children only.
     PR #697 contract:
@@ -188,6 +194,8 @@ def test_gnoi_file_stat_directory(duthosts, rand_one_dut_hostname, localhost, re
                       "Child '{}' missing 'permissions'".format(child_path))
         pytest_assert(int(entry.get("umask", -1)) == 18,
                       "Child '{}' expected umask=18, got: {}".format(child_path, entry.get("umask")))
+
+
 def test_gnoi_file_stat_not_found(duthosts, rand_one_dut_hostname, localhost, reapply_cert_config):  # noqa: F811
     """Stat a non-existent path; expect NOT_FOUND error."""
     duthost = duthosts[rand_one_dut_hostname]
@@ -199,6 +207,8 @@ def test_gnoi_file_stat_not_found(duthosts, rand_one_dut_hostname, localhost, re
         "NotFound" in msg or "not found" in msg.lower() or "no such file" in msg.lower(),
         "Expected NOT_FOUND error, got: {}".format(msg)
     )
+
+
 @pytest.mark.parametrize("bad_path,reason", [
     ("", "empty path"),
     ("etc/hostname", "relative path"),
@@ -217,6 +227,8 @@ def test_gnoi_file_stat_invalid_argument(
         "InvalidArgument" in msg or "invalid argument" in msg.lower() or "invalid" in msg.lower(),
         "Expected INVALID_ARGUMENT error for {} ('{}'): {}".format(reason, bad_path, msg)
     )
+
+
 def test_gnoi_file_stat_permissions_decimal_octal(
         duthosts, rand_one_dut_hostname, localhost, reapply_cert_config):  # noqa: F811
     """Verify permissions field is encoded as decimal-octal per gNOI proto.
