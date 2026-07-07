@@ -337,11 +337,6 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
-        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
-            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
-            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
-
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
@@ -1005,6 +1000,12 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def set_switch_host_admin_up_config(self, config):
+        """Set switch-host admin_up by default"""
+        ori_config_db = json.loads(config)
+        ori_config_db.setdefault("CHASSIS_MODULE", {}).setdefault("SWITCH-HOST", {})["admin_status"] = "up"
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -1278,6 +1279,10 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
+
+        # set switch-host admin_up by default for BMC
+        if "bmc" in self.topo_name:
+            config = self.set_switch_host_admin_up_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
