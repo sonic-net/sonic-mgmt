@@ -29,7 +29,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
->**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method`.
+>**Note:** In the manual `oir_method`, the user is expected to physically insert or remove the transceivers when prompted by the test script on the terminal. In the pseudo `oir_method`, the test script simulates the insertion and removal of transceivers using platform-specific commands/tools. In the automated `oir_method`, the insertion and removal occur unattended. The test script automatically performs the insertion and removal of transceivers using the appropriate commands, scripts or tools. We plan to implement the code for the manual `oir_method` for now. `pseudo` and `automated` methods will be implemented in the future.
 
 3. `remote_reseat.json` files under `ansible/files/transceiver/inventory/attributes/remote_reseat` directory are used to define the attributes for the remote reseat tests. Per-PN body contains transceiver specific defaults, while DUT specific overrides are defined in the category-level shard; see [File Organization](test_plan.md#file-organization) for the shard contract. Following attributes are applicable here:
 
@@ -117,10 +117,9 @@ This table lists the transceiver related DB tables with the attributes that shou
 | DB Name | Table Name(s) | Attributes to Monitor |
 |---------|---------------|-----------------------|
 | APPL_DB | PORT_TABLE | link related info, oper status, flap count |
-| STATE_DB | TRANSCEIVER_DOM_SENSOR | Rx power |
-| STATE_DB | TRANSCEIVER_PM | Rx related metrics if applicable |
-| STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx related fields |
-| STATE_DB | TRANSCEIVER_VDM_* | Rx related metrics if applicable |
+| STATE_DB | TRANSCEIVER_DOM_SENSOR | Rx power should be high negative value |
+| STATE_DB | TRANSCEIVER_PM | Rx power averages should decrease |
+| STATE_DB | TRANSCEIVER_STATUS_FLAG_* | Rx LOS and Rx CDRLOL flags should be updated |  
 
 
 ##### Transceiver flag tables
