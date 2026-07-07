@@ -1105,7 +1105,7 @@ def check_tx_drp_counts(
     details = {} if verbose else None
 
     for p in ports:
-        pytest_assert(p in stats, f"Port {p} not found in portstat output")
+        pytest_assert(p in stats, f"Port {p} not found in portstat output")  # noqa: E713
         tx_drp_raw = stats[p].get("TX_DRP")
         pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
         try:
@@ -1271,7 +1271,7 @@ def config_capture_settings(api,
     for port_name in port_names:
         port = ixnet_session.Vport.find(Name=port_name)
         if not port:
-            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")
+            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")  # noqa: E713
 
         port.Capture.HardwareEnabled = True  # enables data plane capture
         port.Capture.Filter.CaptureFilterEnable = True

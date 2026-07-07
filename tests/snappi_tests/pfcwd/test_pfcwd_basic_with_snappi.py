@@ -118,7 +118,7 @@ def save_restore_config(tgen_port_info):          # noqa: F811
     dest = f'~/{timestamp}'
 
     for duthost in list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']])):
-        duthost.shell(f"sudo mkdir {dest}; sudo cp /etc/sonic/config*.json {dest}")
+        duthost.shell(f"sudo mkdir {dest}; sudo cp /etc/sonic/config*.json {dest}")  # noqa: E702
         duthost.shell("sudo config save -y")
 
     yield
