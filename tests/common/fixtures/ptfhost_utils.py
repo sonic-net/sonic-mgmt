@@ -254,7 +254,10 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     logger.info("Start arp_responder")
     ptfhost.command('supervisorctl start arp_responder')
 
-    yield vlan, ipv4_base, ipv6_base, ip_offset
+    # Yield arp_responder_cfg (keyed eth<ptf_index> -> [ipv4, ipv6]) so a consumer
+    # can look up the responder IP of the specific port under test rather than
+    # relying on ip_offset, which only carries the last iterated member's offset.
+    yield vlan, ipv4_base, ipv6_base, ip_offset, arp_responder_cfg
 
     ptfhost.command('supervisorctl stop arp_responder')
     # Remove the rendered config so it can't mislead diagnostics or be picked up
