@@ -52,11 +52,11 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
         ptfhost.command(f"cd /tmp && python -m http.server {http_port}", module_async=True)
         # 3. Wait for HTTP server to start
         ptf_ip = ptfhost.mgmt_ip
-        logger.info(f"Waiting for HTTP server to start at {ptf_ip}:{http_port}")
+        logger.info("Waiting for HTTP server to start at {}:{}".format(ptf_ip, http_port))
 
         def server_ready():
             try:
-                result = ptfhost.command(f"curl -f --max-time 2 {ptf_ip}:{http_port}",
+                result = ptfhost.command("curl -f --max-time 2 {}:{}".format(ptf_ip, http_port),
                                          module_ignore_errors=True)
                 return result["rc"] == 0
             except Exception:
@@ -64,7 +64,7 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
         wait_until(30, 2, 2, server_ready)
         logger.info("HTTP server is ready")
         # 4. Test TransferToRemote
-        remote_url = f"http://{ptf_ip}:{http_port}/{test_filename}"
+        remote_url = "http://{}:{}/{}".format(ptf_ip, http_port, test_filename)
         logger.info(f"Testing TransferToRemote: {remote_url} -> {local_path}")
         result = gnmi_tls.gnoi.file_transfer_to_remote(
             local_path=local_path,
