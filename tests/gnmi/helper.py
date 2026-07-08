@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
-# Time budget (seconds) for the GNMI server to start listening
+# Base wait unit (seconds) for GNMI server startup; the listening-port poll allows up to 2x this
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
@@ -67,13 +67,13 @@ def apply_cert_config(duthost, vrf_name=None):
     # Poll for the listening port instead of a single fixed-delay check: the gnmi server can
     # briefly drop and rebind its listener while it hot-reloads the freshly copied cert/key pair.
     def _gnmi_server_listening():
-        cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep {env.gnmi_process}"
+        cmd = 'sudo ss -ltnp | grep ":{} " | grep {}'.format(env.gnmi_port, env.gnmi_process)
         return duthost.shell(cmd, module_ignore_errors=True)['stdout'].strip() != ""
 
     server_started = wait_until(GNMI_SERVER_START_WAIT_TIME * 2, 3, 5, _gnmi_server_listening)
     if not server_started:
         # Dump listening port status and gnmi log
-        output = duthost.shell(f"sudo ss -ltnp | grep {env.gnmi_port}", module_ignore_errors=True)
+        output = duthost.shell('sudo ss -ltnp | grep ":{} "'.format(env.gnmi_port), module_ignore_errors=True)
         logger.info("TCP port status: " + output['stdout'])
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
