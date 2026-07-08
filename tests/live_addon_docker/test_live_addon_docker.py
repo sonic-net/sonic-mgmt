@@ -161,7 +161,7 @@ def test_live_addon_docker_image_upgrade(
             baseline_cfg["docker_run"]["image_ref"],
         )
 
-        target_cfg, (ok, code, body) = lad.upgrade_live_addon_docker_image(
+        _, (ok, code, body) = lad.upgrade_live_addon_docker_image(
             duthost,
             target_cfg,
             public_docker_registry=public_reg,
