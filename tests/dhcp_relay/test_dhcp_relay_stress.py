@@ -146,6 +146,10 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     client_packets_per_sec = 10000
+    # KVM/virtual-switch DUTs drop packets under stress due to resource
+    # pressure, so the strict DUT-vs-PTF count cross-check is only enforced
+    # on real hardware.
+    is_kvm = duthost.facts.get("asic_type") == "vs"
 
     for dhcp_relay in dut_dhcp_relay_data:
         client_port_name = str(dhcp_relay['client_iface']['name'])
@@ -183,29 +187,40 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             output = ptfhost.shell(command)
             return not output['rc'] and output['stdout'].strip() == "exists"
 
+        def _assert_relay_count(dut_received, side_desc):
+            # A total forwarding failure (0 relayed packets seen by PTF) is
+            # always a hard failure, regardless of platform.
+            pytest_assert(exp_count > 0,
+                          "PTF captured 0 relayed packets on {} interface(s). "
+                          "Relay failed to forward any packets.".format(side_desc))
+            logger.info("Stress test results ({}): DUT received = {}, PTF relayed = {}".format(
+                        side_desc, dut_received, exp_count))
+            if is_kvm:
+                # Resource pressure on KVM makes an exact cross-check flaky;
+                # only warn when the DUT capture is empty.
+                if dut_received == 0:
+                    logger.warning("DUT tcpdump captured 0 packets on {} interface "
+                                   "(expected under resource pressure on KVM)".format(side_desc))
+                return
+            # On real hardware the DUT-observed count must track the PTF-relayed
+            # count within +/-10%, catching silent large-scale packet loss.
+            lower_bound = int(exp_count * 0.9)
+            upper_bound = int(exp_count * 1.1)
+            pytest_assert(lower_bound <= dut_received <= upper_bound,
+                          "Relay packet-count mismatch on {}: DUT count = {}, PTF count = {} "
+                          "(allowed {}-{}).".format(side_desc, dut_received, exp_count,
+                                                    lower_bound, upper_bound))
+
         def _verify_server_packets(pkts):
             dut_received = len([pkt for pkt in pkts
-                               if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec])
-            logger.info("Stress test results: DUT received = {}, PTF relayed = {} "
-                        "(across {} servers)".format(dut_received, exp_count, num_dhcp_servers))
-            if dut_received == 0:
-                logger.warning("DUT tcpdump captured 0 packets on client interface "
-                               "(may be due to resource pressure during stress test)")
-            pytest_assert(exp_count > 0,
-                          "PTF captured 0 relayed packets on server interfaces. "
-                          "Relay failed to forward any packets.")
+                               if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec]
+                               ) * num_dhcp_servers
+            _assert_relay_count(dut_received, "server")
 
         def _verify_client_packets(pkts):
             dut_received = len([pkt for pkt in pkts
                                 if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec])
-            logger.info("Stress test results: DUT received = {}, PTF relayed = {}".format(
-                        dut_received, exp_count))
-            if dut_received == 0:
-                logger.warning("DUT tcpdump captured 0 packets on server interface "
-                               "(may be due to resource pressure during stress test)")
-            pytest_assert(exp_count > 0,
-                          "PTF captured 0 relayed packets on client interface. "
-                          "Relay failed to forward any packets.")
+            _assert_relay_count(dut_received, "client")
 
         if dhcp_type in ['discover', 'request']:
             interface = client_port_name

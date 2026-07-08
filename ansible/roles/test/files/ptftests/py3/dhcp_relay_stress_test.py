@@ -57,12 +57,15 @@ class DHCPStressTest(DHCPTest):
         # issues with '-i any' cooked capture (SLL/SLLv2), deep BPF offsets
         # (udp[249:2]), and grep-based interface filtering.
         log_files = []
+        tcpdump_procs = []
         for idx in self.receive_port_indices:
             log_file = "/tmp/dhcp_stress_{}_{}.log".format(self.packet_type, idx)
             log_files.append(log_file)
-            cmd = "tcpdump -i eth{} -n -q -l 'udp and (port 67 or port 68)' > {} 2>/dev/null".format(
+            # exec so the shell is replaced by tcpdump and proc.pid is the
+            # tcpdump PID we can signal directly (see cleanup below).
+            cmd = "exec tcpdump -i eth{} -n -q -l 'udp and (port 67 or port 68)' > {} 2>/dev/null".format(
                 idx, log_file)
-            subprocess.Popen(cmd, shell=True)
+            tcpdump_procs.append(subprocess.Popen(cmd, shell=True))
 
         time.sleep(1)
 
@@ -81,13 +84,18 @@ class DHCPStressTest(DHCPTest):
 
         time.sleep(15)
 
-        try:
-            pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
-            for pid in pids:
-                os.kill(int(pid), signal.SIGINT)
-        except subprocess.CalledProcessError:
-            # No tcpdump processes running; safe to ignore
-            pass
+        # Only stop the tcpdump instances this test started. A blanket
+        # `pgrep tcpdump` + kill would also tear down captures owned by other
+        # parametrized stress runs executing concurrently on the same PTF host.
+        for proc in tcpdump_procs:
+            try:
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            except OSError:
+                # Process already exited; nothing to clean up.
+                pass
         time.sleep(2)
 
         total_count = 0
