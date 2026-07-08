@@ -711,12 +711,16 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
-    # Normalize nodeids: strip root directory prefix if present (pytest 9.0+ includes it)
+    # Normalize nodeids to match the tests/-relative condition keys. rootdir may
+    # float above tests/ (e.g. --inventory ../ansible/veos_vtb), so strip both
+    # basename(rootpath) and a leading "tests/" or all conditional skips no-op.
     root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
     for item in items:
         nodeid = item.nodeid
         if nodeid.startswith(root_prefix):
             nodeid = nodeid[len(root_prefix):]
+        if nodeid.startswith("tests/"):
+            nodeid = nodeid[len("tests/"):]
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
