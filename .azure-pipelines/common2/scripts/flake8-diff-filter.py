@@ -63,13 +63,20 @@ def changed_lines(base, head, path):
 
 
 def run_flake8(files, flake8_args):
+    """Run flake8 and return (stdout, stderr, returncode).
+
+    flake8 exits 0 when clean and 1 when it finds lint violations; any higher
+    exit code means flake8 itself failed to run (bad config, plugin load
+    failure, internal error) and typically reports the reason only on stderr.
+    Callers must inspect the return code so such failures are not swallowed.
+    """
     if not files:
-        return ''
+        return '', '', 0
     proc = subprocess.run(
         ['flake8'] + flake8_args + files,
         capture_output=True, text=True,
     )
-    return proc.stdout
+    return proc.stdout, proc.stderr, proc.returncode
 
 
 def filter_violations(output, base, head, cache):
@@ -106,9 +113,19 @@ def main():
         files = [f for f in existing_files if ruleset['match'](f)]
         if not files:
             continue
-        output = run_flake8(files, ruleset['args'])
-        if output.strip():
-            all_kept.extend(filter_violations(output, args.base, args.head, line_cache))
+        stdout, stderr, rc = run_flake8(files, ruleset['args'])
+        if rc > 1:
+            # flake8 failed to run (not a lint finding). Surface its output
+            # verbatim and fail the wrapper so the error is never silently
+            # swallowed -- otherwise, since flake8 is SKIPped in the
+            # pre-commit run, this would let style regressions ship green.
+            all_kept.append('flake8 failed to run (exit status %d):' % rc)
+            detail = (stderr or stdout).strip()
+            if detail:
+                all_kept.extend(detail.splitlines())
+            continue
+        if stdout.strip():
+            all_kept.extend(filter_violations(stdout, args.base, args.head, line_cache))
 
     if all_kept:
         print('\n'.join(all_kept))

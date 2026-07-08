@@ -11,6 +11,10 @@ repos:
     -   id: check-added-large-files
     -   id: check-ast
 
+# NOTE: The flake8 rev and the per-hook args below are mirrored by the
+# diff-aware CI wrapper in .azure-pipelines/common2/scripts/flake8-diff-filter.py
+# (RULESETS) and the flake8 pin in .azure-pipelines/pre-commit-check.yml. Keep
+# them in sync when changing the version or the general/spytest args.
 -   repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:

@@ -11,6 +11,11 @@ steps:
 
 - checkout: self
   clean: true
+  # Full history is required so `git merge-base HEAD origin/<target>` below can
+  # resolve the PR's fork point. A shallow checkout would make merge-base fail
+  # and silently fall back to HEAD^, reintroducing the multi-commit bug this
+  # job is meant to fix.
+  fetchDepth: 0
   displayName: 'checkout sonic-mgmt repo'
 
 - script: |
@@ -30,13 +35,25 @@ steps:
     # commit, which is incorrect for multi-commit PRs.
     TARGET_BRANCH_RAW="${SYSTEM_PULLREQUEST_TARGETBRANCH:-master}"
     TARGET_BRANCH="${TARGET_BRANCH_RAW#refs/heads/}"
-    git fetch origin "${TARGET_BRANCH}" 2>/dev/null || true
-    BASE_COMMIT=$(git merge-base HEAD "origin/${TARGET_BRANCH}" 2>/dev/null || echo HEAD^)
+    # Fetch directly into the remote-tracking ref so `git merge-base` can
+    # resolve it. A plain `git fetch origin <branch>` only updates FETCH_HEAD
+    # in some checkout configurations, leaving origin/<branch> missing/stale.
+    git fetch origin "${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}" 2>/dev/null \
+      || git fetch origin "${TARGET_BRANCH}" 2>/dev/null \
+      || true
+    BASE_COMMIT=$(git merge-base HEAD "origin/${TARGET_BRANCH}" 2>/dev/null || true)
+    if [ -z "$BASE_COMMIT" ]; then
+      # Loud fallback: merge-base failed (e.g. tracking ref unavailable), so
+      # diff-based filtering degrades to the single most recent commit and may
+      # report pre-existing issues or miss earlier commits in a multi-commit PR.
+      echo "WARNING: could not determine merge-base with origin/${TARGET_BRANCH}; falling back to HEAD^" >&2
+      BASE_COMMIT=HEAD^
+    fi
     echo "Using base commit ${BASE_COMMIT} (target branch: ${TARGET_BRANCH})"
 
     # Run pre-commit check and capture the output
     CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD)
-    FILTERED_FILES=$(echo "$CHANGED_FILES" | grep -v '^tests/common2')
+    FILTERED_FILES=$(echo "$CHANGED_FILES" | grep -v '^tests/common2/')
     RC=0
     out=""
     if [ -n "$FILTERED_FILES" ]; then
