@@ -8,14 +8,17 @@
   - [1.5.1. Configuration commands](#151-configuration-commands)
   - [1.5.2. Show commands](#152-show-commands)
 - [2. Test structure](#2-test-structure)
-  - [2.1.1. Setup configuration](#211-setup-configuration)
-  - [2.1.2. Configuration diagram](#212-configuration-diagram)
-  - [2.1. Test cases](#21-test-cases)
+  - [2.1. Setup configuration](#21-setup-configuration)
+  - [2.2. Configuration diagram](#22-configuration-diagram)
+  - [2.3. Test cases](#23-test-cases)
 
 ## 1.1. Related documents
 
 | Document Name | Link |
 | --- | --- |
+| Egress mirroring and ACL action support check via SAI HLD | https://github.com/sonic-net/SONiC/pull/411 |
+| Everflow test plan | [Everflow-test-plan.md](Everflow-test-plan.md) |
+| Test implementation PR (closed) | https://github.com/sonic-net/sonic-mgmt/pull/24773 |
 
 ## 1.2. Overview
 
@@ -23,9 +26,9 @@ This test plan validates support for MIRROR_EGRESS_ACTION on an ACL table bound 
 
 Compared with Spectrum-5 and older ASICs, Spectrum-6 egress ACL mirroring behaves like ingress mirroring and sends the mirrored packet without modification.
 
-Another Spectrum-6-specific behavior is that the mirror copy may still be sent when the original packet is dropped by admission or egress checks.
+The plan reuses existing Everflow coverage for packet-level validation and updates the mirror packet validation logic to distinguish Spectrum-6 behavior from legacy ASIC behavior.
 
-The plan reuses existing Everflow coverage for packet-level validation, and adds validation for these Spectrum-6-specific mirror behaviors.
+The corresponding test implementation is tracked in [sonic-mgmt#24773](https://github.com/sonic-net/sonic-mgmt/pull/24773).
 
 ## 1.3. Scale / Performance
 
@@ -61,7 +64,7 @@ No significant memory or log size impact is expected.
 
 ## 2. Test structure
 
-### 2.1.1. Setup configuration
+### 2.1. Setup configuration
 
 All tests are run on a standard SONiC setup on an SPC6 platform.
 
@@ -69,13 +72,13 @@ An egress ACL table is bound to the target physical port, a mirror session is cr
 
 Existing Everflow flows are reused for packet-level validation.
 
-### 2.1.2. Configuration diagram
+### 2.2. Configuration diagram
 
 N/A.
 
-### 2.1. Test cases
+### 2.3. Test cases
 
 | # | Test Area | Test Name | Test Description | Test Expected Result | Status | Tags |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Core functionality | `test_everflow_testbed.py:TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding` | Reuse the existing egress ACL egress mirror forwarding case and update the packet validation logic to distinguish SPC6 behavior from legacy ASIC behavior, according to the feature description. | Mirrored packet is captured and matches the expected behavior for the running ASIC generation. On SPC6, the mirrored packet follows the behavior described in the feature. | In progress | SPC6, everflow, dataplane, mirror |
-| 2 | Core functionality | `test_everflow_testbed.py:TestEverflowV4EgressAclEgressMirror::test_everflow_spc6_egress_mirror_mtu_drop` | Reuse the existing egress mirror flow to verify the representative MTU drop scenario described in the feature. | Original packet is dropped on the normal path, while the mirror copy is still observed on the monitor path. | New | SPC6, MTU, dataplane, mirror |
+| 1 | Core functionality | `test_everflow_testbed.py:TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding` | Reuse the existing IPv4 egress ACL egress mirror forwarding case and update the packet validation logic to distinguish Spectrum-6 behavior from legacy ASIC behavior. | Mirrored packet is captured and matches the expected behavior for the running ASIC generation. On Spectrum-6, the mirrored packet is forwarded without the post-pipeline rewrite applied on older platforms. | In progress | SPC6, everflow, dataplane, mirror, ipv4 |
+| 2 | Core functionality | `test_everflow_ipv6.py:TestEgressEverflowIPv6::test_src_ipv6_mirroring` | Reuse the existing IPv6 egress ACL egress mirror field-matching case. The same Spectrum-6 packet validation logic in `send_and_check_mirror_packets` applies to the IPv6 egress mirror suite. | Mirrored packet is captured and matches the expected behavior for the running ASIC generation. On Spectrum-6, the mirrored packet is forwarded without the post-pipeline rewrite applied on older platforms. | In progress | SPC6, everflow, dataplane, mirror, ipv6 |
