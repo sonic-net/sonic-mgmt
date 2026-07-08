@@ -134,7 +134,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
         power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
-    pytest_assert(all_outlets, "No outlets found for %s" % duthost.hostname)
+    pytest_assert(all_outlets, "No outlets found for {}".format(duthost.hostname))
 
     # If PDU supports returning output_watts, making sure that all PSUs has power.
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
@@ -147,30 +147,30 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     power_on_seq_list = []
     for psu, pdus in psu_to_pdus.items():
         pytest_assert(any(int(pdu.get('output_watts', '1')) !=
-                      0 for pdu in pdus), "Not all PSUs are getting power")
+                      0 for pdu in pdus), "PSU {} is not getting power".format(psu))
         if not is_chassis:
             power_on_seq_list.append(pdus)
-    # if there is exactly one sequence then we don't need to repeat it
+    # Append all_outlets unless it would duplicate the single existing entry
+    # For chassis the list is empty here, so all_outlets becomes the only entry
     if len(power_on_seq_list) != 1:
         power_on_seq_list.append(all_outlets)
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     poweroff_reboot_kwargs = {"dut": duthost}
+    poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
+    poweroff_reboot_kwargs["all_outlets"] = all_outlets
+    poweroff_reboot_kwargs["delay_time"] = power_off_delay
 
     try:
-        if not is_chassis:
-            duthosts = None
+        duthosts_arg = duthosts if is_chassis else None
 
         for power_on_seq in power_on_seq_list:
-            poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-            poweroff_reboot_kwargs["all_outlets"] = all_outlets
             poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-            poweroff_reboot_kwargs["delay_time"] = power_off_delay
             reboot_and_check(
                 localhost, duthost, conn_graph_facts.get(
                     "device_conn", {}).get(duthost.hostname, {}),
                 xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts)
+                _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts_arg)
 
     except Exception as e:
         logging.debug("Restore power after test failure")
