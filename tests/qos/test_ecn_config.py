@@ -213,25 +213,42 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                         age_quant_len = len(voq_drop_data[0][1])
 
                 if voq_mark_data:
-                    # "wm_prob" is the legacy 4-level ECN mark-probability quantization
-                    # exposed only by older ASICs (e.g. Q200 family). Newer ASICs such as
-                    # Graphene2 (G200) and Palladium2 (P200) use a different congestion
-                    # management model that emits a continuous per-region marking
-                    # probability surface in "voq_mark_prob_g" and do not expose "wm_prob".
-                    # For those devices the 4-level mapping does not apply, so validate that
-                    # each value is a valid probability instead.
+                    # "voq_mark_prob_g" always holds the resolved ECN mark *probabilities*
+                    # (not level indices), but how those probabilities are configured differs
+                    # per ASIC congestion-management model:
+                    #   * Legacy ASICs (e.g. Q200/Gibraltar) expose a small mark-probability
+                    #     lookup table under "wm_prob"; each cell resolves to one of 4 levels via
+                    #     an age/byte-region -> level mapping, verified below.
+                    #   * Graphene2 (G200) uses the same level-index -> probability indirection but
+                    #     with more levels, and dumps that lookup table under "mark_list" instead of
+                    #     "wm_prob". Every resolved value must therefore be one of the "mark_list"
+                    #     entries.
+                    #   * Palladium2 (P200) drops the lookup-table scheme and programs a per-cell
+                    #     probability directly (la_voq_cgm_action_profile), so no discrete level
+                    #     table is emitted; only validate the values are valid probabilities.
                     wm_prob = data.get("wm_prob")
+                    mark_list = data.get("mark_list")
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
-                                actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
+                                raw_value = voq_mark_data[g_idx][voq_idx][age_idx]
                                 if wm_prob is None:
-                                    assert 0.0 <= actual_value <= 1.0, '''
-                                            Marking Probability out of range for Port {} PG {}
-                                            at SMS/VoQ/Age region {}/{}/{} Value: {}
-                                         '''.format(port, pg_to_test, g_idx, voq_idx,
-                                                    age_idx, actual_value)
+                                    if mark_list is not None:
+                                        # G200: resolved probability must belong to the configured LUT
+                                        assert any(abs(raw_value - level) < 1e-6 for level in mark_list), '''
+                                                Marking Probability not in configured mark_list for Port {} PG {}
+                                                at SMS/VoQ/Age region {}/{}/{} Value: {} mark_list: {}
+                                             '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                        age_idx, raw_value, mark_list)
+                                    else:
+                                        # P200: continuous per-cell probability, no discrete levels
+                                        assert 0.0 <= raw_value <= 1.0, '''
+                                                Marking Probability out of range for Port {} PG {}
+                                                at SMS/VoQ/Age region {}/{}/{} Value: {}
+                                             '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                        age_idx, raw_value)
                                     continue
+                                actual_value = round(raw_value, 2)
                                 if age_idx == 0:
                                     mark_level = 0
                                 elif (voq_idx >= 1 and age_idx == 1):
