@@ -11,6 +11,7 @@ from tests.common.utilities import wait_until
 from tests.common.configlet.utils import chk_for_pfc_wd
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
+from tests.common.vs_data import is_vs_device
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,9 @@ config_sources = ['config_db', 'minigraph', 'running_golden_config']
 # not converge after a safe_reload. On virtual (KVM) DUTs this convergence check
 # occasionally misses its timeout when a prior test module left a container
 # churning; a fresh reload restarts the wedged docker and clears the transient.
+# The retry is intentionally scoped to VS DUTs only: on a physical testbed a
+# health miss after config reload is a real signal (often caused by a preceding
+# test module) that we want to surface rather than paper over.
 CONFIG_RELOAD_SAFE_HEALTH_RETRIES = 1
 
 
@@ -218,9 +222,17 @@ def _reload_health_check_with_retry(sonic_host, wait, retries=CONFIG_RELOAD_SAFE
     just polling longer) clears the wedged process. Bounded and logged, so a
     genuinely broken reload still fails fast after the final attempt.
 
+    The retry is limited to VS (KVM) DUTs. On a physical testbed a health miss
+    after config reload is a real signal (often left by a preceding test module)
+    that we want to expose, so there the check runs once and fails fast.
+
     config_reload signals failure through pytest.fail(), i.e. an OutcomeException
     (a BaseException, not a plain Exception), so that is caught explicitly here.
     """
+    # Scope the transient-miss retry to VS DUTs; keep physical DUTs fail-fast so
+    # real post-reload health failures are surfaced instead of retried away.
+    if not is_vs_device(sonic_host):
+        retries = 0
     max_attempts = retries + 1
     for attempt in range(1, max_attempts + 1):
         try:
