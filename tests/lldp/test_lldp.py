@@ -136,36 +136,74 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 ).format(k, exp_port, match['descr'])
 
 
+def _iter_lldp_neighbors(chassis, sibling_port):
+    """Yield (neighbor_name, port_dict) for every neighbor learned on a port.
+
+    "lldpctl -f json" is not consistent: a single neighbor's chassis is an
+    object keyed by system name ({"ARISTA01T1": {...}}), while a port that
+    learns multiple neighbors (a fanout on physical testbeds, or extra
+    neighbors flooded onto the port on KVM) becomes either an object with
+    several such keys or a list. The remote port may be nested under each
+    chassis (multi-neighbor) or a sibling of chassis (single neighbor). Handle
+    all of these so no neighbor is dropped -- taking only the first key hides
+    the real minigraph neighbor behind an unrelated one.
+    """
+    def _one(name, cdata):
+        cdata = cdata if isinstance(cdata, dict) else {}
+        port = cdata.get('port') or sibling_port or {}
+        return (name if isinstance(name, str) else ''), port
+
+    items = chassis if isinstance(chassis, list) else [chassis]
+    for entry in items:
+        if not isinstance(entry, dict):
+            continue
+        # Fielded form: {"id": ..., "name": "ARISTA01T1", "port": {...}}
+        if isinstance(entry.get('name'), str):
+            yield _one(entry['name'], entry)
+        else:
+            # Keyed-by-name form: {"ARISTA01T1": {...}, "ARISTA02T1": {...}}
+            for name, cdata in entry.items():
+                yield _one(name, cdata)
+
+
 def _get_lldp_neighbors_by_port(duthost, asic_index, skip_patterns):
     """Return {local_port: [{'name', 'ifname', 'descr'}, ...]} from `lldpctl -f json`.
 
-    JSON output preserves every neighbor on a port, unlike the keyvalue
+    "lldpctl -f json" preserves every neighbor on a port, unlike the keyvalue
     lldpctl_facts which collapses a port's neighbors (last write wins). On
-    physical testbeds a port can learn both the real VM neighbor and the fanout
-    switch, so callers must tolerate more than one neighbor per port.
+    physical (fanout) and KVM testbeds a single DUT port can report multiple
+    LLDP neighbors, so every neighbor must be captured -- keeping only the first
+    drops the real minigraph neighbor and makes callers fail with
+    "neighbor name mismatch ... among learned ['<unrelated neighbor>']".
     """
     asic_str = "" if asic_index is None else str(asic_index)
-    lldp_json = json.loads(duthost.shell(
-        "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic_str))['stdout'])
-    interfaces = lldp_json.get('lldp', {}).get('interface', [])
-    if isinstance(interfaces, dict):
-        interfaces = [interfaces]
     skip_re = re.compile("(?:%s)" % "|".join(skip_patterns)) if skip_patterns else None
+
+    raw = duthost.shell(
+        "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic_str))['stdout']
+    logger.debug("lldpctl -f json output: %s", raw)
+    interfaces = json.loads(raw).get('lldp', {}).get('interface', [])
+    # A single interface is rendered as a dict keyed by port name; multiple
+    # interfaces as a list of single-key dicts. Normalize both to (port, info)
+    # so every port is captured (a plain `[interfaces]` wrap would keep only
+    # the first port of the dict form).
+    if isinstance(interfaces, dict):
+        entries = list(interfaces.items())
+    else:
+        entries = [(list(i.keys())[0], list(i.values())[0]) for i in interfaces if i]
+
     learned = {}
-    for iface in interfaces:
-        if not iface:
-            continue
-        local_port = list(iface.keys())[0]
+    for local_port, info in entries:
         if skip_re and skip_re.match(local_port):
             continue
-        info = iface[local_port] or {}
-        chassis = info.get('chassis', {}) or {}
-        port = info.get('port', {}) or {}
-        learned.setdefault(local_port, []).append({
-            'name': list(chassis.keys())[0] if chassis else '',
-            'ifname': (port.get('id', {}) or {}).get('value', ''),
-            'descr': port.get('descr', ''),
-        })
+        info = info or {}
+        sibling_port = info.get('port', {}) or {}
+        for name, port in _iter_lldp_neighbors(info.get('chassis', {}), sibling_port):
+            learned.setdefault(local_port, []).append({
+                'name': name,
+                'ifname': (port.get('id', {}) or {}).get('value', ''),
+                'descr': port.get('descr', ''),
+            })
     return learned
 
 
