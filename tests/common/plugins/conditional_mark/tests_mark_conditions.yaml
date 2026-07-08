@@ -2794,6 +2794,12 @@ generic_config_updater/test_incremental_qos.py:
     conditions:
       - "'dualtor' in topo_name"
 
+generic_config_updater/test_incremental_qos.py::test_buffer_profile_create_remove_rollback:
+  skip:
+    reason: "Skipped due to test issue: https://github.com/sonic-net/sonic-mgmt/issues/25395"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25395 and asic_type in ['mellanox']"
+
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type or version or topology currently"
@@ -5673,6 +5679,30 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
 tests/ha/test_ha_repairing_dpu.py:
   xfail:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
@@ -6111,7 +6141,7 @@ vxlan/test_vxlan_multiple_tunnels.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
