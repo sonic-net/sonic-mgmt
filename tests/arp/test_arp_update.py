@@ -132,8 +132,9 @@ def neighbor_learned(dut, target_ip):
 
 
 def appl_db_neighbor_syncd(dut, vlan_name, target_ip, exp_mac):
-    asic_db_mac = dut.shell(f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'")['stdout']
-    logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")
+    cmd = f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
+    asic_db_mac = dut.shell(cmd)['stdout']
+    logger.info(f"DUT neighbor mac: {asic_db_mac} of entry {vlan_name}:{target_ip}")  # noqa: E231
     return exp_mac.lower() == asic_db_mac.lower()
 
 
@@ -149,7 +150,10 @@ def test_kernel_asic_mac_mismatch(
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
     tbinfo
 ):
-    vlan_name, ipv4_base, ipv6_base, ip_offset = setup_vlan_arp_responder
+    # This test just needs a valid responder IP to ping; use the last configured
+    # member and pick v4/v6 by ip_version.
+    arp = setup_vlan_arp_responder
+    vlan_name = arp.vlan
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(rand_selected_dut)
         intf = random.choice(list(servers))
@@ -158,12 +162,11 @@ def test_kernel_asic_mac_mismatch(
         else:
             target_ip = servers[intf]['server_ipv6'].split('/')[0]
     else:
-        if ip_version == 4:
-            target_ip = ipv4_base.ip + ip_offset
-        else:
-            target_ip = ipv6_base.ip + ip_offset
+        responder_ips = arp.responder_cfg[list(arp.responder_cfg)[-1]]
+        # values are [ipv4, ipv6]; [ipv6] on IPv6-only topos.
+        target_ip = responder_ips[0] if ip_version == 4 else responder_ips[-1]
 
-    rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")
+    rand_selected_dut.shell(f"ping -c1 -W1 {target_ip}; true")  # noqa: E702
 
     pt_assert(wait_until(10, 1, 0, neighbor_learned, rand_selected_dut, target_ip),
               f"Neighbor {target_ip} not learned on {rand_selected_dut}")
@@ -180,13 +183,13 @@ def test_kernel_asic_mac_mismatch(
 
     logger.info("Manually setting APPL_DB MAC address")
     rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"
+        f"sonic-db-cli APPL_DB hset 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh' '00:00:00:00:00:00'"  # noqa: E231
     )
     asic_db_mac = rand_selected_dut.shell(
-        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"
+        f"sonic-db-cli APPL_DB hget 'NEIGH_TABLE:{vlan_name}:{target_ip}' 'neigh'"  # noqa: E231
     )['stdout']
     pt_assert(target_mac.lower() != asic_db_mac.lower(),
-              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "
+              f"APPL_DB MAC was not corrupted: expected 00:00:00:00:00:00 but got {asic_db_mac}. "  # noqa: E231
               "Ensure arp_update is stopped before modifying APPL_DB.")
     logger.info("APPL_DB and kernel are out of sync (expected)")
 
@@ -299,19 +302,32 @@ def test_dut_arping_learns_mac(
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
 
-    # Setup PTF responder info
-    vlan_name, ipv4_base, _, ip_offset = setup_vlan_arp_responder
-    ptf_responder_ip = str(ipv4_base.ip + ip_offset)
-    logger.info("PTF responder IP (setup_vlan_arp_responder): {}".format(ptf_responder_ip))
+    # Setup PTF responder info.
+    #
+    # responder_cfg maps eth<idx> -> [ipv4, ipv6], each VLAN member's own
+    # responder IP. Look up the SAME port whose MAC we assert (ptf_info
+    # ['interface']) so the ARP reply carries ptf_info['mac'] and is deterministic.
+    arp_responder_cfg = setup_vlan_arp_responder.responder_cfg
+    ptf_iface = ptf_info['interface']
+    pt_assert(
+        ptf_iface in arp_responder_cfg,
+        "PTF port {} under test is not a VLAN member configured on the ARP "
+        "responder (configured: {})".format(
+            ptf_iface, sorted(arp_responder_cfg))
+    )
+    ptf_responder_ip = arp_responder_cfg[ptf_iface][0]
+    logger.info("PTF port eth{} responder IP: {} (MAC {})".format(
+        ptf_info['index'], ptf_responder_ip, ptf_info['mac']))
     logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
 
-    # Simulate arping from DUT to PTF interface
+    # Simulate arping from DUT to the PTF port under test
     dut_info['host'].shell(f"arping -c 1 -I {dut_info['vlan_name']} {ptf_responder_ip}")
 
     # Confirm MAC is learned on DUT FDB
     pt_assert(
         wait_until(10, 1, 0, fdb_has_mac, dut_info['host'], ptf_info['mac']),
-        "FDB did not learn PTF MAC after DUT arping"
+        "FDB did not learn PTF MAC {} after DUT arping {}".format(
+            ptf_info['mac'], ptf_responder_ip)
     )
 
 
