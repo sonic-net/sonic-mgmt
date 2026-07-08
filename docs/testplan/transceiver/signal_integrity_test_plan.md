@@ -2,21 +2,21 @@
 
 ## Overview
 
-The Signal Integrity Test Plan outlines a comprehensive strategy to validate the signal integrity (SI) of optical links using transceivers onboarded to SONiC. This document covers extended-duration soak testing to validate long-term signal quality and link stability, fault injection at various CMIS test points (TP0–TP5) to stress the link margins, and SI optimization validation to ensure BER targets are met across all ports.
+The Signal Integrity Test Plan defines the strategy for validating the signal integrity (SI) of optical links using transceivers onboarded to SONiC. It covers extended-duration soak testing for long-term link stability, optical margin characterization (receiver sensitivity and crosstalk), SI fault injection at CMIS test points (TP0–TP5), and ZR coherent-optics validation (neighboring-channel isolation and OSNR tolerance).
 
 ## Scope
 
 The scope of this test plan includes the following:
 
 - Extended-duration link stability soak testing
+- Optical margin characterization under degraded signal conditions (receiver sensitivity, crosstalk)
 - Signal integrity fault injection across CMIS test points (TP0–TP5)
-- Validation of link behavior under degraded signal conditions (receiver sensitivity, crosstalk)
-- SI optimization and scripting validation for host-side (TP0→TP1) and media-side (TP4→TP5) with BER targets
+- ZR coherent-optics validation (neighboring-channel disturbance, single-channel and WDM OSNR tolerance)
 - Post-FEC error rate monitoring and traffic integrity checks
 
 ## Optics Scope
 
-All the optics covered in the parent [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#scope)
+This plan covers all optics covered in the parent [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#scope).
 
 ## Testbed Topology
 
@@ -55,9 +55,9 @@ Before starting tests, verify the following system conditions:
 
 ## Attributes
 
-A `link.json` file is used to define the attributes for the signal integrity tests for the various types of transceivers the system supports.
+A `link.json` file defines the attributes for signal integrity tests across the transceiver types the system supports.
 
-The following table summarizes the key attributes used in signal integrity testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
+The table below is the authoritative reference for all signal integrity test attributes and must be updated whenever new attributes are introduced:
 
 **Legend:** M = Mandatory, O = Optional
 
@@ -72,12 +72,10 @@ The following table summarizes the key attributes used in signal integrity testi
 | traffic_validation_enabled | boolean | False | O | platform | Whether to validate transmitted byte/packet counts match received counts. |
 | si_fault_stress_iterations | integer | 4 | O | transceivers | Number of iterations for SI fault injection tests. |
 | soak_duration_hr | integer | 24 | O | transceivers or platform | Duration in hours for soak test. |
-| tp0_ber_target | float | 1e-10 | M | transceivers | Target BER at TP1 for host-side SI optimization (TC 8-1). |
-| tp4_ber_target | float | 1e-8 | M | transceivers | Target BER at TP5 for media-side SI optimization (TC 8-2). |
 
 ## CLI Commands Reference
 
-For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](test_plan.md#cli-commands) in the Transceiver Onboarding Test Infrastructure and Framework. This section provides comprehensive examples of all relevant commands.
+For the detailed CLI commands used in the test cases below, refer to the [CLI Commands section](test_plan.md#cli-commands) in the Transceiver Onboarding Test Infrastructure and Framework, which provides comprehensive examples of all relevant commands.
 
 Key commands specific to this test plan:
 
@@ -110,36 +108,37 @@ The following tests from the [Transceiver Onboarding Test Infrastructure and Fra
 
 **Assumptions for the Below Tests:**
 
-- All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
+- All tests below are executed for every transceiver connected to the DUT (the port list is derived from `port_attributes_dict`) unless specified otherwise.
 - Post-FEC error counters and link flap counts are baselined at the start of each test case.
 
-### Link Soak Test Cases
+### Link Stability and Optical Margin Test Cases
 
-These tests validate long-term link stability over an extended duration.
-
-| TC No. | Test | Steps | Expected Results |
-|------|------|------|------------------|
-| 1 | Link soak test | 1. Verify all links are operationally up.<br>2. Record baseline: link status, post-FEC error counters, link flap counts, and traffic counters (if `traffic_validation_enabled`) for all ports.<br>3. Start continuous monitoring for `soak_duration_hr` hours (default 24 hrs):<br>   a. Periodically check link status (no link flaps).<br>   b. Periodically record post-FEC error counters.<br>   c. Periodically record DOM sensor values (TX/RX power).<br>   d. If `traffic_validation_enabled`, verify transmitted byte/packet counts match received counts.<br>4. After soak duration completes, verify final state:<br>   a. All links remain operationally up.<br>   b. Post-FEC error increment = 0 (or within `post_fec_error_threshold`).<br>   c. Link flap count unchanged (or within `link_flap_tolerance`).<br>   d. Traffic counters: transmitted = received (if enabled). | 1. No link flaps during the entire soak duration.<br>2. Post-FEC error increment for any link = 0.<br>3. Transmitted byte/packet = received byte/packet count (if traffic validation enabled).<br>4. All DOM values remain within operational ranges throughout the test. |
-
-### Signal Integrity - Fault Injection Test Cases
-
-These tests validate link behavior when signal integrity is deliberately degraded at specific CMIS test points. They require collaboration with switch and optics vendors to define appropriate fault injection methods.
+These tests validate long-term link stability and characterize link margin under degraded optical conditions (reduced receive power and crosstalk).
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | TP0-TP1 (host-side) signal integrity fault injection | 1. Record baseline: link status, post-FEC error counters, and DOM values for all ports under test.<br>2. Apply host-side SI fault injection using `tp0_tp1_fault_injection_method` (e.g., SI setting change in TP0).<br>3. Monitor link behavior for `si_fault_stress_iterations` iterations.<br>4. For each iteration, record:<br>   a. Link status (up/down)<br>   b. Post-FEC error counter increments<br>   c. DOM alarm/warning flags (TX LOS, TX LOL, RX LOS, RX LOL)<br>   d. VDM values (if supported)<br>5. Restore original SI settings.<br>6. Verify link recovers and all counters stabilize. | Extended testing validates TP0-TP1 alarm behavior. Link behavior under SI degradation is characterized and documented. Alarm flags are properly raised when signal integrity thresholds are crossed. Link recovers after fault removal. |
-| 2 | TP2-TP3 (media-side RX) receiver sensitivity test | 1. Testbed: Use uni-directional optical path (DR8 one optic pair — 8 links, or 2xLR4-6 two optic pairs — 4 links).<br>2. Record baseline: link status, post-FEC error counters, RX power levels for all lanes.<br>3. Reduce RX optical power using `rx_power_reduction_method` (e.g., variable optical attenuator).<br>4. Monitor and record:<br>   a. Link status per lane<br>   b. Post-FEC error counter increments<br>   c. RX power levels from DOM<br>   d. RX LOS/LOL alarm flags<br>   e. VDM values (if supported)<br>5. Optionally introduce reflection between TX and RX paths.<br>6. Restore original optical power levels.<br>7. Verify link recovers and all counters stabilize. | Extended testing validates TP2-TP3 alarm behavior under receiver sensitivity degradation. RX power reduction triggers appropriate alarm thresholds. Link behavior at margin boundaries is characterized. Link recovers after optical power is restored. |
-| 3 | TP2-TP3 (media-side RX) crosstalk penalty test | 1. Testbed: Use uni-directional optical path (DR8 one optic pair — 8 links, or 2xLR4-6 two optic pairs — 4 links).<br>2. Record baseline: link status, post-FEC error counters, DOM values for all lanes.<br>3. Couple aggressor TX to an existing link using `crosstalk_injection_method`.<br>4. Monitor and record:<br>   a. Link status per lane<br>   b. Post-FEC error counter increments<br>   c. Crosstalk penalty impact on RX signal quality<br>   d. DOM alarm/warning flags<br>   e. VDM values (if supported)<br>5. Remove crosstalk source.<br>6. Verify link recovers and all counters stabilize. | Extended testing validates TP2-TP3 alarm behavior under crosstalk conditions. Crosstalk penalty impact on link quality is characterized and documented. Appropriate alarm thresholds are triggered. Link recovers after crosstalk removal. |
-| 4 | TP4-TP5 (media-side TX) signal integrity fault injection | 1. Record baseline: link status, post-FEC error counters, and DOM values for all ports under test.<br>2. Apply media-side SI fault injection using `tp4_tp5_fault_injection_method` (e.g., SI setting change in TP4).<br>3. Monitor link behavior for `si_fault_stress_iterations` iterations.<br>4. For each iteration, record:<br>   a. Link status (up/down)<br>   b. Post-FEC error counter increments<br>   c. DOM alarm/warning flags (TX power, TX bias, RX power on remote side)<br>   d. VDM values (if supported)<br>5. Restore original SI settings.<br>6. Verify link recovers and all counters stabilize. | Extended testing validates TP4-TP5 alarm behavior. Link behavior under media-side SI degradation is characterized and documented. Alarm flags are properly raised when signal integrity thresholds are crossed. Link recovers after fault removal. |
+| 1 | Link soak test | 1. Verify all links are operationally up.<br>2. Record baseline: link status, post-FEC error counters, link flap counts, and traffic counters (if `traffic_validation_enabled`) for all ports.<br>3. Monitor continuously for `soak_duration_hr` hours (default 24 hrs):<br>   a. Periodically check link status (no link flaps).<br>   b. Periodically record post-FEC error counters.<br>   c. Periodically record DOM sensor values (TX/RX power).<br>   d. If `traffic_validation_enabled`, verify transmitted byte/packet counts match received counts.<br>4. After the soak duration completes, verify the final state:<br>   a. All links remain operationally up.<br>   b. Post-FEC error increment = 0 (or within `post_fec_error_threshold`).<br>   c. Link flap count unchanged (or within `link_flap_tolerance`).<br>   d. Traffic counters: transmitted = received (if enabled). | 1. No link flaps during the entire soak duration.<br>2. Post-FEC error increment for any link = 0.<br>3. Transmitted byte/packet count = received byte/packet count (if traffic validation enabled).<br>4. All DOM values remain within operational ranges throughout the test. |
+| 2 | Receiver Sensitivity Test | 1. Testbed: use a uni-directional optical path (DR8 one optic pair — 8 links, or 2xLR4-6 two optic pairs — 4 links).<br>2. Record baseline: link status, post-FEC error counters, and RX power levels for all lanes.<br>3. Reduce RX optical power using `rx_power_reduction_method` (e.g., variable optical attenuator).<br>4. Monitor and record:<br>   a. Link status per lane<br>   b. Post-FEC error counter increments<br>   c. RX power levels from DOM<br>   d. RX LOS/LOL alarm flags<br>   e. VDM values (if supported)<br>5. Optionally introduce reflection between the TX and RX paths.<br>6. Restore original optical power levels.<br>7. Verify the link recovers and all counters stabilize. | RX power reduction triggers the appropriate alarm thresholds. Link behavior at the margin boundary is characterized, and the link recovers after optical power is restored. |
+| 3 | Crosstalk Penalty Test | 1. Testbed: use a uni-directional optical path (DR8 one optic pair — 8 links, or 2xLR4-6 two optic pairs — 4 links).<br>2. Record baseline: link status, post-FEC error counters, and DOM values for all lanes.<br>3. Couple an aggressor TX to an existing link using `crosstalk_injection_method`.<br>4. Monitor and record:<br>   a. Link status per lane<br>   b. Post-FEC error counter increments<br>   c. Crosstalk penalty impact on RX signal quality<br>   d. DOM alarm/warning flags<br>   e. VDM values (if supported)<br>5. Remove the crosstalk source.<br>6. Verify the link recovers and all counters stabilize. | The crosstalk penalty impact on link quality is characterized, the appropriate alarm thresholds are triggered, and the link recovers after the crosstalk source is removed. |
 
-### Signal Integrity - Optimization Test Cases
+### Host and Media SI Fault Injection Test Cases
 
-These tests validate that the signal integrity optimization on host-side (TP0→TP1) and media-side (TP4→TP5) achieves the required BER targets across all ports on a fully loaded switch.
+These tests validate link behavior when signal integrity is deliberately degraded through SI/FIR setting changes at the host-side (TP0–TP1) and media-side (TP4–TP5) interfaces. They require collaboration with the switch and optics vendors to define appropriate fault injection methods.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | TP0 SI optimization and scripting (host-side) | 1. Ensure the switch is fully populated with transceivers and all links are operationally up.<br>2. Record baseline: link status, post-FEC error counters for all ports.<br>3. Execute TP0 (host-side TX) SI optimization procedure for all ports under test.<br>4. Monitor TP1 (host-side RX) BER for each port/lane after optimization.<br>5. Verify BER at TP1 meets `tp0_ber_target` (default < 1e-10) for all ports.<br>6. Record final SI settings applied per port. | 1. TP1 BER < `tp0_ber_target` (1e-10) for all ports.<br>2. All links remain operationally up after SI optimization.<br>3. SI optimization completes successfully for all ports on the fully loaded switch. |
-| 2 | TP4 SI optimization and scripting (media-side) | 1. Ensure the switch is fully populated with transceivers and all links are operationally up.<br>2. Record baseline: link status, post-FEC error counters for all ports.<br>3. Execute TP4 (media-side TX) SI optimization procedure for all ports under test.<br>4. Monitor TP5 (media-side RX) BER for each port/lane after optimization.<br>5. Verify BER at TP5 meets `tp4_ber_target` (default < 1e-8) for all ports.<br>6. Record final SI settings applied per port. | 1. TP5 BER < `tp4_ber_target` (1e-8) for all ports.<br>2. All links remain operationally up after SI optimization.<br>3. SI optimization completes successfully for all ports on the fully loaded switch. |
+| 1 | TP0 FIR Change Test (host-side) | 1. Record baseline: link status, post-FEC error counters, and DOM values for all ports under test.<br>2. Apply host-side SI fault injection using `tp0_tp1_fault_injection_method` (e.g., SI setting change at TP0).<br>3. Monitor link behavior for `si_fault_stress_iterations` iterations.<br>4. For each iteration, record:<br>   a. Link status (up/down)<br>   b. Post-FEC error counter increments<br>   c. DOM alarm/warning flags (TX LOS, TX LOL, RX LOS, RX LOL)<br>   d. VDM values (if supported)<br>5. Restore original SI settings.<br>6. Verify the link recovers and all counters stabilize. | TP0–TP1 alarm behavior is validated. Link behavior under SI degradation is characterized, alarm flags are raised when SI thresholds are crossed, and the link recovers after fault removal. |
+| 2 | TP4 FIR Change Test (media-side) | 1. Record baseline: link status, post-FEC error counters, and DOM values for all ports under test.<br>2. Apply media-side SI fault injection using `tp4_tp5_fault_injection_method` (e.g., SI setting change at TP4).<br>3. Monitor link behavior for `si_fault_stress_iterations` iterations.<br>4. For each iteration, record:<br>   a. Link status (up/down)<br>   b. Post-FEC error counter increments<br>   c. DOM alarm/warning flags (TX power, TX bias, RX power on the remote side)<br>   d. VDM values (if supported)<br>5. Restore original SI settings.<br>6. Verify the link recovers and all counters stabilize. | TP4–TP5 alarm behavior is validated. Link behavior under media-side SI degradation is characterized, alarm flags are raised when SI thresholds are crossed, and the link recovers after fault removal. |
+
+### ZR Coherent Optics Test Cases
+
+These tests are specific to ZR (coherent) optics. They validate neighboring-channel isolation and receiver OSNR tolerance in single-channel and WDM line-system environments, and require a coherent optical line system with amplifiers, ASE noise loading, VOAs, an OSA, and optical power monitors.
+
+| TC No. | Test | Steps | Expected Results |
+|------|------|------|------------------|
+| 1 | Neighboring Channel Disturbance Test | 1. Turn up all channels and verify all links are healthy.<br>2. For each interface/channel under test:<br>   a. Identify neighboring channels (i-1 and i+1).<br>   b. Record baseline flap counts, BER, and power levels on neighboring channels.<br>   c. Clear FCS error counters on neighboring channels.<br>3. Perform the selected disturbance operation on the target channel: Shut/No-Shut, Reset, Low Power Mode, or Reseat (remove/reinsert optics).<br>4. While the operation is in progress, monitor neighboring channels for link flaps, BER / TX-RX power spikes or degradation, and FCS errors.<br>5. Verify neighboring channels remain stable.<br>6. Repeat for the configured number of iterations.<br>7. Log and aggregate results across all channels. | 1. Zero link flaps on neighboring channels.<br>2. No DOM spikes or degradation on neighboring channels.<br>3. Zero FCS errors on neighboring channels.<br>4. Pass criteria met for all tested interfaces. |
+| 2 | OSNR Single Channel Test | 1. Verify the link is healthy at high OSNR (no ASE noise).<br>2. Collect baseline measurements: TX power, RX power, BER.<br>3. Calibrate ASE power and use VOA2/OPM to keep RX power constant.<br>4. Sweep VOA1 attenuation to vary OSNR:<br>   a. Inject ASE noise.<br>   b. Measure OSNR using the OSA.<br>   c. Record pre-FEC BER and FCS errors.<br>   d. Check alarms/warnings.<br>5. Return to high OSNR (remove ASE noise) and verify recovery.<br>6. Save results to a `.npz` file.<br>7. Repeat for short-, center-, and long-wavelength channels in the C-band. | 1. OSNR tolerance meets 400ZR spec (≥ 26 dB for BER < 1.25e-2).<br>2. BER vs OSNR follows the expected waterfall curve.<br>3. Link recovers when ASE is removed.<br>4. No false alarms at high OSNR.<br>5. Interop variance < 1 dB between interop combinations.<br>_Outputs:_ `SC_OSA.png`, `SC_OSNR.png`, `ber_vs_osnr.npz`, and an OSNR log file per TX/RX vendor combination. |
+| 3 | OSNR WDM Test | 1. Turn up all four channels and verify links are healthy.<br>2. Collect baseline measurements for all channels: TX power, RX power, BER.<br>3. Run amplifier auto-gain equalization when transitioning from single-channel to multi-channel operation.<br>4. Calibrate ASE power and hold RX power constant using VOA2/OPM.<br>5. Sweep VOA1 attenuation to vary OSNR:<br>   a. Inject ASE noise.<br>   b. Use the On/Off method: turn OFF target channel (e.g., channel 2), turn ON balancing channel (e.g., channel 4), measure noise floor.<br>   c. Measure OSNR using the OSA.<br>   d. Record pre-FEC BER and FCS errors for all channels.<br>   e. Record adjacent-channel interference/crosstalk metrics.<br>   f. Check alarms/warnings.<br>6. Return to high OSNR and verify all channels recover.<br>7. Save results to `.npz`.<br>8. Repeat for short-, center-, and long-wavelength regions in the C-band. | 1. OSNR tolerance meets 400ZR spec (≥ 26 dB for BER < 1.25e-2).<br>2. BER vs OSNR follows the expected waterfall curve.<br>3. Adjacent-channel impact shows minimal degradation vs. the single-channel test.<br>4. All channels recover when ASE is removed.<br>5. Interop variance < 1 dB between interop combinations.<br>6. Meets OIF 400ZR ROSNR specification.<br>_Outputs:_ `WDM_OSA.png`, `WDM_OSNR.png`, `combined_OSNR.png`, `ber_vs_osnr.npz`, individual signal/noise OSA traces, and an OSNR log file. |
 
 ## Cleanup and Post-Test Verification
 
@@ -157,4 +156,4 @@ After test completion:
 1. **Test Summary**: Generate comprehensive test results including pass/fail status for each test case
 2. **Error Analysis**: Document any post-FEC errors, link flaps, or alarm events observed during testing with timestamps and correlation to test conditions
 3. **DOM Trending**: Provide DOM sensor trending data (temperature, TX/RX power) captured during soak tests for baseline comparison
-4. **SI Optimization Results**: Document BER measurements per port/lane and final SI settings applied during optimization tests
+4. **Margin and OSNR Results**: Document RX sensitivity and crosstalk margin measurements, and ZR OSNR tolerance results (BER vs. OSNR) per port/lane and vendor combination
