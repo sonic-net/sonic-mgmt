@@ -1,4 +1,4 @@
-"""
+﻿"""
 This script performs two types of tests:
    1> Inter-port testing
    2> Intra-port testing
@@ -11,7 +11,6 @@ This script performs two types of tests:
 import logging
 import pytest
 from time import sleep
-# from rich import print as pr
 
 from tests.snappi_tests.qos.files.qos_priority_helper import initiate_snappi_port_groups_dict, \
     define_tx_rx_inter_port_testing, define_tx_rx_intra_port_testing, verify_dut_ports_up, \
@@ -26,7 +25,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 
 from tests.snappi_tests.dataplane.files.helper import get_duthost_interface_details
 from tests.snappi_tests.dataplane.files.helper import set_primary_chassis  # noqa F401
-from tests.snappi_tests.dataplane.files.helper import create_snappi_config, create_snappi_config  # noqa F401
+from tests.snappi_tests.dataplane.files.helper import create_snappi_config  # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 

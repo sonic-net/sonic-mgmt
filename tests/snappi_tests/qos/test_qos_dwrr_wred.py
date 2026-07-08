@@ -1,4 +1,4 @@
-"""
+﻿"""
 TEST PLAN: DWRR
 
 STEPS:
@@ -18,7 +18,6 @@ STEPS:
 import logging
 import pytest
 from time import sleep
-# from rich import print as pr
 
 from tests.snappi_tests.qos.files.qos_priority_helper import initiate_snappi_port_groups_dict
 from tests.snappi_tests.qos.files.qos_priority_helper import define_rx_tx_ports
@@ -53,7 +52,9 @@ pytestmark = [pytest.mark.topology('tgen')]
 class Common_vars:
     # User defined variables
     config_db_file = '/etc/sonic/config_db.json'
-    # Frame size cannot be 1500. Will have inconsistent success/failure
+    config_db_file = '/etc/sonic/dwrr_wred.json'
+    # Note: Frame size 1500 have inconsistent success/failure on testcase 3 and 7
+    #       Frame size 128 is more consistent for all test cases
     frame_size = 1500
     flow_duration_seconds = 60
     pass_threshold_pct = .02
@@ -117,6 +118,7 @@ def execute_common_configs(duthosts,
                            flow_configs,
                            config_egress_tracking=True,
                            enable_pkt_sequence_checking=False):
+
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports,
                                                  subnet_type, protocol_type='ip')
@@ -177,7 +179,6 @@ def execute_common_configs(duthosts,
                                            egress_stat_view_name=Common_vars.egress_stat_view_name)
 
     clear_dut_stat_counters(duthosts)
-
     logger.info(f'Running traffic for {Common_vars.flow_duration_seconds} seconds ...')
     control_state_obj = run_traffic(Common_vars, duthosts, snappi_api=snappi_api, config=snappi_configs)
     sleep(Common_vars.flow_duration_seconds)
@@ -198,20 +199,6 @@ def test_dwrr_wred_with_extreme_weight_ratio_1(snappi_api,                 # noq
                                                create_snappi_config, # noqa F811
                                                local_script_setup_and_teardown
                                                ):
-    """
-    Args:
-        snappi_api (pytest fixture): SNAPPI session
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts (pytest fixture): fanout graph
-        duthosts (pytest fixture): list of DUTs
-        setup_snappi_port_configs (pytest fixture): Returns a list of dicts
-            containing all snappi port srcIp, gateways, duthost, etc
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-
-    Returns:
-        N/A
-    """
     # TC 2.1:
     # 2 Tx-Ports:
     #       Note: Test case states to transmit 60% line rate, but this is incorrect.

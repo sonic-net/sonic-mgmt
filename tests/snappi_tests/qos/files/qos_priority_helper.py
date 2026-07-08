@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from re import search, match
 import json
 from tabulate import tabulate
@@ -7,7 +7,6 @@ import itertools
 import pandas as pd
 import traceback
 from time import sleep
-# from rich import print as pr
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import sec_to_nanosec
@@ -36,6 +35,7 @@ def initiate_snappi_port_groups_dict(Common_vars, duthosts, snappi_port_configs)
 
             if snappi_port['duthost'].hostname == duthost.hostname:
                 location = snappi_port['location']
+                port_group_number = None
                 # ['10.36.84.33', '1.1'] or ['10.36.78.53;4;5'] -> ['10.36.78.53, '4', '5']
                 if '/' in location:
                     port = location.split('/')
@@ -325,6 +325,14 @@ def define_tx_rx_intra_port_testing(Common_vars, snappi_port_configs, rx_port_in
                             # Preset the total_weight with 0. This will get incremented when calculating
                             # the tx-port total weight
                             snappi_port.update({'total_weight': 0})
+                            # {'ip': '10.36.84.34', 'port_id': '2', 'peer_port': 'Ethernet1',
+                            # 'peer_device': 'sonic-s6100-dut1', 'speed': '100000', 'location': '10.36.84.34/1.2',
+                            # 'intf_config_changed': False, 'api_server_ip': '10.24.50.23', 'asic_type': 'broadcom',
+                            # 'duthost': <MultiAsicSonicHost sonic-s6100-dut1>,'snappi_speed_type': 'speed_100_gbps',
+                            # 'asic_value': None, 'autoneg': False, 'fec': True, 'ipAddress': '10.10.2.2',
+                            # 'ipGateway': '10.10.2.1', 'prefix': '24', 'router_mac_address': '9c:69:ed:6f:92:f1',
+                            # 'src_mac_address': '10:17:00:00:00:12', 'subnet': '10.10.2.1/24',
+                            # 'topology_group_index': 1, 'total_weight': 0}
                             Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['tx_ports'].append(
                                 snappi_port
                             )
@@ -1042,6 +1050,7 @@ def set_snappi_qos_traffic_dwrr(Common_vars, duthost, verify_dut_scheduler_obj):
             src_mac_address = tx_port['src_mac_address']
             router_mac_address = tx_port['router_mac_address']
             topology_group_index = tx_port['topology_group_index']
+            port_speed = get_port_speed(snappi_port_speed=tx_port['snappi_speed_type'])
 
             # With the scheduler ID, get the next pfc queue ID (Reading "QUEUE" -> Ethernet#|2)
             #   pfc_queue_id_generator:  scheduler_id: round_robin(pfc_queue_list_with_same_scheduler_id)
@@ -1092,10 +1101,11 @@ def set_snappi_qos_traffic_dwrr(Common_vars, duthost, verify_dut_scheduler_obj):
             """
             # NOTE: Use only one space in between words because verifying stats does a split(' ')[6]
             traffic_item_name = (
-                f'{dut_hostname}:{dut_port_name} SrcTopology:{topology_group_index} '
+                f'{dut_hostname}:{dut_port_name} Speed:{port_speed} SrcTopology:{topology_group_index} '
                 f'DestTopology:{rx_port_topology_group_index} QID:{queue_id} TC:{traffic_class} DSCP:{phb_value} '
                 f'{port_queue_scheduler_id} WT:{weight} TTl_WT:{total_weight} Expected_Rx_Line_Rate:{weight}'
             )
+
             logger.info(f'Flow {flow_number}: {traffic_item_name}')
             flow_number += 1
 
@@ -1109,7 +1119,7 @@ def set_snappi_qos_traffic_dwrr(Common_vars, duthost, verify_dut_scheduler_obj):
                                                 'dut_hostname': dut_hostname,
                                                 'peer_port': dut_port_name,
                                                 'topology_group_index': topology_group_index,
-                                                'rx_port_topology_group_index': rx_port_topology_group_index,
+                                                'rx_port_topology_group_index': rx_port_topology_group_index
                                                 })
 
             if hasattr(Common_vars, 'dut_queue_stat_counters'):
@@ -1178,7 +1188,6 @@ def set_snappi_qos_traffic(Common_vars, duthost, verify_dut_scheduler_obj):
             ip_address = tx_port['ipAddress']
             src_mac_address = tx_port['src_mac_address']
             router_mac_address = tx_port['router_mac_address']
-            # port_speed = tx_port['port_speed']
             topology_group_index = tx_port['topology_group_index']
 
             for flow_configs in tx_port['flows']:
@@ -1382,6 +1391,7 @@ def create_snappi_flows_dwrr(Common_vars, duthosts, snappi_api, snappi_port_conf
                 ethernetStackObj = snappi_api._ixnetwork.Traffic.TrafficItem.find(
                     Name=tx_port['traffic_item_name']).ConfigElement.find()[0].Stack.find(StackTypeId='ethernet$')
 
+                # PFC isn't used, but in general map the port PFC traffic the DUT interface queue as the priority
                 ethernetStackObj = configElement.Stack.find(StackTypeId='ethernet$')
                 pfcQueueObj = ethernetStackObj.Field.find(DisplayName='PFC Queue')
                 pfcQueueObj.ValueType = 'singleValue'
@@ -1586,6 +1596,7 @@ def create_snappi_flows(Common_vars, duthosts, config, snappi_api, snappi_port_c
                         # Single frame size
                         configElement.FrameSize.FixedSize = flow['frame_size']
 
+                    # PFC isn't used, but in general map the port PFC traffic the DUT interface queue as the priority
                     ethernetStackObj = configElement.Stack.find(StackTypeId='ethernet$')
                     pfcQueueObj = ethernetStackObj.Field.find(DisplayName='PFC Queue')
                     pfcQueueObj.ValueType = 'singleValue'
@@ -1615,6 +1626,11 @@ def create_snappi_flows(Common_vars, duthosts, config, snappi_api, snappi_port_c
     return config
 
 
+def remove_existing_egress_statview(snappi_api, egress_stat_view_name='EgressStats'):
+    logger.info(f'\n\nRemoving existing statview: {egress_stat_view_name}...')
+    snappi_api._ixnetwork.Statistics.View.find(Caption=egress_stat_view_name).remove()
+
+
 def config_snappi_egress_tracking_wred(Common_vars, duthosts, snappi_api, egress_encapsulation,
                                        egress_custom_offset_bits,
                                        egress_width_bits, egress_offset="Custom",
@@ -1636,8 +1652,9 @@ def config_snappi_egress_tracking_wred(Common_vars, duthosts, snappi_api, egress
         traffic_item_obj.Generate()
 
     snappi_api._ixnetwork.Traffic.Apply()
-
     egressTrackingOffsetFilter = f'Custom: ({egress_width_bits} bits at offset {egress_custom_offset_bits})'
+
+    remove_existing_egress_statview(snappi_api, egress_stat_view_name=egress_stat_view_name)
 
     # Create Egress Stats
     logger.info('\n\nCreating new statview for egress stats...')
@@ -1647,7 +1664,6 @@ def config_snappi_egress_tracking_wred(Common_vars, duthosts, snappi_api, egress
                                               Visible=True)
 
     Common_vars.egress_statview_obj = snappi_api._ixnetwork.Statistics.View.find(Caption=egress_stat_view_name)
-
     # Dynamically get the Traffic Items Filter ID
     availableTrafficItemFilterId = []
 
@@ -1691,7 +1707,6 @@ def config_snappi_egress_tracking_wred(Common_vars, duthosts, snappi_api, egress
         # egressTrackingFilter: /api/v1/sessions/1/ixnetwork/statistics/view/12/availableTrackingFilter/1
         layer23TrafficFlowFilter.EnumerationFilter.add(SortDirection='ascending',
                                                        TrackingFilterId=egressTrackingFilter)
-
         # This will include ingress tracking in the egress statview.
         if ingressTrackingFilterName is not None:
             layer23TrafficFlowFilter.EnumerationFilter.add(SortDirection='ascending',
@@ -1703,6 +1718,7 @@ def config_snappi_egress_tracking_wred(Common_vars, duthosts, snappi_api, egress
     Common_vars.egress_statview_obj.Enabled = True
     Common_vars.egress_statview_obj.AutoUpdate = True
 
+    logger.info('Done configuring egress stats. Calling rename_flow_names()')
     # Problem: Configuring egress tracking resets the flow names to default name.
     #          Have to rename the flows with meaningful names.
     rename_flow_names(Common_vars, duthosts, snappi_api)
@@ -1836,7 +1852,7 @@ def delete_flows(Common_vars, snappi_api, remove_egress_stat_view=False):
         traffic_item.remove()
 
     if remove_egress_stat_view:
-        Common_vars.egress_statview_obj.remove()
+        remove_existing_egress_statview(snappi_api, egress_stat_view_name=remove_egress_stat_view)
 
 
 def delete_flows_2(Common_vars, duthosts, snappi_api):
@@ -1870,14 +1886,7 @@ def is_at_least_one_gigabit(value: int) -> bool:
 
 
 def convert_number_to_gigabits(value):
-    if len(str(value)) == 1:
-        return int(str(value).ljust(10, '0'))
-
-    if len(str(value)) == 2:
-        return int(str(value).ljust(11, '0'))
-
-    if len(str(value)) == 3:
-        return int(str(value).ljust(12, '0'))
+    return int(value) * 10**9
 
 
 def get_dut_wred_stats(Common_vars, duthosts):
@@ -2007,7 +2016,9 @@ def verify_dwrr_pass_criteria(Common_vars, snappi_api, control_state_obj):
             scheduler = int(regex_scheduler.group(1))
 
             # percentage_whole_number = int("%.0f" % (Common_vars.pass_threshold_pct * 100))
-            port_speed = 100
+            regex_port_speed = search('.* Speed:([0-9]+)', traffic_item)
+            port_speed = int(regex_port_speed.group(1))
+
             # 100 x .02 = 2
             acceptable_threshold = port_speed * Common_vars.pass_threshold_pct
             # If weight=40, 40-2=38 (low)
@@ -2214,7 +2225,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
 
             message = (f"Flow_1 & 5 stats combined: {stats[0]['rx_line_rate']}Gbps + {stats[12]['rx_line_rate']}Gbps = "
                        f"{flow_1_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
-            if (flow_1_results >= low_range) and (flow_1_results <= high_range) is False:
+            if not (low_range <= flow_1_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
                 failed_messages.append(message)
@@ -2223,7 +2234,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
 
             message = (f"Flow_2 & 6 stats combined: {stats[3]['rx_line_rate']}Gbps + {stats[15]['rx_line_rate']}Gbps = "
                        f"{flow_2_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
-            if (flow_2_results >= low_range) and (flow_2_results <= high_range) is False:
+            if not (low_range <= flow_2_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
                 failed_messages.append(message)
@@ -2232,7 +2243,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
 
             message = (f"Flow_3 & 7 stats combined: {stats[6]['rx_line_rate']}Gbps + {stats[18]['rx_line_rate']}Gbps = "
                        f"{flow_3_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
-            if (flow_3_results >= low_range) and (flow_3_results <= high_range) is False:
+            if not (low_range <= flow_3_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
                 failed_messages.append(message)
@@ -2241,7 +2252,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
 
             message = (f"Flow_4 & 8 stats combined: {stats[9]['rx_line_rate']}Gbps + {stats[21]['rx_line_rate']}Gbps = "
                        f"{flow_4_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
-            if (flow_4_results >= low_range) and (flow_4_results <= high_range) is False:
+            if not (low_range <= flow_4_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
                 failed_messages.append(message)
@@ -2395,7 +2406,7 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
                        f'Rx_Combined:{flow_1_results}/Gbps  Acceptable_Range:{flow_1_low_range}-{flow_1_high_range} '
                        f'{iteration}/3x')
 
-            if (flow_1_results >= flow_1_low_range) and (flow_1_results <= flow_1_high_range) is False:
+            if not (flow_1_low_range <= flow_1_results <= flow_1_high_range):
                 logger.info(f'FAILED: {message}')
                 failed_messages.append(message)
                 verify_again = True
@@ -2406,7 +2417,7 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
                        f'Rx_Combined:{flow_2_results}/Gbps  Acceptable_Range:{flow_2_low_range}-{flow_2_high_range} '
                        f'{iteration}/3x')
 
-            if (flow_1_results >= flow_2_low_range) and (flow_2_results <= flow_2_high_range) is False:
+            if not (flow_2_low_range <= flow_2_results <= flow_2_high_range):
                 logger.info(f'FAILED: {message}')
                 failed_messages.append(message)
                 verify_again = True
@@ -2417,7 +2428,7 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
                        f'Rx_Combined:{flow_3_results}/Gbps  Acceptable_Range:{flow_3_low_range}-{flow_3_high_range} '
                        f'{iteration}/3x')
 
-            if (flow_1_results >= flow_3_low_range) and (flow_3_results <= flow_3_high_range) is False:
+            if not (flow_3_low_range <= flow_3_results <= flow_3_high_range):
                 logger.info(f'FAILED: {message}')
                 failed_messages.append(message)
                 verify_again = True
@@ -2427,7 +2438,7 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
             message = (f'Flow_4_Rx:{stats[3]["rx_line_rate"]} & Flow_5_Rx:{stats[7]["rx_line_rate"]} '
                        f'Rx_Combined:{flow_4_results}/Gbps  Acceptable_Range:{flow_4_low_range}-{flow_4_high_range} '
                        f'{iteration}/3x')
-            if (flow_1_results >= flow_4_low_range) and (flow_4_results <= flow_4_high_range) is False:
+            if not (flow_4_low_range <= flow_4_results <= flow_4_high_range):
                 logger.info(f'FAILED: {message}')
                 failed_messages.append(message)
                 verify_again = True
