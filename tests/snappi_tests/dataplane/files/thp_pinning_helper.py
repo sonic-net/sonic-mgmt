@@ -482,6 +482,7 @@ def monitor_dut_health(duthost,
                   module_ignore_errors=True)
     reboot_history_before = _get_reboot_history(duthost)
     start = time.time()
+    last_health_check = 0
     baseline_sample = None
     last_sample = None
 
@@ -502,7 +503,8 @@ def monitor_dut_health(duthost,
                     ahp_diff_kb, ahp_diff_threshold_kb, duration_sec, baseline_sample, last_sample)
             )
 
-        if elapsed > 0 and elapsed % 120 == 0:
+        if elapsed - last_health_check >= 120:
+            last_health_check = elapsed
             pytest_assert(duthost.critical_services_fully_started(), "Critical services are not fully started")
 
         if not _process_is_running(duthost, workload_pid):
