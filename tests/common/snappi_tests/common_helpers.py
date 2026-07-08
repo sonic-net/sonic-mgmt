@@ -1589,95 +1589,44 @@ def _resolve_asic_instance(duthost, asic=None):
     return duthost.asic_instance(asic)
 
 
-def _counterpoll_namespace_arg(duthost, asic_inst):
-    """
-    Build '-n asic{N}' for multi-ASIC counterpoll commands.
-    Returns empty string on single-ASIC.
-    """
-    if duthost.is_multi_asic:
-        return "-n asic{}".format(asic_inst.asic_index)
-    return ""
-
-
-def enable_ecn_counterpoll(duthost, asic=None):
-    """
-    Enable WRED/ECN flex counter polling for wredport and wredqueue.
-    CLIs:
-        sudo counterpoll wredport -n <asic> enable
-        sudo counterpoll wredqueue -n <asic> enable
-    Args:
-        duthost: SONiC host under test
-        asic (SonicAsic/int/None): target ASIC. If None on multi-ASIC,
-            enables on all ASICs on the DUT.
-    """
-    def _enable(asic_inst):
-        ns_arg = _counterpoll_namespace_arg(duthost, asic_inst)
-        if duthost.is_multi_asic:
-            duthost.command("sudo counterpoll wredport {} enable".format(ns_arg))
-            duthost.command("sudo counterpoll wredqueue {} enable".format(ns_arg))
-        else:
-            asic_inst.command("counterpoll wredport enable")
-            asic_inst.command("counterpoll wredqueue enable")
-    if asic is not None:
-        _enable(_resolve_asic_instance(duthost, asic))
-    elif duthost.is_multi_asic:
-        for asic_inst in duthost.asics:
-            _enable(asic_inst)
-    else:
-        _enable(duthost.asic_instance())
-
-
-def disable_ecn_counterpoll(duthost, asic=None):
-    """
-    Disable WRED/ECN flex counter polling for wredport and wredqueue.
-    CLIs:
-        sudo counterpoll wredport -n <asic> disable
-        sudo counterpoll wredqueue -n <asic> disable
-    Args:
-        duthost: SONiC host under test
-        asic (SonicAsic/int/None): target ASIC. If None on multi-ASIC,
-            disables on all ASICs on the DUT.
-    """
-    def _disable(asic_inst):
-        ns_arg = _counterpoll_namespace_arg(duthost, asic_inst)
-        if duthost.is_multi_asic:
-            duthost.command("sudo counterpoll wredport {} disable".format(ns_arg))
-            duthost.command("sudo counterpoll wredqueue {} disable".format(ns_arg))
-        else:
-            asic_inst.command("counterpoll wredport disable")
-            asic_inst.command("counterpoll wredqueue disable")
-    if asic is not None:
-        _disable(_resolve_asic_instance(duthost, asic))
-    elif duthost.is_multi_asic:
-        for asic_inst in duthost.asics:
-            _disable(asic_inst)
-    else:
-        _disable(duthost.asic_instance())
-
-
 def _parse_int_counter(value):
-    return int(value.replace(',', ''))
+    s = str(value).strip().replace(',', '')
+    if s == '' or s.upper() == 'N/A':
+        return 0
+    return int(s)
 
 
-def _txq_from_priority(priority):
+def _txq_from_priority(priority, voq=False):
     """
-    Map priority argument to TxQ label used by 'show queue wredcounters'.
+    Map priority argument to TxQ label used by 'show queue wredcounters --json'.
     Args:
-        priority (int/str/None): e.g. 3 -> 'UC3', 'UC3' -> 'UC3'
+        priority (int/str/None): e.g. 3 -> 'UC3' or 'VOQ3', 'UC3' -> 'UC3'
+        voq (bool): when True, numeric priority maps to VOQ<n>
     Returns:
         TxQ label string or None
     """
     if priority is None:
         return None
     priority_str = str(priority).upper()
-    if priority_str.startswith(("UC", "MC")):
+    if priority_str.startswith(("UC", "MC", "VOQ", "ALL")):
         return priority_str
-    return "UC{}".format(priority)
+    prefix = "VOQ" if voq else "UC"
+    return "{}{}".format(prefix, priority_str)
 
 
-def _parse_show_queue_wredcounters_output(stdout_lines):
+def _normalize_wred_counter_entry(entry):
+    return {
+        "wred_drop_pkts": _parse_int_counter(entry.get("wreddroppacket", 0)),
+        "wred_drop_bytes": _parse_int_counter(entry.get("wreddropbytes", 0)),
+        "ecn_marked_pkts": _parse_int_counter(entry.get("ecnmarkedpacket", 0)),
+        "ecn_marked_bytes": _parse_int_counter(entry.get("ecnmarkedbytes", 0)),
+    }
+
+
+def _parse_wred_counters_json(data):
     """
-    Parse 'show queue wredcounters' table output.
+    Parse 'show queue wredcounters --json' output.
+
     Returns:
         {
             'Ethernet0': {
@@ -1693,36 +1642,49 @@ def _parse_show_queue_wredcounters_output(stdout_lines):
         }
     """
     counters = {}
-    for line in stdout_lines:
-        line = line.strip()
-        if not line or line.startswith("Port") or line.startswith("---"):
+    if not isinstance(data, dict):
+        return counters
+
+    for port, port_blob in data.items():
+        if not isinstance(port_blob, dict):
             continue
-        parts = line.split()
-        if len(parts) < 6:
-            continue
-        port, txq = parts[0], parts[1]
-        counters.setdefault(port, {})[txq] = {
-            "wred_drop_pkts": _parse_int_counter(parts[2]),
-            "wred_drop_bytes": _parse_int_counter(parts[3]),
-            "ecn_marked_pkts": _parse_int_counter(parts[4]),
-            "ecn_marked_bytes": _parse_int_counter(parts[5]),
-        }
+        port_counters = {}
+        for txq, entry in port_blob.items():
+            if txq in ("time", "cached_time") or not isinstance(entry, dict):
+                continue
+            port_counters[txq] = _normalize_wred_counter_entry(entry)
+        if port_counters:
+            counters[port] = port_counters
     return counters
 
 
-def _run_show_queue_wredcounters(duthost, asic_namespace=None, interface=None, nonzero=False):
-    """
-    Run 'show queue wredcounters' and return parsed output.
-    """
-    cmd = "show queue wredcounters"
+def _build_show_queue_wredcounters_cmd(
+        duthost, asic_namespace=None, interface=None, nonzero=False, voq=False):
+    cmd = "show queue wredcounters --json"
     if duthost.is_multi_asic and asic_namespace:
         cmd += " -n {}".format(asic_namespace)
     if interface:
         cmd += " {}".format(interface)
     if nonzero:
         cmd += " --nonzero"
-    stdout_lines = duthost.shell(cmd)["stdout_lines"]
-    return _parse_show_queue_wredcounters_output(stdout_lines)
+    if voq:
+        cmd += " --voq"
+    return cmd
+
+
+def _run_show_queue_wredcounters_json(
+        duthost, asic_namespace=None, interface=None, nonzero=False, voq=False):
+    cmd = _build_show_queue_wredcounters_cmd(
+        duthost,
+        asic_namespace=asic_namespace,
+        interface=interface,
+        nonzero=nonzero,
+        voq=voq,
+    )
+    stdout = duthost.shell(cmd)["stdout"].strip()
+    if not stdout:
+        return {}
+    return _parse_wred_counters_json(json.loads(stdout))
 
 
 def _filter_wred_counters_by_priority(counters, txq_filter):
@@ -1735,16 +1697,28 @@ def _filter_wred_counters_by_priority(counters, txq_filter):
     return filtered
 
 
-def get_ecn_wred_counters(duthost, interface=None, priority=None, nonzero=False):
+def _asic_namespace_for_read(duthost, interface=None, asic=None):
+    if asic is not None:
+        return _resolve_asic_instance(duthost, asic).get_asic_namespace()
+    if interface and duthost.is_multi_asic:
+        return duthost.get_port_asic_instance(interface).get_asic_namespace()
+    return None
+
+
+def get_ecn_wred_counters(
+        duthost, interface=None, asic=None, priority=None, nonzero=False, voq=False):
     """
     Get ECN/WRED queue counters from SONiC CLI.
     CLI:
-        show queue wredcounters [-n <asic>] [<port>] [--nonzero]
+        show queue wredcounters --json [-n <asic>] [<port>] [--nonzero] [--voq]
     Args:
         duthost: SONiC host under test
         interface (str/None): port name, e.g. 'Ethernet0'. None = all interfaces.
+        asic (SonicAsic/int/None): target ASIC for read. If None with interface set,
+            ASIC is inferred from the port. If both None on multi-ASIC, reads all ASICs.
         priority (int/str/None): queue priority / TxQ, e.g. 3 or 'UC3'. None = all TxQs.
         nonzero (bool): pass --nonzero to CLI when True
+        voq (bool): pass --voq to CLI when True
     Returns:
         {
             'Ethernet0': {
@@ -1759,47 +1733,65 @@ def get_ecn_wred_counters(duthost, interface=None, priority=None, nonzero=False)
             ...
         }
     """
-    txq_filter = _txq_from_priority(priority)
+    txq_filter = _txq_from_priority(priority, voq=voq)
     result = {}
-    if interface:
-        asic_namespace = None
-        if duthost.is_multi_asic:
-            asic_namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
-        parsed = _run_show_queue_wredcounters(
+
+    if interface or asic is not None:
+        asic_namespace = _asic_namespace_for_read(duthost, interface=interface, asic=asic)
+        parsed = _run_show_queue_wredcounters_json(
             duthost,
             asic_namespace=asic_namespace,
             interface=interface,
             nonzero=nonzero,
+            voq=voq,
         )
         result.update(_filter_wred_counters_by_priority(parsed, txq_filter))
         return result
+
     if duthost.is_multi_asic:
         for asic_inst in duthost.asics:
-            parsed = _run_show_queue_wredcounters(
+            parsed = _run_show_queue_wredcounters_json(
                 duthost,
                 asic_namespace=asic_inst.get_asic_namespace(),
                 interface=None,
                 nonzero=nonzero,
+                voq=voq,
             )
             for port, prio_map in _filter_wred_counters_by_priority(parsed, txq_filter).items():
                 result.setdefault(port, {}).update(prio_map)
     else:
-        parsed = _run_show_queue_wredcounters(
+        parsed = _run_show_queue_wredcounters_json(
             duthost,
             asic_namespace=None,
             interface=None,
             nonzero=nonzero,
+            voq=voq,
         )
         result.update(_filter_wred_counters_by_priority(parsed, txq_filter))
     return result
 
 
-def clear_ecn_wred_counters(duthost):
+def clear_ecn_wred_counters(duthost, asic=None):
     """
     Clear WRED queue counters.
     CLI:
-        sonic-clear queue wredcounters
+        sonic-clear queue wredcounters [-n <asic>]
     Args:
         duthost: SONiC host under test
+        asic (SonicAsic/int/None): target ASIC. If None on multi-ASIC, clears all ASICs.
     """
-    duthost.command("sonic-clear queue wredcounters")
+    if asic is not None:
+        asic_inst = _resolve_asic_instance(duthost, asic)
+        if duthost.is_multi_asic:
+            duthost.command(
+                "sonic-clear queue wredcounters -n {}".format(asic_inst.get_asic_namespace()))
+        else:
+            duthost.command("sonic-clear queue wredcounters")
+        return
+
+    if duthost.is_multi_asic:
+        for asic_inst in duthost.asics:
+            duthost.command(
+                "sonic-clear queue wredcounters -n {}".format(asic_inst.get_asic_namespace()))
+    else:
+        duthost.command("sonic-clear queue wredcounters")
