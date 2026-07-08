@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh', 't1'),
+    # This module performs repeated minigraph/config reloads with golden config
+    # overrides. Gate routeCheck at module boundaries so transient churn does
+    # not poison the following test module.
+    pytest.mark.disable_route_check,
     pytest.mark.disable_loganalyzer,
 ]
 

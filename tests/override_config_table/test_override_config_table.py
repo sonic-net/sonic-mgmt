@@ -21,6 +21,10 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
+    # This module performs repeated minigraph/config reloads with golden config
+    # overrides. Gate routeCheck at module boundaries so transient churn does
+    # not poison the following test module.
+    pytest.mark.disable_route_check,
 ]
 
 LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
