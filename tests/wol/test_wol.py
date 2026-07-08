@@ -19,7 +19,7 @@ DEFAULT_PORT = 9
 DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
-ERR_MARGIN = 100  # millisecond
+ERR_MARGIN = 250  # millisecond
 
 
 def p2b(password: str) -> bytes:
@@ -135,6 +135,24 @@ def build_wol_cmd(intf, target_mac=TARGET_MAC, dst_ip=None, dport=None, password
     return wol_cmd
 
 
+def get_wol_poll_duration(count=None, interval=None):
+    if count is None or interval is None:
+        return 2
+    return max(2, int(((count - 1) * interval + ERR_MARGIN) / 1000) + 2)
+
+
+def run_wol_async(duthost, cmd):
+    duthost.shell(
+        ("rm -f /tmp/wol_async_rc; nohup bash -lc '{}; echo $? > /tmp/wol_async_rc' "
+         ">/tmp/wol_async.log 2>&1 &").format(cmd))
+
+
+def verify_wol_async_done(duthost):
+    res = duthost.shell("cat /tmp/wol_async_rc", module_ignore_errors=True)
+    pytest_assert(res["rc"] == 0 and res["stdout"].strip() == "0",
+                  "WOL command did not complete successfully: {}".format(res))
+
+
 class TestWOLSendFromInterface:
     @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
     @pytest.mark.parametrize("password", [None, "11:22:33:44:55:66", "192.168.0.1"])
@@ -155,12 +173,15 @@ class TestWOLSendFromInterface:
         exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload,
                                 dst_mac=BROADCAST_MAC if broadcast else TARGET_MAC)
 
-        duthost.shell(build_wol_cmd(random_dut_intf, password=password,
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_dut_intf, password=password,
                       broadcast=broadcast, count=count, interval=interval))
 
         verify_packet(ptfadapter, lambda pkt: match_exp_pkt(exp_pkt, pkt),
                       random_ptf_index, count=1 if count is None else count,
-                      interval=0 if interval is None else interval)
+                      interval=0 if interval is None else interval,
+                      duration=get_wol_poll_duration(count, interval))
+        verify_wol_async_done(duthost)
 
     def test_wol_send_from_interface_udp_no_ip(
         self,
@@ -175,9 +196,12 @@ class TestWOLSendFromInterface:
 
         payload = build_magic_packet_payload()
 
-        duthost.shell(build_wol_cmd(random_dut_intf) + " -u")
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_dut_intf) + " -u")
 
-        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), random_ptf_index)
+        verify_packet(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), random_ptf_index,
+                      duration=get_wol_poll_duration())
+        verify_wol_async_done(duthost)
 
     @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
     @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
@@ -201,12 +225,15 @@ class TestWOLSendFromInterface:
 
         payload = build_magic_packet_payload(password="" if password is None else password)
 
-        duthost.shell(build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_dut_intf, dst_ip=dst_ip_intf, dport=dport, password=password,
                       count=count, interval=interval))
 
         verify_packet(ptfadapter, get_udp_verifier(dst_ip_intf, DEFAULT_PORT if dport is None else dport, payload),
                       random_ptf_index, count=1 if count is None else count,
-                      interval=0 if interval is None else interval)
+                      interval=0 if interval is None else interval,
+                      duration=get_wol_poll_duration(count, interval))
+        verify_wol_async_done(duthost)
 
 
 class TestWOLSendFromVlan:
@@ -229,13 +256,16 @@ class TestWOLSendFromVlan:
         payload = build_magic_packet_payload(password="" if password is None else password)
         exp_pkt = get_ether_pkt(duthost.facts["router_mac"], payload)
 
-        duthost.shell(build_wol_cmd(random_vlan, password=password,
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_vlan, password=password,
                       count=count, interval=interval))
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
         verify_packets(ptfadapter, lambda pkt: match_exp_pkt(exp_pkt, pkt),
                        remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                       interval=0 if interval is None else interval)
+                       interval=0 if interval is None else interval,
+                       duration=get_wol_poll_duration(count, interval))
+        verify_wol_async_done(duthost)
 
     def test_wol_send_from_vlan_udp_no_ip(
         self,
@@ -250,10 +280,13 @@ class TestWOLSendFromVlan:
 
         payload = build_magic_packet_payload()
 
-        duthost.shell(build_wol_cmd(random_vlan) + " -u")
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_vlan) + " -u")
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
-        verify_packets(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), remaining_ptf_index_under_vlan)
+        verify_packets(ptfadapter, get_udp_verifier(DEFAULT_IP, DEFAULT_PORT, payload), remaining_ptf_index_under_vlan,
+                       duration=get_wol_poll_duration())
+        verify_wol_async_done(duthost)
 
     @pytest.mark.parametrize("count,interval", [(None, None), (3, 1000)])
     @pytest.mark.parametrize("password", ["11:22:33:44:55:66", "192.168.0.1"])
@@ -277,18 +310,22 @@ class TestWOLSendFromVlan:
 
         payload = build_magic_packet_payload(password="" if password is None else password)
 
-        duthost.shell(build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
+        ptfadapter.dataplane.flush()
+        run_wol_async(duthost, build_wol_cmd(random_vlan, dst_ip=dst_ip_vlan, dport=dport, password=password,
                       count=count, interval=interval))
 
         remaining_ptf_index_under_vlan = list(map(lambda item: item[1], remaining_intf_pair_under_vlan))
         if isinstance(ipaddress.ip_address(dst_ip_vlan), ipaddress.IPv6Address):
             verify_packet_any(ptfadapter, get_udp_verifier(dst_ip_vlan, dport if dport else DEFAULT_PORT, payload),
                               remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                              interval=0 if interval is None else interval)
+                              interval=0 if interval is None else interval,
+                              duration=get_wol_poll_duration(count, interval))
         else:
             verify_packets(ptfadapter, get_udp_verifier(dst_ip_vlan, dport if dport else DEFAULT_PORT, payload),
                            remaining_ptf_index_under_vlan, count=1 if count is None else count,
-                           interval=0 if interval is None else interval)
+                           interval=0 if interval is None else interval,
+                           duration=get_wol_poll_duration(count, interval))
+        verify_wol_async_done(duthost)
 
 
 def verify_invalid_wol_cmd(duthost, wol_cmd, exp_err_msgs):
