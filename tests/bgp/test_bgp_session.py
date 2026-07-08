@@ -50,6 +50,14 @@ def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
     return interfaces
 
 
+def _log_bgp_summary(duthost, asic_index):
+    """Log per-ASIC BGP summary after failure injection; never fail the test."""
+    asichost = duthost.asic_instance(asic_index)
+    ns_opt = asichost.cli_ns_option
+    for cmd in ('show ip bgp summary', 'show ipv6 bgp summary'):
+        duthost.shell('{} {}'.format(cmd, ns_opt).strip(), module_ignore_errors=True)
+
+
 @pytest.fixture(scope='module')
 def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
           nbrhosts, fanouthosts):
@@ -219,7 +227,6 @@ def failure_injection(duthosts, enum_frontend_dut_hostname, fanouthosts, nbrhost
     See: https://github.com/sonic-net/sonic-mgmt/issues/22246
     """
     duthost = duthosts[enum_frontend_dut_hostname]
-    asichost = duthost.asic_instance(setup['asic_index'])
     state = {'injected': False, 'failure_type': None}
 
     class FailureContext:
@@ -240,8 +247,7 @@ def failure_injection(duthosts, enum_frontend_dut_hostname, fanouthosts, nbrhost
             else:
                 raise ValueError("Unsupported failure_type: {}".format(failure_type))
 
-            asichost.run_vtysh('-c "show ip bgp summary"')
-            asichost.run_vtysh('-c "show ipv6 bgp summary"')
+            _log_bgp_summary(duthost, setup['asic_index'])
 
         def restore(self):
             """Explicitly restore injected failures so the test can verify recovery.
