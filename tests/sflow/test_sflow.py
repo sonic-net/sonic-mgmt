@@ -152,6 +152,22 @@ def get_default_agent(duthost):
 # ----------------------------------------------------------------------------------
 
 
+def wait_until_hsflowd_applied_agent(duthost, expected_agent_ip):
+    # hsflowd (host-sflow >= 2.1.26, pulled in by sonic-buildimage PR #27806) applies a
+    # runtime "config sflow agent-id" change asynchronously: it rewrites /etc/hsflowd.auto
+    # through its tick-driven reconfig state machine. verify_show_sflow only confirms that
+    # CONFIG_DB was updated, so a trailing counter-poll round can still emit the previously
+    # auto-selected agent right after the change. Wait until hsflowd.auto advertises the
+    # expected agentIP before running the PTF check so any in-flight sample drains first.
+    read_agent_cmd = "docker exec sflow grep -w 'agentIP' /etc/hsflowd.auto 2>/dev/null | cut -d '=' -f 2"
+    pytest_assert(
+        wait_until(60, 2, 0, lambda: duthost.shell(
+            read_agent_cmd, module_ignore_errors=True)['stdout'].strip() == expected_agent_ip),
+        "hsflowd did not apply agentIP {} in /etc/hsflowd.auto".format(expected_agent_ip))
+
+# ----------------------------------------------------------------------------------
+
+
 def get_ifindex(duthost, port):
     ifindex = duthost.shell('cat /sys/class/net/%s/ifindex' % port)['stdout']
     return ifindex
@@ -670,6 +686,7 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         duthost.shell(" config sflow agent-id  add Loopback0")
         verify_show_sflow(duthost, status='up', agent_id='Loopback0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
@@ -698,6 +715,7 @@ class TestAgentId():
         agent_ip = var['mgmt_ip']
         duthost.shell(" config sflow agent-id  add  eth0")
         verify_show_sflow(duthost, status='up', agent_id='eth0')
+        wait_until_hsflowd_applied_agent(duthost, agent_ip)
         partial_ptf_runner(
             polling_int=20,
             agent_id=agent_ip,
