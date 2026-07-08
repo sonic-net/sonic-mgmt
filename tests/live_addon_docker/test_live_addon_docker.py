@@ -141,15 +141,15 @@ def test_live_addon_docker_image_upgrade(
             "--live_addon_docker_image_upgrade_tag".format(upgrade_tag, baseline_tag)
         )
 
-    container_started = False
+    started_cfg = {"cfg": None}
     try:
         baseline_cfg, (ok, code, body) = lad.upgrade_live_addon_docker_image(
             duthost,
             baseline_cfg,
             public_docker_registry=public_reg,
             docker_registry_host_override=registry_host,
+            started_cfg=started_cfg,
         )
-        container_started = True
         pytest_assert(
             ok,
             "Baseline health check failed before image upgrade: http_code={} body={}".format(
@@ -166,15 +166,16 @@ def test_live_addon_docker_image_upgrade(
             target_cfg,
             public_docker_registry=public_reg,
             docker_registry_host_override=registry_host,
+            started_cfg=started_cfg,
         )
         pytest_assert(
             ok,
             "Health check after image upgrade failed: http_code={} body={}".format(code, body),
         )
     finally:
-        if container_started:
+        if started_cfg["cfg"] is not None:
             try:
-                dr = (target_cfg or baseline_cfg or cfg_base).get("docker_run") or {}
+                dr = started_cfg["cfg"].get("docker_run") or {}
                 if dr.get("container_name"):
                     lad.docker_manual_teardown(duthost, dr)
             except Exception as exc:

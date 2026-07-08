@@ -1299,13 +1299,15 @@ def upgrade_live_addon_docker_image(
     cfg,
     public_docker_registry=False,
     docker_registry_host_override=None,
+    started_cfg=None,
 ):
     """
     Upgrade path: registry-pull ``cfg['docker_run']['image_ref']``, optional ``version_matrix``
     check, teardown container, remove stale images, ``docker run``, post-start checks, HTTP health.
 
     Call ``apply_image_tag_to_config`` first (baseline ``--live_addon_docker_image_tag`` or upgrade
-    ``--live_addon_docker_image_upgrade_tag``).
+    ``--live_addon_docker_image_upgrade_tag``). If ``started_cfg`` is provided, it is updated after
+    ``docker run`` succeeds so caller cleanup can run even if post-start validation fails.
     Returns ``(cfg_used, (ok, http_code, body))``.
     """
     dr = cfg.get("docker_run") or {}
@@ -1340,10 +1342,12 @@ def upgrade_live_addon_docker_image(
 
     try:
         docker_run_manual(duthost, cfg_run)
+        if started_cfg is not None:
+            started_cfg["cfg"] = cfg_run
         verify_live_addon_post_start(duthost, cfg_run)
         health = wait_for_health_ready(duthost, cfg_run["health"])
         return cfg_run, health
-    except Exception:
+    except (Exception, pytest.fail.Exception):
         try:
             docker_manual_teardown(duthost, cfg_run["docker_run"])
         except Exception as exc:
