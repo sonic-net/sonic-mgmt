@@ -61,10 +61,17 @@ class DHCPStressTest(DHCPTest):
         for idx in self.receive_port_indices:
             log_file = "/tmp/dhcp_stress_{}_{}.log".format(self.packet_type, idx)
             log_files.append(log_file)
+            # Match only the DHCP message-type under test so background/other-type
+            # DHCP traffic cannot inflate the relayed-packet count. message-type
+            # (option 53) is the first DHCP option; udp[] is UDP-header relative,
+            # so its length+value bytes sit at udp[249:2] (8 UDP hdr + 236 BOOTP
+            # + 4 magic cookie + 1 option code). This deep offset is reliable now
+            # that capture is per-interface rather than '-i any' cooked mode.
             # exec so the shell is replaced by tcpdump and proc.pid is the
             # tcpdump PID we can signal directly (see cleanup below).
-            cmd = "exec tcpdump -i eth{} -n -q -l 'udp and (port 67 or port 68)' > {} 2>/dev/null".format(
-                idx, log_file)
+            cmd = ("exec tcpdump -i eth{} -n -q -l "
+                   "'udp and (port 67 or port 68) and udp[249:2] = 0x01{}' "
+                   "> {} 2>/dev/null").format(idx, self.packet_type_hex, log_file)
             tcpdump_procs.append(subprocess.Popen(cmd, shell=True))
 
         time.sleep(1)
