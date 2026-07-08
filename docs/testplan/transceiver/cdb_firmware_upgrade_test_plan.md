@@ -117,7 +117,7 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 | firmware_run_timeout_sec | Int | 20 | O | transceivers | Maximum time in seconds to wait for a firmware run command to complete. |
 | firmware_commit_timeout_sec | Int | 10 | O | transceivers | Maximum time in seconds to wait for a firmware commit command to complete. |
 | sleep_after_dom_disable_sec | Int | 5 | O | transceivers | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
-| thermalctld_disabling_required | Bool | False | O | transceivers or Platform-level | A flag indicating whether to disable `thermalctld` during the test. |
+| thermalctld_disabling_required | Bool | False | O | transceivers or platform | A flag indicating whether to disable `thermalctld` during the test. |
 | dual_bank_supported | Bool | True | O | transceivers | Whether the transceiver supports dual-bank firmware. Used to determine if both active and inactive firmware versions should be validated. |
 | gold_firmware_version | String | - | M | transceivers | The expected active/gold firmware version for modules. Used as the baseline reference for firmware version validation. |
 | inactive_firmware_version | String | - | M | transceivers | The expected inactive bank firmware version for dual-bank modules. Optional only when `dual_bank_supported` is false. |
@@ -270,14 +270,14 @@ Fail the test if the per-PN manifest file is missing, the specified firmware ver
 
 **Requirements for firmware upgrade tests:**
 
-1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition.
+1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that do not support CDB background mode. The test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition. DOM polling is re-enabled at the end of every test case to evaluate basic DOM data.
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped if the `thermalctld_disabling_required` flag is set.
 3. **Firmware requirements:**
    - The firmware version specified by `firmware_versions` test attribute must be available.
    - All firmware versions must support the CDB protocol for proper testing.
 4. **Module capabilities:** The module must support CMIS CDB firmware operations. For dual-bank specific checks, `dual_bank_supported` must be true.
 5. **Network connectivity:** In download mode, the DUT must have network access to the firmware server specified in `cdb_firmware_upgrade_url.json` for downloading firmware binaries. Not required in pre-staged mode.
-6. **Link state:** The port should be operationally up before firmware download starts and should remain operationally up during and after the firmware download with no link flaps observed during the process.
+6. **Link state:** The port should be operationally up before firmware download starts and should remain operationally up during and after the firmware download.
 7. **CDB abort before download:** If `firmware_download_cdb_abort_support` is true, the framework must issue a CDB abort command before every firmware download to ensure the module is not in a stale CDB state from a previous interrupted operation. 
 
 **Note:** When the abort is issued as a pre-download safeguard (i.e. the test is not validating the abort behavior itself), the framework ignores the command's return value, since the module may return an error when there is no incomplete download to abort.
@@ -297,33 +297,35 @@ These tests rely on the shared transceiver test infrastructure checks for test c
 
 ### Verification Bundles
 
-The Expected Results column in the Test Cases table references the following named verification bundles. Each bundle is a fixed set of assertions performed in addition to any test case specific checks.
+The Expected Results column in the Test Cases table references the following named verification bundles. Each bundle is a fixed set of assertions performed in addition to any test case specific checks. Beyond the firmware-state assertions, every bundle also re-validates DOM functionality and runs the common [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware State Unchanged Verification
 
-Firmware state is unchanged after a failed or aborted operation:
+Firmware state is unchanged after a failed or aborted operation, and the module, port, and system remain healthy:
 
 1. Active firmware version remains unchanged.
 2. If `dual_bank_supported` is true, inactive firmware version is invalid (i.e. `N/A` or `0.0.0`).
 3. Committed Image remains unchanged.
 4. Running Image remains unchanged.
-5. No link flap should be seen.
+5. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+6. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Downloaded Verification
 
-Firmware download succeeded and inactive bank holds the new image:
+Firmware download succeeded, the inactive bank holds the new image, and the module, port, and system remain healthy:
 
 1. CLI command should complete within `firmware_download_timeout_minutes` minutes and return 0.
 2. Active firmware version remains unchanged.
 3. If `dual_bank_supported` is true, inactive firmware version reflects the downloaded firmware version.
 4. Running Image remains unchanged.
 5. Committed Image remains unchanged.
-6. No link flap should be seen.
-7. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
+6. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
+7. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+8. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 #### Firmware Activation Verification
 
-Firmware run and commit succeeded, the bank swap took effect, and the committed Image points to the active image:
+Firmware run and commit succeeded, the bank swap took effect, the committed Image points to the active image, and the port fully recovers:
 
 1. Firmware run command finishes within `firmware_run_timeout_sec` seconds and returns 0.
 2. Firmware commit command finishes within `firmware_commit_timeout_sec` seconds and returns 0.
@@ -332,8 +334,10 @@ Firmware run and commit succeeded, the bank swap took effect, and the committed 
 5. If `dual_bank_supported` is false, active firmware version matches the firmware selected for activation and inactive firmware checks are not applicable.
 6. Committed Image is updated to the active firmware image.
 7. `sfputil show fwversion <port>` CLI shows the "Running Image" as the current active bank.
-8. Link is up within `port_startup_wait_sec` seconds and no link flap is seen.
+8. Link is up within `port_startup_wait_sec` seconds.
 9. Static EEPROM fields (vendor name, part number, hardware revision, etc.) remain unchanged.
+10. After DOM monitoring is re-enabled, TC #1 and TC #2 from the [Basic DOM Functionality Tests](dom_test_plan.md#basic-dom-functionality-tests) must hold.
+11. Execute the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure).
 
 **Timing Requirements:**
 
