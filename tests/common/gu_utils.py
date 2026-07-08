@@ -537,14 +537,19 @@ def expect_acl_table_match_multiple_bindings(duthost,
                 return False
 
             first_line = output[0]
-            first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            if not set(first_line.values()) == set(expected_first_line_content):
+            table_bindings = [line["binding"] for line in output if line.get("binding")]
+
+            if first_line["binding"] not in expected_bindings:
+                logger.warning(f"Unexpected first ACL table binding: {first_line['binding']}")
+                return False
+
+            actual_first_line = set(first_line.values()) - set(expected_bindings)
+            expected_first_line = set(expected_first_line_content) - set(expected_bindings)
+            first_line_diff = actual_first_line ^ expected_first_line
+            if actual_first_line != expected_first_line:
                 logger.warning(f"First line content does not match. Difference: {first_line_diff}")
                 return False
 
-            table_bindings = [first_line["binding"]]
-            for i in range(len(output)):
-                table_bindings.append(output[i]["binding"])
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
             if not set(table_bindings) == set(expected_bindings):
                 logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")
