@@ -409,13 +409,15 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
 
 @pytest.fixture()
-def enable_sonic_dhcpv4_relay_agent(duthost, request):
+def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
     """
     Fixture to enable the DHCP relay feature flag and restart the service.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
         return
+
+    duthost = rand_selected_dut
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")

@@ -35,26 +35,34 @@ def config_system_checks_passed(duthost, delayed_services=[]):
         logging.info(fail_reason['stdout_lines'])
         return False
 
-    logging.info("Checking if Orchagent up for at least 2 min")
-    if duthost.is_multi_asic:
-        for asic in duthost.asics:
-            out = duthost.shell("systemctl show swss@{}.service --property ActiveState --value".format(asic.asic_index))
+    if duthost.is_bmc():
+        # BMC devices (DEVICE_METADATA.localhost.type == 'NetworkBmc') have no
+        # front-side ASIC. swss/syncd are intentionally not running, so the
+        # swss readiness gate below would never pass on BMC.
+        logging.info("Skipping swss readiness gate on BMC device")
+    else:
+        logging.info("Checking if Orchagent up for at least 2 min")
+        if duthost.is_multi_asic:
+            for asic in duthost.asics:
+                out = duthost.shell(
+                    "systemctl show swss@{}.service --property ActiveState --value".format(asic.asic_index))
+                if out["stdout"] != "active":
+                    return False
+
+                cmd = ("ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value)"
+                       " | sed '1d'").format(asic.asic_index)
+                out = duthost.shell(cmd)
+                if int(out['stdout'].strip()) < 120:
+                    return False
+        else:
+            out = duthost.shell("systemctl show swss.service --property ActiveState --value")
             if out["stdout"] != "active":
                 return False
 
             out = duthost.shell(
-                "ps -o etimes -p $(systemctl show swss@{}.service --property ExecMainPID --value) | sed '1d'".format(
-                    asic.asic_index))
+                "ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
             if int(out['stdout'].strip()) < 120:
                 return False
-    else:
-        out = duthost.shell("systemctl show swss.service --property ActiveState --value")
-        if out["stdout"] != "active":
-            return False
-
-        out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
-        if int(out['stdout'].strip()) < 120:
-            return False
 
     logging.info("Checking delayed services: %s", delayed_services)
     for service in delayed_services:
