@@ -8,10 +8,11 @@ Image resolution (registry first by default, then fallbacks):
 3. **Tarball on test runner** — copy to ``/tmp/`` on DUT
 4. **Image already on DUT** — ``docker image inspect``
 
-Pass ``--live_addon_docker_image_tag`` for CI build tags; ``--live_addon_docker_registry`` per-vendor CR.
+Pass ``--live_addon_docker_image_tag`` for baseline/module tests;
+``--live_addon_docker_image_upgrade_tag`` for the image upgrade test.
 
-Post-start validation (single instance, startup logs or supervisord poll) runs in the module fixture
-and on every ``docker run`` inside helpers — not duplicated in individual tests below.
+Post-start validation runs in the module fixture and on every ``docker run`` inside helpers.
+The image-upgrade test is standalone (does not use the module fixture).
 """
 
 import copy
@@ -26,6 +27,27 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("any"),
 ]
+
+
+def _cli_image_tag(request):
+    val = request.config.getoption("--live_addon_docker_image_tag", default=None)
+    if val and str(val).strip():
+        return str(val).strip()
+    return None
+
+
+def _cli_registry_host(request):
+    val = request.config.getoption("--live_addon_docker_registry", default=None)
+    if val and str(val).strip():
+        return str(val).strip()
+    return None
+
+
+def _cli_image_upgrade_tag(request):
+    val = request.config.getoption("--live_addon_docker_image_upgrade_tag", default=None)
+    if val and str(val).strip():
+        return str(val).strip()
+    return None
 
 
 @pytest.fixture(scope="module")
@@ -85,3 +107,76 @@ def test_live_addon_docker_health_after_config_reload_cycle(
         ok,
         "Health check after config-reload cycle failed: http_code={} body={}".format(code, body),
     )
+
+
+def test_live_addon_docker_image_upgrade(
+    request,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    live_addon_docker_vendor_cfg_raw,
+):
+    """
+    Pull baseline image (``--live_addon_docker_image_tag``), start container, then upgrade to
+    ``--live_addon_docker_image_upgrade_tag`` via registry pull and verify post-start + HTTP health.
+
+    Requires registry access (Ansible ``docker_registry_host`` or ``--live_addon_docker_registry``).
+    """
+    baseline_tag = _cli_image_tag(request)
+    upgrade_tag = _cli_image_upgrade_tag(request)
+    if not baseline_tag:
+        pytest.skip("Pass --live_addon_docker_image_tag for baseline live-addon image")
+    if not upgrade_tag:
+        pytest.skip("Pass --live_addon_docker_image_upgrade_tag for upgrade live-addon image")
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    cfg_base = live_addon_docker_vendor_cfg_raw
+    pre_cores = lad.get_core_filenames(duthost)
+    public_reg = request.config.getoption("--public_docker_registry")
+    registry_host = _cli_registry_host(request)
+    baseline_cfg = lad.apply_image_tag_to_config(cfg_base, baseline_tag)
+    target_cfg = lad.apply_image_tag_to_config(cfg_base, upgrade_tag)
+    if target_cfg["docker_run"]["image_ref"] == baseline_cfg["docker_run"]["image_ref"]:
+        pytest.skip(
+            "Upgrade tag {!r} matches baseline tag {!r}; use different "
+            "--live_addon_docker_image_upgrade_tag".format(upgrade_tag, baseline_tag)
+        )
+
+    container_started = False
+    try:
+        baseline_cfg, (ok, code, body) = lad.upgrade_live_addon_docker_image(
+            duthost,
+            baseline_cfg,
+            public_docker_registry=public_reg,
+            docker_registry_host_override=registry_host,
+        )
+        container_started = True
+        pytest_assert(
+            ok,
+            "Baseline health check failed before image upgrade: http_code={} body={}".format(
+                code, body
+            ),
+        )
+        logger.info(
+            "Baseline live-addon image installed at %s",
+            baseline_cfg["docker_run"]["image_ref"],
+        )
+
+        target_cfg, (ok, code, body) = lad.upgrade_live_addon_docker_image(
+            duthost,
+            target_cfg,
+            public_docker_registry=public_reg,
+            docker_registry_host_override=registry_host,
+        )
+        pytest_assert(
+            ok,
+            "Health check after image upgrade failed: http_code={} body={}".format(code, body),
+        )
+    finally:
+        if container_started:
+            try:
+                dr = (target_cfg or baseline_cfg or cfg_base).get("docker_run") or {}
+                if dr.get("container_name"):
+                    lad.docker_manual_teardown(duthost, dr)
+            except Exception as exc:
+                logger.warning("Upgrade test teardown command failed: %s", exc)
+            lad.verify_post_teardown(duthost, cfg_base, pre_cores)

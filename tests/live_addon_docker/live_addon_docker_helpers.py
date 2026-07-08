@@ -9,7 +9,8 @@ The JSON must define ``vendor``, ``docker_run`` (``docker load`` if needed, then
 ``docker-live-addon-<vendor>[:tag]`` unless set explicitly (must match ACR repo for registry pull).
 Optional fields: ``tarball_filename``, ``version_matrix``, ``candidate_image_refs``.
 Registry pull uses Ansible ``docker_registry_*`` or pytest ``--live_addon_docker_registry``;
-``--live_addon_docker_image_tag`` overrides pull/run tag. ``--public_docker_registry`` for public host.
+``--live_addon_docker_image_tag`` overrides pull/run tag for baseline and module tests.
+``--live_addon_docker_image_upgrade_tag`` is upgrade-test only. ``--public_docker_registry`` for public host.
 Optional ``version_matrix`` skips when live-addon vs DUT SONiC is not declared compatible
 (see ``require_version_matrix_or_skip``).
 """
@@ -1268,6 +1269,91 @@ def wait_for_health_ready(duthost, health_cfg):
     return last
 
 
+def _require_upgrade_image_tag_applied(cfg):
+    """
+    Ensure ``upgrade_live_addon_docker_image`` was called with config from
+    ``apply_image_tag_to_config`` (explicit CLI tag), not raw JSON defaults.
+    """
+    dr = cfg.get("docker_run") or {}
+    image_tag = (dr.get("image_tag") or "").strip()
+    if not image_tag:
+        pytest.fail(
+            "upgrade_live_addon_docker_image: docker_run.image_tag is required; "
+            "call apply_image_tag_to_config() with --live_addon_docker_image_tag or "
+            "--live_addon_docker_image_upgrade_tag first"
+        )
+    image_ref = (dr.get("image_ref") or "").strip()
+    if not image_ref:
+        pytest.fail("upgrade_live_addon_docker_image: docker_run.image_ref is required")
+    if image_ref_to_tag(image_ref) != image_tag:
+        pytest.fail(
+            "upgrade_live_addon_docker_image: docker_run.image_ref {!r} does not match "
+            "docker_run.image_tag {!r}; call apply_image_tag_to_config() first".format(
+                image_ref, image_tag
+            )
+        )
+
+
+def upgrade_live_addon_docker_image(
+    duthost,
+    cfg,
+    public_docker_registry=False,
+    docker_registry_host_override=None,
+):
+    """
+    Upgrade path: registry-pull ``cfg['docker_run']['image_ref']``, optional ``version_matrix``
+    check, teardown container, remove stale images, ``docker run``, post-start checks, HTTP health.
+
+    Call ``apply_image_tag_to_config`` first (baseline ``--live_addon_docker_image_tag`` or upgrade
+    ``--live_addon_docker_image_upgrade_tag``).
+    Returns ``(cfg_used, (ok, http_code, body))``.
+    """
+    dr = cfg.get("docker_run") or {}
+    _require_upgrade_image_tag_applied(cfg)
+
+    tag = image_ref_to_tag(dr["image_ref"])
+    reg_settings = _live_addon_registry_pull_settings(cfg, registry_image_tag=tag)
+    if reg_settings is None:
+        pytest.fail("upgrade_live_addon_docker_image: cannot build registry pull settings")
+
+    ref = try_registry_pull_live_addon_image(
+        duthost,
+        reg_settings,
+        public_docker_registry=public_docker_registry,
+        docker_registry_host_override=docker_registry_host_override,
+    )
+    if not ref:
+        pytest.fail(
+            "upgrade_live_addon_docker_image: registry pull failed for {!r} "
+            "(registry_host_override={!r})".format(dr["image_ref"], docker_registry_host_override)
+        )
+
+    # Run version_matrix before destructive teardown so pytest.skip leaves the prior
+    # container running when the upgrade image is incompatible.
+    require_version_matrix_or_skip(duthost, cfg, ref)
+
+    docker_manual_teardown(duthost, dr)
+    remove_configured_live_addon_images(duthost, cfg, except_ref=ref)
+
+    cfg_run = copy.deepcopy(cfg)
+    cfg_run["docker_run"]["image_ref"] = ref
+
+    try:
+        docker_run_manual(duthost, cfg_run)
+        verify_live_addon_post_start(duthost, cfg_run)
+        health = wait_for_health_ready(duthost, cfg_run["health"])
+        return cfg_run, health
+    except Exception:
+        try:
+            docker_manual_teardown(duthost, cfg_run["docker_run"])
+        except Exception as exc:
+            logger.warning(
+                "Upgrade helper cleanup failed after start error: %s",
+                exc,
+            )
+        raise
+
+
 def docker_manual_teardown(duthost, docker_run_cfg):
     name = docker_run_cfg["container_name"]
     logger.info("Teardown docker: stop and remove %s", name)
@@ -1275,12 +1361,19 @@ def docker_manual_teardown(duthost, docker_run_cfg):
     duthost.command("sudo docker rm -f {}".format(name), module_ignore_errors=True)
 
 
-def remove_configured_live_addon_images(duthost, cfg):
+def remove_configured_live_addon_images(duthost, cfg, except_ref=None):
     """
     Best-effort ``docker rmi -f`` for ``docker_run.image_ref`` and ``candidate_image_refs``.
     Used immediately before ``docker load`` so the tarball load does not layer on old tags.
+
+    Args:
+        except_ref: Optional image ref to keep (for example the image just pulled during upgrade).
     """
+    keep = (except_ref or "").strip()
     for ref in _image_refs_to_try(cfg):
+        if keep and ref == keep:
+            logger.info("Skipping live-addon image removal (in use): %s", ref)
+            continue
         logger.info("Removing live-addon image before docker load (best-effort): %s", ref)
         duthost.command("sudo docker rmi -f {}".format(ref), module_ignore_errors=True)
 
