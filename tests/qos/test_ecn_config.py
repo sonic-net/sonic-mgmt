@@ -213,10 +213,25 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                         age_quant_len = len(voq_drop_data[0][1])
 
                 if voq_mark_data:
+                    # "wm_prob" is the legacy 4-level ECN mark-probability quantization
+                    # exposed only by older ASICs (e.g. Q200 family). Newer ASICs such as
+                    # Graphene2 (G200) and Palladium2 (P200) use a different congestion
+                    # management model that emits a continuous per-region marking
+                    # probability surface in "voq_mark_prob_g" and do not expose "wm_prob".
+                    # For those devices the 4-level mapping does not apply, so validate that
+                    # each value is a valid probability instead.
+                    wm_prob = data.get("wm_prob")
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
                                 actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
+                                if wm_prob is None:
+                                    assert 0.0 <= actual_value <= 1.0, '''
+                                            Marking Probability out of range for Port {} PG {}
+                                            at SMS/VoQ/Age region {}/{}/{} Value: {}
+                                         '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                    age_idx, actual_value)
+                                    continue
                                 if age_idx == 0:
                                     mark_level = 0
                                 elif (voq_idx >= 1 and age_idx == 1):
@@ -227,7 +242,7 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                                     mark_level = 3
                                 else:
                                     mark_level = 0
-                                expected_value = round(data["wm_prob"][mark_level], 2)
+                                expected_value = round(wm_prob[mark_level], 2)
                                 assert (
                                         actual_value == expected_value
                                 ), '''
