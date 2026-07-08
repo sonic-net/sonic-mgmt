@@ -7,6 +7,7 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 import six
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.devices.eos import EosHost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa: F401
 from tests.vlan.test_vlan import populate_mac_table   # noqa: F401
@@ -47,6 +48,19 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             logger.debug("unknown IP version")
 
 
+def _portchannel_netdev_name(nbr_host, index):
+    """Return the neighbor's PortChannel kernel netdev name for a given index.
+
+    EOS names the LAG netdev ``po<N>`` (e.g. ``po1``); SONiC/cSONiC teamd names
+    it ``PortChannel<N>`` (e.g. ``PortChannel1``). The topology config interface
+    is always ``Port-Channel<N>``; this maps it to the right netdev so commands
+    like ``ip addr show dev <name>`` work on the neighbor regardless of type.
+    """
+    if isinstance(nbr_host, EosHost):
+        return 'po{}'.format(index)
+    return 'PortChannel{}'.format(index)
+
+
 @pytest.fixture(scope='module')
 def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa: F811
     """
@@ -72,14 +86,14 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     else:
         if 'Port-Channel1' in vm_info['conf']['interfaces']:
             interface_name = 'Port-Channel1'
-            dev_name = 'po1'
+            dev_name = _portchannel_netdev_name(vm_info['host'], 1)
         else:
             interface_name = 'Ethernet1'
             dev_name = 'eth1'
         # in case of lower tor host we need to use the next portchannel
         if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
-            dev_name = 'po2'
+            dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 
     # Get IPv4 and IPv6 addresses if available
     vm_interface = vm_info['conf']['interfaces'][interface_name]
