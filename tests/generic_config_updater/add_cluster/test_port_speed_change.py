@@ -81,9 +81,6 @@ def _build_dut_context(duthost, tbinfo, asic_index):
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running", namespace=asic_namespace
     )['ansible_facts']
-    config_facts_localhost = duthost.config_facts(
-        host=duthost.hostname, source="running", namespace=None
-    )['ansible_facts']
     return {
         "asic_index": asic_index if asic_index is not None else DEFAULT_ASIC_ID,
         "asic_namespace": asic_namespace,
@@ -91,8 +88,59 @@ def _build_dut_context(duthost, tbinfo, asic_index):
         "ip_netns_namespace_prefix": ip_netns_prefix,
         "mg_facts": mg_facts,
         "config_facts": config_facts,
-        "config_facts_localhost": config_facts_localhost,
     }
+
+
+def _build_port_speed_change_candidates(duthosts, tbinfo, enum_downstream_dut_hostname, enum_upstream_dut_hostname):
+    """Pre-compute every frontend DUT/ASIC context once for the module."""
+    other_frontends = [
+        n for n in duthosts.frontend_nodes
+        if n.hostname not in (enum_downstream_dut_hostname, enum_upstream_dut_hostname)
+    ]
+    upstream_node = duthosts[enum_upstream_dut_hostname] if enum_upstream_dut_hostname else None
+    dut_order = [duthosts[enum_downstream_dut_hostname]] + other_frontends
+    if upstream_node is not None:
+        dut_order.append(upstream_node)
+
+    candidates = []
+    for duthost in dut_order:
+        if duthost.is_multi_asic:
+            asic_indices = [a.asic_index for a in duthost.frontend_asics]
+        else:
+            asic_indices = [DEFAULT_ASIC_ID]
+
+        for asic_index in asic_indices:
+            ctx = _build_dut_context(duthost, tbinfo, asic_index)
+            port = pick_active_front_panel_port(ctx["config_facts"])
+            if not port:
+                continue
+
+            traffic_source = _pick_traffic_source(
+                duthosts, duthost.hostname, enum_upstream_dut_hostname
+            )
+            if traffic_source is None:
+                logging.info(
+                    f"Skipping candidate {duthost.hostname}: no other frontend node "
+                    f"available as traffic source"
+                )
+                continue
+
+            port_alias = ctx["mg_facts"]['minigraph_port_name_to_alias_map'].get(port, port)
+            candidates.append({
+                "enum_downstream_dut_hostname": duthost.hostname,
+                "enum_upstream_dut_hostname": enum_upstream_dut_hostname,
+                "traffic_source_dut_hostname": traffic_source,
+                "enum_rand_one_frontend_asic_index": ctx["asic_index"],
+                "enum_rand_one_asic_namespace": ctx["asic_namespace"],
+                "ip_netns_namespace_prefix": ctx["ip_netns_namespace_prefix"],
+                "cli_namespace_prefix": ctx["cli_namespace_prefix"],
+                "selected_random_port": port,
+                "selected_random_port_alias": port_alias,
+                "mg_facts": ctx["mg_facts"],
+                "config_facts": ctx["config_facts"],
+            })
+
+    return candidates
 
 
 # -----------------------------
@@ -191,7 +239,10 @@ def get_target_speed_by_direction(duthost, cli_namespace_prefix, selected_random
     current_speed = int(get_port_speed(duthost, cli_namespace_prefix, selected_random_port))
     supported_test_speeds = [int(s) for s in (get_test_speeds(duthost) or [])]
     other_speeds = sorted([s for s in supported_test_speeds if s != current_speed])
-    pytest_assert(other_speeds, f"No alternative speed available for port {selected_random_port}")
+    if not other_speeds:
+        if skip_unavailable:
+            pytest.skip(f"No alternative speed for {selected_random_port}")
+        return None
 
     lower = [s for s in other_speeds if s < current_speed]
     higher = [s for s in other_speeds if s > current_speed]
@@ -334,7 +385,6 @@ def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table
 
 
 def apply_patch_change_port_cluster(config_facts,
-                                    config_facts_localhost,
                                     mg_facts,
                                     duthost,
                                     enum_rand_one_asic_namespace,
@@ -673,110 +723,57 @@ def setup_acl_config(duthost, ip_netns_namespace_prefix):
     logging.info(('\n'.join(acl_rules)))
 
 
-@pytest.fixture(scope="function")
-def initialize_random_variables(enum_downstream_dut_hostname,
-                                enum_upstream_dut_hostname,
-                                enum_rand_one_frontend_asic_index,
-                                enum_rand_one_asic_namespace,
-                                ip_netns_namespace_prefix,
-                                cli_namespace_prefix):
-    return enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix
-
-
-@pytest.fixture(scope="function")
-def initialize_facts(mg_facts,
-                     config_facts,
-                     config_facts_localhost):
-    return mg_facts, config_facts, config_facts_localhost
+@pytest.fixture(scope="module")
+def port_speed_change_candidates(duthosts,
+                                 tbinfo,
+                                 enum_downstream_dut_hostname,
+                                 enum_upstream_dut_hostname):
+    """Pre-compute frontend DUT/ASIC contexts once per module."""
+    return _build_port_speed_change_candidates(
+        duthosts, tbinfo, enum_downstream_dut_hostname, enum_upstream_dut_hostname
+    )
 
 
 @pytest.fixture(scope="function")
 def setup_port_speed_change(duthosts,
-                            tbinfo,
                             loganalyzer,
-                            initialize_random_variables,
+                            port_speed_change_candidates,
                             request):
     """
     Setup fixture to change port speed
     """
 
-    # initial test env
-    enum_downstream_dut_hostname, enum_upstream_dut_hostname, _asic_index, \
-        _asic_namespace, _ip_netns_prefix, _cli_ns_prefix = initialize_random_variables
-
     direction = request.param
-    # Candidate order: downstream first, then any other frontend (excluding upstream),
-    # finally fall back to the upstream DUT so both downgrade/upgrade directions can
-    # find a port that supports them in topologies where the downstream/other frontends
-    # do not have a compatible port.
-    other_frontends = [
-        n for n in duthosts.frontend_nodes
-        if n.hostname not in (enum_downstream_dut_hostname, enum_upstream_dut_hostname)
-    ]
-    upstream_node = duthosts[enum_upstream_dut_hostname] if enum_upstream_dut_hostname else None
-    candidates = [duthosts[enum_downstream_dut_hostname]] + other_frontends
-    if upstream_node is not None:
-        candidates.append(upstream_node)
     selected_context = None
 
-    for candidate in candidates:
-        if candidate.is_multi_asic:
-            asic_indices = [a.asic_index for a in candidate.frontend_asics]
-        else:
-            asic_indices = [DEFAULT_ASIC_ID]
+    for candidate in port_speed_change_candidates:
+        duthost = duthosts[candidate["enum_downstream_dut_hostname"]]
+        speed_a = get_port_speed(
+            duthost, candidate["cli_namespace_prefix"], candidate["selected_random_port"]
+        )
+        speed_b = get_target_speed_by_direction(
+            duthost,
+            candidate["cli_namespace_prefix"],
+            candidate["selected_random_port"],
+            direction,
+            skip_unavailable=False,
+        )
+        if speed_b is None:
+            continue
 
-        for asic_index in asic_indices:
-            ctx = _build_dut_context(candidate, tbinfo, asic_index)
-            port = pick_active_front_panel_port(ctx["config_facts"])
-            if not port:
-                continue
-
-            speed_a = get_port_speed(candidate, ctx["cli_namespace_prefix"], port)
-            speed_b = get_target_speed_by_direction(
-                candidate, ctx["cli_namespace_prefix"], port, direction, skip_unavailable=False
-            )
-            if speed_b is None:
-                continue
-
-            traffic_source = _pick_traffic_source(
-                duthosts, candidate.hostname, enum_upstream_dut_hostname
-            )
-            if traffic_source is None:
-                logging.info(
-                    f"Skipping candidate {candidate.hostname}: no other frontend node "
-                    f"available as traffic source"
-                )
-                continue
-
-            port_alias = ctx["mg_facts"]['minigraph_port_name_to_alias_map'].get(port, port)
-            selected_context = {
-                "enum_downstream_dut_hostname": candidate.hostname,
-                "enum_upstream_dut_hostname": enum_upstream_dut_hostname,
-                "traffic_source_dut_hostname": traffic_source,
-                "enum_rand_one_frontend_asic_index": ctx["asic_index"],
-                "enum_rand_one_asic_namespace": ctx["asic_namespace"],
-                "ip_netns_namespace_prefix": ctx["ip_netns_namespace_prefix"],
-                "cli_namespace_prefix": ctx["cli_namespace_prefix"],
-                "selected_random_port": port,
-                "selected_random_port_alias": port_alias,
-                "mg_facts": ctx["mg_facts"],
-                "config_facts": ctx["config_facts"],
-                "config_facts_localhost": ctx["config_facts_localhost"],
-                "speed_a": speed_a,
-                "speed_b": speed_b,
-                "direction": direction,
-            }
-            logging.info(
-                f"Selected DUT={candidate.hostname} asic={ctx['asic_namespace']} "
-                f"port={port} ({port_alias}) for direction={direction}; "
-                f"traffic_source_dut={traffic_source} "
-                f"(original upstream={enum_upstream_dut_hostname})"
-            )
-            break
-
-        if selected_context is not None:
-            break
+        selected_context = dict(candidate)
+        selected_context["speed_a"] = speed_a
+        selected_context["speed_b"] = speed_b
+        selected_context["direction"] = direction
+        logging.info(
+            f"Selected DUT={candidate['enum_downstream_dut_hostname']} "
+            f"asic={candidate['enum_rand_one_asic_namespace']} "
+            f"port={candidate['selected_random_port']} "
+            f"({candidate['selected_random_port_alias']}) for direction={direction}; "
+            f"traffic_source_dut={candidate['traffic_source_dut_hostname']} "
+            f"(original upstream={candidate['enum_upstream_dut_hostname']})"
+        )
+        break
 
     if selected_context is None:
         pytest.skip(
@@ -792,12 +789,10 @@ def setup_port_speed_change(duthosts,
     selected_random_port_alias = selected_context["selected_random_port_alias"]
     mg_facts = selected_context["mg_facts"]
     config_facts = selected_context["config_facts"]
-    config_facts_localhost = selected_context["config_facts_localhost"]
     speed_a = selected_context["speed_a"]
     speed_b = selected_context["speed_b"]
 
-    logger.info(
-        f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
+    logger.info(f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
 
     with allure.step("Disabling loganalyzer before removing cluster - changing speeds."):
         if loganalyzer and loganalyzer[duthost.hostname]:
@@ -806,7 +801,6 @@ def setup_port_speed_change(duthosts,
     with allure.step("Changing speed to invalid speed (B). Removing cluster info. \
                      Expecting success operation AND ports down."):
         apply_patch_change_port_cluster(config_facts,
-                                        config_facts_localhost,
                                         mg_facts,
                                         duthost,
                                         enum_rand_one_asic_namespace,
@@ -878,7 +872,6 @@ def test_port_speed_change(tbinfo,
     selected_random_port_alias = runtime["selected_random_port_alias"]
     mg_facts = runtime["mg_facts"]
     config_facts = runtime["config_facts"]
-    config_facts_localhost = runtime["config_facts_localhost"]
     bgp_neigh_name, bgp_neigh_intfs, bgp_neigh_ipv4, bgp_neigh_ipv6 = get_interface_neighbor_and_intfs(
         mg_facts, selected_random_port)
     duthost = duthosts[enum_downstream_dut_hostname]
@@ -920,7 +913,6 @@ def test_port_speed_change(tbinfo,
     with allure.step("Changing speed to initial speed (A) [{}]. Adding cluster info. \
                      Expecting success operation AND ports up.".format(initial_speed)):
         apply_patch_change_port_cluster(config_facts,
-                                        config_facts_localhost,
                                         mg_facts,
                                         duthost,
                                         enum_rand_one_asic_namespace,
