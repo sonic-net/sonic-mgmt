@@ -222,4 +222,3 @@ def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls):  # noqa: F811
         all(d in "01234567" for d in str(permissions)),
         "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions)
     )
-    
