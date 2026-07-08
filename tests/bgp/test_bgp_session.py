@@ -36,18 +36,17 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
-def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels):
-    """Map a BGP neighbor device name to local DUT member interfaces."""
+def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
+    """Map a BGP neighbor device name to local DUT member interfaces.
+
+    DEVICE_NEIGHBOR keys are physical ports (Ethernet*). LAG members appear as
+    their own entries, so no PortChannel-name lookup is needed here.
+    """
     interfaces = {}
     for ifname, nbr_info in dev_nbrs.items():
         if nbr_info.get('name') != neighbor_name:
             continue
-        if ifname in portchannels:
-            for member in portchannels[ifname]:
-                if member in dev_nbrs:
-                    interfaces[member] = dev_nbrs[member]
-        else:
-            interfaces[ifname] = nbr_info
+        interfaces[ifname] = nbr_info
     return interfaces
 
 
@@ -87,9 +86,7 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
                   "Not all BGP sessions are established on DUT")
 
     for ip, details in bgp_neighbors.items():
-        interfaces = _map_bgp_neighbor_to_interfaces(
-            details['name'], dev_nbrs, portchannels
-        )
+        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
         if interfaces:
             details['interface'] = interfaces
 
@@ -243,8 +240,8 @@ def failure_injection(duthosts, enum_frontend_dut_hostname, fanouthosts, nbrhost
             else:
                 raise ValueError("Unsupported failure_type: {}".format(failure_type))
 
-            asichost.shell('show ip bgp summary', module_ignore_errors=True)
-            asichost.shell('show ipv6 bgp summary', module_ignore_errors=True)
+            asichost.run_vtysh('-c "show ip bgp summary"')
+            asichost.run_vtysh('-c "show ipv6 bgp summary"')
 
         def restore(self):
             """Explicitly restore injected failures so the test can verify recovery.
