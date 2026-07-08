@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 
 import pytest
@@ -18,7 +19,7 @@ DEFAULT_SRC_MAC_COUNT = 10000
 DEFAULT_TRAFFIC_PPS_PER_PORT = 200000
 DEFAULT_FRAME_SIZE = 256
 DEFAULT_PINNING_DURATION_SEC = 15 * 60
-DEFAULT_PINNING_PHASE1_SEC = 20 * 60
+DEFAULT_PINNING_PHASE1_SEC = 5 * 60
 DEFAULT_PINNING_ACCUM_INTERVAL_SEC = 120
 DEFAULT_PINNING_CHURN_INTERVAL_SEC = 10
 DEFAULT_AHP_DIFF_THRESHOLD_KB = 500 * 1024
@@ -80,10 +81,9 @@ def select_snappi_test_ports(snappi_ports, required_ports=3):
     return duthost, selected_ports[:-1], selected_ports[-1]
 
 
-def select_pinning_ports(duthost, excluded_ports, required_ports=2, fallback_ports=None):
+def select_pinning_ports(duthost, excluded_ports, required_ports=2):
     """Select admin-up, oper-up Ethernet ports not used by the FDB storm."""
     excluded_ports = set(excluded_ports)
-    fallback_ports = fallback_ports or []
     status = duthost.get_interfaces_status()
     candidates = []
     for intf, info in status.items():
@@ -93,15 +93,9 @@ def select_pinning_ports(duthost, excluded_ports, required_ports=2, fallback_por
             candidates.append(intf)
 
     candidates = sorted(candidates, key=_natural_port_sort_key)
-    if len(candidates) < required_ports:
-        for intf in fallback_ports:
-            info = status.get(intf, {})
-            if (intf not in candidates and _is_front_panel_port(intf)
-                    and info.get("admin", "up") == "up" and info.get("oper") == "up"):
-                candidates.append(intf)
     pytest_require(
         len(candidates) >= required_ports,
-        "Need {} admin-up, oper-up eligible ports for THP pinning, got {}".format(
+        "Need {} dedicated admin-up, oper-up ports for THP pinning, got {}".format(
             required_ports, candidates)
     )
     return candidates[:required_ports]
@@ -132,6 +126,7 @@ def find_unused_vlan_id(duthost, start=3000, stop=3999):
 
 def configure_dut_for_fdb_storm(duthost, ingress_ports, egress_port, pinning_ports, vlan_id):
     """Configure ingress ports in one VLAN and one routed egress port."""
+    _get_pinning_profiles(pinning_ports)
     test_ports = [port["peer_port"] for port in ingress_ports] + [egress_port["peer_port"]] + pinning_ports
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
@@ -155,7 +150,7 @@ def configure_dut_for_fdb_storm(duthost, ingress_ports, egress_port, pinning_por
             DEFAULT_EGRESS_TGEN_IP, DEFAULT_EGRESS_TGEN_MAC, egress_port["peer_port"])
     )
 
-    for pinning_port, profile in zip(pinning_ports, PINNING_PORT_PROFILES):
+    for pinning_port, profile in zip(pinning_ports, _get_pinning_profiles(pinning_ports)):
         _run_checked(duthost, "sudo config interface ip add {} {}".format(pinning_port, profile["ip_cidr"]))
 
     for port in test_ports:
@@ -240,6 +235,54 @@ def generate_fdb_storm_config(testbed_config, ingress_ports, egress_port, durati
     return testbed_config
 
 
+def verify_fdb_storm_traffic(snappi_api, timeout_sec=60, interval_sec=5):
+    """Verify every configured FDB storm flow transmits and receives frames."""
+    start = time.time()
+    last_metrics = []
+    while time.time() - start <= timeout_sec:
+        last_metrics = _get_traffic_metrics(snappi_api)
+        if last_metrics["flow_metrics"]:
+            if all(_get_frame_count(metric, "frames_tx") > 0 and
+                   _get_frame_count(metric, "frames_rx") > 0 for metric in last_metrics["flow_metrics"]):
+                return
+        elif (any(_get_frame_count(metric, "frames_tx") > 0 for metric in last_metrics["port_metrics"]) and
+              any(_get_frame_count(metric, "frames_rx") > 0 for metric in last_metrics["port_metrics"])):
+            return
+        time.sleep(interval_sec)
+
+    pytest_assert(
+        False,
+        "FDB storm traffic did not transmit and receive frames: flows={}, ports={}".format(
+            [_format_traffic_metric(metric) for metric in last_metrics["flow_metrics"]],
+            [_format_traffic_metric(metric) for metric in last_metrics["port_metrics"]])
+    )
+
+
+def _get_traffic_metrics(snappi_api):
+    flow_request = snappi_api.metrics_request()
+    flow_request.flow.flow_names = []
+    port_request = snappi_api.metrics_request()
+    port_request.port.port_names = []
+    return {
+        "flow_metrics": list(snappi_api.get_metrics(flow_request).flow_metrics),
+        "port_metrics": list(snappi_api.get_metrics(port_request).port_metrics),
+    }
+
+
+def _get_frame_count(metric, field):
+    return int(float(getattr(metric, field, 0) or 0))
+
+
+def _format_traffic_metric(metric):
+    return {
+        "name": getattr(metric, "name", ""),
+        "frames_tx": _get_frame_count(metric, "frames_tx"),
+        "frames_rx": _get_frame_count(metric, "frames_rx"),
+        "frames_tx_rate": getattr(metric, "frames_tx_rate", 0),
+        "frames_rx_rate": getattr(metric, "frames_rx_rate", 0),
+    }
+
+
 def _snappi_port_name(testbed_config, snappi_port):
     return testbed_config.ports[int(snappi_port["port_id"])].name
 
@@ -253,7 +296,7 @@ def render_thp_pinning_script(pinning_ports,
                               phase1_sec=DEFAULT_PINNING_PHASE1_SEC,
                               accum_interval_sec=DEFAULT_PINNING_ACCUM_INTERVAL_SEC,
                               churn_interval_sec=DEFAULT_PINNING_CHURN_INTERVAL_SEC):
-    profiles = PINNING_PORT_PROFILES[:len(pinning_ports)]
+    profiles = _get_pinning_profiles(pinning_ports)
     arrays = {
         "PORTS": pinning_ports,
         "ROUTE_BASES": [profile["route_base"] for profile in profiles],
@@ -373,16 +416,28 @@ def start_thp_pinning_workload(duthost, script):
 def stop_thp_pinning_workload(duthost, pid):
     if pid is None:
         return
-    duthost.shell("if kill -0 {pid} 2>/dev/null; then sudo kill {pid}; fi".format(pid=pid),
-                  module_ignore_errors=True)
+    duthost.shell("""
+if sudo kill -0 {pid} 2>/dev/null; then
+    sudo kill {pid}
+    for i in $(seq 1 10); do
+        if ! sudo kill -0 {pid} 2>/dev/null; then
+            exit 0
+        fi
+        sleep 1
+    done
+    sudo kill -9 {pid}
+fi
+""".format(pid=pid), module_ignore_errors=True)
 
 
 def cleanup_thp_pinning_objects(duthost, pinning_ports):
     """Remove accumulated and churn objects created by the pinning workload."""
-    profiles = PINNING_PORT_PROFILES[:len(pinning_ports)]
+    profiles = _get_pinning_profiles(pinning_ports)
+    max_accumulated_routes = int(math.ceil(
+        float(DEFAULT_PINNING_PHASE1_SEC) / DEFAULT_PINNING_ACCUM_INTERVAL_SEC)) * 5
     for port, profile in zip(pinning_ports, profiles):
         cmd = """
-for i in $(seq 1 1000); do
+for i in $(seq 1 {max_accumulated_routes}); do
     sudo config route del prefix "{route_base}.$i.0/24" nexthop "{nh}" 2>/dev/null
     sudo ip neigh del "{nh_base}.$((i + 10))" dev "{port}" 2>/dev/null
 done
@@ -390,7 +445,8 @@ for i in $(seq 1 10); do
     sudo config route del prefix "{churn_base}.$i.0/24" nexthop "{churn_nh}" 2>/dev/null
     sudo ip neigh del "{churn_nh_base}.$((i + 10))" dev "{port}" 2>/dev/null
 done
-""".format(route_base=profile["route_base"],
+""".format(max_accumulated_routes=max_accumulated_routes,
+           route_base=profile["route_base"],
            nh=profile["nh"],
            nh_base=profile["nh"].rsplit(".", 1)[0],
            churn_base=profile["churn_base"],
@@ -468,6 +524,7 @@ def monitor_dut_health(duthost,
 
 def collect_memory_sample(duthost, elapsed_sec, pinning_ports):
     port_regex = "|".join(pinning_ports)
+    route_regex = _route_prefix_regex(pinning_ports)
     cmd = r'''
 PID=$(pgrep -x orchagent | head -n 1)
 if [ -z "$PID" ]; then
@@ -478,14 +535,17 @@ MEM_AVAILABLE=$(awk '/MemAvailable/ {{print $2}}' /proc/meminfo)
 MEM_FREE=$(awk '/MemFree/ {{print $2}}' /proc/meminfo)
 RSS=$(awk '/VmRSS/ {{print $2}}' /proc/$PID/status)
 AHP=$(sudo grep AnonHugePages /proc/$PID/smaps_rollup | awk '{{print $2}}')
-ROUTE_COUNT=$(ip route show | grep -Ec '^(10\.88|10\.92|172\.88|172\.92)\.')
+ROUTE_COUNT=$(ip route show | grep -Ec '^({route_regex})\.')
 NEIGH_COUNT=$(ip neigh show | grep -Ec 'dev ({port_regex})( |$)')
 LINE="timestamp=$(date +%s) elapsed_sec={elapsed_sec} orchagent_pid=$PID"
 LINE="$LINE mem_available_kb=$MEM_AVAILABLE mem_free_kb=$MEM_FREE"
 LINE="$LINE orchagent_rss_kb=$RSS anon_huge_pages_kb=$AHP"
 LINE="$LINE route_count=$ROUTE_COUNT neigh_count=$NEIGH_COUNT"
 echo "$LINE" | sudo tee -a {monitor_log}
-'''.format(elapsed_sec=elapsed_sec, port_regex=port_regex, monitor_log=DEFAULT_MEM_MONITOR_LOG)
+'''.format(elapsed_sec=elapsed_sec,
+           port_regex=port_regex,
+           route_regex=route_regex,
+           monitor_log=DEFAULT_MEM_MONITOR_LOG)
     result = duthost.shell(cmd)
     sample = _parse_key_value_sample(result["stdout"].strip().splitlines()[-1])
     return sample
@@ -506,10 +566,26 @@ def _parse_key_value_sample(line):
 
 def _process_is_running(duthost, pid):
     result = duthost.shell(
-        "if kill -0 {} 2>/dev/null; then echo running; else echo stopped; fi".format(pid),
+        "if sudo kill -0 {} 2>/dev/null; then echo running; else echo stopped; fi".format(pid),
         module_ignore_errors=True
     )
     return "running" in result["stdout"]
+
+
+def _get_pinning_profiles(pinning_ports):
+    pytest_require(
+        len(pinning_ports) <= len(PINNING_PORT_PROFILES),
+        "Need {} THP pinning profiles, but only {} are defined".format(
+            len(pinning_ports), len(PINNING_PORT_PROFILES))
+    )
+    return PINNING_PORT_PROFILES[:len(pinning_ports)]
+
+
+def _route_prefix_regex(pinning_ports):
+    prefixes = []
+    for profile in _get_pinning_profiles(pinning_ports):
+        prefixes.extend([profile["route_base"], profile["churn_base"]])
+    return "|".join(prefix.replace(".", r"\.") for prefix in prefixes)
 
 
 def _get_reboot_history(duthost):
