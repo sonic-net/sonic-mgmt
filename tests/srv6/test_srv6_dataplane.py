@@ -26,7 +26,7 @@ from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom", "cisco-8000"),
+    pytest.mark.asic("mellanox", "broadcom", "vpp", "cisco-8000"),
     pytest.mark.topology("t0", "t1")
 ]
 
@@ -280,6 +280,8 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         for line in lines:
             if dut_port in line:
                 dut_port = line.split()[1]
+                logger.info("Using portchannel interface: {}".format(dut_port))
+                break
 
     sonic_db_cli = "sonic-db-cli" + cli_options
 
