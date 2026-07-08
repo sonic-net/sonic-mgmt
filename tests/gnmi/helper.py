@@ -285,7 +285,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        raise Exception("py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")  # noqa: E231
 
 
 def gnmi_get(duthost, ptfhost, path_list, ip=None):
