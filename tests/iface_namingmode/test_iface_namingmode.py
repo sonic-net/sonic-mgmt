@@ -18,7 +18,13 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
-ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
+# Allow enough time for the neighbor's lldpd to re-advertise after a port toggle.
+# SONiC/cSONiC (docker-sonic-vs) neighbors run lldpd with a 30s transmit delay and
+# a transmit hold of 4 (120s TTL), so re-population after a port flap can take well
+# over 90s (slower than EOS). 180s covers the worst-case stale-TTL expiry plus a
+# couple of transmit cycles. This is a wait_until ceiling, so fast neighbors (EOS)
+# are unaffected.
+ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 180
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
