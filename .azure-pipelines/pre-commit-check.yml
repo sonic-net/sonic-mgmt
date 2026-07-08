@@ -16,16 +16,48 @@ steps:
 - script: |
     set -x
     sudo pip install pre-commit
+    # Pin to the same flake8 version used by the flake8 hook in
+    # .pre-commit-config.yaml, since flake8 is also run directly below
+    # (outside of pre-commit) for diff-based line filtering.
+    sudo pip install flake8==6.0.0
     pre-commit install-hooks
   displayName: 'Prepare pre-commit check'
 
 - script: |
+    # Determine the base commit to diff against: the merge-base with the
+    # PR's target branch (falling back to the previous commit for non-PR
+    # builds). Using HEAD^ here previously only looked at the most recent
+    # commit, which is incorrect for multi-commit PRs.
+    TARGET_BRANCH_RAW="${SYSTEM_PULLREQUEST_TARGETBRANCH:-master}"
+    TARGET_BRANCH="${TARGET_BRANCH_RAW#refs/heads/}"
+    git fetch origin "${TARGET_BRANCH}" 2>/dev/null || true
+    BASE_COMMIT=$(git merge-base HEAD "origin/${TARGET_BRANCH}" 2>/dev/null || echo HEAD^)
+    echo "Using base commit ${BASE_COMMIT} (target branch: ${TARGET_BRANCH})"
+
     # Run pre-commit check and capture the output
-    CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+    CHANGED_FILES=$(git diff --name-only "${BASE_COMMIT}" HEAD)
     FILTERED_FILES=$(echo "$CHANGED_FILES" | grep -v '^tests/common2')
+    RC=0
+    out=""
     if [ -n "$FILTERED_FILES" ]; then
-      out=`pre-commit run --color never --files $FILTERED_FILES`
+      # Run every pre-commit hook except flake8. flake8 checks a file's
+      # entire contents, so it is run separately below with diff-based line
+      # filtering to avoid reporting pre-existing issues on lines this PR
+      # did not modify (see sonic-net/sonic-mgmt#25351).
+      out=`SKIP=flake8 pre-commit run --color never --files $FILTERED_FILES`
       RC=$?
+
+      # Capture stderr as well as stdout so an unexpected failure in the
+      # filter script (or flake8 itself) surfaces in the report instead of
+      # producing a red build with no explanation.
+      flake8_out=`python3 .azure-pipelines/common2/scripts/flake8-diff-filter.py --base "$BASE_COMMIT" --head HEAD $FILTERED_FILES 2>&1`
+      flake8_rc=$?
+      if [ -n "$flake8_out" ]; then
+        out="$out"$'\n\nflake8 (only issues on lines modified by this PR)........................Failed\n'"$flake8_out"
+      fi
+      if [ $flake8_rc -ne 0 ]; then
+        RC=1
+      fi
     else
       out="No files outside tests/common2 to check."
       RC=0
