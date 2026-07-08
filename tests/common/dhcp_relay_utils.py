@@ -469,11 +469,20 @@ def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True):
             result = duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}',
                                    module_ignore_errors=True)
             if result['rc'] != 0:
-                if "already exists" in result.get('stderr', ''):
+                # With module_ignore_errors=True the CLI message may land in
+                # stderr, stdout, or msg, so inspect all of them.
+                output = "{} {} {}".format(result.get('stderr', ''), result.get('stdout', ''),
+                                           result.get('msg', ''))
+                if "already exists" in output:
                     logger.info("DHCPv4 relay entry for %s already exists, updating instead", vlan)
-                    duthost.shell(f'config dhcpv4_relay update --dhcpv4-servers {dhcp_servers} {vlan}')
+                    update_result = duthost.shell(
+                        f'config dhcpv4_relay update --dhcpv4-servers {dhcp_servers} {vlan}',
+                        module_ignore_errors=True)
+                    if update_result['rc'] != 0:
+                        pytest.fail("Failed to update DHCPv4 relay config for {}: {}".format(
+                            vlan, update_result.get('stderr', '') or update_result.get('stdout', '')))
                 else:
-                    pytest.fail(f"Failed to add DHCPv4 relay config for {vlan}: {result.get('stderr', '')}")
+                    pytest.fail(f"Failed to add DHCPv4 relay config for {vlan}: {output}")
 
         if socket_check:
             pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,

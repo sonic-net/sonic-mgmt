@@ -126,6 +126,10 @@ def test_dhcpmon_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
 
             return interface_dict
 
+        # Remove any stale count file from a previous parametrized run so
+        # _check_count_file_exists cannot return early on leftover data.
+        ptfhost.shell('rm -f {}'.format(count_file), module_ignore_errors=True)
+
         with capture_and_check_packet_on_dut(
             duthost=duthost, interface='any',
             pkts_filter="udp dst port %s or udp dst port %s" % (DEFAULT_DHCP_SERVER_PORT,

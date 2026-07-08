@@ -112,8 +112,8 @@ class DHCPStressTest(DHCPTest):
                 # File already removed or never created; nothing to clean up
                 pass
 
-        subprocess.check_output(
-            "echo {} > /tmp/dhcp_stress_test_{}".format(total_count, self.packet_type), shell=True)
+        with open("/tmp/dhcp_stress_test_{}".format(self.packet_type), "w") as count_fh:
+            count_fh.write("{}\n".format(total_count))
 
     def runTest(self):
         self.client_send_packet_stress()
