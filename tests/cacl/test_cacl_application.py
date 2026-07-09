@@ -175,7 +175,7 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         acl_entry = {}
 
         # Alternate between IPv4 and IPv6 addresses (should be 2 IPv4 for every IPv6)
-        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"
+        src_ip = f"20.0.0.{1 + index}/32" if index % 3 else f"2001::{1 + index}/128"  # noqa: E231
 
         # Alternate between accept and drop for each rule
         action = "ACCEPT" if index % 2 else "DROP"
@@ -1047,17 +1047,17 @@ def verify_cacl_show_acl_rule(duthost, acl_file):
             if rule_conf_actual[ip_key] != rule_conf_expected["ip"]["config"]["source-ip-address"]:
                 actual = rule_conf_actual[ip_key]
                 expected = rule_conf_expected["ip"]["config"]["source-ip-address"]
-                rule_issues.append(f"  - {rule_name}: Expected IP {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected IP {expected} does not match {actual}")
 
             if rule_conf_actual["action"] != rule_conf_expected["actions"]["config"]["forwarding-action"]:
                 actual = rule_conf_actual["action"]
                 expected = rule_conf_expected["actions"]["config"]["forwarding-action"]
-                rule_issues.append(f"  - {rule_name}: Expected action {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected action {expected} does not match {actual}")
 
             if int(rule_conf_actual["priority"]) != (10000 - int(rule_conf_expected["config"]["sequence-id"])):
                 actual = int(rule_conf_actual["priority"])
                 expected = (10000 - int(rule_conf_expected["config"]["sequence-id"]))
-                rule_issues.append(f"  - {rule_name}: Expected priority {expected} does not match {actual}")
+                rule_issues.append(f" - {rule_name}: Expected priority {expected} does not match {actual}")
 
             if rule_issues:
                 rule_issues_str = '\n'.join(rule_issues)
