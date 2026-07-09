@@ -1,4 +1,4 @@
-from re import search, match
+﻿from re import search, match
 import json
 from tabulate import tabulate
 import time
@@ -218,7 +218,7 @@ def define_tx_rx_inter_port_testing(Common_vars, snappi_port_configs, rx_port_in
                     if location_port_group_number == snappi_port_group_number:
                         Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['port_list'].append(
                             snappi_port)
-                        Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'
+                        Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'  # noqa: E231
 
         # Below will only be processed if the current dut has ports defined in links.csv file
         # port_group_range: port_group_range: [1, 3, 5]
@@ -336,7 +336,7 @@ def define_tx_rx_intra_port_testing(Common_vars, snappi_port_configs, rx_port_in
                             Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['tx_ports'].append(
                                 snappi_port
                             )
-                            Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'
+                            Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'  # noqa: E231
 
                         index += 1
 
@@ -429,7 +429,7 @@ def define_rx_tx_ports(Common_vars, snappi_port_configs, flow_configs):
                         Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['tx_ports'].append(
                             snappi_port
                         )
-                        Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'
+                        Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'  # noqa: E231
 
                         # Used in set_snappi_qos_traffic()
                         # Keep track of the Ethernet interface's queue_id and scheduler_id used for
@@ -982,7 +982,8 @@ def verify_dut_ports_up(duthost: object, tx_port_names: str):
             interface = line_item_list[interfaceIndex]
             operStatus = line_item_list[operIndex]
             adminStatus = line_item_list[adminIndex]
-            logger.info(f'Verifying DUT ports up: {interface}  Oper_Status:{operStatus}  Admin_Status:{adminStatus}')
+            logger.info(f'Verifying DUT ports up: {interface}  Oper_Status:{operStatus} '  # noqa: E231
+                        f'Admin_Status:{adminStatus}')  # noqa: E231
 
             if start_counter < end_counter and total_interfaces != 0:
                 if interface in interface_name_list:
@@ -1219,7 +1220,7 @@ def set_snappi_qos_traffic(Common_vars, duthost, verify_dut_scheduler_obj):
                     expected_rx_rate = int(weight)
 
                 # NOTE: Use only one space in between words because verifying stats does a split(' ')[6]
-                traffic_item_name = (f'DUT_Name: {dut_hostname} {dut_port_name} SrcTopology:{topology_group_index} '
+                traffic_item_name = (f'DUT_Name: {dut_hostname} {dut_port_name} SrcTopology: {topology_group_index} '
                                      f'DestTopology: {rx_port_topology_group_index} QID: {queue_id} '
                                      f'TC: {traffic_class} DSCP: {phb_value} '
                                      f'{port_queue_scheduler_id} WT: {weight} Line_Rate: {line_rate} '
@@ -1421,7 +1422,7 @@ def create_snappi_flows_dwrr(Common_vars, duthosts, snappi_api, snappi_port_conf
                 ).SingleValue = 2
 
                 message = (f'Creating Flow: Port-Group-{port_group_num} {tx_port_topology.Name} -> '
-                           f'{rx_port_topology.Name} DSCP: {tx_port["dscp_phb_value"]} QID:{tx_port["pfc_queue_id"]}')
+                           f'{rx_port_topology.Name} DSCP: {tx_port["dscp_phb_value"]} QID: {tx_port["pfc_queue_id"]}')
                 logger.info(message)
 
 
@@ -2030,7 +2031,7 @@ def verify_dwrr_pass_criteria(Common_vars, snappi_api, control_state_obj):
             # This gives the Gbps value: 10.000019568
             rx_gbps_rate_whole_number = round(rx_l1_rate / 1000000000)
 
-            message = (f'verify_dwrr_pass_criteria: {tx_port} -> {rx_port}  Queue_ID: {queue_id}  DSCP:{dscp}'
+            message = (f'verify_dwrr_pass_criteria: {tx_port} -> {rx_port}  Queue_ID: {queue_id}  DSCP: {dscp}'
                        f'Scheduler: {scheduler} Weight: {flow_weight}  Tx-L1-Rate: {tx_l1_rate_whole_number}/Gbps '
                        f'Rx-L1-Rate: {rx_gbps_rate_whole_number}/Gbps  '
                        f'Expected: {traffic_flow_pass_criteria_low}-{traffic_flow_pass_criteria_high}/Gbps')
@@ -2123,9 +2124,9 @@ def verify_line_rate(Common_vars, duthosts, snappi_api,  control_state_obj):
                     """
                     stat_message = (
                         f'Verifying weight line rate stats: {tx_port} -> {rx_port} Weight: {flow_weight} '
-                        f'Tx-Rate: {flow["Tx L1 Rate (Gbps)"]}Gbps  Rx_Rate:{flow["Rx L1 Rate (Gbps)"]}Gbps '
+                        f'Tx-Rate: {flow["Tx L1 Rate (Gbps)"]}Gbps  Rx_Rate: {flow["Rx L1 Rate (Gbps)"]}Gbps '
                         f'acceptable-range: {traffic_flow_pass_criteria_low}-{traffic_flow_pass_criteria_high} '
-                        f'Exceptable-loss-Threshold: {percentage_whole_number}%  '
+                        f'Exceptable-loss-Threshold: {percentage_whole_number}% '
                         f'acceptable_threshold: {acceptable_threshold} Result={result} {iteration}/3x'
                     )
 
@@ -2227,7 +2228,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
             failed_messages = []
 
             message = (f"Flow_1 & 5 stats combined: {stats[0]['rx_line_rate']}Gbps + {stats[12]['rx_line_rate']}Gbps = "
-                       f"{flow_1_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
+                       f"{flow_1_results}  Acceptable-Range: {low_range}-{high_range} {iteration}/3x")
             if not (low_range <= flow_1_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
@@ -2236,7 +2237,7 @@ def verify_line_rate_tc_5(Common_vars, duthosts, snappi_api, control_state_obj):
                 logger.info(f'PASSED: {message}')
 
             message = (f"Flow_2 & 6 stats combined: {stats[3]['rx_line_rate']}Gbps + {stats[15]['rx_line_rate']}Gbps = "
-                       f"{flow_2_results}  Acceptable-Range:{low_range}-{high_range} {iteration}/3x")
+                       f"{flow_2_results}  Acceptable-Range: {low_range}-{high_range} {iteration}/3x")
             if not (low_range <= flow_2_results <= high_range):
                 logger.info(f'FAILED: {message}')
                 verify_again = True
@@ -2359,7 +2360,7 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
 
                 if is_at_least_one_gigabit(rx_l1_rate) is False:
                     message = (f'tx-port: {tx_port} rx-port: {rx_port} '
-                               f'expecting between range:'
+                               f'expecting between range: '
                                f'{traffic_flow_pass_criteria_low}-{traffic_flow_pass_criteria_high} '
                                f'Gbps.  Received > 1 Gbps: {rx_l1_rate}')
                     pytest_assert(False, message)

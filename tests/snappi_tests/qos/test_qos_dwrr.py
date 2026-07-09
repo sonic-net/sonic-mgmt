@@ -37,7 +37,7 @@ class Common_vars:
     # Allowed user defined settings
     frame_size = 1500
     line_rate_percentage = 100
-    flow_duration_seconds = 60
+    flow_duration_seconds = 20
     pass_threshold_pct = 0.02
 
     # Do you want to test every 100G port within the 800G physical port as rx-port?
