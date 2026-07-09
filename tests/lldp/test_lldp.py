@@ -167,18 +167,21 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
     for k, v in list(lldpctl_facts['lldpctl'].items()):
-        # Use the minigraph-provisioned mgmt addr (the address the framework uses
-        # to reach the VM) as the SNMP target rather than the LLDP-advertised
-        # mgmt-ip. On physical testbeds a port can learn both the real VM neighbor
-        # and the fanout switch; the keyvalue lldpctl_facts merges a port's
-        # neighbors field-by-field (last write wins), so mgmt-ip can end up being
-        # the fanout's (which does not answer SNMP) even when the name is the VM,
-        # making the reverse SNMP check time out intermittently.
-        neighbor_name = v['chassis'].get('name')
-        if neighbor_name in nei_meta and nei_meta[neighbor_name].get('mgmt_addr'):
+        # Prefer the minigraph-provisioned mgmt addr as the reverse-SNMP target.
+        # On physical testbeds a port can learn both the real VM neighbor and the
+        # fanout switch; the keyvalue lldpctl_facts merges a port's neighbors
+        # field-by-field (last write wins), so the LLDP-advertised chassis.mgmt-ip
+        # can end up being the fanout's (which does not answer SNMP) even when the
+        # name is the VM, making the reverse SNMP check time out intermittently.
+        # The minigraph mgmt_addr always points at the neighbor VM (on KVM both
+        # resolve to the same VM, so behavior there is unchanged).
+        neighbor_name = v['chassis']['name']
+        try:
             hostip = nei_meta[neighbor_name]['mgmt_addr']
-        else:
-            hostip = v['chassis'].get('mgmt-ip')
+        except KeyError:
+            logger.info("Neighbor device {} not found in minigraph metadata; "
+                        "falling back to LLDP-advertised mgmt-ip".format(neighbor_name))
+            hostip = v['chassis']['mgmt-ip']
 
         if request.config.getoption("--neighbor_type") == 'eos':
             neighbor_interface = v['port']['ifname']
