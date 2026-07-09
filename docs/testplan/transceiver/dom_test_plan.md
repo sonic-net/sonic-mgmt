@@ -189,6 +189,63 @@ Inherits the [Common Session-Level Prerequisites](test_plan.md#common-session-le
 | 2 | DOM polling and data freshness validation | 1. Verify DOM polling is currently enabled.<br>2. Record baseline interface operational state, link flap count, and DOM sensor values for all fields with a configured `_deviation_range` attribute.<br>3. Disable DOM polling: `config interface transceiver dom <port> disable`.<br>4. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table immediately after disabling to establish baseline.<br>5. Wait for 2x `max_update_time_sec`.<br>6. Record `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table after the wait period.<br>7. Verify interface remains operationally up and link flap count unchanged.<br>8. Verify that `last_update_time` has not been updated during disabled period (matches baseline value from step 4).<br>9. Validate that DOM sensor values remain static (no new readings) during disabled period.<br>10. Enable DOM polling: `config interface transceiver dom <port> enable`.<br>11. Verify interface remains operationally up and link flap count unchanged during enable operation.<br>12. Wait for `max_update_time_sec` and verify `last_update_time` is updated and within `data_max_age_min` minutes of current time.<br>13. Validate that all DOM sensor values are refreshed and within expected operational ranges.<br>14. If any deviation range attributes are defined, compute the deviation of each refreshed DOM sensor value from the baseline recorded in step 2 and verify `min <= deviation <= max`.<br>15. Perform consistency check by reading DOM data `consistency_check_poll_count` times to ensure stable polling operation.<br>16. Verify continuous data freshness by monitoring `last_update_time` updates over multiple polling cycles.<br>17. Confirm link flap count remains unchanged from baseline throughout the entire DOM polling control test sequence. | DOM polling control works correctly with precise enable/disable functionality without causing interface instability. Disabled polling completely prevents data updates while maintaining data integrity and link stability. Enabled polling resumes data collection within expected intervals with immediate data refresh and no link disruption. Data freshness is properly maintained through the `last_update_time` field with consistent update patterns. All sensor values return to expected ranges after re-enabling with stable polling behavior. When any deviation range attribute is configured, the deviation of post-test values from their baselines remains within the configured min/max range for all enabled DOM fields. Interface remains operationally stable throughout the test with link flap count remaining constant, confirming no flaps occurred during DOM polling state transitions. |
 | 3 | Telemetry update interval profiling | 1. Verify DOM polling is enabled and port is operationally up.<br>2. Record initial `last_update_time` from `TRANSCEIVER_DOM_SENSOR` table.<br>3. Poll `last_update_time` every `telemetry_profile_poll_interval_sec` seconds for `telemetry_profile_duration_min` minutes.<br>4. On each poll, record the current `last_update_time` value and calculate the delta from the previous distinct `last_update_time` (skip consecutive polls where the timestamp has not changed).<br>5. After the profiling period, compute statistics from the collected update interval deltas: minimum, maximum, mean and median.<br>6. Verify every observed `last_update_time` remained within `data_max_age_min`.<br>7. Log the full statistics profile and per-port summary for cross-release comparison. | All `last_update_time` values remain within `data_max_age_min` throughout the profiling window. The logged statistics (min, max, mean, median) provide a quantitative baseline for detecting polling regressions between image releases. No update gaps exceed `data_max_age_min`. |
 
+### Scenario Coverage Test Cases
+
+These validate that DOM data recovers correctly across disruptive operations, following the shared
+[Scenario Coverage Test-Case Template](scenario_test_template.md). The reusable verifier
+`verify_dom_recovered(duthost, ports=None, baseline=None)` — for every port under test — confirms DOM
+data is present in `TRANSCEIVER_DOM_SENSOR`, that `last_update_time` is fresh (within
+`data_max_age_min`), that all configured sensor fields are within their operational ranges (per the
+[Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm)), and — where `*_deviation_range`
+attributes are configured — that each field's deviation from the pre-operation baseline
+(`capture_dom_baseline(duthost)`) is within range.
+
+DOM is **link-dependent**, so each recovery scenario runs the
+[Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure)
+(link up) before verifying. Shut/no-shut is already covered by
+[Advanced TC 1 (DOM data during interface state changes)](#advanced-dom-testing). Settle timers reuse
+the System plan's `*_settle_sec`/`port_*_wait_sec` attributes.
+
+> **STATE_DB reflects an operation only after the next periodic DOM poll.** `DomInfoUpdateTask`
+> refreshes `TRANSCEIVER_DOM_SENSOR`/`TRANSCEIVER_STATUS` on its polling cycle, which can lag the
+> operation by several minutes. Two consequences for every scenario
+> below: (a) recovery poll timeouts must comfortably exceed the DOM poll interval; and (b) freshness
+> must be checked as `last_update_time` advancing **past the operation timestamp** — a stale
+> pre-operation reading can still fall within `data_max_age_min` and must not be
+> accepted as recovered.
+
+> **Flag-metadata tables reset on `xcvrd` restart / reboot / module re-seat.** The
+> `*_FLAG_CHANGE_COUNT`, `*_FLAG_SET_TIME`, and `*_FLAG_CLEAR_TIME` tables (DOM, VDM, and
+> `TRANSCEIVER_STATUS_FLAG_*`) are deleted by `xcvrd` on stop and recreated from the *current* flag
+> status on restart (counts reset to `0`, times to `never`) — likewise across cold/warm/fast reboot
+> and transceiver removal/insertion. Therefore `verify_dom_recovered` intentionally does **not**
+> assert these metadata values persist across a scenario (S1–S7); asserting persistence would be a
+> guaranteed false failure. Their increment/set/clear lifecycle is instead exercised by
+> [Advanced TC 1](#advanced-dom-testing) (shut/no-shut), where no such table reset occurs.
+
+**Applicability:**
+
+| Scenario | Applicable? | Scenario TC | Notes |
+|----------|:-----------:|:-----------:|-------|
+| Shut / no-shut | ✅ | Advanced TC 1 | existing — DOM data during interface state changes |
+| Cold reboot | ✅ | S1 | |
+| Warm reboot | ✅ | S2 | gate on `warm_reboot_supported` |
+| Fast reboot | ✅ | S3 | gate on `fast_reboot_supported` |
+| Config reload | ✅ | S4 | |
+| Daemon/docker restart | ✅ | S5 | xcvrd / pmon / swss / syncd |
+| sfputil reset | ✅ | S6 | default `recover_with_port_toggle=True` → shut → `sfputil reset` → startup |
+| LPM toggle | ✅ | S7 | real low power via `sfputil lpmode on` (no shut) → `module_state`=ModuleLowPwr / `DP{lane}State`=DataPathDeactivated, oper-down, Tx power/bias drop (laser off); restored via `lpmode off` |
+
+| TC No. | Test | Steps | Expected Results |
+|--------|------|-------|------------------|
+| S1 | DOM recovery after cold reboot | 1. **Pre-check**: capture the baseline via `capture_dom_baseline(duthost)` with all ports up, then confirm a clean state with `verify_dom_recovered(duthost)`.<br>2. **Operate**: `perform_cold_reboot(duthost)` (shared helper — not inlined).<br>3. **Recover**: poll (via `wait_until`) up to `cold_reboot_settle_sec` for the DUT to return, then run the [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure) (DOM needs the link up).<br>4. **Verify**: `verify_dom_recovered(duthost, baseline=baseline)` — DOM data present and fresh, all configured fields within operational range, and (where configured) deviation from baseline within `*_deviation_range`. Aggregate failures and report at the end. | After cold reboot DOM data is re-published and fresh, all configured sensors are within operational range, and any configured deviation-from-baseline checks pass. |
+| S2 | DOM recovery after warm reboot | Same as S1 using `perform_warm_reboot(duthost)` and `warm_reboot_settle_sec`. Skip if `warm_reboot_supported` is false. | Same expectations as S1, following a warm reboot. |
+| S3 | DOM recovery after fast reboot | Same as S1 using `perform_fast_reboot(duthost)` and `fast_reboot_settle_sec`. Skip if `fast_reboot_supported` is false. | Same expectations as S1, following a fast reboot. |
+| S4 | DOM recovery after config reload | Same as S1 using `perform_config_reload(duthost)` and `config_reload_settle_sec`. | Same expectations as S1, following a config reload. |
+| S5 | DOM recovery after daemon/docker restart | Same as S1, iterating the shared `perform_daemon_restart(duthost, <daemon>)` over xcvrd / pmon / swss / syncd with the matching `*_restart_settle_sec`. | DOM data remains fresh and within operational range after each restart; deviation-from-baseline checks pass. |
+| S6 | DOM recovery after sfputil reset | Same as S1, but **Operate** = `perform_sfputil_reset(duthost, <port>, recover_with_port_toggle=True)` (default `recover_with_port_toggle=True` runs `config interface shutdown` → `sfputil reset <port>` → `config interface startup`, since a bare reset leaves the port oper-down on some modules; pass `False` for modules that auto-recover), and **Recover** polls for **oper up** (the shut→startup wrap uses `port_shutdown_wait_sec`/`port_startup_wait_sec`, plus `transceiver_reset_i2c_recover_sec` for I2C recovery after the reset), then allows for the DOM poll lag (per the note above) before asserting DOM freshness. The reset-induced transient `ModuleLowPwr`/`DPDeactivated` state is validated by [System TC 1 (Transceiver reset validation)](system_test_plan.md#transceiver-event-handling-test-cases), not re-checked here. | After the reset the port returns to oper up and DOM data recovers fresh/in-range; deviation-from-baseline checks pass. |
+| S7 | DOM behavior in low-power mode | Real low power is induced by **`sfputil lpmode on <port>`** directly. <br>1. **Baseline**: `capture_dom_baseline(duthost)` with the port up (confirm `module_state`=`ModuleReady`, link up).<br>2. **Enter low power**: `sfputil lpmode on <port>`; confirm `sfputil show lpmode -p <port>` = `On`.<br>3. **Verify low power** (poll until the periodic DOM poll reflects the change — STATE_DB lags the operation by the poll interval): from `TRANSCEIVER_STATUS` confirm `module_state` = `ModuleLowPwr` and every `DP{lane}State` = `DataPathDeactivated` (authoritative CMIS low-power/datapath signal), with the port oper-down while `admin_status` stays `up`; from `TRANSCEIVER_DOM_SENSOR` confirm per-lane `tx{lane}power`/`tx{lane}bias` drop to/below `shutdown_tx_power_threshold`/`shutdown_tx_bias_threshold` (laser off) while `temperature`/`voltage` stay readable. DOM polling continues in low power, so `last_update_time` keeps advancing. <br>4. **Exit + recover**: `sfputil lpmode off <port>` (the module returns to `ModuleReady`/`DataPathActivated` and the link comes back up on its own — no `startup` needed); poll for oper up and run the Standard Port Recovery and Verification Procedure (allow for the same poll lag before asserting recovery).<br>5. **Verify recovery**: `verify_dom_recovered(duthost, baseline=baseline)`. **Mandatory teardown:** ensure `sfputil lpmode off` runs even on failure — the low-power request **latches** and would otherwise leave the port oper-down for all later tests. | Verify: `lpmode on` (admin-up, no shut) drives `module_state`=`ModuleLowPwr`, every `DP{lane}State`=`DataPathDeactivated`, oper-down with `admin_status` still `up`, `tx{lane}power`≈-40 dBm and `tx{lane}bias`≈0 (at/below the shutdown thresholds), temperature drops while voltage stays readable, and `last_update_time` keeps advancing; `lpmode off` restores DOM fresh/in-range with the link back up, and deviation-from-baseline checks pass. |
+
 ## Cleanup and Post-Test Verification
 
 The following steps are performed once after **all test cases** in this plan have completed. The [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) already cover ongoing health monitoring throughout the run.
