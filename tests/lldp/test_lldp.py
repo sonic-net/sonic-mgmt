@@ -1,5 +1,4 @@
 import contextlib
-import json
 import logging
 import re
 import pytest
@@ -91,120 +90,44 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
     config_facts = duthost.asic_instance(
         enum_frontend_asic_index).config_facts(host=duthost.hostname, source="running")['ansible_facts']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
-    # Physical testbeds put a fanout switch between the DUT and the VM
-    # neighbors, and the fanout also advertises LLDP, so a DUT port can report
-    # multiple neighbors (the real VM + the fanout). Read via "lldpctl -f json"
-    # so all of them are visible; the keyvalue lldpctl_facts collapses a port's
-    # neighbors (last write wins), which intermittently keeps the fanout.
-    learned = _get_lldp_neighbors_by_port(
-        duthost, enum_frontend_asic_index,
-        ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)
-    if not learned:
-        pytest.fail("No LLDP neighbors received (lldpctl reported no interfaces)")
-    for k, neighbors in learned.items():
-        if k not in config_facts['DEVICE_NEIGHBOR']:
-            continue
-        names = [n['name'] for n in neighbors]
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=enum_frontend_asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
+    if not list(lldpctl_facts['lldpctl'].items()):
+        pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
+    for k, v in list(lldpctl_facts['lldpctl'].items()):
         if converged:
             exp_intf = config_facts['DEVICE_NEIGHBOR'][k]['port']
             vrf = config_facts['DEVICE_NEIGHBOR'][k]['name']
             primary = rev_vrf_map[vrf]
             new_intf = convergence_info['converged_peers'][primary]['intf_mapping'][vrf]['orig_intf_map'][exp_intf]
-            match = next((n for n in neighbors if n['name'] == primary), None)
-            assert match is not None, (
-                "LLDP neighbor name mismatch on {}. Expected '{}' among learned {}."
-            ).format(k, primary, names)
-            assert match['ifname'] == new_intf, (
-                "LLDP neighbor interface mismatch on {}. Expected '{}', but got '{}'."
-            ).format(k, new_intf, match['ifname'])
+            assert v['chassis']['name'] == primary
+            assert v['port']['ifname'] == new_intf
         else:
-            exp_name = config_facts['DEVICE_NEIGHBOR'][k]['name']
-            # Tolerate extra neighbors (e.g. fanout): require the expected VM to be present
-            match = next((n for n in neighbors if n['name'] == exp_name), None)
-            assert match is not None, (
-                "LLDP neighbor name mismatch on {}. Expected '{}' among learned {}."
-            ).format(k, exp_name, names)
-            exp_port = config_facts['DEVICE_NEIGHBOR'][k]['port']
+            # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
+            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
+            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
+                "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
+            ).format(
+                config_facts['DEVICE_NEIGHBOR'][k]['name'],
+                v['chassis']['name']
+            )
+            # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
             if request.config.getoption("--neighbor_type") == 'eos':
-                assert match['ifname'] == exp_port, (
-                    "LLDP neighbor port ifname mismatch on {}. Expected '{}', but got '{}'."
-                ).format(k, exp_port, match['ifname'])
+                assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
+                ).format(
+                    config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                    v['port']['ifname']
+                )
             else:
                 # Dealing with KVM that advertises port description
-                assert match['descr'] == exp_port, (
-                    "LLDP neighbor port description mismatch on {}. Expected '{}', but got '{}'."
-                ).format(k, exp_port, match['descr'])
-
-
-def _iter_lldp_neighbors(chassis, sibling_port):
-    """Yield (neighbor_name, port_dict) for every neighbor learned on a port.
-
-    "lldpctl -f json" is not consistent: a single neighbor's chassis is an
-    object keyed by system name ({"ARISTA01T1": {...}}), while a port that
-    learns multiple neighbors (a fanout on physical testbeds, or extra
-    neighbors flooded onto the port on KVM) becomes either an object with
-    several such keys or a list. The remote port may be nested under each
-    chassis (multi-neighbor) or a sibling of chassis (single neighbor). Handle
-    all of these so no neighbor is dropped -- taking only the first key hides
-    the real minigraph neighbor behind an unrelated one.
-    """
-    def _one(name, cdata):
-        cdata = cdata if isinstance(cdata, dict) else {}
-        port = cdata.get('port') or sibling_port or {}
-        return (name if isinstance(name, str) else ''), port
-
-    items = chassis if isinstance(chassis, list) else [chassis]
-    for entry in items:
-        if not isinstance(entry, dict):
-            continue
-        # Fielded form: {"id": ..., "name": "ARISTA01T1", "port": {...}}
-        if isinstance(entry.get('name'), str):
-            yield _one(entry['name'], entry)
-        else:
-            # Keyed-by-name form: {"ARISTA01T1": {...}, "ARISTA02T1": {...}}
-            for name, cdata in entry.items():
-                yield _one(name, cdata)
-
-
-def _get_lldp_neighbors_by_port(duthost, asic_index, skip_patterns):
-    """Return {local_port: [{'name', 'ifname', 'descr'}, ...]} from `lldpctl -f json`.
-
-    "lldpctl -f json" preserves every neighbor on a port, unlike the keyvalue
-    lldpctl_facts which collapses a port's neighbors (last write wins). On
-    physical (fanout) and KVM testbeds a single DUT port can report multiple
-    LLDP neighbors, so every neighbor must be captured -- keeping only the first
-    drops the real minigraph neighbor and makes callers fail with
-    "neighbor name mismatch ... among learned ['<unrelated neighbor>']".
-    """
-    asic_str = "" if asic_index is None else str(asic_index)
-    skip_re = re.compile("(?:%s)" % "|".join(skip_patterns)) if skip_patterns else None
-
-    raw = duthost.shell(
-        "docker exec lldp{} /usr/sbin/lldpctl -f json".format(asic_str))['stdout']
-    logger.debug("lldpctl -f json output: %s", raw)
-    interfaces = json.loads(raw).get('lldp', {}).get('interface', [])
-    # A single interface is rendered as a dict keyed by port name; multiple
-    # interfaces as a list of single-key dicts. Normalize both to (port, info)
-    # so every port is captured (a plain `[interfaces]` wrap would keep only
-    # the first port of the dict form).
-    if isinstance(interfaces, dict):
-        entries = list(interfaces.items())
-    else:
-        entries = [(list(i.keys())[0], list(i.values())[0]) for i in interfaces if i]
-
-    learned = {}
-    for local_port, info in entries:
-        if skip_re and skip_re.match(local_port):
-            continue
-        info = info or {}
-        sibling_port = info.get('port', {}) or {}
-        for name, port in _iter_lldp_neighbors(info.get('chassis', {}), sibling_port):
-            learned.setdefault(local_port, []).append({
-                'name': name,
-                'ifname': (port.get('id', {}) or {}).get('value', ''),
-                'descr': port.get('descr', ''),
-            })
-    return learned
+                assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
+                ).format(
+                    config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                    v['port']['descr']
+                )
 
 
 def _neighbor_has_lldp_entry(localhost, hostip, snmp_community, neighbor_interface):
@@ -224,7 +147,12 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
             '' if asic is None else asic))
     dut_system_description = res['stdout']
     internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
+    lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=asic,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)['ansible_facts']
     config_facts = duthost.asic_instance(asic).config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not list(lldpctl_facts['lldpctl'].items()):
+        pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     # We use the MAC of mgmt port to generate chassis ID as LLDPD dose.
     # To be compatible with PR #3331, we keep using router MAC on T2 devices
     switch_mac = ""
@@ -238,34 +166,25 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
 
     nei_meta = config_facts.get('DEVICE_NEIGHBOR_METADATA', {})
 
-    # Read LLDP via json so a port's multiple neighbors (the real VM neighbor +
-    # the fanout on physical testbeds) are all visible, then verify only the
-    # minigraph neighbors and use the minigraph-provisioned mgmt addr as the
-    # SNMP target (not any LLDP-advertised mgmt-ip, which can be the fanout's
-    # and does not answer SNMP, causing intermittent timeouts).
-    learned = _get_lldp_neighbors_by_port(
-        duthost, asic, ["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list)
-    if not learned:
-        pytest.fail("No LLDP neighbors received (lldpctl reported no interfaces)")
+    for k, v in list(lldpctl_facts['lldpctl'].items()):
+        # Use the minigraph-provisioned mgmt addr (the address the framework uses
+        # to reach the VM) as the SNMP target rather than the LLDP-advertised
+        # mgmt-ip. On physical testbeds a port can learn both the real VM neighbor
+        # and the fanout switch; the keyvalue lldpctl_facts merges a port's
+        # neighbors field-by-field (last write wins), so mgmt-ip can end up being
+        # the fanout's (which does not answer SNMP) even when the name is the VM,
+        # making the reverse SNMP check time out intermittently.
+        neighbor_name = v['chassis'].get('name')
+        if neighbor_name in nei_meta and nei_meta[neighbor_name].get('mgmt_addr'):
+            hostip = nei_meta[neighbor_name]['mgmt_addr']
+        else:
+            hostip = v['chassis'].get('mgmt-ip')
 
-    for k in config_facts['DEVICE_NEIGHBOR']:
-        if k not in learned:
-            continue
-        exp_name = config_facts['DEVICE_NEIGHBOR'][k]['name']
-        # Tolerate extra neighbors (e.g. fanout): require the expected VM neighbor.
-        match = next((n for n in learned[k] if n['name'] == exp_name), None)
-        assert match is not None, (
-            "LLDP neighbor name mismatch on {}. Expected '{}' among learned {}."
-        ).format(k, exp_name, [n['name'] for n in learned[k]])
-        # Use the minigraph-provisioned mgmt addr (the VM the framework reaches),
-        # not any LLDP-advertised mgmt-ip (which can be the fanout on physical tb).
-        hostip = nei_meta.get(exp_name, {}).get('mgmt_addr')
-        if not hostip:
-            pytest.fail("No mgmt_addr for neighbor {} in DEVICE_NEIGHBOR_METADATA".format(exp_name))
-        neighbor_interface = match['ifname']
         if request.config.getoption("--neighbor_type") == 'eos':
+            neighbor_interface = v['port']['ifname']
             snmp_community = eos['snmp_rocommunity']
         else:
+            neighbor_interface = v['port']['local']
             snmp_community = sonic['snmp_rocommunity']
 
         # After swss restart, the DUT's LLDP entry on the neighbor may have aged out
