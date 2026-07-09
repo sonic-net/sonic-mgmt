@@ -33,6 +33,10 @@ Shut/no-shut is often a fuller "interface state change" test that also validates
 bare reset leaves the port oper-down and does not auto-recover; pass `False` for modules/platforms
 whose datapath auto-recovers after a bare reset.
 
+`lpm_toggle` maps to `perform_lpm_toggle(duthost, port, low_power=True)` — `low_power=True` wraps
+`sfputil lpmode on <port>` and `low_power=False` wraps `sfputil lpmode off <port>`. The request
+**latches**, so any scenario using it must guarantee a `low_power=False` teardown even on failure.
+
 ## Test-case skeleton
 
 Each feature adds a **Scenario Coverage Test Cases** subsection with an applicability table and one
