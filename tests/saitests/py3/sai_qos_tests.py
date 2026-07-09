@@ -2585,7 +2585,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port ingress drop
             if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
                 for cntr in ingress_counters:
-                    if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
+                    if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
                         if cntr == 1:
                             qos_test_assert(
                                 self, recv_counters[cntr] > recv_counters_base[cntr],
@@ -5213,7 +5213,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, recv_counters[pg], pg, recv_counters_base[pg]))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
+                if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
                     if cntr == 1:
                         if dut_asic == 'q3d':
                             qos_test_assert(
