@@ -218,7 +218,10 @@ def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
             if raw is None:
                 continue
             token = raw.strip() if isinstance(raw, str) else raw
-            exclude_set.add(ipaddress.ip_address(token))
+            try:
+                exclude_set.add(ipaddress.ip_address(token))
+            except ValueError:
+                continue
 
     results = []
     for addr in net.hosts():
