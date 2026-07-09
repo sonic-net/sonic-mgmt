@@ -97,12 +97,6 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
             logger.warning(f"Cleanup failed: {cleanup_e}")
 
 
-# ---------------------------------------------------------------------------
-# Uses gnoi_request / extract_gnoi_response over gnmi TCP transport.
-# No TLS fixture dependency — gnoi_client runs inside the gnmi container on DUT.
-# ---------------------------------------------------------------------------
-
-
 def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811
     """Stat a known regular file; verify path, size, last_modified, permissions and umask.
 
@@ -123,8 +117,8 @@ def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811
                   "Expected path '/etc/hostname', got: {}".format(entry.get("path")))
     pytest_assert(int(entry.get("size", 0)) > 0,
                   "Expected non-zero size for /etc/hostname, got: {}".format(entry.get("size")))
-    pytest_assert(int(entry.get("last_modified", 0)) > 0,
-                  "Expected positive last_modified timestamp, got: {}".format(entry.get("last_modified")))
+    pytest_assert(int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
+                  "Expected positive last_modified timestamp, got: {}".format(entry.get("lastModified")))
     pytest_assert("permissions" in entry, "stat entry missing 'permissions'")
     pytest_assert(int(entry.get("umask", -1)) == 18,
                   "Expected umask=18 (0022 octal), got: {}".format(entry.get("umask")))
@@ -154,7 +148,7 @@ def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
         logger.info("Directory child entry: {}".format(entry))
         pytest_assert(child_path.startswith("/etc/sonic/"),
                       "Child path '{}' does not start with '/etc/sonic/'".format(child_path))
-        pytest_assert(int(entry.get("last_modified", 0)) > 0,
+        pytest_assert(int(entry.get("last_modified") or entry.get("lastModified") or 0) > 0,
                       "Child '{}' missing valid last_modified".format(child_path))
         pytest_assert("permissions" in entry,
                       "Child '{}' missing 'permissions'".format(child_path))
@@ -218,7 +212,3 @@ def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls):  # noqa: F811
     pytest_assert(permissions == 644,
                   "Expected permissions=644 (decimal-octal for mode 0644), got: {} "
                   "(hint: 420 means the old DBus decimal encoding is still in use)".format(permissions))
-    pytest_assert(
-        all(d in "01234567" for d in str(permissions)),
-        "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions)
-    )
