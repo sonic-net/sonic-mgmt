@@ -2019,6 +2019,12 @@ def multi_base_traffic_config(testbed_config,
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
+
+    Note:
+        This helper currently creates a single port-mapping dictionary under each
+        of the "Tx" and "Rx" lists. In contrast, setup_base_traffic_config() may
+        produce multiple port-mapping dictionaries per direction. Both helpers
+        follow the same {"Tx", "Rx"} contract.
     """
     base_flow_config = {}
     base_flow_config["rx_port_id"] = rx_port_id
