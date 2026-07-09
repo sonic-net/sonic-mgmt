@@ -164,7 +164,7 @@ def check_mux_feature(duthost):
 
 
 def check_mux_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' mux")['stdout_lines']
+    output = duthost.shell("docker inspect -f '{{ .State.Status }}' mux")['stdout_lines']
     return "running" in str(output)
 
 
@@ -189,7 +189,7 @@ def wait_for_mux_container(duthost):
 
 
 def check_pmon_container(duthost):
-    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' pmon")['stdout_lines']
+    output = duthost.shell("docker inspect -f '{{ .State.Status }}' pmon")['stdout_lines']
     return "running" in str(output)
 
 
