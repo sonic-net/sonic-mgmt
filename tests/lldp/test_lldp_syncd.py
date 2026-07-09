@@ -274,9 +274,22 @@ def assert_lldp_interfaces(
             "Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interface))
         )
 
+    # De-duplicate: on fanout-fronted testbeds a port can learn multiple LLDP
+    # neighbors (e.g. the peer device + the fanout switch), so lldpctl lists the
+    # same interface more than once. LLDP_ENTRY_TABLE keys and `show lldp table`
+    # output are already unique/de-duplicated (see get_show_lldp_table_output),
+    # so collapse duplicates here to compare like-for-like. A genuinely extra or
+    # missing interface still fails the assert below.
+    lldpctl_interfaces = list(dict.fromkeys(lldpctl_interfaces))
+
+    db_set = set(lldp_entry_keys)
+    lldpctl_set = set(lldpctl_interfaces)
     pytest_assert(
         sorted(lldp_entry_keys) == sorted(lldpctl_interfaces),
-        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes",
+        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
+        "In DB but not in lldpctl: {}. In lldpctl but not in DB: {}".format(
+            db_set - lldpctl_set, lldpctl_set - db_set
+        ),
     )
 
 
