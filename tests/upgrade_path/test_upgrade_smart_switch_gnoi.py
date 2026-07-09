@@ -84,7 +84,7 @@ def smartswitch_gnoi_upgrade_lists(request, duthost):
 
 @pytest.mark.device_type("smartswitch")
 def test_upgrade_one_dpu_via_gnoi(
-    localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
+    localhost, duthosts, dpuhosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
     smartswitch_gnoi_upgrade_lists, ptf_gnoi  # noqa: F811
 ):
@@ -127,12 +127,13 @@ def test_upgrade_one_dpu_via_gnoi(
         cfg=cfg,
         localhost=localhost,
         duthosts=duthosts,
+        dpuhosts=dpuhosts,
     )
 
 
 @pytest.mark.device_type("smartswitch")
 def test_upgrade_multiple_dpus_via_gnoi_parallel(
-    localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
+    localhost, duthosts, dpuhosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, request,
     smartswitch_gnoi_upgrade_lists, ptf_gnoi  # noqa: F811
 ):
@@ -184,6 +185,7 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
         max_workers=workers,
         localhost=localhost,
         duthosts=duthosts,
+        dpuhosts=dpuhosts,
     )
 
 
@@ -221,7 +223,7 @@ def smartswitch_full_upgrade_lists(request, duthost):
 
 @pytest.mark.device_type("smartswitch")
 def test_upgrade_smartswitch_all_dpus_then_npu(
-    localhost, duthosts, ptfhost, enum_rand_one_per_hwsku_hostname,
+    localhost, duthosts, dpuhosts, ptfhost, enum_rand_one_per_hwsku_hostname,
     tbinfo, conn_graph_facts, xcvr_skip_list, request,
     smartswitch_full_upgrade_lists, gnmi_tls  # noqa: F811
 ):
@@ -279,6 +281,7 @@ def test_upgrade_smartswitch_all_dpus_then_npu(
         ptf_gnoi=gnmi_tls.gnoi,
         cfgs=dpu_cfgs,
         max_workers=len(dpu_indices),
+        dpuhosts=dpuhosts,
     )
     logger.info("Phase 1 complete: image staged on all DPUs")
 

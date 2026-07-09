@@ -2,6 +2,7 @@ import pytest
 import logging
 import ipaddress
 import json
+import os
 import re
 from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
@@ -316,6 +317,92 @@ def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
     return {"current": current, "next": next}
 
 
+# Extra headroom (MB) required on top of the image size when validating free
+# disk space before a gNOI image transfer.
+DISK_SPACE_SAFETY_MARGIN_MB = 200
+
+
+def _get_image_size_mb(duthost, image_url) -> Optional[float]:
+    """
+    Return the image size in MB from the HTTP Content-Length header, or None.
+
+    Runs `curl -sIL` on the DUT (the DUT/DPU is what downloads the image, so
+    the NPU is a representative vantage point). With redirects (-L) multiple
+    header blocks are printed; the last Content-Length is the real payload.
+    """
+    res = duthost.shell(f"curl -sIL --max-time 60 '{image_url}'", module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        return None
+    size_bytes = None
+    for line in (res.get("stdout") or "").splitlines():
+        if line.lower().startswith("content-length:"):
+            try:
+                size_bytes = int(line.split(":", 1)[1].strip())
+            except ValueError:
+                continue
+    if size_bytes is None:
+        return None
+    return size_bytes / 1024.0 / 1024.0
+
+
+def _get_free_disk_space_mb(host, directory) -> Optional[float]:
+    """
+    Return free space (MB) of the filesystem holding `directory` on `host`, or None.
+
+    `host` is any Ansible host object with .shell() (NPU duthost or a DPU dpuhost),
+    so no ssh/sshpass hop is needed to reach a DPU.
+    """
+    df_cmd = f"df -kP {directory} | tail -1"
+    res = host.shell(df_cmd, module_ignore_errors=True)
+    out = (res.get("stdout") or "").strip()
+    if res.get("rc", 1) != 0 or not out:
+        return None
+    # df -kP: Filesystem 1024-blocks Used Available Capacity Mounted on
+    fields = out.split()
+    try:
+        return int(fields[3]) / 1024.0
+    except (IndexError, ValueError):
+        return None
+
+
+def check_disk_space_for_image(duthost, cfg: GnoiUpgradeConfig, dpuhost=None):
+    """
+    Fail fast if the target filesystem lacks room for the image download.
+
+    Required space = HTTP Content-Length of cfg.to_image + safety margin.
+    With dpuhost set the free-space check runs directly on that DPU host;
+    otherwise it runs on the NPU (duthost). If the image size or free
+    space cannot be determined, the check is skipped with a warning rather
+    than blocking the upgrade.
+    """
+    host = dpuhost or duthost
+    target = dpuhost.hostname if dpuhost else duthost.hostname
+    directory = os.path.dirname(cfg.dut_image_path) or "/"
+
+    image_size_mb = _get_image_size_mb(duthost, cfg.to_image)
+    if image_size_mb is None:
+        logger.warning("Could not determine image size (Content-Length) for %s; "
+                       "skipping disk space pre-check on %s", cfg.to_image, target)
+        return
+
+    free_mb = _get_free_disk_space_mb(host, directory)
+    if free_mb is None:
+        logger.warning("Could not determine free disk space at %s on %s; "
+                       "skipping disk space pre-check", directory, target)
+        return
+
+    required_mb = image_size_mb + DISK_SPACE_SAFETY_MARGIN_MB
+    logger.info("Disk space pre-check on %s: image %.0f MB + %d MB margin = %.0f MB required, %.0f MB free at %s",
+                target, image_size_mb, DISK_SPACE_SAFETY_MARGIN_MB, required_mb, free_mb, directory)
+    pytest_assert(
+        free_mb >= required_mb,
+        f"Insufficient disk space on {target} for image download: need {required_mb:.0f} MB "
+        f"(image {image_size_mb:.0f} MB + {DISK_SPACE_SAFETY_MARGIN_MB} MB margin) but only "
+        f"{free_mb:.0f} MB free at {directory}. Remove stale files (e.g. a leftover "
+        f"{cfg.dut_image_path} from a previous run) or free up space, then retry."
+    )
+
+
 def perform_gnoi_upgrade(
     ptf_gnoi,
     duthost,
@@ -363,6 +450,8 @@ def perform_gnoi_upgrade(
         if cold_reboot_setup:
             cold_reboot_setup()
     # ---- 2) TransferToRemote (via wrapper) ----
+    # Fail fast if the NPU lacks disk space for the image download.
+    check_disk_space_for_image(duthost, cfg)
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         url=cfg.to_image,
         local_path=cfg.dut_image_path,
@@ -437,7 +526,7 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=No
 
 def _upgrade_one_dpu_via_gnoi(
     duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, dpuhosts=None,
 ) -> Dict:
     """
     Upgrade a single DPU via gNOI.
@@ -452,6 +541,9 @@ def _upgrade_one_dpu_via_gnoi(
     When cfg.skip_reboot=True, only steps 1-3 are performed.
     This is used when you want to stage the image on the DPU but trigger the
     actual reboot later (e.g. via an NPU reboot that also reboots all DPUs).
+
+    `dpuhosts`, when provided, lets the disk space pre-check run directly on
+    the DPU host (see check_disk_space_for_image) instead of the NPU.
     """
     if cfg.metadata is None:
         raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
@@ -460,6 +552,21 @@ def _upgrade_one_dpu_via_gnoi(
 
     # Step 1: Verify DPU is reachable before we start
     ptf_gnoi.system_time(metadata=md)
+
+    # Fail fast if the DPU lacks disk space for the image download.
+    # The DPU index may be set explicitly or only via the routing metadata.
+    dpu_index = cfg.ss_target_index
+    if dpu_index is None:
+        dpu_index = next((v for k, v in md if k == "x-sonic-ss-target-index"), None)
+    if dpu_index is not None and dpuhosts is not None:
+        from tests.common.platform.device_utils import get_dpuhost_for_dpu
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, int(dpu_index))
+        if dpuhost:
+            check_disk_space_for_image(duthost, cfg, dpuhost=dpuhost)
+        else:
+            logger.warning("Could not resolve dpuhost for DPU index %s; skipping disk space pre-check", dpu_index)
+    else:
+        logger.warning("dpuhosts not provided or DPU index unknown; skipping disk space pre-check")
 
     # Step 2: Download the image onto the DPU
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
@@ -504,11 +611,11 @@ def _upgrade_one_dpu_via_gnoi(
 
 def perform_gnoi_upgrade_smartswitch_dpu(
     duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, dpuhosts=None,
 ) -> Dict:
     return _upgrade_one_dpu_via_gnoi(
         duthost, tbinfo, ptf_gnoi, cfg,
-        localhost=localhost, duthosts=duthosts,
+        localhost=localhost, duthosts=duthosts, dpuhosts=dpuhosts,
     )
 
 
@@ -517,7 +624,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     ptf_gnoi,
     cfgs: Sequence[GnoiUpgradeConfig],
     max_workers: Optional[int] = None,
-    localhost=None, duthosts=None,
+    localhost=None, duthosts=None, dpuhosts=None,
 ) -> Dict[int, Dict]:
     if not cfgs:
         raise ValueError("cfgs is empty")
@@ -530,7 +637,7 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
         for i, cfg in enumerate(cfgs):
             futs[i] = executor.submit(
                 _upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg,
-                localhost, duthosts,
+                localhost, duthosts, dpuhosts,
             )
 
         for i, fut in futs.items():
