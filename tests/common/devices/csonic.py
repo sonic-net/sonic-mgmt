@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 
 from tests.common.devices.base import NeighborDevice
 
@@ -144,6 +145,8 @@ class CsonicHost(NeighborDevice):
         failed = False
         for cmd in cmds:
             res = self._docker_exec(cmd, module_ignore_errors=True)
+            if not isinstance(res, dict):
+                res = {'rc': 1, 'stderr': str(res)}
             rc = res.get('rc', 0)
             results.append({
                 'cmd': cmd,
@@ -245,13 +248,28 @@ class CsonicHost(NeighborDevice):
 
         Mirrors SonicHost.start_bgpd: after starting bgpd, restart bgpcfgd so
         the CONFIG_DB-derived BGP configuration is re-applied to FRR (starting
-        bgpd alone leaves FRR without the config bgpcfgd renders).
+        bgpd alone leaves FRR without the config bgpcfgd renders). Waits for
+        bgpd to report RUNNING (bounded) before restarting bgpcfgd, and surfaces
+        a non-zero bgpcfgd-restart rc so a failed config re-apply is not silent.
         """
         result = self._docker_exec("supervisorctl start bgpd", module_ignore_errors=True)
         if result.get('rc', 1) != 0:
             return result
-        # Give bgpd a moment to come up, then restart bgpcfgd to re-apply config.
-        self._docker_exec("supervisorctl restart bgpcfgd", module_ignore_errors=True)
+        # Wait for bgpd to actually be RUNNING before restarting bgpcfgd, rather
+        # than relying on timing luck.
+        deadline = time.time() + 30
+        while time.time() < deadline:
+            status = self._docker_exec("supervisorctl status bgpd", module_ignore_errors=True)
+            if 'RUNNING' in str(status.get('stdout', '')):
+                break
+            time.sleep(2)
+        else:
+            logger.warning("CsonicHost [%s] start_bgpd: bgpd did not reach RUNNING "
+                           "within timeout; restarting bgpcfgd anyway", self.container_name)
+        cfg = self._docker_exec("supervisorctl restart bgpcfgd", module_ignore_errors=True)
+        if cfg.get('rc', 1) != 0:
+            logger.warning("CsonicHost [%s] start_bgpd: bgpcfgd restart failed rc=%s stderr=%s",
+                           self.container_name, cfg.get('rc'), cfg.get('stderr', ''))
         return result
 
     def _bgp_summary_peers(self, afi, vrf):
@@ -297,12 +315,21 @@ class CsonicHost(NeighborDevice):
         neigh_desc_available = False
 
         peers = {}
-        peers.update(self._bgp_summary_peers('ipv4', vrf))
-        # v6 peers live in the ipv6 summary; merge both address families.
-        for k, v in self._bgp_summary_peers('ipv6', vrf).items():
-            peers.setdefault(k, v)
+        # Merge both address families. Distinct v4/v6 neighbor IPs make key
+        # collisions unexpected, but use update() for both so we never silently
+        # drop a v6 peer just because a same-string key appeared under v4.
+        for afi in ('ipv4', 'ipv6'):
+            for k, v in self._bgp_summary_peers(afi, vrf).items():
+                peers[k.lower()] = v
 
         if not peers:
+            # Empty here means either FRR/vtysh did not answer / JSON failed to
+            # parse, or no peers are established yet. Under wait_until both look
+            # the same, so log so a genuine FRR error is distinguishable from
+            # slow convergence.
+            logger.warning("CsonicHost [%s] check_bgp_session_state: no peers from "
+                           "BGP summary (FRR not answering, parse failure, or none "
+                           "established yet)", self.container_name)
             return False
 
         for k, v in list(peers.items()):
@@ -361,14 +388,18 @@ class CsonicHost(NeighborDevice):
         seen = set()
         for afi in ('ipv4', 'ipv6'):
             for ip, info in self._bgp_neighbors_json(afi).items():
-                if not isinstance(info, dict) or ip in seen:
+                key = ip.lower() if isinstance(ip, str) else ip
+                if not isinstance(info, dict) or key in seen:
                     continue
-                seen.add(ip)
+                seen.add(key)
                 remote_as = info.get('remoteAs')
                 try:
                     asn = int(remote_as) if remote_as is not None else None
                 except (TypeError, ValueError):
-                    asn = remote_as
+                    logger.warning("CsonicHost [%s] minigraph_facts: could not parse "
+                                   "remoteAs=%r for peer %s; setting asn=None",
+                                   self.container_name, remote_as, ip)
+                    asn = None
                 bgp_sessions.append({
                     'name': info.get('hostname'),
                     'addr': ip,
