@@ -1120,12 +1120,31 @@ class BaseEverflowTest(object):
                             )
                         )
             else:
-                command = BaseEverflowTest._build_erspan_cli_command(
-                    session_info, queue_num=queue_num,
-                    policer=policer, use_erspan_subcmd=False,
-                    erspan_ip_ver=erspan_ip_ver
-                )
-                duthost.command(command)
+                if erspan_ip_ver == 4:
+                    command = BaseEverflowTest._build_erspan_cli_command(
+                        session_info, queue_num=queue_num,
+                        policer=policer, use_erspan_subcmd=False,
+                        erspan_ip_ver=erspan_ip_ver
+                    )
+                    duthost.command(command)
+                else:
+                    for asic_index in duthost.get_frontend_asic_ids():
+                        # Adding IPv6 ERSPAN sessions from the CLI is not supported.
+                        command = f"sonic-db-cli -n asic{asic_index} " if asic_index is not None else "sonic-db-cli "
+                        command += (
+                            f"CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' "
+                            f"'dscp' '{session_info['session_dscp']}' "
+                            f"'dst_ip' '{session_info['session_dst_ipv6']}' "
+                            f"'gre_type' '{session_info['session_gre']}' "
+                            f"'type' '{session_info['session_type']}' "
+                            f"'src_ip' '{session_info['session_src_ipv6']}' "
+                            f"'ttl' '{session_info['session_ttl']}'"
+                        )
+                        if queue_num:
+                            command += f" 'queue' {queue_num}"
+                        if policer:
+                            command += f" 'policer' {policer}"
+                        duthost.command(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
