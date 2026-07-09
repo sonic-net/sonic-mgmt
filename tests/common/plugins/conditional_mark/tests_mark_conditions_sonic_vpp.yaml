@@ -18,14 +18,6 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
 #######################################
 #####           BFD               #####
 #######################################
-bfd/test_bfd.py::test_bfd_multihop:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bfd/test_bfd_static_route.py:
   skip:
     reason: >
@@ -486,6 +478,15 @@ pc/test_lag_member_forwarding.py::test_lag_member_forwarding_packets:
   skip:
     reason: >
             Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+pc/test_po_cleanup.py::test_po_cleanup_after_reload:
+  disable_memory_utilization:
+    reason: >
+            config_reload with CPU stress transiently raises monit memory_usage past the
+            10% increase threshold on the low-RAM sonic-vpp KVM VM; the test body passes.
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
