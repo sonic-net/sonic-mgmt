@@ -12,7 +12,8 @@
     "dut": {
         "<dut-name>":{
             "ports_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
-            "physical_oir_timeout_min": 5
+            "physical_oir_timeout_min": 5,
+            "hot_swap_ports_under_test": [[9, "C-CMIS"], [9, "SFF-8436"], [13, "SFF-8636"]]
         }
     }
 }
