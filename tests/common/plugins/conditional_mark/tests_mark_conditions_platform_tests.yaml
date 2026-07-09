@@ -1222,6 +1222,15 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "is_smartswitch==True"
 
 #######################################
+#####   test_chassis_reboot.py  #####
+#######################################
+platform_tests/test_chassis_reboot.py:
+  skip:
+    reason: "Chassis reboot test is not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+#######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
 platform_tests/test_cont_warm_reboot.py:
