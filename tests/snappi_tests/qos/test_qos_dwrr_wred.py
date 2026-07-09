@@ -1,4 +1,4 @@
-﻿"""
+"""
 TEST PLAN: DWRR
 
 STEPS:

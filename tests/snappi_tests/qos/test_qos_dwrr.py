@@ -1,4 +1,4 @@
-﻿"""
+"""
 This script performs two types of tests:
    1> Inter-port testing
    2> Intra-port testing
