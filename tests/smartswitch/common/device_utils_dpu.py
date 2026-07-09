@@ -237,24 +237,24 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
     """
     # checking state_transition still  in progress for DPU, before checking DPU state
     cmd = f'redis-cli -n 6 HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
-    output_dpu_state = duthost.shell(cmd)
-    logging.info(output_dpu_state['stdout'])
+    output_dpu_state = duthost.shell(cmd, module_ignore_errors=True)
+    logging.info("Chassis state for %s: %s", dpu_name, output_dpu_state['stdout'])
 
-    if 'true' in output_dpu_state['stdout'].lower():
-        logging.info("{} state transition is in progress...".format(dpu_name))
+    if output_dpu_state['stdout'].strip().lower() == "true":
+        logging.info("{} state transition still in progress".format(dpu_name))
         return False
 
     output_dpu_status = duthost.shell(
-            'show chassis module status | grep %s' % (dpu_name))
+            'show chassis module status | grep %s' % (dpu_name), module_ignore_errors=True)
 
     if "offline" in output_dpu_status["stdout"].lower():
-        logging.info("'{}' is offline ...".format(dpu_name))
+        logging.info("'{}' state is offline".format(dpu_name))
         if power_status == "off":
             return True
         else:
             return False
     else:
-        logging.info("'{}' is online ...".format(dpu_name))
+        logging.info("'{}' state is online".format(dpu_name))
         if power_status == "on":
             return True
         else:

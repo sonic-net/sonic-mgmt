@@ -27,9 +27,6 @@ pytestmark = [
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 30
 
-# Cool off time period after shutting down DPUs
-COOL_OFF_TIME = 300
-
 # DPU Memory Threshold
 DPU_MEMORY_THRESHOLD = 90
 
@@ -331,12 +328,10 @@ def test_system_health_summary(duthosts, dpuhosts,
 
     pytest_assert(result, "Switch health status is not ok")
 
+    # Checking system-health summary on DPU
     for index in range(len(dpu_on_list)):
         dpu_name = dpu_on_list[index]
         dpu_id = int(re.search(r'\d+', dpu_name).group())
-
-        logging.info("Checking show system-health summary on {}"
-                     .format(dpu_name))
 
         pytest_assert(wait_until(DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                                  check_dpu_system_health_summary, dpuhosts,
