@@ -7,6 +7,7 @@ import ipaddress
 from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import get_asic_config_facts
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
@@ -55,12 +56,12 @@ CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 
 
 @pytest.fixture(scope="module")
-def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
+def backup_and_restore_config_db(duthosts, enum_frontend_dut_hostname):
     """
     Module-level fixture to backup config_db.json before tests and restore it after tests.
     Explicitly requested by tests that modify config (sentinel/monitor variants).
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
 
     # Save current running config and backup config_db.json before tests
     logger.info("Saving running config on {} before test".format(duthost.hostname))
@@ -346,60 +347,78 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
     logger.info("BGP Monitor cleanup completed")
 
 
-@pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
-    duthost = duthosts[rand_one_dut_hostname]
+def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels):
+    """Map a BGP neighbor device name to local DUT member interfaces."""
+    interfaces = {}
+    for ifname, nbr_info in dev_nbrs.items():
+        if nbr_info.get('name') != neighbor_name:
+            continue
+        if ifname in portchannels:
+            for member in portchannels[ifname]:
+                if member in dev_nbrs:
+                    interfaces[member] = dev_nbrs[member]
+        else:
+            interfaces[ifname] = nbr_info
+    return interfaces
 
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+
+def _external_eth_nbrs(dev_nbrs, nbrhosts):
+    """Return DEVICE_NEIGHBOR entries for external testbed neighbors only."""
+    return {
+        ifname: nbr_info for ifname, nbr_info in dev_nbrs.items()
+        if nbr_info.get('name') in nbrhosts
+    }
+
+
+@pytest.fixture(scope='module')
+def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
+          nbrhosts, fanouthosts):
+    duthost = duthosts[enum_frontend_dut_hostname]
+    asic_index = enum_rand_one_frontend_asic_index
+
+    config_facts = get_asic_config_facts(duthost, asic_index)
+    all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = {
+        ip: details for ip, details in all_bgp_neighbors.items()
+        if details.get('name') in nbrhosts
+    }
+    if not bgp_neighbors:
+        pytest.skip(
+            "No external BGP neighbors on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
+        )
+
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
-    bgp_neighbor = list(bgp_neighbors.keys())[0]
+    eth_nbrs = _external_eth_nbrs(dev_nbrs, nbrhosts)
+    if not eth_nbrs:
+        pytest.skip(
+            "No external neighbor interfaces on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
+        )
 
     logger.debug("setup config_facts {}".format(config_facts))
     logger.debug("setup nbrhosts {}".format(nbrhosts))
     logger.debug("setup bgp_neighbors {}".format(bgp_neighbors))
-    logger.debug("setup dev_nbrs {}".format(dev_nbrs))
+    logger.debug("setup eth_nbrs {}".format(eth_nbrs))
     logger.debug("setup portchannels {}".format(portchannels))
-    logger.debug("setup test_neighbor {}".format(bgp_neighbor))
 
-    interface_list = dev_nbrs.keys()
+    interface_list = list(eth_nbrs.keys())
     logger.debug('interface_list: {}'.format(interface_list))
 
     # verify sessions are established
     pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                   "Not all BGP sessions are established on DUT")
 
-    ip_intfs = duthost.show_and_parse(show_ip_interface_cmd)
-    logger.debug("setup ip_intfs {}".format(ip_intfs))
-
-    # Create a mapping of neighbor IP to interfaces and their details
-    neighbor_ip_to_interfaces = {}
-
-    # Loop through the ip_intfs list to populate the mapping
-    for ip_intf in ip_intfs:
-        neighbor_ip = ip_intf['neighbor ip']
-        interface_name = ip_intf['interface']
-        if neighbor_ip not in neighbor_ip_to_interfaces:
-            neighbor_ip_to_interfaces[neighbor_ip] = {}
-
-        # Check if the interface is in portchannels and get the relevant devices
-        if interface_name in portchannels:
-            for dev_name in portchannels[interface_name]:
-                if dev_name in dev_nbrs and dev_nbrs[dev_name]['name'] == ip_intf['bgp neighbor']:
-                    neighbor_ip_to_interfaces[neighbor_ip][dev_name] = dev_nbrs[dev_name]
-        # If not in portchannels, check directly in dev_nbrs
-        elif interface_name in dev_nbrs and dev_nbrs[interface_name]['name'] == ip_intf['bgp neighbor']:
-            neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
-
-    # Update bgp_neighbors with the new 'interface' key
     for ip, details in bgp_neighbors.items():
-        if ip in neighbor_ip_to_interfaces:
-            details['interface'] = neighbor_ip_to_interfaces[ip]
+        interfaces = _map_bgp_neighbor_to_interfaces(
+            details['name'], dev_nbrs, portchannels
+        )
+        if interfaces:
+            details['interface'] = interfaces
 
     setup_info = {
         'neighhosts': bgp_neighbors,
-        "eth_nbrs": dev_nbrs
+        "eth_nbrs": eth_nbrs,
+        "asic_index": asic_index,
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
@@ -407,18 +426,18 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interf
     yield setup_info
 
     # verify sessions are established after test
-    if not duthost.check_bgp_session_state(bgp_neighbors):
+    if not duthost.check_bgp_session_state(list(bgp_neighbors.keys())):
         for port in interface_list:
             logger.info("no shutdown dut interface {} port {}".format(duthost, port))
-            duthost.no_shutdown(port)
+            duthost.no_shutdown_interface(port)
 
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
             if fanout and fanout_port:
                 logger.info("no shutdown fanout interface, fanout {} port {}".format(fanout, fanout_port))
                 fanout.no_shutdown(fanout_port)
 
-            neighbor = dev_nbrs[port]["name"]
-            neighbor_port = dev_nbrs[port]["port"]
+            neighbor = eth_nbrs[port]["name"]
+            neighbor_port = eth_nbrs[port]["port"]
             neighbor_host = nbrhosts.get(neighbor, {}).get('host', None)
             if neighbor_host:
                 neighbor_host.no_shutdown(neighbor_port)
@@ -439,9 +458,9 @@ async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
 
     start_time = time.time()  # Record the start time
     while not stop_tasks and time.time() - start_time < test_run_duration:
-        duthost.shutdown(port)
+        duthost.shutdown_interface(port)
         await asyncio.sleep(sleep_duration)
-        duthost.no_shutdown(port)
+        duthost.no_shutdown_interface(port)
         await asyncio.sleep(sleep_duration)
         dut_flap_count += 1
         if stop_tasks:
@@ -559,14 +578,16 @@ def _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type,
     test_run_duration = LOOP_TIMES_LEVEL_MAP[normalized_level]
     logger.debug('normalized_level {}, set test run duration {}'.format(normalized_level, test_run_duration))
 
-    # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
-    asic_type = duthost.facts['asic_type']
-    platform = duthost.facts['platform']
-    if (asic_type == "vs" or asic_type == "vpp") and (platform == "x86_64-kvm_x86_64-r0") \
-            and (test_type == "fanout" or test_type == "all"):
-        pytest.skip("Stress link flap test is not supported on Virtual Switch")
+    # Fanout flap requires physical fanout switches; skip when unavailable (e.g. VS T1)
+    if test_type in ("fanout", "all") and not fanouthosts:
+        pytest.skip("Fanout hosts not available; fanout flap test requires fanout switches")
 
-    if asic_type != "vs" and asic_type != "vpp":
+    # Skip fanout/all flap on Virtual Switch
+    asic_type = duthost.facts['asic_type']
+    if asic_type in ("vs", "vpp") and test_type in ("fanout", "all"):
+        pytest.skip("Stress link flap fanout test is not supported on Virtual Switch")
+
+    if asic_type not in ("vs", "vpp"):
         delay_time = SLEEP_DURATION
     else:
         delay_time = SLEEP_DURATION * 100
@@ -647,13 +668,13 @@ def _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type,
 
 
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
-def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
+def test_bgp_stress_link_flap(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
                               get_function_completeness_level):
     """
     Test BGP stress link flap without any additional features (Sentinel/Monitor).
     This is the basic stress test that flaps interfaces on DUT, fanout, or neighbor.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -663,7 +684,7 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
+def test_bgp_stress_link_flap_with_sentinel(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts,
                                             ptfhost, tbinfo, test_type, get_function_completeness_level,
                                             backup_and_restore_config_db):
     """
@@ -672,7 +693,10 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
     Only 'dut' flap type is tested since the goal is to verify BGP Sentinel stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Sentinel stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -724,7 +748,7 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
+def test_bgp_stress_link_flap_with_monitor(duthosts, enum_frontend_dut_hostname, setup, nbrhosts, fanouthosts,
                                            ptfhost, tbinfo, test_type, get_function_completeness_level,
                                            backup_and_restore_config_db):
     """
@@ -733,7 +757,10 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Monitor stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -810,7 +837,7 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts,
+def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, enum_frontend_dut_hostname, setup, nbrhosts,
                                                         fanouthosts, ptfhost, tbinfo, test_type,
                                                         get_function_completeness_level,
                                                         backup_and_restore_config_db):
@@ -820,7 +847,10 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("BGP Sentinel and Monitor stress variant requires additional multi-ASIC support")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
