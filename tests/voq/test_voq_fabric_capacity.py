@@ -23,7 +23,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic = 0
     if duthost.is_multi_asic:
-        asic = random.randint(0, duthost.num_asics())
+        asic = random.randint(0, duthost.num_asics() - 1)
     asicName = "asic{}".format(asic)
     logger.info(asicName)
 
@@ -39,7 +39,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
     #               Links    of Links
     # ------  -----------  ----------  ---  ------------  -----------
     #  asic0          112         112  100          None        Never
-    cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+    cmd_output = duthost.shell(cmd)["stdout"].split("\n")
     operating_links = 0
     for line in cmd_output:
         if not line:
@@ -63,7 +63,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
     else:
         cmd = "show fabric isolation"
 
-    cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+    cmd_output = duthost.shell(cmd)["stdout"].split("\n")
     for line in cmd_output:
         if not line:
             continue
@@ -88,8 +88,8 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
         asicName = ""
     try:
         # isolate a link on the chip
-        cmd = "sudo config fabric port isolate {} {}".format(shutlink, asicName)
-        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+        cmd = "sudo config fabric port isolate -n {} {}".format(asicName, shutlink)
+        cmd_output = duthost.shell(cmd)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
         exp_links = operating_links - 1
@@ -98,8 +98,8 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
 
         # unisolate the link so the capacity is back
-        cmd = "sudo config fabric port unisolate {} {}".format(shutlink, asicName)
-        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
+        cmd = "sudo config fabric port unisolate -n {} {}".format(asicName, shutlink)
+        cmd_output = duthost.shell(cmd)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
         exp_links = operating_links
@@ -108,7 +108,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
     finally:
         # clean up the test
-        cmd = "sudo config fabric port unisolate {} {}".format(shutlink, asicName)
+        cmd = "sudo config fabric port unisolate -n {} {}".format(asicName, shutlink)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
 
