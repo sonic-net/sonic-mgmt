@@ -54,7 +54,7 @@ class Common_vars:
     config_db_file = '/etc/sonic/config_db.json'
     # Note: Frame size 1500 have inconsistent success/failure on testcase 3 and 7
     #       Frame size 128 is more consistent for all test cases
-    frame_size = 128
+    frame_size = 1500
     flow_duration_seconds = 60
     pass_threshold_pct = .02
 

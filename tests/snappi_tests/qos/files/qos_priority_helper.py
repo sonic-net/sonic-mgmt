@@ -1,4 +1,4 @@
-﻿from re import search, match
+from re import search, match
 import json
 from tabulate import tabulate
 import time
