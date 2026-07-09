@@ -520,7 +520,7 @@ def validate_bgp_summary(duthost, vnet_count, subif_per_vnet):
         pytest.fail("BGP validation failed:\n{}".format("\n".join(failures)))
 
 
-def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type):
+def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type, completeness_level=None):
     setup = vnet_bgp_setup
     duthost = setup["duthost"]
 
@@ -530,8 +530,19 @@ def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type
         setup["subif_per_vnet"],
     )
     vnet_count = setup["vnet_count"]
-    test_vnet_id = random.randint(1, vnet_count)
-    logger.info("Selected VNET %s for %s test", test_vnet_id, traffic_test_type)
+    normalized_level = completeness_level or "basic"
+
+    if normalized_level == "thorough":
+        test_vnet_ids = list(range(1, vnet_count + 1))
+    else:
+        test_vnet_ids = [random.randint(1, vnet_count)]
+
+    logger.info(
+        "Running %s dataplane test at level %s for VNET IDs: %s",
+        traffic_test_type,
+        normalized_level,
+        test_vnet_ids,
+    )
 
     ptf_params = {
         "vnet_count": setup["vnet_count"],
@@ -543,7 +554,7 @@ def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type
         "dut_vtep": setup["dut_vtep"],
         "vxlan_port": VXLAN_PORT,
         "traffic_test_type": traffic_test_type,
-        "test_vnet_id": test_vnet_id,
+        "test_vnet_ids": ",".join(str(vnet_id) for vnet_id in test_vnet_ids),
         "packets_per_path": 100,
         "ecmp_deviation_pct": 50,
     }
@@ -578,17 +589,23 @@ def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
 
 
-def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost):
+def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_function_completeness_level):
     run_vnet_bgp_scale_dataplane_test(
         vnet_bgp_setup,
         ptfhost,
         traffic_test_type="vxlan",
+        completeness_level=get_function_completeness_level,
     )
 
 
-def test_vnet_bgp_scale_regular_tcp_ecmp_dataplane(vnet_bgp_setup, ptfhost):
+def test_vnet_bgp_scale_regular_tcp_ecmp_dataplane(
+    vnet_bgp_setup,
+    ptfhost,
+    get_function_completeness_level,
+):
     run_vnet_bgp_scale_dataplane_test(
         vnet_bgp_setup,
         ptfhost,
         traffic_test_type="regular_tcp",
+        completeness_level=get_function_completeness_level,
     )

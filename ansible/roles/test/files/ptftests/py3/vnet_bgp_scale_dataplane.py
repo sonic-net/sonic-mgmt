@@ -25,7 +25,12 @@ class VnetBgpScaleDataplane(BaseTest):
         self.subifs_per_vnet = int(params["subif_per_vnet"])
         self.base_vlan_id = int(params["base_vlan_id"])
         self.traffic_test_type = params.get("traffic_test_type", "vxlan")
-        self.test_vnet_id = int(params.get("test_vnet_id", 1))
+        test_vnet_ids_param = params.get("test_vnet_ids", "1")
+        self.test_vnet_ids = [
+            int(vnet_id)
+            for vnet_id in str(test_vnet_ids_param).split(",")
+            if str(vnet_id).strip()
+        ]
         self.packets_per_path = int(params.get("packets_per_path", 100))
         self.ecmp_deviation_pct = int(params.get("ecmp_deviation_pct", 50))
 
@@ -51,9 +56,9 @@ class VnetBgpScaleDataplane(BaseTest):
         self.dataplane.flush()
 
         logger.info(
-            "Traffic type: %s, VNET: %d, packets_per_path=%d, deviation=%d%%",
+            "Traffic type: %s, VNET IDs: %s, packets_per_path=%d, deviation=%d%%",
             self.traffic_test_type,
-            self.test_vnet_id,
+            self.test_vnet_ids,
             self.packets_per_path,
             self.ecmp_deviation_pct,
         )
@@ -123,7 +128,7 @@ class VnetBgpScaleDataplane(BaseTest):
         )
 
     def _check_ecmp_distribution(self, distribution, total_packets, failures, context, vnet_id):
-
+        # one WL port == one LAG == one ECMP next-hop
         expected = float(total_packets) / len(self.wl_ptf_port_indices)
         allowed_delta = expected * self.ecmp_deviation_pct / 100.0
 
@@ -163,8 +168,7 @@ class VnetBgpScaleDataplane(BaseTest):
                 )
             )
 
-    def _run_vxlan_decap_ecmp_test(self):
-        vnet_id = self.test_vnet_id
+    def _run_vxlan_decap_ecmp_test(self, vnet_id):
         shared_dst_ip = self._shared_route_ip(vnet_id)
 
         total_packets = self.packets_per_path * self.subifs_per_vnet
@@ -236,8 +240,7 @@ class VnetBgpScaleDataplane(BaseTest):
             vnet_id,
         )
 
-    def _run_regular_tcp_ecmp_test(self):
-        vnet_id = self.test_vnet_id
+    def _run_regular_tcp_ecmp_test(self, vnet_id):
         dst_ip = self._shared_route_ip(vnet_id)
 
         ingress_port = self.wl_ptf_port_indices[0]
@@ -318,9 +321,10 @@ class VnetBgpScaleDataplane(BaseTest):
         )
 
     def runTest(self):
-        if self.traffic_test_type == "vxlan":
-            self._run_vxlan_decap_ecmp_test()
-        elif self.traffic_test_type == "regular_tcp":
-            self._run_regular_tcp_ecmp_test()
-        else:
-            self.fail("Unsupported traffic_test_type: {}".format(self.traffic_test_type))
+        for vnet_id in self.test_vnet_ids:
+            if self.traffic_test_type == "vxlan":
+                self._run_vxlan_decap_ecmp_test(vnet_id)
+            elif self.traffic_test_type == "regular_tcp":
+                self._run_regular_tcp_ecmp_test(vnet_id)
+            else:
+                self.fail("Unsupported traffic_test_type: {}".format(self.traffic_test_type))
