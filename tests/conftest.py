@@ -107,7 +107,8 @@ CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
-pytest_plugins = ('tests.common.plugins.ptfadapter',
+pytest_plugins = ('tests.common.plugins.nasa_debug',
+                  'tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
                   'tests.common.plugins.dut_monitor',
                   'tests.common.plugins.loganalyzer',
