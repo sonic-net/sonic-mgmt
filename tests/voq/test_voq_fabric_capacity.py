@@ -83,12 +83,12 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
     # Start the test. Isolate a link and check if the capacity command get updated.
     # Unisolate the link and check if the capacity command get updated.
     if duthost.is_multi_asic:
-        asicName = "asic{}".format(asic)
+        asicName = "-n asic{}".format(asic)
     else:
         asicName = ""
     try:
         # isolate a link on the chip
-        cmd = "sudo config fabric port isolate -n {} {}".format(asicName, shutlink)
+        cmd = "sudo config fabric port isolate {} {}".format(asicName, shutlink)
         cmd_output = duthost.shell(cmd)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
@@ -98,7 +98,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
 
         # unisolate the link so the capacity is back
-        cmd = "sudo config fabric port unisolate -n {} {}".format(asicName, shutlink)
+        cmd = "sudo config fabric port unisolate {} {}".format(asicName, shutlink)
         cmd_output = duthost.shell(cmd)["stdout"].split("\n")
 
         # check the output of "show fabric monitor capcity" command
@@ -108,7 +108,7 @@ def test_fabric_capacity(duthosts, enum_frontend_dut_hostname):
                       "The number of opertional links should be {}".format(exp_links))
     finally:
         # clean up the test
-        cmd = "sudo config fabric port unisolate -n {} {}".format(asicName, shutlink)
+        cmd = "sudo config fabric port unisolate {} {}".format(asicName, shutlink)
         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
 
 
