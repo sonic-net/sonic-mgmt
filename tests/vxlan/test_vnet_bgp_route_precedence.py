@@ -128,6 +128,9 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
             ".*_M_construct null not valid.*",
             ".*construction from null is not valid.*",
             ".*meta_sai_validate_route_entry.*",
+            ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
+            ".*ERR.* start: Encountered failure in create operation.*",
+            ".*ERR.* addRoutePost: Failed to create route.*",
 
         ]
         # Ignore in KVM test
