@@ -18,10 +18,8 @@
   set_fact:
     minikube_apiserver_ip: "{{ hostvars[minikube_server_host].minikube_apiserver_ip }}"
 
-- name: Set up the DUT image-pull proxy before joining
-  include_tasks: image_pull_dut.yml
-  when: minikube_setup_image_pull | bool
-
+# Fail fast on an incompatible DUT image, before the (optional) image-pull setup
+# which restarts docker and waits several minutes for swss to recover.
 - name: Assert the DUT image is kubesonic-compatible
   assert:
     that: dut_kubeadm_version.stdout == kubernetes_version
@@ -29,12 +27,17 @@
       DUT kubeadm version {{ dut_kubeadm_version.stdout }} != {{ kubernetes_version }};
       this DUT image is not compatible with the minikube role.
 
+- name: Set up the DUT image-pull proxy before joining
+  include_tasks: image_pull_dut.yml
+  when: minikube_setup_image_pull | bool
+
 # ctrmgrd only acts when STATE_DB has a server update_time; seed it on a freshly
 # booted DUT so the join is processed.
 - name: Read k8s server update_time from STATE_DB
   command: sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time
   register: k8s_update_time
   changed_when: false
+  become: true
 
 - name: Seed STATE_DB update_time and restart ctrmgrd
   shell: |
@@ -44,11 +47,9 @@
   when: k8s_update_time.stdout | trim | length == 0
 
 # The DUT joins using the apiserver cert/key (staged on the controller by the
-# server play). Preserve any pre-existing credentials dir once.
-- name: Back up existing DUT credentials dir
-  shell: "if [ -d {{ dut_cert_dir }} ] && [ ! -d {{ dut_cert_bak }} ]; then mv {{ dut_cert_dir }} {{ dut_cert_bak }}; fi"
-  become: true
-
+# server play). Only the two restapiserver.* files are managed, so back up just
+# those (once) instead of the whole credentials dir: a whole-dir move is not
+# idempotent and, if the dir did not exist originally, leaves nothing to restore.
 - name: Ensure DUT credentials dir exists
   file:
     path: "{{ dut_cert_dir }}"
@@ -56,15 +57,28 @@
     mode: "0755"
   become: true
 
-- name: Push apiserver cert/key to the DUT
-  copy:
-    src: "{{ minikube_local_cert_dir }}/{{ item }}"
-    dest: "{{ dut_cert_dir }}/{{ item }}"
-    mode: "0644"
+- name: Back up any pre-existing apiserver cert/key on the DUT (once)
+  shell: >-
+    if [ -f {{ dut_cert_dir }}/{{ item }} ] &&
+       [ ! -f {{ dut_cert_dir }}/{{ item }}{{ dut_cert_bak_suffix }} ]; then
+      cp -a {{ dut_cert_dir }}/{{ item }} {{ dut_cert_dir }}/{{ item }}{{ dut_cert_bak_suffix }};
+    fi
   become: true
   loop:
     - restapiserver.crt
     - restapiserver.key
+
+- name: Push apiserver cert/key to the DUT
+  copy:
+    src: "{{ minikube_local_cert_dir }}/{{ item.name }}"
+    dest: "{{ dut_cert_dir }}/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  become: true
+  loop:
+    - {name: restapiserver.crt, mode: "0644"}
+    - {name: restapiserver.key, mode: "0600"}
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Add the minikube VIP to the DUT hosts file
   lineinfile:
@@ -153,3 +167,30 @@
   environment: "{{ minikube_proxy_env }}"
   changed_when: false
   when: minikube_setup_image_pull | bool
+
+# Basic-path smoke: the pause-pod DaemonSet applied by host_create selects nodes
+# by daemonset_node_label, which is only meaningful once the DUT node has joined,
+# so label it now. Then confirm the pod actually schedules and becomes Ready --
+# without this the DaemonSet stays unscheduled and the smoke silently passes.
+- name: Label the DUT node for the smoke DaemonSet
+  command: >-
+    {{ minikube_path }} kubectl -- label node {{ inventory_hostname }}
+    {{ daemonset_node_label }}=true --overwrite
+  delegate_to: "{{ minikube_server_host }}"
+  environment: "{{ minikube_proxy_env }}"
+  changed_when: true
+  when: not (minikube_setup_image_pull | bool)
+
+- name: Verify the smoke DaemonSet pod is Ready on the DUT
+  command: >-
+    {{ minikube_path }} kubectl -- wait --for=condition=Ready
+    pod -l group={{ daemonset_pod_label }}
+    --field-selector spec.nodeName={{ inventory_hostname }} --timeout=60s
+  register: smoke_pod_ready
+  until: smoke_pod_ready.rc == 0
+  retries: 5
+  delay: 10
+  delegate_to: "{{ minikube_server_host }}"
+  environment: "{{ minikube_proxy_env }}"
+  changed_when: false
+  when: not (minikube_setup_image_pull | bool)

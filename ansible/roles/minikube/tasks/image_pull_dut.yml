@@ -20,7 +20,7 @@
       [Service]
       Environment="HTTP_PROXY={{ minikube_effective_proxy }}"
       Environment="HTTPS_PROXY={{ minikube_effective_proxy }}"
-      Environment="NO_PROXY=localhost,127.0.0.1,::1,{{ minikube_apiserver_ip | regex_replace('\\.[0-9]+$', '.0') }}/16,10.96.0.0/12,.svc,.cluster.local"
+      Environment="NO_PROXY=localhost,127.0.0.1,::1,{{ minikube_apiserver_ip | regex_replace('\\.[0-9]+$', '.0') }}/24,10.96.0.0/12,.svc,.cluster.local"
   become: true
 
 - name: Reload systemd and restart docker to apply the proxy

@@ -34,12 +34,12 @@
     timeout: "{{ minikube_download_timeout_second }}"
     mode: "0755"
   environment: "{{ minikube_proxy_env }}"
-  when: minikube_version not in (minikube_installed_version.stdout | default(''))
+  when: minikube_version != (minikube_installed_version.stdout | default('') | trim)
 
 - name: Install minikube to {{ minikube_path }}
   command: "install /tmp/minikube-linux-amd64 {{ minikube_path }}"
   become: true
-  when: minikube_version not in (minikube_installed_version.stdout | default(''))
+  when: minikube_version != (minikube_installed_version.stdout | default('') | trim)
 
 - name: Remove minikube download artifact
   file:

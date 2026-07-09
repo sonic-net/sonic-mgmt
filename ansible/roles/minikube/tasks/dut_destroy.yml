@@ -12,6 +12,7 @@
 - name: Clean the k8s table in CONFIG_DB
   command: sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'
   changed_when: false
+  become: true
 
 - name: Remove the minikube VIP from the DUT hosts file
   lineinfile:
@@ -20,9 +21,20 @@
     state: absent
   become: true
 
-- name: Restore the original DUT credentials dir if backed up
-  shell: "if [ -d {{ dut_cert_bak }} ]; then rm -rf {{ dut_cert_dir }} && mv {{ dut_cert_bak }} {{ dut_cert_dir }}; fi"
+# Restore the two apiserver files: if a pre-existing copy was backed up on
+# create, move it back; otherwise remove the minikube-pushed file so no cluster
+# credential is left on the DUT.
+- name: Restore or remove the minikube apiserver cert/key on the DUT
+  shell: >-
+    if [ -f {{ dut_cert_dir }}/{{ item }}{{ dut_cert_bak_suffix }} ]; then
+      mv -f {{ dut_cert_dir }}/{{ item }}{{ dut_cert_bak_suffix }} {{ dut_cert_dir }}/{{ item }};
+    else
+      rm -f {{ dut_cert_dir }}/{{ item }};
+    fi
   become: true
+  loop:
+    - restapiserver.crt
+    - restapiserver.key
 
 - name: Get DUT hwsku
   command: sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku

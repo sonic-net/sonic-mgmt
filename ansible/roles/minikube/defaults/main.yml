@@ -2,8 +2,8 @@
 # Defaults for the minikube role.
 #
 # These values are the single source of truth for the testbed-level minikube
-# k8s cluster. They mirror the constants in
-# tests/kubesonic/test_k8s_join_disjoin.py (lines 16-35); keep the two in sync
+# k8s cluster. They mirror the MINIKUBE_*/KUBERNETES_*/KUBELET_*/DAEMONSET_*
+# constants in tests/kubesonic/test_k8s_join_disjoin.py; keep the two in sync
 # when bumping versions. The k8s version, minikube version and kubelet ConfigMap
 # name are interlocked: SONiC's kubeadm is pinned to k8s v1.22.2, the ConfigMap
 # name is derived from that version, and minikube v1.34.0 is pinned because other
@@ -45,7 +45,9 @@ dut_pause_image_mirror: publicmirror.azurecr.io/pause:3.5
 # DUT paths. test_k8s_join_disjoin.py: DUT_CERT_DIR / DUT_HOSTS_FILE /
 # KUBELET_DEFAULT_CONFIG.
 dut_cert_dir: /etc/sonic/credentials
-dut_cert_bak: /etc/sonic/credentials.bak
+# Suffix for per-file backups of pre-existing apiserver cert/key (see
+# dut_create.yml / dut_destroy.yml). Only the restapiserver.* files are managed.
+dut_cert_bak_suffix: .minikube_bak
 dut_hosts_file: /etc/hosts
 kubelet_default_config: /etc/default/kubelet
 kubelet_default_config_bak: /etc/default/kubelet.bak
