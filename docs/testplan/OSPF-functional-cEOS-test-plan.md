@@ -15,7 +15,7 @@ Validate OSPFv2 functional behavior on SONiC DUT with EOS/vEOS/cEOS neighbors fo
 - Focus: adjacency behavior, auth, area types (stub/NSSA), LSDB, route installation, recovery/timers
 
 ## Pre-Conditions
-1. DUT is reachable and supports `vtysh` OSPF commands.
+1. DUT is reachable and supports OSPF configuration via the FRR Management Framework.
 2. EOS/vEOS/cEOS neighbors are reachable via Ansible inventory.
 3. Topology is `t0` or `t1` and links are operational.
 4. `ospf_setup` fixture successfully enables OSPF and at least one Full adjacency.
