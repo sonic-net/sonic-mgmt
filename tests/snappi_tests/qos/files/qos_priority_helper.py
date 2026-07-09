@@ -218,7 +218,7 @@ def define_tx_rx_inter_port_testing(Common_vars, snappi_port_configs, rx_port_in
                     if location_port_group_number == snappi_port_group_number:
                         Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['port_list'].append(
                             snappi_port)
-                        Common_vars.tx_port_names_for_verify_port_up += f', {snappi_port["peer_port"]}'
+                        Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'
 
         # Below will only be processed if the current dut has ports defined in links.csv file
         # port_group_range: port_group_range: [1, 3, 5]
@@ -336,7 +336,7 @@ def define_tx_rx_intra_port_testing(Common_vars, snappi_port_configs, rx_port_in
                             Common_vars.snappi_port_groups[dut_hostname][snappi_port_group_number]['tx_ports'].append(
                                 snappi_port
                             )
-                            Common_vars.tx_port_names_for_verify_port_up += f', {snappi_port["peer_port"]}'
+                            Common_vars.tx_port_names_for_verify_port_up += f',{snappi_port["peer_port"]}'
 
                         index += 1
 
@@ -961,6 +961,7 @@ def verify_dut_ports_up(duthost: object, tx_port_names: str):
 
     while True:
         # all_ports_are_up = True
+        logger.info(f'verify_dut_ports_up: show int status {tx_port_names} ...')
         output = duthost.shell(f'show int status {tx_port_names}')['stdout']
 
         for index, line in enumerate(output.split('\n')):
@@ -974,6 +975,7 @@ def verify_dut_ports_up(duthost: object, tx_port_names: str):
                 continue
 
             if index == 1:
+                # Don't care about the dashed line
                 continue
 
             line_item_list = [item for item in line.split(' ') if item != '']
@@ -995,7 +997,7 @@ def verify_dut_ports_up(duthost: object, tx_port_names: str):
                 pytest_assert(False, f'It has been {(end_counter * 10)} seconds and port are not up')
 
         if start_counter <= end_counter and total_interfaces != 0:
-            logger.info(f'{start_counter}/{end_counter} tries.  Wait 10 seconds ...')
+            logger.info(f'verify_dut_ports_up: {start_counter}/{end_counter} tries.  Wait 10 seconds ...')
             start_counter += 1
             time.sleep(10)
 
@@ -2003,20 +2005,20 @@ def verify_dwrr_pass_criteria(Common_vars, snappi_api, control_state_obj):
 
             traffic_item = flow['Traffic Item']
 
-            regex_weight = search('.* WT:([0-9]+) +', traffic_item)
+            regex_weight = search('.* WT: ([0-9]+) +', traffic_item)
             flow_weight = int(regex_weight.group(1))
 
-            regex_queue_id = search('.* QID:([0-9]+) +', traffic_item)
+            regex_queue_id = search('.* QID: ([0-9]+) +', traffic_item)
             queue_id = int(regex_queue_id.group(1))
 
-            regex_dscp = search('.* DSCP:([0-9]+) +', traffic_item)
+            regex_dscp = search('.* DSCP: ([0-9]+) +', traffic_item)
             dscp = int(regex_dscp.group(1))
 
             regex_scheduler = search('.* scheduler.([0-9]+) +', traffic_item)
             scheduler = int(regex_scheduler.group(1))
 
             # percentage_whole_number = int("%.0f" % (Common_vars.pass_threshold_pct * 100))
-            regex_port_speed = search('.* Speed:([0-9]+)', traffic_item)
+            regex_port_speed = search('.* Speed: ([0-9]+)', traffic_item)
             port_speed = int(regex_port_speed.group(1))
 
             # 100 x .02 = 2
@@ -2069,6 +2071,7 @@ def verify_line_rate(Common_vars, duthosts, snappi_api,  control_state_obj):
     try:
         # Use range(1,4) to verify stats up to 3 times for stat correctness.
         # Sometimes the stat's snapshot line rate is a bit too low. Check stats again for up to 3x.
+
         for iteration in range(1, 4):
             verify_again = False
 
@@ -2094,10 +2097,10 @@ def verify_line_rate(Common_vars, duthosts, snappi_api,  control_state_obj):
                     rx_l1_rate = int(round(float(flow['Rx L1 Rate (Gbps)'])))
                     traffic_item = flow['Traffic Item']
                     current_traffic_item = traffic_item
-                    expected_rx_line_rate = int(traffic_item.split(' ')[-1].split(':')[1])
-                    regex_weight = search('.* WT:([0-9]+) +', current_traffic_item)
+                    expected_rx_line_rate = int(traffic_item.split(' ')[-1])
+                    regex_weight = search('.* WT: ([0-9]+) +', current_traffic_item)
                     flow_weight = int(regex_weight.group(1))
-                    regex_port_speed = search('.* Speed:([0-9]+)', current_traffic_item)
+                    regex_port_speed = search('.* Speed: ([0-9]+)', current_traffic_item)
                     port_speed = int(regex_port_speed.group(1))
 
                     percentage_whole_number = int("%.0f" % (Common_vars.pass_threshold_pct * 100))
@@ -2340,9 +2343,9 @@ def verify_line_rate_tc_6(Common_vars, duthosts, snappi_api, control_state_obj):
                 # DUT_Name:sonic-s6100-dut1 Ethernet1 Speed:100Gbps QID:4 TC:4 DSCP:4
                 # scheduler.6 WT:15 Line_Rate:70 Expected_Rx_Gbps_Rate%:30-EndpointSet-1 - Flow Group 0001
                 # expected_rx_line_rate = int(traffic_item.split(' ')[-1].split(':')[1])
-                regex_weight = search('.* WT:([0-9]+) +', current_traffic_item)
+                regex_weight = search('.* WT: ([0-9]+) +', current_traffic_item)
                 flow_weight = int(regex_weight.group(1))
-                regex_port_speed = search('.* Speed:([0-9]+)', current_traffic_item)
+                regex_port_speed = search('.* Speed: ([0-9]+)', current_traffic_item)
                 port_speed = int(regex_port_speed.group(1))
 
                 # percentage_whole_number = int("%.0f" % (Common_vars.pass_threshold_pct * 100))
@@ -2495,11 +2498,11 @@ def verify_frames(Common_vars, duthosts, snappi_api, control_state_obj, pkt_sequ
             if flow['Traffic Item'] != '':
                 tx_frames = int(flow['Tx Frames'])
                 current_traffic_item = flow['Traffic Item']
-                regex_traffic_item = search('.*QID:([0-9]+) +', current_traffic_item)
+                regex_traffic_item = search('.*QID: ([0-9]+) +', current_traffic_item)
                 tx_port_queue_id = int(regex_traffic_item.group(1))
-                regex_weight = search('.* WT:([0-9]+) +', current_traffic_item)
+                regex_weight = search('.* WT: ([0-9]+) +', current_traffic_item)
                 flow_weight = int(regex_weight.group(1))
-                regex_duthost = search('.*DUT_Name:([^ ]+) +', current_traffic_item)
+                regex_duthost = search('.*DUT_Name: ([^ ]+) +', current_traffic_item)
                 dut_host_name = regex_duthost.group(1)
 
                 if pkt_sequence_checking_enabled:
