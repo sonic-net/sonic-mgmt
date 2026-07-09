@@ -28,8 +28,8 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 TRAFFIC_DURATION = 20      # seconds
 LOSSY_QUEUES = [0, 1]
 ACK_QUEUE = 6              # common queue carrying ACK/NAK for all (lossless + lossy) flows
-CNP_QUEUE = 5              # CNP on DSCP 46 (queue 5) per DUT mapping
-LINE_RATE = 100           # % - each Tx sends at full rate to create the incast
+CNP_QUEUE = 5              # CNP control queue; its DSCP comes from the DUT DSCP->TC map
+LINE_RATE_PCT = 100       # % - each Tx sends at full rate to create the incast
 RATE_TOLERANCE_PCT = 5
 
 # Each scenario = the (lossless_queue, message_size_kb) options assigned
@@ -80,8 +80,10 @@ def test_rocev2_pfc_congestion_ai(
     priority_to_dscp = derive_priority_to_dscp(prio_dscp_map)
     lossless_spec = PFC_SCENARIOS[scenario]
 
-    port_cfg = {"transmit_type": "target_line_rate", "target_line_rate": LINE_RATE}
-    cnp_cfg = {"ip_dscp": priority_to_dscp[CNP_QUEUE], "ecn_value": "non_ect"}
+    port_cfg = {"transmit_type": "target_line_rate", "target_line_rate": LINE_RATE_PCT}
+    cnp_dscp = priority_to_dscp[CNP_QUEUE]
+    logger.info(f"CNP on queue {CNP_QUEUE} -> DSCP {cnp_dscp} (from DUT DSCP->TC map)")
+    cnp_cfg = {"ip_dscp": cnp_dscp, "ecn_value": "non_ect"}
 
     def lossless_cfg(q, size_kb):
         return {
@@ -114,11 +116,12 @@ def test_rocev2_pfc_congestion_ai(
     # engages. Disable WRED on ALL test ports, for ONLY the queues this test uses,
     # so congestion drives PFC pause. Always restored in finally.
     queues_used = used_lossless + LOSSY_QUEUES + [ACK_QUEUE, CNP_QUEUE]
-    wred_saved = disable_wred(snappi_dut_port_map, queues_used)
+    wred_saved = {}   # bound before mutation so the finally can always restore
     try:
+        wred_saved = disable_wred(snappi_dut_port_map, queues_used)
         # ---- run incast + collect DUT-side data (universal collector) ----------
         qids = [f"UC{q}" for q in queues_used]
-        merged_df, flow_df, dut_queue_df, sched_df, port_stats_df = collect_flow_queue_stats(
+        merged_df, _, _, _, _ = collect_flow_queue_stats(
             snappi_api=snappi_api, duthosts=duthosts, plist=plist, tconfig=tconfig,
             snappi_dut_port_map=snappi_dut_port_map, topology=topology,
             prio_dscp_map=prio_dscp_map, queue_ids=qids, traffic_duration=TRAFFIC_DURATION,
@@ -128,56 +131,67 @@ def test_rocev2_pfc_congestion_ai(
         rate_check_df = build_rate_fairness_by_queue(merged_df)
         logger.info(f"DWRR rate fairness:\n{tabulate(rate_check_df, headers='keys', tablefmt='psql')}")
 
-        lossless_dsps = [priority_to_dscp[q] for q in used_lossless]
-        lossy_dsps = [priority_to_dscp[q] for q in LOSSY_QUEUES]
+        lossless_dscps = [priority_to_dscp[q] for q in used_lossless]
+        lossy_dscps = [priority_to_dscp[q] for q in LOSSY_QUEUES]
 
         # PFC pause expected on the lossless priority(ies). Measured from the DUT
         # Tx PFC counter (authoritative); the snappi Rx-pause port stat reads 0
         # even when PFC is demonstrably pacing the senders. One-row total across
         # the DUT interfaces so a single make_check asserts "PFC was generated".
+        # Delta-safe: run_rocev2_step clears pfc/queue counters (sonic-clear
+        # pfccounters) just before starting traffic, so these reflect only this run.
         pfc_df = pfc_counters(snappi_dut_port_map, direction="Tx")
         logger.info(f"DUT Tx PFC counters:\n{tabulate(pfc_df, headers='keys', tablefmt='psql')}")
+        # Fail explicitly (not vacuously) if the DUT PFC counter surface is missing
+        # the expected priority columns - otherwise the checks would pass/fail for
+        # the wrong reason.
         pfc_cols = [f"PFC{q}" for q in used_lossless if f"PFC{q}" in pfc_df.columns]
+        pytest_assert(len(pfc_cols) == len(used_lossless),
+                      f"Missing DUT PFC counter column(s) for lossless priorities {used_lossless}; "
+                      f"have {list(pfc_df.columns)}")
         pfc_totals = {c: int(pd.to_numeric(pfc_df[c], errors="coerce").fillna(0).sum()) for c in pfc_cols}
-        pfc_sum_df = pd.DataFrame([pfc_totals]) if pfc_totals else pd.DataFrame([{"PFC_none": 0}])
-        pfc_fail_expr = " or ".join(f"{c} == 0" for c in pfc_cols) or "PFC_none == 0"
+        pfc_sum_df = pd.DataFrame([pfc_totals])
+        pfc_fail_expr = " or ".join(f"{c} == 0" for c in pfc_cols)
 
         # Lossy priorities are unprotected: the DUT must NOT generate PFC pause on
         # them (congestion drops them instead of pausing the sender).
         pfc_lossy_cols = [f"PFC{q}" for q in LOSSY_QUEUES if f"PFC{q}" in pfc_df.columns]
+        pytest_assert(len(pfc_lossy_cols) == len(LOSSY_QUEUES),
+                      f"Missing DUT PFC counter column(s) for lossy priorities {LOSSY_QUEUES}; "
+                      f"have {list(pfc_df.columns)}")
         pfc_lossy_totals = {c: int(pd.to_numeric(pfc_df[c], errors="coerce").fillna(0).sum())
                             for c in pfc_lossy_cols}
-        pfc_lossy_df = pd.DataFrame([pfc_lossy_totals]) if pfc_lossy_totals else pd.DataFrame([{"PFC_none": 0}])
-        pfc_lossy_fail_expr = " or ".join(f"{c} != 0" for c in pfc_lossy_cols) or "PFC_none != 0"
+        pfc_lossy_df = pd.DataFrame([pfc_lossy_totals])
+        pfc_lossy_fail_expr = " or ".join(f"{c} != 0" for c in pfc_lossy_cols)
 
         # ---- checks --------------------------------------------------------
         # make_check(expr,...): expr is the FAILURE condition (any matching row fails).
         checks = [
             # Lossless queues must be PROTECTED by PFC: no loss ...
-            make_check(f"ip_dscp in {lossless_dsps} and (message_fail != 0 or frame_delta != 0)",
+            make_check(f"ip_dscp in {lossless_dscps} and (message_fail != 0 or frame_delta != 0)",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "message_fail", "frame_delta"],
                     "Lossless: no loss (PFC protected)",
-                    f"message_fail=0 & frame_delta=0 required for lossless DSCPs {lossless_dsps}"),
+                    f"message_fail=0 & frame_delta=0 required for lossless DSCPs {lossless_dscps}"),
             # ... no NAK / sequence errors ...
-            make_check(f"ip_dscp in {lossless_dsps} and (nak_tx != 0 or nak_rx != 0 or frame_sequence_error != 0)",
+            make_check(f"ip_dscp in {lossless_dscps} and (nak_tx != 0 or nak_rx != 0 or frame_sequence_error != 0)",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "nak_tx", "nak_rx", "frame_sequence_error"],
                     "Lossless: no NAK/sequence errors",
-                    f"nak/seq must be 0 for lossless DSCPs {lossless_dsps}"),
+                    f"nak/seq must be 0 for lossless DSCPs {lossless_dscps}"),
             # ... ACKs present ...
-            make_check(f"ip_dscp in {lossless_dsps} and ack_tx == 0",
+            make_check(f"ip_dscp in {lossless_dscps} and ack_tx == 0",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "ack_tx", "ack_rx"],
-                    f"Lossless: ACKs present {lossless_dsps}",
-                    f"ack_tx > 0 required for lossless DSCPs {lossless_dsps}"),
+                    f"Lossless: ACKs present {lossless_dscps}",
+                    f"ack_tx > 0 required for lossless DSCPs {lossless_dscps}"),
             # ... no ECN-CE (PFC, not ECN, protects here) ...
-            make_check(f"ip_dscp in {lossless_dsps} and ecn_ce_rx != 0",
+            make_check(f"ip_dscp in {lossless_dscps} and ecn_ce_rx != 0",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "ecn_ce_rx"],
-                    f"Lossless: no ECN-CE {lossless_dsps}",
-                    f"ecn_ce_rx == 0 required for lossless DSCPs {lossless_dsps}"),
+                    f"Lossless: no ECN-CE {lossless_dscps}",
+                    f"ecn_ce_rx == 0 required for lossless DSCPs {lossless_dscps}"),
             # ... no CNP.
-            make_check(f"ip_dscp in {lossless_dsps} and (cnp_tx != 0 or cnp_rx != 0)",
+            make_check(f"ip_dscp in {lossless_dscps} and (cnp_tx != 0 or cnp_rx != 0)",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "cnp_tx", "cnp_rx"],
-                    f"Lossless: no CNP {lossless_dsps}",
-                    f"cnp_tx == 0 and cnp_rx == 0 required for lossless DSCPs {lossless_dsps}"),
+                    f"Lossless: no CNP {lossless_dscps}",
+                    f"cnp_tx == 0 and cnp_rx == 0 required for lossless DSCPs {lossless_dscps}"),
             # PFC pause must be generated by the DUT on EVERY lossless priority.
             make_check(pfc_fail_expr, list(pfc_sum_df.columns),
                     f"DUT generated PFC on every lossless priority {used_lossless}",
@@ -191,10 +205,13 @@ def test_rocev2_pfc_congestion_ai(
             # Lossy priorities are unprotected: under incast they SHOULD show loss/
             # failure (contrast with the lossless 0-loss guarantee). Fail if a lossy
             # flow saw no loss AND no failure (i.e. it was effectively protected).
-            make_check(f"ip_dscp in {lossy_dsps} and message_fail == 0 and frame_delta == 0",
+            # Precondition: each lossy Tx offers at 100% line rate into the
+            # oversubscribed Rx egress, so loss is guaranteed; this would only
+            # false-fail if a lossy flow were never offered (offered rate 0).
+            make_check(f"ip_dscp in {lossy_dscps} and message_fail == 0 and frame_delta == 0",
                     ["flow_name", "port_tx", "port_rx", "ip_dscp", "message_fail", "frame_delta", "data_frames_rx"],
-                    f"Lossy: unprotected, shows loss {lossy_dsps}",
-                    f"lossy DSCPs {lossy_dsps} expected to show loss/failure under incast (unprotected)"),
+                    f"Lossy: unprotected, shows loss {lossy_dscps}",
+                    f"lossy DSCPs {lossy_dscps} expected to show loss/failure under incast (unprotected)"),
             # DWRR rate fairness at the Rx egress, per QUEUE (weight-proportional split).
             make_check(f"pct_err > {RATE_TOLERANCE_PCT}",
                     ["port_rx", "tc", "weight", "n_flows", "flows", "offered", "rx_rate", "expected_rate", "pct_err"],

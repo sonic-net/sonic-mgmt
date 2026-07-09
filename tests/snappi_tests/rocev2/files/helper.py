@@ -536,21 +536,27 @@ def disable_wred(snappi_dut_port_map, queues):
     """
     qnums = _q_nums(queues)
     saved = {}
-    for duthost, ports in snappi_dut_port_map.items():
-        saved[duthost] = {}
-        for intf in ports:                       # ports == {interface: snappi_port}
-            for q in qnums:
-                key = f"QUEUE|{intf}|{q}"
-                prof = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
-                                     module_ignore_errors=True)["stdout"].strip()
-                if not prof:
-                    continue
-                saved[duthost][(intf, q)] = prof
-                duthost.shell(f'sonic-db-cli CONFIG_DB hdel "{key}" wred_profile')
-                left = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
-                                     module_ignore_errors=True)["stdout"].strip()
-                pytest_assert(not left, f"WRED still set on {duthost.hostname} {key} after hdel")
-                logger.info(f"WRED disabled on {duthost.hostname} {key} (was {prof})")
+    # If a mutation fails partway, roll back what was already disabled so a partial
+    # failure never leaves WRED disabled on the shared DUT for later tests.
+    try:
+        for duthost, ports in snappi_dut_port_map.items():
+            saved[duthost] = {}
+            for intf in ports:                       # ports == {interface: snappi_port}
+                for q in qnums:
+                    key = f"QUEUE|{intf}|{q}"
+                    prof = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                                         module_ignore_errors=True)["stdout"].strip()
+                    if not prof:
+                        continue
+                    saved[duthost][(intf, q)] = prof
+                    duthost.shell(f'sonic-db-cli CONFIG_DB hdel "{key}" wred_profile')
+                    left = duthost.shell(f'sonic-db-cli CONFIG_DB hget "{key}" wred_profile',
+                                         module_ignore_errors=True)["stdout"].strip()
+                    pytest_assert(not left, f"WRED still set on {duthost.hostname} {key} after hdel")
+                    logger.info(f"WRED disabled on {duthost.hostname} {key} (was {prof})")
+    except Exception:
+        restore_wred(saved)
+        raise
     return saved
 
 
