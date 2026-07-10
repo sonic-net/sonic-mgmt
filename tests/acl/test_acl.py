@@ -378,8 +378,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
-            if vlan_config == 'two_vlan_a':
-                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+            if vlan_config in ('one_vlan_a', 'two_vlan_a'):
+                logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
                 DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
                 DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
                     else DOWNSTREAM_IP_TO_ALLOW_VLAN
