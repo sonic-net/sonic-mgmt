@@ -6,11 +6,13 @@ Covers:
   - PCIe failure: PCIe link loss detection and chassisd-driven recovery
   - Control-plane-only down: DPU control plane goes down while midplane stays up
 
+Destructive, hardware-only (topology 'smartswitch'): repeatedly fails/recovers
+real DPUs and restarts pmon per test, so runtimes are long (SmartSwitch nightly).
+
 Reference: sonic-net/sonic-buildimage#27450
 HLD: sonic-net/SONiC#2310
 """
 
-import ast
 import logging
 import re
 import time
@@ -24,9 +26,10 @@ from tests.smartswitch.common.device_utils_dpu import (
     check_dpu_module_status,
     get_dpuhost_for_dpu,
     get_dpu_state_from_chassis_state_db,
+    sonic_db_hgetall,
     check_dpu_ready_state, check_dpu_not_ready_state,
     assert_dpu_db_state_ready,
-    get_dpu_auto_recovery, set_dpu_auto_recovery,
+    set_dpu_auto_recovery,
     DPU_AUTO_RECOVERY_ENABLE, DPU_AUTO_RECOVERY_DISABLE,
     DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT,
     DPU_READY_AFTER_RECOVERY_TIMEOUT,
@@ -63,8 +66,8 @@ class TestDatabaseDpuCrash:
     """
 
     def _get_databasedpu_service(self, dpu_name):
-        """Get the systemd service name for the per-DPU database container."""
-        return f"database{dpu_name.lower()}"
+        """Get the systemd service name for the per-DPU database container (template database@<dpuN>)."""
+        return f"database@{dpu_name.lower()}"
 
     def _is_databasedpu_running(self, duthost, service_name):
         """Check if the databasedpu service is active."""
@@ -146,44 +149,15 @@ class TestPcieFailure:
 
     def _get_pcie_detach_info(self, duthost, dpu_name):
         """Read PCIE_DETACH_INFO from STATE_DB for a given DPU."""
-        cmd = f"sonic-db-cli STATE_DB hgetall 'PCIE_DETACH_INFO|{dpu_name}'"
-        result = duthost.shell(cmd, module_ignore_errors=True)
-        stdout = result.get("stdout", "").strip()
-        if not stdout or result.get("rc", 1) != 0:
-            return {}
-
-        if stdout.startswith("{"):
-            try:
-                parsed = ast.literal_eval(stdout)
-                if isinstance(parsed, dict):
-                    return {str(k).strip(): str(v).strip() for k, v in parsed.items()}
-            except (ValueError, SyntaxError):
-                # Not a dict literal; fall back to line-by-line parsing below.
-                pass
-
-        lines = stdout.splitlines()
-        info = {}
-        for i in range(0, len(lines) - 1, 2):
-            info[lines[i].strip()] = lines[i + 1].strip()
-        return info
+        return sonic_db_hgetall(duthost, "STATE_DB", f"PCIE_DETACH_INFO|{dpu_name}")
 
     def _get_dpu_pcie_bus_info(self, duthost, dpu_name):
         """
-        Get the PCIe bus address for a DPU from PCIE_DETACH_INFO or platform data.
-        Returns bus_info string like '0000:03:00.0' or None.
+        Get the PCIe bus address for a DPU from PCIE_DETACH_INFO (populated by
+        pcied). Returns a bus_info string like '0000:03:00.0', or None when the
+        platform does not populate it (the caller then skips the test).
         """
-        info = self._get_pcie_detach_info(duthost, dpu_name)
-        bus_info = info.get("bus_info")
-        if bus_info:
-            return bus_info
-
-        # Fallback: try platform.json or lspci
-        result = duthost.shell(
-            f"sonic-db-cli STATE_DB hget 'PCIE_DETACH_INFO|{dpu_name}' 'bus_info'",
-            module_ignore_errors=True
-        )
-        stdout = result.get("stdout", "").strip()
-        return stdout if stdout else None
+        return self._get_pcie_detach_info(duthost, dpu_name).get("bus_info") or None
 
     def _check_pcie_detached(self, duthost, dpu_name):
         """Check if PCIe state is 'detached' in STATE_DB."""
@@ -364,7 +338,7 @@ class TestControlPlaneOnlyDown:
 
 class TestAutoRecoveryDisabled:
     """
-    Test: With DEVICE_METADATA|localhost dpu_auto_recovery=disable, verify
+    Test: With CONFIG_DB FEATURE|dpu-auto-recovery state=disable, verify
     chassisd does NOT automatically power-cycle a failed DPU
     (ManualIntervention state).
 
@@ -399,49 +373,44 @@ class TestAutoRecoveryDisabled:
         target_dpu = testable_dpus[0]
         dpu_id = int(re.search(r'\d+', target_dpu).group())
         dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            pytest.skip(f"{target_dpu} not in dpuhosts, no SSH access")
 
-        # Save original state for cleanup
-        original_state = get_dpu_auto_recovery(duthost)
+        # prepare_testable_dpus enabled auto-recovery and restores the original
+        # state on teardown, so this test only toggles it (no local restore).
+        logging.info("Disabling dpu_auto_recovery")
+        set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_DISABLE)
 
-        try:
-            logging.info("Disabling dpu_auto_recovery")
-            set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_DISABLE)
+        logging.info("Stopping swss on %s to trigger control-plane-down", target_dpu)
+        dpuhost.shell("sudo systemctl stop swss", module_ignore_errors=True)
 
-            logging.info("Stopping swss on %s to trigger control-plane-down", target_dpu)
-            dpuhost.shell("sudo systemctl stop swss", module_ignore_errors=True)
+        logging.info("Verifying chassisd detects failure for %s", target_dpu)
+        pytest_assert(
+            wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
+                       check_dpu_not_ready_state, duthost, target_dpu),
+            f"{target_dpu}: ready_status did not transition to false. "
+            f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
+        )
 
-            logging.info("Verifying chassisd detects failure for %s", target_dpu)
-            pytest_assert(
-                wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
-                           check_dpu_not_ready_state, duthost, target_dpu),
-                f"{target_dpu}: ready_status did not transition to false. "
-                f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
-            )
+        logging.info("Waiting %ds to confirm chassisd does NOT auto-recover %s",
+                     self.NO_RECOVERY_WAIT, target_dpu)
+        time.sleep(self.NO_RECOVERY_WAIT)
 
-            logging.info("Waiting %ds to confirm chassisd does NOT auto-recover %s",
-                         self.NO_RECOVERY_WAIT, target_dpu)
-            time.sleep(self.NO_RECOVERY_WAIT)
+        # DPU should still be not-ready (no power-cycle issued)
+        state = get_dpu_state_from_chassis_state_db(duthost, target_dpu)
+        pytest_assert(
+            state.get("ready_status", "").lower() == "false",
+            f"{target_dpu}: DPU unexpectedly recovered while auto-recovery "
+            f"was disabled. State: {state}"
+        )
+        logging.info("%s confirmed: still not-ready (no auto-recovery)", target_dpu)
 
-            # DPU should still be not-ready (no power-cycle issued)
-            state = get_dpu_state_from_chassis_state_db(duthost, target_dpu)
-            pytest_assert(
-                state.get("ready_status", "").lower() == "false",
-                f"{target_dpu}: DPU unexpectedly recovered while auto-recovery "
-                f"was disabled. State: {state}"
-            )
-            logging.info("%s confirmed: still not-ready (no auto-recovery)", target_dpu)
+        logging.info("Re-enabling dpu_auto_recovery")
+        set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)
 
-            logging.info("Re-enabling dpu_auto_recovery")
-            set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)
-
-            logging.info("Waiting for chassisd to auto-recover %s", target_dpu)
-            assert_dpu_db_state_ready(duthost, target_dpu,
-                                      timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
-
-        finally:
-            # Restore original auto-recovery state
-            if original_state and original_state != DPU_AUTO_RECOVERY_DISABLE:
-                set_dpu_auto_recovery(duthost, original_state)
+        logging.info("Waiting for chassisd to auto-recover %s", target_dpu)
+        assert_dpu_db_state_ready(duthost, target_dpu,
+                                  timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
 
         logging.info("Post-test: verifying DPU connectivity")
         post_test_dpus_check(duthost, dpuhosts,
@@ -507,19 +476,21 @@ class TestUnrecoverableState:
         """
         Steps:
         1. Pre-test: verify all DPUs are ready.
-        2. Read the reset_limit from platform.json (default 2).
-        3. Repeatedly trigger DPU failures (stop swss) and let chassisd
-           power-cycle until reset_count reaches reset_limit. chassisd checks
-           reset_count >= reset_limit *before* incrementing/power-cycling, so
-           reaching 'unrecoverable' requires reset_limit + 1 failures.
+        2. Read reset_limit from platform.json (default 2), the source chassisd uses.
+        3. Repeatedly trigger DPU failures (stop swss); chassisd increments
+           reset_count then marks the DPU unrecoverable once it reaches reset_limit.
         4. Verify recovery_status transitions to 'unrecoverable'.
-        5. Verify chassisd stops retrying (DPU stays not-ready).
-        6. Cleanup: restart chassisd/pmon to reset the state.
+        5. Verify reset_count reached reset_limit.
+        6. Cleanup: prepare_testable_dpus teardown restarts pmon to reset state.
         """
         duthost, testable_dpus, testable_ips = prepare_testable_dpus
 
         target_dpu = testable_dpus[0]
         dpu_id = int(re.search(r'\d+', target_dpu).group())
+
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            pytest.skip(f"{target_dpu} not in dpuhosts, no SSH access")
 
         reset_limit = self._get_reset_limit(duthost)
         logging.info("Reset limit for platform: %d", reset_limit)
@@ -527,51 +498,49 @@ class TestUnrecoverableState:
         initial_reset_count = self._get_reset_count(duthost, target_dpu)
         logging.info("%s initial reset_count: %d", target_dpu, initial_reset_count)
 
-        # chassisd checks the limit before incrementing, so one failure beyond
-        # reset_limit is needed to mark the DPU unrecoverable.
-        max_failures = reset_limit + 1
-        for attempt in range(max_failures):
+        # Trigger failures until chassisd reports 'unrecoverable'; a couple of
+        # extra attempts guard against a non-zero starting reset_count.
+        max_failures = reset_limit + 2
+        for attempt in range(1, max_failures + 1):
             current_count = self._get_reset_count(duthost, target_dpu)
             logging.info("Failure attempt %d/%d (current reset_count=%d)",
-                         attempt + 1, max_failures, current_count)
+                         attempt, max_failures, current_count)
 
-            if self._check_unrecoverable(duthost, target_dpu):
-                logging.info("%s already marked unrecoverable at attempt %d",
-                             target_dpu, attempt + 1)
-                break
-
-            # Wait for DPU to be ready before triggering next failure
-            if attempt > 0:
-                logging.info("Waiting for %s to recover before next failure trigger",
-                             target_dpu)
-                pytest_assert(
-                    wait_until(DPU_READY_AFTER_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
-                               check_dpu_ready_state, duthost, target_dpu),
-                    f"{target_dpu}: did not recover before attempt {attempt + 1}. "
-                    f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
-                )
-
-            # Trigger failure: stop swss on DPU
-            dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
-            if dpuhost is None:
-                pytest.skip(f"DPU{dpu_id} not in dpuhosts, no SSH access")
-
+            # Trigger failure: stop swss on the DPU.
             dpuhost.shell("sudo systemctl stop swss", module_ignore_errors=True)
 
-            # Wait for chassisd to detect and mark not-ready
+            # chassisd should detect the failure and mark the DPU not-ready.
             pytest_assert(
                 wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
                            check_dpu_not_ready_state, duthost, target_dpu),
-                f"{target_dpu}: ready_status did not become false on attempt {attempt + 1}"
+                f"{target_dpu}: ready_status did not become false on attempt {attempt}"
             )
 
-        # Verify DPU is now unrecoverable
+            # Wait until chassisd either marks the DPU unrecoverable or recovers it.
+            def _unrecoverable_or_ready():
+                return (self._check_unrecoverable(duthost, target_dpu)
+                        or check_dpu_ready_state(duthost, target_dpu))
+
+            pytest_assert(
+                wait_until(DPU_READY_AFTER_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
+                           _unrecoverable_or_ready),
+                f"{target_dpu}: chassisd neither recovered it nor marked it "
+                f"unrecoverable after attempt {attempt}. "
+                f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
+            )
+
+            if self._check_unrecoverable(duthost, target_dpu):
+                logging.info("%s marked unrecoverable after %d failure(s)",
+                             target_dpu, attempt)
+                break
+            logging.info("%s recovered to ready; triggering next failure", target_dpu)
+
+        # Verify the DPU is now unrecoverable.
         logging.info("Verifying %s is marked unrecoverable", target_dpu)
         pytest_assert(
-            wait_until(DPU_READY_AFTER_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
-                       self._check_unrecoverable, duthost, target_dpu),
-            f"{target_dpu}: recovery_status did not become 'unrecoverable' "
-            f"after {max_failures} failures. "
+            self._check_unrecoverable(duthost, target_dpu),
+            f"{target_dpu}: recovery_status did not become 'unrecoverable' within "
+            f"{max_failures} failures. "
             f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
         )
 

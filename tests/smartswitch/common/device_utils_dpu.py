@@ -38,8 +38,9 @@ PING_TIME_INT = 10
 # Max time to wait for a DPU to return to ready after recovery/power-cycle.
 DPU_READY_AFTER_RECOVERY_TIMEOUT = 1200
 
-# chassisd reads dpu_auto_recovery from DEVICE_METADATA|localhost (off if absent).
-DPU_AUTO_RECOVERY_FIELD = "dpu_auto_recovery"
+# chassisd reads DPU auto-recovery from CONFIG_DB FEATURE|dpu-auto-recovery
+DPU_AUTO_RECOVERY_FEATURE = "dpu-auto-recovery"
+DPU_AUTO_RECOVERY_STATE_FIELD = "state"
 DPU_AUTO_RECOVERY_ENABLE = "enable"
 DPU_AUTO_RECOVERY_DISABLE = "disable"
 
@@ -588,7 +589,10 @@ def pre_test_check(duthost,
 
     logging.info("Checking DPU DB state (CHASSIS_STATE_DB) before the operation")
     for dpu_name in dpu_on_list:
-        assert_dpu_db_state_ready(duthost, dpu_name)
+        if is_dpu_db_state_supported(duthost, dpu_name):
+            assert_dpu_db_state_ready(duthost, dpu_name)
+        else:
+            logging.info("%s: DPU_STATE not present in CHASSIS_STATE_DB; skipping DB-state check", dpu_name)
 
     return ip_address_list, dpu_on_list, dpu_off_list
 
@@ -764,8 +768,11 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name,
             f"DPU {dpu_name} did not reboot: boot time is unchanged"
         )
 
-    logging.info(f"Checking {dpu_name} DB state (CHASSIS_STATE_DB) is ready post test")
-    assert_dpu_db_state_ready(duthost, dpu_name, timeout=dpu_online_timeout)
+    if is_dpu_db_state_supported(duthost, dpu_name):
+        logging.info(f"Checking {dpu_name} DB state (CHASSIS_STATE_DB) is ready post test")
+        assert_dpu_db_state_ready(duthost, dpu_name, timeout=dpu_online_timeout)
+    else:
+        logging.info("%s: DPU_STATE not present in CHASSIS_STATE_DB; skipping DB-state check", dpu_name)
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
@@ -893,35 +900,37 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
 
 
 def get_dpu_auto_recovery(duthost):
-    """Return DEVICE_METADATA|localhost dpu_auto_recovery from CONFIG_DB ('' if unset)."""
+    """Return the DPU auto-recovery 'state' from CONFIG_DB FEATURE|dpu-auto-recovery ('' if unset)."""
     result = duthost.shell(
-        f"sonic-db-cli CONFIG_DB hget 'DEVICE_METADATA|localhost' "
-        f"'{DPU_AUTO_RECOVERY_FIELD}'",
+        f"sonic-db-cli CONFIG_DB hget 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
+        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}'",
         module_ignore_errors=True)
     return result.get("stdout", "").strip()
 
 
 def set_dpu_auto_recovery(duthost, state):
-    """Set DEVICE_METADATA|localhost dpu_auto_recovery in CONFIG_DB (runtime only)."""
+    """Set the DPU auto-recovery 'state' in CONFIG_DB FEATURE|dpu-auto-recovery (runtime only)."""
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' "
-        f"'{DPU_AUTO_RECOVERY_FIELD}' '{state}'")
-    logging.info("Set DEVICE_METADATA|localhost %s to '%s'",
-                 DPU_AUTO_RECOVERY_FIELD, state)
+        f"sonic-db-cli CONFIG_DB hset 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
+        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}' '{state}'")
+    logging.info("Set FEATURE|%s %s to '%s'",
+                 DPU_AUTO_RECOVERY_FEATURE, DPU_AUTO_RECOVERY_STATE_FIELD, state)
 
 
-def get_dpu_state_from_chassis_state_db(duthost, dpu_name):
-    """
-    Read DPU_STATE fields from CHASSIS_STATE_DB for a given DPU.
-    Args:
-        duthost: Host handle
-        dpu_name: Name of the DPU (e.g. 'DPU0')
-    Returns:
-        dict with all fields from DPU_STATE|<dpu_name>, or empty dict if key
-        does not exist.
-    """
-    cmd = f"sonic-db-cli CHASSIS_STATE_DB hgetall 'DPU_STATE|{dpu_name}'"
-    result = duthost.shell(cmd, module_ignore_errors=True)
+def unset_dpu_auto_recovery(duthost):
+    """Delete the auto-recovery 'state' field from CONFIG_DB FEATURE|dpu-auto-recovery."""
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB hdel 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
+        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}'", module_ignore_errors=True)
+    logging.info("Deleted FEATURE|%s %s",
+                 DPU_AUTO_RECOVERY_FEATURE, DPU_AUTO_RECOVERY_STATE_FIELD)
+
+
+def sonic_db_hgetall(duthost, db_name, key):
+    """Run `sonic-db-cli <db_name> hgetall '<key>'` and parse into a dict ({} if absent/failed);
+    handles both the dict-repr and line-by-line output formats."""
+    result = duthost.shell(
+        f"sonic-db-cli {db_name} hgetall '{key}'", module_ignore_errors=True)
     stdout = result.get("stdout", "").strip()
     if not stdout or result.get("rc", 1) != 0:
         return {}
@@ -936,10 +945,29 @@ def get_dpu_state_from_chassis_state_db(duthost, dpu_name):
             pass
 
     lines = stdout.splitlines()
-    state = {}
-    for i in range(0, len(lines) - 1, 2):
-        state[lines[i].strip()] = lines[i + 1].strip()
-    return state
+    parsed = {}
+    for i in range(0, len(lines) - (len(lines) % 2), 2):
+        parsed[lines[i].strip()] = lines[i + 1].strip()
+    return parsed
+
+
+def get_dpu_state_from_chassis_state_db(duthost, dpu_name):
+    """
+    Read DPU_STATE fields from CHASSIS_STATE_DB for a given DPU.
+    Args:
+        duthost: Host handle
+        dpu_name: Name of the DPU (e.g. 'DPU0')
+    Returns:
+        dict with all fields from DPU_STATE|<dpu_name>, or empty dict if key
+        does not exist.
+    """
+    return sonic_db_hgetall(duthost, "CHASSIS_STATE_DB", f"DPU_STATE|{dpu_name}")
+
+
+def is_dpu_db_state_supported(duthost, dpu_name):
+    """Return True if CHASSIS_STATE_DB exposes DPU_STATE 'ready_status' for this DPU,
+    i.e. the image has the DPU robustness enhancement (guards backward compatibility)."""
+    return "ready_status" in get_dpu_state_from_chassis_state_db(duthost, dpu_name)
 
 
 def check_dpu_ready_state(duthost, dpu_name):
@@ -994,6 +1022,8 @@ def check_dpu_not_ready_state(duthost, dpu_name):
     """
     state = get_dpu_state_from_chassis_state_db(duthost, dpu_name)
     if not state:
+        # Empty state (read failed or key absent) is treated as "unknown"
+        # (False) so a transient read error can't end wait_until early.
         logging.warning("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
         return False
 
