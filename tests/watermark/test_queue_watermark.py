@@ -8,7 +8,6 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
-from tests.conftest import generate_priority_lists
 
 
 pytestmark = [pytest.mark.topology("t0", "t1")]
@@ -28,6 +27,8 @@ PACKET_SIZE = 128  # total size of each packet in bytes
 # all of the congestion packets should be at most TOLERANCE% less than the number of bytes sent).
 TOLERANCE = 5
 BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+# Number of queues to randomly select and test for each ip_version/queue_type combination.
+NUM_QUEUES_TO_TEST = 3
 
 sonic_db_cli = "sonic-db-cli"
 namespace = ""
@@ -148,66 +149,157 @@ def select_ingress_port(duthost, exclude_ports=[]):
     pytest.skip("No suitable ingress port found on the DUT.")
 
 
-def find_qos_mapping_table_name(duthost, egress_ports, qos_mapping):
+def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_port, router_mac):
+    """
+    Returns the destination MAC the ingress packet must have to be L3-routed (and therefore
+    forwarded to the egress queue) when it ingresses on 'ingress_port'.
+
+    On t1 the server/downlink ports are routed (L3) interfaces, so the global router MAC
+    is the termination MAC. On t0/dualtor the server ports are VLAN member ports; routing
+    for that subnet is done by the VLAN SVI, whose MAC may differ from the router MAC
+    (on dualtor it is the shared gateway MAC). Using the router MAC on such a port leaves
+    the frame at L2 and it gets flooded in the VLAN instead of being routed to the egress port.
+    """
+    if tbinfo["topo"]["type"] == "t0":
+        for vlan_name, vlan_info in minigraph_facts.get("minigraph_vlans", {}).items():
+            if ingress_port in vlan_info.get("members", []):
+                return duthost.get_dut_iface_mac(vlan_name)
+    return router_mac
+
+
+def find_qos_mapping_table_name(duthost, ports, qos_mapping):
     qos_table_name = ""
-    for port in egress_ports:
+    for port in ports:
         table = duthost.shell(f"{sonic_db_cli} CONFIG_DB HGET 'PORT_QOS_MAP|{port}' '{qos_mapping}'")["stdout"].strip()
         if not table:
             continue
         if qos_table_name and qos_table_name != table:
-            pytest.fail(f"{qos_mapping} is not the same for all egress ports {egress_ports}.")
+            pytest.fail(f"{qos_mapping} is not the same for all ports in {ports}.")
         qos_table_name = table
     if not qos_table_name:
         # Check the global table
         table = duthost.shell(f"{sonic_db_cli} CONFIG_DB HGET 'PORT_QOS_MAP|global' '{qos_mapping}'")["stdout"].strip()
         if not table:
-            pytest.fail(f"{qos_mapping} is not defined for any egress port {egress_ports} or globally.")
+            pytest.fail(f"{qos_mapping} is not defined for any port in {ports} or globally.")
         qos_table_name = table
     return qos_table_name
 
 
-def find_reverse_qos_mapping(duthost, egress_ports, qos_mapping, value_to_find):
-    qos_table = find_qos_mapping_table_name(duthost, egress_ports, qos_mapping)
-    qos_map_str = \
-        duthost.shell(f"{sonic_db_cli} CONFIG_DB HGETALL '{qos_mapping.upper()}|{qos_table}'")["stdout"].strip()
-    qos_map = ast.literal_eval(qos_map_str)
-    for key, value in qos_map.items():
-        if int(value) == value_to_find:
-            return int(key)
-    pytest.fail(f"Could not find a key mapped to value {value_to_find} in {qos_mapping.upper()}|{qos_table}.")
+def collect_dut_all_prio(duthost, ports):
+    config_facts = duthost.get_running_config_facts()
+
+    dscp_to_tc_map_lists = config_facts.get("DSCP_TO_TC_MAP")
+    if not dscp_to_tc_map_lists:
+        return []
+
+    profile = find_qos_mapping_table_name(duthost, ports, "dscp_to_tc_map")
+    dscp_to_tc_map = dscp_to_tc_map_lists[profile]
+
+    tc = [int(p) for p in list(dscp_to_tc_map.values())]
+    return list(set(tc))
 
 
-def find_tc_for_queue(duthost, egress_ports, queue):
-    tc = find_reverse_qos_mapping(duthost, egress_ports, "tc_to_queue_map", queue)
-    logger.info(f"The traffic class '{tc}' is mapped to queue '{queue}' for egress ports {egress_ports}.")
-    return tc
+def collect_dut_lossless_prio(duthost, ports):
+    config_facts = duthost.get_running_config_facts()
+
+    port_qos_map = config_facts.get("PORT_QOS_MAP")
+    if not port_qos_map:
+        return []
+
+    # lossless_prios will be set to the union of all PFC-enabled priorities across the ports
+    lossless_prios = set()
+    for port in ports:
+        pfc_enable = port_qos_map.get(port, {}).get("pfc_enable", "").split(',')
+        lossless_prios.update(int(x) for x in pfc_enable)
+    return list(lossless_prios)
 
 
-def find_dscp_for_queue(duthost, egress_ports, queue):
-    tc = find_tc_for_queue(duthost, egress_ports, queue)
-    dscp = find_reverse_qos_mapping(duthost, egress_ports, "dscp_to_tc_map", tc)
-    logger.info(f"The DSCP value '{dscp}' is mapped to traffic class '{tc}' for egress ports {egress_ports}.")
-    return dscp
+def collect_dut_lossy_prio(duthost, ports):
+    lossless_prio = collect_dut_lossless_prio(duthost, ports)
+    all_prio = collect_dut_all_prio(duthost, ports)
+    return list(set(all_prio) - set(lossless_prio))
 
 
-def select_random_queue(request, queue_type, default_queue=None):
-    queue_list = generate_priority_lists(request, queue_type)
-    queue_list = [int(x.split("|")[1]) for x in queue_list]
-    if not queue_list:
-        return default_queue
-    elif len(queue_list) == 1:
-        return queue_list[0]
-    else:
-        return random.choice(queue_list)
-
-
-def apply_blocking_scheduler(duthost, egress_ports, queue):
+def get_tc_to_queue_mapping(duthost, egress_ports, tc_list):
     """
-    For each egress port, sets the scheduler of the specified queue to the blocking scheduler.
+    Get the mapping from traffic class (TC) to queue for the specified TCs.
+
+    Args:
+        duthost: The DUT host object.
+        egress_ports: List of egress ports.
+        tc_list: List of traffic classes to retrieve the mapping for.
+
+    Returns:
+        A dictionary mapping each TC in tc_list to its corresponding queue.
+    """
+    tc_to_queue_table = find_qos_mapping_table_name(duthost, egress_ports, "tc_to_queue_map")
+    tc_to_queue_str = \
+        duthost.shell(f"{sonic_db_cli} CONFIG_DB HGETALL 'TC_TO_QUEUE_MAP|{tc_to_queue_table}'")["stdout"].strip()
+    tc_to_queue = ast.literal_eval(tc_to_queue_str)
+    tc_to_queue = {int(tc_str): int(queue_str) for tc_str, queue_str in tc_to_queue.items() if int(tc_str) in tc_list}
+    logger.info(f"TC to queue mapping: {tc_to_queue}.")
+    return tc_to_queue
+
+
+def get_queue_to_dscp_mapping(duthost, ingress_port, egress_ports, tc_list):
+    """
+    Get the mapping from queue to DSCP values for the specified traffic classes (TCs).
+
+    Args:
+        duthost: The DUT host object.
+        ingress_port: The ingress port.
+        egress_ports: List of egress ports.
+        tc_list: List of traffic classes to retrieve the mapping for.
+
+    Returns:
+        A dictionary mapping each queue to a list of DSCP values that map to that queue.
+    """
+    tc_to_queue = get_tc_to_queue_mapping(duthost, egress_ports, tc_list)
+    dscp_to_tc_table = find_qos_mapping_table_name(duthost, [ingress_port], "dscp_to_tc_map")
+    dscp_to_tc_map_str = \
+        duthost.shell(f"{sonic_db_cli} CONFIG_DB HGETALL 'DSCP_TO_TC_MAP|{dscp_to_tc_table}'")["stdout"].strip()
+    dscp_to_tc_map = ast.literal_eval(dscp_to_tc_map_str)
+    dscp_to_tc_map = {int(dscp): int(tc) for dscp, tc in ast.literal_eval(dscp_to_tc_map_str).items()
+                      if int(tc) in tc_list}
+    queue_to_dscp = {}  # Each queue will be mapped to a list of DSCP values
+    for dscp, tc in dscp_to_tc_map.items():
+        queue = tc_to_queue.get(tc)
+        if queue is None:
+            logger.warning(f"Traffic class {tc} is not mapped to any queues.")
+            continue
+        queue_to_dscp[queue] = queue_to_dscp.get(queue, [])
+        queue_to_dscp[queue].append(dscp)
+    return queue_to_dscp
+
+
+def select_random_queues(duthost, ingress_port, egress_ports, queue_type):
+    """
+    Returns a dictionary mapping each randomly-selected queue to a DSCP value associated with that queue.
+    """
+    if queue_type == "lossless":
+        tc_list = collect_dut_lossless_prio(duthost, [ingress_port])
+    else:
+        tc_list = collect_dut_lossy_prio(duthost, [ingress_port])
+    if not tc_list:
+        return {}
+
+    queue_to_dscp = get_queue_to_dscp_mapping(duthost, ingress_port, egress_ports, tc_list)
+    queues = list(queue_to_dscp.keys())
+    if not queues:
+        return {}
+    selected_queues = random.sample(queues, min(NUM_QUEUES_TO_TEST, len(queues)))
+
+    return {queue: random.choice(queue_to_dscp[queue]) for queue in selected_queues}
+
+
+def apply_blocking_scheduler(duthost, egress_ports, queues):
+    """
+    For each egress port, sets the scheduler of each specified queue to the blocking scheduler.
     """
     for port in egress_ports:
-        logger.info(f"Setting the scheduler of {port}|{queue} to '{BLOCKING_SCHEDULER}'...")
-        duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{BLOCKING_SCHEDULER}'")
+        for queue in queues:
+            logger.info(f"Setting the scheduler of {port}|{queue} to '{BLOCKING_SCHEDULER}'...")
+            duthost.shell(f"{sonic_db_cli} CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{BLOCKING_SCHEDULER}'")
     logger.info(f"Waiting {ASIC_DB_SYNC_TIME} seconds for the configuration to take effect...")
     time.sleep(ASIC_DB_SYNC_TIME)  # Wait for the configuration to take effect
 
@@ -219,24 +311,29 @@ def setup(duthost, tbinfo, request, create_blocking_scheduler):  # noqa F811
     ptf_indices = minigraph_facts["minigraph_ptf_indices"]
     ip_version = request.param[0]
     queue_type = request.param[1]
-    default_queue = 0 if queue_type == "lossy" else None
-    queue = select_random_queue(request, queue_type, default_queue)
 
     test_params = {}
     test_params["ip_version"] = request.param[0]
-    test_params["queue"] = queue
-    if test_params["queue"] is None:
-        pytest.skip(f"No {queue_type} queue found on DUT.")
     neigh_ip, egress_ports = select_egress_interface(duthost, minigraph_facts,
                                                      ipv4=(ip_version == "ipv4"))
     test_params["neigh_ip"] = neigh_ip
     test_params["egress_ports"] = egress_ports
+
     ingress_port = select_ingress_port(duthost, exclude_ports=egress_ports)
     test_params["ingress_port_index"] = ptf_indices[ingress_port]
-    test_params["dscp"] = find_dscp_for_queue(duthost, egress_ports, queue)
 
-    # Apply the blocking scheduler to the queue (for each egress port)
-    apply_blocking_scheduler(duthost, egress_ports, queue)
+    queue_to_dscp = select_random_queues(duthost, ingress_port, egress_ports, queue_type)
+    if not queue_to_dscp:
+        pytest.skip(f"No {queue_type} TC found on DUT.")
+    test_params["queue_to_dscp"] = queue_to_dscp
+    # On t0/dualtor the ingress port may be a VLAN member, in which case the congestion packet must be
+    # addressed to the VLAN SVI MAC (the L3 termination MAC) to be routed to the egress queue rather
+    # than flooded in the VLAN.
+    router_mac = duthost.facts["router_mac"]
+    test_params["dest_mac"] = get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_port, router_mac)
+
+    # Apply the blocking scheduler to each selected queue (for each egress port)
+    apply_blocking_scheduler(duthost, egress_ports, list(queue_to_dscp.keys()))
 
     logger.info(f"Test parameters: {test_params}")
     return test_params
@@ -260,7 +357,7 @@ def get_congestion_packet(dest_mac, ip_version, dest_ip, dscp, pkt_len):
     return pkt
 
 
-def get_watermarks(duthost, watermark_type):
+def get_queue_watermarks(duthost, watermark_type):
     """
     Get watermarks for all ports and queues.
     """
@@ -300,7 +397,7 @@ def get_watermarks(duthost, watermark_type):
 
 
 def check_queue_watermarks(duthost, egress_ports, queue, watermark_type, expected_value):
-    watermarks = get_watermarks(duthost, watermark_type)
+    watermarks = get_queue_watermarks(duthost, watermark_type)
     watermark_str = "user-watermark" if watermark_type == "watermark" else watermark_type
     count = 0
     for port in egress_ports:
@@ -327,31 +424,41 @@ def clear_queue_watermarks(duthost, egress_ports, queue, watermark_type):
                   f"{WATERMARK_CLEAR_WAIT_TIME} seconds.")
 
 
-def create_congestion(ptfadapter, router_mac, ip_version, neigh_ip, dscp, ingress_port_index):
-    logger.info("Creating congestion in the egress queue.")
-    pkt = get_congestion_packet(router_mac, ip_version, neigh_ip, dscp, pkt_len=PACKET_SIZE)
+def create_congestion(ptfadapter, dest_mac, ip_version, neigh_ip, dscp, ingress_port_index):
+    pkt = get_congestion_packet(dest_mac, ip_version, neigh_ip, dscp, pkt_len=PACKET_SIZE)
     logger.info(f"Congestion packet: {pkt}")
     logger.info(f"Sending {PACKET_COUNT} packets of size {PACKET_SIZE} to ingress port {ingress_port_index}...")
     testutils.send(ptfadapter, ingress_port_index, pkt, count=PACKET_COUNT)
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_upper_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_lower_tor
 @pytest.mark.parametrize("watermark_type", ["persistent-watermark", "watermark"],
                          ids=["persistent-watermark", "user-watermark"])
 def test_queue_watermarks(duthost, ptfadapter, setup, watermark_type):
     """
-    This test sends IPv4/IPv6 packets to a blocked queue and verifies that persistent/user watermarks
-    for that queue are increased as expected. It also checks that watermarks can be cleared using
+    This test sends IPv4/IPv6 packets to blocked queues and verifies that persistent/user watermarks
+    for those queues are increased as expected. It also checks that watermarks can be cleared using
     the `sonic-clear` command.
     """
     test_params = setup
-    router_mac = duthost.facts["router_mac"]
-    clear_queue_watermarks(duthost, test_params["egress_ports"], test_params["queue"], watermark_type)
-    create_congestion(ptfadapter, router_mac, test_params["ip_version"], test_params["neigh_ip"],
-                      test_params["dscp"], test_params["ingress_port_index"])
+    egress_ports = test_params["egress_ports"]
+    queue_to_dscp = test_params["queue_to_dscp"]
+    queues = list(queue_to_dscp.keys())
+
+    for queue in queues:
+        clear_queue_watermarks(duthost, egress_ports, queue, watermark_type)
+
+    for queue, dscp in queue_to_dscp.items():
+        logger.info(f"Creating congestion in the egress queue {queue} with DSCP {dscp}.")
+        create_congestion(ptfadapter, test_params["dest_mac"], test_params["ip_version"],
+                          test_params["neigh_ip"], dscp, test_params["ingress_port_index"])
+
     min_watermark_value = PACKET_COUNT * PACKET_SIZE * (1 - TOLERANCE / 100)
-    pytest_assert(wait_until(WATERMARK_UPDATE_WAIT_TIME, 10, 0, check_queue_watermarks,
-                             duthost, test_params["egress_ports"], test_params["queue"],
-                             watermark_type, expected_value=min_watermark_value),
-                  f"{watermark_type}s for queue {test_params['queue']} across egress ports " +
-                  f"{test_params['egress_ports']} were not updated correctly after " +
-                  f"{WATERMARK_UPDATE_WAIT_TIME} seconds.")
+    for queue in queues:
+        pytest_assert(wait_until(WATERMARK_UPDATE_WAIT_TIME, 10, 0, check_queue_watermarks,
+                                 duthost, egress_ports, queue, watermark_type,
+                                 expected_value=min_watermark_value),
+                      f"{watermark_type}s for queue {queue} across egress ports " +
+                      f"{egress_ports} were not updated correctly after " +
+                      f"{WATERMARK_UPDATE_WAIT_TIME} seconds.")
