@@ -190,16 +190,24 @@ def test_gnoi_file_stat_invalid_argument(gnmi_tls, bad_path, reason):  # noqa: F
         )
 
 
-def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls):  # noqa: F811
+def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls, duthosts, rand_one_dut_hostname):  # noqa: F811
     """Verify permissions field is encoded as decimal-octal per gNOI proto.
 
     PR #697 contract (statInfoFromFileInfo):
       strconv.FormatUint(uint64(mode.Perm()), 8)  -> octal string e.g. "644"
       strconv.ParseUint(octalStr, 10, 32)          -> decimal int 644
 
-    So mode 0644 -> permissions=644 (NOT 420, which is the raw decimal of 0644).
-    /etc/hostname on SONiC has mode 0644, so the expected value is 644.
+    The expected value is derived dynamically from the DUT so the test
+    verifies the encoding invariant regardless of the file's actual mode.
     """
+    duthost = duthosts[rand_one_dut_hostname]
+    # Get the actual octal mode string from the DUT (e.g. "644")
+    actual_octal = duthost.shell("stat -c %a /etc/hostname")["stdout"].strip()
+    # decimal-octal encoding: the octal string is re-read as a decimal integer
+    expected_permissions = int(actual_octal)
+    logger.info("DUT /etc/hostname mode: octal={} expected_permissions={}".format(
+        actual_octal, expected_permissions))
+
     resp = gnmi_tls.gnoi.file_stat("/etc/hostname")
 
     stats = resp.get("stats", [])
@@ -209,6 +217,13 @@ def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls):  # noqa: F811
     permissions = int(entry.get("permissions", -1))
     logger.info("File.Stat permissions field value: {}".format(permissions))
 
-    pytest_assert(permissions == 644,
-                  "Expected permissions=644 (decimal-octal for mode 0644), got: {} "
-                  "(hint: 420 means the old DBus decimal encoding is still in use)".format(permissions))
+    pytest_assert(permissions == expected_permissions,
+                  "Expected permissions={} (decimal-octal of mode 0{}) got: {} "
+                  "(hint: {} means raw decimal encoding is in use)".format(
+                      expected_permissions, actual_octal, permissions,
+                      int(actual_octal, 8)))
+    pytest_assert(
+        all(d in "01234567" for d in str(permissions)),
+        "permissions '{}' contains digit 8 or 9 — not a valid decimal-octal value".format(permissions)
+    )
+    
