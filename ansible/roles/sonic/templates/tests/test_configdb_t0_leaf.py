@@ -23,7 +23,7 @@ or under pytest.
 import json
 import os
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 TEMPLATES_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_NAME = "configdb-t0-leaf.j2"
@@ -43,7 +43,7 @@ def _host():
 def _render(host=None, props=None):
     host = host or _host()
     props = props or {"swrole": "leaf", "nhipv4": "10.10.246.254", "nhipv6": "fc0a::ff"}
-    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
+    env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=select_autoescape())
     ctx = {
         "configuration": {"n": host},
         "hostname": "n",
