@@ -463,7 +463,7 @@ def poll_srv6_perf_stats(dut_tg_port_map, duration_sec, interval_sec, db_reporte
     }
 
     end_time = time.time() + duration_sec
-    logger.info(f"Started polling every {interval_sec:.2f}s for {duration_sec}s")
+    logger.info(f"Started polling every {interval_sec:.2f}s for {duration_sec}s")  # E231
 
     while time.time() < end_time:
         poll_start = time.time()
@@ -624,7 +624,7 @@ def poll_srv6_perf_stats_backup(dut_tg_port_map, duration_sec, interval_sec, db_
     }
 
     end_time = time.time() + duration_sec
-    logger.info(f"Started polling every {interval_sec:.2f}s for {duration_sec}s")
+    logger.info(f"Started polling every {interval_sec:.2f}s for {duration_sec}s")  # E231
 
     while time.time() < end_time:
         poll_start = time.time()

@@ -1123,9 +1123,9 @@ def set_duthost_interface_details(duthosts, Common_vars, get_snappi_ports):
     ipv6_address_start = Common_vars.ixia_src_ipv6_prefix_start
 
     for index, snappi_port in enumerate(get_snappi_ports):
-        ipv6_gateway = f'fc0a::{ipv6_address_start}'
+        ipv6_gateway = f'fc0a::{ipv6_address_start}'  # E231
         address = increment_hex(ipv6_address_start, by=1, width=1)
-        ipv6_address = f'fc0a::{address}'
+        ipv6_address = f'fc0a::{address}'  # E231
 
         snappi_port.update({'ipAddress': ipv6_address,
                             'ipGateway': ipv6_gateway,
@@ -1164,15 +1164,15 @@ def remove_srv6_config(Common_vars):
     for dut in Common_vars.dut_hosts:
         count = 1
         for sid in Common_vars.config_data[dut.hostname]['my_sids']:
-            logger.info(f'Removing SRv6 loc{count} sid fcbb:bbbb:{sid}::/48 and locator on {dut.hostname} ...')
+            logger.info(f'Removing SRv6 loc{count} sid fcbb:bbbb:{sid}::/48 and locator on {dut.hostname} ...')  # E231
             dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
-            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48"')
+            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48"')  # E231
             count += 1
 
     # Remove static routes on DUTs
     for dut in Common_vars.dut_hosts:
         for static_route in Common_vars.config_data[dut.hostname]['static_routes']:
-            logger.info(f'DUT:{dut.hostname} -> sudo {static_route.replace("hset", "del")}')
+            logger.info(f'DUT:{dut.hostname} -> sudo {static_route.replace("hset", "del")}')  # E231
 
             # Common_vars.dut_hosts[0].shell(f'sonic-db-cli CONFIG_DB del "STATIC_ROUTE|{route_lookup}"
             # nexthop {nexthop} ifname {ifname}')
@@ -1198,5 +1198,5 @@ def remove_srv6_config(Common_vars):
 
                 # {'dut': 'switch-t0-1', 'ip_address': '5010::1/64', 'local_dut_port': 'Ethernet128',
                 #  'port': 'Ethernet128'}
-                logger.info(f'DUT:{dut.hostname}: sudo config int ip remove {port} {ip_address}')
+                logger.info(f'DUT:{dut.hostname}: sudo config int ip remove {port} {ip_address}')  # E231
                 dut.shell(f'sudo config int ip remove {port} {ip_address}')
