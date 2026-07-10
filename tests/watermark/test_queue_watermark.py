@@ -79,7 +79,7 @@ def create_blocking_scheduler(duthost):
     old_scheduler_count = count_keys(duthost, "ASIC_DB", SCHEDULER_PATTERN)
     logger.info(f"Creating the blocking scheduler '{BLOCKING_SCHEDULER}' on the DUT.")
     cmd = f"{sonic_db_cli} CONFIG_DB HSET 'SCHEDULER|{BLOCKING_SCHEDULER}' 'type' 'DWRR' 'weight' '15'" + \
-           " 'pir' '1' 'cir' '1'"
+        " 'pir' '1' 'cir' '1'"
     if duthost.facts["asic_type"] == "broadcom":
         cmd += " 'meter_type' 'packets'"
     duthost.shell(cmd)
