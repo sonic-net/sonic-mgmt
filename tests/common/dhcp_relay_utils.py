@@ -20,6 +20,31 @@ SUPPORTED_DHCPV6_TYPE = [
 SUPPORTED_DIR = ["TX", "RX"]
 
 
+def _validate_relay_types(caller, relay_types):
+    """
+    Validate relay_types up front and return it as a list.
+
+    Enforces the shared contract (non-empty, known agent identifiers, at most one
+    v4 mode) so both restart_dhcp_service and wait_dhcp_relay_ready reject bad input
+    *before* any side effect (e.g. restarting dhcp_relay).
+    """
+    if not relay_types:
+        raise ValueError("%s: relay_types must be a non-empty iterable" % caller)
+    relay_types = list(relay_types)
+    valid = {'isc', 'isc-internal', 'sonic', 'v6'}
+    bad = [t for t in relay_types if t not in valid]
+    if bad:
+        raise ValueError("%s: invalid relay_types %s; allowed %s"
+                         % (caller, bad, sorted(valid)))
+    v4_modes = [t for t in relay_types if t in {'isc', 'isc-internal', 'sonic'}]
+    if len(v4_modes) > 1:
+        raise ValueError(
+            "%s: at most one of {'isc', 'isc-internal', 'sonic'} "
+            "may be requested per call (mutually exclusive in the relay container); got %s"
+            % (caller, v4_modes))
+    return relay_types
+
+
 def restart_dhcp_service(duthost, relay_types):
     """
     Restart dhcp_relay and wait until the requested relay agent(s) are ready.
@@ -95,8 +120,7 @@ def restart_dhcp_service(duthost, relay_types):
     container layout makes them mutually exclusive (driven by has_sonic_dhcpv4_relay
     + mx internal mode), so any combination is unsatisfiable and is rejected up front.
     """
-    if not relay_types:
-        raise ValueError("restart_dhcp_service: relay_types must be a non-empty iterable")
+    relay_types = _validate_relay_types('restart_dhcp_service', relay_types)
 
     duthost.shell('systemctl reset-failed dhcp_relay')
     duthost.shell('systemctl restart dhcp_relay')
@@ -114,20 +138,7 @@ def wait_dhcp_relay_ready(duthost, relay_types):
     `config reload`, `config load_minigraph`, GCU `apply-patch`) and only needs to
     block on readiness.
     """
-    if not relay_types:
-        raise ValueError("wait_dhcp_relay_ready: relay_types must be a non-empty iterable")
-    relay_types = list(relay_types)
-    valid = {'isc', 'isc-internal', 'sonic', 'v6'}
-    bad = [t for t in relay_types if t not in valid]
-    if bad:
-        raise ValueError("wait_dhcp_relay_ready: invalid relay_types %s; allowed %s"
-                         % (bad, sorted(valid)))
-    v4_modes = [t for t in relay_types if t in {'isc', 'isc-internal', 'sonic'}]
-    if len(v4_modes) > 1:
-        raise ValueError(
-            "wait_dhcp_relay_ready: at most one of {'isc', 'isc-internal', 'sonic'} "
-            "may be requested per call (mutually exclusive in the relay container); got %s"
-            % v4_modes)
+    relay_types = _validate_relay_types('wait_dhcp_relay_ready', relay_types)
 
     last_state = {'states': {}, 'internal_procs': []}
 
