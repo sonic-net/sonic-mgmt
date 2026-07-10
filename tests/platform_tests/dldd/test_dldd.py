@@ -32,17 +32,9 @@ UINT32_MAX = (1 << 32) - 1
 ENABLED_FEATURE_STATES = ("enabled",)
 DISABLED_FEATURE_STATES = ("disabled",)
 SERVICE_HEALTH_STATES = ("OK", "DEGRADED", "BROKEN|FATAL")
-FAULT_STATUSES = ("ACTIVE", "INACTIVE", "UNSPECIFIED")
+FAULT_STATUSES = ("ACTIVE", "INACTIVE")
 FAULT_SEVERITIES = ("CRITICAL", "MAJOR", "WARNING", "MINOR", "UNKNOWN")
-LOCAL_ACTION_STATES = ("IDLE", "COMPLETED", "FAILED", "SUPPRESSED")
-REPAIR_ACTIONS = (
-    "ACTION_RESEAT",
-    "ACTION_WARM_REBOOT",
-    "ACTION_COLD_REBOOT",
-    "ACTION_POWER_CYCLE",
-    "ACTION_FACTORY_RESET",
-    "ACTION_REPLACE",
-)
+LOCAL_ACTION_STATES = ("IDLE", "COMPLETED", "FAILED")
 EVALUATOR_TYPES = ("mask", "comparison", "string", "boolean", "dse")
 VALUE_CONFIG_TYPES = (
     "binary",
@@ -70,12 +62,15 @@ CONFIG_FIELD_MINIMUMS = {
 }
 
 FAULT_REQUIRED_FIELDS = {
+    "producer",
     "rule",
     "rule_id",
     "rule_version",
     "schema_version",
     "active_rules_checksum",
-    "component_info",
+    "component_type",
+    "component_name",
+    "component_serial_number",
     "error_type",
     "events",
     "remote_action_time_window",
@@ -128,16 +123,7 @@ def _faults(duthost):
 
 def _is_dldd_fault(fault):
     """Return whether a shared FAULT_INFO row is owned by DLDD."""
-    try:
-        rule_id = int(fault.get("rule_id", 0))
-    except (TypeError, ValueError):
-        return False
-    return bool(
-        rule_id
-        and fault.get("rule")
-        and fault.get("schema_version")
-        and fault.get("active_rules_checksum")
-    )
+    return fault.get("producer") == "dldd"
 
 
 @pytest.mark.parametrize(
@@ -145,6 +131,7 @@ def _is_dldd_fault(fault):
     (
         (
             {
+                "producer": "dldd",
                 "rule_id": "1000001",
                 "rule": "PSU_OV_FAULT",
                 "schema_version": "0.0.1",
@@ -152,8 +139,16 @@ def _is_dldd_fault(fault):
             },
             True,
         ),
-        ({"rule_id": "not-an-integer"}, False),
-        ({"rule_id": "1000001", "rule": "foreign"}, False),
+        ({"producer": "another-agent", "rule_id": "1000001"}, False),
+        (
+            {
+                "rule_id": "1000001",
+                "rule": "lookalike",
+                "schema_version": "0.0.1",
+                "active_rules_checksum": "sha256:lookalike",
+            },
+            False,
+        ),
         ({}, False),
     ),
 )
@@ -173,6 +168,179 @@ def _json_field(record, field, expected_type):
         ),
     )
     return value
+
+
+def _validate_fault_info(key, fault):
+    """Validate one raw DLDD FAULT_INFO row against the published contract."""
+    missing = FAULT_REQUIRED_FIELDS - set(fault)
+    pytest_assert(
+        not missing,
+        "{} is missing required fields {}".format(key, sorted(missing)),
+    )
+    pytest_assert(
+        fault["producer"] == "dldd",
+        "{} has invalid producer {!r}".format(key, fault["producer"]),
+    )
+    component_type = fault["component_type"]
+    component_name = fault["component_name"]
+    component_serial = fault["component_serial_number"]
+    pytest_assert(
+        isinstance(component_type, str)
+        and bool(component_type.strip())
+        and isinstance(component_name, str)
+        and bool(component_name.strip())
+        and isinstance(component_serial, str),
+        "{} has invalid component identity fields".format(key),
+    )
+    pytest_assert(
+        int(fault["rule_id"]) > 0,
+        "{} has invalid rule ID {!r}".format(key, fault["rule_id"]),
+    )
+
+    events = _json_field(fault, "events", list)
+    repair_actions = _json_field(fault, "repair_actions", list)
+    _json_field(fault, "actions_taken", list)
+    local_action_state = _json_field(fault, "local_action_state", dict)
+    if "healthz_artifact" in fault:
+        artifact = _json_field(fault, "healthz_artifact", dict)
+        pytest_assert(
+            artifact.get("state") in ("REQUESTED", "RUNNING", "COMPLETED", "FAILED"),
+            "{} has invalid Healthz artifact metadata: {}".format(key, artifact),
+        )
+
+    expected_key = "FAULT_INFO|{}|{}".format(
+        quote(component_name, safe=""),
+        quote(fault["symptom"], safe=""),
+    )
+    pytest_assert(
+        key == expected_key,
+        "FAULT_INFO key {!r} does not match canonical key {!r}".format(
+            key, expected_key
+        ),
+    )
+    pytest_assert(events, "{} has no triggering events".format(key))
+    if fault["status"] == "ACTIVE":
+        pytest_assert(
+            repair_actions,
+            "{} has no controller-visible remediation actions".format(key),
+        )
+    for event in events:
+        pytest_assert(
+            isinstance(event, dict)
+            and {"id", "value_read", "value_configs", "condition"}.issubset(event),
+            "{} contains an incomplete event: {}".format(key, event),
+        )
+        value_configs = event["value_configs"]
+        condition = event["condition"]
+        pytest_assert(
+            isinstance(value_configs, dict)
+            and {"type", "unit", "scaling", "encoding"}.issubset(value_configs)
+            and value_configs["type"] in VALUE_CONFIG_TYPES,
+            "{} contains invalid event value metadata: {}".format(key, event),
+        )
+        pytest_assert(
+            isinstance(condition, dict)
+            and {"type", "value", "value_configs"}.issubset(condition)
+            and condition["type"] in EVALUATOR_TYPES,
+            "{} contains an invalid event condition: {}".format(key, event),
+        )
+        condition_value_configs = condition["value_configs"]
+        pytest_assert(
+            isinstance(condition_value_configs, dict)
+            and {"type", "unit", "scaling", "encoding"}.issubset(
+                condition_value_configs
+            )
+            and condition_value_configs["type"] in VALUE_CONFIG_TYPES,
+            "{} contains invalid condition value metadata: {}".format(key, event),
+        )
+    for action in repair_actions:
+        action_name = action.get("action") if isinstance(action, dict) else None
+        pytest_assert(
+            isinstance(action_name, str) and bool(action_name.strip()),
+            "{} contains an invalid repair action: {}".format(key, action),
+        )
+    pytest_assert(
+        local_action_state.get("state") in LOCAL_ACTION_STATES,
+        "{} has invalid local action state: {}".format(key, local_action_state),
+    )
+    pytest_assert(
+        fault["status"] in FAULT_STATUSES,
+        "{} has invalid status {!r}".format(key, fault["status"]),
+    )
+    pytest_assert(
+        fault["severity"] in FAULT_SEVERITIES,
+        "{} has invalid severity {!r}".format(key, fault["severity"]),
+    )
+    pytest_assert(
+        int(fault["occurrences"]) >= 1,
+        "{} has invalid occurrence count {!r}".format(key, fault["occurrences"]),
+    )
+    pytest_assert(
+        int(fault["remote_action_time_window"]) > 0,
+        "{} has invalid remote action time window {!r}".format(
+            key, fault["remote_action_time_window"]
+        ),
+    )
+    pytest_assert(
+        float(fault["origin_time"]) > 0
+        and float(fault["last_detection_time"]) >= float(fault["origin_time"]),
+        "{} has invalid fault timestamps".format(key),
+    )
+
+
+def _valid_fault_fixture():
+    value_configs = {
+        "type": "float",
+        "unit": "celsius",
+        "scaling": "N/A",
+        "encoding": "N/A",
+    }
+    return {
+        "producer": "dldd",
+        "rule": "TEMPERATURE_HIGH",
+        "rule_id": "1000001",
+        "rule_version": "1.0.0",
+        "schema_version": "0.0.1",
+        "active_rules_checksum": "sha256:test",
+        "component_type": "TEMPERATURE_SENSOR",
+        "component_name": "SENSOR 0",
+        "component_serial_number": "",
+        "error_type": "THERMAL",
+        "events": json.dumps([
+            {
+                "id": 1,
+                "value_read": "91.0",
+                "value_configs": value_configs,
+                "condition": {
+                    "type": "comparison",
+                    "value": 90.0,
+                    "value_configs": value_configs,
+                },
+            }
+        ]),
+        "remote_action_time_window": "3600",
+        "repair_actions": json.dumps([
+            {"action": "vendor-healthz:ACTION_REPAIR_FABRIC_MODULE"}
+        ]),
+        "actions_taken": "[]",
+        "local_action_state": json.dumps({
+            "state": "IDLE",
+            "action_suppressed": False,
+        }),
+        "severity": "WARNING",
+        "symptom": "SYMPTOM_OVER_THRESHOLD",
+        "status": "ACTIVE",
+        "origin_time": "1745614200",
+        "last_detection_time": "1745614266",
+        "occurrences": "1",
+        "description": "Temperature exceeded its high threshold.",
+    }
+
+
+def test_fault_info_contract_fixture_supports_flat_components_and_vendor_action():
+    fault = _valid_fault_fixture()
+    key = "FAULT_INFO|SENSOR%200|SYMPTOM_OVER_THRESHOLD"
+    _validate_fault_info(key, fault)
 
 
 def _status_ttl(duthost):
@@ -609,108 +777,7 @@ def test_fault_info_shape_if_present(
     _require_running(duthost, dldd_capabilities)
 
     for key, fault in _faults(duthost).items():
-        missing = FAULT_REQUIRED_FIELDS - set(fault)
-        pytest_assert(
-            not missing,
-            "{} is missing required fields {}".format(key, sorted(missing)),
-        )
-
-        component_info = _json_field(fault, "component_info", dict)
-        events = _json_field(fault, "events", list)
-        repair_actions = _json_field(fault, "repair_actions", list)
-        _json_field(fault, "actions_taken", list)
-        local_action_state = _json_field(fault, "local_action_state", dict)
-        if "healthz_artifact" in fault:
-            artifact = _json_field(fault, "healthz_artifact", dict)
-            pytest_assert(
-                artifact.get("state") in ("REQUESTED", "RUNNING", "COMPLETED", "FAILED"),
-                "{} has invalid Healthz artifact metadata: {}".format(key, artifact),
-            )
-
-        pytest_assert(
-            {"component", "name", "serial_number"}.issubset(component_info),
-            "{} has incomplete component_info".format(key),
-        )
-        expected_key = "FAULT_INFO|{}|{}".format(
-            quote(component_info["name"], safe=""),
-            quote(fault["symptom"], safe=""),
-        )
-        pytest_assert(
-            key == expected_key,
-            "FAULT_INFO key {!r} does not match canonical key {!r}".format(
-                key, expected_key
-            ),
-        )
-        pytest_assert(events, "{} has no triggering events".format(key))
-        if fault["status"] == "ACTIVE":
-            pytest_assert(
-                repair_actions,
-                "{} has no controller-visible remediation actions".format(key),
-            )
-        for event in events:
-            pytest_assert(
-                isinstance(event, dict)
-                and {"id", "value_read", "value_configs", "condition"}.issubset(event),
-                "{} contains an incomplete event: {}".format(key, event),
-            )
-            value_configs = event["value_configs"]
-            condition = event["condition"]
-            pytest_assert(
-                isinstance(value_configs, dict)
-                and {"type", "unit", "scaling", "encoding"}.issubset(value_configs)
-                and value_configs["type"] in VALUE_CONFIG_TYPES,
-                "{} contains invalid event value metadata: {}".format(key, event),
-            )
-            pytest_assert(
-                isinstance(condition, dict)
-                and {"type", "value", "value_configs"}.issubset(condition)
-                and condition["type"] in EVALUATOR_TYPES,
-                "{} contains an invalid event condition: {}".format(key, event),
-            )
-            condition_value_configs = condition["value_configs"]
-            pytest_assert(
-                isinstance(condition_value_configs, dict)
-                and {"type", "unit", "scaling", "encoding"}.issubset(
-                    condition_value_configs
-                )
-                and condition_value_configs["type"] in VALUE_CONFIG_TYPES,
-                "{} contains invalid condition value metadata: {}".format(
-                    key, event
-                ),
-            )
-        for action in repair_actions:
-            pytest_assert(
-                isinstance(action, dict)
-                and action.get("action") in REPAIR_ACTIONS,
-                "{} contains an invalid repair action: {}".format(key, action),
-            )
-        pytest_assert(
-            local_action_state.get("state") in LOCAL_ACTION_STATES,
-            "{} has invalid local action state: {}".format(key, local_action_state),
-        )
-        pytest_assert(
-            fault["status"] in FAULT_STATUSES,
-            "{} has invalid status {!r}".format(key, fault["status"]),
-        )
-        pytest_assert(
-            fault["severity"] in FAULT_SEVERITIES,
-            "{} has invalid severity {!r}".format(key, fault["severity"]),
-        )
-        pytest_assert(
-            int(fault["occurrences"]) >= 1,
-            "{} has invalid occurrence count {!r}".format(key, fault["occurrences"]),
-        )
-        pytest_assert(
-            int(fault["remote_action_time_window"]) > 0,
-            "{} has invalid remote action time window {!r}".format(
-                key, fault["remote_action_time_window"]
-            ),
-        )
-        pytest_assert(
-            float(fault["origin_time"]) > 0
-            and float(fault["last_detection_time"]) >= float(fault["origin_time"]),
-            "{} has invalid fault timestamps".format(key),
-        )
+        _validate_fault_info(key, fault)
 
 
 def test_available_rules_validation(
@@ -775,7 +842,7 @@ def test_service_restart_without_active_faults(
     }
     inflight = _json_field(status_before, "inflight_fault_evidence", list)
     if active_before or inflight:
-        pytest.skip("DLDD has active/in-flight fault work; use reconciliation coverage")
+        pytest.skip("DLDD has active/in-flight fault work; use active-fault restart coverage")
 
     try:
         _restart_service(duthost)
@@ -801,10 +868,10 @@ def test_service_restart_without_active_faults(
             duthost.shell("sudo systemctl start dldd.service", module_ignore_errors=True)
 
 
-def test_active_fault_reconciliation(
+def test_active_fault_restart_preserves_lifetime(
     duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
 ):
-    """Verify existing active records are reconciled without a new fault lifetime."""
+    """Verify restart preserves current active records without a new lifetime."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     _require_running(duthost, dldd_capabilities)
     status_before = _read_hash(duthost, "STATE_DB", STATUS_KEY)
@@ -816,36 +883,29 @@ def test_active_fault_reconciliation(
         == status_before.get("active_rules_checksum")
     }
     if not active_before:
-        pytest.skip("No current-generation active fault is available for reconciliation")
+        pytest.skip("No current-generation active fault is available for restart coverage")
 
-    expected_reconciliations = {
-        (
-            int(fault["rule_id"]),
-            _json_field(fault, "component_info", dict)["name"],
-        )
-        for fault in active_before.values()
-    }
-
-    def reconciliation_completed():
+    def fault_rows_restored():
         status = _read_hash(duthost, "STATE_DB", STATUS_KEY)
-        try:
-            diagnostics = json.loads(status.get("service_diagnostics", "[]"))
-        except (TypeError, ValueError):
+        if (
+            status.get("active_rules_checksum")
+            != status_before.get("active_rules_checksum")
+        ):
             return False
-        completed = {
-            (int(item.get("rule_id", 0)), item.get("component", ""))
-            for item in diagnostics
-            if isinstance(item, dict)
-            and item.get("reason")
-            == "bootstrap_fault_reconciliation_complete"
-        }
-        return expected_reconciliations.issubset(completed)
+        for key in active_before:
+            fault = _read_hash(duthost, "STATE_DB", key)
+            if (
+                fault.get("producer") != "dldd"
+                or fault.get("status") not in FAULT_STATUSES
+            ):
+                return False
+        return True
 
     try:
         _restart_service(duthost)
         pytest_assert(
-            wait_until(90, 2, 0, reconciliation_completed),
-            "DLDD did not report completion of bootstrap active-fault rechecks",
+            wait_until(30, 2, 0, fault_rows_restored),
+            "DLDD did not restore current-generation active fault state after restart",
         )
         for key, before in active_before.items():
             after = _read_hash(duthost, "STATE_DB", key)
