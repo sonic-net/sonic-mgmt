@@ -1846,8 +1846,9 @@ class TestMultiBindingAcl(TestBasicAcl):
                      dest=dut_conf_file_path)
         dut.command(
             f"config mirror_session add everflow_session {SRC_IP} {DST_IP} {DSCP} {TTL} {GRE_TYPE}")
-        dut.command(f"acl-loader update full {dut_conf_file_path} --table_name {table_name} \
-                    --session_name everflow_session")
+        dut.command(
+            f"acl-loader update full {dut_conf_file_path} --table_name {table_name} "
+            "--session_name everflow_session")
 
     def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         pytest.skip("Not applicable for multi binding ACL")
