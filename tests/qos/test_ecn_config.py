@@ -213,7 +213,7 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                         age_quant_len = len(voq_drop_data[0][1])
 
                 if voq_mark_data:
-                    # Validate the per-cell ECN mark probabilities stored in voq_mark_prob_g 
+                    # Validate the per-cell ECN mark probabilities stored in voq_mark_prob_g
                     # depending on what is exposed by the asic.
                     wm_prob = data.get("wm_prob")
                     mark_list = data.get("mark_list")
