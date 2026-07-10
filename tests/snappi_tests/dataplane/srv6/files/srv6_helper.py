@@ -1,7 +1,6 @@
 import collections
 import re
 import logging
-# from rich import print as pr
 
 from snappi_tests.dataplane.files.helper import get_autoneg_fec, get_macs
 
@@ -256,10 +255,10 @@ def display_topology(data, conn_graph_facts, Common_vars):
             logger.info(f'\t   - My-SIDs: {Common_vars.config_data[spine.name]["my_sids"]}')
 
             # Get links to Core
-            display_leaves(data, spine.connections)
+            display_leaves(data, spine.connections, Common_vars)
     else:
         # no spines: show every leaf directly
-        display_leaves(data, None)
+        display_leaves(data, None, Common_vars)
 
 
 def display_leaves(data, connections, Common_vars):
