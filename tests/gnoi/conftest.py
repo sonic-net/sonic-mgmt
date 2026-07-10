@@ -7,15 +7,18 @@ mTLS gRPC directly to the DUT's gNOI server on the management IP. There is no
 PTF hop and no in-repo stub generation.
 
 The ``sonic_grpc`` package is provided by a standalone wheel (built from
-sonic-buildimage ``src/sonic-grpc``). Tests are skipped at the symbol level
-when it is not installed, so the suite merges dark and lights up once the wheel
-ships in docker-sonic-mgmt.
+sonic-buildimage ``src/sonic-grpc``) and must be present in the sonic-mgmt
+image. It is imported directly (not guarded), so a missing wheel is a hard
+collection error for this suite rather than a silent skip.
 """
 import logging
 import os
 import shutil
 
+import grpc
 import pytest
+
+from sonic_grpc.gnoi import GnoiClient, system_pb2
 
 from tests.common.cert_utils import create_gnmi_cert_generator
 from tests.common.grpc_config import grpc_config
@@ -69,12 +72,6 @@ def gnoi_client(duthosts, rand_one_dut_hostname):
     critical processes + clean up certs.
     """
     duthost = duthosts[rand_one_dut_hostname]
-
-    # Symbol-level skip guard: the client + its file stubs come from the
-    # standalone sonic-grpc wheel, which may not be installed in the image yet.
-    grpc = pytest.importorskip("grpc")
-    pytest.importorskip("sonic_grpc.gnoi.file_pb2_grpc")
-    from sonic_grpc.gnoi import GnoiClient, system_pb2
 
     create_checkpoint(duthost, CHECKPOINT_NAME)
 

@@ -6,6 +6,8 @@ import time
 
 import pytest
 
+from sonic_grpc.gnoi import system_pb2
+
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,6 @@ pytestmark = [
 
 def test_gnoi_system_time(gnoi_client):
     """gNOI System.Time returns a plausible current timestamp (ns since epoch)."""
-    from sonic_grpc.gnoi import system_pb2
-
     response = gnoi_client.system.Time(system_pb2.TimeRequest(), timeout=10)
 
     now_ns = time.time() * 1e9

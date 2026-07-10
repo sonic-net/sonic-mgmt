@@ -9,6 +9,8 @@ import logging
 
 import pytest
 
+from sonic_grpc.gnoi import file_pb2
+
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,6 @@ pytestmark = [
 
 def test_gnoi_file_stat(gnoi_client):
     """gNOI File.Stat on a known DUT file returns a typed stat entry."""
-    from sonic_grpc.gnoi import file_pb2
-
     path = "/etc/hostname"
     response = gnoi_client.file.Stat(file_pb2.StatRequest(path=path), timeout=10)
 
