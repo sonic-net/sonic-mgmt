@@ -259,8 +259,7 @@ def get_queue_to_dscp_mapping(duthost, ingress_port, egress_ports, tc_list):
     dscp_to_tc_map_str = \
         duthost.shell(f"{sonic_db_cli} CONFIG_DB HGETALL 'DSCP_TO_TC_MAP|{dscp_to_tc_table}'")["stdout"].strip()
     dscp_to_tc_map = ast.literal_eval(dscp_to_tc_map_str)
-    dscp_to_tc_map = {int(dscp): int(tc) for dscp, tc in ast.literal_eval(dscp_to_tc_map_str).items()
-                      if int(tc) in tc_list}
+    dscp_to_tc_map = {int(dscp): int(tc) for dscp, tc in dscp_to_tc_map.items() if int(tc) in tc_list}
     queue_to_dscp = {}  # Each queue will be mapped to a list of DSCP values
     for dscp, tc in dscp_to_tc_map.items():
         queue = tc_to_queue.get(tc)
