@@ -108,7 +108,7 @@ class TestBmcctldDaemon:
             startup_lines.extend(lines)
         startup = "\n".join(startup_lines)
         if startup:
-            logger.info(f"bmcctld startup path (event.log):\n{startup}")
+            logger.info(f"bmcctld startup path (event.log)\n{startup}")
         else:
             logger.info(f"No bmcctld STARTUP entries found in {BMC_EVENT_LOG} since reboot")
 
@@ -287,7 +287,7 @@ class TestBmcctldDaemon:
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        logger.info(f"Event logging confirmed: {logged}; not detected: {not_logged}")
+        logger.info(f"Event logging confirmed: {logged}, not detected: {not_logged}")
         pytest_assert(
             any(trigger_results.values()),
             f"bmcctld did not log any event after HSET on: {list(trigger_results.keys())}"
@@ -448,7 +448,7 @@ class TestBmcctldDaemon:
                 pytest.skip(f"PDU controller not available for switch chassis "
                             f"{switch_host.hostname}: {e}")
             if not pdu_ctrl:
-                pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname}; "
+                pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname}, "
                             "skipping power-loss scenario")
 
             outlets = pdu_ctrl.get_outlet_status()
@@ -475,7 +475,7 @@ class TestBmcctldDaemon:
             for lines in (b_result.get("match_messages") or {}).values():
                 b_lines.extend(lines)
             journal_b = "\n".join(b_lines)
-            logger.info(f"Scenario B (BMC power-loss) event.log entries:\n{journal_b}")
+            logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
 
             poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
