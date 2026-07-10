@@ -92,8 +92,9 @@ def test_gnoi_oras_pull_basic_auth(duthosts, rand_one_dut_hostname, gnmi_tls):  
 
     # -- Step 1: Call the Pull RPC ----------------------------------------
     logger.info(
-        f"Pulling {ORAS_REGISTRY}/{ORAS_REPOSITORY}:{ORAS_TAG} "
-        f"-> {ORAS_LOCAL_PATH}"
+        "Pulling {}/{}:{} -> {}".format(
+            ORAS_REGISTRY, ORAS_REPOSITORY, ORAS_TAG, ORAS_LOCAL_PATH
+        )
     )
 
     responses = gnmi_tls.gnoi.oras_pull(
@@ -137,7 +138,7 @@ def test_gnoi_oras_pull_basic_auth(duthosts, rand_one_dut_hostname, gnmi_tls):  
     layer_digest = result.get("layerDigest", "")
     pytest_assert(
         layer_digest.startswith("sha256:"),
-        f"Expected layer_digest to start with 'sha256:', got: {layer_digest}"
+        "Expected layer_digest to start with 'sha256:', got: {}".format(layer_digest)
     )
 
     bytes_written = int(result.get("bytesWritten", 0))
