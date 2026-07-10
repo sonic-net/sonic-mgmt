@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('t0', 't1', 't2')]
 
 ACL_TABLE_NAME = "ECN_TEST"
-ACL_TABLE_TYPE = "ECN_TEST_TYPE"
 ACL_RULE_NAME = "MARK_UDP_5000"
 UDP_SPORT = 5000
 UDP_DPORT = 6000
@@ -54,24 +53,17 @@ def setup_ecn(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     fam, ing, egr = _discover_uplinks(duthost, tbinfo)
     router_mac = duthost.facts['router_mac']
-    ip_match = "SRC_IPV6" if fam == 'ipv6' else "SRC_IP"
 
-    # Use a custom ACL table type that explicitly declares the ECN action.
-    # This works on every platform, including those where the built-in L3
-    # table action list is mandatory at creation (e.g. Broadcom); COUNTER is
-    # included because a per-rule counter is created by default.
+    # Use a built-in L3 / L3V6 table so orchagent handles the platform
+    # difference itself: on a platform with a mandatory action list it seeds
+    # SET_ECN from defaultAclActionList (exercising that fix); elsewhere the
+    # action is accepted directly. No custom table type is needed.
+    acl_table_type = "L3V6" if fam == 'ipv6' else "L3"
     cfg = {
-        "ACL_TABLE_TYPE": {
-            ACL_TABLE_TYPE: {
-                "MATCHES": [ip_match, "L4_SRC_PORT"],
-                "ACTIONS": ["PACKET_ACTION", "ECN_ACTION", "COUNTER"],
-                "BIND_POINTS": ["PORT"],
-            }
-        },
         "ACL_TABLE": {
             ACL_TABLE_NAME: {
                 "policy_desc": "ECN marking test",
-                "type": ACL_TABLE_TYPE,
+                "type": acl_table_type,
                 "stage": "ingress",
                 "ports": [ing['port']],
             }
@@ -101,8 +93,6 @@ def setup_ecn(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     duthost.shell("redis-cli -n 4 DEL 'ACL_RULE|{}|{}'".format(ACL_TABLE_NAME, ACL_RULE_NAME),
                   module_ignore_errors=True)
     duthost.shell("redis-cli -n 4 DEL 'ACL_TABLE|{}'".format(ACL_TABLE_NAME),
-                  module_ignore_errors=True)
-    duthost.shell("redis-cli -n 4 DEL 'ACL_TABLE_TYPE|{}'".format(ACL_TABLE_TYPE),
                   module_ignore_errors=True)
     duthost.shell("rm -f /tmp/ecn_acl.json", module_ignore_errors=True)
 
