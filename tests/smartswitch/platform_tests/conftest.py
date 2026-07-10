@@ -13,9 +13,11 @@ from tests.smartswitch.common.device_utils_dpu import (  # noqa: F401
     check_dpu_module_status,
     check_dpu_ready_state,
     dpus_startup_and_check,
+    get_dpu_auto_recovery,
     get_dpuhost_for_dpu,
     num_dpu_modules,
     set_dpu_auto_recovery,
+    unset_dpu_auto_recovery,
     DPU_AUTO_RECOVERY_ENABLE,
     DPU_MAX_ONLINE_TIMEOUT,
     DPU_READY_AFTER_RECOVERY_TIMEOUT,
@@ -71,7 +73,8 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
             testable_dpus.append(f"DPU{dpu_id}")
     pt_assert(testable_dpus, "No DPUs available in dpuhosts")
 
-    # Enable DPU auto-recovery so chassisd recovers failed DPUs back to ready.
+    # Enable auto-recovery so chassisd recovers failed DPUs; save original for teardown.
+    original_auto_recovery = get_dpu_auto_recovery(duthost)
     set_dpu_auto_recovery(duthost, DPU_AUTO_RECOVERY_ENABLE)
 
     # Bring up any admin-down DPUs
@@ -124,6 +127,13 @@ def prepare_testable_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     # Teardown: reset chassisd DPU recovery state so tests are order-independent;
     # runs even if the test body raised. Best-effort (see helper).
     _reset_dpu_recovery_state(duthost, dpuhosts, testable_dpus)
+
+    # Restore auto-recovery exactly: re-apply the original value, or delete the
+    # field if it was unset before the fixture enabled it.
+    if original_auto_recovery:
+        set_dpu_auto_recovery(duthost, original_auto_recovery)
+    else:
+        unset_dpu_auto_recovery(duthost)
 
 
 @pytest.fixture(autouse=True)
