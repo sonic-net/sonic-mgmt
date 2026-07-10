@@ -31,6 +31,11 @@ REL_DEPLOYMENT_TEMPLATES_FILE = os.path.join(REL_TEMPLATES_DIR, 'deployment_temp
 SHARD_VENDORS_DIR = os.path.join('transceivers', 'vendors')
 SHARD_PART_NUMBERS_SEGMENT = 'part_numbers'
 
+# CDB firmware upgrade category files
+CDB_FIRMWARE_UPGRADE_CATEGORY = 'cdb_firmware_upgrade'
+CDB_FIRMWARE_UPGRADE_MANIFEST_FILE = 'cdb_firmware_upgrade_manifest.json'
+CDB_FIRMWARE_UPGRADE_URL_FILE = 'cdb_firmware_upgrade_url.json'
+
 
 def get_repo_root():
     """Get the repository root directory as a Path object.

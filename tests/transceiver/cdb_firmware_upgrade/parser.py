@@ -3,13 +3,15 @@ import json
 import logging
 import os
 
-from tests.transceiver.attribute_parser.paths import REL_ATTR_DIR, iter_vendor_pn_dirs
+from tests.transceiver.attribute_parser.paths import (
+    REL_ATTR_DIR,
+    iter_vendor_pn_dirs,
+    CDB_FIRMWARE_UPGRADE_CATEGORY,
+    CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+    CDB_FIRMWARE_UPGRADE_URL_FILE,
+)
 
 logger = logging.getLogger(__name__)
-
-CDB_FIRMWARE_UPGRADE_MANIFEST_FILE = "cdb_firmware_upgrade_manifest.json"
-CDB_FIRMWARE_UPGRADE_URL_FILE = "cdb_firmware_upgrade_url.json"
-CDB_FIRMWARE_UPGRADE_CATEGORY = "cdb_firmware_upgrade"
 
 
 class TransceiverFirmwareInfoParser:

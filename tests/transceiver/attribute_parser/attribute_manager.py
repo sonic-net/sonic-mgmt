@@ -69,6 +69,9 @@ from .paths import (
     REL_NORMALIZATION_MAPPINGS_FILE,
     SHARD_VENDORS_DIR,
     SHARD_PART_NUMBERS_SEGMENT,
+    CDB_FIRMWARE_UPGRADE_CATEGORY,
+    CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+    CDB_FIRMWARE_UPGRADE_URL_FILE,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,9 +88,9 @@ _CATEGORY_TOP_KEYS = frozenset({'mandatory', 'defaults', 'dut', 'transceivers'})
 
 # Per-category files inside a category directory that are not attribute shards
 CATEGORY_NON_SHARD_FILES = {
-    "cdb_firmware_upgrade": frozenset({
-        "cdb_firmware_upgrade_manifest.json",
-        "cdb_firmware_upgrade_url.json",
+    CDB_FIRMWARE_UPGRADE_CATEGORY: frozenset({
+        CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+        CDB_FIRMWARE_UPGRADE_URL_FILE,
     }),
 }
 

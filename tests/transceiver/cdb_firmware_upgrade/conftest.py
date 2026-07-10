@@ -1,5 +1,4 @@
 import logging
-import os
 
 import pytest
 
@@ -22,8 +21,6 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="session")
 def transceiver_firmware_info_parser():
     repo_root = get_repo_root()
-    if not os.path.exists(repo_root):
-        pytest.fail("Repository root does not exist, please check the path: {}".format(repo_root))
     firmware_info_parser = TransceiverFirmwareInfoParser(repo_root)
 
     if not firmware_info_parser.transceiver_firmware_info:
