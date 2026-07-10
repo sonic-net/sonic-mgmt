@@ -30,6 +30,17 @@ System requirements:
 2. Enough free disk space (at least 2-4 GB free).
 3. `sudo`/root privileges.
 
+> **Account & permission model (read first).** Run every step in this guide as
+> the *same* regular Linux account that is a member of the `sudo` group, using
+> `sudo` for privileged commands — not as `root` directly. During the upgrade
+> you may still be prompted for the sudo password; passwordless sudo
+> (`NOPASSWD`, restored in
+> [post-upgrade check (a)](#a-ensure-passwordless-sudo-nopasswd)) is what the
+> testbed *automation* needs afterwards, and is **not** required to perform the
+> upgrade itself. Keeping one consistent account throughout is why the config
+> prompts above recommend preserving host-specific `sudoers`/SSH files: it
+> ensures the restored permission model matches what the automation expects.
+
 ## Upgrade Steps
 
 ### 1. Fully update the current system
@@ -69,12 +80,24 @@ Prompt=lts
 
 ### 3. Pre-upgrade checks
 
-**Record the 100G port renaming rules.** Capture the existing udev rules before
-the upgrade so you can restore them afterwards if they are lost:
+**Back up the 100G port renaming rules (and other host-specific config).**
+A release upgrade can remove or overwrite these files, so capture their *actual
+contents* — not just a directory listing — before you start, so the recovery
+steps have something to restore from:
 
 ```bash
-sudo ls /etc/udev/rules.d
+# Copy the real udev rule files (preserving names/permissions) into a backup dir
+sudo mkdir -p ~/testbed-preupgrade-backup/udev-rules.d
+sudo cp -a /etc/udev/rules.d/. ~/testbed-preupgrade-backup/udev-rules.d/
+
+# Optional: also print them so the exact rules are recorded in your session log
+for f in /etc/udev/rules.d/*.rules; do echo "== $f =="; sudo cat "$f"; done
 ```
+
+It is good practice to back up the other host-specific files the same way
+(so they can be diffed/restored after the upgrade), for example
+`/etc/netplan/`, `/etc/sudoers` and `/etc/sudoers.d/`, and
+`/etc/ssh/sshd_config`.
 
 ### 4. Start the upgrade
 
@@ -83,8 +106,24 @@ sudo do-release-upgrade
 ```
 
 - For any prompt to update a package or restart a service, choose **yes**.
-- For any prompt asking whether to keep the current config file or use the
-  maintainer's version, choose the **maintainer's version**.
+- For any prompt asking whether to keep the currently-installed config file or
+  install the package maintainer's version, **decide per file** instead of
+  applying one answer to everything. At the prompt: `N`/`O` keeps your current
+  file (this is the default), `Y`/`I` installs the maintainer's version, and `D`
+  shows the diff between the two.
+  - **Host-specific / testbed config** — e.g. `sudoers` and `/etc/sudoers.d/*`,
+    SSH (`/etc/ssh/sshd_config`), `netplan`, and the udev net-naming rules
+    (`/etc/udev/rules.d/*`): **keep your currently-installed version** (`N`), or
+    press `D` and merge the changes intentionally. Blindly taking the
+    maintainer's version here can overwrite host-specific settings and break
+    testbed automation or remote recovery after the reboot. Restore anything you
+    lose from the [pre-upgrade backup](#3-pre-upgrade-checks).
+  - **Generic config you have *not* customized**: prefer the **maintainer's
+    version** (`Y`) so you pick up upstream fixes — keeping a stale local copy of
+    a security-relevant file (SSH/PAM defaults, etc.) can leave a known
+    vulnerability unpatched.
+  - **When unsure**, press `D` to review the diff first, then choose based on
+    whether the file carries host-specific customizations.
 
 ### 5. Reboot and verify the version
 
@@ -149,7 +188,16 @@ Check whether the 100G port renaming rule is still present after the upgrade:
 sudo ls /etc/udev/rules.d
 ```
 
-If the rule is missing, re-add it. For a Mellanox 100G NIC:
+If the rule is missing, the quickest fix is to restore it from the
+[pre-upgrade backup](#3-pre-upgrade-checks):
+
+```bash
+sudo cp -a ~/testbed-preupgrade-backup/udev-rules.d/. /etc/udev/rules.d/
+sudo reboot
+```
+
+If you do not have a backup, re-create the rule manually. For a Mellanox 100G
+NIC:
 
 1. Get the PCI IDs:
 
