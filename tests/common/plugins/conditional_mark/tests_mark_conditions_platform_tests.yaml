@@ -1088,12 +1088,6 @@ platform_tests/daemon/test_pcied.py:
     conditions:
       - "platform in ['arm64-elba-asic-flash128-r0']"
 
-platform_tests/daemon/test_thermalctld.py::TestThermalctldDaemon::test_thermalctld_leak_status:
-  skip:
-    reason: "Improperly handled redis db result"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/25760
-
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
