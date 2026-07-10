@@ -1,4 +1,5 @@
 import binascii
+import shlex
 import logging
 import pytest
 import time
@@ -142,9 +143,10 @@ def get_wol_poll_duration(count=None, interval=None):
 
 
 def run_wol_async(duthost, cmd):
-    duthost.shell(
-        ("rm -f /tmp/wol_async_rc; nohup bash -lc '{}; echo $? > /tmp/wol_async_rc' "
-         ">/tmp/wol_async.log 2>&1 &").format(cmd))
+    # shlex.quote keeps cmd intact even if it ever contains shell metacharacters.
+    inner = "{}; echo $? > /tmp/wol_async_rc".format(cmd)
+    duthost.shell("rm -f /tmp/wol_async_rc; nohup bash -lc {} >/tmp/wol_async.log 2>&1 &".format(
+        shlex.quote(inner)))
 
 
 def verify_wol_async_done(duthost):
