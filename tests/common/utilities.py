@@ -685,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:

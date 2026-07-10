@@ -587,7 +587,7 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
     dst_ips = []
     for selected_test_port in selected_test_ports:
         selected_test_port_info = test_ports_info[selected_test_port]
-        if type(selected_test_port_info["rx_port_id"]) == list:
+        if isinstance(selected_test_port_info["rx_port_id"], list):
             src_ports.append(selected_test_port_info["rx_port_id"][0])
         else:
             src_ports.append(selected_test_port_info["rx_port_id"])
@@ -934,7 +934,7 @@ def send_tx_egress(traffic_inst, action, verify, async_mode=False, pkt_count=Non
     that the expected PFC watchdog action (forward/drop) is observed on egress."""
     logger.info("Check for egress {} on Tx port {} (verify={})".format(action, traffic_inst.pfc_wd_test_port, verify))
     dst_port = "[" + str(traffic_inst.pfc_wd_test_port_id) + "]"
-    if action == "forward" and type(traffic_inst.pfc_wd_test_port_ids) == list:
+    if action == "forward" and isinstance(traffic_inst.pfc_wd_test_port_ids, list):
         dst_port = "".join(str(traffic_inst.pfc_wd_test_port_ids)).replace(',', '')
     ptf_params = {'router_mac': traffic_inst.router_mac,
                   'vlan_mac': traffic_inst.vlan_mac,
