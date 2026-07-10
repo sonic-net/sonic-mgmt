@@ -46,6 +46,7 @@ def _discover_uplinks(duthost, tbinfo):
                         fam, cand[fam][0], cand[fam][1])
             return fam, cand[fam][0], cand[fam][1]
     pytest.skip("No two routed uplink ports with neighbors found for ECN DP test")
+    return None
 
 
 @pytest.fixture(scope="module")
