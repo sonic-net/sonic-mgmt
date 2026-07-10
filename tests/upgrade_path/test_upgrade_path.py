@@ -19,7 +19,6 @@ from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.fixtures.advanced_reboot import ErrorType, set_upgrade_path_error_result_custom_msg
 
 
-
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),
