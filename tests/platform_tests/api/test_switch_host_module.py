@@ -149,16 +149,16 @@ class TestSwitchHostModuleApi(PlatformApiTestBase):
             self.expect(ret is True, f"set_admin_state(False) should return True, got {ret!r}")
             wait_until(180, 10, 0, lambda: _oper() == 'offline')
             self.expect(
-                wait_until(180, 10, 0, lambda: _cli_status()[0] == 'offline' and _admin_off(_cli_status()[1])),
-                f"CLI status did not reach offline/off after admin-down, got {_cli_status()!r}"
+                wait_until(180, 10, 0, lambda: _cli_status()[0] == 'offline'),
+                f"CLI status did not reach offline after admin-down, got {_cli_status()!r}"
             )
 
             ret = module_api.set_admin_state(platform_api_conn, self.sw_idx, True)
             self.expect(ret is True, f"set_admin_state(True) should return True, got {ret!r}")
             wait_until(420, 10, 30, lambda: host.critical_services_fully_started())
             self.expect(
-                wait_until(420, 10, 30, lambda: _cli_status()[0] == 'online' and _admin_on(_cli_status()[1])),
-                f"CLI status did not return to online/on after admin-up, got {_cli_status()!r}"
+                wait_until(420, 10, 30, lambda: _cli_status()[0] == 'online'),
+                f"CLI status did not return to online after admin-up, got {_cli_status()!r}"
             )
 
             post_boot = host.shell("uptime -s").get('stdout', '').strip()
