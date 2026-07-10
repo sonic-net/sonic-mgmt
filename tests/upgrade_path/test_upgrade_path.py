@@ -16,6 +16,8 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # noqa:
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # noqa: F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
 from tests.common.reboot import REBOOT_TYPE_COLD
+from tests.common.fixtures.advanced_reboot import ErrorType, set_upgrade_path_error_result_custom_msg
+
 
 
 pytestmark = [
@@ -47,17 +49,24 @@ def upgrade_path_lists(request):
     return upgrade_type, from_list, to_list, restore_to_image, enable_cpa
 
 
-def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+def setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                        upgrade_type, modify_reboot_script=None, allow_fail=False):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
-    if tbinfo['topo']['type'] != 't2':  # We do this all at once seperately for T2
-        cleanup_prev_images(duthost)
-        # Install base image
-        boot_into_base_image(duthost, localhost, from_image, tbinfo)
-
+    try:
+        if tbinfo['topo']['type'] != 't2':  # We do this all at once seperately for T2
+            cleanup_prev_images(duthost)
+            # Install base image
+            boot_into_base_image(duthost, localhost, from_image, tbinfo)
+    except Exception:
+        set_upgrade_path_error_result_custom_msg(request, ErrorType.BOOT_INTO_BASE_IMAGE_FAILED)
+        raise
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
-    install_sonic(duthost, to_image, tbinfo)
+    try:
+        install_sonic(duthost, to_image, tbinfo)
+    except Exception:
+        set_upgrade_path_error_result_custom_msg(request, ErrorType.INSTALL_TARGET_IMAGE_FAILED)
+        raise
 
     if allow_fail and modify_reboot_script:
         # add fail step to reboot script
@@ -74,7 +83,7 @@ def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
 
     def upgrade_path_preboot_setup():
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+        setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -96,7 +105,7 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
 
     def upgrade_path_preboot_setup():
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+        setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -120,7 +129,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
     def upgrade_path_preboot_setup(dut):
-        setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
+        setup_upgrade_test(request, dut, localhost, from_image, to_image, tbinfo, upgrade_type)
 
     def upgrade_path_postboot_setup(dut):
         dut.shell("config bgp startup all")
@@ -168,7 +177,7 @@ def test_upgrade_path_t2_delayed(localhost, duthosts, ptfhost, upgrade_path_list
     boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
     def upgrade_path_preboot_setup(dut):
-        setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
+        setup_upgrade_test(request, dut, localhost, from_image, to_image, tbinfo, upgrade_type)
 
     def upgrade_path_postboot_setup(dut):
         dut.shell("config bgp startup all")
@@ -223,7 +232,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
 
     def upgrade_path_preboot_setup():
-        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+        setup_upgrade_test(request, duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
     sad_preboot_list, sad_inboot_list = get_sad_case_list(

@@ -653,8 +653,11 @@ def _validate_json_metadata(test_result_json):
 
         seen_properties.append(prop)
 
-    if set(seen_properties) < set(REQUIRED_METADATA_PROPERTIES):
-        raise TestResultJSONValidationError("missing metadata element(s)")
+    missing_props = sorted(set(REQUIRED_METADATA_PROPERTIES) - set(seen_properties))
+    if missing_props:
+        raise TestResultJSONValidationError(
+            "missing metadata element(s): {}".format(missing_props)
+        )
 
 
 def _validate_json_summary(test_result_json):
