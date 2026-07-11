@@ -252,18 +252,42 @@ class TestBmcctldDaemon:
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status='CRITICAL')
                 logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
-                wait_host_on(host)
+                pytest_assert(wait_host_off(host, delay=5), "Switch-Host did not power-off in Trigger 2b")
+                redis_hset(self.duthost, STATE_DB,
+                           f'{SYSTEM_LEAK_STATUS_TABLE}|system',
+                           device_leak_status=orig_leak)
+                # WA shutdown to make sure to clear the oper_status
+                pytest_assert(self.duthost.shell(
+                    "config chassis modules shutdown SWITCH-HOST",
+                    module_ignore_errors=True
+                )["stdout"].strip() == "Shutting down chassis module SWITCH-HOST",
+                "Failed to command shutdown Switch-Host")
+                pytest_assert(self.duthost.shell(
+                    "config chassis modules startup SWITCH-HOST",
+                    module_ignore_errors=True
+                )["stdout"].strip() == "Starting up chassis module SWITCH-HOST",
+                "Failed to command startup Switch-Host")
+                pytest_assert(wait_host_on(host), "Switch-Host did not power-on in Trigger 2b")
                 verify_bmc_initiated_reboot(host, pre_boot)
                 trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
             finally:
+                redis_del(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|system')
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
                 # Best-effort recovery if Switch-Host did not auto-power-on.
-                self.duthost.shell(
-                    "config chassis modules startup SWITCH-HOST",
-                    module_ignore_errors=True
-                )
+                if wait_host_off(host, delay=5):
+                    # shutdown to make sure to clear the oper_status
+                    self.duthost.shell(
+                        "config chassis modules shutdown SWITCH-HOST",
+                        module_ignore_errors=True
+                    )
+                    pytest_assert(self.duthost.shell(
+                        "config chassis modules startup SWITCH-HOST",
+                        module_ignore_errors=True
+                    )["stdout"].strip() == "Starting up chassis module SWITCH-HOST",
+                    "Failed to command startup Switch-Host in best-effort recovery")
+                pytest_assert(wait_host_on(host), "Switch-Host did not power-on after Trigger 2b")
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -386,8 +410,18 @@ class TestBmcctldDaemon:
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
-                self.duthost.shell("config chassis modules startup SWITCH-HOST",
-                                   module_ignore_errors=True)
+                if wait_host_off(host, delay=5):
+                    # shutdown to make sure to clear the oper_status
+                    self.duthost.shell(
+                        "config chassis modules shutdown SWITCH-HOST",
+                        module_ignore_errors=True
+                    )
+                    pytest_assert(self.duthost.shell(
+                        "config chassis modules startup SWITCH-HOST",
+                        module_ignore_errors=True
+                    )["stdout"].strip() == "Starting up chassis module SWITCH-HOST",
+                    "Failed to command startup Switch-Host after critical leak blocking POWER_ON")
+                pytest_assert(wait_host_on(host), "Switch-Host did not power-on after critical leak blocking POWER_ON")
 
         # --- Scenario 5: Unknown command rejected without dispatching power action ---
         # Handler logs "Unknown Rack Manager command: ..." and sets status=FAILED; paired Switch-Host must stay up.
