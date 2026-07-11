@@ -1190,3 +1190,9 @@ acl/test_acl.py::TestIncrementalAcl::test_udp_source_ip_match_dropped[ipv6-egres
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8639
+
+acl/test_ecn_acl.py:
+  skip:
+    reason: "ECN ACL marking (SAI SET_ECN) is validated on th5/th6/spc5/spc6; skip on other ASIC generations (incl. KVM)"
+    conditions:
+      - "asic_gen not in ['th5', 'th6', 'spc5', 'spc6']"
