@@ -267,7 +267,7 @@ class SendVerifyTraffic():
         on the number of ports. Send extra in case of imperfect hashing.
         """
         factor = 1
-        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
+        num_dst_ports = 1 if not isinstance(self.pfc_wd_test_port_ids, list) else len(self.pfc_wd_test_port_ids)
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
@@ -281,7 +281,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
