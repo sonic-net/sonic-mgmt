@@ -45,9 +45,9 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,  # noqa F401
                                       sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID # noqa F401
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID  # noqa F401
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
@@ -3000,7 +3000,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.clients)
         initialize_diag_counter(self)
         last_pfc_counter = 0  # noqa F841
-        recv_port_counters = [] # noqa F841
+        recv_port_counters = []  # noqa F841
         transmit_port_counters = []  # noqa F841
 
         # Parse input parameters
@@ -5393,7 +5393,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 print("Did not find a second flow in mode '{}'".format(
                     self.flow_config), file=sys.stderr)
-                assert self.flow_config == "shared",\
+                assert self.flow_config == "shared", \
                     "Failed to find a flow that uses a second queue despite being in mode '{}'"\
                     .format(self.flow_config)
             # Cleanup for multi-flow test
@@ -7219,7 +7219,7 @@ class FullMeshTrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def config_traffic(self, dst_port_id, dscp, ecn_bit):
-        if type(ecn_bit) == bool:
+        if isinstance(ecn_bit, bool):
             ecn_bit = 1 if ecn_bit else 0
         self.dscp = dscp
         self.dst_port_id = dst_port_id

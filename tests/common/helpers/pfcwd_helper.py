@@ -523,7 +523,7 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
     dst_ips = []
     for selected_test_port in selected_test_ports:
         selected_test_port_info = test_ports_info[selected_test_port]
-        if type(selected_test_port_info["rx_port_id"]) == list:
+        if isinstance(selected_test_port_info["rx_port_id"], list):
             src_ports.append(selected_test_port_info["rx_port_id"][0])
         else:
             src_ports.append(selected_test_port_info["rx_port_id"])

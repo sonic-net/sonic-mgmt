@@ -321,7 +321,7 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 "vlan_mac": upstream_vlan_mac,
                 "src_port": downstream_ports[0],
                 # DUT whose downstream are servers doesn't have lag connect to server
-                "src_port_lag_name": "Not Applicable" \
+                "src_port_lag_name": "Not Applicable"
                 if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name[0],
                 "src_port_ptf_id": str(mg_facts_list[0]["minigraph_ptf_indices"][downstream_ports[0]]),
                 "dest_port": upstream_dest_ports,
@@ -792,7 +792,7 @@ class BaseEverflowTest(object):
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
             # Skip IPv6 mirror session due to issue #19096
-            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6:  # noqa E501
                 pytest.skip("Skip IPv6 mirror session on unsupported platforms")
 
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
