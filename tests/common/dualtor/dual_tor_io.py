@@ -588,7 +588,7 @@ class DualTorIO:
         # filter to filter out all the packets destined to the PTF backplane interface.
         output = self.ptfhost.shell('cat /sys/class/net/backplane/address',
                                     module_ignore_errors=True)
-        if not output['failed']:
+        if not output.get('failed', False):
             ptf_bp_mac = output['stdout']
             self.sniff_filter = '({}) and (not ether dst {})'.format(self.sniff_filter, ptf_bp_mac)
 

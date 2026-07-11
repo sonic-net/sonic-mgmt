@@ -128,6 +128,9 @@ tests/transceiver/
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
 │   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
 │   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
