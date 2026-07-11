@@ -48,8 +48,9 @@ def _discover_uplinks(duthost, tbinfo):
     return None
 
 
-@pytest.fixture(scope="module")
-def setup_ecn(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+@pytest.fixture(scope="module", params=["operator", "configdb"])
+def setup_ecn(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    apply_method = request.param
     duthost = duthosts[rand_one_dut_hostname]
     fam, ing, egr = _discover_uplinks(duthost, tbinfo)
     router_mac = duthost.facts['router_mac']
@@ -59,25 +60,31 @@ def setup_ecn(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     # SET_ECN from defaultAclActionList (exercising that fix); elsewhere the
     # action is accepted directly. No custom table type is needed.
     acl_table_type = "L3V6" if fam == 'ipv6' else "L3"
-    cfg = {
-        "ACL_TABLE": {
-            ACL_TABLE_NAME: {
-                "policy_desc": "ECN marking test",
-                "type": acl_table_type,
-                "stage": "ingress",
-                "ports": [ing['port']],
-            }
-        },
-        "ACL_RULE": {
-            "{}|{}".format(ACL_TABLE_NAME, ACL_RULE_NAME): {
-                "PRIORITY": "9990",
-                "L4_SRC_PORT": str(UDP_SPORT),
-                "ECN_ACTION": "3",
-            }
-        },
+    table_val = {
+        "policy_desc": "ECN marking test",
+        "type": acl_table_type,
+        "stage": "ingress",
+        "ports": [ing['port']],
     }
-    duthost.copy(content=json.dumps(cfg), dest="/tmp/ecn_acl.json")
-    duthost.shell("sudo sonic-cfggen -j /tmp/ecn_acl.json --write-to-db")
+    rule_key = "{}|{}".format(ACL_TABLE_NAME, ACL_RULE_NAME)
+    rule_val = {"PRIORITY": "9990", "L4_SRC_PORT": str(UDP_SPORT), "ECN_ACTION": "3"}
+
+    logger.info("Applying ECN ACL config via '%s' path", apply_method)
+    if apply_method == "operator":
+        # Operator path: create the table with the CLI, then add the ECN rule
+        # with a GCU patch. config apply-patch runs YANG validation, so this
+        # also exercises the sonic-acl YANG ECN_ACTION leaf end to end.
+        duthost.shell("sudo config acl add table {} {} --stage ingress --ports {}".format(
+            ACL_TABLE_NAME, acl_table_type, ing['port']))
+        patch = [{"op": "add", "path": "/ACL_RULE/{}".format(rule_key), "value": rule_val}]
+        duthost.copy(content=json.dumps(patch), dest="/tmp/ecn_patch.json")
+        duthost.shell("sudo config apply-patch /tmp/ecn_patch.json")
+    else:
+        # Direct CONFIG_DB write: isolates orchagent / data-plane behaviour from
+        # YANG and GCU, so a failure here points at the ASIC path, not validation.
+        cfg = {"ACL_TABLE": {ACL_TABLE_NAME: table_val}, "ACL_RULE": {rule_key: rule_val}}
+        duthost.copy(content=json.dumps(cfg), dest="/tmp/ecn_acl.json")
+        duthost.shell("sudo sonic-cfggen -j /tmp/ecn_acl.json --write-to-db")
     time.sleep(3)
 
     yield {
@@ -94,7 +101,7 @@ def setup_ecn(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                   module_ignore_errors=True)
     duthost.shell("redis-cli -n 4 DEL 'ACL_TABLE|{}'".format(ACL_TABLE_NAME),
                   module_ignore_errors=True)
-    duthost.shell("rm -f /tmp/ecn_acl.json", module_ignore_errors=True)
+    duthost.shell("rm -f /tmp/ecn_acl.json /tmp/ecn_patch.json", module_ignore_errors=True)
 
 
 def test_ecn_acl_control_plane(setup_ecn):
