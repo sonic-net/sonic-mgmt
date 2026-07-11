@@ -560,7 +560,7 @@ class SendVerifyTraffic():
         """
         logger.info("Check for egress {} on Tx port {}".format(action, self.pfc_wd_test_port))
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
+        if action == "forward" and isinstance(self.pfc_wd_test_port_ids, list):
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
@@ -590,7 +590,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
@@ -618,7 +618,7 @@ class SendVerifyTraffic():
         Send traffic on the other PFC queue (not in storm) and verify that the packets get forwarded
         """
         logger.info("Send packets via {} to verify other PFC queue is not affected".format(self.pfc_wd_test_port))
-        if type(self.pfc_wd_test_port_ids) == list:
+        if isinstance(self.pfc_wd_test_port_ids, list):
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_test_port_ids) + " ]"
@@ -652,7 +652,7 @@ class SendVerifyTraffic():
         Send traffic on the other PFC PG (not in storm) and verify that the packets get forwarded
         """
         logger.info("Send packets to {} to verify other PFC pg is not affected".format(self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"

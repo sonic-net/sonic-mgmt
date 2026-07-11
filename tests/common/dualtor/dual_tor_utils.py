@@ -312,7 +312,7 @@ def force_active_tor():
 
     def force_active_tor_fn(dut, intf):
         logger.info('Setting {} as active for intfs {}'.format(dut, intf))
-        if type(intf) == str:
+        if isinstance(intf, str):
             cmds = ["config muxcable mode active {}; true".format(intf)]
             forced_intfs.append((dut, intf))
         else:
@@ -339,7 +339,7 @@ def force_standby_tor():
 
     def force_standby_tor_fn(dut, intf):
         logger.info('Setting {} as standby for intfs {}'.format(dut, intf))
-        if type(intf) == str:
+        if isinstance(intf, str):
             cmds = ["config muxcable mode standby {}; true".format(intf)]
             forced_intfs.append((dut, intf))
         else:
