@@ -3529,7 +3529,10 @@ class QosSaiBase(QosBase):
         out of scope for this PR.
 
         What this DOES cover:
-        - Fanout-self originated LLDP (stopped via container)
+        - Fanout-self originated LLDP, but only when the LLDP container is
+          running before the test. Fanouts where LLDP is already stopped
+          (e.g. Cisco 8101) are left untouched and are NOT restarted on
+          teardown, so the fixture never changes their LLDP state.
 
         What this does NOT cover (limitation, tracked in #24236):
         - VM-originated LLDP/LACP that transits through the SONiC fanout
@@ -3540,29 +3543,42 @@ class QosSaiBase(QosBase):
         - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
         - DUT LLDP/BGP/radvd stopped by stopServices fixture
         """
-        # Stop LLDP container once per fanout (covers fanout-self LLDP).
-        # The 202511 fanout role only stops LLDP for marvell-teralynx;
-        # broadcom SONiC fanouts still run LLDP by default.
-        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
-        # not distinguish "stopped now" from "was already stopped", so the
-        # teardown's symmetric "docker start" will start LLDP even on fanouts
-        # where it was previously off. This is acceptable for the testbeds
-        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
+        # Stop the LLDP container only when it is *currently running*, and
+        # only restart in teardown the fanouts we actually stopped (tracked
+        # via sonic_lldp_stopped). Rationale: on some SONiC fanouts (e.g.
+        # Cisco 8101) LLDP is intentionally kept stopped/disabled; a symmetric
+        # "docker start" in teardown would wrongly turn it back on. Gating on
+        # the live running state means we (a) never start a container that was
+        # already down, and (b) leave such fanouts untouched. On fanouts where
+        # LLDP runs by default (e.g. Broadcom SONiC) behaviour is unchanged:
+        # it is stopped for the test and restored afterwards.
         if fanout_name not in sonic_lldp_stopped:
             try:
-                result = fanout.host.command(
-                    "docker stop lldp", module_ignore_errors=True)
-                if result.get('failed', False) or result.get('rc', 0) != 0:
-                    logger.warning(
-                        "permit_only_test_traffic_on_fanout: "
-                        "docker stop lldp on SONiC %s returned rc=%s, "
-                        "output=%s", fanout_name, result.get('rc', '?'),
-                        result.get('stdout', result.get('stderr', '')))
-                else:
-                    sonic_lldp_stopped.add(fanout_name)
+                running = fanout.host.command(
+                    "docker ps -q --filter name=lldp --filter status=running",
+                    module_ignore_errors=True)
+                lldp_running = (not running.get('failed', False)
+                                and running.get('rc', 0) == 0
+                                and bool((running.get('stdout') or '').strip()))
+                if not lldp_running:
                     logger.info(
-                        "permit_only_test_traffic_on_fanout: stopped lldp "
-                        "container on SONiC %s", fanout_name)
+                        "permit_only_test_traffic_on_fanout: lldp already "
+                        "stopped on SONiC %s; leaving fanout untouched",
+                        fanout_name)
+                else:
+                    result = fanout.host.command(
+                        "docker stop lldp", module_ignore_errors=True)
+                    if result.get('failed', False) or result.get('rc', 0) != 0:
+                        logger.warning(
+                            "permit_only_test_traffic_on_fanout: "
+                            "docker stop lldp on SONiC %s returned rc=%s, "
+                            "output=%s", fanout_name, result.get('rc', '?'),
+                            result.get('stdout', result.get('stderr', '')))
+                    else:
+                        sonic_lldp_stopped.add(fanout_name)
+                        logger.info(
+                            "permit_only_test_traffic_on_fanout: stopped lldp "
+                            "container on SONiC %s", fanout_name)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
