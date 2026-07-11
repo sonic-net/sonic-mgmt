@@ -402,7 +402,6 @@ class HashTest(BaseTest):
         '''
         @summary: Check IPv4 route works.
         '''
-        class_name = self.__class__.__name__
         ip_src = self.src_ip_interval.get_random_ip(
         ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
@@ -451,7 +450,7 @@ class HashTest(BaseTest):
             ip_dst=ip_dst,
             ip_proto=ip_proto
         )
-        if class_name == 'HashTest':
+        if isinstance(self, HashTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
@@ -466,7 +465,6 @@ class HashTest(BaseTest):
         '''
         @summary: Check IPv6 route works.
         '''
-        class_name = self.__class__.__name__
         ip_src = self.src_ip_interval.get_random_ip(
         ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
@@ -517,7 +515,7 @@ class HashTest(BaseTest):
             ip_proto=ip_proto,
             version='IPv6'
         )
-        if class_name == 'HashTest':
+        if isinstance(self, HashTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
