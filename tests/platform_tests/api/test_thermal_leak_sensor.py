@@ -98,8 +98,7 @@ class TestLeakSensorApi(PlatformApiTestBase):
                             f"Sensor {sensor_index} get_leak_severity() returned unexpected "
                             f"object {severity!r}, expected a serialized LeakSeverity")
             elif isinstance(severity, str):
-                self.expect(severity in ('MINOR', 'CRITICAL',
-                                         'LeakSeverity.MINOR', 'LeakSeverity.CRITICAL'),
+                self.expect(severity in ('MINOR', 'CRITICAL'),
                             f"Sensor {sensor_index} get_leak_severity()={severity!r} is not a "
                             f"MINOR/CRITICAL severity")
             else:

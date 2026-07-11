@@ -26,10 +26,13 @@ from tests.common.helpers.sonic_db import (
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     make_bmc_loganalyzer,
     pause_pmon_daemon,
+    recover_switch_host_after_power_off,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,
@@ -242,9 +245,7 @@ class TestBmcctldDaemon:
         # CRITICAL dispatches system_critical_leak_action (default: power_off); verify paired
         # Switch-Host powered OFF and stays off (it does NOT reboot / come back on its own).
         host = get_switch_host_or_skip_test(self.duthost)
-        # Ensure policy is power_off (the default).
-        redis_hset(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|system',
-                   system_critical_leak_action='power_off')
+        critical_pre_boot = get_host_uptime(host)
         # Pause thermalctld so it doesn't overwrite the injected device_leak_status
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
@@ -253,7 +254,7 @@ class TestBmcctldDaemon:
                            device_leak_status='CRITICAL')
                 logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
                 pytest_assert(
-                    wait_host_off(host),
+                    wait_host_off(self.duthost, host),
                     "Switch-Host did not power OFF after CRITICAL system leak (power_off action)"
                 )
                 trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
@@ -261,12 +262,12 @@ class TestBmcctldDaemon:
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
-                # Required recovery: power_off leaves the Switch-Host OFF, so power it
-                # back on explicitly (it does not auto-power-on after a CRITICAL leak).
-                self.duthost.shell(
-                    "config chassis modules startup SWITCH-HOST",
-                    module_ignore_errors=True
-                )
+
+        # Recovery: power_off leaves the Switch-Host OFF while admin_status stays 'up',
+        # so force a clean down->up transition, then confirm it came back up with a
+        # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
+        recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
+        verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -323,14 +324,14 @@ class TestBmcctldDaemon:
         pre_boot = get_host_uptime(host)
         try:
             hset_cmd(off_key, 'POWER_OFF')
-            wait_host_off(host)
+            wait_host_off(self.duthost, host)
             pytest_assert(hget_status(off_key) == 'DONE',
                           f"POWER_OFF status expected DONE, got {hget_status(off_key)!r}")
             hset_cmd(on_key, 'POWER_ON')
             wait_host_on(host)
             pytest_assert(hget_status(on_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot)
+            verify_bmc_initiated_reboot(host, pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
         finally:
             del_cmd(off_key, on_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -341,14 +342,18 @@ class TestBmcctldDaemon:
         pre_boot = get_host_uptime(host)
         try:
             hset_cmd(gs_key, 'GRACEFUL_SHUT')
-            wait_host_off(host)
+            wait_host_off(self.duthost, host)
             pytest_assert(hget_status(gs_key) == 'DONE',
                           f"GRACEFUL_SHUT status expected DONE, got {hget_status(gs_key)!r}")
             hset_cmd(on2_key, 'POWER_ON')
             wait_host_on(host)
             pytest_assert(hget_status(on2_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on2_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # Graceful path always falls back to power_off() if GNOI times out/fails,
+            # so accept either the graceful or the hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             del_cmd(gs_key, on2_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -389,8 +394,11 @@ class TestBmcctldDaemon:
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
-                self.duthost.shell("config chassis modules startup SWITCH-HOST",
-                                   module_ignore_errors=True)
+
+        # Recovery: the CRITICAL leak powered the Switch-Host off while admin_status
+        # stayed 'up', so force a clean down->up transition to bring it back.
+        recover_switch_host_after_power_off(self.duthost, host,
+                                            context="after power-on blocked by leak test")
 
         # --- Scenario 5: Unknown command rejected without dispatching power action ---
         # Handler logs "Unknown Rack Manager command: ..." and sets status=FAILED; paired Switch-Host must stay up.
