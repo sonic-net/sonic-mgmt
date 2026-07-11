@@ -56,8 +56,8 @@ def setup_ecn(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         "sonic-db-cli STATE_DB HGET 'ACL_STAGE_CAPABILITY_TABLE|INGRESS' action_list",
         module_ignore_errors=True)['stdout']
     if 'ECN_ACTION' not in cap:
-        pytest.skip("ECN_ACTION not in the switch's ingress ACL capability; "
-                    "ECN marking is not supported on this image/platform")
+        pytest.skip("Switch does not support ACL ECN_ACTION (ECN marking not present on this "
+                    "image/platform); supported ingress actions: {}".format(cap))
     fam, ing, egr = _discover_uplinks(duthost, tbinfo)
     router_mac = duthost.facts['router_mac']
 
