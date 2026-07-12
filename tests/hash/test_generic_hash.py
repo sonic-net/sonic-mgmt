@@ -27,7 +27,7 @@ DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0', 't1', 't2', 'lt2'),
 ]
 logger = logging.getLogger(__name__)
 

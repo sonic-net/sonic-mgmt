@@ -31,7 +31,7 @@ from tests.common.utilities import wait_until
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2"),
+    pytest.mark.topology("t0", "t1", "t2", "lt2"),
     pytest.mark.disable_loganalyzer,  # we explicitly scan syslog inside the cases.
 ]
 
