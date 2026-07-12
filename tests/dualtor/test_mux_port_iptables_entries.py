@@ -150,9 +150,11 @@ def generate_nat_expected_rules(duthost):
 
     debian_version = duthost.command("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
     if "trixie" in debian_version:
-        ip6tables_natrules.append("-N DOCKER")
-        ip6tables_natrules.append("-A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER")
-        ip6tables_natrules.append("-A OUTPUT ! -d ::1/128 -m addrtype --dst-type LOCAL -j DOCKER")
+        existing_ip6tables_rules = duthost.command("sudo ip6tables -t nat -S")['stdout'].splitlines()
+        if "-N DOCKER" in existing_ip6tables_rules:
+            ip6tables_natrules.append("-N DOCKER")
+            ip6tables_natrules.append("-A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER")
+            ip6tables_natrules.append("-A OUTPUT ! -d ::1/128 -m addrtype --dst-type LOCAL -j DOCKER")
 
     config_facts = duthost.get_running_config_facts()
 
