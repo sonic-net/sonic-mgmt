@@ -446,14 +446,14 @@ def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostn
     inv_files = get_inventory_files(request)
     bmc_inv_serial = get_host_visible_vars(inv_files, duthost.hostname).get('serial')
     if bmc_inv_serial:
-        pytest_assert(bmc_inv_serial == bmc_serial,
+        pytest_assert(str(bmc_inv_serial).strip() == bmc_serial,
                       "BMC `Serial Number` ({!r}) from `show version` does not match inventory `serial:` "
                       "for {} ({!r})".format(bmc_serial, duthost.hostname, bmc_inv_serial))
 
     switch_host = get_switch_host_or_skip_test(duthost)
     sw_inv_serial = get_host_visible_vars(inv_files, switch_host.hostname).get('serial')
     if sw_inv_serial:
-        pytest_assert(sw_inv_serial == sw_serial,
+        pytest_assert(str(sw_inv_serial).strip() == sw_serial,
                       "`Switch-Host Serial Number` ({!r}) from `show version` does not match inventory "
                       "`serial:` for paired switch {} ({!r})".format(sw_serial, switch_host.hostname, sw_inv_serial))
 
