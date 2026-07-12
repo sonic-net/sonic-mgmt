@@ -1,9 +1,9 @@
 """Platform qualification for the device-local diagnosis daemon (DLDD).
 
 The tests intentionally use only the installed rules and live telemetry.  They
-do not inject hardware faults or execute the optional ``hardware-probe`` and
-``e2e-execute`` validation modes, because vendor hooks may bind those modes to
-platform-specific operations.
+do not inject hardware faults or run the optional ``hardware-probe`` mode.  The
+``e2e-execute`` test performs the documented non-remediating, single-pass rule
+qualification, including runtime DSE expansion when the fixture defines it.
 """
 
 import json
@@ -11,6 +11,7 @@ import shlex
 from urllib.parse import quote
 
 import pytest
+import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import compose_dict_from_cli, wait_until
@@ -83,6 +84,7 @@ FAULT_REQUIRED_FIELDS = {
     "origin_time",
     "last_detection_time",
     "occurrences",
+    "reason",
     "description",
 }
 
@@ -195,6 +197,11 @@ def _validate_fault_info(key, fault):
     pytest_assert(
         int(fault["rule_id"]) > 0,
         "{} has invalid rule ID {!r}".format(key, fault["rule_id"]),
+    )
+    pytest_assert(
+        isinstance(fault["reason"], str)
+        and len(fault["reason"].encode("utf-8")) <= 512,
+        "{} has invalid bounded reason {!r}".format(key, fault["reason"]),
     )
 
     events = _json_field(fault, "events", list)
@@ -333,6 +340,7 @@ def _valid_fault_fixture():
         "origin_time": "1745614200",
         "last_detection_time": "1745614266",
         "occurrences": "1",
+        "reason": "",
         "description": "Temperature exceeded its high threshold.",
     }
 
@@ -341,6 +349,16 @@ def test_fault_info_contract_fixture_supports_flat_components_and_vendor_action(
     fault = _valid_fault_fixture()
     key = "FAULT_INFO|SENSOR%200|SYMPTOM_OVER_THRESHOLD"
     _validate_fault_info(key, fault)
+
+
+def test_fault_info_contract_rejects_unbounded_transition_reason():
+    fault = _valid_fault_fixture()
+    fault["reason"] = "x" * 513
+
+    with pytest.raises(AssertionError, match="invalid bounded reason"):
+        _validate_fault_info(
+            "FAULT_INFO|SENSOR%200|SYMPTOM_OVER_THRESHOLD", fault
+        )
 
 
 def _status_ttl(duthost):
@@ -395,6 +413,66 @@ def _require_rules(capabilities):
         pytest.skip(
             "Platform does not provide a packaged, golden, or active DLDD rules source"
         )
+
+
+def _load_rules_document(duthost, path):
+    result = duthost.shell(
+        "sudo cat -- {}".format(shlex.quote(path)), module_ignore_errors=True
+    )
+    pytest_assert(
+        result["rc"] == 0,
+        "Unable to read installed DLDD rules {}: {}".format(
+            path, result.get("stderr", "")
+        ),
+    )
+    try:
+        document = yaml.safe_load(result["stdout"])
+    except yaml.YAMLError as error:
+        pytest.fail("Installed DLDD rules are not valid YAML: {}".format(error))
+    pytest_assert(
+        isinstance(document, dict),
+        "Installed DLDD rules must contain a YAML mapping",
+    )
+    return document
+
+
+def _dse_source_events(document):
+    """Return the identities of DSE source events in a validated rules file."""
+    signatures = document.get("signatures", ())
+    pytest_assert(
+        isinstance(signatures, list),
+        "Installed DLDD rules must contain a signatures list",
+    )
+    sources = []
+    for wrapped_signature in signatures:
+        pytest_assert(
+            isinstance(wrapped_signature, dict)
+            and isinstance(wrapped_signature.get("signature"), dict),
+            "Installed DLDD rules contain an invalid signature wrapper",
+        )
+        signature = wrapped_signature["signature"]
+        metadata = signature.get("metadata", {})
+        conditions = signature.get("conditions", {})
+        events = conditions.get("events", ()) if isinstance(conditions, dict) else ()
+        for wrapped_event in events:
+            if not isinstance(wrapped_event, dict):
+                continue
+            event = wrapped_event.get("event")
+            if not isinstance(event, dict):
+                continue
+            event_type = event.get("type")
+            if event_type != "dse" and not (
+                event_type == "platform_api" and isinstance(event.get("path"), str)
+            ):
+                continue
+            sources.append(
+                {
+                    "rule": metadata.get("name"),
+                    "rule_id": metadata.get("id"),
+                    "event_id": event.get("id"),
+                }
+            )
+    return sources
 
 
 def _require_running(duthost, capabilities):
@@ -826,6 +904,121 @@ def test_available_rules_validation(
             validation.get("broken_rules", [])
         ),
     )
+
+
+def test_dse_rules_e2e_execution(
+    duthosts, enum_rand_one_per_hwsku_hostname, dldd_capabilities
+):
+    """Expand and execute every installed DSE source event without remediation."""
+    _require_rules(dldd_capabilities)
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    rules = _load_rules_document(
+        duthost, dldd_capabilities["validation_rules_path"]
+    )
+    dse_sources = _dse_source_events(rules)
+    if not dse_sources:
+        pytest.skip("Active DLDD rules contain no DSE-backed source event")
+
+    command = [
+        "sudo",
+        "dldd",
+        "validate-rules",
+        "--file",
+        dldd_capabilities["validation_rules_path"],
+        "--platform-dir",
+        dldd_capabilities["platform_dir"],
+        "--mode",
+        "e2e-execute",
+        "--json",
+    ]
+    if dldd_capabilities["dse_present"]:
+        command.extend(("--dse", dldd_capabilities["dse_path"]))
+
+    result = duthost.shell(
+        " ".join(shlex.quote(item) for item in command), module_ignore_errors=True
+    )
+    try:
+        qualification = json.loads(result["stdout"])
+    except (TypeError, ValueError) as error:
+        pytest.fail(
+            "DLDD e2e qualification did not return valid JSON: {}; stdout={!r}, "
+            "stderr={!r}".format(
+                error, result.get("stdout", ""), result.get("stderr", "")
+            )
+        )
+
+    pytest_assert(
+        result["rc"] == 0 and qualification.get("qualification_result") == "PASSED",
+        "DLDD e2e qualification failed: stdout={!r}, stderr={!r}".format(
+            result.get("stdout", ""), result.get("stderr", "")
+        ),
+    )
+    probe_results = qualification.get("probe_results", ())
+    rule_results = qualification.get("rule_results", ())
+    pytest_assert(
+        isinstance(probe_results, list) and isinstance(rule_results, list),
+        "DLDD e2e qualification omitted event or rule results",
+    )
+
+    expansion_by_event = {
+        (item.get("rule_id"), item.get("event_id")): item
+        for item in probe_results
+        if item.get("stage") == "expansion"
+    }
+    rule_result_by_instance = {
+        (item.get("rule_id"), item.get("component")): item
+        for item in rule_results
+    }
+    for source in dse_sources:
+        identity = (source["rule_id"], source["event_id"])
+        expansion = expansion_by_event.get(identity)
+        executions = [
+            item
+            for item in probe_results
+            if item.get("stage") == "execution"
+            and (item.get("rule_id"), item.get("event_id")) == identity
+        ]
+        components = {item.get("component") for item in executions}
+        if expansion is None:
+            # A vendor may resolve a DSE reference to one or more direct typed
+            # sources.  Those have no runtime template to expand but must still
+            # complete the same live event/rule qualification.
+            pytest_assert(
+                executions and None not in components,
+                "Directly resolved DSE event {}:{} was not executed: {}".format(
+                    source["rule"], source["event_id"], executions
+                ),
+            )
+        else:
+            pytest_assert(
+                expansion.get("state") == "EXPANDED"
+                and expansion.get("instance_count", 0) > 0,
+                "DSE event {}:{} did not discover usable instances: {}".format(
+                    source["rule"], source["event_id"], expansion
+                ),
+            )
+            pytest_assert(
+                None not in components
+                and len(components) == expansion["instance_count"]
+                and len(executions) == expansion["instance_count"],
+                "DSE event {}:{} did not execute exactly once per discovered "
+                "instance: {}".format(
+                    source["rule"], source["event_id"], executions
+                ),
+            )
+        for execution in executions:
+            pytest_assert(
+                execution.get("state") in ("MATCH", "NO_MATCH"),
+                "DSE event execution was not qualified: {}".format(execution),
+            )
+            rule_result = rule_result_by_instance.get(
+                (source["rule_id"], execution["component"])
+            )
+            pytest_assert(
+                rule_result is not None
+                and rule_result.get("state") in ("MATCH", "NO_MATCH"),
+                "DSE instance has no qualified rule result: {}".format(execution),
+            )
 
 
 def test_service_restart_without_active_faults(
