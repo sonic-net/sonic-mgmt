@@ -176,7 +176,11 @@
       detach: True
       capabilities:
         - net_admin
-      privileged: yes
+        - sys_admin
+        - net_raw
+      security_opts:
+        - unmask=/proc/sys
+        - apparmor=unconfined
       memory: 32G
       memory_swap: 64G
     become: yes
