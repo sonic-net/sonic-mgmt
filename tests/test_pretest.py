@@ -37,27 +37,26 @@ DPU_RECOVERY_STARTUP_RETRY_TIMEOUT = 720
 DPU_RECOVERY_STARTUP_RETRY_INTERVAL = 60
 
 
-def _parse_chassis_module_status(output):
-    """Parse 'show chassis modules status' output into module status entries."""
+def _parse_chassis_module_status(rows):
+    """Normalize parsed 'show chassis modules status' rows into DPU module status entries."""
     entries = []
-    for line in output.splitlines():
-        fields = line.split()
-        if not fields or not re.match(r"^DPU\d+$", fields[0]):
+    for row in rows:
+        name = row.get("name", "")
+        if not re.match(r"^DPU\d+$", name):
             continue
-        if len(fields) < 4:
-            logger.warning("Skipping unexpected chassis module line: %s", line)
+        if "oper-status" not in row or "admin-status" not in row:
+            logger.warning("Skipping unexpected chassis module status row: %s", row)
             continue
         entries.append({
-            "name": fields[0],
-            "oper_status": fields[-3],
-            "admin_status": fields[-2],
+            "name": name,
+            "oper_status": row["oper-status"],
+            "admin_status": row["admin-status"],
         })
     return entries
 
 
 def _show_chassis_module_status(duthost):
-    result = duthost.shell("show chassis modules status", module_ignore_errors=True)
-    return result.get("stdout", "")
+    return duthost.show_and_parse("show chassis modules status", module_ignore_errors=True)
 
 
 def _is_dpu_online_up(duthost, dpu_name):
