@@ -1,134 +1,201 @@
-# gNOI Native-Client Test Plan — the canonical way to test gNOI in sonic-mgmt
+# gNOI test plan: a native gRPC client as the standard approach
 
 ## Purpose
 
-This document proposes a **single, canonical way to write gNOI tests** in
-[sonic-mgmt](https://github.com/sonic-net/sonic-mgmt): drive the DUT's gNOI
-server with an **in-process, typed Python gRPC client** imported from a shared,
-versioned wheel — no PTF hop, no shelling a CLI, no per-suite stub generation.
+This document describes a small new gNOI test suite (`tests/gnoi/`) and, more
+importantly, proposes the pattern it uses as the standard way to write gNOI
+tests in [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) from now on.
 
-It doubles as the test plan for the initial `tests/gnoi/` suite that
-demonstrates the approach (`System.Time`, `File.Stat`), and argues that this
-suite's pattern should be the one all future gNOI tests adopt so we can stop
-re-inventing the gRPC client on every new feature.
+The suite talks to the DUT's gNOI server with an ordinary in-process Python
+gRPC client instead of shelling out to a command-line tool and parsing its
+output. The client comes from a shared, versioned wheel (`sonic-grpc`) rather
+than being re-created inside each test area. The goal is to stop the recurring
+pattern where every new gNOI need grows its own bespoke client, and to give the
+community one obvious thing to reuse.
 
 ## High Level Design
 
-| Rev   | Date       | Author      | Change Description                                   |
-|-------|------------|-------------|-----------------------------------------------------|
-| Draft | 2026-07-10 | Dawei Huang | Initial version — native client + canonical proposal |
+| Rev   | Date       | Author      | Change Description                                          |
+|-------|------------|-------------|------------------------------------------------------------|
+| Draft | 2026-07-10 | Dawei Huang | Initial version — native client + canonical proposal       |
+| v2    | 2026-07-13 | Dawei Huang | Rewrite for clarity; add a concrete before/after example   |
 
-## TL;DR — the recommendation
+## Summary
 
-- **Test gNOI with a real gRPC client, in process, from the sonic-mgmt
-  container.** Import it; don't shell it.
-- **Get that client from one place** — a small, pip-installable
-  `sonic-grpc` wheel (`from sonic_grpc.gnoi import GnoiClient`) that ships
-  vendored, wire-faithful protobuf stubs and is baked into the
-  `docker-sonic-mgmt` image.
-- **Keep the harness in sonic-mgmt** — certificate generation, CONFIG_DB
-  checkpoint/rollback, and server setup reuse the existing
-  `tests/common/cert_utils.py` + `grpc_config.py` infrastructure.
-- **Retire the ad-hoc clients over time** — grpcurl-on-PTF, the DUT-local Go
-  `gnoi_client`, and per-suite generated stubs converge onto the one wheel.
+The recommendation is:
 
-Reference implementation:
+- Test gNOI with a real gRPC client, in process, running in the sonic-mgmt
+  container and dialing the DUT management IP directly — no PTF hop.
+- Take that client from one place: a small, pip-installable `sonic-grpc` wheel
+  (`from sonic_grpc.gnoi import GnoiClient`) that ships vendored, wire-faithful
+  protobuf stubs and is baked into the `docker-sonic-mgmt` image.
+- Keep the test harness in sonic-mgmt. Certificate generation, CONFIG_DB
+  checkpoint/rollback, and server setup all reuse the existing
+  `tests/common/cert_utils.py` and `grpc_config.py` infrastructure.
+- Migrate the older ad-hoc clients onto this one over time, rather than in a
+  single disruptive change.
+
+The reference implementation is
 [sonic-mgmt #26040](https://github.com/sonic-net/sonic-mgmt/pull/26040) (the
-`tests/gnoi/` suite) on top of
+`tests/gnoi/` suite), which sits on top of
 [sonic-buildimage #28341](https://github.com/sonic-net/sonic-buildimage/pull/28341)
-(the `sonic-grpc` wheel + image wiring); tracked by
+(the `sonic-grpc` wheel and its image wiring). Both are tracked by
 [sonic-mgmt #26039](https://github.com/sonic-net/sonic-mgmt/issues/26039).
 
-## Background — why gNOI testing keeps churning
+## Background: how gNOI tests reach the DUT today
 
-gNOI/gNMI are gRPC services, but sonic-mgmt has never settled on **one** way to
-call them from a test. Four distinct client mechanisms exist in the tree today,
-each introduced to solve a local problem:
+gNOI and gNMI are gRPC services, but sonic-mgmt has never settled on a single
+way to call them from a test. Over time, four different client mechanisms have
+accumulated in the tree, each added to solve a particular problem at the time:
 
 | # | Mechanism | Where the client runs | How a response comes back |
 |---|-----------|-----------------------|---------------------------|
-| 1 | `grpcurl` via `PtfGrpc`/`PtfGnoi` (`tests/common/ptf_grpc.py`, `ptf_gnoi.py`) — the current "modern" gNOI tests | PTF container | grpcurl stdout → `json.loads` → `dict` |
-| 2 | `gnoi_client` Go binary via `docker exec` (`tests/gnmi/helper.py:gnoi_request`) | gNMI container **on the DUT** | stdout `"Module RPC:\n{json}"`, split on `\n`, `json.loads(line[1])` |
-| 3 | `py_gnmicli.py` (gnxi) via `ptfhost.shell` (`tests/gnmi/helper.py`) — legacy gNMI | PTF container | CLI stdout text, regex/substring scraped |
+| 1 | `grpcurl` via `PtfGrpc`/`PtfGnoi` (`tests/common/ptf_grpc.py`, `ptf_gnoi.py`) — the current "modern" gNOI tests | PTF container | grpcurl stdout parsed with `json.loads` into a `dict` |
+| 2 | `gnoi_client` Go binary via `docker exec` (`tests/gnmi/helper.py`) | gNMI container on the DUT | stdout `"Module RPC:\n{json}"`, split on `\n`, then `json.loads` of the second line |
+| 3 | `py_gnmicli.py` (gnxi) via `ptfhost.shell` (`tests/gnmi/helper.py`) — legacy gNMI | PTF container | CLI stdout scraped with string/substring matching |
 | 4 | Generated protobuf stubs via `create_gnmi_stub()` (`tests/common/sai_validation/gnmi_client.py`, stubs from `tests/build-gnmi-stubs.sh`) | sonic-mgmt container | typed protobuf objects |
 
-Every row is a different answer to the same question — "how do I make a gRPC
-call to the DUT?" — with its own transport assumptions, its own error handling,
-its own certificate plumbing, and its own place to break. New gNOI features tend
-to add a *fifth* variant rather than reuse a fourth. That is the churn this
-proposal wants to end.
+Each row is a different answer to the same question — how does a test make a
+gRPC call to the DUT? — and each brings its own transport assumptions, its own
+error handling, and its own certificate plumbing. When a new gNOI feature needs
+testing, the path of least resistance is usually to copy whichever of these is
+nearest and adjust it, which is how the tree ended up with four in the first
+place.
 
-Notably, mechanism #4 (sai_validation) already proves that a **native, typed
-stub** works well inside the sonic-mgmt container. The gap is only that its
-stubs are generated per-suite and scoped to SAI qualification. The proposal here
-is to **generalize #4 into a shared, owned client** so every suite benefits.
+It is worth noting that mechanism #4, used by SAI qualification, already shows
+that a native typed stub works well inside the sonic-mgmt container. The only
+thing keeping it from being reused everywhere is that its stubs are generated
+per-suite and scoped to that one area. Much of this proposal is simply about
+giving that approach a proper shared home.
 
-## Problems with shelling a CLI for gRPC
+## A concrete example
 
-The first three mechanisms above shell out to a command-line tool and parse its
-text output. That is convenient to start, but structurally weak for a test
-suite that is supposed to be an oracle:
+Consider a small, real task: check whether a gNOI reboot is currently in
+progress. Today, using the DUT-local Go client (mechanism #2), the code looks
+like this (condensed from `tests/gnmi/helper.py`):
 
-1. **Stringly-typed results.** A gNOI response is a protobuf message with a
-   schema. Round-tripping it through CLI stdout throws that schema away and
-   forces every test to re-parse text. The DUT-local path literally does
-   `output.split('\n')[1]` then `json.loads` (`helper.py:extract_gnoi_response`)
-   — one stray log line on stdout and the test misreads or crashes.
+```python
+def gnoi_request(duthost, localhost, module, rpc, request_json_data):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = duthost.mgmt_ip
+    port = env.gnmi_port
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
+    cmd += f"-jsonin '{request_json_data}'"
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output['stderr']:
+        return -1, output['stderr']
+    return 0, output['stdout']
 
-2. **No real status codes.** gRPC's contract is a typed `StatusCode`
-   (`UNAUTHENTICATED`, `PERMISSION_DENIED`, `NOT_FOUND`, …). Shelling a CLI
-   collapses that into an exit code plus free-form stderr, so tests assert on
-   substrings of error text instead of on the status code the server actually
-   returned. Negative and authz tests — exactly where gNOI correctness matters —
-   become brittle.
 
-3. **An extra container in the failure surface.** The grpcurl and py_gnmicli
-   paths run the client on **PTF**, so every gNOI assertion depends on PTF being
-   up, reachable, and carrying the right certs — even though gNOI has nothing to
-   do with data-plane packet testing. The DUT-local Go path avoids PTF but
-   instead depends on a binary baked into the DUT image and on `docker exec`.
+def extract_gnoi_response(output):
+    # output looks like "System RebootStatus\n{"active": false, ...}"
+    response_line = output.split('\n')[1]
+    return json.loads(response_line)
 
-4. **Certificate/setup logic duplicated per mechanism.** Each client re-derives
-   where certs live and how the server is configured. A single cert-path change
-   ripples across files (the predecessor design doc,
-   [`gnoi_client_library_design.md`](./gnoi_client_library_design.md),
-   documents 14+ files carrying hardcoded cert paths).
 
-5. **Nothing is shared or versioned.** There is no one artifact a new test can
-   depend on. So a new gNOI need copies the nearest mechanism and diverges.
+def is_reboot_inactive(duthost, localhost):
+    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
+    if ret != 0:
+        return False
+    status = extract_gnoi_response(msg)
+    return status and not status.get("active", True)
+```
 
-## Proposed approach — native in-process gRPC client
+Several things are happening here that have nothing to do with reboot status.
+The request is assembled as a shell command string; certificate paths are
+hardcoded; success or failure is inferred by sniffing `stderr`; and the response
+is recovered by splitting stdout on newlines and hoping the JSON is on the
+second line. A stray log line, a changed flag name, or an error printed to
+stdout instead of stderr will quietly break the parse.
 
-Drive gNOI the "API way": construct a real gRPC channel **inside the sonic-mgmt
-container**, dial the DUT management IP over mTLS, and call typed stubs.
+With the native client, the same check is just a method call on a typed stub:
+
+```python
+resp = gnoi_client.system.RebootStatus(system_pb2.RebootStatusRequest())
+reboot_inactive = not resp.active
+```
+
+`resp` is a protobuf message, so `resp.active` is a real boolean field rather
+than a value fished out of parsed text. If the call fails, it raises
+`grpc.RpcError` carrying the actual gRPC status code, so a test can distinguish
+`UNAUTHENTICATED` from `NOT_FOUND` instead of matching on error strings. The
+transport, credentials, and target are set up once by a fixture rather than
+being rebuilt inside every helper.
+
+The same contrast holds for the grpcurl path (mechanism #1). Fetching the
+system time there returns a plain dictionary that the test has to probe
+(`result["time"]`); with the native client it is `resp.time`, an `int64` field
+on a `TimeResponse` message.
+
+## Why the CLI-shelling approach is hard to build on
+
+The example above illustrates the general problem. Shelling out to a CLI and
+parsing its text output is quick to get started with, but it is a weak
+foundation for a test suite whose job is to be an oracle:
+
+- **The response schema is thrown away.** A gNOI response is a structured
+  protobuf message, and routing it through CLI stdout discards that structure and
+  forces each test to re-derive it from text.
+- **Real gRPC status codes are lost.** gRPC reports failures as typed status
+  codes such as `UNAUTHENTICATED`, `PERMISSION_DENIED`, and `NOT_FOUND`. A CLI
+  collapses these into an exit code and free-form stderr, so negative and
+  authorization tests — exactly the cases where gNOI correctness matters most —
+  end up asserting on error substrings.
+- **An extra container joins the failure surface.** The grpcurl and py_gnmicli
+  paths run the client on PTF, so every gNOI assertion depends on PTF being up,
+  reachable, and holding the right certificates, even though gNOI has nothing to
+  do with data-plane packet testing. The DUT-local Go path avoids PTF but instead
+  depends on a client binary baked into the DUT image and on `docker exec`.
+- **Certificate and setup logic is duplicated.** Each mechanism re-derives where
+  certificates live and how the server is configured. The predecessor design
+  note, [`gnoi_client_library_design.md`](./gnoi_client_library_design.md),
+  records that certificate paths were hardcoded across more than a dozen files.
+- **There is nothing shared to depend on.** No single artifact exists for a new
+  test to reuse, so each new need diverges from the last.
+
+## Proposed approach: a native in-process gRPC client
+
+The suite constructs a real gRPC channel inside the sonic-mgmt container, dials
+the DUT management IP over mTLS, and calls typed stubs. A test reads as plainly
+as any other pytest test:
 
 ```python
 from sonic_grpc.gnoi import GnoiClient, system_pb2
 
 def test_gnoi_system_time(gnoi_client):          # gnoi_client is a fixture
     resp = gnoi_client.system.Time(system_pb2.TimeRequest(), timeout=10)
-    assert resp.time > 0                          # resp.time is an int, not a parsed string
+    assert resp.time > 0                          # resp.time is a typed int64 field
 ```
 
-The client is **not** built or generated inside sonic-mgmt. It is imported from
-a standalone, pip-installable **`sonic-grpc`** wheel that is baked into the
-`docker-sonic-mgmt` image. The wheel:
+The client is not built or generated inside sonic-mgmt. It is imported from a
+standalone, pip-installable `sonic-grpc` wheel that is baked into the
+`docker-sonic-mgmt` image. The wheel provides:
 
-- exposes `GnoiClient` — a context-managed, service-agnostic client
-  (`client.system.Time(...)`, `client.file.Stat(...)`, and `client.channel` for
-  any service not yet wrapped);
-- supports three transports — insecure TCP, `unix://` UDS, and **mTLS**
-  (`grpc.ssl_channel_credentials` + `grpc.ssl_target_name_override`, so a
-  DNS-only server-cert SAN is dialable without hardcoding an IP);
-- **vendors flat protobuf stubs** (`system_pb2`, `file_pb2`, `types_pb2`,
-  `common_pb2`, and their `_grpc` peers) — so there is nothing to generate at
-  test time and no `types`/`os` stdlib import collision;
-- ships `FakeGnoiServer` (`sonic_grpc.gnoi.testing`) for offline unit tests;
-- depends only on `grpcio` + `protobuf`, so it `pip install`s anywhere,
-  including `pip install "git+https://github.com/sonic-net/sonic-buildimage@<sha>#subdirectory=src/sonic-grpc"`.
+- `GnoiClient`, a context-managed, service-agnostic client. Service stubs are
+  reachable both as convenience properties (`client.system.Time(...)`,
+  `client.file.Stat(...)`) and, for any service not yet wrapped, through
+  `client.channel`.
+- Three transports: insecure TCP, `unix://` UDS, and mTLS. The mTLS path uses
+  `grpc.ssl_channel_credentials` together with `grpc.ssl_target_name_override`,
+  so a server certificate whose SAN is a DNS name can be verified without
+  hardcoding an IP address.
+- Vendored, flat protobuf stubs (`system_pb2`, `file_pb2`, `types_pb2`,
+  `common_pb2`, and their `_grpc` peers). Because the stubs ship with the wheel,
+  there is nothing to generate at test time, and the flat layout avoids the
+  `types`/`os` directory names that would otherwise collide with the Python
+  standard library.
+- `FakeGnoiServer` (`sonic_grpc.gnoi.testing`) for offline unit tests.
+- A dependency footprint of just `grpcio` and `protobuf`, so the wheel installs
+  anywhere, including directly from source with
+  `pip install "git+https://github.com/sonic-net/sonic-buildimage@<sha>#subdirectory=src/sonic-grpc"`.
 
-Adding a new gNOI service to a test is a stub import plus a call on
-`client.channel` — no new client, no PTF change, no build script.
+Adding a new gNOI service to a test amounts to importing its stub and calling it
+on `client.channel`; it does not require a new client, a PTF change, or a build
+script.
 
 ### Architecture
 
@@ -148,251 +215,267 @@ flowchart LR
     client -- "mTLS gRPC (typed stubs)" --> gnmi
 ```
 
-No PTF. The only hop is sonic-mgmt container → DUT management IP, over the same
-mTLS the production gNOI consumers use.
+The only network hop is from the sonic-mgmt container to the DUT management IP,
+over the same mTLS that production gNOI consumers use. PTF is not involved.
 
 ### Components
 
-1. **`sonic-grpc` wheel** (built in sonic-buildimage `src/sonic-grpc/`, wired
-   into `docker-sonic-mgmt`). The client + vendored stubs + `FakeGnoiServer` +
-   unit tests. Owned by this effort; versioned; the single source of the client.
-
-2. **`gnoi_client` fixture** (`tests/gnoi/conftest.py`). A coupled,
-   self-cleaning fixture modeled on the existing `gnmi_tls` fixture:
-   checkpoint CONFIG_DB → generate a CA/server/client cert chain and push the
-   server cert to the DUT → configure CONFIG_DB TLS mode and register the client
-   CN in `GNMI_CLIENT_CERT` → restart `gnmi-native` → verify readiness with a
-   native `System.Time` retry loop → **yield** an mTLS `GnoiClient` → rollback +
-   `wait_critical_processes` + cert cleanup. It reuses the DUT-side setup helpers
-   `_configure_gnoi_tls_server` / `_restart_gnoi_server` from
-   `tests/common/fixtures/grpc_fixtures.py` — no logic is forked.
-
-3. **Certificate management** (reused, unchanged). `tests/common/cert_utils.py`
+1. **The `sonic-grpc` wheel**, built in sonic-buildimage under `src/sonic-grpc/`
+   and wired into `docker-sonic-mgmt`. It contains the client, the vendored
+   stubs, `FakeGnoiServer`, and unit tests. It is versioned and owned as the
+   single source of the client (see Governance).
+2. **The `gnoi_client` fixture** (`tests/gnoi/conftest.py`), a coupled,
+   self-cleaning fixture modeled on the existing `gnmi_tls` fixture. It
+   checkpoints CONFIG_DB, generates a CA/server/client certificate chain and
+   pushes the server certificate to the DUT, configures CONFIG_DB for TLS mode
+   and registers the client CN in `GNMI_CLIENT_CERT`, restarts `gnmi-native`,
+   confirms readiness with a `System.Time` retry loop, and yields an mTLS
+   `GnoiClient`. On teardown it rolls back, waits for critical processes, and
+   removes the certificates. It reuses the DUT-side helpers
+   `_configure_gnoi_tls_server` and `_restart_gnoi_server` from
+   `tests/common/fixtures/grpc_fixtures.py` rather than forking that logic.
+3. **Certificate management**, reused unchanged. `tests/common/cert_utils.py`
    (`TlsCertificateGenerator` / `create_gnmi_cert_generator`) generates a
-   pure-Python `cryptography` chain — backdated, SAN-bearing — and
-   `tests/common/grpc_config.py` centralizes paths, ports, and CONFIG_DB cert
-   settings. The client cert/key/CA stay in the container (the native client
-   reads them locally); only the server cert/key + CA go to the DUT.
+   pure-Python `cryptography` chain — backdated and SAN-bearing — and
+   `tests/common/grpc_config.py` centralizes the paths, ports, and CONFIG_DB
+   certificate settings. The client certificate, key, and CA stay in the
+   container where the native client reads them; only the server certificate,
+   key, and CA are copied to the DUT.
 
 ## Certificate model
 
-The mTLS setup is deliberately identical to what the gNMI/gNOI server already
-expects in production, so tests exercise the real authentication path:
+The mTLS setup deliberately mirrors what the gNMI/gNOI server already expects in
+production, so the tests exercise the real authentication path rather than a
+relaxed one:
 
-- Server cert carries a **SAN** (Go rejects CN-only certs); the client verifies
-  it against the generated CA.
-- The client cert **CN is registered in `GNMI_CLIENT_CERT`** with gNOI roles
-  (e.g. `gnoi_readwrite`), so the server authorizes the call — a real authz
-  path, not `-insecure`.
-- All state is checkpointed and rolled back; certs are generated under a temp
-  dir and removed on teardown. The suite is idempotent and self-cleaning.
+- The server certificate carries a SAN, since Go rejects certificates that rely
+  on the legacy Common Name field, and the client verifies it against the
+  generated CA.
+- The client certificate's CN is registered in `GNMI_CLIENT_CERT` with the
+  appropriate gNOI roles (for example `gnoi_readwrite`), so the server
+  authorizes the call. This is a genuine authorization path, not an `-insecure`
+  bypass.
+- All CONFIG_DB state is checkpointed and rolled back, and certificates are
+  generated under a temporary directory and removed on teardown, so the suite is
+  idempotent and self-cleaning.
 
-Because the client holds a typed `grpc.RpcError`, an authz-failure test can
-assert `err.code() == grpc.StatusCode.UNAUTHENTICATED` directly — the kind of
-assertion the CLI-scraping mechanisms cannot make cleanly.
+Because the client surfaces a typed `grpc.RpcError`, an authorization-failure
+test can assert `err.code() == grpc.StatusCode.UNAUTHENTICATED` directly — the
+kind of assertion that the text-scraping mechanisms cannot make cleanly.
 
 ## Test cases
 
-### v1 (implemented, VS-validated)
+### v1 (implemented and VS-validated)
 
-| Test | RPC | Asserts |
-|------|-----|---------|
-| `test_gnoi_system_time` | `gnoi.system.System/Time` | typed `resp.time` > 0 and within ~1 day of local clock (sane clock, not sync) |
-| `test_gnoi_file_stat` | `gnoi.file.File/Stat` | `resp.stats[0].path == "/etc/hostname"` and `size > 0`, reached via `client.file` / `client.channel` (proves new services plug in without client changes) |
+| Test | RPC | What it asserts |
+|------|-----|-----------------|
+| `test_gnoi_system_time` | `gnoi.system.System/Time` | `resp.time` is positive and within roughly a day of the local clock (a sanity check on the clock, not on synchronization) |
+| `test_gnoi_file_stat` | `gnoi.file.File/Stat` | `resp.stats[0].path == "/etc/hostname"` and `size > 0`, reached through `client.file` / `client.channel`, demonstrating that a new service plugs in without any client change |
 
-Both are marked `@pytest.mark.topology('any')` and
-`@pytest.mark.skip_check_dut_health` (the fixture mutates `GNMI` CONFIG_DB and
-rolls it back; without the marker the teardown `core_dump_and_config_check`
-flags the transient change as drift and forces a config reload — there is no CLI
-flag to disable that check). Both pass on a KVM (virtual switch) testbed.
+Both tests are marked `@pytest.mark.topology('any')` and
+`@pytest.mark.skip_check_dut_health`. The health-check marker is necessary
+because the fixture mutates `GNMI` CONFIG_DB and rolls it back; without it, the
+teardown `core_dump_and_config_check` would flag the transient change as
+configuration drift and force a reload, and there is no CLI flag to disable that
+check. Both tests pass on a KVM (virtual switch) testbed.
 
-### Roadmap (where the typed client pays off)
+### Roadmap
 
-These are not implemented in v1 but are the reason the approach is worth
-standardizing — each is awkward or impossible to assert cleanly by scraping CLI
-text:
+The following are not part of v1, but they are much of the reason the approach
+is worth standardizing, since each is awkward or impossible to assert cleanly by
+scraping CLI text:
 
-- **Status-code / negative tests:** unregistered client cert →
-  `UNAUTHENTICATED`; unauthorized role → `PERMISSION_DENIED`; missing file →
-  `NOT_FOUND`. Assert on `RpcError.code()`.
-- **Streaming RPCs:** `File.Get` / `File.Put`, `System.SetPackage` — real
-  server-streaming iteration instead of buffering CLI stdout.
-- **Broader System/File/OS surface** and, later, SONiC-specific services, all
-  as thin stub additions to `sonic-grpc`.
+- **Negative and status-code tests**, for example an unregistered client
+  certificate returning `UNAUTHENTICATED`, an unauthorized role returning
+  `PERMISSION_DENIED`, or a missing file returning `NOT_FOUND`, all asserted on
+  `RpcError.code()`.
+- **Streaming RPCs** such as `File.Get`/`File.Put` and `System.SetPackage`,
+  iterated as real server streams rather than buffered CLI output.
+- **A broader System/File/OS surface**, and later SONiC-specific services, added
+  as small stub additions to `sonic-grpc`.
 
-## CI behavior — fail loud, but scope the failure
+## CI behavior: fail loudly, but scope the failure
 
-The suite must **fail, not skip**, when the client is unavailable. An earlier
-draft used `pytest.importorskip`, which turned a missing client into a *skip* —
-and a skipped test counts as a green pipeline, so CI could pass without ever
-exercising gNOI. A test that can silently no-op is not an oracle.
+The suite should fail rather than skip when the client is unavailable. An
+earlier draft used `pytest.importorskip`, which turns a missing client into a
+skip — and because a skipped test counts as a passing pipeline, CI could go
+green without ever exercising gNOI at all. A test that can silently do nothing
+is not an oracle.
 
-But there are two distinct failure modes, and they want different blast radii:
+There are, however, two distinct reasons the client might be unavailable, and
+they warrant different blast radii:
 
-- **A missing *feature*** (the server doesn't implement the RPC) — the test
-  should fail: that is real signal.
-- **A missing *infra artifact*** (the `sonic_grpc` wheel isn't in the image
-  yet) — this should fail the **gNOI suite loudly**, but must **not** red
-  unrelated PRs.
+- A missing *feature* — the server does not implement the RPC — should fail the
+  test, because that is real signal.
+- A missing *infrastructure artifact* — the `sonic_grpc` wheel is not in the
+  image yet — should fail the gNOI suite loudly, but must not turn unrelated PRs
+  red.
 
-The second distinction matters because sonic-mgmt runs a **tree-wide
-`pytest --collect-only`** check (`.azure-pipelines/pytest-collect-only.yml`)
-against the *currently published* `docker-sonic-mgmt` image on every PR. A
-module-scope `from sonic_grpc.gnoi import ...` executes at **collection** time,
-so if the published image lags the wheel, that import raises a collection error
-and reds the collect-only job for **every** sonic-mgmt PR — not just gNOI runs.
-"Red not skip" is right; reding the whole tree is collateral damage.
+The second distinction matters because sonic-mgmt runs a tree-wide
+`pytest --collect-only` check (`.azure-pipelines/pytest-collect-only.yml`)
+against the currently published `docker-sonic-mgmt` image on every PR. A
+module-scope `from sonic_grpc.gnoi import ...` runs at collection time, so if
+the published image lags the wheel, that import raises a collection error and
+turns the collect-only job red for every sonic-mgmt PR, not just gNOI runs. The
+"fail, don't skip" principle is right; failing the whole tree over an
+infrastructure lag is not.
 
-**Canonical pattern:** put the hard dependency in the suite's fixture, not at
-module scope. Import `sonic_grpc.gnoi` (and assert a minimum
-`sonic_grpc.__version__`) inside the `gnoi_client` fixture / a session-scoped
-conftest guard, and `pytest.fail()` with a message naming the required wheel
-version and the buildimage PR. This keeps the failure **hard** and **red** when
-the gNOI suite actually runs, while leaving tree-wide `--collect-only`
-unaffected. (The reference suite's imports should live behind this guard for the
-same reason.)
+The suite therefore keeps the hard dependency out of module scope and places it
+in the fixture instead. The import of `sonic_grpc.gnoi`, along with a minimum
+`sonic_grpc.__version__` check, happens inside the `gnoi_client` fixture (or a
+session-scoped conftest guard), which calls `pytest.fail()` with a message
+naming the required wheel version and the buildimage PR. The failure is still
+hard and red when the gNOI suite actually runs, while tree-wide `--collect-only`
+is left unaffected.
 
-**Sequencing:**
-1. Merge the `sonic-grpc` wheel + `docker-sonic-mgmt` wiring
-   (sonic-buildimage) **first**; let the test image roll.
-2. Then merge `tests/gnoi/` (sonic-mgmt). It must **not** merge before the image
+### Sequencing
+
+1. Merge the `sonic-grpc` wheel and its `docker-sonic-mgmt` wiring
+   (sonic-buildimage) first, and let the test image roll.
+2. Then merge `tests/gnoi/` (sonic-mgmt). It must not merge before the image
    ships `sonic_grpc`, or the gNOI suite is red by construction.
 
-The wheel wiring and the tests live in the same coordinated pair of PRs, with
-the dependency called out explicitly, precisely so a reviewer cannot merge them
-out of order by accident.
+The wheel wiring and the tests are prepared as a coordinated pair of PRs, with
+the dependency stated explicitly, so that the ordering is not violated by
+accident.
 
-### Steady-state compatibility policy
+### Steady-state compatibility
 
-The cross-repo coupling is not just a one-time merge ordering — it is permanent,
-and there is **no cross-repo CI** to catch a wheel/tests mismatch pre-merge. So
-it needs an explicit policy, not just good intentions:
+The cross-repo coupling is permanent rather than a one-time ordering concern,
+and there is no cross-repo CI to catch a wheel/tests mismatch before merge, so
+it needs an explicit policy:
 
-- **Pin.** The suite asserts a minimum `sonic_grpc.__version__`; the wheel uses
-  semver. A backward-incompatible client change is a major bump plus a
-  coordinated tests update.
-- **Who bumps.** `src/sonic-grpc` carries an `OWNERS`/maintainers list (see
-  Governance). Proto-pin bumps and new service stubs go through those owners,
-  who are also responsible for the paired sonic-mgmt update.
-- **When the image lags.** The documented recovery is to install the wheel from
-  source in the container —
-  `pip install "git+https://github.com/sonic-net/sonic-buildimage@<sha>#subdirectory=src/sonic-grpc"`
-  — so development and local validation never block on an image roll.
+- **Version pin.** The suite asserts a minimum `sonic_grpc.__version__`, and the
+  wheel follows semantic versioning. A backward-incompatible client change is a
+  major version bump accompanied by a coordinated update to the tests.
+- **Ownership.** `src/sonic-grpc` carries a maintainers list (see Governance).
+  Proto-pin bumps and new service stubs go through those maintainers, who are
+  also responsible for the paired sonic-mgmt update.
+- **Recovery when the image lags.** The documented recovery is to install the
+  wheel from source in the container with
+  `pip install "git+https://github.com/sonic-net/sonic-buildimage@<sha>#subdirectory=src/sonic-grpc"`,
+  so development and local validation are never blocked on an image roll.
 
-## Why this should be the canonical approach
+## Why this should be the standard approach
 
-| Property | grpcurl on PTF | Go `gnoi_client` on DUT | py_gnmicli on PTF | native stub (sai_validation) | **native `sonic-grpc` (proposed)** |
+| Property | grpcurl on PTF | Go `gnoi_client` on DUT | py_gnmicli on PTF | native stub (sai_validation) | native `sonic-grpc` (proposed) |
 |----------|:---:|:---:|:---:|:---:|:---:|
 | Typed responses (schema preserved) | ✗ | ✗ | ✗ | ✓ | ✓ |
 | Real gRPC status codes | ✗ | ✗ | ✗ | ✓ | ✓ |
 | No PTF dependency | ✗ | ✓ | ✗ | ✓ | ✓ |
 | No DUT-baked client binary | ✓ | ✗ | ✓ | ✓ | ✓ |
 | One shared, versioned artifact | ✗ | ✗ | ✗ | per-suite | ✓ (one wheel) |
-| Reusable across repos / suites | ✗ | ✗ | ✗ | partial | ✓ |
-| Exercises real mTLS authz path | partial | ✓ | partial | depends | ✓ |
+| Reusable across repos and suites | ✗ | ✗ | ✗ | partial | ✓ |
+| Exercises the real mTLS authz path | partial | ✓ | partial | depends | ✓ |
 
-The native stub approach already wins on correctness; the only thing missing was
-a *shared* home for it. `sonic-grpc` supplies that home. Standardizing on it
-means:
+The native stub approach already comes out ahead on correctness; the piece that
+was missing was a shared home for it, which `sonic-grpc` provides. Standardizing
+on it has a few consequences worth stating plainly:
 
-- **One client contract to learn and maintain.** New gNOI tests import a wheel
-  instead of copying the nearest CLI wrapper. The churn stops because there is a
-  single obvious thing to reuse.
-- **Tests assert on the protocol, not on prose.** Typed messages and status
-  codes make negative/authz/streaming tests tractable — the cases that matter
-  most for a management API.
-- **The client is owned and versioned.** Bumping the gNOI proto pin is a wheel
-  version bump with unit tests (`FakeGnoiServer`), not a scavenger hunt across
-  vendored stubs and shell wrappers.
-- **The harness stays where it belongs.** Cert generation and CONFIG_DB
-  lifecycle remain sonic-mgmt fixtures reusing existing infra; the wheel carries
-  only the protocol client. Clean separation, minimal consumed surface
-  (`GnoiClient`, the pb2 message types, `.channel`).
+- There is a single client contract to learn and maintain. A new gNOI test
+  imports a wheel instead of copying the nearest CLI wrapper, so the divergence
+  that produced four mechanisms has an obvious alternative.
+- Tests assert on the protocol rather than on prose. Typed messages and status
+  codes make negative, authorization, and streaming tests tractable — the cases
+  that matter most for a management API.
+- The client is owned and versioned. Advancing the gNOI proto pin becomes a
+  wheel version bump backed by unit tests (`FakeGnoiServer`), rather than a hunt
+  across vendored stubs and shell wrappers.
+- The harness stays where it belongs. Certificate generation and the CONFIG_DB
+  lifecycle remain sonic-mgmt fixtures that reuse existing infrastructure, while
+  the wheel carries only the protocol client. The consumed surface is kept small
+  and stable: `GnoiClient`, the message types, and `.channel`.
 
-**On "why Python, when the gNOI server and consumers are Go":** sonic-mgmt is a
-pytest harness — a Python client is the only in-process option, and there is no
-maintained upstream Python gNOI client to adopt instead. The wheel is wire-level
-gRPC/protobuf, so it stays faithful to the same `openconfig/gnoi` contract the
-Go server and consumers use; language is a client-side detail, not a divergence.
+On the question of why a Python client when the gNOI server and several
+consumers are written in Go: sonic-mgmt is a pytest harness, so a Python client
+is the only in-process option, and there is no maintained upstream Python gNOI
+client to adopt instead. The wheel is wire-level gRPC and protobuf, so it stays
+faithful to the same `openconfig/gnoi` contract the Go server and consumers use.
+The implementation language is a client-side detail, not a divergence from the
+standard.
 
 ## Trade-offs and objections
 
-- **"grpcurl needs no wheel — this adds a cross-repo dependency."** True, and
-  it is the main cost. We accept it because the payoff (typed, status-coded,
-  shared, versioned) is exactly what a settled standard needs, and the ordering
-  is managed by explicit sequencing + a scoped hard failure + a version pin (see
-  CI behavior) rather than being papered over by a silent skip.
-- **"Why a cross-repo wheel instead of one vendored stub package in
-  `tests/common/`?"** Vendoring in sonic-mgmt would be shared *within* sonic-mgmt,
-  but the real driver is **cross-repo reuse**: sonic-buildimage has its own
-  in-flight gNOI Python client
-  ([sonic-buildimage #27760](https://github.com/sonic-net/sonic-buildimage/pull/27760))
-  that will be rerouted to consume this same `sonic-grpc` wheel. One wheel in
-  buildimage is consumable by both the test harness and the on-box/tooling
-  consumers; a copy vendored under `tests/common/` is not. (If the wheel ever
-  stalls, vendoring the flat stubs into sonic-mgmt is the named fallback — but it
-  is a fallback, not the goal.) The wheel also installs from source, so
-  development never blocks on a merge.
-- **"UDS/local transport is simpler for some suites."** The client already
-  supports `unix://`; the DUT-local UDS ergonomics explored in
+- **grpcurl needs no wheel, so this adds a cross-repo dependency.** That is
+  true, and it is the main cost. The payoff — typed responses, real status
+  codes, and a single shared, versioned artifact — is what a settled standard
+  needs, and the ordering is managed by explicit sequencing, a fixture-scoped
+  hard failure, and a version pin (see CI behavior) rather than being papered
+  over by a silent skip.
+- **Why a cross-repo wheel rather than one vendored stub package under
+  `tests/common/`?** Vendoring in sonic-mgmt would be shared within sonic-mgmt,
+  but the real driver is cross-repo reuse. sonic-buildimage has its own in-flight
+  gNOI Python client,
+  [sonic-buildimage #27760](https://github.com/sonic-net/sonic-buildimage/pull/27760),
+  which will be rerouted to consume this same `sonic-grpc` wheel. A single wheel
+  in buildimage is usable by both the test harness and the on-box tooling; a copy
+  vendored under `tests/common/` is not. Vendoring the flat stubs into sonic-mgmt
+  remains the named fallback if the wheel stalls, but it is a fallback rather than
+  the goal, and the wheel installs from source in the meantime.
+- **UDS or local transport is simpler for some suites.** The client already
+  supports `unix://`, and the DUT-local UDS ergonomics explored in
   [`gnmi-uds-transport-design.md`](./gnmi-uds-transport-design.md) compose with
   this client rather than competing with it.
 
 ## Attribution and provenance
 
-`sonic-grpc`'s client and stubs are **not new code invented here**. They are
-factored out of the in-flight gNOI Python client
-([sonic-buildimage #27760](https://github.com/sonic-net/sonic-buildimage/pull/27760));
-this effort packages that work as a standalone, installable distribution so both
-the test harness and #27760 itself can share one implementation. Credit for the
-client belongs to that original work; `sonic-grpc` is the shared home, not a
-fork. Reviewers diffing the PRs will see the shared lineage — it is intentional
-and disclosed.
+The client and stubs in `sonic-grpc` are not new code invented for this effort.
+They are factored out of the in-flight gNOI Python client in
+[sonic-buildimage #27760](https://github.com/sonic-net/sonic-buildimage/pull/27760);
+this effort packages that work as a standalone, installable distribution so that
+both the test harness and #27760 itself can share one implementation. Credit for
+the client belongs to that original work — `sonic-grpc` is a shared home for it,
+not a fork — and reviewers comparing the PRs will see the shared lineage, which
+is intentional and disclosed here.
 
 ## Governance
 
-For a package that claims to be *canonical*, ownership must be explicit, not an
-afterthought:
+For a package intended to become a standard, ownership should be explicit rather
+than assumed:
 
-- `src/sonic-grpc/` carries an `OWNERS`/maintainers list, named at introduction.
-- Those owners are accountable for proto-pin bumps, new service stubs, semver
-  discipline, and the paired sonic-mgmt update when the client surface changes.
-- New service stubs land in `sonic-grpc` (with `FakeGnoiServer`-backed unit
-  tests) rather than being generated ad hoc per suite — one generated-stub source
-  in the ecosystem.
+- `src/sonic-grpc/` carries a maintainers list, named when the package is
+  introduced.
+- Those maintainers are accountable for proto-pin bumps, new service stubs,
+  semantic-versioning discipline, and the paired sonic-mgmt update whenever the
+  client surface changes.
+- New service stubs land in `sonic-grpc`, with `FakeGnoiServer`-backed unit
+  tests, rather than being generated ad hoc per suite, so that the ecosystem
+  keeps a single generated-stub source.
 
-## Adoption & migration roadmap
+## Adoption and migration
 
-1. **Land the reference suite** (`tests/gnoi/` + `sonic-grpc`) as the canonical
-   pattern. ✅ implemented, VS-validated.
-2. **Grow `sonic-grpc`'s stub surface** (OS, streaming File, negative-path
-   helpers) as new gNOI tests need them.
-3. **Write all new gNOI tests against `GnoiClient`.** No new CLI wrappers.
-4. **Migrate existing `tests/gnmi/test_gnoi_*.py`** off grpcurl/Go-`gnoi_client`
-   onto the wheel, suite by suite, keeping behavior identical.
-5. **Fold the sai_validation stubs** into `sonic-grpc` so there is exactly one
+No existing test is deleted or changed by v1, so migration can be incremental
+and behavior-preserving:
+
+1. Land the reference suite (`tests/gnoi/` plus `sonic-grpc`) as the standard
+   pattern. This is implemented and VS-validated.
+2. Grow the stub surface in `sonic-grpc` (OS, streaming File, negative-path
+   helpers) as new gNOI tests need it.
+3. Write new gNOI tests against `GnoiClient` rather than adding new CLI wrappers.
+4. Migrate the existing `tests/gnmi/test_gnoi_*.py` tests off grpcurl and the Go
+   `gnoi_client`, one suite at a time, keeping behavior identical.
+5. Fold the sai_validation stubs into `sonic-grpc` so that there is exactly one
    generated-stub source in the tree.
 
-No existing test is deleted or changed by v1; migration is incremental and
-behavior-preserving.
+## Scope and non-goals (v1)
 
-## Scope / non-goals (v1)
+In scope: the `tests/gnoi/` suite (`System.Time` and `File.Stat`), the
+`gnoi_client` fixture, the `sonic-grpc` wheel and its image wiring, and this
+recommendation.
 
-- **In scope:** the `tests/gnoi/` suite (`System.Time`, `File.Stat`), the
-  `gnoi_client` fixture, the `sonic-grpc` wheel + image wiring, and this
-  canonical recommendation.
-- **Out of scope (later increments):** the full gNOI surface (OS,
-  factory_reset, healthz, containerz), SONiC-specific services, SmartSwitch DPU
-  routing, reboot/upgrade flows, and migrating the existing
-  `tests/gnmi/test_gnoi_*.py` tests.
+Out of scope, deferred to later increments: the full gNOI surface (OS,
+factory_reset, healthz, containerz), SONiC-specific services, SmartSwitch DPU
+routing, reboot and upgrade flows, and migrating the existing
+`tests/gnmi/test_gnoi_*.py` tests.
 
 ## Open questions
 
-- Confirm the vendored stubs stay wire-compatible with the sonic-gnmi server's
-  `openconfig/gnoi` pin as it advances (low risk for Time/Stat; re-verify on
-  bumps via `FakeGnoiServer`).
-- Final home of the fixture harness: keep it in `tests/gnoi/` or promote the
-  reusable parts to `tests/common/` once a second suite consumes the client.
-- Initial `sonic-grpc` maintainer set and review cadence for proto-pin bumps
-  (the Governance section names the mechanism; the specific owners are TBD at
-  introduction).
+- Whether the vendored stubs stay wire-compatible with the sonic-gnmi server's
+  `openconfig/gnoi` pin as it advances. The risk is low for Time and Stat, and
+  it can be re-verified on bumps with `FakeGnoiServer`.
+- Where the fixture harness should ultimately live — in `tests/gnoi/`, or with
+  the reusable parts promoted to `tests/common/` once a second suite consumes the
+  client.
+- The initial `sonic-grpc` maintainer set and the review cadence for proto-pin
+  bumps. The Governance section names the mechanism; the specific owners are to
+  be decided when the package is introduced.
