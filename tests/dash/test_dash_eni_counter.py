@@ -336,8 +336,8 @@ class TestEniCounter:
         4. Check the following counter change as follows by comparing eni_counter_before_sending_pkt
         with eni_counter_after_sending_pkt
                SAI_ENI_STAT_OUTBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS: +1
-               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1   (new in SAI#2251, aggregate forwarding drops)
-               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1        (new in SAI#2251, aggregate of all drops)
+               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1
+               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1
         """
         packet_number = 1
         eni_counter_check_point_dict = {
@@ -359,8 +359,8 @@ class TestEniCounter:
         4. Check the following counter change as follows by comparing eni_counter_before_sending_pkt
         with eni_counter_after_sending_pkt
                SAI_ENI_STAT_OUTBOUND_CA_PA_ENTRY_MISS_DROP_PACKETS: +1
-               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1   (new in SAI#2251, aggregate forwarding drops)
-               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1        (new in SAI#2251, aggregate of all drops)
+               SAI_ENI_STAT_FORWARDING_DROP_PACKETS: +1
+               SAI_ENI_STAT_TOTAL_DROP_PACKETS: +1
         """
         packet_number = 1
         eni_counter_check_point_dict = {
@@ -451,7 +451,6 @@ class TestEniCounter:
         with allure.step("send the inbound packet without inbound route and verify the relevant eni counter"):
             eni_counter_check_point_dict = {
                 "SAI_ENI_STAT_INBOUND_ROUTING_ENTRY_MISS_DROP_PACKETS": packet_number,
-                # new in SAI#2251: aggregate forwarding-drop and total-drop counters
                 "SAI_ENI_STAT_FORWARDING_DROP_PACKETS": packet_number,
                 "SAI_ENI_STAT_TOTAL_DROP_PACKETS": packet_number,
             }
@@ -462,7 +461,7 @@ class TestEniCounter:
     @pytest.mark.parametrize("tcp_flag", ["syn", "synack", "fin", "rst"])
     def test_outbound_tcp_flag_eni_counter(self, dash_pl_config, outer_encap, tcp_flag):
         """
-        Verify the per-flag outbound TCP counters added in SAI PR opencomputeproject/SAI#2251.
+        Verify the per-flag outbound TCP counters.
 
         1. (For non-SYN flags) send an outbound TCP SYN to establish a flow so the flagged
            packet is processed on an existing flow instead of being treated as a flow miss.
@@ -493,7 +492,7 @@ class TestEniCounter:
     @pytest.mark.parametrize("tcp_flag", ["syn", "synack", "fin", "rst"])
     def test_inbound_tcp_flag_eni_counter(self, dash_pl_config, outer_encap, tcp_flag):
         """
-        Verify the per-flag inbound TCP counters added in SAI PR opencomputeproject/SAI#2251.
+        Verify the per-flag inbound TCP counters.
 
         1. Send an outbound TCP SYN to establish the bidirectional flow.
         2. Snapshot the eni counters, send an inbound (PE->DPU) TCP packet carrying ``tcp_flag``.
@@ -519,7 +518,7 @@ class TestEniCounter:
 
     def test_outbound_unsupported_protocol_drop_counter(self, dash_pl_config, outer_encap):
         """
-        Verify SAI_ENI_STAT_UNSUPPORTED_PROTOCOL_DROP_PACKETS (new in SAI#2251).
+        Verify SAI_ENI_STAT_UNSUPPORTED_PROTOCOL_DROP_PACKETS.
 
         Send an outbound packet whose inner IP protocol is neither TCP/UDP/ICMP (here set to
         89 / OSPF). The DPU should drop it as an unsupported tenant protocol and increment the
@@ -543,7 +542,7 @@ class TestEniCounter:
     def test_inbound_pa_validation_fail_drop_counter(
             self, dash_pl_config, inner_packet_type, inbound_pa_validation_route_rule):
         """
-        Verify SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS (new in SAI#2251).
+        Verify SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS.
 
         Send an inbound packet whose outer source PA is not a configured tunnel endpoint.
         The DPU should drop it on source-PA (tunnel-endpoint) validation failure and increment
