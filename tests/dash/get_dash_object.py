@@ -30,12 +30,12 @@ def main():
 
     table_name = args.table_name.replace("|", ":").split(":")[0]
 
-    cmd =  'sonic-db-cli DPU_APPL_DB keys \"*\"'
     cmdout = ''
-    with os.popen(cmd) as fp:
-        cmdout = fp.read()
 
     if args.key is None:
+        cmd =  'sonic-db-cli DPU_APPL_DB keys \"*\"'
+        with os.popen(cmd) as fp:
+            cmdout = fp.read()
         print(cmdout)
         return cmdout
 

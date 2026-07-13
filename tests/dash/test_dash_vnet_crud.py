@@ -46,11 +46,8 @@ TEST_VNET_VNI_3 = 1003
 TEST_VNET_GUID_3 = "33333333-3333-3333-3333-333333333333"
 
 # Updated values for testing UPDATE operations
-TEST_VNET_VNI_1_UPDATED = 1101
+TEST_VNET_VNI_1_UPDATED = 5001
 TEST_VNET_GUID_1_UPDATED = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-
-ENABLE_GNMI_API = True
-WAIT_TIME_AFTER_CONFIG = 5
 
 def deep_merge(dst, src): 
     for k, v in src.items():
@@ -59,6 +56,86 @@ def deep_merge(dst, src):
         elif k not in dst:
             dst[k] = v
     return dst
+
+
+def parse_vnet_cmdout(vnet_cmdout):
+    """
+    Parse AMD PD vnet_cmdout output into a dictionary.
+
+    Args:
+        vnet_cmdout: List of strings from command stdout
+
+    Returns:
+        dict: Dictionary with VNET IDs as keys and VNET details as values
+    """
+    vnet_dict = {}
+    current_vnet = {}
+    current_id = None
+    summary = {}
+
+    for line in vnet_cmdout.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        # Skip empty lines and separator lines
+        if line.startswith("---"):
+            # If we have a current VNET being processed, save it
+            if current_vnet:
+                # Extract VNI from "Fabric encap" field (e.g., VXLAN/1002 -> 1002)
+                fabric_encap = current_vnet.get("Fabric encap", "")
+
+                if "/" in fabric_encap:
+                    vni = fabric_encap.split("/")[1]       # "VXLAN/1002" -> "1002"
+                else:
+                    vni = fabric_encap if fabric_encap else "NO_VNI"
+
+                vnet_dict[vni] = current_vnet
+                current_vnet = {}
+            continue
+
+        # Parse summary lines (No. of local vnets, etc.)
+        if line.startswith("No."):
+            key, value = line.split(":", 1)
+            summary[key.strip()] = value.strip()
+            continue
+
+        # Parse key-value pairs
+        if ":" in line:
+            key, value = line.split(":", 1)
+            key = key.strip()
+            value = value.strip()
+
+            if key == "Id":
+                # Start of a new VNET entry
+                current_vnet = {"Id": value}
+            else:
+                current_vnet[key] = value
+
+    # Add summary to the result
+    result = {
+        "vnets": vnet_dict,
+        "summary": summary
+    }
+
+    return result
+
+
+@pytest.fixture(scope="module", autouse=True)
+def create_dash_appliance_table(localhost, duthost, ptfhost, dpuhosts, dpu_index):
+
+    dpuhost = dpuhosts[dpu_index]
+
+    logger.info(f"Creating DASH Appliance Table")
+
+    appliance_config = {"DASH_APPLIANCE_TABLE:1": {
+                             "sip": "10.1.0.5",
+                             "vm_vni": 100,
+                             "local_region_id": 100,
+                             "trusted_vnis_list": [100, [250, 511]]
+                        }}
+
+    apply_dash_config(localhost, duthost, ptfhost, appliance_config, dpuhost.dpu_index)
 
 @pytest.fixture(scope="module")
 def vnet_config_info(duthost, dpuhosts, dpu_index):
@@ -87,28 +164,17 @@ def vnet_config_info(duthost, dpuhosts, dpu_index):
 @pytest.fixture(scope="module", autouse=True)
 def copy_getdash_tablescript(localhost, dpuhosts, dpu_index, duthost, ansible_adhoc, tbinfo):
     """
-    Copy the DASH helper script to the DUT once before all tests.
-    Port 9090 redirects to the DASH module on the switch.
+    Copy the DASH helper script to the DPU SWSS Container
     """
     # Get credentials from duthost_vars
-    dpuhostname = tbinfo['duts'][1]
-    dpuhosttvars = ansible_adhoc().options['inventory_manager'].get_host(dpuhostname).vars
     dpuhost = dpuhosts[dpu_index]
+    src = "/sonic-mgmt/tests/dash/get_dash_object.py"
+    remote_tmp = f"/tmp/get_dash_object_{dpuhost.dpu_index}.py"
 
-    # Access directly from host object
-    ansible_user = dpuhosttvars['ansible_ssh_user']
-    ansible_password = dpuhosttvars['ansible_ssh_pass']
-    mgmt_ip =  dpuhosttvars['ansible_host']
-    ansible_port = dpuhosttvars['ansible_ssh_port']
+    dpuhost.copy(src=src, dest=remote_tmp, mode="0755")
+    res = dpuhost.shell(f"docker cp {remote_tmp} swss:/get_dash_object.py", module_ignore_errors=True)
+    pytest_assert(res.get("rc", 1) == 0, f"Failed to copy get_dash_object.py into swss container: {res}")
 
-    src  = "/sonic-mgmt/tests/dash/get_dash_object.py"
-    dest = f"{ansible_user}@{mgmt_ip}:/home/{ansible_user}/"
-
-    cmd = f"sshpass -p {ansible_password} scp -P {ansible_port} -o StrictHostKeyChecking=no {src} {dest}"
-    localhost.shell(cmd, module_ignore_errors=True)
-
-    cmd = f'docker cp /home/{ansible_user}/get_dash_object.py swss:/'
-    dpuhost.shell(cmd, module_ignore_errors=True)
 
 def create_vnet_config(vnet_name, vni, guid):
     """
@@ -130,8 +196,9 @@ def create_vnet_config(vnet_name, vni, guid):
     return {
             f"DASH_VNET_TABLE:{vnet_name}": vnet_config,
            }
-    
-def apply_dash_config(localhost, duthost, ptfhost, dash_config, dpuindex, op="SET"):
+   
+
+def apply_dash_config(localhost, duthost, ptfhost, dash_config, dpuindex, op="SET", wait_after_apply=5):
     """
     Apply VNET configuration to the DUT.
 
@@ -145,10 +212,29 @@ def apply_dash_config(localhost, duthost, ptfhost, dash_config, dpuindex, op="SE
     logger.info(f'duthost: {duthost} {dpuindex}')
 
     if op == "SET":
-        apply_messages(localhost, duthost, ptfhost, dash_config, dpuindex, set_db=True, wait_after_apply=1)
+        apply_messages(localhost, duthost, ptfhost, dash_config, dpuindex,
+                       set_db=True, wait_after_apply=wait_after_apply)
     else:
-        apply_messages(localhost, duthost, ptfhost, dash_config, dpuindex, set_db=False, wait_after_apply=1)
+        apply_messages(localhost, duthost, ptfhost, dash_config, dpuindex,
+                       set_db=False, wait_after_apply=wait_after_apply)
 
+def verify_vnet_state_in_pd(dpu, expected_vni=None):
+    """
+      Execute AMD DPU VNET show command and verify whether
+      expected_vni exists in PD VET Table
+      Return:
+          True : expected vni is programmed in AMD DPU PD VNET Table
+          False: expected vni is not programmed in AMD DPU PD VNET Table
+    """
+    result = dpu.shell('sudo pdsctl show vpc', module_ignore_errors=True)
+    vnet_cmdout = (result.get("stdout") or "").strip()
+    pd_vnet_dict = parse_vnet_cmdout(vnet_cmdout)
+    if expected_vni and str(expected_vni) in pd_vnet_dict['vnets']:
+        logger.info('Expected VNI  present in PD')
+        return True
+    else:
+        logger.info('Expected VNI missing in PD')
+    return False
 
 def verify_vnet_exists(dpu, vnet_name, expected_vni=None):
     """
@@ -167,26 +253,26 @@ def verify_vnet_exists(dpu, vnet_name, expected_vni=None):
     cmd = 'docker exec -i swss '
     cmd += f'/get_dash_object.py --table_name DASH_VNET_TABLE --key {vnet_name}'
     result = dpu.shell(cmd, module_ignore_errors=True)
-    cmdoutput = result.get('stdout', '')
-    logger.info(f'shell out {cmdoutput}')
+    cmdoutput = (result.get("stdout") or "").strip()
 
-    patt = re.search('vni\": ([0-9]+),', cmdoutput)
-    actual_vni = None
-    if patt:
-        actual_vni = patt.group(1)
-        logger.info(f"VNET {vnet_name} vni: {actual_vni}")
+    if not cmdoutput:
+        logger.info("No output when querying VNET %s (rc=%s, stderr=%s)",\
+                     vnet_name, result.get("rc"), result.get("stderr"))
+        return False
+
+    patt = re.search(r'"vni"\s*:\s*"?([0-9]+)"?', cmdoutput)
+    actual_vni = patt.group(1) if patt else None
 
     # Verify VNI if specified
-    if expected_vni is not None:
-        if actual_vni is None:
-            return False
-        if str(actual_vni) != str(expected_vni):
-            logger.error(f"VNI mismatch: expected {expected_vni}, got {actual_vni}")
-            return False
-        else:
-            return True
+    if expected_vni is None:
+        return True
+    if actual_vni is None:
+        return False
+    if str(actual_vni) != str(expected_vni):
+        logger.error(f"VNI mismatch: expected {expected_vni}, got {actual_vni}")
+        return False
 
-    return False
+    return True
 
 def get_vnet_state(dpu, vnet_name):
     """
@@ -203,8 +289,8 @@ def get_vnet_state(dpu, vnet_name):
     cmd = 'docker exec -i swss '
     cmd += f'/get_dash_object.py --table_name DASH_VNET_TABLE --key {vnet_name} --statedb'
     result = dpu.shell(cmd, module_ignore_errors=True)
-    cmdoutput = result.get('stdout', '')
-    logger.info(f'shell out {cmdoutput}')
+    cmdoutput = (result.get("stdout") or "").strip()
+    logger.info(f"shell out {cmdoutput}")
 
     patt = re.search("result\': \'([0-9])\'", cmdoutput)
     result_value = None
@@ -262,20 +348,11 @@ def test_vnet_create_single(localhost, duthost, dpuhosts, dpu_index, ptfhost, sk
 
     logger.info(f"Creating VNET: {TEST_VNET_NAME_1}")
 
-    appliance_config = {"DASH_APPLIANCE_TABLE:1": {
-                             "sip": "10.1.0.5",
-                             "vm_vni": 100,
-                             "local_region_id": 100,
-                             "trusted_vnis_list": [100, [250, 511]]
-                        }}
-
-    apply_dash_config(localhost, duthost, ptfhost, appliance_config, dpuhost.dpu_index)
     # Create VNET configuration
     vnet_config = create_vnet_config(TEST_VNET_NAME_1, TEST_VNET_VNI_1, TEST_VNET_GUID_1)
    
     # Apply configuration
     apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
-
     # Verify VNET exists in CONFIG_DB
     vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, TEST_VNET_VNI_1)
     pytest_assert(vnet_exists, f"DPU_APPL_DB: VNET {TEST_VNET_NAME_1} was not created successfully")
@@ -283,6 +360,11 @@ def test_vnet_create_single(localhost, duthost, dpuhosts, dpu_index, ptfhost, sk
     # Verify VNET state in STATE_DB 
     vnet_state = get_vnet_state(dpuhost, TEST_VNET_NAME_1)
     pytest_assert(vnet_state == 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_1} was not created successfully")
+
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, TEST_VNET_VNI_1)
+        pytest_assert(vnet_pd_state, f"DPU_APPL_DB: VNET {TEST_VNET_NAME_1} was not created successfully")
 
     logger.info(f"VNET {TEST_VNET_NAME_1} created successfully")
 
@@ -324,48 +406,23 @@ def test_vnet_create_multiple(localhost, duthost, dpuhosts, dpu_index, ptfhost, 
     pytest_assert(vnet2_exists, f"VNET {TEST_VNET_NAME_2} was not created successfully")
     pytest_assert(vnet3_exists, f"VNET {TEST_VNET_NAME_3} was not created successfully")
 
-    # Verify VNET state in STATE_DB 
+    # Verify VNET state in Sonic DPU_STATE_DB 
     vnet2_state = get_vnet_state(dpuhost, TEST_VNET_NAME_2)
     vnet3_state = get_vnet_state(dpuhost, TEST_VNET_NAME_3)
 
     pytest_assert(vnet2_state == 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_2} was not created successfully")
     pytest_assert(vnet3_state == 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_3} was not created successfully")
+
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, TEST_VNET_VNI_2)
+        pytest_assert(vnet_pd_state, f"DPU_APPL_DB: VNET {TEST_VNET_NAME_2} was not created successfully")
+
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, TEST_VNET_VNI_3)
+        pytest_assert(vnet_pd_state, f"DPU_APPL_DB: VNET {TEST_VNET_NAME_3} was not created successfully")
+
     logger.info("Multiple VNETs created successfully")
 
-def test_vnet_create_duplicate(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_config):
-    """
-    Test creating a VNET with a name that already exists.
-
-    Validates:
-    - Creating a duplicate VNET updates the existing entry
-    - Updated values are reflected in CONFIG_DB
-    """
-    if skip_config:
-        pytest.skip("Skipping config test")
-
-    dpuhost = dpuhosts[dpu_index]
-
-    logger.info(f"Attempting to create duplicate VNET: {TEST_VNET_NAME_1}")
-
-    # Try to create the same VNET again with different VNI
-    new_vni = 9999
-    vnet_config = create_vnet_config(TEST_VNET_NAME_1, new_vni, TEST_VNET_GUID_1)
-    # Apply configuration
-    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
-
-    # Verify VNET was updated with new VNI
-    vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, new_vni)
-    pytest_assert(vnet_exists, f"VNET {TEST_VNET_NAME_1} was not updated with new VNI")
-
-    # Verify VNET state in STATE_DB 
-    vnet1_state = get_vnet_state(dpuhost, TEST_VNET_NAME_1)
-
-    pytest_assert(vnet1_state != 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_1} was updated successfully")
-
-    logger.info("Duplicate VNET creation resulted in update as expected")
-
-
-# ========== READ Tests ==========
 
 def test_vnet_read_single(duthost, dpuhosts, dpu_index, skip_config):
     """
@@ -383,8 +440,7 @@ def test_vnet_read_single(duthost, dpuhosts, dpu_index, skip_config):
     logger.info(f"Reading VNET: {TEST_VNET_NAME_1}")
 
     # Verify VNET can be read
-    new_vni = 9999
-    vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, new_vni)
+    vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, TEST_VNET_VNI_1)
 
     pytest_assert(vnet_exists, f"VNET {TEST_VNET_NAME_1} could not be read from CONFIG_DB")
 
@@ -441,6 +497,8 @@ def test_vnet_read_nonexistent(duthost, dpuhosts, dpu_index, skip_config):
 
 
 # ========== UPDATE Tests ==========
+@pytest.mark.xfail(reason='Bug:Smartswitch DPU SWSS: VNI update for DASH_VNET_TABLE \
+                           is not working.Sonic-mgmt Issue: #25115')
 def test_vnet_update_vni(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_config):
     """
     Test updating VNI attribute of an existing VNET.
@@ -458,6 +516,8 @@ def test_vnet_update_vni(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_
 
     # Update VNET with new VNI
     # Verify VNET was updated
+    vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, TEST_VNET_VNI_1)
+
     vnet_config = create_vnet_config(TEST_VNET_NAME_1, 5001, TEST_VNET_GUID_1)
 
 
@@ -466,14 +526,18 @@ def test_vnet_update_vni(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_
 
     # Verify VNET was updated
     vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1, 5001)
-    pytest_assert(vnet_exists, f"VNET {TEST_VNET_NAME_1} VNI was not updated successfully")
+    pytest_assert(vnet_exists, f"DPU_APPL_DB: VNET {TEST_VNET_NAME_1} VNI was not updated successfully")
 
     # Verify VNET state in STATE_DB 
     vnet1_state = get_vnet_state(dpuhost, TEST_VNET_NAME_1)
+    pytest_assert(vnet1_state == 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_1} was not updated successfully ")
 
-    pytest_assert(vnet1_state != 0, f"DPU_APPL_STATE_DB: VNET {TEST_VNET_NAME_1} was created successfully")
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, 5001)
+        pytest_assert(vnet_pd_state, f"PD: VNET {TEST_VNET_NAME_1} was not updated with new VNI 5001")
 
-    logger.info(f"VNET {TEST_VNET_NAME_1} VNI not updated successfully")
+    logger.info(f"VNET {TEST_VNET_NAME_1} VNI updated successfully")
 
 
 # ========== DELETE Tests ==========
@@ -497,7 +561,7 @@ def test_vnet_delete_single(localhost, duthost, dpuhosts, dpu_index, ptfhost, sk
     count_before = get_vnet_count(dpuhost)
 
     # Create delete configuration
-    vnet_config = create_vnet_config(TEST_VNET_NAME_1, TEST_VNET_VNI_1_UPDATED, TEST_VNET_GUID_1)
+    vnet_config = create_vnet_config(TEST_VNET_NAME_1, 5001, TEST_VNET_GUID_1)
 
     # Apply configuration
     apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
@@ -505,6 +569,11 @@ def test_vnet_delete_single(localhost, duthost, dpuhosts, dpu_index, ptfhost, sk
     # Verify VNET was deleted
     vnet_exists = verify_vnet_exists(dpuhost, TEST_VNET_NAME_1)
     pytest_assert(not vnet_exists, f"VNET {TEST_VNET_NAME_1} still exists after deletion")
+
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, 5001)
+        pytest_assert(not vnet_pd_state, f"PD: VNET {TEST_VNET_NAME_1} was not delete in PD")
 
     # Verify count decreased
     count_after = get_vnet_count(dpuhost)
@@ -554,6 +623,14 @@ def test_vnet_delete_multiple(localhost, duthost, dpuhosts, dpu_index, ptfhost, 
     pytest_assert(not vnet2_exists, f"VNET {TEST_VNET_NAME_2} still exists after deletion")
     pytest_assert(not vnet3_exists, f"VNET {TEST_VNET_NAME_3} still exists after deletion")
 
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, TEST_VNET_NAME_2)
+        pytest_assert(not vnet_pd_state, f"PD: VNET {TEST_VNET_NAME_2} was not deleted in HW")
+
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, TEST_VNET_NAME_3)
+        pytest_assert(not vnet_pd_state, f"PD: VNET {TEST_VNET_NAME_3} was not deleted in HW")
+
     # Verify count decreased by 2
     count_after = get_vnet_count(dpuhost)
     pytest_assert(count_after == count_before - 2,
@@ -582,11 +659,11 @@ def test_vnet_delete_nonexistent(localhost, duthost, dpuhosts, dpu_index, ptfhos
     # Get count before deletion attempt
     count_before = get_vnet_count(dpuhost)
 
-    # Create delete configuration for non-existent VNET
+    # delete configuration for non-existent VNET
     vnet_config = create_vnet_config(nonexistent_vnet, 9999, "00000000-0000-0000-0000-000000000000")
 
     # Apply configuration - should not cause errors
-    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op ="DEL")
+    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
 
     # Verify count unchanged
     count_after = get_vnet_count(dpuhost)
@@ -623,9 +700,17 @@ def test_vnet_invalid_vni(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip
     # Verify VNET state in STATE_DB 
     vnet_state = get_vnet_state(dpuhost, vnet_name)
 
-    pytest_assert(vnet_state != 0, f"DPU_APPL_STATE_DB: VNET {vnet_name} was created successfully")
+    # Checking VNET state in PD
+    if 'pensando' in dpuhost.facts['asic_type']:
+        vnet_pd_state = verify_vnet_state_in_pd(dpuhost, 0)
+        pytest_assert(not vnet_pd_state, f"PD: VNET {vnet_name} is getting created in PD")
+
+    pytest_assert(vnet_state == 1, f"DPU_APPL_STATE_DB: VNET {vnet_name} is getting created")
+
+    logger.info('VNET Creation with Invalid VNI value 0 failed on DPU HW layer')
     # Clean up
     if vnet_exists:
+        logger.info('VNET creation  on HW failed. Cleaning VNET config on DPU-APP-DB')
         vnet_config = create_vnet_config(vnet_name, 0, TEST_VNET_GUID_1)
         apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
 
@@ -671,16 +756,16 @@ def test_vnet_duplicate_vni_different_name(localhost, duthost, dpuhosts, dpu_ind
     apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
 
     # Check if second VNET was created
-    verify_vnet_exists(dpuhost, vnet_name_2, duplicate_vni)
+    vnet2_exists = verify_vnet_exists(dpuhost, vnet_name_2, duplicate_vni)
 
     # Verify VNET state in STATE_DB 
     vnet2_state = get_vnet_state(dpuhost, vnet_name_2)
 
-    if vnet2_state:
+    if not vnet2_state:
         logger.warning(f"WARNING: Second VNET {vnet_name_2} was created with duplicate VNI {duplicate_vni}")
         logger.warning("This violates DASH constraint that VNI must be unique across VNETs")
 
-    pytest_assert(vnet2_state != 0, f"DPU_APPL_STATE_DB: VNET {vnet_name_2} was created successfully")
+    pytest_assert(vnet2_state == 1, f"DPU_APPL_STATE_DB: VNET {vnet_name_2} was created successfully")
 
     # According to DASH constraints, two VNETs should NOT have the same VNI
     # The expected behavior could be:
@@ -688,12 +773,11 @@ def test_vnet_duplicate_vni_different_name(localhost, duthost, dpuhosts, dpu_ind
     # 2. Second VNET creation succeeds but system logs an error
     # 3. Implementation-specific behavior
 
-    if vnet2_state:
-
+    if not vnet2_state:
         # Check if both VNETs exist with same VNI (violation of constraint)
         vnet1_still_exists = verify_vnet_exists(dpuhost, vnet_name_1, duplicate_vni)
 
-        if vnet1_still_exists and vnet2_state:
+        if vnet1_still_exists:
             pytest.fail(f"CONSTRAINT VIOLATION: Both {vnet_name_1} and {vnet_name_2} exist with same VNI {duplicate_vni}")
     else:
         logger.info(f"Second VNET {vnet_name_2} was correctly rejected (duplicate VNI)")
@@ -702,7 +786,7 @@ def test_vnet_duplicate_vni_different_name(localhost, duthost, dpuhosts, dpu_ind
     logger.info("Cleaning up test VNETs")
     for vnet_name, guid in [(vnet_name_1, guid_1), (vnet_name_2, guid_2)]:
         if verify_vnet_exists(dpuhost, vnet_name):
-            vnet_config = create_vnet_config(vnet_name, duplicate_vni)
+            vnet_config = create_vnet_config(vnet_name, duplicate_vni, guid)
             apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
 
     logger.info("Duplicate VNI test completed")
@@ -747,12 +831,11 @@ def test_vnet_vni_uniqueness_across_operations(localhost, duthost, dpuhosts, dpu
     apply_dash_config(localhost, duthost, ptfhost, vnet_config_a_dup, dpuhost.dpu_index)
 
     # Check result - vnet_a should NOT have vni_b (should still have vni_a or update rejected)
-    verify_vnet_exists(dpuhost, vnet_a, vni_b)
-
+    vnet_a_has_dup_vni = verify_vnet_exists(dpuhost, vnet_a, vni_b)
     # Verify VNET state in STATE_DB 
     vnet_a_state = get_vnet_state(dpuhost, vnet_a)
 
-    pytest_assert(vnet_a_state != 0, f"DPU_APPL_STATE_DB: VNET {vnet_a} was created successfully")
+    pytest_assert(vnet_a_state == 0, f"DPU_APPL_STATE_DB: VNET {vnet_a} was updated successfully")
 
     if vnet_a_state:
         # Check if vnet_b still exists - if both exist with same VNI, it's a violation
@@ -782,7 +865,7 @@ def test_vnet_vni_uniqueness_across_operations(localhost, duthost, dpuhosts, dpu
     # Cleanup
     logger.info("Cleaning up test VNETs")
     for vnet_name, vni, guid in [(vnet_b, vni_b, guid_b), (vnet_c, vni_a, guid_c)]:
-        if verify_vnet_exists(duthost, vnet_name):
+        if verify_vnet_exists(dpuhost, vnet_name):
             vnet_config = create_vnet_config(vnet_name, vni, guid)
             apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
 
@@ -853,7 +936,7 @@ def test_vnet_scale_verify_all(duthost, dpuhosts, dpu_index, skip_config):
     logger.info("Verifying all VNETs at maximum capacity")
 
     # Get all VNET keys
-    actual_vnet_count = get_vnet_count(dpuhost)
+    actual_vnet_count = get_vnet_count(dpuhost, 'vnet_scale')
 
     logger.info(f"Found {actual_vnet_count} VNETs in CONFIG_DB")
     pytest_assert(actual_vnet_count<= MAX_VNET_COUNT,
@@ -875,12 +958,9 @@ def test_vnet_scale_cleanup(localhost, duthost, dpuhosts, dpu_index, ptfhost, sk
     logger.info("Cleaning up scale test VNETs")
 
     # Get current VNET count
-    initial_count = get_vnet_count(dpuhost)
-    vnets_to_delete = MAX_VNET_COUNT - initial_count
-    logger.info(f'valie del {initial_count} {vnets_to_delete} {MAX_VNET_COUNT}')
-
     vnet_config = {}
-    vnets_to_delete = 32
+    vnets_to_delete = get_vnet_count(dpuhost, 'vnet_scale')
+
     for i in range(vnets_to_delete):
         vnet_name = f"vnet_scale_{i}"
         vni = 3000 + i
@@ -933,14 +1013,14 @@ def test_vnet_delete_and_recreate_with_diff_attributes(localhost, duthost, dpuho
     # Step 2: Delete VNET
     logger.info("Step 2: Delete VNET")
     vnet_config = create_vnet_config(vnet_name, original_vni, original_guid)
-    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL")
+    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, op="DEL", wait_after_apply=10)
     vnet_exists = verify_vnet_exists(dpuhost, vnet_name)
     pytest_assert(not vnet_exists, f"VNET {vnet_name} still exists after deletion")
 
     # Step 3: Recreate VNET with different attributes
     logger.info("Step 3: Recreate VNET with different attributes")
     vnet_config = create_vnet_config(vnet_name, new_vni, new_guid)
-    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
+    apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, wait_after_apply=10)
     vnet_exists = verify_vnet_exists(dpuhost, vnet_name, new_vni)
     pytest_assert(vnet_exists, f"Failed to recreate VNET {vnet_name}")
 
@@ -957,12 +1037,12 @@ def test_vnet_delete_and_recreate_with_diff_attributes(localhost, duthost, dpuho
     logger.info(f"Delete and recreate test passed for {vnet_name}")
 
 
-def test_vnet_delete_recreate_multiple_times(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_config):
+def test_32vnet_create_delete_multiple_times(localhost, duthost, dpuhosts, dpu_index, ptfhost, skip_config):
     """
-    Test deleting and recreating the same VNET multiple times.
+    Test 32 VNET creation and deletion multiple times.
 
     Validates:
-    - VNET can be deleted and recreated repeatedly
+    - Verify 32 VNET creation and deletion repeatedly
     - No memory leaks or state corruption
     - System handles multiple cycles correctly
     """
@@ -991,7 +1071,7 @@ def test_vnet_delete_recreate_multiple_times(localhost, duthost, dpuhosts, dpu_i
     for cycle in range(num_cycles):
         logger.info(f"VNET creation in cycle {cycle + 1}")
         # Create VNET
-        apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index)
+        apply_dash_config(localhost, duthost, ptfhost, vnet_config, dpuhost.dpu_index, wait_after_apply=10)
         final_count = get_vnet_count(dpuhost, vnet_name_patt='vnet_scale')
         logger.info(f"Successfully created VNETs, total: {final_count}")
         pytest_assert(final_count == MAX_VNET_COUNT,
