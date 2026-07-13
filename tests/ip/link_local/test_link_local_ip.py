@@ -442,7 +442,7 @@ class TestLinkLocalIPacket:
         rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", "")) \
             if rif_support and rif_rx_ifaces else 0
         pytest_assert(max(rx_drp, rx_err) <= PKT_NUM_ZERO,
-                      f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}; expected both <= {PKT_NUM_ZERO}")
+                      f"Dropped packets in rx: rx_drp={rx_drp}, rx_err={rx_err}, expected both <= {PKT_NUM_ZERO}")
 
         # Match packets by PTF Validation
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
