@@ -66,7 +66,7 @@ class QosParamCisco(object):
         asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3, 0),
                        "gr": (24576000, 18000, 384, 1350, 2, 3, 0),
                        "gr2": (None, 2, 512, 64, 3, 4, -40),
-                       "gr2x": (None, 2, 512, 64, 3, 4, -40),
+                       "gr2x": (None, 2, 512, 64, 3, 4, 0),
                        "p200": (None, 1, 512, 64, 2, 2, 0)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
@@ -347,8 +347,8 @@ class QosParamCisco(object):
         mantissa_len = 5
         exponent = max(thr.bit_length() - mantissa_len, 0)
         mantissa = thr >> exponent
-        if is_lossy and self.dutAsic in ["gr2", "gr2x"]:
-            # gr2/gr2x lossy egress drop threshold is 1 off due to queue occupancy is quantized
+        if is_lossy and self.dutAsic in ["gr2"]:
+            # gr2 (not gr2x) lossy egress drop threshold is 1 off due to queue occupancy quantization
             mantissa += 1
         return mantissa, exponent
 

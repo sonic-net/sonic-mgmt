@@ -98,7 +98,7 @@ def copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name):
         dest = f"syncd{asic}"
     else:
         dest = "syncd"
-    dut.shell(f"docker cp {script_path} {dest}:/") # noqa: E231
+    dut.shell(f"docker cp {script_path} {dest}:/")  # noqa: E231
 
 
 def copy_set_voq_watchdog_script_cisco_8000(dut, asic="", enable=True):
