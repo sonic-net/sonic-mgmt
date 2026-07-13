@@ -57,12 +57,22 @@ class DHCPStressTest(DHCPTest):
         # issues with '-i any' cooked capture (SLL/SLLv2), deep BPF offsets
         # (udp[249:2]), and grep-based interface filtering.
         log_files = []
+        tcpdump_procs = []
         for idx in self.receive_port_indices:
             log_file = "/tmp/dhcp_stress_{}_{}.log".format(self.packet_type, idx)
             log_files.append(log_file)
-            cmd = "tcpdump -i eth{} -n -q -l 'udp and (port 67 or port 68)' > {} 2>/dev/null".format(
-                idx, log_file)
-            subprocess.Popen(cmd, shell=True)
+            # Match only the DHCP message-type under test so background/other-type
+            # DHCP traffic cannot inflate the relayed-packet count. message-type
+            # (option 53) is the first DHCP option; udp[] is UDP-header relative,
+            # so its length+value bytes sit at udp[249:2] (8 UDP hdr + 236 BOOTP
+            # + 4 magic cookie + 1 option code). This deep offset is reliable now
+            # that capture is per-interface rather than '-i any' cooked mode.
+            # exec so the shell is replaced by tcpdump and proc.pid is the
+            # tcpdump PID we can signal directly (see cleanup below).
+            cmd = ("exec tcpdump -i eth{} -n -q -l "
+                   "'udp and (port 67 or port 68) and udp[249:2] = 0x01{}' "
+                   "> {} 2>/dev/null").format(idx, self.packet_type_hex, log_file)
+            tcpdump_procs.append(subprocess.Popen(cmd, shell=True))
 
         time.sleep(1)
 
@@ -81,13 +91,18 @@ class DHCPStressTest(DHCPTest):
 
         time.sleep(15)
 
-        try:
-            pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
-            for pid in pids:
-                os.kill(int(pid), signal.SIGINT)
-        except subprocess.CalledProcessError:
-            # No tcpdump processes running; safe to ignore
-            pass
+        # Only stop the tcpdump instances this test started. A blanket
+        # `pgrep tcpdump` + kill would also tear down captures owned by other
+        # parametrized stress runs executing concurrently on the same PTF host.
+        for proc in tcpdump_procs:
+            try:
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            except OSError:
+                # Process already exited; nothing to clean up.
+                pass
         time.sleep(2)
 
         total_count = 0
@@ -104,8 +119,8 @@ class DHCPStressTest(DHCPTest):
                 # File already removed or never created; nothing to clean up
                 pass
 
-        subprocess.check_output(
-            "echo {} > /tmp/dhcp_stress_test_{}".format(total_count, self.packet_type), shell=True)
+        with open("/tmp/dhcp_stress_test_{}".format(self.packet_type), "w") as count_fh:
+            count_fh.write("{}\n".format(total_count))
 
     def runTest(self):
         self.client_send_packet_stress()
