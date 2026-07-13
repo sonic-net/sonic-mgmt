@@ -268,7 +268,7 @@ def test_acl_table_dynamic_port_binding(rand_selected_dut, setup, bind_ports):
 
     Test steps:
     1. Provision the ACL table type and table with no bound ports.
-    2. Apply a GCU add patch that binds the table to two ports (isolate).
+    2. Apply a GCU add patch that binds the table to all ports (isolate).
     3. Verify `show acl table` reflects both port bindings.
     4. Apply a GCU remove patch that clears the "ports" field (unisolate).
     5. Verify the table has no port bindings.
