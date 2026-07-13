@@ -753,7 +753,7 @@ class TestBMCApi(PlatformApiTestBase):
                     )
                 member_session_ids = self._extract_ids_from_members(sessions_data)
                 pytest_assert(session_id in member_session_ids,
-                              "Session {} not present in Members: {}".format(session_id, member_session_ids))
+                              "Session {} is absent from Members: {}".format(session_id, member_session_ids))
 
             with allure.step("Create event subscription"):
                 subscription_data = json.dumps({

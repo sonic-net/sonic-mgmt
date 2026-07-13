@@ -2,6 +2,7 @@ import re
 import os
 import json
 import logging
+import shlex
 import tarfile
 import paramiko
 import yaml
@@ -99,15 +100,17 @@ def _ssh_bmc_cmd(duthost, bmc_ip, bmc_user, bmc_password, cmd):
         finally:
             bmc_client.close()
 
-    return duthost.command(
-        f"python3 -c 'import paramiko;"
-        f"c=paramiko.SSHClient();"
-        f"c.set_missing_host_key_policy(paramiko.AutoAddPolicy());"
-        f"c.connect(\"{bmc_ip}\",username=\"{bmc_user}\",password=\"{bmc_password}\",timeout=30);"
-        f"_,o,_=c.exec_command(\"{cmd}\");"
-        f"print(o.read().decode().strip());"
-        f"c.close()'"
-    )["stdout"]
+    python_code = (
+        "import paramiko\n"
+        "client = paramiko.SSHClient()\n"
+        "client.set_missing_host_key_policy(paramiko.AutoAddPolicy())\n"
+        f"client.connect({bmc_ip!r}, username={bmc_user!r}, "
+        f"password={bmc_password!r}, timeout=30)\n"
+        f"_, stdout, _ = client.exec_command({cmd!r})\n"
+        "print(stdout.read().decode().strip())\n"
+        "client.close()"
+    )
+    return duthost.command(f"python3 -c {shlex.quote(python_code)}")["stdout"]
 
 
 def get_bmc_flavor(duthost, bmc_ip, bmc_user, bmc_password):
