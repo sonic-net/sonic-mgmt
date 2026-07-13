@@ -143,7 +143,7 @@
 
     - name: Add IPv6 route for inband connectivity from PTF to DUT
       command: ip route replace {{ loopback_ip }} {{ topo_vms.keys() | map('get_exabgp_peer_v6', convergence_data|default({})) | map('regex_replace', '^', 'nexthop via ') | join(' ') }}
-      loop: "{{ topology['DUT']['loopback']['ipv6'] | default('fc00:1::32') }}"
+      loop: "{{ topology['DUT']['loopback']['ipv6'] | default(['fc00:1::32']) }}"
       loop_control:
         loop_var: loopback_ip
       delegate_to: "{{ ptf_host }}"
