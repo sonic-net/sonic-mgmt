@@ -1,6 +1,7 @@
 import binascii
 import json
 import argparse
+import os
 import os.path
 from collections import defaultdict
 import logging
@@ -168,6 +169,11 @@ def main():
 
     ARPResponder.ip_sets = ip_sets
     ARPResponder.sockets = sockets
+
+    # All pcap L2 sockets are open; write PID to the pid file before
+    # entering the sniff loop so the test framework knows we are ready.
+    with open('/tmp/arp_responder.pid', 'w') as f:
+        f.write(str(os.getpid()) + '\n')
 
     scapy.sniff(prn=ARPResponder.action, opened_socket=inverse_sockets, store=False)
 
