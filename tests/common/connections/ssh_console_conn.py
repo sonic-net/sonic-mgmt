@@ -121,6 +121,9 @@ class SSHConsoleConn(BaseConsoleConn):
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
             try:
+                # Send Ctrl-C first to abort any pending command or PS2 continuation left by a prior session.
+                self.write_channel("\x03")
+                time.sleep(0.5 * delay_factor)
                 self.write_channel(self.RETURN)
                 # Accumulate output so a lagging prompt is reliably observed.
                 output = ""
