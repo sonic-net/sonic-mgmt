@@ -117,7 +117,6 @@ def restore_console_config(setup_c0):
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
-
 def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_modules):  # noqa: F811
     """Stress-test all wired console lines on the DUT using the platform
     ``console_loopback.py`` utility.
@@ -129,13 +128,13 @@ def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_m
     1. Skip unless DUT platform starts with ``arm64-c8220tg_48a``.
     2. Verify at least one console line is wired for the DUT.
     3. Locate ``console_loopback.py`` on both the DUT and the fanout.
-     4. Configure console settings on DUT and fanout:
-         - ``config console enable``
-         - Set 115200 baud and disable flow control on lines 1..48.
-     5. Start the fanout loopback server (``fanout start``).
-     6. Run the DUT loopback stress client (``dut <baud>``).
-     7. Stop the fanout server unconditionally in teardown.
-     8. Assert the DUT client exited with rc=0.
+    4. Configure console settings on DUT and fanout:
+        - ``config console enable``
+        - Set 115200 baud and disable flow control on lines 1..48.
+    5. Start the fanout loopback server (``fanout start``).
+    6. Run the DUT loopback stress client (``dut <baud> ...``).
+    7. Stop the fanout server unconditionally in teardown.
+    8. Assert the DUT client exited with rc=0.
     """
     duthost, console_fanout = setup_c0
 
@@ -168,7 +167,7 @@ def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_m
     if dut_script is None:
         pytest.skip(
             "Skipping: '{}' not found on DUT '{}'. "
-            "Ensure the cisco-8000 platform package (PR #4525) is installed.".format(
+            "Ensure the cisco-8000 platform specific script is installed.".format(
                 _SCRIPT_PATH, duthost.hostname
             )
         )
@@ -193,9 +192,10 @@ def test_console_cisco8000_loopback_stress(setup_c0, conn_graph_facts, cleanup_m
     # Run the stress test                                                  #
     # ------------------------------------------------------------------ #
     console_config_cmd = (
+        "set -e;"
         "sudo config console enable && "
-        "for line in $(seq 1 48); do "
-        "sudo config console baud \"$line\" 115200; "
+        f"for line in {' '.join(lines)}; do "
+        f"sudo config console baud \"$line\" {_BAUD_RATE}; "
         "sudo config console flow_control disable \"$line\"; "
         "done"
     )
