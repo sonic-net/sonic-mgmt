@@ -80,6 +80,13 @@
         loop_var: vm_item
       delegate_to: localhost
 
+    - name: Add IPv4 route for inband connectivity from PTF to DUT
+      command: ip route replace {{ loopback_ip }} {{ topo_vms.keys() | map('get_exabgp_peer_v4', convergence_data|default({})) | map('regex_replace', '^', 'nexthop via ') | join(' ') }}
+      loop: "{{ topology['DUT']['loopback']['ipv4'] | default(['10.1.0.32']) }}"
+      loop_control:
+        loop_var: loopback_ip
+      delegate_to: "{{ ptf_host }}"
+
   - name: Configure and start exabpg process for IPV6
     when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
     block:
@@ -133,6 +140,13 @@
       loop_control:
         loop_var: vm_item
       delegate_to: localhost
+
+    - name: Add IPv6 route for inband connectivity from PTF to DUT
+      command: ip route replace {{ loopback_ip }} {{ topo_vms.keys() | map('get_exabgp_peer_v6', convergence_data|default({})) | map('regex_replace', '^', 'nexthop via ') | join(' ') }}
+      loop: "{{ topology['DUT']['loopback']['ipv6'] | default('fc00:1::32') }}"
+      loop_control:
+        loop_var: loopback_ip
+      delegate_to: "{{ ptf_host }}"
 
   - name: Print upstream_neighbor_groups and downstream_neighbor_groups
     debug:
