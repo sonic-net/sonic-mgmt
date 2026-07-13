@@ -17,6 +17,41 @@ from tests.common.helpers.platform_api import bmc
 logger = logging.getLogger(__name__)
 
 
+
+# Skip selected platform_tests files on BMC DUTs.
+# Match by module path relative to tests/, e.g. "platform_tests/api/test_chassis.py".
+SKIP_NO_FILE_PATHS_FOR_BMC = {
+    "platform_tests/test_sai_ocp_version.py",
+    "platform_tests/daemon/test_chassisd.py",
+    "platform_tests/daemon/test_fancontrol.py",
+    "platform_tests/daemon/test_ledd.py",
+    "platform_tests/daemon/test_pcied.py",
+    "platform_tests/daemon/test_psud.py",
+    "platform_tests/api/test_chassis.py",
+    "platform_tests/api/test_chassis_fans.py",
+    "platform_tests/api/test_fan_drawer_fans.py",
+    "platform_tests/api/test_sfp.py",
+    "platform_tests/api/test_psu.py",
+    "platform_tests/api/test_psu_fans.py",
+    "platform_tests/api/test_thermal.py",
+    "platform_tests/api/test_bmc.py",
+    "platform_tests/api/test_component.py",
+    "platform_tests/api/test_fan_drawer.py",
+}
+
+
+@pytest.fixture(autouse=True, scope="module")
+def skip_no_marked_platform_tests_on_bmc(request, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    if not duthost.is_bmc():
+        return
+
+    tests_root = os.path.join(str(request.config.rootpath), "tests")
+    module_path = os.path.relpath(str(request.node.fspath), tests_root).replace("\\", "/")
+
+    if module_path in SKIP_NO_FILE_PATHS_FOR_BMC:
+        pytest.skip("Skipped on BMC by NO-marked test selection policy")
+
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
