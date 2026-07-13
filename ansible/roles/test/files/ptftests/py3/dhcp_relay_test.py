@@ -218,8 +218,14 @@ class DHCPTest(DataplaneBaseTest):
             #  Byte 0: Suboption number, always set to 5
             #  Byte 1: Length of suboption data (4 bytes for IPv4)
             #  Bytes 2–5: The link selection IP address (in byte format)
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
+            # The relay (sonic-dhcp-relay dhcp4relay.cpp) encodes link-selection (SubOption 5)
+            # when is_dualTor OR link-selection is enabled, BEFORE SubOption 11 (server-override),
+            # with value = link_address & netmask (the VLAN subnet network address). Match that here
+            # so dual-tor (incl. server_id_override) runs no longer byte-mismatch on order/value.
+            if self.dual_tor or (self.link_selection and self.source_interface) or self.server_vrf:
+                ip_octets = list(map(int, self.relay_iface_ip.split('.')))
+                mask_octets = list(map(int, self.test_params['relay_iface_netmask'].split('.')))
+                link_selection_ip = bytes([ip_octets[i] & mask_octets[i] for i in range(4)])
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
                 link_selection_added = True
@@ -250,8 +256,9 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        # Relay emits link-selection (SubOption 5) once; skip this legacy dual-tor
-        # copy if the block above already added it (see commit msg).
+        # Legacy dual-tor SubOption 5, now only for the non-sonic-relay-agent (isc) path:
+        # the sonic-relay-agent block above already adds SubOption 5 for dual-tor (setting
+        # link_selection_added), so this only runs when that gate was not entered (isc).
         if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
