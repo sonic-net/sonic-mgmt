@@ -202,7 +202,7 @@ def get_acl_count_by_mark(rand_unselected_dut, mark):
 
 
 @pytest.fixture(scope="function")
-def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo):
+def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, testing_config, tbinfo, request):
     testing_mode, _ = testing_config
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         pre_client_dhcp_acl_counts = {}
@@ -221,6 +221,10 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
                                                                                                mark)
 
     yield
+
+    if hasattr(request.node, "rep_call") and request.node.rep_call.failed:
+        logger.info("Skip standby ToR ACL drop validation because the test call failed")
+        return
 
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
