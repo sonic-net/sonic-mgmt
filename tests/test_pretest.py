@@ -64,35 +64,6 @@ def test_cleanup_cache():
         os.system('rm -rf {}'.format(folder))
 
 
-def test_cleanup_testbed(duthosts, request, ptfhost):
-    deep_clean = request.config.getoption("--deep_clean")
-    if deep_clean:
-
-        def deep_clean_dut(dut):
-            logger.info("Deep cleaning DUT {}".format(dut.hostname))
-            # Remove old log files.
-            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
-            # Remove old core files.
-            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
-            # Remove old dump files.
-            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
-
-            # delete other log files that are more than a day old,
-            # this step is needed to remove some backup files or the debug files added by users
-            # which can create issue for log-analyzer
-            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
-                      module_ignore_errors=True, executable="/bin/bash")
-
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(deep_clean_dut, duthost)
-
-    # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
-    if ptfhost:
-        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
-                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
-
-
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
@@ -553,13 +524,30 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     if result["failed"] or "OK" not in result["msg"]:
         pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
-    # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
-    # We need to move it out to the correct location
-    PY_PATH = "/usr/lib/python3/dist-packages/"
-    SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
-    DST_PATH = PY_PATH + "switch_sai_thrift"
-    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
-        ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
+    # The saithrift deb installs switch_sai_thrift inside an egg dir named for the
+    # Python version it was built against (e.g. saithrift-0.9-py3.11.egg on
+    # bookworm/OS12, saithrift-0.9-py3.13.egg on trixie/OS13). The PTF runs from its
+    # own virtualenv (/root/env-python3) whose sys.path references that egg dir via
+    # easy-install.pth; dpkg does NOT update the .pth when the egg version changes,
+    # so switch_sai_thrift becomes unimportable when the image's Python version
+    # differs from the PTF's (e.g. a trixie/py3.13 deb on a bookworm/py3.11 PTF).
+    # Locate the actual egg (any py3.x) and copy switch_sai_thrift into the PTF
+    # virtualenv's site-packages, which is always on the runner's sys.path.
+    PY_PATH = "/usr/lib/python3/dist-packages"
+    egg_switch_sai = ptfhost.shell(
+        "ls -d {}/saithrift-0.9-py3.*.egg/switch_sai_thrift 2>/dev/null | head -1".format(PY_PATH),
+        module_ignore_errors=True,
+    )["stdout"].strip()
+    if egg_switch_sai:
+        # Prefer the PTF virtualenv site-packages (always on the ptf_runner sys.path);
+        # fall back to the system dist-packages if the virtualenv is absent.
+        site_dir = ptfhost.shell(
+            "/root/env-python3/bin/python -c "
+            "'import sysconfig; print(sysconfig.get_paths()[\"purelib\"])'",
+            module_ignore_errors=True,
+        )["stdout"].strip() or PY_PATH
+        ptfhost.shell("rm -rf {}/switch_sai_thrift".format(site_dir), module_ignore_errors=True)
+        ptfhost.copy(src=egg_switch_sai, dest=site_dir + "/", remote_src=True)
     logging.info("Python saithrift package installed successfully")
 
 

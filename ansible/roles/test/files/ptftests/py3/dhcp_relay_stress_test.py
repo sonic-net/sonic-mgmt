@@ -67,9 +67,12 @@ class DHCPStressTest(DHCPTest):
             # so its length+value bytes sit at udp[249:2] (8 UDP hdr + 236 BOOTP
             # + 4 magic cookie + 1 option code). This deep offset is reliable now
             # that capture is per-interface rather than '-i any' cooked mode.
+            # --buffer-size/--immediate-mode/-U keep tcpdump from dropping or
+            # buffering packets under the high packet rate of the stress test.
             # exec so the shell is replaced by tcpdump and proc.pid is the
             # tcpdump PID we can signal directly (see cleanup below).
-            cmd = ("exec tcpdump -i eth{} -n -q -l "
+            cmd = ("exec tcpdump --buffer-size=102400 --immediate-mode -U "
+                   "-i eth{} -n -q -l "
                    "'udp and (port 67 or port 68) and udp[249:2] = 0x01{}' "
                    "> {} 2>/dev/null").format(idx, self.packet_type_hex, log_file)
             tcpdump_procs.append(subprocess.Popen(cmd, shell=True))
@@ -83,13 +86,31 @@ class DHCPStressTest(DHCPTest):
         end_time = time.time() + self.packets_send_duration
         xid = 0
         while time.time() < end_time:
-            # Set a unique transaction ID for each DHCPOFFER packet for making sure no packet miss
             dhcp_packet[scapy.BOOTP].xid = xid
             xid += 1
             testutils.send_packet(self, self.send_port_indices[0], dhcp_packet)
             time.sleep(1/self.client_packets_per_sec)
 
-        time.sleep(15)
+        # Wait until tcpdump stops receiving packets (idle for 5s, max 120s).
+        # Sum the sizes of every per-interface capture file so the wait tracks
+        # traffic across all receive-port interfaces, not a single '-i any' file.
+        last_size = 0
+        idle_count = 0
+        deadline = time.time() + 120
+        while idle_count < 5 and time.time() < deadline:
+            time.sleep(1)
+            current_size = 0
+            for log_file in log_files:
+                try:
+                    current_size += os.path.getsize(log_file)
+                except OSError:
+                    # File not created yet or already removed; treat as size 0.
+                    pass
+            if current_size == last_size:
+                idle_count += 1
+            else:
+                idle_count = 0
+            last_size = current_size
 
         # Only stop the tcpdump instances this test started. A blanket
         # `pgrep tcpdump` + kill would also tear down captures owned by other

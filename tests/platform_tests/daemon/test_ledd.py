@@ -57,15 +57,6 @@ def teardown_module(duthosts, rand_one_dut_hostname):
     check_critical_processes(duthost, watch_secs=10)
 
 
-@pytest.fixture()
-def check_daemon_status(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    if daemon_status != "RUNNING":
-        duthost.start_pmon_daemon(daemon_name)
-        time.sleep(10)
-
-
 def check_expected_daemon_status(duthost, expected_daemon_status):
     daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status

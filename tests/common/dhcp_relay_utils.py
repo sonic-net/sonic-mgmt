@@ -25,9 +25,17 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl restart dhcp_relay')
     duthost.shell('systemctl reset-failed dhcp_relay')
 
+    # In SONiC dhcp relay agent mode, dhcprelayd stops dhcpmon by design,
+    # so exclude it from the readiness check (dhcprelayd.py refresh_dhcrelay TODO).
+    has_sonic_relay = duthost.shell(
+        'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+        module_ignore_errors=True)['stdout'].strip() == 'True'
+
     def _is_dhcp_relay_ready():
-        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhc | awk \'{print $2}\'',
-                               module_ignore_errors=True)
+        filter_cmd = 'grep dhc | grep -v dhcpmon' if has_sonic_relay else 'grep dhc'
+        output = duthost.shell(
+            "docker exec dhcp_relay supervisorctl status | {} | awk '{{print $2}}'".format(filter_cmd),
+            module_ignore_errors=True)
         return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
 
@@ -83,14 +91,14 @@ def query_and_sum_dhcpmon_counters(duthost, vlan_name, interface_name_list, is_v
 
 
 def compare_dhcp_counters_with_warning(actual_counter, expected_counter, warning_msg,
-                                       error_in_percentage=0.0, is_v6=False):
+                                       error_in_percentage=0, is_v6=False):
     compare_result = compare_dhcp_counters(
         actual_counter, expected_counter, error_in_percentage, is_v6)
     while msg := next(compare_result, False):
         logger.warning(warning_msg + ": " + str(msg))
 
 
-def compare_dhcp_counters(actual_counter, expected_counter, error_in_percentage=0.0, is_v6=False):
+def compare_dhcp_counters(actual_counter, expected_counter, error_in_percentage=0, is_v6=False):
     """Compare the DHCP counter (could come from relay or dhcpmon or anywhere) value with the expected counter."""
     for dir in SUPPORTED_DIR:
         for dhcp_type in SUPPORTED_DHCPV6_TYPE if is_v6 else SUPPORTED_DHCPV4_TYPE:
@@ -109,7 +117,7 @@ def compare_dhcp_counters(actual_counter, expected_counter, error_in_percentage=
 
 
 def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
-                              expected_downlink_counter, error_in_percentage=0.0, is_v6=False):
+                              expected_downlink_counter, error_in_percentage=0, is_v6=False):
     """Validate the dhcpmon counters against the expected counters."""
     logger.info("Expected uplink counters: {}, expected downlink counters: {}, error in percentage: {}%".format(
         expected_uplink_counter, expected_downlink_counter, error_in_percentage))
@@ -234,7 +242,7 @@ def calculate_counters_per_pkts(pkts, is_v6=False):
 
 
 def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_name_index_mapping,
-                                           error_in_percentage=0.0, is_v6=False):
+                                           error_in_percentage=0, is_v6=False):
     """Validate the dhcpmon counters and packets consistence"""
     downlink_vlan_iface = dhcp_relay['downlink_vlan_iface']['name']
     # it can be portchannel or interface, it depends on the topology
@@ -406,13 +414,15 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
 
 @pytest.fixture()
-def enable_sonic_dhcpv4_relay_agent(duthost, request):
+def enable_sonic_dhcpv4_relay_agent(rand_selected_dut, request):
     """
     Fixture to enable the DHCP relay feature flag and restart the service.
     """
     if "skip_config_dhcpv4_relay_agent" in request.keywords:
         yield
         return
+
+    duthost = rand_selected_dut
 
     if "dut_dhcp_relay_data" in request.fixturenames:
         dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")

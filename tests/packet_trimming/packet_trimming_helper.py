@@ -18,9 +18,10 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
-                                             PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
+                                             PACKET_COUNT, SEND_MAX_RETRIES, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
-                                             TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
+                                             TRIM_QUEUE_PROFILE, TRIM_QUEUE_PROFILE_CONFIG, TRIMMING_CAPABILITY,
+                                             ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
@@ -29,7 +30,8 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
                                              MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
                                              SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN,
-                                             TRIMMING_COUNTER_INTERVAL)
+                                             TRIMMING_COUNTER_INTERVAL,
+                                             QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -681,7 +683,8 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
     return action
 
 
-def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_addr, dscp_value, interfaces):
+def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_addr, dscp_value, interfaces,
+                       packet_size_in_queue=None):
     """
     Fill the specified port queue's buffer to trigger packet trimming.
     If multiple interfaces are provided, fill with the buffers of all interfaces.
@@ -695,6 +698,9 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         dst_addr: Destination address (IPv4 or IPv6)
         dscp_value: DSCP value used for classification to target queue
         interfaces: Single interface or list of interfaces to fill
+        packet_size_in_queue: Packet size (bytes) as it lands on target_queue. Defaults to wire size
+            (1500). When filling the trim queue, pass the trim size (e.g. 256) so the packet count is
+            calculated correctly since trimmed packets are smaller than the original packets.
 
     Returns:
         int: Actual number of packets sent
@@ -707,16 +713,19 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Check queue counters before filling
     for interface in interfaces:
-        logger.info(f"Queue counters before filling for {interface}:")
+        logger.info(f"Queue counters before filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
     # Create a large packet to efficiently fill the buffer
     fill_packet_size = 1500  # Standard Ethernet MTU
-    fill_packet_count = buffer_size // fill_packet_size * 2
+    # Size as the packet lands on target_queue (e.g. trim_size when filling trim queue)
+    effective_size = packet_size_in_queue or fill_packet_size
+    fill_packet_count = buffer_size // effective_size * 3
 
     logger.info(f"Buffer size for queue {target_queue} is approximately {buffer_size} bytes")
-    logger.info(f"Sending {fill_packet_count} packets of size {fill_packet_size} bytes to fill the buffer")
+    logger.info(f"Sending {fill_packet_count} packets of wire size {fill_packet_size} bytes "
+                f"(effective in-queue size {effective_size} bytes) to fill the buffer")
 
     # Validate destination address
     if not dst_addr:
@@ -774,7 +783,6 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     remaining_packets = fill_packet_count % BATCH_PACKET_COUNT
 
     total_sent_packets = 0
-    max_retries = 3  # Maximum number of retries per batch
 
     # Send packets in batches
     logger.info(f"Sending packets in batches of {BATCH_PACKET_COUNT} packets each")
@@ -784,7 +792,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         retries = 0
         batch_success = False
 
-        while not batch_success and retries < max_retries:
+        while not batch_success and retries < SEND_MAX_RETRIES:
             try:
                 logger.info(f"Sending batch {batch_index + 1}/{num_batches} ({BATCH_PACKET_COUNT} packets)")
                 for interface in interfaces:
@@ -802,7 +810,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
             except Exception as e:
                 retries += 1
-                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{max_retries}): {e}")
+                logger.warning(f"Batch {batch_index + 1} failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
                 # Wait before retry
                 time.sleep(2)
 
@@ -814,27 +822,38 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Try to send remaining packets if there are any and we haven't already given up
     if remaining_packets > 0 and batch_index >= num_batches:
-        try:
-            logger.info(f"Sending remaining {remaining_packets} packets")
-            for interface in interfaces:
-                fill_packet = interface_packets[interface]
-                testutils.send(
-                    ptfadapter,
-                    port_id=port_id,
-                    pkt=fill_packet,
-                    count=remaining_packets
-                )
-                logger.info(f"Sent {remaining_packets} remaining packets for {interface}")
-            total_sent_packets += remaining_packets * len(interfaces)
-        except Exception as e:
-            logger.warning(f"Failed to send remaining packets: {e}")
-            # Not critical if we've already sent most packets
+        retries = 0
+        remaining_success = False
+        while not remaining_success and retries < SEND_MAX_RETRIES:
+            try:
+                logger.info(f"Sending remaining {remaining_packets} packets")
+                for interface in interfaces:
+                    fill_packet = interface_packets[interface]
+                    testutils.send(
+                        ptfadapter,
+                        port_id=port_id,
+                        pkt=fill_packet,
+                        count=remaining_packets
+                    )
+                    logger.info(f"Sent {remaining_packets} remaining packets for {interface}")
+                total_sent_packets += remaining_packets * len(interfaces)
+                remaining_success = True
+            except Exception as e:
+                retries += 1
+                logger.warning(f"Remaining packets failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
+                # Wait before retry
+                time.sleep(2)
+                ptfadapter.dataplane.flush()
 
     logger.info(f"Buffer filling completed, sent {total_sent_packets} packets")
 
+    # Fail fast when nothing was sent so the buffer never gets filled
+    if total_sent_packets == 0:
+        raise RuntimeError("Buffer fill failed: 0 packets sent")
+
     # Check queue counters after filling
     for interface in interfaces:
-        logger.info(f"Queue counters after filling for {interface}:")
+        logger.info(f"Queue counters after filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
@@ -949,7 +968,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     verify_ports = [egress_port['ptf_id']]
 
                 # Verify packet based on expectation
-                if expect_packets:
+                if expect_packets is True:
                     logger.info(
                         f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
                     _, matched = testutils.verify_packet_any_port(
@@ -962,7 +981,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
-                else:
+                elif expect_packets is False:
                     logger.info(f"Expecting NO packets on any of ports {verify_ports}")
                     testutils.verify_no_packet_any(
                         ptfadapter,
@@ -971,6 +990,8 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                         timeout=timeout
                     )
                     logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
+                else:
+                    logger.info(f"Skip capturing packets on ports {verify_ports}.")
 
         return True
 
@@ -1228,7 +1249,7 @@ def compute_buffer_threshold_for_common_device(duthost, interface, queue_id):
         static_threshold = int(buffer_profile["size"]) + int(buffer_scale * pool_size * STATIC_THRESHOLD_MULTIPLIER)
 
         logger.info(f"Computed buffer threshold for queue {queue_id} on {interface}: {static_threshold}")
-        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "
+        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "  # noqa: E231
                     f"Buffer size: {static_threshold}")
 
         return static_threshold
@@ -1507,10 +1528,10 @@ def configure_trimming_acl(duthost, test_ports):
     # Verify ACL configuration
     logger.info("Verifying ACL configuration")
     result = duthost.shell("show acl table")
-    logger.info(f"ACL tables:\n{result['stdout']}")
+    logger.info(f"ACL tables:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell("show acl rule")
-    logger.info(f"ACL rules:\n{result['stdout']}")
+    logger.info(f"ACL rules:\n{result['stdout']}")  # noqa: E231
 
     # Verify table was created successfully
     if ACL_TABLE_NAME not in result["stdout"]:
@@ -1553,29 +1574,24 @@ def cleanup_trimming_acl(duthost):
     logger.info("ACL rules cleanup completed successfully")
 
 
-def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_queue_id,
-                                                  block_queue_profile, trim_queue_id=None,
-                                                  trim_queue_profile=TRIM_QUEUE_PROFILE):
+def set_buffer_profile_for_block_queue(duthost, interfaces, block_queue_id, block_queue_profile):
     """
-    Set buffer profiles for blocked queue and forward trimming packet queue.
+    Set buffer profile for the blocked queue of interfaces.
 
     Args:
         duthost: DUT host object
         interfaces (list or str): Port names to configure, can be a list or single string
         block_queue_id: Queue index used for blocking traffic
         block_queue_profile (str): Buffer profile name to apply for blocking queue
-        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
-        trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
 
     Raises:
-        RuntimeError: If any interface fails to be configured with the specified profiles
+        RuntimeError: If any interface fails to be configured with the specified profile.
     """
-    # Convert queue indices to string for Redis commands
+    # Convert the queue index to string for the Redis command
     block_queue_id = str(block_queue_id)
-    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
 
-    logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}' and "
-                f"trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', ports: {interfaces}")
+    logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}', "
+                f"ports: {interfaces}")
 
     # Convert single interface to list
     if isinstance(interfaces, str):
@@ -1591,6 +1607,60 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
                 f"Successfully set interface {interface} blocking queue {block_queue_id} "
                 f"profile to {block_queue_profile}")
 
+        except Exception as e:
+            if not isinstance(e, RuntimeError):
+                raise RuntimeError(f"Exception while configuring interface {interface} blocking queue: {str(e)}") from e
+            raise
+
+
+def create_trim_queue_test_buffer_profile(duthost):
+    """
+    Create the dedicated buffer profile used by the trim queue during packet trimming tests.
+    """
+    fields = " ".join(f"{k} {v}" for k, v in TRIM_QUEUE_PROFILE_CONFIG.items())
+    cmd = f"redis-cli -n 4 hset 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}' {fields}"
+    duthost.shell(cmd)
+    logger.info(f"Created trim queue test buffer profile '{TRIM_QUEUE_PROFILE}': {TRIM_QUEUE_PROFILE_CONFIG}")
+
+
+def delete_trim_queue_test_buffer_profile(duthost):
+    """
+    Delete the dedicated trim queue buffer profile created for packet trimming tests.
+
+    The profile is written directly to CONFIG_DB after the configuration backup is taken, so a plain
+    "config load" of the backup does not remove it. Delete it explicitly during teardown to keep
+    CONFIG_DB clean and preserve test isolation.
+    """
+    cmd = f"redis-cli -n 4 del 'BUFFER_PROFILE|{TRIM_QUEUE_PROFILE}'"
+    duthost.shell(cmd)
+    logger.info(f"Deleted trim queue test buffer profile '{TRIM_QUEUE_PROFILE}'")
+
+
+def set_buffer_profile_for_trim_queue(duthost, interfaces, trim_queue_id=None, trim_queue_profile=TRIM_QUEUE_PROFILE):
+    """
+    Set buffer profile for the forward trimming packet queue of interfaces.
+
+    Args:
+        duthost: DUT host object
+        interfaces (list or str): Port names to configure, can be a list or single string
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
+        trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
+
+    Raises:
+        RuntimeError: If any interface fails to be configured with the specified profile.
+    """
+    # Convert the queue index to string for the Redis command
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
+
+    logger.info(f"Setting trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', "
+                f"ports: {interfaces}")
+
+    # Convert single interface to list
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    for interface in interfaces:
+        try:
             # Set buffer profile for the trimming queue
             trim_cmd = f"redis-cli -n 4 hset 'BUFFER_QUEUE|{interface}|{trim_queue_id}' profile {trim_queue_profile}"
             duthost.shell(trim_cmd)
@@ -1601,7 +1671,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
 
         except Exception as e:
             if not isinstance(e, RuntimeError):
-                raise RuntimeError(f"Exception while configuring interface {interface} queues: {str(e)}") from e
+                raise RuntimeError(f"Exception while configuring interface {interface} trimming queue: {str(e)}") from e
             raise
 
 
@@ -1702,10 +1772,10 @@ def update_service_port_buffer_profile(duthost, service_port):
     # Verify buffer configuration
     logger.info("Verifying buffer configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PG|{service_port}|0'")
-    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port}'")
-    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "ingress_lossy_profile" not in result["stdout"]:
         raise RuntimeError(f"Buffer configuration for {service_port} was not applied successfully")
@@ -1760,7 +1830,7 @@ def update_service_port_qos_map(duthost, service_port):
     # Verify QoS map configuration
     logger.info("Verifying QoS map configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'PORT_QOS_MAP|{service_port}'")
-    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "AZURE" not in result["stdout"]:
         raise RuntimeError(f"QoS map configuration for {service_port} was not applied successfully")
@@ -1860,7 +1930,7 @@ def update_port_info_for_portchannel(port_dict, portchannel_name, portchannel_me
     new_port_info['ptf_port_id'] = member_ptf_ids
     new_port_info['dut_members'] = portchannel_members
 
-    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"
+    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"  # noqa: E231
                 f"dut_members={portchannel_members}")
 
     return {portchannel_name: new_port_info}
@@ -2006,7 +2076,7 @@ def get_interface_peer_addresses(mg_facts, interface_name):
 
     # Check if the required interface list exists in mg_facts
     if interface_list_key not in mg_facts:
-        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")
+        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")  # noqa: E713
         return ipv4_peer_addr, ipv6_peer_addr
 
     for interface in mg_facts[interface_list_key]:
@@ -2606,12 +2676,30 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
 
         # Send packet
         logger.info(f"Sending {packet_count} packets from port {ingress_port['ptf_id']}")
-        testutils.send(
-            ptfadapter,
-            port_id=ingress_port['ptf_id'],
-            pkt=pkt,
-            count=packet_count
-        )
+        retries = 0
+        send_success = False
+        last_exception = None
+        while not send_success and retries < SEND_MAX_RETRIES:
+            try:
+                testutils.send(
+                    ptfadapter,
+                    port_id=ingress_port['ptf_id'],
+                    pkt=pkt,
+                    count=packet_count
+                )
+                send_success = True
+            except Exception as e:
+                last_exception = e
+                retries += 1
+                logger.warning(f"Send failed (attempt {retries}/{SEND_MAX_RETRIES}): {e}")
+                time.sleep(2)
+                ptfadapter.dataplane.flush()
+
+        if not send_success:
+            raise RuntimeError(
+                f"Failed to send packets from port {ingress_port['ptf_id']} after {SEND_MAX_RETRIES} retries: "
+                f"{last_exception}"
+            ) from last_exception
 
         # Get verify port
         if isinstance(egress_port['ptf_id'], list):
@@ -2861,9 +2949,9 @@ def compare_counters(counter1, counter2, keys_to_compare):
 
     for key in keys_to_compare:
         if key not in counter1:
-            raise KeyError(f"Key '{key}' not found in counter1")
+            raise KeyError(f"Key '{key}' not found in counter1")  # noqa: E713
         if key not in counter2:
-            raise KeyError(f"Key '{key}' not found in counter2")
+            raise KeyError(f"Key '{key}' not found in counter2")  # noqa: E713
 
         value1 = counter1[key]
         value2 = counter2[key]
@@ -2876,22 +2964,6 @@ def compare_counters(counter1, counter2, keys_to_compare):
                       f"counter2 {key}: {value2}\n")
 
     logger.info("All specified counters match")
-
-
-def check_trim_drop_counter_zero(duthost, port):
-    """
-    Check if TRIM_DRP_PKTS counter on the specified port is 0.
-
-    Args:
-        duthost: DUT host object
-        port (str): port name, e.g. "Ethernet96"
-
-    Returns:
-        bool: True if TRIM_DRP_PKTS is 0, False otherwise
-    """
-    trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
-    logger.info(f"TRIM_DRP_PKTS on port {port}: {trim_drop}")
-    return trim_drop == 0
 
 
 def has_non_zero_trim_counters(duthost, port):
@@ -2948,6 +3020,140 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
     # Verify the consistency
     pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0,
                   f"Total trim packets on all queues for port {port} is not equal to the port level")
+
+
+def is_queue_level_trim_sent_drop_supported(duthost):
+    """
+    Check whether queue-level TrimSent and TrimDrop counters are supported on the current platform.
+    """
+    platform = duthost.facts["platform"].lower()
+    for supported_platform in QUEUE_LEVEL_TRIM_SENT_DROP_SUPPORTED_PLATFORMS:
+        if supported_platform.lower() in platform:
+            return True
+    return False
+
+
+def verify_queue_and_port_trim_sent_counter_consistency(duthost, port, port_trim_sent_packets=None, supported=None):
+    """
+    Verify the consistency of the trim sent counter on the queue and the port level.
+
+    Compares the sum of queue-level TrimSent against the port-level TrimSent, and asserts
+    both are equal and greater than zero. Silently returns on platforms that do not support
+    queue-level trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+        port_trim_sent_packets (int): Optional pre-fetched port-level TRIM_TX_PKTS value. If not
+            provided, the function fetches it itself. Pass it when the caller already has it to
+            avoid an extra "show interfaces counters trim" call.
+        supported (bool): Optional pre-computed platform-support flag (e.g. the
+            queue_level_trim_supported fixture value). If not provided, the function computes it
+            itself; pass it to avoid repeating the platform lookup on every per-port call.
+
+    Raises:
+        AssertionError: If the queue-level sum does not equal the port-level value, or either is zero.
+    """
+    if supported is None:
+        supported = is_queue_level_trim_sent_drop_supported(duthost)
+    if not supported:
+        logger.info(f"Skipping queue-level TrimSent consistency check on port {port} - platform not supported")
+        return
+
+    logger.info(f"Verify the consistency of the trim sent counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim sent counter to be updated")
+    time.sleep(sleep_time)
+
+    # The counter DB can lag behind the data plane; retry a few times if the queue-level counters
+    # are still all zero to avoid a false negative caused purely by counter polling delay.
+    max_retries = 5
+    queue_trim_sent_details = {}
+    total_queue_trim_sent_packets = 0
+    for attempt in range(1, max_retries + 1):
+        queue_counters = get_queue_trim_counters_json(duthost, port)
+        queue_trim_sent_details = {}
+        for queue_id, queue_data in queue_counters.items():
+            trim_sent_packets = queue_data['trimsentpacket']
+            queue_trim_sent_details[queue_id] = trim_sent_packets
+            logger.debug(f"Queue {queue_id} trim sent packets: {trim_sent_packets}")
+        total_queue_trim_sent_packets = sum(queue_trim_sent_details.values())
+        if total_queue_trim_sent_packets > 0:
+            break
+        logger.info(f"Queue trim sent counters still zero on port {port}, "
+                    f"retry {attempt}/{max_retries} after waiting {sleep_time} seconds")
+        time.sleep(sleep_time)
+    logger.info(f"Queue trim sent details: {queue_trim_sent_details}")
+    logger.info(f"Total trim sent packets on all queues for port {port}: {total_queue_trim_sent_packets}")
+
+    if port_trim_sent_packets is None:
+        port_trim_sent_packets = get_port_trim_counters_json(duthost, port)['TRIM_TX_PKTS']
+    logger.info(f"Port {port} port level trim sent packets: {port_trim_sent_packets}")
+
+    pytest_assert(total_queue_trim_sent_packets == port_trim_sent_packets and total_queue_trim_sent_packets > 0,
+                  f"Total trim sent packets on all queues for port {port} is not equal to the port level")
+
+
+def verify_queue_and_port_trim_drop_counter_consistency(duthost, port, port_trim_drop_packets=None, supported=None):
+    """
+    Verify the consistency of the trim drop counter on the queue and the port level.
+
+    Compares the sum of queue-level TrimDrop against the port-level TrimDrop, and asserts
+    both are equal and greater than zero. Silently returns on platforms that do not support
+    queue-level trim counters.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+        port_trim_drop_packets (int): Optional pre-fetched port-level TRIM_DRP_PKTS value. If not
+            provided, the function fetches it itself.
+        supported (bool): Optional pre-computed platform-support flag (e.g. the
+            queue_level_trim_supported fixture value). If not provided, the function computes it
+            itself; pass it to avoid repeating the platform lookup on every per-port call.
+
+    Raises:
+        AssertionError: If the queue-level sum does not equal the port-level value, or either is zero.
+    """
+    if supported is None:
+        supported = is_queue_level_trim_sent_drop_supported(duthost)
+    if not supported:
+        logger.info(f"Skipping queue-level TrimDrop consistency check on port {port} - platform not supported")
+        return
+
+    logger.info(f"Verify the consistency of the trim drop counter on the queue and the port level for port {port}")
+
+    sleep_time = TRIMMING_COUNTER_INTERVAL / 1000 + 1
+    logger.info(f"Waiting {sleep_time} seconds for the trim drop counter to be updated")
+    time.sleep(sleep_time)
+
+    # The counter DB can lag behind the data plane; retry a few times if the queue-level counters
+    # are still all zero to avoid a false negative caused purely by counter polling delay.
+    max_retries = 5
+    queue_trim_drop_details = {}
+    total_queue_trim_drop_packets = 0
+    for attempt in range(1, max_retries + 1):
+        queue_counters = get_queue_trim_counters_json(duthost, port)
+        queue_trim_drop_details = {}
+        for queue_id, queue_data in queue_counters.items():
+            trim_drop_packets = queue_data['trimdroppacket']
+            queue_trim_drop_details[queue_id] = trim_drop_packets
+            logger.debug(f"Queue {queue_id} trim drop packets: {trim_drop_packets}")
+        total_queue_trim_drop_packets = sum(queue_trim_drop_details.values())
+        if total_queue_trim_drop_packets > 0:
+            break
+        logger.info(f"Queue trim drop counters still zero on port {port}, "
+                    f"retry {attempt}/{max_retries} after waiting {sleep_time} seconds")
+        time.sleep(sleep_time)
+    logger.info(f"Queue trim drop details: {queue_trim_drop_details}")
+    logger.info(f"Total trim drop packets on all queues for port {port}: {total_queue_trim_drop_packets}")
+
+    if port_trim_drop_packets is None:
+        port_trim_drop_packets = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+    logger.info(f"Port {port} port level trim drop packets: {port_trim_drop_packets}")
+
+    pytest_assert(total_queue_trim_drop_packets == port_trim_drop_packets and total_queue_trim_drop_packets > 0,
+                  f"Total trim drop packets on all queues for port {port} is not equal to the port level")
 
 
 def configure_port_mirror_session(duthost):

@@ -14,7 +14,7 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK
 )
-from conftest import get_interface_ip
+from tests.dash.conftest import get_interface_ip
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IP
 import configs.privatelink_config as pl
 from tests.common.dash_utils import apply_swssconfig_file
@@ -503,6 +503,7 @@ def privatelink_redirect_fnic_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
             **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
         }
@@ -591,6 +592,7 @@ def privatelink_redirect_nsg_config(
     if 'pensando' not in dpuhost.facts['asic_type']:
         route_rule_messages = {
             **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG,
             **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
         }
         logger.info(route_rule_messages)

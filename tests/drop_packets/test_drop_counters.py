@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 PKT_NUMBER = 1000
+WEAK_SERVER_PKT_NUMBER = 100
 
 # CLI commands to obtain drop counters.
 NAMESPACE_PREFIX = "sudo ip netns exec {} "
@@ -62,12 +63,19 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     CopperCableIgnoreRegex = [
         ".* ERR pmon#xcvrd.*no suitable app for the port appl.*host_lane_count.*host_speed.*"
     ]
+    # Ignore transient syncd error during config_reload when FlexCounter polls a port VID that was
+    # briefly removed/re-created (e.g. after port split). syncd self-heals by removing the stale entry.
+    FlexCounterPortNotFoundRegex = [
+        r".* ERR syncd\d*#syncd: :- processFlexCounterEvent: port VID .* was not found "
+        r"\(probably port was removed/splitted\) and will remove from counters now"
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(SAISwitchIgnoreRegex)
         loganalyzer[duthost.hostname].ignore_regex.extend(CopperCableIgnoreRegex)
+        loganalyzer[duthost.hostname].ignore_regex.extend(FlexCounterPortNotFoundRegex)
         if duthost.sonichost.facts['platform_asic'] == 'broadcom':
             ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
                 r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
@@ -158,11 +166,15 @@ def handle_backend_acl(duthost, tbinfo):
 
 
 def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info,     # noqa: F811
-                      tx_dut_ports=None, skip_counter_check=False, drop_information=None):  # noqa: F811
+                      tx_dut_ports=None, skip_counter_check=False, drop_information=None,  # noqa: F811
+                      weak_server=False):  # noqa: F811
     """
     Base test function for verification of L2 or L3 packet drops. Verification type depends on 'discard_group' value.
     Supported 'discard_group' values: 'L2', 'L3', 'ACL', 'NO_DROPS'
     """
+    def get_pkt_number():
+        return WEAK_SERVER_PKT_NUMBER if weak_server else PKT_NUMBER
+
     def clear_sonic_counters(dut):
         dut.command("sonic-clear counters")
         namespace_list = dut.get_asic_namespace_list() if dut.is_multi_asic else ['']
@@ -176,7 +188,8 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         for duthost in duthosts.frontend_nodes:
             executor.submit(clear_sonic_counters, duthost)
 
-    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], PKT_NUMBER)
+    pkt_number = get_pkt_number()
+    send_packets(pkt, ptfadapter, ports_info["ptf_tx_port_id"], pkt_number)
 
     # Some test cases will not increase the drop counter consistently on certain platforms
     if skip_counter_check:
@@ -185,29 +198,29 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
 
     if discard_group == "L2":
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
-                             GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+                             GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
-                executor.submit(ensure_no_l3_drops, duthost, packets_count=PKT_NUMBER)
+                executor.submit(ensure_no_l3_drops, duthost, packets_count=pkt_number)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
             verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
-                                 GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
+                                 GET_L2_COUNTERS, L2_COL_KEY, packets_count=pkt_number)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l3_drops, duthost, packets_count=PKT_NUMBER)
+                    executor.submit(ensure_no_l3_drops, duthost, packets_count=pkt_number)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
 
             verify_drop_counters(duthosts, asic_index, tx_dut_ports[ports_info["dut_iface"]],
-                                 GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
+                                 GET_L3_COUNTERS, L3_COL_KEY, packets_count=pkt_number)
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l2_drops, duthost, packets_count=PKT_NUMBER)
+                    executor.submit(ensure_no_l2_drops, duthost, packets_count=pkt_number)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -222,29 +235,20 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
                     continue
                 acl_drops += duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"][
                     drop_information if drop_information else "DATAACL"]["rules"]["RULE_1"]["packets_count"]
-        if acl_drops != PKT_NUMBER:
+        if acl_drops != pkt_number:
             fail_msg = "ACL drop counter was not incremented on iface {}. DUT ACL counter == {}; Sent pkts == {}"\
-                .format(tx_dut_ports[ports_info["dut_iface"]], acl_drops, PKT_NUMBER)
+                .format(tx_dut_ports[ports_info["dut_iface"]], acl_drops, pkt_number)
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(ensure_no_l3_and_l2_drops, duthost, packets_count=PKT_NUMBER)
+                    executor.submit(ensure_no_l3_and_l2_drops, duthost, packets_count=pkt_number)
     elif discard_group == "NO_DROPS":
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             for duthost in duthosts.frontend_nodes:
-                executor.submit(ensure_no_l2_and_l3_drops, duthost, packets_count=PKT_NUMBER)
+                executor.submit(ensure_no_l2_and_l3_drops, duthost, packets_count=pkt_number)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
-
-
-def get_intf_mtu(duthost, intf, asic_index):
-    # Get namespace from asic_index.
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-
-    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-    return int(duthost.shell(
-        CMD_PREFIX + "/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
 
 
 @pytest.fixture
@@ -277,6 +281,14 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             if not cls.mtu:
                 cls.mtu = cls.default_mtu
 
+            def get_port_count_for_mtu():
+                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+                cmd = CMD_PREFIX + 'sonic-db-dump -n ASIC_DB -y -k "*SAI_OBJECT_TYPE_ROUTER_INTERFACE*" \
+                    | grep -c \'"SAI_ROUTER_INTERFACE_ATTR_MTU": "{}"\' || true'.format(mtu)
+                return int(duthost.shell(cmd)["stdout"])
+
+            initial_ports_count_for_mtu = get_port_count_for_mtu()
+
             duthost.command(
                 "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, iface, mtu
@@ -287,10 +299,10 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             cls.iface = iface
 
             def check_mtu():
-                return get_intf_mtu(duthost, iface, asic_index) == mtu
+                return get_port_count_for_mtu() > initial_ports_count_for_mtu if int(cls.mtu) != mtu else True
 
             pytest_assert(
-                wait_until(5, 1, 0, check_mtu),
+                wait_until(10, 1, 1, check_mtu),
                 "MTU on interface {} not updated".format(iface)
             )
 
@@ -318,7 +330,7 @@ def check_if_skip():
 
 
 @pytest.fixture(scope='module')
-def do_test(duthosts):
+def do_test(duthosts, weak_server):
     def do_counters_test(discard_group, pkt, ptfadapter, ports_info, sniff_ports, tx_dut_ports=None,    # noqa: F811
                          comparable_pkt=None, skip_counter_check=False, drop_information=None, ip_ver='ipv4'):
         """
@@ -338,7 +350,8 @@ def do_test(duthosts):
 
         asic_index = ports_info["asic_index"]
         base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, ports_info, tx_dut_ports,
-                          skip_counter_check=skip_counter_check, drop_information=drop_information)
+                          skip_counter_check=skip_counter_check, drop_information=drop_information,
+                          weak_server=weak_server)
 
         # Verify packets were not egresed the DUT
         if discard_group != "NO_DROPS":
@@ -361,7 +374,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         pytest.skip("Test case requires explicit fanout support")
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
@@ -439,11 +452,13 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa: F811
-                                  pkt_fields, mtu_config, ports_info):                      # noqa: F811
+def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, enum_rand_one_per_hwsku_frontend_hostname,  # noqa: F811
+                                  ptfadapter, setup, tx_dut_ports,                           # noqa: F811
+                                  pkt_fields, mtu_config, ports_info):                       # noqa: F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     global L2_COL_KEY
     if "vlan" in tx_dut_ports[ports_info["dut_iface"]].lower():
         pytest.skip("Test case is not supported on VLAN interface")
@@ -470,6 +485,8 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,     
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                # VPP drops the packet but does not increment the drop counter
+                skip_counter_check=(duthost.facts["asic_type"] == "vpp"))
     finally:
         L2_COL_KEY = RX_DRP

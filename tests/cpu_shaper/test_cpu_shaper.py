@@ -13,6 +13,7 @@ import re
 from tests.common import config_reload
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("t0", "t1"),
@@ -24,14 +25,20 @@ logger = logging.getLogger(__name__)
 BCM_CINT_FILENAME = "get_shaper.c"
 DEST_DIR = "/tmp"
 CMD_GET_SHAPER = "bcmcmd 'cint {}'".format(BCM_CINT_FILENAME)
+EXPECTED_COS_QUEUES = {0, 7}
+EXPECTED_PPS = 600
+PPS_TOLERANCE = 0.05  # Allow 5% tolerance in PPS values
 
 
-def verify_cpu_queue_shaper(dut):
+def get_cpu_queue_shaper(dut):
     """
-    Verify cpu queue shaper configuration is as expected
+    Read cpu queue shaper PPS configuration from the ASIC.
 
     Args:
         dut (SonicHost): The target device
+
+    Returns:
+        dict: Mapping of cos queue index to PPS max value, e.g. {0: 600, 7: 600}
     """
     # Copy cint script to /tmp on the device
     dut.copy(src="cpu_shaper/scripts/{}".format(BCM_CINT_FILENAME), dest=DEST_DIR)
@@ -42,35 +49,61 @@ def verify_cpu_queue_shaper(dut):
     # Execute the cint script and parse the output
     res = dut.shell(CMD_GET_SHAPER)['stdout']
 
-    # Expected shaper PPS configuration for CPU queues 0, and 7
-    expected_pps = {0: 600, 7: 600}
     pattern = r'cos=(\d+) pps_max=(\d+)'
     matches = re.findall(pattern, res)
-    actual_pps = {int(cos): int(pps) for cos, pps in matches}
-    assert (expected_pps == actual_pps)
+    return {int(cos): int(pps) for cos, pps in matches}
 
 
 @pytest.mark.disable_loganalyzer
 def test_cpu_queue_shaper(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, request):
     """
-    Validates the cpu queue shaper configuration after reboot(reboot, warm-reboot)
-
+    Validates the cpu queue shaper configuration survives reboot by comparing
+    shaper values before and after reboot.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    def cos_queues_present():
+        before_pps = get_cpu_queue_shaper(duthost)
+        missing = EXPECTED_COS_QUEUES - set(before_pps.keys())
+        return not bool(missing)
+
     try:
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         reboot_type = request.config.getoption("--cpu_shaper_reboot_type")
 
-        # Perform reboot as specified via the reboot_type parameter
+        # Validate all expected queues are present with non-zero shaper values
+        if not wait_until(300, 10, 1, cos_queues_present):
+            before_pps = get_cpu_queue_shaper(duthost)
+            missing = EXPECTED_COS_QUEUES - set(before_pps.keys())
+            assert False, f"CPU queue shaper missing for cos queues {missing} before reboot. Got: {before_pps}"
+
+        # Read shaper config before reboot
+        before_pps = get_cpu_queue_shaper(duthost)
+        logger.info("CPU queue shaper before reboot: {}".format(before_pps))
+
+        assert all(before_pps[cos] > 0 for cos in EXPECTED_COS_QUEUES), \
+            "CPU queue shaper has zero PPS before reboot: {}".format(before_pps)
+        # Validate shaper values are close to original 600 PPS (allowing 5% tolerance)
+        pps_low, pps_high = int(EXPECTED_PPS * (1 - PPS_TOLERANCE)), int(EXPECTED_PPS * (1 + PPS_TOLERANCE))
+        for cos in EXPECTED_COS_QUEUES:
+            assert pps_low <= before_pps[cos] <= pps_high, \
+                "CPU queue {} shaper PPS {} is outside {}% tolerance of {} PPS".format(
+                    cos, before_pps[cos], int(PPS_TOLERANCE * 100), EXPECTED_PPS)
+
+        # Perform reboot
         logger.info("Do {} reboot".format(reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
         # Wait for critical processes to be up
         wait_critical_processes(duthost)
-        logger.info("Verify cpu queue shaper config after {} reboot".format(reboot_type))
 
-        # Verify cpu queue shaper configuration
-        verify_cpu_queue_shaper(duthost)
+        # Verify shaper config survived reboot unchanged
+        assert wait_until(300, 10, 1, lambda: get_cpu_queue_shaper(duthost) == before_pps), (
+                "CPU queue shaper changed after {} reboot: before={}, after={}".format(
+                    reboot_type, before_pps, get_cpu_queue_shaper(duthost)))
+
+        # Read shaper config after reboot
+        logger.info("CPU queue shaper after {} reboot: {}".format(reboot_type, get_cpu_queue_shaper(duthost)))
 
     finally:
-        duthost.shell("rm {}/{}".format(DEST_DIR, BCM_CINT_FILENAME))
+        duthost.shell("rm -f {}/{}".format(DEST_DIR, BCM_CINT_FILENAME))
         config_reload(duthost)

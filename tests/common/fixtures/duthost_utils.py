@@ -92,6 +92,43 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
+@pytest.fixture(scope="module")
+def backup_and_restore_ansible_hosts(duthosts):
+    """
+    Back up the current ansible_host config for each duthost and restore it on
+    cleanup and reloads config_db
+    """
+    original_ansible_hosts = get_ansible_hosts(duthosts)
+    logger.info("Backup ansible hosts: {}".format(original_ansible_hosts))
+
+    yield
+
+    # Reload to bring IPv4 mgmt back and then restore the ansible host to IPv4
+    current_ansible_hosts = get_ansible_hosts(duthosts)
+
+    def reload_config_and_addr(duthost, ip_address):
+        try:
+            config_reload(duthost, safe_reload=True, wait_for_bgp=True)
+        except AnsibleConnectionFailure as e:
+            logger.warning(f'Exception after config reload: {e}')
+        finally:
+            host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+            host.vars['ansible_host'] = ip_address
+
+    restoring_ansible = False
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            original_ip = original_ansible_hosts[duthost.hostname]
+            current_ip = current_ansible_hosts[duthost.hostname]
+            if current_ip != original_ip:
+                executor.submit(reload_config_and_addr, duthost, original_ip)
+                restoring_ansible = True
+
+    if restoring_ansible:
+        logger.info("Restore ansible_hosts from {} to {}"
+                    .format(current_ansible_hosts, original_ansible_hosts))
+
+
 def _is_route_checker_in_status(duthost, expected_status_substrings):
     """
     Check if routeCheck service status contains any expected substring.
@@ -254,52 +291,60 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     return rtn_val
 
 
+def duthost_shutdown_ebgp(duthost):
+    orch_cpu_threshold = 10
+
+    orch_cpu_timeout = 60
+    # Get the original number of eBGP v4 and v6 routes on the DUT.
+    sumv4, sumv6 = duthost.get_ip_route_summary()
+    v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+    v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    # Shutdown all eBGP neighbors
+    duthost.command("sudo config bgp shutdown all")
+
+    # Verify that the total eBGP routes are 0.
+    pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
+              "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+    return v4_routes_count, v6_routes_count
+
+
+def duthost_startup_ebgp(duthost, v4_routes_count, v6_routes_count):
+    orch_cpu_threshold = 10
+    orch_cpu_timeout = 60
+    if v4_routes_count > 10000 or v6_routes_count > 10000:
+        orch_cpu_timeout = 120
+
+    duthost.command("sudo config bgp startup all")
+
+    pt_assert(wait_until(120, 10, 10, check_ebgp_routes, v4_routes_count, v6_routes_count, duthost),
+              "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
+              "all neighbors on {}".format(v4_routes_count, v6_routes_count, duthost))
+    pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+              "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
+              .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+                      orch_cpu_threshold))
+
+
 @pytest.fixture(scope="module")
 def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # To store the original number of eBGP v4 and v6 routes.
     v4ebgps = {}
     v6ebgps = {}
-    orch_cpu_threshold = 10
-    # increase timeout for check_orch_cpu_utilization to 120sec for chassis
-    # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
-    duthost = duthosts[rand_one_dut_hostname]
-    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
-        # Get the original number of eBGP v4 and v6 routes on the DUT.
-        sumv4, sumv6 = duthost.get_ip_route_summary()
-        v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
-        v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
-        v4_routes_count = v4ebgps[duthost.hostname]
-        v6_routes_count = v6ebgps[duthost.hostname]
-        if v4_routes_count > 10000 or v6_routes_count > 10000:
-            orch_cpu_timeout = 120
-        # Shutdown all eBGP neighbors
-        duthost.command("sudo config bgp shutdown all")
-        # Verify that the total eBGP routes are 0.
-        pt_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
-                  "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        v4ebgps[duthost.hostname], v6ebgps[duthost.hostname] = duthost_shutdown_ebgp(duthost)
 
     yield
 
     for duthost in duthosts.frontend_nodes:
-        # Startup all the eBGP neighbors
-        duthost.command("sudo config bgp startup all")
-
-    for duthost in duthosts.frontend_nodes:
-        # Verify that total eBGP routes are what they were before shutdown of all eBGP neighbors
-        orig_v4_ebgp = v4ebgps[duthost.hostname]
-        orig_v6_ebgp = v6ebgps[duthost.hostname]
-        pt_assert(wait_until(120, 10, 10, check_ebgp_routes, orig_v4_ebgp, orig_v6_ebgp, duthost),
-                  "eBGP v4 routes are {}, and v6 route are {}, and not what they were originally after enabling "
-                  "all neighbors on {}".format(orig_v4_ebgp, orig_v6_ebgp, duthost))
-        pt_assert(wait_until(orch_cpu_timeout, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} after startup all eBGP"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+        duthost_startup_ebgp(duthost, v4ebgps[duthost.hostname], v6ebgps[duthost.hostname])
 
 
 @pytest.fixture(scope="module")
@@ -759,8 +804,23 @@ def wait_bgp_sessions(duthost, timeout=120):
     )
 
 
+def get_ansible_hosts(duthosts):
+    ansible_hosts = {}
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        ansible_hosts[duthost.hostname] = host.vars['ansible_host']
+    return ansible_hosts
+
+
+def set_ansible_hosts(duthosts, ip_address):
+    for duthost in duthosts.nodes:
+        host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        addr = ip_address[duthost.hostname]
+        host.vars['ansible_host'] = addr[0] if isinstance(addr, list) else addr
+
+
 @pytest.fixture(scope="module")
-def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
+def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_ansible_hosts, backup_and_restore_config_db_on_duts):
     """Convert the DUTs mgmt-ip to IPv6 only
 
     Since the change commands is distributed by IPv4 mgmt-ip,
@@ -810,7 +870,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
         # "RuntimeError: dictionary changed size during iteration" error
         ssh_client = paramiko.SSHClient()
         ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        has_available_ipv6_addr = False
+        has_ipv6_config = False
         for key in list(mgmt_interface):
             ip_addr = key.split("|")[1]
             ip_addr_without_mask = ip_addr.split('/')[0]
@@ -818,7 +878,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 is_ipv6 = valid_ipv6(ip_addr_without_mask)
                 if is_ipv6:
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
-                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    has_ipv6_config = True
                     try:
                         # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
                         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
@@ -827,17 +887,17 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
-                        has_available_ipv6_addr = True
+                        ipv6_address[duthost.hostname].append(ip_addr_without_mask)
                     except BaseException as e:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is unavailable, "
                                     f"exception[{type(e)}], msg[{str(e)}]")
                     finally:
                         ssh_client.close()
 
-        pt_assert(len(ipv6_address[duthost.hostname]) > 0,
-                  f"{duthost.hostname} doesn't have IPv6 Management IP address")
-        pt_assert(has_available_ipv6_addr,
-                  f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+        if not has_ipv6_config:
+            pytest.skip(f"{duthost.hostname} doesn't have IPv6 Management IP address")
+        if not ipv6_address[duthost.hostname]:
+            pytest.skip(f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
@@ -895,11 +955,13 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
 
+    set_ansible_hosts(duthosts, ipv6_address)
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts.nodes:
             executor.submit(config_reload_if_modified, duthost)
 
     duthosts.reset()
+    set_ansible_hosts(duthosts, ipv6_address)
 
     def wait_for_processes_and_bgp(dut):
         if config_db_modified[dut.hostname]:

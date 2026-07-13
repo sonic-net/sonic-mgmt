@@ -1,4 +1,5 @@
 {
+    "auditd/test_auditd.py": 0,
     "bmp/test_bmp_configdb.py": 0,
     "bmp/test_bmp_redis_instance.py": 0,
     "bmp/test_bmp_statedb.py": 0,

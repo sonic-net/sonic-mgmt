@@ -226,7 +226,7 @@ class CsonicNetwork(object):
     """
 
     def __init__(self, ctn_name, vm_name, mgmt_br_name, fp_mtu, max_fp_num,
-                 vm_offset=0, sonic_naming=True, bp_bridge=None):
+                 vm_offset=0, sonic_naming=True, bp_bridge=None, num_fp_links=1):
         self.ctn_name = ctn_name
         self.vm_name = vm_name
         self.fp_mtu = fp_mtu
@@ -235,6 +235,10 @@ class CsonicNetwork(object):
         self.mgmt_br_name = mgmt_br_name
         self.sonic_naming = sonic_naming
         self.bp_bridge = bp_bridge
+        # Number of front-panel links this neighbor has (== number of topology
+        # vlans for the VM). Multi-link (LAG) neighbors on T1-LAG/T2 need one
+        # front-panel interface per link.
+        self.num_fp_links = max(1, int(num_fp_links))
 
         self.pid = CsonicNetwork.get_pid(self.ctn_name)
         if self.pid is None:
@@ -245,42 +249,57 @@ class CsonicNetwork(object):
 
         This creates veth pairs injected into the container:
         - eth0: management interface, connected to mgmt bridge
-        - eth1: front panel interface, connected to OVS bridge
-        - eth2: backplane interface, for PTF/ExaBGP connectivity
+        - eth1..ethK: front panel interfaces (one per topology vlan/link),
+          each connected to its OVS bridge br-<vm_name>-<i>
+        - eth{K+1}: backplane interface, for PTF/ExaBGP connectivity
 
-        The sonic-vs start.sh maps eth1 -> Ethernet0 via lanemap.ini.
-        Each cSONiC VM represents one neighbor with a single front panel port.
+        The sonic-vs start.sh maps eth<N> -> Ethernet<N> via lanemap.ini, so a
+        front-panel link index i maps to Ethernet(i+1) in CONFIG_DB. Placing the
+        backplane on eth{K+1} keeps it clear of the front-panel ports even for
+        multi-link (LAG) neighbors (T1-LAG/T2), where K can be > 1.
         """
+        num_fp = self.num_fp_links
+
         # Create management link (eth0)
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
         self.add_veth_if_to_docker(mp_name, TMP_TAP_TEMPLATE % (
             self.vm_name, 0), INT_TAP_TEMPLATE % 0)
         self.add_if_to_bridge(mp_name, self.mgmt_br_name)
 
-        # Create front panel link (Ethernet0)
-        # Each cSONiC VM has Ethernet0 as its front panel port, connected to
-        # the OVS bridge br-<vm_name>-0 which links to the corresponding DUT port
-        fp_name = FP_TAP_TEMPLATE % (self.vm_name, 0)  # VM0100-t0
-        fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_name, 0)  # br-VM0100-0
+        # Create front panel links. Front-panel link i is connected to the OVS
+        # bridge br-<vm_name>-<i> which links to the corresponding DUT port, and
+        # appears inside the container as eth(i+1) -> Ethernet(i+1).
+        #
+        # NOTE: the cSONiC deployment always passes sonic_naming=False (see
+        # add_csonic.yml): interfaces are injected as eth1..ethK and the
+        # container's start.sh maps eth<N> -> Ethernet<N> via lanemap.ini. The
+        # sonic_naming=True path below is legacy/experimental and names the
+        # netdevs Ethernet<i> directly; it is NOT exercised by the multi-link
+        # wiring and its static backplane name (SONIC_BP_TEMPLATE) does not
+        # account for num_fp_links, so do not enable it without revisiting the
+        # backplane placement.
+        for i in range(num_fp):
+            fp_name = FP_TAP_TEMPLATE % (self.vm_name, i)  # VM0100-t<i>
+            fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_name, i)  # br-VM0100-<i>
 
-        if self.sonic_naming:
-            int_if_name = SONIC_INT_TEMPLATE % 0  # Always Ethernet0
-        else:
-            int_if_name = INT_TAP_TEMPLATE % 1  # eth1
+            if self.sonic_naming:
+                int_if_name = SONIC_INT_TEMPLATE % i
+            else:
+                int_if_name = INT_TAP_TEMPLATE % (i + 1)  # eth1..ethK
 
-        self.add_veth_if_to_docker(
-            fp_name,
-            TMP_TAP_TEMPLATE % (self.vm_name, 1),
-            int_if_name
-        )
-        self.add_if_to_ovs_bridge(fp_name, fp_br_name)
+            self.add_veth_if_to_docker(
+                fp_name,
+                TMP_TAP_TEMPLATE % (self.vm_name, i + 1),
+                int_if_name
+            )
+            self.add_if_to_ovs_bridge(fp_name, fp_br_name)
 
-        # Create backplane link (eth_bp)
-        bp_int_name = SONIC_BP_TEMPLATE if self.sonic_naming else INT_TAP_TEMPLATE % 2
+        # Create backplane link (eth{K+1}) past the last front-panel port.
+        bp_int_name = SONIC_BP_TEMPLATE if self.sonic_naming else INT_TAP_TEMPLATE % (num_fp + 1)
         bp_name = BP_TAP_TEMPLATE % (self.vm_name)
         self.add_veth_if_to_docker(
             bp_name,
-            TMP_TAP_TEMPLATE % (self.vm_name, 2),
+            TMP_TAP_TEMPLATE % (self.vm_name, num_fp + 1),
             bp_int_name)
 
         # Note: Backplane bridge connection is handled by vm_topology.py
@@ -566,6 +585,7 @@ def main():
             vm_offset=dict(required=False, type='int', default=0),
             sonic_naming=dict(required=False, type='bool', default=True),
             bp_bridge=dict(required=False, type='str', default=None),
+            num_fp_links=dict(required=False, type='int', default=1),
         ),
         supports_check_mode=False)
 
@@ -577,11 +597,13 @@ def main():
     vm_offset = module.params['vm_offset']
     sonic_naming = module.params['sonic_naming']
     bp_bridge = module.params['bp_bridge']
+    num_fp_links = module.params['num_fp_links']
 
     config_module_logging('csonic_net_' + vm_name)
 
     try:
-        cnet = CsonicNetwork(name, vm_name, mgmt_bridge, fp_mtu, max_fp_num, vm_offset, sonic_naming, bp_bridge)
+        cnet = CsonicNetwork(name, vm_name, mgmt_bridge, fp_mtu, max_fp_num, vm_offset,
+                             sonic_naming, bp_bridge, num_fp_links)
         cnet.init_network()
 
     except Exception as error:

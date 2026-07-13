@@ -38,7 +38,7 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.asic('cisco-8000'),
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 # CLI tool paths
