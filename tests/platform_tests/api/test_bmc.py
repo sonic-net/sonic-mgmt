@@ -399,7 +399,8 @@ class TestBMCApi(PlatformApiTestBase):
             logger.info(f"Writing updated 'platform_components.json' to localhost: {local_comp_file_path}")
             with open(local_comp_file_path, 'w') as comp_file:
                 json.dump(json_data, comp_file, indent=4)
-                logger.info(f"Updated 'platform_components.json':\n{json.dumps(json_data, indent=4)}")
+                formatted_json = json.dumps(json_data, indent=4)
+                logger.info(f"Updated 'platform_components.json'\n{formatted_json}")
 
             logger.info(f"Copying 'platform_components.json' to {duthost.hostname}: {remote_comp_file_path}")
             duthost.copy(src=local_comp_file_path, dest=remote_comp_file_path)
@@ -740,7 +741,7 @@ class TestBMCApi(PlatformApiTestBase):
                     )
                 member_session_ids = self._extract_ids_from_members(sessions_data)
                 pytest_assert(session_id in member_session_ids,
-                              f"Session {session_id} not found in Members: {member_session_ids}")
+                              f"Session {session_id} is absent from Members: {member_session_ids}")
 
             with allure.step("Create event subscription"):
                 subscription_data = json.dumps({
