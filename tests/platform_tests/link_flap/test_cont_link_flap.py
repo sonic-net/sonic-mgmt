@@ -11,9 +11,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common import port_toggle
-from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates,\
-    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage,\
-    get_frr_daemon_memory_usage, log_redis_state,\
+from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates, \
+    check_orch_cpu_utilization, check_bgp_routes, get_avg_redis_mem_usage, \
+    get_frr_daemon_memory_usage, log_redis_state, \
     validate_frr_daemon_memory_increase, validate_redis_memory_increase, wait_for_memory_to_settle
 from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
