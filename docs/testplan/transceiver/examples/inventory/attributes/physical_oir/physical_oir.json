@@ -7,7 +7,8 @@
         "simultaneous_oir": false,
         "physical_oir_stress_iteration": 5,
         "monitor_kernel_errors": false,
-        "link_flap_monitor_timeout_sec": 10
+        "link_flap_monitor_timeout_sec": 10,
+        "hot_swap_ports_under_test": []
     },
     "dut": {
         "<dut-name>":{
