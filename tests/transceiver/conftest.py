@@ -183,7 +183,7 @@ def port_attributes_dict(request, duthost):
 
     attr_dir = os.path.join(REPO_ROOT, REL_ATTR_DIR)
     if not os.path.isdir(attr_dir):
-        pytest.skip(f"Attributes directory {attr_dir} absent; returning base attributes only")
+        pytest.skip(f"Attributes directory {attr_dir} absent - returning base attributes only")
 
     logger.info("Merging category attributes from %s", attr_dir)
     mgr = AttributeManager(REPO_ROOT, base_dict)
@@ -265,11 +265,12 @@ def _skip_transceiver_suite_on_vs(duthost):
 
 @pytest.fixture(scope="session")
 def lport_to_first_subport_mapping(duthost):
-    """Map each logical port to its breakout group's first (stem) sub-port.
+    """Map each logical port to its breakout group's first sub-port.
 
     Resolved once per session (it hits the DUT via ansible facts / sonic-db-cli)
-    and shared by every test that needs stem-port filtering, so the mapping is
-    not re-queried per test.  Pair with ``eeprom_decode.is_stem_port``.
+    and shared by every test that needs first-sub-port filtering, so the mapping
+    is not re-queried per test.  Pair with
+    ``interface_utils.is_first_subport``.
     """
     return get_lport_to_first_subport_mapping(duthost)
 
@@ -340,8 +341,29 @@ def links_verified(duthost, port_attributes_dict):
 # ──────────────────────────────────────────────────────────────────────
 
 
+@pytest.fixture
+def expected_pid_changes():
+    """Per-test set of monitored-process names allowed to change PID.
+
+    Empty by default, so any monitored-process restart is treated as a
+    regression by the post-test health check — the strict behavior every
+    existing test relies on, unchanged.
+
+    A test (or a subcategory conftest) that intentionally restarts a daemon
+    adds the process name to this set so the parent ``_per_test_health_check``
+    treats the PID change as expected instead of a failure. The set is mutable
+    and shared with the parent fixture for the duration of the test, so it can
+    be populated at runtime — e.g. a test that restarts ``pmon`` (which forces
+    an ``xcvrd`` restart) calls ``expected_pid_changes.add("xcvrd")`` before
+    issuing the restart. This is additive: the parent fixture remains the
+    single owner of the xcvrd/core check; subcategories feed it intent rather
+    than overriding it.
+    """
+    return set()
+
+
 @pytest.fixture(autouse=True)
-def _per_test_health_check(request, duthost):
+def _per_test_health_check(request, duthost, expected_pid_changes):
     """Capture health baseline before each test; verify before and after."""
     baseline = capture_baseline(duthost)
     logger.debug("Health baseline captured for %s", request.node.name)
@@ -355,7 +377,7 @@ def _per_test_health_check(request, duthost):
 
     yield
 
-    result = verify_health(duthost, baseline)
+    result = verify_health(duthost, baseline, expect_pid_change=expected_pid_changes)
     post_checks = [
         ("system_health", result["passed"], "; ".join(result["failures"])),
     ]
@@ -417,11 +439,15 @@ def get_dev_transceiver_details(duthost, get_transceiver_inventory):
 
 
 @pytest.fixture(scope="module")
-def get_lport_to_pport_mapping(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def get_lport_to_pport_mapping(duthost):
     """
     Fixture to get the mapping of logical ports to physical ports.
+
+    Uses the canonical shared ``duthost`` fixture (``duthosts[session.dut_index]``)
+    so this mapping is computed against the same DUT as the rest of the suite —
+    ``port_attributes_dict``, ``lport_to_first_subport_mapping``, the prerequisite
+    gates, and the per-test health checks all resolve their DUT the same way.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     lport_to_pport_mapping = get_physical_port_indices(duthost)
 
     logging.info("Logical to Physical Port Mapping: {}".format(lport_to_pport_mapping))

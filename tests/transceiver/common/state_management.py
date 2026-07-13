@@ -49,7 +49,7 @@ def _is_oper_up(duthost, port):
 
 def _is_lpmode_high(duthost, port):
     """Return True iff sfputil reports low-power mode is OFF (i.e. high power)."""
-    out = duthost.shell(f"sudo sfputil show lpmode -p {port}", module_ignore_errors=True)
+    out = duthost.shell(f"sfputil show lpmode -p {port}", module_ignore_errors=True)
     if out.get("rc", 1) != 0:
         return True  # can't tell - don't try to "fix" what we can't observe
     for line in (out.get("stdout_lines") or []):
@@ -106,7 +106,7 @@ def post_state_restoration(duthost, port_attributes_dict):
     for port in sorted(port_attributes_dict.keys()):
         if not _is_lpmode_high(duthost, port):
             logger.info("Restoration: turning off LPMode on %s", port)
-            duthost.shell(f"sudo sfputil lpmode off {port}", module_ignore_errors=True)
+            duthost.shell(f"sfputil lpmode off {port}", module_ignore_errors=True)
             summary["lpmode_high_restored"].append(port)
 
     # Pass 3: for CMIS active-optical ports, recycle the datapath if still

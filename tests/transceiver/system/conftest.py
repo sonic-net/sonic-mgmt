@@ -16,9 +16,10 @@ import logging
 import pytest
 
 from tests.transceiver.attribute_parser.attribute_keys import SYSTEM_ATTRIBUTES_KEY
+from tests.transceiver.common import db_helpers
 from tests.transceiver.common.prerequisites import check_links_up
 from tests.transceiver.common.state_management import post_state_restoration
-from tests.transceiver.common.verification import _check_lldp_neighbor_present
+from tests.transceiver.common.verification import _check_lldp_neighbor_present, _resolve_namespace
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +56,13 @@ def _system_session_prerequisites(presence_verified, gold_fw_verified, links_ver
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _state_db_key_exists(duthost, key):
-    cmd = f'sonic-db-cli STATE_DB hgetall "{key}"'
-    out = duthost.shell(cmd, module_ignore_errors=True)
-    if out.get("rc", 1) != 0:
-        return False
-    return bool((out.get("stdout") or "").strip())
+def _state_db_key_exists(duthost, key, namespace=None):
+    """True iff STATE_DB has a non-empty hash at ``key``.
+
+    ``namespace`` scopes the query to one ASIC on a multi-ASIC DUT (STATE_DB is
+    per-namespace there); ``""``/``None`` on single-ASIC emits no ``-n`` flag.
+    """
+    return bool(db_helpers.hgetall_dict(duthost, "STATE_DB", key, namespace=namespace))
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -117,9 +119,10 @@ def _system_post_session_checks(duthost, port_attributes_dict):
     missing_info = []
     missing_dom = []
     for port in sorted(port_attributes_dict.keys()):
-        if not _state_db_key_exists(duthost, f"TRANSCEIVER_INFO|{port}"):
+        namespace = _resolve_namespace(duthost, port)
+        if not _state_db_key_exists(duthost, f"TRANSCEIVER_INFO|{port}", namespace=namespace):
             missing_info.append(port)
-        if not _state_db_key_exists(duthost, f"TRANSCEIVER_DOM_SENSOR|{port}"):
+        if not _state_db_key_exists(duthost, f"TRANSCEIVER_DOM_SENSOR|{port}", namespace=namespace):
             missing_dom.append(port)
     if missing_info:
         logger.warning("Post-session: TRANSCEIVER_INFO missing in STATE_DB for: %s",

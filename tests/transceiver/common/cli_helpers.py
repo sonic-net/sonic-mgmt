@@ -65,6 +65,12 @@ SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
 CONFIG_INTERFACE = "config interface"
+# Max characters of stdout/stderr echoed into a failure message.  Some sfputil
+# errors dump the full 500+ port list, which would bury the failure summary in
+# the terminal; 200 chars is enough to carry the actual error line (e.g.
+# "Error: invalid port ..." / "Root privileges are required") while keeping the
+# aggregated per-port failure report readable.
+CLI_ERROR_DETAIL_MAX_CHARS = 200
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -105,6 +111,18 @@ def _join_ports(ports):
     return ports
 
 
+def _as_decimal_int(value):
+    """Coerce ``value`` (an int or a ``"0x.."``/decimal string) to an int.
+
+    ``sfputil read-eeprom``'s ``-o/--offset`` and ``-s/--size`` are
+    ``click.IntRange`` options that accept only decimal integers (unlike
+    ``-n/--page``, which takes hex), so a hex string like ``"0x5C"`` from an
+    SFF-8472 callsite must be normalized before interpolation.  ``int(value, 0)``
+    parses both ``"0x5C"`` (hex) and ``"92"`` (decimal); an int passes through.
+    """
+    return value if isinstance(value, int) else int(value, 0)
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Command-string builders (pure string assembly, no I/O)
 # ──────────────────────────────────────────────────────────────────────
@@ -124,17 +142,27 @@ def sfputil_show_eeprom_hexdump_cmd(port, page=None):
 
 
 def sfputil_read_eeprom_cmd(port, *, offset, size, page=None, wire_addr=None):
-    """Return ``sfputil read-eeprom -p <port> [-n <page> | --wire-addr <A0h|A2h>] -o <off> -s <sz>``.
+    """Return ``sfputil read-eeprom -p <port> [--wire-addr <A0h|A2h>] -n <page> -o <off> -s <sz>``.
 
-    Exactly one of ``page`` or ``wire_addr`` should be provided.  Mixed-mode
-    callers (e.g. SFF-8472 vs CMIS paged access) get one builder either way.
+    ``-n/--page`` is a ``required=True`` option on ``sfputil read-eeprom``, so it
+    is ALWAYS emitted (defaulting to page 0 when ``page`` is None) — even for a
+    ``--wire-addr`` read.  The SFF-8472 A0h/A2h path in particular needs both
+    ``--wire-addr`` and ``-n 0`` together (``get_overall_offset_sff8472``
+    requires ``page == 0``), so ``wire_addr`` and ``page`` are emitted alongside
+    each other rather than as alternatives.
+
+    ``offset`` and ``size`` may be passed as ints or hex strings (e.g.
+    ``"0x5C"``); they are normalized to decimal because ``-o/--offset`` and
+    ``-s/--size`` are decimal-only ``IntRange`` options.
     """
     cmd = f"{SFPUTIL_READ_EEPROM} -p {port}"
     if wire_addr is not None:
         cmd += f" --wire-addr {wire_addr}"
-    elif page is not None:
-        cmd += f" -n {page}"
-    cmd += f" -o {offset} -s {size}"
+    # offset/size go to -o/-s (decimal-only IntRange); normalize hex strings.
+    cmd += (
+        f" -n {0 if page is None else page}"
+        f" -o {_as_decimal_int(offset)} -s {_as_decimal_int(size)}"
+    )
     return cmd
 
 
@@ -205,6 +233,17 @@ def _run_and_parse(duthost, cmd, parser=None):
     therefore surfaces stdout (and stderr too, for any command that does use
     it); both are truncated because some sfputil errors dump the full 500+ port
     list.
+
+    Contract note: on rc 0 this intentionally does NOT gate on the parser
+    recognizing any rows — non-zero rc and empty stdout are the only failure
+    signals here.  A command that exits 0 while printing an unparseable error
+    banner returns ``(parser(stdout_lines), None)`` (typically an empty / rowless
+    result); catching that is the caller's responsibility via the suite-wide
+    per-port aggregation — the per-port tests treat a missing ``parsed[port]`` /
+    field as a failure, and TC8 (``test_error_handling.py``) compares the parsed
+    status against the exact ``"Not present"`` / ``"SFP EEPROM not detected"``
+    tokens.  Keeping the "recognized row" check in the callers lets this pipeline
+    stay generic across the CLIs' differing output shapes.
     """
     result = duthost.command(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
@@ -212,9 +251,9 @@ def _run_and_parse(duthost, cmd, parser=None):
         stderr = (result.get("stderr") or "").strip()
         parts = []
         if stdout:
-            parts.append(f"stdout: {stdout[:200]}")
+            parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
         if stderr:
-            parts.append(f"stderr: {stderr[:200]}")
+            parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
         detail = "; ".join(parts) if parts else "no stdout/stderr"
         return None, f"{cmd} failed with rc={result.get('rc')} ({detail})"
     stdout_lines = result.get("stdout_lines", [])
@@ -238,7 +277,7 @@ def sfputil_show_eeprom_hexdump(duthost, port, page=None):
     """Run ``sfputil show eeprom-hexdump -p <port> [-n <page>]`` → ``(section_dict, err)``.
 
     Output shape: section-keyed byte map via ``parse_hexdump`` (e.g.
-    ``{"upper_page_0": {byte_offset: byte_value}, ...}``).
+    ``{"upper_page_00": {byte_offset: byte_value}, ...}``).
     """
     cmd = sfputil_show_eeprom_hexdump_cmd(port, page)
     return _run_and_parse(duthost, cmd, parse_hexdump)
@@ -247,13 +286,11 @@ def sfputil_show_eeprom_hexdump(duthost, port, page=None):
 def sfputil_read_eeprom(duthost, port, *, offset, size, page=None, wire_addr=None):
     """Run ``sfputil read-eeprom -p <port> ...`` → ``({offset: byte_int}, err)``.
 
-    See ``sfputil_read_eeprom_cmd`` for the argument semantics (exactly one
-    of ``page`` / ``wire_addr``).
+    See ``sfputil_read_eeprom_cmd`` for the argument semantics.  ``page`` and
+    ``wire_addr`` are NOT mutually exclusive: ``-n/--page`` is always required by
+    sfputil (defaults to 0 here), and the SFF-8472 A0h/A2h path needs both
+    ``wire_addr`` and ``page=0`` together.
     """
-    if (page is None) == (wire_addr is None):
-        return None, (
-            f"sfputil read-eeprom -p {port}: exactly one of 'page' or 'wire_addr' must be provided"
-        )
     cmd = sfputil_read_eeprom_cmd(
         port, offset=offset, size=size, page=page, wire_addr=wire_addr,
     )

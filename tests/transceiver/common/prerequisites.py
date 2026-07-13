@@ -166,7 +166,7 @@ def check_gold_firmware(duthost, port_attributes_dict):
     skipped = [port for port in sorted(expected_ports) if port not in in_scope_set]
 
     if not in_scope:
-        details = f"no CMIS active-optical ports in scope; {len(skipped)} out-of-scope port(s) skipped"
+        details = f"no CMIS active-optical ports in scope ({len(skipped)} out-of-scope port(s) skipped)"
         logger.info("Gold firmware check: %s", details)
         return {
             "passed": True,

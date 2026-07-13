@@ -38,6 +38,58 @@ logger = logging.getLogger(__name__)
 STATE_DB = "STATE_DB"
 
 
+def parse_state_db_bool(value):
+    """Parse a STATE_DB string into a Python bool, or ``None`` if unrecognized.
+
+    xcvrd (and other daemons) write Python bools into Redis as the strings
+    ``"True"`` / ``"False"`` (Redis stores everything as strings); the numeric
+    forms ``"1"`` / ``"0"`` are accepted too for robustness.
+
+    Returns ``None`` for any unrecognized value — deliberately tri-state — so a
+    caller can flag a malformed STATE_DB value as a parse failure rather than
+    silently treating it as ``False``.  This is why it is NOT the shared
+    ``str2bool`` helpers in ``tests/common``: those collapse unrecognized input
+    into a bool, which would mask exactly the malformed-value case STATE_DB
+    consistency checks need to catch.  Lives here so "how daemons encode bools
+    in Redis" sits next to the STATE_DB read helpers.
+    """
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in ("true", "1"):
+        return True
+    if normalized in ("false", "0"):
+        return False
+    return None
+
+
+def get_bool_field_from_entry(entry, field):
+    """Extract a tri-state bool ``field`` from a STATE_DB entry dict → ``(value, err)``.
+
+    ``entry`` is one port's already-dumped hash (e.g. a value from
+    :func:`get_state_db_table`), so this is a pure dict accessor — it does NOT
+    issue a DB query and composes with the single bulk ``sonic-db-dump`` rather
+    than reintroducing a per-port read.
+
+    Mirrors the module's ``(value, err)`` contract, distinguishing the two
+    failure modes a capability-flag check needs to tell apart:
+      - ``(True/False, None)`` when ``field`` is present and a recognized bool.
+      - ``(None, "no '<field>' field ...")`` when ``field`` is absent.
+      - ``(None, "'<field>' has unrecognized value ...")`` when present but not a
+        recognized bool (see :func:`parse_state_db_bool`).
+
+    The error strings are deliberately generic; callers prefix the port (and any
+    other) context and aggregate per the suite-wide per-port failure pattern.
+    """
+    raw = entry.get(field)
+    if raw is None:
+        return None, f"no '{field}' field in STATE_DB entry"
+    parsed = parse_state_db_bool(raw)
+    if parsed is None:
+        return None, f"'{field}' has unrecognized value '{raw}' (expected 'True'/'False')"
+    return parsed, None
+
+
 def hgetall_dict(duthost, db, key, namespace=None):
     """Run ``sonic-db-cli [-n <ns>] <db> hgetall "<key>"`` and parse the dict literal.
 
@@ -70,15 +122,34 @@ def hgetall_dict(duthost, db, key, namespace=None):
     except (SyntaxError, ValueError):
         logger.warning("Failed to parse hgetall output for %s %s: %r", db, key, stdout)
         return {}
-    return parsed if isinstance(parsed, dict) else {}
+    if not isinstance(parsed, dict):
+        # Parsed cleanly but isn't a dict -- an unexpected sonic-db-cli output
+        # shape.  Warn (mirroring the parse-failure branch above) so a shape
+        # regression is visible instead of being silently swallowed as {}.
+        logger.warning(
+            "hgetall for %s %s returned non-dict %s: %r",
+            db, key, type(parsed).__name__, stdout,
+        )
+        return {}
+    return parsed
 
 
-def get_state_db_hash_field(duthost, table, key, field):
-    """Read one hash field from STATE_DB.
+def get_db_hash_field(duthost, db, table, key, field, namespace=None, sep="|"):
+    """Read one hash field from ``db`` → ``(value, err)``.
 
-    Runs ``sonic-db-cli STATE_DB hget "<table>|<key>" <field>`` (the Redis key is
-    double-quoted because table keys contain ``|``, which the shell would
-    otherwise treat as a pipe).
+    Runs ``sonic-db-cli [-n <ns>] <db> hget "<table><sep><key>" <field>``.  The
+    Redis key is double-quoted because it contains ``sep``, which the shell would
+    otherwise treat as a pipe (``|``) or otherwise mangle.
+
+    ``sep`` is the table/key separator: ``"|"`` for STATE_DB and CONFIG_DB,
+    ``":"`` for APPL_DB.
+
+    ``namespace`` scopes the query to one ASIC on a multi-ASIC DUT: ``-n <ns>``
+    is emitted only when ``namespace`` is truthy (``asicN``, e.g. from
+    ``duthost.get_namespace_from_asic_id``).  ``sonic-db-cli`` takes the namespace
+    as ``-n`` with the database as a positional arg, so this is a plain flag
+    prepend.  On a single-ASIC DUT the value is ``None``/``""`` and no flag is
+    emitted, so the command stays byte-identical to the pre-namespace form.
 
     Returns ``(value, err)``:
       - ``(field_value_str, None)`` when the field is present.
@@ -87,8 +158,9 @@ def get_state_db_hash_field(duthost, table, key, field):
         "not published".
       - ``(None, "<cmd> failed with rc=... stderr=...")`` on non-zero rc.
     """
-    cmd = f'sonic-db-cli {STATE_DB} hget "{table}|{key}" {field}'
-    # shell (not command) because the quoted "<table>|<key>" needs shell parsing.
+    ns_flag = f" -n {namespace}" if namespace else ""
+    cmd = f'sonic-db-cli{ns_flag} {db} hget "{table}{sep}{key}" {field}'
+    # shell (not command) because the quoted "<table><sep><key>" needs shell parsing.
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (
@@ -99,12 +171,32 @@ def get_state_db_hash_field(duthost, table, key, field):
     return (value or None), None
 
 
-def get_state_db_table(duthost, table):
+def get_state_db_hash_field(duthost, table, key, field, namespace=None):
+    """Read one hash field from STATE_DB → ``(value, err)``.
+
+    Thin wrapper over :func:`get_db_hash_field` pinned to ``STATE_DB`` (``|``
+    separator).  See that function for the ``namespace`` and ``(value, err)``
+    semantics; this preserves the existing STATE_DB call sites unchanged.
+    """
+    return get_db_hash_field(duthost, STATE_DB, table, key, field, namespace=namespace)
+
+
+def get_state_db_table(duthost, table, namespace=None):
     """Read every STATE_DB ``<table>|*`` entry in a single ``sonic-db-dump`` call.
 
     This replaces one ``hget`` per port with one bulk dump — the right shape when
     a test needs many ports' fields (e.g. verifying ``vdm_supported`` across the
     whole ``TRANSCEIVER_INFO`` table) instead of a single field.
+
+    ``namespace`` scopes the dump to one ASIC on a multi-ASIC DUT.  NOTE the
+    mechanism differs from :func:`get_state_db_hash_field`: ``sonic-db-dump``'s
+    own ``-n`` is the *database* name (here ``STATE_DB``), not a namespace, so a
+    namespaced read is done by running the dump inside the ASIC's network
+    namespace via ``sudo ip netns exec <ns> ...`` — the same wrapper the
+    framework's ASIC host uses (see ``sonic_asic.py`` ``ns_arg``).  The prefix is
+    added only when ``namespace`` is truthy (``asicN``, e.g. from
+    ``duthost.get_namespace_from_asic_id``); on a single-ASIC DUT the value is
+    ``None``/``""`` and the command stays byte-identical to the pre-namespace form.
 
     Returns ``(by_key, err)``:
       - ``({key_suffix: {field: value}}, None)`` on success.  The ``<table>|``
@@ -117,7 +209,8 @@ def get_state_db_table(duthost, table):
     nested under each key's ``"value"`` block; this unwraps that into a flat
     ``{port: {field: value}}`` map.
     """
-    cmd = f"sonic-db-dump -n {STATE_DB} -y -k '{table}|*'"
+    ns_prefix = f"sudo ip netns exec {namespace} " if namespace else ""
+    cmd = f"{ns_prefix}sonic-db-dump -n STATE_DB -y -k '{table}|*'"
     result = duthost.shell(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
         return None, (

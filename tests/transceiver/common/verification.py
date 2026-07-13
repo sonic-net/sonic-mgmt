@@ -37,6 +37,14 @@ logger = logging.getLogger(__name__)
 # autouse per-test health fixture agree on what counts as a core file.
 _FIND_CORE_FILES_CMD = "find /var/core/ -maxdepth 1 -type f -printf '%f\\n'"
 
+# Minimum continuous uptime (seconds) the health check requires of every
+# critical service (pmon, swss, syncd containers and the xcvrd process).
+# Per system_test_plan.md "Docker and Process Health Check": services must be
+# running for at least 3 minutes. Disruptive tests that deliberately restart a
+# service (e.g. xcvrd restart) must dwell long enough for the restarted service
+# to clear this floor before calling the health check.
+MIN_CRITICAL_SERVICE_UPTIME_SEC = 180
+
 
 def list_core_files(duthost):
     """Return the set of core-file basenames currently in ``/var/core/``.
@@ -313,7 +321,8 @@ def _check_cmis_state(duthost, port, shared_state, namespace=None):
 
 
 def standard_port_recovery_and_verification(
-    duthost, port, port_attrs, link_up_timeout_sec, shared_state=None
+    duthost, port, port_attrs, link_up_timeout_sec, shared_state=None,
+    min_uptime_sec=MIN_CRITICAL_SERVICE_UPTIME_SEC,
 ):
     """Run the Standard Port Recovery and Verification Procedure on one port.
 
@@ -356,6 +365,12 @@ def standard_port_recovery_and_verification(
             before the disruptive action) so the health check flags only cores
             created during the test; when absent, every core in ``/var/core``
             is treated as new.
+        min_uptime_sec: minimum continuous uptime (seconds) required of the
+            critical containers and the xcvrd process in the step-6 health
+            check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC` (180,
+            i.e. the test plan's 3-minute floor). Callers that deliberately
+            restart a service must dwell long enough for it to clear this
+            value before calling.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
@@ -563,12 +578,21 @@ def standard_port_recovery_and_verification(
     #    we want.
     checks_ran.append("health")
     health_failures = []
-    min_uptime_sec = 180
     # Pre-existing/stale cores (seeded by the caller before the disruptive
     # action) are subtracted out so only cores created during the test fail it.
     core_baseline = shared_state.get("core_baseline", set())
+    # Critical containers to check. swss/syncd are per-ASIC services: on a
+    # multi-ASIC DUT they are suffixed (swss0/syncd0, swss1/syncd1, ...) while a
+    # single-ASIC DUT keeps the bare names - ``get_docker_name`` yields the right
+    # form for each. pmon is a single host-level container (and also hosts
+    # xcvrd), so it is checked once regardless of ASIC count.
+    containers = ["pmon"]
+    for asic in duthost.asics:
+        containers.append(asic.get_docker_name("swss"))
+        containers.append(asic.get_docker_name("syncd"))
+    container_list = " ".join(containers)
     health_script = (
-        "for c in pmon swss syncd; do "
+        f"for c in {container_list}; do "
         "  pid=$(docker inspect -f '{{.State.Pid}}' \"$c\" 2>/dev/null || echo 0); "
         "  if [ \"$pid\" -gt 0 ] 2>/dev/null; then "
         "    et=$(ps -o etimes= -p \"$pid\" 2>/dev/null | tr -d ' '); "
