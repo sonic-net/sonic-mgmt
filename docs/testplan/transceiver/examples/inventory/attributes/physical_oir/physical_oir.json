@@ -13,7 +13,7 @@
         "<dut-name>":{
             "ports_under_test": [9, 11, 13, 15, 17, 19, 21, 23],
             "physical_oir_timeout_min": 5,
-            "hot_swap_ports_under_test": [[9, "C-CMIS"], [9, "SFF-8436"], [13, "SFF-8636"]]
+            "hot_swap_ports_under_test": [[9, "Sff8472Api"], [9, "Sff8472ApiSFF"], [13, "Sff8472Api"], [13, "CmisApi"], [13, "CCmisApi"], [15, "CredoAec800gApi"], [15, "CmisFR800gApi"], [15, "CmisAocSingleBankApi"], [17, "AmphBackplaneImpl"]]
         }
     }
 }
