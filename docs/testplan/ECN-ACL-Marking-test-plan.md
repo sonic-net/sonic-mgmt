@@ -100,4 +100,11 @@ Verify matching traffic is ECN-marked in hardware.
 
 ## TODO
 
-- ECN marking interaction with SRv6 forwarding (encap / decap / transit).
+- **SRv6 forwarding interaction** (see [`srv6/test_srv6_ecn_acl.py`](../../tests/srv6/test_srv6_ecn_acl.py)):
+  - *Transit (uN):* validated — `ECN_ACTION` marks the SRv6 outer ECN and uN forwarding is
+    unaffected (uN only rewrites the destination address + hop-limit). Tested by
+    `test_srv6_ecn_marking_uN` with a negative control.
+  - *Decap (uDT):* not hardware-supported yet (Spectrum-5 / Tomahawk-5 SAI/SDK). By code review
+    SONiC leaves the decap tunnel's ECN mode at the RFC 6040 default, so marking `CE` on
+    to-be-decapped traffic would drop Not-ECT inner packets per RFC 6040 — a caveat to verify
+    once an ASIC supports SRv6 decap.

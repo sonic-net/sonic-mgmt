@@ -1196,3 +1196,9 @@ acl/test_ecn_acl.py:
     reason: "ECN ACL marking (SAI SET_ECN) is validated on th5/th6/spc5/spc6; skip on other ASIC generations (incl. KVM)"
     conditions:
       - "asic_gen not in ['th5', 'th6', 'spc5', 'spc6']"
+
+srv6/test_srv6_ecn_acl.py:
+  skip:
+    reason: "ECN ACL marking x SRv6 uN coexistence; needs a SET_ECN-capable ASIC (th5/th6/spc5/spc6) and SRv6 uN support; skip elsewhere (incl. KVM)"
+    conditions:
+      - "asic_gen not in ['th5', 'th6', 'spc5', 'spc6']"
