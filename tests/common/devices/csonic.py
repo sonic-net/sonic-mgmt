@@ -43,6 +43,24 @@ class CsonicHost(NeighborDevice):
     def __repr__(self):
         return self.__str__()
 
+    def __hash__(self):
+        # CsonicHost is stored as the ['host'] value of a NeighborDevice and is
+        # used interchangeably with EosHost/SonicHost, which are hashable plain
+        # objects. CsonicHost inherits NeighborDevice(dict), which Python marks
+        # unhashable (dict subclasses get __hash__ = None), so some tests (e.g.
+        # iface_loopback_action) that place neighbor hosts in a set or use them
+        # as dict keys raise "unhashable type: 'CsonicHost'" while cEOS/EosHost
+        # neighbors pass. Identity is the container name, so hashing/eq on that
+        # keeps host objects hashable and distinct without relying on dict
+        # contents.
+        return hash(self.container_name)
+
+    def __eq__(self, other):
+        return isinstance(other, CsonicHost) and self.container_name == other.container_name
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def _docker_exec(self, cmd, **kwargs):
         """Run a command inside the Docker container via docker exec."""
         docker_cmd = ['docker', 'exec', self.container_name, 'bash', '-c', cmd]
