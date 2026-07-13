@@ -1,4 +1,5 @@
 import contextlib
+import ipaddress
 import logging
 import re
 import pytest
@@ -172,6 +173,26 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
         except Exception:
             logger.info("Neighbor device {} does not sent management IP via lldp".format(v['chassis']['name']))
             hostip = nei_meta[v['chassis']['name']]['mgmt_addr']
+
+        # The lldp_facts SNMP module only supports IPv4 UDP transport. If a
+        # SONiC neighbor advertises an IPv6 mgmt address via LLDP the module
+        # errors ([Errno -9] Address family for hostname not supported), so
+        # fall back to the IPv4 mgmt_addr from DEVICE_NEIGHBOR_METADATA.
+        def _is_ipv4(addr):
+            try:
+                return isinstance(ipaddress.ip_address(str(addr)), ipaddress.IPv4Address)
+            except ValueError:
+                return False
+
+        if not _is_ipv4(hostip):
+            nei_name = v['chassis'].get('name')
+            fallback = nei_meta.get(nei_name, {}).get('mgmt_addr')
+            if _is_ipv4(fallback):
+                logger.info(
+                    "Neighbor {} advertised non-IPv4 LLDP mgmt-ip '{}'; using IPv4 "
+                    "mgmt_addr '{}' from DEVICE_NEIGHBOR_METADATA for SNMP".format(
+                        nei_name, hostip, fallback))
+                hostip = fallback
 
         if request.config.getoption("--neighbor_type") == 'eos':
             neighbor_interface = v['port']['ifname']
