@@ -33,7 +33,7 @@ def main():
     cmdout = ''
 
     if args.key is None:
-        cmd =  'sonic-db-cli DPU_APPL_DB keys \"*\"'
+        cmd = 'sonic-db-cli DPU_APPL_DB keys \"*\"'
         with os.popen(cmd) as fp:
             cmdout = fp.read()
         print(cmdout)
@@ -61,6 +61,6 @@ def main():
     print(json_str)
     return json_str
 
+
 if __name__ == "__main__":
     main()
-
