@@ -203,8 +203,19 @@ def test_snmp_queue_counters(duthosts,
             r".* ERR memory_checker: \[memory_checker\] "
             r"Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] "
-            r"cgroup memory usage file.*"
+            r"cgroup memory usage file.*",
         ]
+        # This test triggers multiple config_reload calls (including one
+        # in the module teardown that is not wrapped by
+        # ignore_loganalyzer). On platforms with a large port count,
+        # syncd may log this benign FlexCounter cleanup message when a
+        # port's counters are still being polled right after the port
+        # object was removed/recreated. The port is simply dropped from
+        # the active counter poll list; no functional impact.
+        ignore_regex_list.append(
+            r".* ERR syncd\d*#syncd: :- processFlexCounterEvent: port VID oid:0x[0-9a-fA-F]+, "
+            r"was not found \(probably port was removed/splitted\) and will remove from counters now.*"
+        )
         if duthost.sonichost.facts['platform_asic'] == 'broadcom':
             ignore_regex_list.append(
                 r".* ERR swss#orchagent:\s*.*\s*"
