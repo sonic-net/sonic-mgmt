@@ -236,7 +236,7 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
         Returns True or False based on status of given DPU module
     """
     # checking state_transition still  in progress for DPU, before checking DPU state
-    cmd = f'redis-cli -n 6 HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
+    cmd = f'sonic-db-cli STATE_DB HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
     output_dpu_state = duthost.shell(cmd, module_ignore_errors=True)
     logging.info("Chassis state for %s: %s", dpu_name, output_dpu_state['stdout'])
 
