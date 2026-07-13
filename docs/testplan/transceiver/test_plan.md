@@ -203,11 +203,11 @@ def _category_per_test_checks(request, duthost, port_attributes_dict):
 
 Several categories validate the **remote (peer) side** of a link end-to-end — for example DOM [Advanced TC 1](dom_test_plan.md#advanced-dom-testing) reads the peer's `TRANSCEIVER_DOM_SENSOR` RX power across shut/no-shut, Physical OIR verifies the peer port on removal/insertion, and the System [Standard Port Recovery and Verification Procedure](system_test_plan.md#standard-port-recovery-and-verification-procedure) optionally confirms the peer link recovered after a disruption. To keep peer identification consistent, all categories resolve the remote side through this single shared mechanism rather than parsing link files themselves.
 
-**Resolution source.** The remote device and port for a given `(duthost, local_port)` are obtained from the baseline sonic-mgmt connection-graph facility (`conn_graph_facts` / `get_dev_conn`), which is populated from the lab link inventory (e.g. `sonic_{inv_name}_links.csv`).
+**Resolution source.** For a given `(duthost, local_port)`, the peer is looked up in the baseline sonic-mgmt connection graph at `conn_graph_facts["device_conn"][duthost.hostname][local_port]`, which provides the **string** fields `peerdevice` and `peerport` (the graph is populated from the lab link inventory, e.g. `sonic_{inv_name}_links.csv`). `get_dev_conn` (used in `tests/transceiver/transceiver_test_base.py`) is the helper that returns a DUT's per-port connection map; it yields those peer strings — not a peer host object.
 
 **Contract.**
 
-- Input: a DUT handle and a local port under test. Output: the peer device handle and peer port name.
+- Input: a DUT handle and a local port under test. Output: the **peer device name** and **peer port name** (the `peerdevice` / `peerport` strings). Callers resolve the peer-device name to a host object themselves when they need to query the peer.
 - The mapping is **static** — it does not depend on the local port's live link state, so it is valid even while the local port is down (e.g. mid-reset/reboot). Callers therefore do **not** need to snapshot peer identity from a pre-disruption baseline.
 - Every port in `port_attributes_dict` is assumed to have a remote peer. If a port under test has **no** entry in the connection graph, that is a **configuration error**: the consuming test fails (or skips) with a clear message rather than silently skipping the remote-side checks.
 
