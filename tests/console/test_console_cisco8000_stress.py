@@ -71,6 +71,49 @@ def _is_supported_platform(host):
     return platform.startswith('arm64-c8220tg_48a')
 
 
+@pytest.fixture(autouse=True, scope="module")
+def restore_console_config(setup_c0):
+    dut_host, fanout_host = setup_c0
+    required_list = list(set([dut_host, fanout_host]))
+
+    def _read_field(field, default):
+        try:
+            res = duthost.command(
+                "sonic-db-cli CONFIG_DB hget 'CONSOLE_PORT|{}' {}".format(target_line, field),
+                module_ignore_errors=True)
+            val = (res.get('stdout') or '').strip()
+            return val if val else default
+        except Exception as e:
+            logger.debug("Failed to read original %s for line %s: %s", field, target_line, e)
+            return default
+
+    data = {}
+    for duthost in required_list:
+        data[duthost] = []
+        for target_line in range(48):
+            orig_baud = _read_field("baud_rate", "9600")
+            orig_flow_control_int = _read_field("flow_control", "0")
+            orig_flow_control = "enable" if orig_flow_control_int == "1" else "disable"
+            data[duthost].append({'baud': orig_baud, 'flow_control': orig_flow_control})
+
+    yield
+
+    for duthost in required_list:
+        for target_line in range(48):
+            try:
+                duthost.command(
+                    f"config console baud {target_line} {data[duthost][target_line]['baud']}",
+                    module_ignore_errors=True)
+            except Exception as e:
+                logger.warn("Failed to restore baud_rate for line %s: %s", target_line, e)
+            try:
+                duthost.command(
+                    f"config console flow_control {data[duthost][target_line]['flow_control']} {target_line}",
+                    module_ignore_errors=True)
+            except Exception as e:
+                logger.warn("Failed to restore flow_control for line %s: %s", target_line, e)
+
+
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
