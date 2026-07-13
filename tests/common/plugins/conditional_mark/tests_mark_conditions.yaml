@@ -1351,6 +1351,13 @@ drop_packets/test_drop_counters.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
+drop_packets/test_drop_counters.py::test_(dst_ip_absent|dst_ip_is_loopback_addr|ip_is_zero_addr|ip_pkt_with_exceeded_mtu|not_expected_vlan_tag_drop|src_ip_is_loopback_addr|src_ip_is_multicast_addr|unicast_ip_incorrect_eth_dst):
+  regex: true
+  xfail:
+    reason: "Arista 7050CX3 202605 does not increment expected RX_DRP/RX_ERR counters for these drop scenarios"
+    conditions:
+      - "https://github.com/aristanetworks/sonic-qual.msft/issues/1339 and release in ['202605'] and hwsku in ['Arista-7050CX3-32S-C32'] and topo_type in ['t0']"
+
 drop_packets/test_drop_counters.py::test_acl_egress_drop:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with valid_ipv4"
