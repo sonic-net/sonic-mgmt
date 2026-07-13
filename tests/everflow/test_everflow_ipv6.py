@@ -117,7 +117,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     @pytest.fixture(scope='function', autouse=True)
     def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa F811
-                           setup_standby_ports_on_rand_unselected_tor_unconditionally,      # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally_module,      # noqa F811
                            toggle_all_simulator_ports_to_rand_selected_tor):                # noqa F811
         stop_thread = threading.Event()
         src_port = EverflowIPv6Tests.rx_port_ptf_id

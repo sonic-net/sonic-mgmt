@@ -64,7 +64,7 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-CONFIG_INTERFACE = "config interface"
+
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
 # the terminal; 200 chars is enough to carry the actual error line (e.g.
@@ -76,8 +76,8 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 # ──────────────────────────────────────────────────────────────────────
 # Multi-ASIC namespace support
 #
-# The DB-backed ``show interfaces transceiver`` commands and ``config interface
-# shutdown``/``startup`` take a namespace; they accept a ``namespace`` kwarg and
+# The DB-backed ``show interfaces transceiver`` command takes a namespace;
+# they accept a ``namespace`` kwarg and
 # emit ``-n <ns>`` when it is truthy (``asicN``, from e.g.
 # ``duthost.get_namespace_from_asic_id`` / ``asichost.namespace``).  On a
 # single-ASIC DUT the value is ``None``/``""`` and no flag is emitted, so the
@@ -96,19 +96,6 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 def _ns_flag(namespace):
     """Return ``" -n <namespace>"`` for a truthy namespace, else ``""``."""
     return f" -n {namespace}" if namespace else ""
-
-
-def _join_ports(ports):
-    """Render the interface argument for ``config interface shutdown``/``startup``.
-
-    ``config interface shutdown``/``startup`` accept a comma-separated interface
-    list, so a list/tuple is joined with commas (order preserved) to shut/start
-    many ports in a single command (e.g. ``Ethernet0,Ethernet64,Ethernet128``);
-    a plain string passes through unchanged.
-    """
-    if isinstance(ports, (list, tuple)):
-        return ",".join(ports)
-    return ports
 
 
 def _as_decimal_int(value):
@@ -190,24 +177,6 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
     if port:
         cmd += f" {port}"
     return cmd
-
-
-def config_interface_shutdown_cmd(port, namespace=None):
-    """Return ``config interface [-n <ns>] shutdown <port>``.
-
-    ``port`` is a single name or a list/tuple of names (joined with commas to
-    shut many ports in one command — see :func:`_join_ports`).
-    """
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {_join_ports(port)}"
-
-
-def config_interface_startup_cmd(port, namespace=None):
-    """Return ``config interface [-n <ns>] startup <port>``.
-
-    ``port`` is a single name or a list/tuple of names (joined with commas to
-    start many ports in one command — see :func:`_join_ports`).
-    """
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {_join_ports(port)}"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -319,13 +288,46 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
 
 
 # ──────────────────────────────────────────────────────────────────────
-# State-mutating config wrappers (run + rc check → err)
+# config interface shutdown/startup wrappers (state-mutating; no parse)
 #
-# Unlike the parsed wrappers above, ``config interface shutdown``/``startup``
-# produce NO stdout on success, so ``_run_and_parse``'s "empty output is a
-# failure" rule does not apply.  These return only ``err`` (``None`` on
-# success) — there is nothing to parse.
+# ``config interface shutdown``/``startup`` accept a comma-separated interface
+# list and emit ``-n <ns>`` only when the namespace is truthy (single-ASIC ->
+# no flag).  They produce NO stdout on success, so they return only ``err``
+# (``None`` on success) rather than a parsed tuple.
 # ──────────────────────────────────────────────────────────────────────
+
+CONFIG_INTERFACE = "config interface"
+
+
+def _join_ports(ports):
+    """Render the interface argument for ``config interface shutdown``/``startup``.
+
+    ``config interface shutdown``/``startup`` accept a comma-separated interface
+    list, so a list/tuple is joined with commas (order preserved) to shut/start
+    many ports in a single command (e.g. ``Ethernet0,Ethernet64,Ethernet128``);
+    a plain string passes through unchanged.
+    """
+    if isinstance(ports, (list, tuple)):
+        return ",".join(ports)
+    return ports
+
+
+def config_interface_shutdown_cmd(port, namespace=None):
+    """Return ``config interface [-n <ns>] shutdown <port>``.
+
+    ``port`` is a single name or a list/tuple of names (joined with commas to
+    shut many ports in one command — see :func:`_join_ports`).
+    """
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {_join_ports(port)}"
+
+
+def config_interface_startup_cmd(port, namespace=None):
+    """Return ``config interface [-n <ns>] startup <port>``.
+
+    ``port`` is a single name or a list/tuple of names (joined with commas to
+    start many ports in one command — see :func:`_join_ports`).
+    """
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {_join_ports(port)}"
 
 
 def _run_config_mutation(duthost, cmd):
