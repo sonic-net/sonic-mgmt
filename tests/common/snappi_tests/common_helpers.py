@@ -868,6 +868,10 @@ def _set_credit_watchdog(duthost, enable):
         duthost (AnsibleHost): Device Under Test (DUT)
         enable (bool): True to enable the watchdog, False to disable it
     """
+    if not is_broadcom_dnx_device(duthost):
+        logger.info("Credit watchdog not applicable on platform %s; skipping",
+                    duthost.facts.get("platform_asic"))
+        return
     value = "1" if enable else "0"
     pyscript = (
         "from swsscommon.swsscommon import DBConnector, ProducerStateTable; "
