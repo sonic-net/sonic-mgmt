@@ -7223,6 +7223,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         queue_list = [int(x) for x in queue_list]
         packet_length = self.test_params.get('packet_size', 64)
         pkts_num_leak_out = self.test_params.get('pkts_num_leak_out', 0)
+        ignore_upper_bound = self.test_params.get('ignore_upper_bound', False)
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
         # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
@@ -7295,12 +7296,19 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     qwm = qwms[queue]
                     lower = (expected_wm - margin) * cell_size
                     upper = (expected_wm + margin) * cell_size
-                    msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
-                        queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
+                    if ignore_upper_bound:
+                        msg = "Queue: {}, lower {} {} = queue_wm {}, upper ignored due to asic type".format(
+                            queue, lower, offset_text(qwm - lower), qwm)
+                    else:
+                        msg = "Queue: {}, lower {} {} = queue_wm {} = upper {} {}".format(
+                            queue, lower, offset_text(qwm - lower), qwm, upper, offset_text(qwm - upper))
                     log_message(msg, to_stderr=True)
-                    if not (lower <= qwm <= upper):
+                    if not (lower <= qwm):
                         failures.append((dst_port_ids[dst_i], queue))
-                        log_message("Failed check", to_stderr=True)
+                        log_message("Failed lower bound check", to_stderr=True)
+                    if not ignore_upper_bound and not (qwm <= upper):
+                        failures.append((dst_port_ids[dst_i], queue))
+                        log_message("Failed upper bound check", to_stderr=True)
             assert len(failures) == 0, "Failed on (dst port id, queue) for the following: {}".format(failures)
 
         finally:

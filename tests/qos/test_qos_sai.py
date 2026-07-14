@@ -2573,6 +2573,9 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_margin" in qosConfig[queueProfile].keys():
             testParams["pkts_num_margin"] = qosConfig[queueProfile]["pkts_num_margin"]
 
+        if "ignore_upper_bound" in qosConfig[queueProfile].keys():
+            testParams["ignore_upper_bound"] = qosConfig[queueProfile]["ignore_upper_bound"]
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.QWatermarkAllPortTest",
             testParams=testParams

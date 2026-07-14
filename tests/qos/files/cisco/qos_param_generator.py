@@ -713,6 +713,12 @@ class QosParamCisco(object):
             if self.dutAsic in ["gr2", "gr2x"]:
                 # Send a burst of leakout packets to optimize runtime. Expected leakout is around 250
                 params["pkts_num_leak_out"] = 200
+            if self.dutAsic == "p200":
+                # Watermark is quantized, functionality is validated by
+                # testQosSaiQSharedWatermarkQuantized. Maintain the watermark check on all
+                # ports by removing the upper bound restriction. This allows the lower
+                # bound to still be validated across the device.
+                params["ignore_upper_bound"] = True
             self.write_params("wm_q_wm_all_ports", params)
 
     def __define_pg_drop(self):

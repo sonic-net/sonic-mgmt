@@ -4686,7 +4686,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark(\[|$):
   skip:
     reason: "Test case replaced by testQosSaiQSharedWatermarkQuantized for Cisco-8223."
     conditions:
-      - &cisco8223Replaced "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223')"
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223')"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
   skip:
@@ -4696,7 +4696,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
       - "asic_type not in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
-      - *cisco8223Replaced
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
