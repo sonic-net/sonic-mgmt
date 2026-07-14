@@ -1,8 +1,8 @@
 import pytest
 import logging
 import re
-import time
 
+from tests.common.fixtures.duthost_utils import wait_bgp_sessions
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.bgp import (
     get_asic_config_facts,
@@ -22,6 +22,8 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
+VTYSH_SHOW_CMD_TIMEOUT_SEC = 60
+VTYSH_SHOW_CMD_KILL_GRACE_SEC = 5
 
 
 def run_config_db_cmd(duthost, enum_asic_index, cmd, module_ignore_errors=True):
@@ -51,9 +53,16 @@ def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_
 
 def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, nbrhosts, tbinfo):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
-    cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
-    cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, cmd)
-    output = duthost.shell(cmd, module_ignore_errors=True)["stdout"]
+    vtysh_cmd = "vtysh -c \"show ipv6 bgp summary\"" if is_v6_topo else "vtysh -c \"show ip bgp summary\""
+    vtysh_cmd = get_vtysh_cmd_for_asic(duthost, enum_asic_index, vtysh_cmd)
+    bounded_cmd = "timeout -k {} {} {}".format(
+        VTYSH_SHOW_CMD_KILL_GRACE_SEC, VTYSH_SHOW_CMD_TIMEOUT_SEC, vtysh_cmd)
+    res = duthost.shell(bounded_cmd, module_ignore_errors=True)
+    rc = res.get("rc")
+    output = res.get("stdout", "") or ""
+    pytest_assert(rc == 0, (
+        "Failed to run '{}' (rc={}). stderr: {}; stdout: {}"
+    ).format(vtysh_cmd, rc, res.get("stderr", ""), output[:200]))
 
     # Verify router id from DUT itself
     pattern = r"BGP router identifier (\d+\.\d+\.\d+\.\d+)"
@@ -165,8 +174,10 @@ def restart_bgp(duthost, tbinfo):
     pytest_assert(wait_until(100, 10, 10, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
     pytest_assert(wait_until(100, 10, 10, duthost.check_default_route,
                              ipv4=not is_ipv6_only_topology(tbinfo)), "Default route not ready")
-    # After restarting bgp, add time wait for bgp_facts to fetch latest status
-    time.sleep(20)
+    # wait_bgp_sessions polls per-ASIC BGP state
+    # (multi-ASIC aware, default 120s, auto-extended to 900s on modular chassis) so verification
+    # only runs once sessions have actually re-established.
+    wait_bgp_sessions(duthost)
 
 
 @pytest.fixture()
