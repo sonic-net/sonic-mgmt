@@ -128,7 +128,7 @@ def run_dshell_command(duthost, command):
     return duthost.shell(command)
 
 
-def get_voq_quant_thresholds(duthost, interface, traffic_class):
+def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class):
     """
         Return the quantized queue watermark thresholds (in bytes) for a given
         interface and traffic class on a Cisco-8000 device.

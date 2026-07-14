@@ -48,7 +48,7 @@ from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_li
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.cisco_data import get_voq_quant_thresholds
+from tests.common.cisco_data import get_voq_quant_thresholds_cisco
 
 logger = logging.getLogger(__name__)
 
@@ -2180,7 +2180,7 @@ class TestQosSai(QosSaiBase):
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_name = dutConfig["dutInterfaces"][dst_port_id]
         queue = qosConfig[queueProfile]["queue"]
-        quant_thresholds = get_voq_quant_thresholds(duthost, dst_port_name, queue)
+        quant_thresholds = get_voq_quant_thresholds_cisco(duthost, dst_port_name, queue)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])

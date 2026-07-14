@@ -64,7 +64,7 @@ class CiscoS1Cli(object):
     def get_port_oid(self, interface):
         """Return the SAI port OID (hex string) for a front-panel interface name."""
         gid = None
-        for entry in self._run("show ports counters")["result"]:
+        for entry in self._run("show ports status")["result"]:
             if entry["sysport"]["sysport-cookie"] == interface:
                 gid = int(entry["sysport"]["sysport-gid"])
                 break
