@@ -2913,7 +2913,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts, request):
 
 
 def compare_running_config(pre_running_config, cur_running_config):
-    if type(pre_running_config) != type(cur_running_config):
+    if type(pre_running_config) is not type(cur_running_config):
         return False
     if pre_running_config == cur_running_config:
         return True
