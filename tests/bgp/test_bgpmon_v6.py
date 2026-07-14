@@ -136,7 +136,7 @@ def bgpmon_peer_connected(asichost, bgpmon_peer):
         return False
 
 
-def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+def test_bgpmon_v6(frr_config_mode, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                    enum_rand_one_frontend_asic_index, common_v6_setup_teardown,
                    set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
@@ -184,7 +184,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_bgpmon_no_ipv6_resolve_via_default(frr_config_mode, duthosts, localhost,
+                                            enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                             enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.

@@ -36,9 +36,17 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
     So, we prefer a fixture rather than xunit-style setup/teardown functions.
 """
 
-pytestmark = [pytest.mark.topology("t0")]
+pytestmark = [
+    pytest.mark.topology("t0"),
+]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _frr_config_mode_autouse(frr_config_mode):
+    return frr_config_mode
+
 
 # global variables
 g_vars = {}

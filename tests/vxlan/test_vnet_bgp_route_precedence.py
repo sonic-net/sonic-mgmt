@@ -62,8 +62,13 @@ SUPPORTED_INIT_NEXTHOP_STATE = ['initially_up', 'initially_down']
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
-    pytest.mark.topology("t1")
+    pytest.mark.topology("t1"),
 ]
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _frr_config_mode_autouse(frr_config_mode):
+    return frr_config_mode
 
 
 @pytest.fixture(

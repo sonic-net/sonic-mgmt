@@ -8,11 +8,11 @@ from tests.common.utilities import get_image_type
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
 ]
 
 
-def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
+def test_bgp_azng_migration(frr_config_mode, duthosts, enum_upstream_dut_hostname):
 
     duthost = duthosts[enum_upstream_dut_hostname]
 

@@ -14,6 +14,7 @@ import ipaddr as ipaddress
 from jinja2 import Template
 from natsort import natsorted
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
@@ -26,11 +27,11 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.eos import EosHost
 
-from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu
+from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu, program_bbr_for_mode
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-multi-asic'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,8 @@ def enable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "enabled")
+    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively.
+    program_bbr_for_mode(duthost, enabled=True)
 
 
 def disable_bbr(duthost, namespace):
@@ -113,6 +116,8 @@ def disable_bbr(duthost, namespace):
         time.sleep(3)
     else:
         config_bbr_by_gcu(duthost, "disabled")
+    # In frr_mgmt_framework mode, BGP_BBR is not consumed; realize BBR natively.
+    program_bbr_for_mode(duthost, enabled=False)
 
 
 @pytest.fixture
@@ -138,7 +143,11 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
+def setup(frr_config_mode, duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
+    # BBR is driven by the bgpcfgd-only BGP_BBR table (bgpcfgd applies allowas-in from
+    # it). frrcfgd does not consume BGP_BBR but supports allowas-in natively, so in frr
+    # mode program_bbr_for_mode() realizes BBR on the peer-group AFs directly rather
+    # than skipping. See enable_bbr/disable_bbr and program_bbr_for_mode.
     duthost = duthosts[rand_one_dut_hostname]
 
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
@@ -427,8 +436,17 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                   .format(str(route), json.dumps(failed_results, indent=2)))
 
 
-def test_bbr_enabled_dut_asn_in_aspath(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bbr_enabled_dut_asn_in_aspath(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                        config_bbr_enabled, setup, prepare_routes):
+    # allowas-in itself works in frr mode (the route is accepted), but this case also
+    # asserts the DUT re-advertises the own-ASN route. In frr mode the route flows
+    # through FROM_BGP_PEER_V4, whose allow-list-framework 'call ...; on-match next'
+    # loses its continue-flow (frrcfgd has no 'on-match next'), so the default
+    # drop-community is applied and not cleaned up, suppressing the advertisement.
+    # Skip until frrcfgd gains route-map continue-flow; re-verify then.
+    skip_if_frr_mgmt_framework(
+        frr_config_mode, "route advertisement suppressed by allow-list-framework "
+        "'on-match next' gap in frrcfgd route-maps")
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
@@ -467,6 +485,9 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
 
     # Set BBR status in config_db
     duthost.shell('redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}" '.format(bbr_status))
+    # In frr_mgmt_framework mode BGP_BBR is not consumed; realize BBR natively (in
+    # config_db, before save) so it survives the reload and shows up in running-config.
+    program_bbr_for_mode(duthost, enabled=(bbr_status == 'enabled'))
     duthost.shell('sudo config save -y')
     config_reload(duthost)
 

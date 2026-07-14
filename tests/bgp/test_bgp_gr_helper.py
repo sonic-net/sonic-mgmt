@@ -13,13 +13,13 @@ from tests.common.utilities import is_ipv6_only_topology
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs'),
-    pytest.mark.disable_memory_utilization
+    pytest.mark.disable_memory_utilization,
 ]
 
 logger = logging.getLogger(__name__)
 
 
-def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_helper_routes_perserved(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                         setup_bgp_graceful_restart, tbinfo, cct=8):
     """Verify that routes received from one neighbor are all preserved during peer graceful restart."""
 

@@ -37,7 +37,11 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
+def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, frr_config_mode):
+    # frr_config_mode parametrizes this module over both the traditional
+    # (bgpcfgd) and frr_mgmt_framework config modes and puts the DUT into the
+    # requested mode before we read config facts below, so the mode-specific
+    # branches (VRF-keyed BGP_NEIGHBOR) are exercised in both modes.
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -151,8 +155,7 @@ def check_frr_mgmt_framework_config(duthost):
     Returns:
         bool: True if frr_mgmt_framework_config is "true", False otherwise
     """
-    frr_config = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
-    return frr_config == "true"
+    return duthost.get_frr_mgmt_framework_config()
 
 
 def verify_bgp_session_down(duthost, bgp_neighbor):

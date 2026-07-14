@@ -15,7 +15,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 't2', 'lrh', 'urh', 'lt2', 'ft2')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
 ]
 
 
@@ -38,7 +38,7 @@ def announce_withdraw_routes(duthost, namespace, localhost, ptf_ip, topo_name):
     logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
 
 
-def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_completeness_level,
+def test_announce_withdraw_route(frr_config_mode, duthosts, localhost, tbinfo, get_function_completeness_level,
                                  withdraw_and_announce_existing_routes, loganalyzer,
                                  enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                                  rotate_syslog):

@@ -341,7 +341,7 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost, tbinfo):
+def common_setup_teardown(frr_config_mode, rand_selected_dut, ptf_setup_teardown, ptfhost, tbinfo):
     ptfip = ptfhost.mgmt_ip
     duthost = rand_selected_dut
     is_ipv6_only = is_ipv6_only_topology(tbinfo)

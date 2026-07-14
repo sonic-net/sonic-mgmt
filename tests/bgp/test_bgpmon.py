@@ -159,7 +159,7 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
     return exp_packet
 
 
-def test_resolve_via_default_exist(duthost):
+def test_resolve_via_default_exist(frr_config_mode, duthost):
     """
     Test to verify if 'ip nht resolve-via-default' and 'ipv6 nht resolve-via-default' are present in global FRR config.
     """
@@ -177,7 +177,7 @@ def configure_ipv6_bgpmon_update_source(duthost, asn, local_addr):
     )
 
 
-def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
+def test_bgpmon(frr_config_mode, dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
                 common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
@@ -266,7 +266,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
-def test_bgpmon_no_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
+def test_bgpmon_no_resolve_via_default(frr_config_mode, dut_with_default_route, enum_rand_one_frontend_asic_index,
                                        common_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' or 'ipv6 nht resolve-via-default' is disabled.

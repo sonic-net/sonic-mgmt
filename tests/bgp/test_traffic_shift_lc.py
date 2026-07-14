@@ -3,6 +3,7 @@ import re
 import threading
 
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import remove_bgp_neighbors, restore_bgp_neighbors, initial_tsa_check_before_and_after_test
 from tests.common import config_reload
@@ -20,7 +21,7 @@ from tests.conftest import get_hosts_per_hwsku, backup_golden_config, restore_go
     update_golden_config_tsa_enabled
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def verify_route_on_neighbors(duthosts, dut_nbrhosts, orig_v4_routes, orig_v6_ro
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
 
-def test_tsa(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
+def test_tsa(frr_config_mode, request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test TSA
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -146,7 +147,7 @@ def test_tsa(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
         initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_tsb(request, duthosts, nbrhosts, tbinfo):
+def test_tsb(frr_config_mode, request, duthosts, nbrhosts, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
@@ -196,7 +197,7 @@ def test_tsb(request, duthosts, nbrhosts, tbinfo):
     initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_tsa_b_c_with_no_neighbors(request, duthosts, nbrhosts, core_dump_and_config_check, tbinfo):
+def test_tsa_b_c_with_no_neighbors(frr_config_mode, request, duthosts, nbrhosts, core_dump_and_config_check, tbinfo):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
@@ -274,7 +275,7 @@ def test_tsa_b_c_with_no_neighbors(request, duthosts, nbrhosts, core_dump_and_co
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
+def test_tsa_tsb_with_config_reload(frr_config_mode, request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -349,7 +350,8 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
+def test_load_minigraph_with_traffic_shift_away(
+        frr_config_mode, request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
     """
     Test load_minigraph --traffic-shift-away
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -423,3 +425,12 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
         # Bring back the supervisor and line cards to the BGP operational normal state
         initial_tsa_check_before_and_after_test(duthosts)
+
+
+@pytest.fixture(autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+    # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
+    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
+    skip_if_frr_mgmt_framework(
+        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")

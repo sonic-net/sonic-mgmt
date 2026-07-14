@@ -38,6 +38,22 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+# The prefix-list-suppress / ANCHOR_PREFIX feature is implemented by bgpcfgd's
+# PrefixListMgr, and these tests assert bgpcfgd-daemon behavior directly (it must stay
+# RUNNING after an invalid write, the manager process must be up on every device, etc.
+# -- see bgpcfgd_running()/wait_for_bgpcfgd() below). In frr_mgmt_framework mode bgpcfgd
+# does not run (frrcfgd replaces it), so both the feature and these process assertions
+# are inapplicable. This module is therefore bgpcfgd-mode-only: it is NOT parametrized
+# over frr_config_mode; instead it skips outright when the DUT natively runs
+# frr_mgmt_framework.
+@pytest.fixture(scope="module", autouse=True)
+def _skip_prefix_list_suppress_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
+        pytest.skip("prefix-list-suppress (ANCHOR_PREFIX) is a bgpcfgd PrefixListMgr "
+                    "feature and these tests assert bgpcfgd process behavior; not "
+                    "applicable in frr_mgmt_framework mode (bgpcfgd does not run)")
+
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------

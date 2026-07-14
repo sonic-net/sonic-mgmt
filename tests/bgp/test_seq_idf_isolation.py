@@ -1,5 +1,6 @@
 import logging
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 import random
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -10,7 +11,7 @@ from route_checker import assert_only_loopback_routes_announced_to_neighs, parse
 from route_checker import verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2')
+    pytest.mark.topology('t2', 'lrh', 'urh', 'lt2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ def rand_one_downlink_duthost(duthosts, tbinfo):
         return dut[0]
 
 
-def test_idf_isolated_no_export(rand_one_downlink_duthost,
+def test_idf_isolated_no_export(frr_config_mode, rand_one_downlink_duthost,
                                 nbrhosts, traffic_shift_community):
     """
     Test IDF isolation using no-export community
@@ -143,7 +144,7 @@ def test_idf_isolated_no_export(rand_one_downlink_duthost,
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
 
 
-def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
+def test_idf_isolated_withdraw_all(frr_config_mode, duthosts, rand_one_downlink_duthost,
                                    nbrhosts, traffic_shift_community):
     """
     Test IDF isolation using withdraw_all option
@@ -187,7 +188,7 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
 
 
 @pytest.mark.disable_loganalyzer
-def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
+def test_idf_isolation_no_export_with_config_reload(frr_config_mode, rand_one_downlink_duthost,
                                                     nbrhosts, traffic_shift_community):
     """
     Test IDF isolation using no-export community after config save and config reload
@@ -251,7 +252,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
 
 
 @pytest.mark.disable_loganalyzer
-def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downlink_duthost, nbrhosts,
+def test_idf_isolation_withdraw_all_with_config_reload(frr_config_mode, duthosts, rand_one_downlink_duthost, nbrhosts,
                                                        traffic_shift_community):
     """
     Test IDF isolation using withdraw all option after config save and config reload
@@ -303,3 +304,12 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
+
+
+@pytest.fixture(autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+    # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
+    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
+    skip_if_frr_mgmt_framework(
+        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")

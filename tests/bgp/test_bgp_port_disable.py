@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
 ]
 
 FRR_USER_UID = '300'
@@ -92,7 +92,7 @@ def verify_port_accessibility_fpmsyncd(duthost):
     pytest_assert("fpmsyncd" in output and "zebra" in output, "Connection issue detected")
 
 
-def test_zebra_uid(duthost):
+def test_zebra_uid(frr_config_mode, duthost):
     uid_command = "ps -ef | grep /usr/lib/frr/zebra | grep -v grep | awk '{print $1}'"
     uid_output = duthost.shell(uid_command)["stdout"].strip()
     if not uid_output:
@@ -101,7 +101,7 @@ def test_zebra_uid(duthost):
                   .format(uid_output, FRR_USER_UID))
 
 
-def test_daemon_tcp_port_access_restrictions(duthost):
+def test_daemon_tcp_port_access_restrictions(frr_config_mode, duthost):
     verify_daemon_tcp_ports(duthost)
     verify_iptables_rules_exist(duthost)
     for port in UID_RESTRICTED_PORTS:
@@ -109,7 +109,7 @@ def test_daemon_tcp_port_access_restrictions(duthost):
     verify_port_accessibility_fpmsyncd(duthost)
 
 
-def test_iptables_rule_persistence(duthost):
+def test_iptables_rule_persistence(frr_config_mode, duthost):
     restart_caclmgrd(duthost)
     verify_daemon_tcp_ports(duthost)
     verify_iptables_rules_exist(duthost)
@@ -118,7 +118,7 @@ def test_iptables_rule_persistence(duthost):
     verify_port_accessibility_fpmsyncd(duthost)
 
 
-def test_add_remove_stress(duthost, restart_caclmgrd_after_stress_test):
+def test_add_remove_stress(frr_config_mode, duthost, restart_caclmgrd_after_stress_test):
     for _ in range(10):  # Repeat the add/remove cycle
         setup_iptables_rule(duthost, "remove")
         verify_port_accessibility_fpmsyncd(duthost)

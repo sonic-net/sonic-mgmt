@@ -34,6 +34,39 @@ def get_bbr_default_state(duthost):
     return bbr_supported, bbr_default_state
 
 
+def program_bbr_for_mode(duthost, enabled):
+    """Make BBR take effect regardless of FRR config mode.
+
+    In traditional (bgpcfgd) mode the BGP_BBR table is consumed by bgpcfgd, which
+    applies ``allowas-in 1`` to the BBR-enabled peer-groups -- nothing extra is
+    needed here. In frr_mgmt_framework mode frrcfgd does not consume BGP_BBR, but it
+    *does* support allowas-in natively (BGP_PEER_GROUP_AF ``allow_as_in``), so program
+    the equivalent directly on every peer-group address-family. Callers still set the
+    BGP_BBR table (so its value is asserted / persisted); this just adds the frr-native
+    realization. See the reframed frrcfgd BGP_BBR-consumer tracking item.
+    """
+    if not duthost.get_frr_mgmt_framework_config():
+        return
+    pg_af_keys = [k for k in duthost.shell(
+        'sonic-db-cli CONFIG_DB KEYS "BGP_PEER_GROUP_AF|*"')["stdout"].splitlines() if k.strip()]
+    peer_groups = set()
+    for key in pg_af_keys:
+        fields = key.split("|")            # BGP_PEER_GROUP_AF|<vrf>|<pg>|<afi_safi>
+        if len(fields) >= 4:
+            peer_groups.add(fields[2])
+        if enabled:
+            duthost.shell("sonic-db-cli CONFIG_DB hset '{}' allow_as_in true allow_as_count 1".format(key))
+        else:
+            duthost.shell("sonic-db-cli CONFIG_DB hdel '{}' allow_as_in allow_as_count".format(key))
+    time.sleep(3)
+    # Re-evaluate already-received routes so allowas-in takes effect on live sessions,
+    # mirroring bgpcfgd's BBRMgr restart_peer_groups (clear bgp peer-group <pg> soft in).
+    for pg in sorted(peer_groups):
+        duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
+                      module_ignore_errors=True)
+    time.sleep(3)
+
+
 def is_bbr_enabled(duthost):
     bbr_supported, bbr_default_state = get_bbr_default_state(duthost)
     if bbr_supported and bbr_default_state == "enabled":

@@ -355,7 +355,8 @@ def _verify_config_file_forward(config_content, running_config):
     return missing
 
 
-def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
+def test_frr_config_check(
+        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, get_function_completeness_level):
     """
     Test FRR configuration consistency
     1. Get current FRR running configuration using 'vtysh -c "show running"'
@@ -455,7 +456,7 @@ def test_frr_config_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname, g
 
 
 @pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh')
-def test_frr_large_config_load_stress(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_frr_large_config_load_stress(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                       get_function_completeness_level):
     """Stress test FRR config file loading with large configuration.
 

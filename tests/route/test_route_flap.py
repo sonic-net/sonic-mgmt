@@ -17,7 +17,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -386,7 +386,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     return dev_port, route_to_ping
 
 
-def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
+def test_route_flap(frr_config_mode, duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_completeness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname,
                     enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index,

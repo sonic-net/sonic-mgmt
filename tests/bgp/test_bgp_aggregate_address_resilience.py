@@ -57,7 +57,7 @@ BGP_SESSION_POLL_INTERVAL = 10
 
 # ---- Module-scoped setup/teardown ----
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
+def setup_teardown(frr_config_mode, duthost):
     """Checkpoint before tests, rollback + re-save config after.
 
     TC5.2/TC5.3/TC5.5 run 'config save -y' before a disruption.  If the test

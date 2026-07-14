@@ -22,7 +22,7 @@ from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_int
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ def skip_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
+def common_setup_teardown(frr_config_mode, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
 
     logger.info("########### Setup for bgp speaker testing ###########")
 

@@ -6,13 +6,14 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.gcu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', 't2')
+    pytest.mark.topology('t0', 't1', 't2'),
 ]
 
 
@@ -25,6 +26,14 @@ ITERATION_LEVEL_MAP = {
     'thorough': 3
 }
 logger = logging.getLogger(__name__)
+
+
+# These tests exercise zebra 'set src' route-maps (RM_SET_SRC/RM_SET_SRC6). frrcfgd's
+# route-map model has no 'set src' clause, so the feature cannot be programmed via
+# frr_mgmt_framework -- skip the frr variant (genuine capability gap).
+@pytest.fixture(autouse=True)
+def _skip_set_src_in_frr_mgmt_framework(frr_config_mode):
+    skip_if_frr_mgmt_framework(frr_config_mode, "frrcfgd route-map model has no 'set src' clause")
 
 
 def _get_frontend_bgp_docker_names(duthost):
@@ -239,8 +248,7 @@ def _race_loop_alive(duthost, pid):
 
 
 def test_mgmtd_preserves_default_route_set_src(
-        dut_with_default_route,
-        get_function_completeness_level):
+        frr_config_mode, dut_with_default_route, get_function_completeness_level):
     """
     Regress the mgmtd replay bug by forcing a config reload and ensuring FRR keeps the set src route-maps.
     """
@@ -280,7 +288,7 @@ def test_mgmtd_preserves_default_route_set_src(
 
 
 def test_mgmtd_preserves_default_route_set_src_with_large_config(
-        dut_with_default_route):
+        frr_config_mode, dut_with_default_route):
     """
     Inject extra FRR config (prefix-lists) before reload to validate that
     route-maps remain correct under additional FRR state.  The bloat is

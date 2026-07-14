@@ -19,7 +19,7 @@ from bgp_bbr_helpers import get_bbr_default_state
 
 pytestmark = [
     pytest.mark.topology('t1'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
     ]
 
 
@@ -133,7 +133,7 @@ def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
+def setup(frr_config_mode, duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:

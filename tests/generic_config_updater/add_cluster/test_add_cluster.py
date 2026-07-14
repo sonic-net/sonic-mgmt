@@ -14,7 +14,7 @@ from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
     format_sonic_buffer_pg_dict
 
 pytestmark = [
-        pytest.mark.topology("t2", "lrh", "urh")
+        pytest.mark.topology("t2", "lrh", "urh"),
         ]
 
 logger = logging.getLogger(__name__)
@@ -1774,7 +1774,8 @@ def setup_add_cluster(tbinfo,
 # Test Definitions
 # -----------------------------
 
-def test_add_cluster(tbinfo,
+def test_add_cluster(frr_config_mode,
+                     tbinfo,
                      duthosts,
                      initialize_random_variables,
                      ptfadapter,

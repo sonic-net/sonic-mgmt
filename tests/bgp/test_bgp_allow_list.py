@@ -4,6 +4,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 # Constants
 from bgp_helpers import ALLOW_LIST_PREFIX_JSON_FILE, PREFIX_LISTS, TEST_COMMUNITY
 # Functions
@@ -14,10 +15,24 @@ from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa:F401
 
 pytestmark = [
     pytest.mark.topology('t1', 'm1', 'c0'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
 logger = logging.getLogger(__name__)
+
+
+# The allow-list mode-aware writes in apply_allow_list/remove_allow_list emit the
+# frrcfgd-native tables, but the feature's baseline FROM_BGP_* route-maps rely on
+# route-map 'on-match next' (continue-flow), which frrcfgd's route-map model does not
+# yet represent -- so the allow-list behavior cannot be realized in frr_mgmt_framework
+# mode today. The mode-aware code is intentionally KEPT for when frrcfgd gains that
+# support; until then, skip the frr variant. Remove this fixture to re-enable it.
+@pytest.fixture(autouse=True)
+def _skip_allow_list_in_frr_mgmt_framework(frr_config_mode):
+    skip_if_frr_mgmt_framework(
+        frr_config_mode,
+        "frrcfgd route-map model does not yet support 'on-match next' (allow-list continue-flow)")
+
 
 DEPLOYMENT_ID = '0'
 ALLOW_LIST = {
@@ -73,7 +88,7 @@ def get_expected_bgpmon_routes(setup_info):
     return expected
 
 
-def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811
+def test_default_allow_list_preconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,  # noqa:F811,E501
                                       ptfhost, bgpmon_setup_teardown):
     """
     Before applying allow list, verify the bgp policy by default config
@@ -96,7 +111,7 @@ def test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow
 
 
 @pytest.mark.parametrize('load_remove_allow_list', ["permit", "deny"], indirect=['load_remove_allow_list'])
-def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa:F811
+def test_allow_list(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrhosts,    # noqa:F811
                     load_remove_allow_list, ptfhost, bgpmon_setup_teardown):
     permit = True if load_remove_allow_list == "permit" else False
     duthost = duthosts[rand_one_dut_hostname]
@@ -117,10 +132,10 @@ def test_allow_list(duthosts, rand_one_dut_hostname, bgp_allow_list_setup, nbrho
     )
 
 
-def test_default_allow_list_postconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811
+def test_default_allow_list_postconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup,   # noqa:F811,E501
                                        nbrhosts, ptfhost, bgpmon_setup_teardown):
     """
     After removing allow list, verify bgp policy
     """
-    test_default_allow_list_preconfig(duthosts, rand_one_dut_hostname, bgp_allow_list_setup,    # noqa:F811
+    test_default_allow_list_preconfig(frr_config_mode, duthosts, rand_one_dut_hostname, bgp_allow_list_setup,  # noqa:F811,E501
                                       nbrhosts, ptfhost, bgpmon_setup_teardown)

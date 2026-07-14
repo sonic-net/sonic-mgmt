@@ -31,7 +31,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
 ]
 
 NEW_MAC = "00:01:94:00:00:01"
@@ -168,7 +168,7 @@ def verify_bgp_restored(duthosts, nbrhosts, all_cfg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, nbrhosts, all_cfg_facts):
+def setup(frr_config_mode, duthosts, nbrhosts, all_cfg_facts):
     """
     Setup fixture to disable all neighbors on DUT and VMs.
 

@@ -1,6 +1,7 @@
 import logging
 import re
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
     initial_tsa_check_before_and_after_test
@@ -18,7 +19,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1')
+    pytest.mark.topology('t1', 'm1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     return True
 
 
-def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_TSA(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
              nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
@@ -118,7 +119,9 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                 logging.warning("Not all routes are announced to bgpmon: {}".format(e))
 
 
-def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
+def test_TSB(
+        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+        bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
@@ -169,7 +172,7 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
         initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_TSA_B_C_with_no_neighbors(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check, tbinfo):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
@@ -242,8 +245,9 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
-                                    nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
+def test_TSA_TSB_with_config_reload(
+        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut,
+        bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -315,7 +319,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_load_minigraph_with_traffic_shift_away(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                                 ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
                                                 traffic_shift_community, tbinfo):
     """
@@ -388,3 +392,12 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Bring back the supervisor and line cards to the BGP operational normal state
         if tbinfo['topo']['type'] == 't2':
             initial_tsa_check_before_and_after_test(duthosts)
+
+
+@pytest.fixture(autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+    # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
+    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
+    skip_if_frr_mgmt_framework(
+        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")

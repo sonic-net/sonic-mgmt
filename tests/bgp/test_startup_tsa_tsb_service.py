@@ -4,6 +4,7 @@ import threading
 import time
 
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common import reboot, config_reload
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
@@ -19,7 +20,7 @@ from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.conftest import get_hosts_per_hwsku
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh')
+    pytest.mark.topology('t2', 'lrh', 'urh'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,8 @@ def get_frontend_nodes_per_hwsku(duthosts, request):
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_dut_cold_reboot(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_tsa_tsb_service_with_dut_cold_reboot(
+        frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after DUT cold reboot
     Verify startup_tsa_tsb.service started automatically when dut comes up
@@ -349,7 +351,8 @@ def test_tsa_tsb_service_with_dut_cold_reboot(request, duthosts, localhost, nbrh
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_dut_abnormal_reboot(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_tsa_tsb_service_with_dut_abnormal_reboot(
+        frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after DUT abnormal reboot/crash
     Verify startup_tsa_tsb.service started automatically when dut comes up after crash
@@ -507,8 +510,8 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(request, duthosts, localhost, 
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts,
-                                                     traffic_shift_community):
+def test_tsa_tsb_service_with_supervisor_cold_reboot(
+        frr_config_mode, duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after supervisor cold reboot
     Verify startup_tsa_tsb.service started automatically on all linecards when they come up
@@ -652,8 +655,8 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts,
-                                                         traffic_shift_community):
+def test_tsa_tsb_service_with_supervisor_abnormal_reboot(
+        frr_config_mode, duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after supervisor abnormal reboot
     Verify startup_tsa_tsb.service started automatically on all linecards when they come up
@@ -829,7 +832,8 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_user_init_tsa(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_tsa_tsb_service_with_user_init_tsa(
+        frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
     """
     Initially, User initiates TSA on the DUT and saves the config on DUT.
     Test startup TSA_TSB service after DUT cold reboot
@@ -947,7 +951,8 @@ def test_tsa_tsb_service_with_user_init_tsa(request, duthosts, localhost, nbrhos
 
 
 @pytest.mark.disable_loganalyzer
-def test_user_init_tsa_while_service_run_on_dut(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_user_init_tsa_while_service_run_on_dut(
+        frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
 
     """
     Test startup TSA_TSB service after DUT cold reboot
@@ -1094,7 +1099,8 @@ def test_user_init_tsa_while_service_run_on_dut(request, duthosts, localhost, nb
 
 
 @pytest.mark.disable_loganalyzer
-def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_user_init_tsb_while_service_run_on_dut(
+        frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
 
     """
     Test startup TSA_TSB service after DUT cold reboot
@@ -1228,8 +1234,8 @@ def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nb
 
 
 @pytest.mark.disable_loganalyzer
-def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts,
-                                                       traffic_shift_community):
+def test_user_init_tsb_on_sup_while_service_run_on_dut(
+        frr_config_mode, duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after DUT cold reboot
     Verify startup_tsa_tsb.service started automatically when dut comes up
@@ -1389,7 +1395,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffic_shift_community):
+def test_tsa_tsb_timer_efficiency(frr_config_mode, request, duthosts, localhost, nbrhosts, traffic_shift_community):
     """
     Test startup TSA_TSB service after DUT cold reboot
     Verify the configured tsa_tsb_timer is sufficient for system to be stable
@@ -1521,7 +1527,7 @@ def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffi
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts,
+def test_tsa_tsb_service_with_tsa_on_sup(frr_config_mode, duthosts, localhost, enum_supervisor_dut_hostname, nbrhosts,
                                          traffic_shift_community):
     """
     Test startup TSA_TSB service after supervisor cold reboot with TSA enabled on supervisor
@@ -1674,7 +1680,7 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
 
 
 @pytest.mark.disable_loganalyzer
-def test_tsa_tsb_service_consistency(request, duthosts):
+def test_tsa_tsb_service_consistency(frr_config_mode, request, duthosts):
     """
     Restart the startup_tsa_tsb service multiple times with varying intervals
     and validate its behavior at each step.
@@ -1754,3 +1760,12 @@ def test_tsa_tsb_service_consistency(request, duthosts):
                 config_reload(lc, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
 
         config_reload_linecard_if_unhealthy(masic_linecard)
+
+
+@pytest.fixture(autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+    # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
+    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
+    skip_if_frr_mgmt_framework(
+        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")

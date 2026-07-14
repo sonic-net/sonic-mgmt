@@ -220,6 +220,7 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
 
 
 def test_bgp_peer_shutdown(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,

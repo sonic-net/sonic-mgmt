@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', "m0", "mx", 'm1', 'lt2', 'ft2', 'c0')
+    pytest.mark.topology('t0', 't1', "m0", "mx", 'm1', 'lt2', 'ft2', 'c0'),
 ]
 
 stop_tasks = False
@@ -347,7 +347,7 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
+def setup(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']

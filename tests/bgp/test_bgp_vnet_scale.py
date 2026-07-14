@@ -575,12 +575,12 @@ def run_vnet_bgp_scale_dataplane_test(vnet_bgp_setup, ptfhost, traffic_test_type
     )
 
 
-def test_vnet_bgp_scale_summary(vnet_bgp_setup):
+def test_vnet_bgp_scale_summary(frr_config_mode, vnet_bgp_setup):
     setup = vnet_bgp_setup
     validate_bgp_summary(setup["duthost"], setup["vnet_count"], setup["subif_per_vnet"])
 
 
-def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
+def test_vnet_bgp_scale_config_reload(frr_config_mode, vnet_bgp_setup):
     setup = vnet_bgp_setup
     duthost = setup["duthost"]
 
@@ -594,7 +594,9 @@ def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
 
 
-def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_function_completeness_level):
+def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(
+    frr_config_mode, vnet_bgp_setup, ptfhost, get_function_completeness_level
+):
     run_vnet_bgp_scale_dataplane_test(
         vnet_bgp_setup,
         ptfhost,
@@ -604,6 +606,7 @@ def test_vnet_bgp_scale_vxlan_decap_ecmp_dataplane(vnet_bgp_setup, ptfhost, get_
 
 
 def test_vnet_bgp_scale_regular_tcp_ecmp_dataplane(
+    frr_config_mode,
     vnet_bgp_setup,
     ptfhost,
     get_function_completeness_level,

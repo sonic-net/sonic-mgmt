@@ -16,7 +16,7 @@ from ipaddress import ip_interface
 
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -217,7 +217,8 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
     restart_bgp(duthost, tbinfo)
 
 
-def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+def test_bgp_router_id_default(frr_config_mode,
+                               duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
                                default_bgp_router_id, tbinfo):
     # Test in default config, the BGP router id should be aligned with Loopback IPv4 address
     duthost = duthosts[enum_frontend_dut_hostname]
@@ -227,7 +228,8 @@ def test_bgp_router_id_default(duthosts, enum_frontend_dut_hostname, enum_fronte
 
 # BGP restart in setup/teardown can emit transient loganalyzer noise.
 @pytest.mark.disable_loganalyzer
-def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+def test_bgp_router_id_set(frr_config_mode,
+                           duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
                            loopback_ip, router_id_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv4 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv4 address should be advertised to BGP
@@ -260,7 +262,8 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_a
 
 
 @pytest.mark.disable_loganalyzer
-def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
+def test_bgp_router_id_set_ipv6(frr_config_mode,
+                                duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts, request,
                                 loopback_ipv6, router_id_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id and Loopback IPv6 address both exist in CONFIG_DB, the actual BGP router
     # ID should be aligned with bgp_router_id in CONFIG_DB. And the Loopback IPv6 address should be advertised to BGP
@@ -293,7 +296,8 @@ def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_front
 
 
 @pytest.mark.disable_loganalyzer
-def test_bgp_router_id_set_without_loopback(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts,
+def test_bgp_router_id_set_without_loopback(frr_config_mode,
+                                            duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, nbrhosts,
                                             request, router_id_loopback_setup_and_teardown, tbinfo):
     # Test in the scenario that bgp_router_id specified but Loopback IPv4 address not set, BGP could work well and the
     # actual BGP router id should be aligned with CONFIG_DB

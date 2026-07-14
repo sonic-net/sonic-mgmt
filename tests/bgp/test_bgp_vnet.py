@@ -19,7 +19,7 @@ from scapy.all import IP, Ether
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
 ]
 
 logger = logging.getLogger(__name__)
@@ -496,7 +496,7 @@ def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected,
     return expected_ptf_ports, unexpected_ptf_ports
 
 
-def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
+def test_dynamic_peer_vnet(frr_config_mode, duthosts, rand_one_dut_hostname, cfg_facts):
     '''
     Tests for static and dynamic peers inside a vnet.
     '''
@@ -558,7 +558,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         pytest.fail("Vnet testing setup failed: {}".format(repr(e)))
 
 
-def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts, mg_facts):
+def test_bgp_vnet_route_forwarding(frr_config_mode, ptfadapter, duthosts, rand_one_dut_hostname, cfg_facts, mg_facts):
     '''
     Verify that the traffic to the peer in Vnet1 is forwarded correctly.
     Send a UDP packet to with the destination as one of the routes learned via bgp in Vnet1
@@ -621,7 +621,7 @@ def test_bgp_vnet_route_forwarding(ptfadapter, duthosts, rand_one_dut_hostname, 
         pytest.fail("Packet test for per vnet BGP failed: {}".format(repr(e)))
 
 
-def test_add_delete_ip_range(duthosts, rand_one_dut_hostname):
+def test_add_delete_ip_range(frr_config_mode, duthosts, rand_one_dut_hostname):
     '''
     Verify adding and deleting of a new dynamic ip range.
     '''
@@ -655,7 +655,7 @@ def test_add_delete_ip_range(duthosts, rand_one_dut_hostname):
         pytest.fail("Adding/deleting IP range for dynamic peers failed: {}".format(repr(e)))
 
 
-def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
+def test_dynamic_peer_group_delete(frr_config_mode, duthosts, rand_one_dut_hostname):
     '''
     Validate the behavior when a dynamic peer group is deleted.
     '''
@@ -685,7 +685,7 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
         pytest.fail("Dynamic peer group deletion test failed: {}".format(repr(e)))
 
 
-def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
+def test_dynamic_peer_modify_stress(frr_config_mode, duthosts, rand_one_dut_hostname):
     '''
     Stress test for modifying dynamic peer configuration.
     '''
@@ -728,7 +728,7 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
         pytest.fail("Stress test for dynamic peer group modification failed: {}".format(repr(e)))
 
 
-def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
+def test_dynamic_peer_delete_stress(frr_config_mode, duthosts, rand_one_dut_hostname):
     '''
     Stress test for deleting dynamic peer configuration.
     '''

@@ -14,10 +14,18 @@ from tests.common.reboot import reboot
 pytestmark = [
     pytest.mark.topology("t2", "lrh", "urh"),
     pytest.mark.device_type('physical'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
 ]
 
 logger = logging.getLogger(__name__)
+
+
+# This module's tests are class methods, so they can't take the ``frr_config_mode``
+# fixture as a parameter directly. Depend on it from a module-scoped autouse fixture
+# instead, which parametrizes every test in the module over both FRR config modes.
+@pytest.fixture(scope="module", autouse=True)
+def _frr_config_mode_autouse(frr_config_mode):
+    return frr_config_mode
 
 
 class TestBfdStaticRoute(BfdBase):

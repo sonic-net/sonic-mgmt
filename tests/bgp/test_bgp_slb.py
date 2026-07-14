@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_require
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
 ]
 
 PEER_COUNT = 1
@@ -67,6 +67,7 @@ def bgp_slb_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_
 
 @pytest.mark.disable_loganalyzer
 def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
+    frr_config_mode,
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, bgp_slb_neighbor,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, reboot_type, localhost     # noqa:F811
 ):

@@ -411,6 +411,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
 
 
 def test_bgp_update_timer_single_route(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,
@@ -541,6 +542,7 @@ def test_bgp_update_timer_single_route(
 
 
 def test_bgp_update_timer_session_down(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,

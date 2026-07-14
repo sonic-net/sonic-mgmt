@@ -257,7 +257,7 @@ def _get_gr_restart_timer(duthost, bgp_neighbor_ips):
     return default_timer
 
 
-def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_with_suppress_fib(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                   setup_bgp_graceful_restart, enable_suppress_fib, tbinfo):
     """
     Test BGP Graceful Restart works correctly when suppress-fib-pending is enabled.
@@ -411,7 +411,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
                 "All routes restored and programmed in FIB.")
 
 
-def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_suppress_fib_neighbor_restart(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                               setup_bgp_graceful_restart, enable_suppress_fib,
                                               tbinfo):
     """

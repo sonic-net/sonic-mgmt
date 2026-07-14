@@ -12,7 +12,7 @@ from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1'),
 ]
 
 
@@ -39,7 +39,7 @@ def check_no_export_routes(vm_host, is_v6_topo, expected):
 
 
 @pytest.mark.disable_loganalyzer  # apply_bgp_config restarts BGP and can log expected transient errors.
-def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config,
+def test_bgp_bounce(frr_config_mode, duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config,
                     backup_bgp_config):
     """
     Verify bgp community no export functionality

@@ -2,11 +2,11 @@ import pytest
 import logging
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
 ]
 
 
-def test_ping_bgp_neighbor(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def test_ping_bgp_neighbor(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_asic_index):
     """Check ping connectivity to all BGP neighbors across all ASICs of the given DUT"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
