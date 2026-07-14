@@ -5,6 +5,7 @@ import re
 from tests.common.fixtures.duthost_utils import wait_bgp_sessions
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.bgp import (
+    flatten_bgp_neighbors,
     get_asic_config_facts,
     get_db_cli_prefix,
     get_vtysh_cmd_for_asic,
@@ -81,7 +82,7 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
 
     local_ip_map = {}
     remote_ip_map = {}
-    for remote_ip, item in cfg_facts.get("BGP_NEIGHBOR", {}).items():
+    for remote_ip, item in flatten_bgp_neighbors(cfg_facts.get("BGP_NEIGHBOR", {})).items():
         if addr_char not in item["local_addr"] or item["name"] not in nbrhosts:
             continue
         local_ip_map[item["name"]] = item["local_addr"]
@@ -239,8 +240,9 @@ def test_bgp_router_id_set(frr_config_mode,
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
     cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
-    for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
-        if "." not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
+    bgp_neighbors = flatten_bgp_neighbors(cfg_facts.get("BGP_NEIGHBOR", {}))
+    for remote_ip in bgp_neighbors.keys():
+        if "." not in remote_ip or "FT2" in bgp_neighbors[remote_ip]["name"]:
             continue
         cmd = get_vtysh_cmd_for_asic(
             duthost,
@@ -273,8 +275,9 @@ def test_bgp_router_id_set_ipv6(frr_config_mode,
     verify_bgp(enum_frontend_asic_index, duthost, CUSTOMIZED_BGP_ROUTER_ID, neighbor_type, nbrhosts, tbinfo)
     # Verify Loopback ip has been advertised to neighbor
     cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
-    for remote_ip in cfg_facts.get("BGP_NEIGHBOR", {}).keys():
-        if ":" not in remote_ip or "FT2" in cfg_facts["BGP_NEIGHBOR"][remote_ip]["name"]:
+    bgp_neighbors = flatten_bgp_neighbors(cfg_facts.get("BGP_NEIGHBOR", {}))
+    for remote_ip in bgp_neighbors.keys():
+        if ":" not in remote_ip or "FT2" in bgp_neighbors[remote_ip]["name"]:
             continue
         cmd = get_vtysh_cmd_for_asic(
             duthost,

@@ -13,6 +13,7 @@ from tests.common.dualtor.mux_simulator_control import \
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -116,7 +117,7 @@ def get_neighbor_info(duthost, dev_port, tbinfo):
     """
     neighbor_type = ''
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    neighs = config_facts['BGP_NEIGHBOR']
+    neighs = flatten_bgp_neighbors(config_facts['BGP_NEIGHBOR'])
     dev_neigh_mdata = config_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in config_facts else {}
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     for neighbor in neighs:

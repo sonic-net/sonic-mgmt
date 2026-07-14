@@ -38,6 +38,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -107,7 +108,7 @@ def bgp_neighbors(duthosts, rand_one_dut_hostname):
     """Return list of BGP neighbor IPs for session-state polling after disruptions."""
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    return list(config_facts.get("BGP_NEIGHBOR", {}).keys())
+    return list(flatten_bgp_neighbors(config_facts.get("BGP_NEIGHBOR", {})).keys())
 
 
 # ---- Helpers ----

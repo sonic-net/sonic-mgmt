@@ -11,6 +11,7 @@ from natsort import natsorted
 import pytest
 
 from tests.common.reboot import reboot
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.utilities import wait_until
 import ptf.testutils as testutils
@@ -159,7 +160,7 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
             "swss", "syncd", "database", "teamd", "bgp"]
         cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
-        bgp_neighbors = cfg_t0.get("BGP_NEIGHBOR", {})
+        bgp_neighbors = flatten_bgp_neighbors(cfg_t0.get("BGP_NEIGHBOR", {}))
 
         g_vars["vnet1"] = {"static": [], "dynamic": []}
         g_vars["vnet2"] = {"static": [], "dynamic": {"ARISTA03T1": "", "ARISTA04T1": ""}}
