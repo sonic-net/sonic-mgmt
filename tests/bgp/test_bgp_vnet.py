@@ -78,6 +78,40 @@ def get_cfg_facts(duthost):
     return tmp_facts
 
 
+def get_vnet_interface_bindings(cfg_t0, vnet1_neighbor_names):
+    """Map routed interfaces to the VNET containing their BGP neighbors."""
+    local_addr_to_interface = {}
+    for key in cfg_t0.get('INTERFACE', {}):
+        interface, separator, prefix = key.partition('|')
+        if not separator:
+            continue
+        try:
+            local_addr = str(ipaddress.ip_interface(prefix).ip)
+        except ValueError:
+            continue
+        local_addr_to_interface[local_addr] = interface
+
+    bindings = {}
+    for attrs in cfg_t0.get('BGP_NEIGHBOR', {}).values():
+        name = attrs.get('name')
+        local_addr = attrs.get('local_addr')
+        try:
+            local_addr = str(ipaddress.ip_address(local_addr))
+        except ValueError:
+            continue
+        interface = local_addr_to_interface.get(local_addr)
+        if not name or not interface:
+            continue
+
+        vnet = 'Vnet1' if name in vnet1_neighbor_names else 'Vnet2'
+        if interface in bindings and bindings[interface] != vnet:
+            raise ValueError(
+                "Interface {} maps to multiple VNETs".format(interface))
+        bindings[interface] = vnet
+
+    return bindings
+
+
 def setup_vnet_cfg(duthost, localhost, cfg_facts):
     '''
     setup vrf configuration on dut before test suite
@@ -93,8 +127,12 @@ def setup_vnet_cfg(duthost, localhost, cfg_facts):
     vlan_ports = {'Vlan1000': ports[:len(ports)//2],
                   'Vlan2000': ports[len(ports)//2:]}
 
+    vnet1_neighbor_names = ['ARISTA01T1', 'ARISTA02T1']
+
     extra_vars = {'cfg_t0': cfg_t0,
-                  'vlan_ports': vlan_ports}
+                  'vlan_ports': vlan_ports,
+                  'vnet_interface_bindings': get_vnet_interface_bindings(
+                      cfg_t0, vnet1_neighbor_names)}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
 
@@ -364,13 +402,19 @@ def _check_vnet_bgp_peers_established(duthost, cfg_facts, route_count):
             summary_str = duthost.shell(
                 "vtysh -c 'show bgp vrf {} summary json'".format(vnet))['stdout']
             bgp_summary = json.loads(summary_str)
+            if not bgp_summary:
+                return False
+            peers_found = False
             for info, info_data in bgp_summary.items():
                 for peer, attr in info_data.get('peers', {}).items():
                     if ((info == "ipv4Unicast" and attr.get('idType') == 'ipv6') or
                             (info == "ipv6Unicast" and attr.get('idType') == 'ipv4')):
                         continue
+                    peers_found = True
                     if int(attr.get('pfxRcd', 0)) < route_count:
                         return False
+            if not peers_found:
+                return False
         return True
     except Exception:
         return False
