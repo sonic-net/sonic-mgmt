@@ -6618,8 +6618,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
             if delta > 0:
                 send_packet(self, src_port_id, pkt, delta)
                 self.cur_pkts = target_pkts
-        # Allow the dut to sync up the counter values in counters_db.
-        time.sleep(8)
+        time.sleep(3)
         q_wm_res, _, _ = sai_thrift_read_port_watermarks(
             self.dst_client, port_list['dst'][dst_port_id])
         return q_wm_res[queue]
@@ -6725,7 +6724,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
             # to exactly threshold[1].
             uncongested_pkts = thr_to_pkts(thresholds[1]) - fill_margin
             send_packet(self, src_port_id, pkt, uncongested_pkts)
-            time.sleep(8)
+            time.sleep(3)
             q_wm_res, _, _ = sai_thrift_read_port_watermarks(
                 self.dst_client, port_list['dst'][dst_port_id])
             print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
