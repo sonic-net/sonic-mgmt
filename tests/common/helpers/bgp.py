@@ -4,6 +4,10 @@ import requests
 import ipaddress
 
 from tests.common.utilities import wait_tcp_connection
+from tests.common.helpers.frr.bgp_config_translation import (
+    DEFAULT_IPV4_PEER_GROUP,
+    DEFAULT_IPV6_PEER_GROUP,
+)
 
 
 NEIGHBOR_SAVE_DEST_TMPL = "/tmp/neighbor_%s.j2"
@@ -228,6 +232,46 @@ class BGPNeighbor(object):
         self.use_vtysh = use_vtysh
         self.confed_asn = confed_asn
 
+    def _frr_mgmt_framework_mode(self):
+        """Return True if the DUT programs FRR via the frr_mgmt_framework (frrcfgd)
+        rather than the traditional per-feature daemons (bgpcfgd).
+
+        The two modes consume different CONFIG_DB BGP schemas, so a test neighbor
+        added here must be written in whichever schema the active daemon understands.
+        """
+        return self.duthost.get_frr_mgmt_framework_config()
+
+    @property
+    def _afi_safi(self):
+        return "ipv6_unicast" if self.is_ipv6_neighbor else "ipv4_unicast"
+
+    def _add_frr_mgmt_neighbor(self):
+        """Add the test neighbor using the frr_mgmt_framework (frrcfgd) CONFIG_DB schema.
+
+        frrcfgd does not consume bgpcfgd's flat ``BGP_NEIGHBOR|<ip>`` row. It keys
+        neighbors by VRF (``BGP_NEIGHBOR|default|<ip>``) and only activates an address
+        family when a companion ``BGP_NEIGHBOR_AF`` row exists.
+
+        The neighbor joins the standard PEER_V4/PEER_V6 peer group (with its own
+        remote-as) so it inherits the same inbound/outbound policy the topology
+        neighbors use -- this mirrors how bgpcfgd places test neighbors in
+        PEER_V4/PEER_V6 in traditional mode, so route propagation behaves the same in
+        both modes. ``soft_reconfiguration_in`` is also set explicitly so that
+        ``show bgp neighbors <n> received-routes`` works (tests such as
+        test_bgp_update_timer inspect received-routes).
+        """
+        asichost = self.duthost.asic_instance_from_namespace(self.namespace)
+        peer_group = DEFAULT_IPV6_PEER_GROUP if self.is_ipv6_neighbor else DEFAULT_IPV4_PEER_GROUP
+        nbr_key = "BGP_NEIGHBOR|default|{}".format(self.ip)
+        af_key = "BGP_NEIGHBOR_AF|default|{}|{}".format(self.ip, self._afi_safi)
+        asichost.run_sonic_db_cli_cmd(
+            "CONFIG_DB hset '{}' vrf_name default neighbor {} asn {} local_addr {} "
+            "name {} admin_status up holdtime 10 keepalive 3 peer_group_name {}".format(
+                nbr_key, self.ip, self.asn, self.peer_ip, self.name, peer_group))
+        asichost.run_sonic_db_cli_cmd(
+            "CONFIG_DB hset '{}' vrf_name default neighbor {} afi_safi {} "
+            "admin_status up soft_reconfiguration_in true".format(af_key, self.ip, self._afi_safi))
+
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
@@ -253,17 +297,20 @@ class BGPNeighbor(object):
                 neighbor_type=self.type
             )
 
-            _write_variable_from_j2_to_configdb(
-                self.duthost,
-                "bgp/templates/bgp_template.j2",
-                namespace=self.namespace,
-                save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
-                db_table_name="BGP_NEIGHBOR",
-                peer_addr=self.ip,
-                asn=self.asn,
-                local_addr=self.peer_ip,
-                peer_name=self.name
-            )
+            if self._frr_mgmt_framework_mode():
+                self._add_frr_mgmt_neighbor()
+            else:
+                _write_variable_from_j2_to_configdb(
+                    self.duthost,
+                    "bgp/templates/bgp_template.j2",
+                    namespace=self.namespace,
+                    save_dest_path=BGP_SAVE_DEST_TMPL % self.name,
+                    db_table_name="BGP_NEIGHBOR",
+                    peer_addr=self.ip,
+                    asn=self.asn,
+                    local_addr=self.peer_ip,
+                    peer_name=self.name
+                )
 
         self.ptfhost.exabgp(
             name=self.name,
@@ -300,8 +347,15 @@ class BGPNeighbor(object):
                 dut_asn=self.peer_asn
             )
         elif not self.is_passive:
+            frr_mode = self._frr_mgmt_framework_mode()
             for asichost in self.duthost.asics:
-                asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
+                if frr_mode:
+                    asichost.run_sonic_db_cli_cmd(
+                        "CONFIG_DB del 'BGP_NEIGHBOR|default|{}'".format(self.ip))
+                    asichost.run_sonic_db_cli_cmd(
+                        "CONFIG_DB del 'BGP_NEIGHBOR_AF|default|{}|{}'".format(self.ip, self._afi_safi))
+                else:
+                    asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
 
         self.ptfhost.exabgp(name=self.name, state="absent")
@@ -329,10 +383,13 @@ class BGPNeighbor(object):
                 dut_asn=self.peer_asn
             )
         elif not self.is_passive:
+            frr_mode = self._frr_mgmt_framework_mode()
             for asichost in self.duthost.asics:
                 if asichost.namespace == self.namespace:
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
-                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
+                    nbr_key = ("BGP_NEIGHBOR|default|{}".format(self.ip) if frr_mode
+                               else "BGP_NEIGHBOR|{}".format(self.ip))
+                    asichost.run_sonic_db_cli_cmd("CONFIG_DB hset '{}' admin_status down".format(nbr_key))
 
     def announce_route(self, route):
         if "aspath" in route:

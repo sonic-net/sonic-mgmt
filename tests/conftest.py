@@ -125,6 +125,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
+                  'tests.common.fixtures.frr_config_mode',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror')
 
@@ -3320,6 +3321,17 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                     ]
                 else:
                     exclude_config_key_names = []
+
+                # Modules using the frr_config_mode dual-mode fixture switch the DUT's
+                # routing-config mode mid-module and restore it at teardown. The
+                # intervening config reloads let db_migrator (re)apply benign, self-
+                # restoring defaults (e.g. BGP_BBR|all=disabled) that are absent from the
+                # cached pre-test golden config -- this is not test pollution, so exclude
+                # the mode-switch-related tables for such modules. The fixture marks the
+                # module with `_frr_original_config_mode`. Any genuinely-leaked config not
+                # in this set is still caught (and auto-restored) as before.
+                if hasattr(request.module, "_frr_original_config_mode"):
+                    exclude_config_table_names.add("BGP_BBR")
 
                 def _remove_entry(table_name, key_name, config):
                     if table_name in config and key_name in config[table_name]:
