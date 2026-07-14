@@ -205,7 +205,9 @@ def run_bgp_facts(duthost, enum_asic_index):
 
     # In multi-asic, would have 'BGP_INTERNAL_NEIGHBORS' and possibly no 'BGP_NEIGHBOR' (ebgp) neighbors.
     nbrs_in_cfg_facts = {}
-    nbrs_in_cfg_facts.update(config_facts.get('BGP_NEIGHBOR', {}))
+    # BGP_NEIGHBOR is flat {ip: details} in traditional mode but VRF-keyed
+    # {'default': {ip: details}} in frr_mgmt_framework mode; flatten so we iterate by ip.
+    nbrs_in_cfg_facts.update(flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {})))
     nbrs_in_cfg_facts.update(config_facts.get('BGP_INTERNAL_NEIGHBOR', {}))
     # In VoQ Chassis, we would have BGP_VOQ_CHASSIS_NEIGHBOR as well.
     nbrs_in_cfg_facts.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR', {}))

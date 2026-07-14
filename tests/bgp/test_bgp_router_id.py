@@ -182,17 +182,31 @@ def restart_bgp(duthost, tbinfo):
 
 
 @pytest.fixture()
-def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo):
+def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                      .format(CUSTOMIZED_BGP_ROUTER_ID))
+    # bgpcfgd reads the BGP router-id from DEVICE_METADATA|localhost:bgp_router_id, but
+    # frrcfgd reads it from BGP_GLOBALS|default:router_id. Write the table the active
+    # backend actually consumes so the router-id override takes effect in both modes.
+    if duthost.get_frr_mgmt_framework_config():
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+    else:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
     restart_bgp(duthost, tbinfo)
 
     yield
 
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    if duthost.get_frr_mgmt_framework_config():
+        # Restore the router-id to the Loopback0 IPv4 (frrcfgd's BGP_GLOBALS baseline), not
+        # a bare hdel, so subsequent frr-mode tests in the module see the default router-id.
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\"".format(loopback_ip))
+    else:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
     restart_bgp(duthost, tbinfo)
 
 
