@@ -1,7 +1,6 @@
 import pytest
 import logging
 import time
-from datetime import datetime, timezone
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -115,18 +114,16 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
                 return 0
             started_at = result['stdout'].strip()
 
-            # Step 2: Convert start time to epoch seconds on DUT
+            # Step 2: Calculate uptime on DUT to avoid clock differences
             result = duthost.shell(
-                f'date -ud "{started_at}" +%s',
+                f'started=$(date -ud "{started_at}" +%s) && '
+                'echo $(($(date -u +%s) - started))',
                 module_ignore_errors=True
             )
             if result['rc'] != 0 or not result['stdout'].strip():
                 return 0
 
-            # Step 3: Calculate uptime = current UTC epoch - start epoch
-            started_epoch = int(result['stdout'].strip())
-            now_epoch = int(datetime.now(timezone.utc).timestamp())
-            uptime = now_epoch - started_epoch
+            uptime = int(result['stdout'].strip())
             logger.debug(f"swss container uptime: {uptime}s")
             return uptime
         except Exception as e:
