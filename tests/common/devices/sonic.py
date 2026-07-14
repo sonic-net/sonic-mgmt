@@ -16,7 +16,7 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, wait_until
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
@@ -458,6 +458,38 @@ class SonicHost(AnsibleHostBase):
 
         return monit_services_status
 
+    def _retry_if_oci_exec_race(self, cmd, result, attempts=3, delay=2):
+        """
+        Re-run `cmd` if `result` is a transient `docker exec` runc-setns race
+        (rc=127 with "OCI runtime exec failed: ... setns process | fork/exec
+        /proc/self/fd"). The OCI message can land on either stdout or stderr
+        depending on the docker / runc version, so we inspect both with a
+        DOTALL match so multi-line variants are still caught. The container
+        is actually running while this race fires, so a small bounded retry
+        keeps the framework from declaring the service unhealthy on what is
+        purely an exec infrastructure flake. Pass-through otherwise.
+        """
+        pattern = r"OCI runtime exec failed:.*(starting setns process|fork/exec /proc/self/fd)"
+
+        def _is_oci(res):
+            if not (isinstance(res, dict) and res.get("rc") == 127):
+                return False
+            output = (res.get("stdout") or "") + "\n" + (res.get("stderr") or "")
+            return bool(re.search(pattern, output, flags=re.DOTALL))
+
+        if not _is_oci(result):
+            return result
+        for attempt in range(1, attempts + 1):
+            time.sleep(delay)
+            retry = self.shell(cmd, module_ignore_errors=True)
+            if not _is_oci(retry):
+                logging.info(
+                    "Recovered from transient docker exec OCI race on attempt %d for cmd: %s",
+                    attempt, cmd,
+                )
+                return retry
+        return result
+
     def get_critical_group_and_process_lists(self, container_name):
         """
         @summary: Get critical group and process lists by parsing the
@@ -468,8 +500,10 @@ class SonicHost(AnsibleHostBase):
         critical_process_list = []
         succeeded = True
 
-        file_content = self.shell("docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
-                && cat /etc/supervisor/critical_processes'".format(container_name), module_ignore_errors=True)
+        cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ] \
+                && cat /etc/supervisor/critical_processes'".format(container_name)
+        file_content = self.shell(cmd, module_ignore_errors=True)
+        file_content = self._retry_if_oci_exec_race(cmd, file_content)
         for line in file_content["stdout_lines"]:
             line_info = line.strip().split(':')
             if len(line_info) != 2:
@@ -524,6 +558,10 @@ class SonicHost(AnsibleHostBase):
 
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+
+        # Re-run any commands hit by the transient `docker exec` runc-setns race.
+        # The target container is still running; only the new exec failed.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -612,6 +650,12 @@ class SonicHost(AnsibleHostBase):
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
         results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
+
+        # Re-run any commands hit by the transient `docker exec` runc-setns race
+        # before we let the result feed parse_service_status_and_critical_process,
+        # which would otherwise see one garbage "OCI runtime exec failed..." line
+        # and flip the service to status=False even though the container is up.
+        results = [self._retry_if_oci_exec_race(res['cmd'], res) for res in results]
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -2059,6 +2103,10 @@ Totals               6450                 6449
             section_id = 0
             for line in output:
                 if not_ready_prompt in line:
+                    logging.warning(
+                         "CRM counters are not ready yet, will retry after 10 seconds "
+                         "(if timeout not exceeded)"
+                    )
                     return False
                 if len(line.strip()) != 0:
                     if not in_section:
@@ -2093,14 +2141,7 @@ Totals               6450                 6449
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
-        while timeout >= 0:
-            ret = _show_and_parse_crm_resources()
-            if ret:
-                break
-            logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
-            time.sleep(10)
-            timeout -= 10
-        assert (timeout >= 0), (
+        assert wait_until(timeout, 10, 0, lambda: _show_and_parse_crm_resources()), (
             "Timeout expired while waiting for CRM counters to become ready. "
             "CRM resource data was not available within the allotted time. "
             "- Timeout value: {}\n"
@@ -2338,7 +2379,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2364,7 +2405,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
@@ -3009,7 +3050,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3090,7 +3131,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)
@@ -3184,7 +3225,7 @@ print(device_prefix)
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
-        if res['failed']:
+        if res.get('failed', False):
             error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
             logging.error(error_msg)
             raise RuntimeError(error_msg)

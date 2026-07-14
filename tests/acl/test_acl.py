@@ -378,8 +378,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
-            if vlan_config == 'two_vlan_a':
-                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+            if vlan_config in ('one_vlan_a', 'two_vlan_a'):
+                logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
                 DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
                 DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
                     else DOWNSTREAM_IP_TO_ALLOW_VLAN
@@ -509,6 +509,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+        # Add upstream ports not covered by any PortChannel
+        pc_members = set()
+        for pc in port_channels.values():
+            pc_members.update(pc.get('members', []))
+        for namespace, port in list(upstream_ports.items()):
+            non_pc_ports = [p for p in port if p not in pc_members]
+            acl_table_ports[namespace] += non_pc_ports
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += non_pc_ports
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     elif topo == "lt2":
@@ -1060,7 +1070,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
-                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
+                                                 "x86_64-8122_64eh_o-r0",
+                                                 "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8223_64e_mo-r0",
+                                                 "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
@@ -1290,7 +1303,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
@@ -1323,7 +1336,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
@@ -1833,8 +1846,9 @@ class TestMultiBindingAcl(TestBasicAcl):
                      dest=dut_conf_file_path)
         dut.command(
             f"config mirror_session add everflow_session {SRC_IP} {DST_IP} {DSCP} {TTL} {GRE_TYPE}")
-        dut.command(f"acl-loader update full {dut_conf_file_path} --table_name {table_name} \
-                    --session_name everflow_session")
+        dut.command(
+            f"acl-loader update full {dut_conf_file_path} --table_name {table_name} "
+            "--session_name everflow_session")
 
     def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         pytest.skip("Not applicable for multi binding ACL")

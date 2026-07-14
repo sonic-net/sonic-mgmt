@@ -501,6 +501,31 @@ def dpu_index(request):
     return request.config.getoption("--dpu_index")
 
 
+def _apply_pl_sip(sip_params):
+    encoding_ip, encoding_mask, overlay_sip, overlay_sip_mask = sip_params
+    pl.PL_ENCODING_IP = encoding_ip
+    pl.PL_ENCODING_MASK = encoding_mask
+    pl.PL_OVERLAY_SIP = overlay_sip
+    pl.PL_OVERLAY_SIP_MASK = overlay_sip_mask
+    pl_sip_encoding = f"{encoding_ip}/{encoding_mask}"
+    overlay_sip_prefix = f"{overlay_sip}/{overlay_sip_mask}"
+    for cfg in pl.PL_SIP_CONFIGS:
+        for entry in cfg.values():
+            if "pl_sip_encoding" in entry:
+                entry["pl_sip_encoding"] = pl_sip_encoding
+            if "overlay_sip_prefix" in entry:
+                entry["overlay_sip_prefix"] = overlay_sip_prefix
+
+
+@pytest.fixture(scope="module", autouse=True)
+def configure_pl_sip_for_platform(request):
+    if "dpuhosts" not in request.fixturenames:
+        return
+    dpuhost = request.getfixturevalue("dpuhosts")[request.getfixturevalue("dpu_index")]
+    sip_params = pl.PL_SIP_ALTERNATE if "bluefield" in dpuhost.facts["asic_type"] else pl.DEFAULT_PL_SIP
+    _apply_pl_sip(sip_params)
+
+
 @pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
 def single_endpoint(request):
     return request.param

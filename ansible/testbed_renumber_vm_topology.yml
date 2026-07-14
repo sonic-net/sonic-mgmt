@@ -83,6 +83,17 @@
     set_fact:
       package_installation: false
 
+  # Defensive bootstrap: even though we set package_installation=false to skip
+  # heavy host setup (apt, sysctl, docker), we still need `uv` and the persistent
+  # venv at {{ sonic_testbed_venv }} because the renumber flow calls into
+  # control_mux_simulator.yml / control_nic_simulator.yml which `uv pip install`
+  # Flask/Werkzeug unconditionally. ensure_python_env.yml is idempotent: it
+  # checks for `uv` and the venv first and only installs what is missing.
+  - name: Ensure uv and Python venv exist on the host
+    include_role:
+      name: vm_set
+      tasks_from: ensure_python_env.yml
+
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 

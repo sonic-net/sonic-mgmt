@@ -87,10 +87,16 @@ def get_snmp_output(ip, duthost, nbr, creds_all_duts, oid='.1.3.6.1.2.1.1.1.0'):
     ip_tbl_rule_add = "sudo {} -I INPUT 1 -p udp --dport 161 -d {} -j ACCEPT".format(
         iptables_cmd, ip)
     duthost.shell(ip_tbl_rule_add)
-
+    # DUT IP is only accessible through VRF from neighboring devices if the neighbor is a multi-VRF peer
+    # This enhancement only handles the case where the neighbor is EoS
+    vrf_prefix = ""
+    if nbr.get("is_multi_vrf_peer", False):
+        vrf = nbr.get("multi_vrf_data", {}).get("vrf", "")
+        if vrf:
+            vrf_prefix = "sudo ip netns exec ns-{}".format(vrf)
     if isinstance(nbr["host"], EosHost):
-        eos_snmpget = "bash snmpget -v2c -c {} {} {}".format(
-            creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
+        eos_snmpget = "bash {} snmpget -v2c -c {} {} {}".format(
+            vrf_prefix, creds_all_duts[duthost.hostname]['snmp_rocommunity'], ip, oid)
         out = nbr['host'].eos_command(commands=[eos_snmpget])
     else:
         command = "docker exec snmp snmpwalk -v 2c -c {} {} {}".format(

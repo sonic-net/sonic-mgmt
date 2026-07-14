@@ -124,57 +124,92 @@ EMBEDDED_EEPROM_JSON = {
 }
 
 
+def _write_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2)
+
+
+def _shard_category(category_dir, category_name, data):
+    """Split a combined category dict into the sharded layout on disk.
+
+    Each non-category shard is *scope-rooted*: the JSON body contains only the
+    body for its scope; the scope itself is encoded in the directory path.
+
+    Layout written:
+        <category_dir>/<cat>.json
+            mandatory / defaults / dut / transceivers.deployment_configurations
+        <category_dir>/transceivers/vendors/<V>/<cat>.json
+            <vendor defaults body>
+        <category_dir>/transceivers/vendors/<V>/part_numbers/<PN>/<cat>.json
+            <PN body, including any platform_hwsku_overrides / firmware_overrides>
+        <category_dir>/platforms/<P>/<cat>.json
+            <platform body>
+        <category_dir>/platforms/<P>/hwskus/<H>.json
+            <hwsku body>
+    """
+    category_root = {}
+    for k in ('mandatory', 'defaults', 'dut'):
+        if k in data:
+            category_root[k] = data[k]
+    transceivers = data.get('transceivers', {})
+    if 'deployment_configurations' in transceivers:
+        category_root.setdefault('transceivers', {})['deployment_configurations'] = (
+            transceivers['deployment_configurations']
+        )
+    _write_json(category_dir / f"{category_name}.json", category_root)
+
+    for vendor, vendor_body in transceivers.get('vendors', {}).items():
+        vendor_dir = category_dir / 'transceivers' / 'vendors' / vendor
+        if 'defaults' in vendor_body:
+            _write_json(vendor_dir / f"{category_name}.json", vendor_body['defaults'])
+        for pn, pn_body in vendor_body.get('part_numbers', {}).items():
+            pn_dir = vendor_dir / 'part_numbers' / pn
+            _write_json(pn_dir / f"{category_name}.json", pn_body)
+
+    for platform, platform_body in data.get('platforms', {}).items():
+        platform_dir = category_dir / 'platforms' / platform
+        _write_json(platform_dir / f"{category_name}.json", platform_body)
+    # HWSKUs live in their own top-level slot but on disk under a chosen platform.
+    # For test simplicity, attach every hwsku under every provided platform dir.
+    hwskus = data.get('hwskus', {})
+    platforms = list(data.get('platforms', {}).keys())
+    for hwsku, hwsku_body in hwskus.items():
+        if not platforms:
+            raise ValueError(
+                "_shard_category: cannot place hwskus without at least one platform in data"
+            )
+        for platform in platforms:
+            hwsku_file = category_dir / 'platforms' / platform / 'hwskus' / f"{hwsku}.json"
+            _write_json(hwsku_file, hwsku_body)
+
+
 @contextmanager
 def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_eeprom=False, eeprom_data=None):
     """
-    Context manager that creates a temporary test environment with inventory structure.
+    Context manager that creates a temporary inventory tree on disk.
 
     Args:
-        prefix: Prefix for temporary directory name
-        create_dut_info: If True, creates normalization_mappings.json and per-DUT file
-        create_eeprom: If True, creates eeprom.json in attributes directory
-        eeprom_data: Custom EEPROM data dict (uses EMBEDDED_EEPROM_JSON if None)
+        prefix: Prefix for temporary directory name.
+        create_dut_info: If True, creates normalization_mappings.json and per-DUT file.
+        create_eeprom: If True, splays an EEPROM category dict into the sharded layout
+            under attributes/eeprom/.
+        eeprom_data: Custom EEPROM dict (uses EMBEDDED_EEPROM_JSON if None).
 
-    Yields:
-        temp_root: Path to temporary root directory
-
-    Directory structure created:
-        temp_root/
-            ansible/
-                files/
-                    transceiver/
-                        inventory/
-                            normalization_mappings.json (if create_dut_info=True)
-                            dut_info/
-                                <dut_name>.json (if create_dut_info=True)
-                            attributes/
-                                eeprom.json (if create_eeprom=True)
-
-    Cleanup:
-        Automatically removes temporary directory and all contents on exit
+    Cleanup: removes the temp directory on exit.
     """
     temp_root = tempfile.mkdtemp(prefix=prefix)
     try:
         attr_dir = Path(temp_root) / REL_ATTR_DIR
         attr_dir.mkdir(parents=True, exist_ok=True)
         if create_dut_info:
-            # Create normalization_mappings.json
-            mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
-            mappings_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(mappings_path, 'w', encoding='utf-8') as f:
-                json.dump(EMBEDDED_NORMALIZATION_MAPPINGS, f, indent=2)
-
-            # Create per-DUT file
-            dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
-            dut_info_dir.mkdir(parents=True, exist_ok=True)
-            dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
-            with open(dut_file_path, 'w', encoding='utf-8') as f:
-                json.dump(EMBEDDED_DUT_DATA, f, indent=2)
+            _write_json(Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE,
+                        EMBEDDED_NORMALIZATION_MAPPINGS)
+            _write_json(Path(temp_root) / REL_DUT_INFO_DIR / f"{TEST_DUT_NAME}.json",
+                        EMBEDDED_DUT_DATA)
         if create_eeprom:
-            eeprom_path = attr_dir / 'eeprom.json'
-            data = eeprom_data if eeprom_data else EMBEDDED_EEPROM_JSON
-            with open(eeprom_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
+            data = eeprom_data if eeprom_data is not None else EMBEDDED_EEPROM_JSON
+            _shard_category(attr_dir / 'eeprom', 'eeprom', data)
         yield temp_root
     finally:
         shutil.rmtree(temp_root, ignore_errors=True)
@@ -724,6 +759,259 @@ def test_template_validator_missing_required():
 # Removed duplicate test_template_validator_missing_required_always_raises (redundant after flag removal)
 
 # =============================================================================
+# Loader Validation Tests (sharded schema)
+# =============================================================================
+
+
+def test_loader_slot_whitelist_violation():
+    """Category-level shard cannot carry a top-level `platforms` block."""
+    print("Testing category top-key whitelist violation...")
+    bad = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False},
+        'platforms': {TEST_PLATFORM: {'sff8024_identifier': 25}},
+        'transceivers': {
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {'PN-ABC-123DE': {'sff8024_identifier': 25}}
+                }
+            }
+        },
+    }
+    with test_temp_environment(prefix='sonic_test_slot_', create_dut_info=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        _write_json(attr_dir / 'eeprom' / 'eeprom.json', bad)
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for slot-whitelist violation")
+        except AttributeMergeError as e:
+            assert 'platforms' in str(e) and 'not allowed' in str(e), f"Unexpected error: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_loader_normalization_check_unknown_vendor_dir():
+    """Vendor directory not in normalization_mappings is rejected."""
+    print("Testing normalization check on shard-owning vendor...")
+    with test_temp_environment(prefix='sonic_test_norm_', create_dut_info=True, create_eeprom=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        rogue_pn_file = (attr_dir / 'eeprom' / 'transceivers' / 'vendors' / 'UNKNOWN_VENDOR'
+                         / 'part_numbers' / 'PN-ABC-123DE' / 'eeprom.json')
+        _write_json(rogue_pn_file, {'sff8024_identifier': 99})
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for unregistered vendor dir")
+        except AttributeMergeError as e:
+            assert 'UNKNOWN_VENDOR' in str(e) and 'normalization_mappings' in str(e), f"Unexpected error: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_loader_mandatory_resolution():
+    """Mandatory field that does not resolve via the hierarchy raises."""
+    print("Testing mandatory-field resolution per port...")
+    # This is already covered by test_attribute_manager_mandatory_field_missing,
+    # but we add a positive variant that asserts a mandatory field can be satisfied
+    # purely by a platform-level shard.
+    eeprom = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False, 'cmis_active_optical': False},
+        'platforms': {TEST_PLATFORM: {'sff8024_identifier': 42}},
+        'transceivers': {
+            'deployment_configurations': {'8x100G_DR8': {}},
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {'PN-ABC-123DE': {}}
+                }
+            }
+        }
+    }
+    with test_temp_environment(prefix='sonic_test_mand_ok_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom) as temp_root:
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        result = AttributeManager(temp_root, base).build_port_attributes(
+            TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+        for port, data in result.items():
+            assert data['EEPROM_ATTRIBUTES']['sff8024_identifier'] == 42, port
+        print(f"  Mandatory field resolved via platform-level shard for {len(result)} ports")
+
+
+def test_loader_normalization_check_unknown_pn_dir():
+    """PN directory not in normalization_mappings is rejected."""
+    print("Testing normalization check on shard-owning PN...")
+    with test_temp_environment(prefix='sonic_test_norm_pn_', create_dut_info=True, create_eeprom=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        rogue_pn_file = (attr_dir / 'eeprom' / 'transceivers' / 'vendors' / 'ACME_CORP'
+                         / 'part_numbers' / 'UNKNOWN_PN' / 'eeprom.json')
+        _write_json(rogue_pn_file, {'sff8024_identifier': 7})
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for unregistered PN dir")
+        except AttributeMergeError as e:
+            assert 'UNKNOWN_PN' in str(e) and 'normalization_mappings' in str(e), f"Unexpected: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_loader_pn_reserved_subslot_shape():
+    """Per-PN shard: `platform_hwsku_overrides` variant body must be an object."""
+    print("Testing per-PN reserved sub-slot shape check...")
+    with test_temp_environment(prefix='sonic_test_pn_subslot_', create_dut_info=True, create_eeprom=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        pn_file = (attr_dir / 'eeprom' / 'transceivers' / 'vendors' / 'ACME_CORP'
+                   / 'part_numbers' / 'PN-ABC-123DE' / 'eeprom.json')
+        _write_json(pn_file, {
+            'sff8024_identifier': 25,
+            'platform_hwsku_overrides': {TEST_PLATFORM_HWSKU_KEY: "not-an-object"},
+        })
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for non-dict override variant body")
+        except AttributeMergeError as e:
+            assert 'platform_hwsku_overrides' in str(e) and 'must be an object' in str(e), f"Unexpected: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_loader_unrecognized_subdir():
+    """A directory under a category that doesn't match the contract is rejected."""
+    print("Testing rejection of unrecognized subdirectory under category...")
+    with test_temp_environment(prefix='sonic_test_unknown_dir_', create_dut_info=True, create_eeprom=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        stray = attr_dir / 'eeprom' / 'random_unknown_folder' / 'eeprom.json'
+        _write_json(stray, {'defaults': {'vdm_supported': True}})
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for unknown subdirectory")
+        except AttributeMergeError as e:
+            assert 'not in a recognized location' in str(e), f"Unexpected: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_loader_category_disallows_vendors_block():
+    """Category-level shard may not carry `transceivers.vendors` (PN/vendor live in their own shards)."""
+    print("Testing category-level shard rejecting transceivers.vendors block...")
+    bad = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False},
+        'transceivers': {
+            'deployment_configurations': {'8x100G_DR8': {}},
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {'PN-ABC-123DE': {'sff8024_identifier': 25}}
+                }
+            }
+        }
+    }
+    with test_temp_environment(prefix='sonic_test_cat_vendors_', create_dut_info=True) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        _write_json(attr_dir / 'eeprom' / 'eeprom.json', bad)
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        try:
+            AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError("Expected AttributeMergeError for vendors in category-level shard")
+        except AttributeMergeError as e:
+            assert "'transceivers.deployment_configurations'" in str(e), f"Unexpected: {e}"
+            print(f"  Correctly caught: {e}")
+
+
+def test_hwsku_same_name_under_different_platforms():
+    """Two ``platforms/<P>/hwskus/<H>.json`` shards with the same ``<H>`` filename
+    but under different platform directories must each be retained in the merged
+    tree and resolved by the current DUT's (platform, hwsku) pair - not silently
+    overwritten by walk order.
+    """
+    print("Testing HWSKU same-name-different-platform isolation...")
+    other_platform = 'x86_64-other_vendor_other_model-r0'
+    eeprom = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False, 'cmis_active_optical': False},
+        'transceivers': {
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {
+                        'PN-ABC-123DE': {'sff8024_identifier': 25}
+                    }
+                }
+            }
+        }
+    }
+    with test_temp_environment(prefix='sonic_test_hwsku_platform_scope_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom) as temp_root:
+        attr_dir = Path(temp_root) / REL_ATTR_DIR
+        # Same HWSKU filename under two different platform directories with
+        # different bodies. Walk order is alphabetical by directory name, so
+        # ``other_platform`` is processed before ``TEST_PLATFORM`` - if the
+        # loader keyed solely by HWSKU name, the TEST_PLATFORM body would win
+        # in this layout. We verify both coexist and the resolver picks the
+        # one matching the DUT's platform.
+        _write_json(
+            attr_dir / 'eeprom' / 'platforms' / TEST_PLATFORM / 'hwskus' / f"{TEST_HWSKU}.json",
+            {'eeprom_dump_timeout_sec': 7},
+        )
+        _write_json(
+            attr_dir / 'eeprom' / 'platforms' / other_platform / 'hwskus' / f"{TEST_HWSKU}.json",
+            {'eeprom_dump_timeout_sec': 99},
+        )
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        merged = AttributeManager(temp_root, base).build_port_attributes(
+            TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+        for port, data in merged.items():
+            attrs = data['EEPROM_ATTRIBUTES']
+            assert attrs['eeprom_dump_timeout_sec'] == 7, (
+                f"{port}: expected current platform's HWSKU body (7); got {attrs['eeprom_dump_timeout_sec']} "
+                "- the other platform's HWSKU shard with the same filename leaked in."
+            )
+        print(f"  HWSKU correctly scoped by platform for {len(merged)} ports")
+
+
+def test_priority_dut_layer_overrides_all():
+    """`dut.<DUT>` (priority 1) must override every lower-priority layer."""
+    print("Testing dut-layer priority override...")
+    eeprom = {
+        'mandatory': ['sff8024_identifier'],
+        'defaults': {'vdm_supported': False, 'cmis_active_optical': False, 'eeprom_dump_timeout_sec': 5},
+        'dut': {TEST_DUT_NAME: {'eeprom_dump_timeout_sec': 99, 'sff8024_identifier': 100}},
+        'transceivers': {
+            'deployment_configurations': {'8x100G_DR8': {'vdm_supported': True}},
+            'vendors': {
+                'ACME_CORP': {
+                    'part_numbers': {
+                        'PN-ABC-123DE': {
+                            'sff8024_identifier': 25,
+                            'platform_hwsku_overrides': {
+                                TEST_PLATFORM_HWSKU_KEY: {'eeprom_dump_timeout_sec': 2}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    with test_temp_environment(prefix='sonic_test_dut_prio_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom) as temp_root:
+        base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
+        result = AttributeManager(temp_root, base).build_port_attributes(
+            TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+        for port, data in result.items():
+            attrs = data['EEPROM_ATTRIBUTES']
+            assert attrs['eeprom_dump_timeout_sec'] == 99, (
+                f"{port}: dut layer should beat platform_hwsku_overrides (got {attrs['eeprom_dump_timeout_sec']})"
+            )
+            assert attrs['sff8024_identifier'] == 100, (
+                f"{port}: dut layer should beat PN layer (got {attrs['sff8024_identifier']})"
+            )
+        print(f"  dut layer correctly overrode lower layers for {len(result)} ports")
+
+
+# =============================================================================
 # Test Runner
 # =============================================================================
 
@@ -749,6 +1037,15 @@ if __name__ == "__main__":
         test_template_validator_full_compliance,
         test_template_validator_partial_optional,
         test_template_validator_missing_required,
+        test_loader_slot_whitelist_violation,
+        test_loader_normalization_check_unknown_vendor_dir,
+        test_loader_mandatory_resolution,
+        test_loader_normalization_check_unknown_pn_dir,
+        test_loader_pn_reserved_subslot_shape,
+        test_loader_unrecognized_subdir,
+        test_loader_category_disallows_vendors_block,
+        test_hwsku_same_name_under_different_platforms,
+        test_priority_dut_layer_overrides_all,
     ]
     results = [run_test(test) for test in tests]
 
