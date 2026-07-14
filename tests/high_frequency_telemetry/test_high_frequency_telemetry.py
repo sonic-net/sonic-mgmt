@@ -34,7 +34,7 @@ pytestmark = [
 
 
 def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                           disable_flex_counters, tbinfo):
+                           cleanup_high_frequency_telemetry, tbinfo):
     """Test high frequency telemetry for port counters.
 
     This test:
@@ -128,7 +128,7 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_hft_full_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                                 disable_flex_counters):
+                                 cleanup_high_frequency_telemetry):
     """
     Test high frequency telemetry for every configured queue.
 
@@ -188,8 +188,10 @@ def test_hft_full_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         cleanup_hft_config(duthost, profile_name)
 
 
-def test_hft_full_ingress_priority_group_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                                                  disable_flex_counters):
+def test_hft_full_ingress_priority_group_counters(
+    duthosts, enum_rand_one_per_hwsku_hostname,
+    cleanup_high_frequency_telemetry
+):
     """Test high frequency telemetry for all configured buffer queues (ingress priority groups)."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "ingress_pg_profile"
@@ -232,8 +234,10 @@ def test_hft_full_ingress_priority_group_counters(duthosts, enum_rand_one_per_hw
         cleanup_hft_config(duthost, profile_name)
 
 
-def test_hft_full_buffer_pool_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                                       disable_flex_counters):
+def test_hft_full_buffer_pool_counters(
+    duthosts, enum_rand_one_per_hwsku_hostname,
+    cleanup_high_frequency_telemetry
+):
     """Test high frequency telemetry for all configured buffer pools."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "buffer_pool_profile"
@@ -278,7 +282,7 @@ def test_hft_full_buffer_pool_counters(duthosts, enum_rand_one_per_hwsku_hostnam
 
 @pytest.mark.skip(reason="Full counters HFT isn't supported")
 def test_hft_full_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                           disable_flex_counters, tbinfo):
+                           cleanup_high_frequency_telemetry, tbinfo):
     """Test high frequency telemetry for all supported object types in one profile."""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "full_hft_profile"
@@ -337,7 +341,7 @@ def test_hft_full_counters(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                                disable_flex_counters, tbinfo):
+                                cleanup_high_frequency_telemetry, tbinfo):
     """
     Test high frequency telemetry with all available ports and all
     available counter types.
@@ -447,7 +451,7 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
-                             disable_flex_counters, tbinfo):
+                             cleanup_high_frequency_telemetry, tbinfo):
     """
     Test high frequency telemetry with disabled stream state transitions.
 
@@ -558,7 +562,7 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    disable_flex_counters, tbinfo):
+                                    cleanup_high_frequency_telemetry, tbinfo):
     """
     Test high frequency telemetry with configuration deletion transitions.
 
@@ -661,9 +665,11 @@ def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
     (10000000, 0.1),   # 10000ms -> 0.1 Msg/s
 ])
 @pytest.mark.skip(reason="Some intervals may not be supported")
-def test_hft_poll_interval_validation(duthosts, enum_rand_one_per_hwsku_hostname,
-                                      disable_flex_counters, tbinfo,
-                                      poll_interval_us, expected_msg_per_sec):
+def test_hft_poll_interval_validation(
+    duthosts, enum_rand_one_per_hwsku_hostname,
+    cleanup_high_frequency_telemetry, tbinfo,
+    poll_interval_us, expected_msg_per_sec
+):
     """Test high frequency telemetry with different poll intervals.
 
     Validates Msg/s output.
@@ -805,8 +811,10 @@ def test_hft_poll_interval_validation(duthosts, enum_rand_one_per_hwsku_hostname
         cleanup_hft_config(duthost, profile_name, [group_name])
 
 
-def test_hft_port_shutdown_stream(duthosts, enum_rand_one_per_hwsku_hostname,
-                                  disable_flex_counters, tbinfo, ptfadapter):
+def test_hft_port_shutdown_stream(
+    duthosts, enum_rand_one_per_hwsku_hostname,
+    cleanup_high_frequency_telemetry, tbinfo, ptfadapter
+):
     """
     Test high frequency telemetry with port shutdown/startup transitions during continuous traffic.
 
