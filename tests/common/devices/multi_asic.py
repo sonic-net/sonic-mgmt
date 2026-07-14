@@ -91,6 +91,12 @@ class MultiAsicSonicHost(object):
 
         _features = self.facts.get('features', {})
 
+        # Query the live feature list to filter out services that no longer
+        # exist on the currently-running image (e.g. after boot_into_base_image).
+        feature_status, _ = self.sonichost.get_feature_status()
+        if feature_status:
+            _features = {k: v for k, v in _features.items() if k in feature_status}
+
         if _features.get('dhcp_relay', {}).get('state', '') == 'enabled':
             service_list.append("dhcp_relay")
 
