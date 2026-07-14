@@ -2143,12 +2143,10 @@ class TestQosSai(QosSaiBase):
         """
             Test QoS SAI quantized queue shared watermark for lossless/lossy traffic.
 
-            On the Cisco-8000 p200 ASIC the queue shared watermark is heavily
-            quantized: the reported watermark snaps to discrete hardware congestion
-            levels rather than tracking the true occupancy. This test reads the
-            exact congestion level thresholds at runtime from the serviceability
-            command and verifies that the watermark jumps to the next threshold as
-            occupancy crosses each boundary.
+            Some asics have a quantized queue watermark that jumps between a list of
+            thresholds. This test reads the exact congestion level thresholds at runtime
+            from an asic-specific CLI and verifies that the watermark jumps to the next
+            threshold as occupancy crosses each boundary.
 
             Args:
                 queueProfile (pytest parameter): queue profile

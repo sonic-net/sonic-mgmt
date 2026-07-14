@@ -6591,26 +6591,12 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
 class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
     """
-    Validate the quantized queue shared watermark behavior on Cisco-8000 p200.
-
-    On p200 the queue shared watermark is heavily quantized: as the real queue
-    occupancy crosses a hardware congestion level, the reported watermark snaps
-    to the value of the *next* congestion level. The exact level values are read
-    at runtime from the "show platform npu voq thresholds" serviceability command
-    and supplied in the 'quant_thresholds' test param (bytes, ascending, with
-    thresholds[0] == 0).
+    Validate quantized queue shared watermark behavior.
 
     Rule under test: if occupancy exceeds threshold[i], the reported watermark
     must display exactly threshold[i+1]. As a corollary, since threshold[0] == 0,
     any traffic at all - even uncongested - must report a non-zero watermark equal
     to threshold[1].
-
-    For each threshold boundary i (1 .. len-3, ignoring the final threshold which
-    has no i+1) the queue is filled to 'fill_margin' packets below the boundary
-    (watermark must still read threshold[i]) and then to 'fill_margin' packets
-    above the boundary (watermark must read threshold[i+1]). The fill_margin gives
-    slack for device transition nuance and stray background packets while keeping
-    the watermark assertion itself exact.
     """
 
     def fill_to_target(self, src_port_id, dst_port_id, pkt, queue, asic_type,
@@ -6618,14 +6604,6 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
         """
         Fill the egress queue to 'target_pkts' packets of occupancy, then return
         the queue shared watermark (bytes) for 'queue' on the dst port.
-
-        For refill-capable devices (e.g. p200) the queue is drained on read, so
-        each call re-disables tx, re-establishes the leakout baseline, and fills
-        to the absolute target before re-enabling tx to capture the peak.
-
-        For non-refill devices (e.g. gr2) tx stays disabled for the whole test and
-        occupancy persists; only the incremental delta since the last fill is sent.
-        Targets are visited in strictly increasing order so the delta is positive.
         """
         if refill_queue:
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
