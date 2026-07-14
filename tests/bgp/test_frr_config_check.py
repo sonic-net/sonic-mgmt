@@ -366,6 +366,15 @@ def test_frr_config_check(
     5. Repeat the comparison after config reload
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    if duthost.get_frr_mgmt_framework_config():
+        pytest.skip("FRR management framework enabled — this test verifies the classic "
+                    "bgpcfgd frr.conf rendering path; frrcfgd generates FRR config "
+                    "differently (e.g. an 'address-family l2vpn evpn' stanza and a "
+                    "redundant 'local-as' that FRR does not echo into running-config), "
+                    "so the frr.conf<->running-config comparison is not meaningful here. "
+                    "Matches the skip in test_frr_large_config_load_stress.")
+
     logger.info("Starting FRR configuration check test on {}".format(duthost.hostname))
 
     # Get completeness level and set number of iterations

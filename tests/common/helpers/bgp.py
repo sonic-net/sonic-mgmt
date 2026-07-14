@@ -82,6 +82,35 @@ def get_vtysh_cmd_for_asic(duthost, asic_index, cmd):
     return duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
 
 
+def flatten_bgp_neighbors(bgp_neighbors):
+    """Return a flat ``{neighbor_ip: details}`` dict from ``config_facts['BGP_NEIGHBOR']``.
+
+    In traditional (bgpcfgd) mode ``config_facts['BGP_NEIGHBOR']`` is already flat
+    (``{'10.0.0.1': {...}}``). In frr_mgmt_framework (frrcfgd) mode it is VRF-keyed
+    (``{'default': {'10.0.0.1': {...}}}``). Tests that iterate neighbors by IP must
+    normalize both to the flat form, or they break in frr mode (a bare
+    ``config_facts['BGP_NEIGHBOR']`` there yields VRF names, not IPs).
+
+    This flattens across all VRFs; on the common single-``default``-VRF case that is
+    exactly the traditional flat dict.
+    """
+    if not bgp_neighbors:
+        return {}
+    # Flat form: the values are per-neighbor detail dicts carrying neighbor
+    # attributes (asn / name / admin_status / local_addr). VRF-keyed form: the
+    # values are themselves {ip: details} dicts that carry none of those.
+    sample = next(iter(bgp_neighbors.values()))
+    if isinstance(sample, dict) and any(
+        k in sample for k in ("asn", "name", "admin_status", "local_addr")
+    ):
+        return dict(bgp_neighbors)
+    flat = {}
+    for vrf_neighbors in bgp_neighbors.values():
+        if isinstance(vrf_neighbors, dict):
+            flat.update(vrf_neighbors)
+    return flat
+
+
 def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
     save_dest_path = kwargs.pop("save_dest_path", "/tmp/temp.j2")
     keep_dest_file = kwargs.pop("keep_dest_file", True)

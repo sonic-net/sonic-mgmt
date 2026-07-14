@@ -118,6 +118,16 @@ def _current_mode(duthost):
             else MODE_TRADITIONAL)
 
 
+def _is_switchless_node(duthost):
+    """True for DUTs with no switchable BGP stack -- e.g. supervisor / chassis-control
+    cards, which run no bgp container. A mode switch there is meaningless and the
+    migrator's ``vtysh`` call would fail ("container ... is not running")."""
+    try:
+        return bool(duthost.is_supervisor_node())
+    except Exception:
+        return False
+
+
 @pytest.fixture(scope="module", params=FRR_CONFIG_MODES)
 def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     """Run a test in BOTH the traditional (bgpcfgd) and frr_mgmt_framework (frrcfgd)
@@ -154,16 +164,20 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     if not hasattr(mod, "_frr_original_config_mode"):
         mod._frr_original_config_mode = _current_mode(duthost)
 
-    # Multi-asic DUTs use per-namespace BGP config the translator does not handle yet,
-    # so we cannot switch modes there. Rather than skip the module outright (which would
-    # turn an otherwise-passing test into a skip on its native topology, e.g. t2 chassis),
-    # run only the DUT's native mode as a no-op and skip the other mode variant.
-    if duthost.facts["num_asic"] > 1:
+    # Some DUTs cannot have their BGP config-mode switched:
+    #   * multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
+    #   * supervisor/chassis-control nodes run no bgp container at all (a mode switch there
+    #     dies in the migrator's ``vtysh`` call -- "container ... is not running").
+    # Rather than skip the module outright (which would turn an otherwise-passing test into
+    # a skip on its native topology, e.g. a t2 chassis), run only the DUT's native mode as a
+    # no-op and skip the other mode variant.
+    if duthost.facts["num_asic"] > 1 or _is_switchless_node(duthost):
         if mode == mod._frr_original_config_mode:
             yield mode
             return
-        pytest.skip("multi-asic FRR config-mode switching is not supported yet; only the "
-                    "DUT's native '{}' mode is exercised".format(mod._frr_original_config_mode))
+        pytest.skip("FRR config-mode switching is not supported on this DUT (multi-asic or "
+                    "supervisor/no-bgp node); only the DUT's native '{}' mode is "
+                    "exercised".format(mod._frr_original_config_mode))
 
     # Single-asic: set up the migrator and capture baselines once per module.
     if not hasattr(mod, "_frr_migrator"):

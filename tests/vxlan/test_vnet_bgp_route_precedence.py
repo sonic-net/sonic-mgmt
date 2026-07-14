@@ -66,9 +66,19 @@ pytestmark = [
 ]
 
 
+# These tests drive the SLB / appliance BGP-profile community feature: they write an
+# APPL_DB BGP_PROFILE_TABLE entry (via create_bgp_profile) that bgpcfgd's managers_rm
+# turns into a "set community" route-map, then assert the community propagates to the T2.
+# frrcfgd does not consume APPL_DB BGP_PROFILE_TABLE, so the community is never applied in
+# frr_mgmt_framework mode ("community not propogated"). This is a bgpcfgd-specific feature,
+# so the module is bgpcfgd-mode-only: it is NOT parametrized over frr_config_mode; it skips
+# outright when the DUT natively runs frr_mgmt_framework.
 @pytest.fixture(scope="module", autouse=True)
-def _frr_config_mode_autouse(frr_config_mode):
-    return frr_config_mode
+def _skip_vnet_bgp_route_precedence_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
+        pytest.skip("VNET SLB/appliance BGP-profile community propagation relies on "
+                    "bgpcfgd's APPL_DB BGP_PROFILE_TABLE consumer (managers_rm); not "
+                    "applicable in frr_mgmt_framework mode")
 
 
 @pytest.fixture(
