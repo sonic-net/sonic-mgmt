@@ -87,7 +87,7 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
 
     logger.info(f"Configuring VXLAN switch: port={vxlan_port}, "
                 f"sport base={source_port}, mask={SOURCE_PORT_MASK}")
-    
+
     switch_config = [{
         "SWITCH_TABLE:switch": {
             "vxlan_port": str(vxlan_port),
@@ -97,7 +97,7 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
         },
         "OP": "SET",
     }]
-    
+
     duthost.copy(content=json.dumps(switch_config, indent=4),
                  dest=DUT_VXLAN_RANGE_JSON)
     duthost.shell(
@@ -108,8 +108,8 @@ def configure_vxlan_source_port_range(duthost, vxlan_port, source_port):
 
 
 def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
-                                  config_facts, dut_indx, vxlan_port,
-                                  source_port):
+                                 config_facts, dut_indx, vxlan_port,
+                                 source_port):
     ports = get_available_vlan_id_and_ports(config_facts, 1)
     pytest_assert(ports and len(ports) >= 1, "Not enough ports for VNET setup")
 
@@ -125,7 +125,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
     duthost.shell(f"config vlan member del all {ingress_if} || true")
 
     dut_vtep = get_loopback_ip(cfg_facts)
-    
+
     configure_vxlan_source_port_range(duthost, vxlan_port, source_port)
 
     switch_table = duthost.shell(
@@ -137,7 +137,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
                 "vxlan_tunnel")
     apply_chunk(duthost,
                 {"VNET": {VNET_NAME: {"vni": str(VNI),
-                                       "vxlan_tunnel": TUNNEL_NAME}}},
+                                      "vxlan_tunnel": TUNNEL_NAME}}},
                 "vnet")
 
     ptf_port_index = port_indexes[ingress_if]
@@ -147,7 +147,7 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
     apply_chunk(
         duthost,
         {"INTERFACE": {ingress_if: {"vnet_name": VNET_NAME},
-                        f"{ingress_if}|{dut_ip}/24": {}}},
+                       f"{ingress_if}|{dut_ip}/24": {}}},
         "intf_bind",
     )
 
@@ -180,8 +180,10 @@ def vxlan_setup_with_sport_range(duthost, ptfhost, tbinfo, cfg_facts,
         "num_flows": NUM_FLOWS,
     }
 
+
 @pytest.fixture(scope="module", autouse=True)
 def sport_range_setup_teardown(
+
     duthosts,
     rand_one_dut_hostname,
     ptfhost,
@@ -190,7 +192,7 @@ def sport_range_setup_teardown(
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
-    vxlan_port = request.config.option.vxlan_port # default is 4789 if not specified
+    vxlan_port = request.config.option.vxlan_port  # default is 4789 if not specified
     source_port = request.config.option.udp_src_port or DEFAULT_SOURCE_PORT
 
     try:
@@ -198,7 +200,7 @@ def sport_range_setup_teardown(
             duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(
             host=duthost.hostname, source="running")["ansible_facts"]
-        
+
         dut_indx = tbinfo["duts_map"][duthost.hostname]
 
         setup_params = vxlan_setup_with_sport_range(
@@ -236,6 +238,7 @@ def run_sport_ptf_test(ptfhost, params):
         params={"params_file": params_path},
         log_file="/tmp/vxlan_sport_range_ptftest.log",
     )
+
 
 def test_vxlan_source_port_range_and_hashing(ptfhost, sport_range_setup_teardown):
     setup, duthost, _ = sport_range_setup_teardown
