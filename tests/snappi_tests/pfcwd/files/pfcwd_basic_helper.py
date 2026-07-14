@@ -138,11 +138,6 @@ def run_pfcwd_basic_test(api,
     cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
     number_of_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
 
-    if cisco_platform or is_nexthop_device(egress_duthost):
-        data_traffic_rate = 49.99
-    else:
-        data_traffic_rate = 100.0
-
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
@@ -158,7 +153,7 @@ def run_pfcwd_basic_test(api,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map,
-                  traffic_rate=data_traffic_rate,
+                  traffic_rate=49.99 if cisco_platform else 100.0,
                   number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
