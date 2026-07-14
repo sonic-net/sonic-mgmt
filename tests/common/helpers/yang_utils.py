@@ -17,7 +17,9 @@ def run_yang_validation(duthost, stage="validation"):
     logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
     try:
         result = duthost.shell(
-            'echo "[]" | sudo config apply-patch /dev/stdin',
+            'patch_file="/home/admin/yang_validation_empty_patch.json"; '
+            'echo "[]" > "$patch_file" && sudo config apply-patch "$patch_file"; '
+            'rc=$?; rm -f "$patch_file"; exit $rc',
             module_ignore_errors=True
         )
 
