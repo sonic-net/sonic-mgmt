@@ -259,6 +259,7 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
     # that may belong to multiple ASICs, and the formatting has already been handled per interface.
     # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
     op = 'remove'
+    tmpfile = None
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -272,7 +273,8 @@ def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         else:
             expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        if tmpfile:
+            delete_tmpfile(duthost, tmpfile)
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
@@ -314,6 +316,7 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
     # Removing the JSON patch formatting because the above patch includes interfaces
     # that may belong to multiple ASICs, and the formatting has already been handled per interface.
     # json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    tmpfile = None
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -327,4 +330,5 @@ def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
         else:
             expect_op_failure(output)
     finally:
-        delete_tmpfile(duthost, tmpfile)
+        if tmpfile:
+            delete_tmpfile(duthost, tmpfile)
