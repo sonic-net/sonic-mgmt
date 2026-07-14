@@ -32,10 +32,8 @@ INFLUXDB_PORT = 8181
 INFLUXDB_BUCKET = "home"
 
 
-def test_hft_end_to_end_influxdb(
-    duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry, tbinfo, ptfhost
-):
+def test_hft_end_to_end_influxdb(duthosts, enum_rand_one_per_hwsku_hostname,
+                                 disable_flex_counters, tbinfo, ptfhost):
     """
     End-to-end test for High Frequency Telemetry.
 
