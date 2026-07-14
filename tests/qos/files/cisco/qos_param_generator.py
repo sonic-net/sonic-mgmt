@@ -591,13 +591,6 @@ class QosParamCisco(object):
             self.write_params("wm_q_shared_lossy", lossy_params)
 
     def __define_q_shared_watermark_quant(self):
-        # Quantized queue shared watermark test (currently exercised on p200).
-        # The hardware reports the queue shared watermark snapped to discrete
-        # congestion levels read at test time from the serviceability command
-        # "show platform npu voq thresholds". "fill_margin" is the number of
-        # packets to under-/over-fill each threshold by, giving slack for
-        # device transition nuance and stray background packets while keeping
-        # the watermark assertion exact (zero margin).
         quant_fill_margin = 10
         if self.should_autogen(["wm_q_shared_quant_lossless"]):
             lossless_params = {"dscp": 3,

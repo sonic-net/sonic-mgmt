@@ -135,7 +135,7 @@ def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class):
 
         Args:
             duthost: The DUT host handle.
-            interface (str): The egress interface name (e.g. "Ethernet8").
+            interface (str): The egress interface name.
             traffic_class (int): The traffic class / queue index.
 
         Returns:
