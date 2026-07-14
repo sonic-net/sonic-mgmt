@@ -79,9 +79,9 @@ def test_snmp_link_local_ip(duthosts,
                                          ['snmp_rocommunity'],
                                          link_local_ip,
                                          sysdescr_oid))['stdout_lines'][0]
-    assert "SONiC Software Version" in stdout_lines,\
+    assert "SONiC Software Version" in stdout_lines, \
         "Sysdescr not found in SNMP result from Link Local IP {}".format(
                 link_local_ip)
-    assert snmp_facts['ansible_sysdescr'] in stdout_lines,\
+    assert snmp_facts['ansible_sysdescr'] in stdout_lines, \
         "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(
                 link_local_ip)

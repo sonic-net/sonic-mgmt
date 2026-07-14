@@ -3,9 +3,9 @@ import pytest
 
 from tests.snappi_tests.qos.files.packet_reorder_helper import run_ipip_packet_reorder_test
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts  # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_testbed_config, is_pfc_enabled  # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa: F401
 

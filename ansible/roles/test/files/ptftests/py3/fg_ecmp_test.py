@@ -27,7 +27,7 @@ import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import ptf.testutils as testutils
-from ptf.testutils import test_params_get, dp_poll, verify_packet_any_port, verify_no_other_packets, verify_packet,\
+from ptf.testutils import test_params_get, dp_poll, verify_packet_any_port, verify_no_other_packets, verify_packet, \
     send_packet, simple_eth_packet, simple_vxlan_packet, simple_vxlanv6_packet, simple_tcp_packet, simple_tcpv6_packet
 
 import lpm

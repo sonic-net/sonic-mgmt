@@ -13,7 +13,7 @@ from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # no
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
 from tests.common.config_reload import config_reload
-from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL,\
+from tests.common.helpers.bgp import BGPNeighbor, NEIGHBOR_SAVE_DEST_TMPL, \
     BGP_SAVE_DEST_TMPL, _write_variable_from_j2_to_configdb, wait_tcp_connection
 
 logger = logging.getLogger(__name__)
