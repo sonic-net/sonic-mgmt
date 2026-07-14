@@ -54,7 +54,7 @@ class VxlanSportRangeTest(BaseTest):
                 self.endpoints = json.load(f)
         else:
             self.endpoints = params.get("endpoints", [])
-            
+
         self.source_port = int(params.get("source_port", 32768))
         self.source_port_mask = int(params.get("source_port_mask", 4))
 
@@ -71,7 +71,7 @@ class VxlanSportRangeTest(BaseTest):
         logger.info(f"  Source port base : {self.source_port}")
         logger.info(f"  Source port mask : {self.source_port_mask}")
         logger.info(f"  Valid range      : {self.range_lower} – {self.range_upper} "
-                     f"({self.range_size} ports)")
+                    f"({self.range_size} ports)")
         logger.info(f"  Num flows        : {self.num_flows}")
         logger.info(f"  Endpoints        : {self.endpoints}")
         logger.info(f"  DUT VTEP         : {self.dut_vtep}")
@@ -151,8 +151,8 @@ class VxlanSportRangeTest(BaseTest):
         # assert the outer UDP source port is inside the configured range.
         logger.info("=== Phase 1: Source-port RANGE verification ===")
 
-        flow_to_sport = {}          
-        port_counts = defaultdict(int)  
+        flow_to_sport = {}
+        port_counts = defaultdict(int)
 
         for i in range(self.num_flows):
             pkt = self._generate_flow_packet(i)
@@ -171,7 +171,7 @@ class VxlanSportRangeTest(BaseTest):
                 logger.info(f"  Phase 1 progress: {i + 1}/{self.num_flows} packets OK")
 
         logger.info(f"Phase 1 PASSED — all {self.num_flows} packets within range "
-                     f"[{self.range_lower}, {self.range_upper}]")
+                    f"[{self.range_lower}, {self.range_upper}]")
 
         # Re-send a small number of flows multiple times.  The DUT must
         # produce the same outer source port every time for a given 5-tuple.
@@ -194,7 +194,7 @@ class VxlanSportRangeTest(BaseTest):
                 )
 
         logger.info(f"Phase 2 PASSED — {len(check_indices)} flows × "
-                     f"{HASH_CHECK_REPEATS} repeats all consistent")
+                    f"{HASH_CHECK_REPEATS} repeats all consistent")
 
         # Using the port_counts collected in Phase 1, check that all ports
         # in the configured range receive at least some traffic (coverage).
