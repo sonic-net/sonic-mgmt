@@ -107,8 +107,13 @@ def _peer_groups(peer_group_json):
     first v4/v6 peer group found is used for neighbors of that family (matching
     the reference migrator); every discovered peer group is created."""
     if not peer_group_json:
-        raise FrrTranslationError(
-            "'show bgp peer-group json' returned no peer groups; cannot translate BGP config")
+        # A test may have deployed a BGP config with no peer-groups, or torn the
+        # peer-groups down, before the mode switch. Rather than abort the switch, fall
+        # back to the conventional PEER_V4/PEER_V6 groups so neighbors still translate to
+        # a valid frrcfgd config; the fixture's fail-loud fingerprint independently
+        # catches anything actually dropped.
+        return (DEFAULT_IPV4_PEER_GROUP, DEFAULT_IPV6_PEER_GROUP,
+                [DEFAULT_IPV4_PEER_GROUP, DEFAULT_IPV6_PEER_GROUP])
     ipv4_pgs, ipv6_pgs, all_names = [], [], []
     for name, info in peer_group_json.items():
         all_names.append(name)

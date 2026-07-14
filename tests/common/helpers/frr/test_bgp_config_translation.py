@@ -217,9 +217,14 @@ def test_raises_on_missing_loopback():
         translate_config_db(cfg, "", _peer_group_json())
 
 
-def test_raises_on_empty_peer_groups():
-    with pytest.raises(FrrTranslationError):
-        translate_config_db(_base_config_db(), "", {})
+def test_empty_peer_groups_falls_back_to_defaults():
+    # A config with no peer-groups (a test may have torn them down before the switch)
+    # must not abort the translation; fall back to the conventional PEER_V4/PEER_V6.
+    out = translate_config_db(_base_config_db(), "", {})
+    assert "default|PEER_V4" in out["BGP_PEER_GROUP"]
+    assert "default|PEER_V6" in out["BGP_PEER_GROUP"]
+    # Neighbors still translate and join those peer-groups.
+    assert out["BGP_NEIGHBOR"]["default|10.0.0.1"]["peer_group_name"] == "PEER_V4"
 
 
 def test_raises_on_invalid_neighbor_address():
