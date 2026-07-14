@@ -748,7 +748,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
         before_count = int(portstat[dut_port]['rx_drp'])
     elif duthost.facts["asic_type"] == "mellanox":
         before_count = int(duthost.command(f"show interfaces counters rif {dut_port}")['stdout_lines'][6].split()[0])
-    #FIXME
+    # FIXME
 
     # inject a number of packets with random payload
     pkt_count = 100
