@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 OTEL_CONFIG_PATH = "/etc/sonic/otel_config.yml"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def suppress_otel_debug_logging(duthosts, enum_rand_one_per_hwsku_hostname):
     """Suppress verbose OTEL debug exporter logging to prevent /var/log disk exhaustion.
 
@@ -241,8 +241,52 @@ def cleanup_high_frequency_telemetry(
 
 @pytest.fixture(scope="function")
 def disable_flex_counters(
+    duthosts, enum_rand_one_per_hwsku_hostname,
     cleanup_high_frequency_telemetry,
     suppress_otel_debug_logging
 ):
-    """Prepare HFT tests without changing flex-counter state."""
+    """
+    Function-level fixture to disable all flex counters and restore
+    them after each test.
+    Depends on cleanup_high_frequency_telemetry to ensure clean state.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Get all flex counter tables
+    flex_counter_keys = duthost.shell(
+        'redis-cli -n 4 keys "FLEX_COUNTER_TABLE|*"',
+        module_ignore_errors=False
+    )['stdout_lines']
+
+    # Store original states
+    original_states = {}
+    for key in flex_counter_keys:
+        if key.strip():  # Skip empty lines
+            table_name = key.strip()
+            status = duthost.shell(
+                f'redis-cli -n 4 HGET "{table_name}" "FLEX_COUNTER_STATUS"',
+                module_ignore_errors=False
+            )['stdout'].strip()
+            original_states[table_name] = status
+
+            # Disable the flex counter
+            duthost.shell(
+                f'redis-cli -n 4 HSET "{table_name}" '
+                f'"FLEX_COUNTER_STATUS" "disable"',
+                module_ignore_errors=False
+            )
+
+    logger.info(f"Disabled {len(original_states)} flex counters")
+
     yield
+
+    # Restore original states
+    for table_name, status in original_states.items():
+        if status:  # Only restore if there was an original status
+            duthost.shell(
+                f'redis-cli -n 4 HSET "{table_name}" '
+                f'"FLEX_COUNTER_STATUS" "{status}"',
+                module_ignore_errors=False
+            )
+
+    logger.info("Restored all flex counters to original states")
