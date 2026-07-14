@@ -538,11 +538,21 @@ def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
         pytest.skip("Skipping IPv6 Everflow tests to speed up PR test execution.")
 
 
-def validate_asic_route(duthost, prefix):
+def validate_asic_route(duthost, prefix, namespace=None):
     """
     Check if a route exists in the routing table of the asic.
+
+    Args:
+        duthost: DUT fixture
+        prefix: route prefix to verify
+        namespace: optional namespace for multi-asic platforms
     """
-    asicdb = AsicDbCli(duthost)
+    host = duthost
+    if namespace and getattr(duthost, "is_multi_asic", False):
+        asic_id = duthost.get_asic_id_from_namespace(namespace)
+        host = duthost.asic_instance(asic_id)
+
+    asicdb = AsicDbCli(host)
     route_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
     if prefix in str(route_table):
         return True
