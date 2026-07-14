@@ -2202,11 +2202,6 @@ class TestQosSai(QosSaiBase):
             "ip_type": dutConfig["ip_type"]
         })
 
-        if "platform_asic" in dutTestParams["basicParams"]:
-            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
-        else:
-            testParams["platform_asic"] = None
-
         if "packet_size" in list(qosConfig[queueProfile].keys()):
             testParams["packet_size"] = qosConfig[queueProfile]["packet_size"]
 

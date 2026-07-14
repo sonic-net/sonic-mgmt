@@ -6644,7 +6644,6 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         cell_size = int(self.test_params['cell_size'])
         hwsku = self.test_params['hwsku']
-        platform_asic = self.test_params['platform_asic']
         dut_asic = self.test_params['dut_asic']
         ip_type = self.test_params.get('ip_type', 'ipv4')
         descriptor_size = int(self.test_params.get('descriptor_size', 0))
@@ -6708,10 +6707,6 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
             "First quantized threshold {} is too small for fill_margin {} (bytes_per_pkt {})".format(
                 thresholds[1], fill_margin, bytes_per_pkt)
 
-        skip_asserts = bool(platform_asic) and platform_asic == "broadcom-dnx"
-        if skip_asserts:
-            logging.info("Skipping quantized watermark assertions on broadcom-dnx")
-
         # Collect every mismatch instead of bailing on the first one so the test
         # reports a complete picture of the device's quantization behavior. Each
         # entry is (phase, threshold_idx, offset, target_pkts, expected, actual).
@@ -6729,7 +6724,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.dst_client, port_list['dst'][dst_port_id])
             print("Uncongested watermark: sent %d pkts, watermark %d, expected %d" % (
                 uncongested_pkts, q_wm_res[queue], thresholds[1]), file=sys.stderr)
-            if not skip_asserts and q_wm_res[queue] != thresholds[1]:
+            if q_wm_res[queue] != thresholds[1]:
                 failures.append(("uncongested", "-", "-", uncongested_pkts,
                                  thresholds[1], q_wm_res[queue]))
 
@@ -6754,7 +6749,7 @@ class QSharedWatermarkQuantizedTest(sai_base_test.ThriftInterfaceDataPlane):
                     expected = thresholds[expected_idx]
                     print("Threshold idx %d offset %d: target %d pkts, watermark %d, expected %d" % (
                         i, offset, target_pkts, watermark, expected), file=sys.stderr)
-                    if not skip_asserts and watermark != expected:
+                    if watermark != expected:
                         failures.append(("threshold", i, "{:+d}".format(offset),
                                          target_pkts, expected, watermark))
         finally:
