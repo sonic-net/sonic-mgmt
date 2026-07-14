@@ -1,7 +1,10 @@
-import pytest
+import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
+
+import pytest
+
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -95,40 +98,71 @@ def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_hos
 def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     """Ensure swss container is running and stable for at least 10 seconds.
 
-    Function-level fixture that runs before each test to ensure swss is ready,
-    as tests may affect the container state.
+    Fail the test instead of restarting swss when the container state cannot be
+    verified. A transient inspection error must not disrupt syncd or the SDK.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def get_swss_uptime_seconds():
         """Get swss container uptime in seconds via docker inspect."""
+        inspect_result = duthost.shell(
+            "docker inspect swss",
+            module_ignore_errors=True
+        )
+        if inspect_result['rc'] != 0:
+            pytest.fail(
+                "Failed to inspect swss container: {}".format(
+                    inspect_result.get('stderr', '').strip()
+                )
+            )
+
         try:
-            # Step 1: Get container start time from docker inspect JSON
-            result = duthost.shell(
-                "docker inspect swss | grep StartedAt | head -1 | cut -d'\"' -f4",
-                module_ignore_errors=True
+            state = json.loads(inspect_result['stdout'])[0]['State']
+            running = state['Running']
+            started_at = state['StartedAt']
+        except (json.JSONDecodeError, IndexError, KeyError, TypeError) as err:
+            pytest.fail(
+                "Unexpected docker inspect output for swss: {}".format(err)
             )
-            if result['rc'] != 0 or not result['stdout'].strip():
-                return 0
-            started_at = result['stdout'].strip()
 
-            # Step 2: Convert start time to epoch seconds on DUT
-            result = duthost.shell(
-                f'date -ud "{started_at}" +%s',
-                module_ignore_errors=True
+        if running is not True:
+            pytest.fail(
+                "swss container is not running "
+                "(State.Running={})".format(running)
             )
-            if result['rc'] != 0 or not result['stdout'].strip():
-                return 0
 
-            # Step 3: Calculate uptime = current UTC epoch - start epoch
-            started_epoch = int(result['stdout'].strip())
-            now_epoch = int(datetime.now(timezone.utc).timestamp())
-            uptime = now_epoch - started_epoch
-            logger.debug(f"swss container uptime: {uptime}s")
-            return uptime
-        except Exception as e:
-            logger.warning(f"Failed to get swss uptime: {e}")
-            return 0
+        try:
+            started_epoch = int(datetime.fromisoformat(
+                started_at.replace('Z', '+00:00')
+            ).timestamp())
+        except (AttributeError, TypeError, ValueError) as err:
+            pytest.fail("Invalid swss container start time: {}".format(err))
+
+        uptime_result = duthost.shell(
+            'date -u +%s',
+            module_ignore_errors=True
+        )
+        if uptime_result['rc'] != 0:
+            pytest.fail(
+                "Failed to calculate swss container uptime: {}".format(
+                    uptime_result.get('stderr', '').strip()
+                )
+            )
+
+        try:
+            uptime = int(uptime_result['stdout'].strip()) - started_epoch
+        except ValueError:
+            pytest.fail(
+                "Unexpected swss container uptime: {!r}".format(
+                    uptime_result['stdout'].strip()
+                )
+            )
+
+        if uptime < 0:
+            pytest.fail("swss container start time is in the future")
+
+        logger.debug(f"swss container uptime: {uptime}s")
+        return uptime
 
     logger.info("Checking swss container status...")
 
@@ -136,30 +170,7 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     uptime = get_swss_uptime_seconds()
     min_uptime = 10  # Require at least 10 seconds uptime
 
-    if uptime == 0:
-        logger.warning("swss container is not running, attempting to start...")
-
-        # Try to restart swss service
-        duthost.shell('sudo systemctl restart swss',
-                      module_ignore_errors=True)
-
-        # Wait for container to start and stabilize
-        max_wait = 40  # Total wait time
-        logger.info(f"Waiting up to {max_wait} seconds for swss container "
-                    f"to start and stabilize...")
-
-        for i in range(max_wait):
-            time.sleep(1)
-            current_uptime = get_swss_uptime_seconds()
-            if current_uptime >= min_uptime:
-                logger.info(f"swss container is stable "
-                            f"(uptime: {current_uptime}s)")
-                break
-        else:
-            raise RuntimeError(f"swss container failed to stabilize "
-                               f"after {max_wait} seconds")
-
-    elif uptime < min_uptime:
+    if uptime < min_uptime:
         wait_time = min_uptime - uptime + 1  # +1 for safety margin
         logger.info(f"swss container uptime is {uptime}s, "
                     f"waiting {wait_time}s for stability...")
@@ -184,7 +195,8 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
 
 @pytest.fixture(scope="function")
 def cleanup_high_frequency_telemetry(
-    duthosts, enum_rand_one_per_hwsku_hostname, ensure_swss_ready
+    duthosts, enum_rand_one_per_hwsku_hostname, ensure_swss_ready,
+    suppress_otel_debug_logging
 ):
     """
     Function-level fixture to clean up high frequency telemetry
@@ -258,56 +270,3 @@ def cleanup_high_frequency_telemetry(
             f"High frequency telemetry cleanup completed. "
             f"Total keys deleted: {total_deleted}"
         )
-
-
-@pytest.fixture(scope="function")
-def disable_flex_counters(
-    duthosts, enum_rand_one_per_hwsku_hostname,
-    cleanup_high_frequency_telemetry,
-    suppress_otel_debug_logging
-):
-    """
-    Function-level fixture to disable all flex counters and restore
-    them after each test.
-    Depends on cleanup_high_frequency_telemetry to ensure clean state.
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    # Get all flex counter tables
-    flex_counter_keys = duthost.shell(
-        'redis-cli -n 4 keys "FLEX_COUNTER_TABLE|*"',
-        module_ignore_errors=False
-    )['stdout_lines']
-
-    # Store original states
-    original_states = {}
-    for key in flex_counter_keys:
-        if key.strip():  # Skip empty lines
-            table_name = key.strip()
-            status = duthost.shell(
-                f'redis-cli -n 4 HGET "{table_name}" "FLEX_COUNTER_STATUS"',
-                module_ignore_errors=False
-            )['stdout'].strip()
-            original_states[table_name] = status
-
-            # Disable the flex counter
-            duthost.shell(
-                f'redis-cli -n 4 HSET "{table_name}" '
-                f'"FLEX_COUNTER_STATUS" "disable"',
-                module_ignore_errors=False
-            )
-
-    logger.info(f"Disabled {len(original_states)} flex counters")
-
-    yield
-
-    # Restore original states
-    for table_name, status in original_states.items():
-        if status:  # Only restore if there was an original status
-            duthost.shell(
-                f'redis-cli -n 4 HSET "{table_name}" '
-                f'"FLEX_COUNTER_STATUS" "{status}"',
-                module_ignore_errors=False
-            )
-
-    logger.info("Restored all flex counters to original states")
