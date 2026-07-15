@@ -715,7 +715,7 @@ bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
 
 bgp/test_ping_bgp_neighbor.py:
   skip:
-    reason: "Only supported on multi-ASIC devices. Tracking ADO: https://msazure.visualstudio.com/One/_workitems/edit/38768311"
+    reason: "Only supported on multi-ASIC devices. Tracking issue: https://github.com/sonic-net/sonic-mgmt/issues/26208"
     conditions:
       - "is_multi_asic==False"
 
