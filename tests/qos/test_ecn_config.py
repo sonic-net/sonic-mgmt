@@ -302,37 +302,40 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 ecn_list[key.strip()] = value.strip()
     logging.info("ecn config : {}".format(ecn_list))
 
-    # Verify ecnconfig status on lossless queue
-    test_prio_list = lossless_prio_list
-    for prio in test_prio_list:
-        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
-        result = duthost.command(cmd)
-        assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
-        if 'queue' in result['stdout_lines'][1]:
+    if lossless_prio_list:
+        # Verify ecnconfig status on lossless queue
+        test_prio_list = lossless_prio_list
+        for prio in test_prio_list:
+            cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+            result = duthost.command(cmd)
+            assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
+            if 'queue' in result['stdout_lines'][1]:
+                status = result['stdout_lines'][1].split(':')
+                logging.info("{} status is {}".format(status[0], status[1]))
+            try:
+                # toggle the ecn status on prio queue
+                if status[1] == "off":
+                    cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
+                else:
+                    cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
+                result = duthost.command(cmd)
+            except Exception as e:
+                logging.info("Error on setting ecn queue : {}".format(e))
+            assert result['rc'] == 0, 'Set wred_profile command failed '
+
+        # revert the changes
+        for prio in test_prio_list:
+            cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+            result = duthost.command(cmd)
             status = result['stdout_lines'][1].split(':')
-            logging.info("{} status is {}".format(status[0], status[1]))
-        try:
-            # toggle the ecn status on prio queue
             if status[1] == "off":
                 cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
             else:
                 cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
             result = duthost.command(cmd)
-        except Exception as e:
-            logging.info("Error on setting ecn queue : {}".format(e))
-        assert result['rc'] == 0, 'Set wred_profile command failed '
-
-    # revert the changes
-    for prio in test_prio_list:
-        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
-        result = duthost.command(cmd)
-        status = result['stdout_lines'][1].split(':')
-        if status[1] == "off":
-            cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
-        else:
-            cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
-        result = duthost.command(cmd)
-        assert result['rc'] == 0, 'Set wred_profile command failed '
+            assert result['rc'] == 0, 'Set wred_profile command failed '
+    else:
+        logging.info("The DUT has no lossless priorities. Skipping the ecnconfig test.")
 
     # Verify counterpoll CLI for enabling and disabling ecn statistics
     # WRED_ECN_QUEUE_STAT
