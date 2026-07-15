@@ -17,6 +17,7 @@ class QosParamCisco(object):
                                                             "Cisco-8101C01-V64",
                                                             "Cisco-8101C01-C28S4",
                                                             "Cisco-8101C01-C32"],
+                              "x86_64-88_lc0_36fh-r0": ["Cisco-88-LC0-36FH-O36"],
                               "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"]}
     # VOQ-architecture ASICs only; OQ ASICs (gr2/gr2x) lack VOQs and are excluded.
     VOQ_ASICS = ["gb", "gr"]
