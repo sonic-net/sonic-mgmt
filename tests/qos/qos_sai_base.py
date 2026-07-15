@@ -1622,6 +1622,7 @@ class QosSaiBase(QosBase):
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
             else:
+                # Any t2 variant for gb asic has to use the gb/t2 qos params only.
                 dutTopo = dutTopo + "t2"
         elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
