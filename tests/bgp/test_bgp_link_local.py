@@ -23,7 +23,6 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 
@@ -92,7 +91,7 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
             pytest.skip("dut_asn not found in testbed configuration_properties or DEVICE_METADATA")
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     portchannels = config_facts.get('PORTCHANNEL', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     portchannel_members = config_facts.get('PORTCHANNEL_MEMBER', {})
@@ -703,7 +702,7 @@ def configure_unnumbered_bgp(request, setup_info):
 
 
 @pytest.mark.disable_loganalyzer
-def test_bgp_link_local(frr_config_mode, setup_info, configure_unnumbered_bgp):
+def test_bgp_link_local(setup_info, configure_unnumbered_bgp):
     """
     Test BGP peering over IPv6 link-local addresses (unnumbered).
 
