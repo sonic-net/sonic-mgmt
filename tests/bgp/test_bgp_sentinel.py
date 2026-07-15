@@ -153,16 +153,41 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_i
 
 
 @pytest.fixture(scope="module")
-def dut_lo_addr(rand_selected_dut):
+def dut_lo_addr(rand_selected_dut, enum_rand_one_frontend_asic_index):
+    """ Get the loopback address to use as BGP Sentinel's src_address.
+
+    Loopback0 is shared by all ASICs on a multi-ASIC device, so it cannot be
+    used to uniquely address a single ASIC's BGP session. Use Loopback4096
+    (unique per-ASIC) instead for multi-ASIC devices, and Loopback0 for
+    single-ASIC devices.
+    """
     duthost = rand_selected_dut
-    lo_facts = duthost.setup()['ansible_facts']['ansible_Loopback0']
-    lo_ipv4_addr = lo_facts.get('ipv4', {}).get('address')
+    lo_ipv4_addr = None
     lo_ipv6_addr = None
-    for item in lo_facts.get('ipv6', []):
-        if item['address'].startswith('fe80'):
-            continue
-        lo_ipv6_addr = item['address']
-        break
+
+    if duthost.is_multi_asic:
+        asic_idx = enum_rand_one_frontend_asic_index if enum_rand_one_frontend_asic_index is not None else 0
+        cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[asic_idx]['ansible_facts']
+        lb4096_intfs = cfg_facts.get('LOOPBACK_INTERFACE', {}).get('Loopback4096', {})
+        for lb_key in lb4096_intfs:
+            intf = ipaddress.ip_interface(lb_key)
+            if intf.ip.version == 4 and lo_ipv4_addr is None:
+                lo_ipv4_addr = str(intf.ip)
+            elif intf.ip.version == 6 and lo_ipv6_addr is None:
+                lo_ipv6_addr = str(intf.ip)
+        pytest_assert(lo_ipv4_addr is not None,
+                      "Multi-ASIC device must have an IPv4 address on Loopback4096 (asic {})".format(asic_idx))
+        pytest_assert(lo_ipv6_addr is not None,
+                      "Multi-ASIC device must have an IPv6 address on Loopback4096 (asic {})".format(asic_idx))
+    else:
+        lo_facts = duthost.setup()['ansible_facts']['ansible_Loopback0']
+        lo_ipv4_addr = lo_facts.get('ipv4', {}).get('address')
+        for item in lo_facts.get('ipv6', []):
+            if item['address'].startswith('fe80'):
+                continue
+            lo_ipv6_addr = item['address']
+            break
+
     return lo_ipv4_addr, lo_ipv6_addr
 
 
