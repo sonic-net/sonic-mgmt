@@ -294,9 +294,6 @@ class TestFaultHandling():
         )
 
     @pytest.mark.disable_loganalyzer
-<<<<<<< HEAD
-    def test_mismatch_macsec_configuration(self, duthost, unctrl_links, port_profiles,
-=======
     @pytest.mark.parametrize("lag_kind", ["single_member", "multi_member"])
     def test_macsec_down_disables_lag_member(self, duthost, ctrl_links,
                                              upstream_links, lag_kind, wait_mka_establish):
@@ -604,8 +601,7 @@ class TestFaultHandling():
                 "BGP over {} is not Established after the rekey.".format(pc_name))
 
     @pytest.mark.disable_loganalyzer
-    def test_mismatch_macsec_configuration(self, duthost, unctrl_links,
->>>>>>> 9b1994b20 (NOS-10638: [macsec] Add fault-handling test for MKA timeout on LAG member (#2092))
+    def test_mismatch_macsec_configuration(self, duthost, unctrl_links, port_profiles,
                                            profile_name, default_priority, cipher_suite,
                                            primary_cak, primary_ckn, policy, send_sci, wait_mka_establish):
         if port_profiles:
