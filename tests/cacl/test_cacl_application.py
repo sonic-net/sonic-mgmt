@@ -551,7 +551,7 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
             # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
-            if k == "dhcp_server":
+            if k in ("dhcp_server", "redfish"):
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
