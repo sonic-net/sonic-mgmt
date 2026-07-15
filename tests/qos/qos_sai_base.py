@@ -55,13 +55,13 @@ class QosBase:
         "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
-                          "t1-f2-d10u8",
+                          "t1-f2-d10u8", "t1-isolated-d32u1s2",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gr2x", "gb", "p200", "td2", "th", "th2", "spc1", "spc2", "spc3",
+                           "spc4", "spc5", "spc6", "td3", "th3", "j2c+", "jr2", "th5", "th6", "q3d"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -399,6 +399,7 @@ class QosSaiBase(QosBase):
                     "pool": "ingress_lossless_pool",
                     "xon": "0",
                     "xoff": "0",
+                    "xon_offset": "0",  # Required for Cisco 8000 gr2/gr2x/p200 ASICs
                     "size": "0",
                     "dynamic_th": "0",
                     "pg_q_alpha": "0",
@@ -1626,7 +1627,8 @@ class QosSaiBase(QosBase):
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
             else:
-                dutTopo = dutTopo + topo
+                # Any t2 variant for gb asic has to use the gb/t2 qos params only.
+                dutTopo = dutTopo + "t2"
         elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
@@ -1730,6 +1732,9 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
+        if get_src_dst_asic_and_duts['src_dut'].facts['asic_type'] == "cisco-8000":
+            yield
+            return
         all_asics = get_src_dst_asic_and_duts['all_asics']
 
         ipVersions = [{"ip_version": "ipv4"}, {"ip_version": "ipv6"}]
@@ -3821,6 +3826,7 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
+                                      "Mellanox-SN5640-C508O1X2",
                                       "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
                                       "Arista-7060X6-16PE-384C-B-O128S2"]
         is_supported_per_dir = \
@@ -3955,7 +3961,7 @@ def clear_pg_watermark(interface):
         src_asic = get_src_dst_asic_and_duts['src_asic']
         src_index = src_asic.asic_index
 
-        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] not in ["gr2", "gr2x"]:
             yield
             return
 
@@ -4004,6 +4010,9 @@ def clear_pg_watermark(interface):
         By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
         Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
         """
+        if get_src_dst_asic_and_duts['all_duts'][0].facts["asic_type"] == 'cisco-8000':
+            yield
+            return
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             for dut_asic in duthost.asics:
                 try:
