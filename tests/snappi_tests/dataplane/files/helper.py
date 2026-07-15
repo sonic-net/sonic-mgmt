@@ -397,10 +397,10 @@ def create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params):
             if pconfig.get("is_rdma", False):
                 pfc = layer1.flow_control.ieee_802_1qbb
                 pfc.pfc_delay = 0
-                if pfcQueueGroupSize == 8:
+                if pfc_queue_group_size() == 8:
                     for i in range(8):
                         setattr(pfc, f'pfc_class_{i}', i)
-                elif pfcQueueGroupSize == 4:
+                elif pfc_queue_group_size() == 4:
                     for i in range(8):
                         setattr(pfc, f'pfc_class_{i}', pfcQueueValueDict[i])
     return config

@@ -17,12 +17,12 @@ from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet, parse_override
+    get_ipv6_addrs_in_subnet, parse_override, pfc_queue_group_size
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location, \
     get_macs, get_ip_addresses, subnet_mask_from_hosts   # noqa: F401
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert, pytest_require   # noqa: F811
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
+from tests.common.snappi_tests.variables import pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
     delete_macsec_profile
@@ -507,6 +507,16 @@ def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
     return False
 
 
+def _config_pfc_classes(api, config, pfc):
+    """Program the PFC class -> TX queue mapping using the queue-group size the
+    tgen port honors (testbed override > detected from the port > default 8):
+    identity mapping for 8, folded per pfcQueueValueDict for 4."""
+    size = pfc_queue_group_size(api=api, config=config)
+    pytest_assert(size in (4, 8), 'pfcQueueGroupSize value is not 4 or 8')
+    for prio in range(8):
+        setattr(pfc, 'pfc_class_{}'.format(prio), prio if size == 8 else pfcQueueValueDict[prio])
+
+
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                           duthosts, rand_one_dut_hostname, is_pfc_enabled,
@@ -602,26 +612,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     if is_pfc_enabled:
         pfc = l1_config.flow_control.ieee_802_1qbb
         pfc.pfc_delay = 0
-        if pfcQueueGroupSize == 8:
-            pfc.pfc_class_0 = 0
-            pfc.pfc_class_1 = 1
-            pfc.pfc_class_2 = 2
-            pfc.pfc_class_3 = 3
-            pfc.pfc_class_4 = 4
-            pfc.pfc_class_5 = 5
-            pfc.pfc_class_6 = 6
-            pfc.pfc_class_7 = 7
-        elif pfcQueueGroupSize == 4:
-            pfc.pfc_class_0 = pfcQueueValueDict[0]
-            pfc.pfc_class_1 = pfcQueueValueDict[1]
-            pfc.pfc_class_2 = pfcQueueValueDict[2]
-            pfc.pfc_class_3 = pfcQueueValueDict[3]
-            pfc.pfc_class_4 = pfcQueueValueDict[4]
-            pfc.pfc_class_5 = pfcQueueValueDict[5]
-            pfc.pfc_class_6 = pfcQueueValueDict[6]
-            pfc.pfc_class_7 = pfcQueueValueDict[7]
-        else:
-            pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+        _config_pfc_classes(snappi_api, config, pfc)
     else:
         logger.info('PFC is not enabled on the DUT, skipping PFC configuration on TGEN')
 
@@ -1166,26 +1157,7 @@ def snappi_multi_base_config(duthost_list,
                 l1_config.auto_negotiation.rs_fec = True
                 pfc = l1_config.flow_control.ieee_802_1qbb
                 pfc.pfc_delay = 0
-            if pfcQueueGroupSize == 8:
-                pfc.pfc_class_0 = 0
-                pfc.pfc_class_1 = 1
-                pfc.pfc_class_2 = 2
-                pfc.pfc_class_3 = 3
-                pfc.pfc_class_4 = 4
-                pfc.pfc_class_5 = 5
-                pfc.pfc_class_6 = 6
-                pfc.pfc_class_7 = 7
-            elif pfcQueueGroupSize == 4:
-                pfc.pfc_class_0 = pfcQueueValueDict[0]
-                pfc.pfc_class_1 = pfcQueueValueDict[1]
-                pfc.pfc_class_2 = pfcQueueValueDict[2]
-                pfc.pfc_class_3 = pfcQueueValueDict[3]
-                pfc.pfc_class_4 = pfcQueueValueDict[4]
-                pfc.pfc_class_5 = pfcQueueValueDict[5]
-                pfc.pfc_class_6 = pfcQueueValueDict[6]
-                pfc.pfc_class_7 = pfcQueueValueDict[7]
-            else:
-                pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+                _config_pfc_classes(snappi_api, config, pfc)
 
     port_config_list = []
 
@@ -1238,26 +1210,7 @@ def snappi_dut_base_config(duthost_list,
 
     pfc = l1_config.flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
-    if pfcQueueGroupSize == 8:
-        pfc.pfc_class_0 = 0
-        pfc.pfc_class_1 = 1
-        pfc.pfc_class_2 = 2
-        pfc.pfc_class_3 = 3
-        pfc.pfc_class_4 = 4
-        pfc.pfc_class_5 = 5
-        pfc.pfc_class_6 = 6
-        pfc.pfc_class_7 = 7
-    elif pfcQueueGroupSize == 4:
-        pfc.pfc_class_0 = pfcQueueValueDict[0]
-        pfc.pfc_class_1 = pfcQueueValueDict[1]
-        pfc.pfc_class_2 = pfcQueueValueDict[2]
-        pfc.pfc_class_3 = pfcQueueValueDict[3]
-        pfc.pfc_class_4 = pfcQueueValueDict[4]
-        pfc.pfc_class_5 = pfcQueueValueDict[5]
-        pfc.pfc_class_6 = pfcQueueValueDict[6]
-        pfc.pfc_class_7 = pfcQueueValueDict[7]
-    else:
-        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+    _config_pfc_classes(snappi_api, config, pfc)
 
     port_config_list = []
 

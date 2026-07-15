@@ -368,6 +368,56 @@ def fetch_snappi_flow_metrics(api, flow_names):
     return flow_metrics
 
 
+def fetch_pfc_queue_group_size(api, config=None):
+    """
+    Fetches the PFC TX queue-group size (4 or 8) the tgen ports honor from the
+    corresponding snappi session; None when it cannot be determined (e.g. not an
+    IxNetwork-backed session). The framework models one size per session: should
+    ports ever report different sizes, 4 is used — every port honors the folded
+    mapping, only 4-group ports break on the identity one.
+
+    Args:
+    api: snappi api
+    config: snappi config; applied first so vports exist (optional)
+
+    Returns:
+    size (int): 4 or 8, or None when undetermined
+    """
+    try:
+        if config is not None:
+            api.set_config(config)  # the first apply also establishes the IxNetwork session
+        vports = api._ixnetwork.Vport.find()  # _ixnetwork exists only after the session does
+    except AttributeError:
+        logger.info("pfcQueueGroupSize detection: not an IxNetwork-backed session")
+        return None
+    except Exception as e:
+        logger.warning("pfcQueueGroupSize detection failed applying config: %s", e)
+        return None
+    try:
+        sizes = {}
+        for vport in vports:
+            # Fcoe (the PFC attributes) is a child of the active card-type object,
+            # e.g. L1Config.AresOneM.Fcoe. CurrentType names it in camelCase, with
+            # an 'Fcoe' suffix in FCoE mode (as snappi_ixnetwork._set_vport_type sets).
+            card = vport.L1Config.CurrentType
+            card = card[0].upper() + card[1:]
+            if card.endswith('Fcoe'):
+                card = card[:-len('Fcoe')]
+            raw = getattr(vport.L1Config, card).Fcoe.PfcQueueGroupSize
+            sizes[vport.Name] = int(str(raw).rsplit('-', 1)[-1])
+        logger.info("fetch_pfc_queue_group_size: %s", sizes)
+    except Exception as e:
+        logger.warning("pfcQueueGroupSize detection failed: %s", e)
+        return None
+    if not sizes or not set(sizes.values()) <= {4, 8}:
+        logger.warning("pfcQueueGroupSize detection: unexpected readback %s", sizes)
+        return None
+    if len(set(sizes.values())) > 1:
+        logger.warning("pfcQueueGroupSize: ports report different sizes %s; using 4", sizes)
+        return 4
+    return sizes.popitem()[1]
+
+
 def is_traffic_converged(snappi_api, flow_names=[], threshold_perentage=0.01):
     """
     Returns true if traffic has converged within the threshold

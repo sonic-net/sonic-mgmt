@@ -12,7 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
 from tests.snappi_tests.pfc.files.lossless_response_to_throttling_pause_storms_helper import (
     run_lossless_response_to_throttling_pause_storms_test)
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict     # noqa: F401
+from tests.common.snappi_tests.variables import pfcQueueValueDict     # noqa: F401
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
