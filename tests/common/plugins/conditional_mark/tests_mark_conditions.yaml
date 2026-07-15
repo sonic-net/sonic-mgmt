@@ -959,6 +959,20 @@ dash/test_dash_eni_counter.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
+dash/test_dash_eni_counter.py::TestEniCounter::test_inbound_pkt_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+
+dash/test_dash_eni_counter.py::TestEniCounter::test_outbound_pkt_pass_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+
 dash/test_dash_metering.py:
   skip:
     reason: "Metering w/ FNIC not supported on Nvidia yet"
@@ -1404,6 +1418,12 @@ dualtor/test_ipinip.py::test_encap_with_mirror_session:
      conditions:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
 
 dualtor/test_orch_stress.py:
   skip:
@@ -2660,6 +2680,18 @@ generic_config_updater/test_cacl:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
+
+generic_config_updater/test_cacl.py::test_cacl_application_nondualtor:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
+
+generic_config_updater/test_cacl.py::test_cacl_tc1_acl_table_suite:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -4372,7 +4404,7 @@ qos/test_qos_dscp_mapping.py:
     reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly. / Test does not apply to topos with no T2 uplinks (t1-isolated-d32, t1-isolated-d128)"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "asic_type in ['vs']"
       - "topo_name in ['t1-isolated-d32', 't1-isolated-d128']"
 
@@ -4530,10 +4562,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
   skip:
-    reason: "Skip DWRR test on Cisco G200 platform."
+    reason: "Skip DWRR test on Cisco G200/G200X platform."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
   skip:
@@ -4543,7 +4575,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
       - "asic_type in ['mellanox']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
   skip:
@@ -4585,7 +4617,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4594,7 +4627,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4603,7 +4637,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4612,7 +4647,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4622,7 +4657,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
-      - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
+      # GR2/GR2X (x86_64-8122*) are the supported Cisco platforms for this test
+      - "asic_type in ['cisco-8000'] and not platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4652,7 +4688,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
