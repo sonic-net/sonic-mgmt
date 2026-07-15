@@ -85,7 +85,13 @@ def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):       
 def verify_neighbor_status(duthost, neigh_ip, expected_status):
     ip_version = 'v4' if ip_address(neigh_ip).version == 4 else 'v6'
     neighbor_table = duthost.switch_arptable()['ansible_facts']['arptable']
-    return expected_status.lower() in neighbor_table[ip_version][str(neigh_ip)]['state'].lower()
+    # The neighbor entry may not be present yet (e.g. before the standby ToR has
+    # learned it). Use .get() so a missing entry returns False instead of raising
+    # KeyError, which would surface as an uninformative "Failed: None".
+    neigh_entry = neighbor_table.get(ip_version, {}).get(str(neigh_ip))
+    if not neigh_entry or 'state' not in neigh_entry:
+        return False
+    return expected_status.lower() in neigh_entry['state'].lower()
 
 
 def test_proxy_arp_for_standby_neighbor(proxy_arp_enabled, ip_and_intf_info, restore_mux_auto_config,
@@ -207,4 +213,13 @@ def test_standby_unsolicited_neigh_learning(
     arp_update_cmd = "docker exec -t swss supervisorctl start arp_update"
     rand_selected_dut.shell(arp_update_cmd)
 
-    pytest_assert(wait_until(5, 1, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)))
+    # Unsolicited neighbor learning propagates the entry from the active ToR to the
+    # standby ToR asynchronously; on active-active (dualtor-aa) topologies this can
+    # take noticeably longer than a few seconds. Use a more generous timeout so a
+    # slow-but-successful sync is not reported as a failure, and give an explicit
+    # assertion message instead of the bare "Failed: None".
+    pytest_assert(
+        wait_until(30, 2, 0, lambda: verify_neighbor_status(rand_unselected_dut, neighbor_ip, REACHABLE)),
+        "Standby ToR {} did not learn neighbor {} as REACHABLE within 30s after arp_update "
+        "on active ToR {} (unsolicited neighbor learning).".format(
+            rand_unselected_dut.hostname, neighbor_ip, rand_selected_dut.hostname))
