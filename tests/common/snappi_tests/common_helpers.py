@@ -859,7 +859,7 @@ def stop_pfcwd(duthost, asic_value=None):
         duthost.shell('sudo ip netns exec {} pfcwd stop'.format(asic_value))
 
 
-def _set_credit_watchdog(duthost, enable):
+def _set_credit_watchdog(duthost, enable, asic_value=None):
     """
     Enable/disable the VOQ credit watchdog by setting the SWITCH_TABLE:switch 'credit_watchdog'
     field in APPL_DB, which SwitchOrch maps to the SAI_SWITCH_ATTR_CREDIT_WD switch attribute.
@@ -867,21 +867,34 @@ def _set_credit_watchdog(duthost, enable):
     Args:
         duthost (AnsibleHost): Device Under Test (DUT)
         enable (bool): True to enable the watchdog, False to disable it
+        asic_value (str): asic namespace to target (e.g. 'asic0'). None targets the
+            default namespace, or every asic namespace on a multi-asic DUT.
     """
     if not is_broadcom_dnx_device(duthost):
         logger.info("Credit watchdog not applicable on platform %s; skipping",
                     duthost.facts.get("platform_asic"))
         return
+    if asic_value:
+        namespaces = [asic_value]
+    elif duthost.is_multi_asic:
+        namespaces = ['asic{}'.format(a) for a in duthost.facts['asics_present']]
+    else:
+        namespaces = ['']
     value = "1" if enable else "0"
-    pyscript = (
-        "from swsscommon.swsscommon import DBConnector, ProducerStateTable; "
-        "db = DBConnector('APPL_DB', 0, True); "
-        "p = ProducerStateTable(db, 'SWITCH_TABLE'); "
-        "p.set('switch', [('credit_watchdog', '{}')])".format(value)
-    )
-    duthost.shell('sudo python3 -c "{}"'.format(pyscript))
-    logger.info("%s VOQ credit watchdog via APPL_DB SWITCH_TABLE credit_watchdog=%s",
-                'Enabled' if enable else 'Disabled', value)
+    for ns in namespaces:
+        pyscript = (
+            "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable; "
+            # Namespaced redis is reached via unix socket and needs the global db config;
+            # the default namespace keeps the existing TCP connection unchanged.
+            + ("SonicDBConfig.load_sonic_global_db_config(); "
+               "db = DBConnector('APPL_DB', 0, False, '{}'); ".format(ns) if ns
+               else "db = DBConnector('APPL_DB', 0, True); ")
+            + "p = ProducerStateTable(db, 'SWITCH_TABLE'); "
+              "p.set('switch', [('credit_watchdog', '{}')])".format(value)
+        )
+        duthost.shell('sudo python3 -c "{}"'.format(pyscript))
+        logger.info("%s VOQ credit watchdog via APPL_DB SWITCH_TABLE credit_watchdog=%s (namespace: %s)",
+                    'Enabled' if enable else 'Disabled', value, ns or 'default')
 
 
 def disable_packet_aging(duthost, asic_value=None):
@@ -899,7 +912,7 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
     elif is_broadcom_dnx_device(duthost):
-        _set_credit_watchdog(duthost, enable=False)
+        _set_credit_watchdog(duthost, enable=False, asic_value=asic_value)
     else:
         logger.info("Packet aging disable not needed on this platform (%s)",
                     duthost.facts.get("platform_asic"))
@@ -920,7 +933,7 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
     elif is_broadcom_dnx_device(duthost):
-        _set_credit_watchdog(duthost, enable=True)
+        _set_credit_watchdog(duthost, enable=True, asic_value=asic_value)
     else:
         logger.info("Packet aging enable not needed on this platform (%s)",
                     duthost.facts.get("platform_asic"))
