@@ -317,6 +317,7 @@ class VMTopology(object):
         # For now distinguish a cable topology since it does not contain any vms and there are two ToR's
         self._is_cable = True if len(
             self.duts_name) > 1 and 'VMs' not in self.topo else False
+        self._is_smartswitch_ha = self.topo.get('topo_type') == 't1-smartswitch-ha'
 
         self.host_interfaces = self.topo.get('host_interfaces', [])
         if self.dut_interfaces:
@@ -1041,6 +1042,7 @@ class VMTopology(object):
 
             self.bind_vm_link(br_name, port1, port2)
 
+        bind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Create OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1057,7 +1059,11 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.bind_ovs_ports(br_name, port1, injected_iface, port2, disconnect_vm)
+                bind_ovs_links_args.append((br_name, port1, injected_iface, port2, disconnect_vm))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, tmpdir]:
+            self.worker.map(lambda args: self.bind_ovs_ports(*args, processes=processes, tmpdir=tmpdir),
+                            bind_ovs_links_args)
 
     def unbind_fp_ports(self):
         logging.info("=== unbind front panel ports ===")
@@ -1091,6 +1097,7 @@ class VMTopology(object):
             else:
                 self.unbind_vm_link(br_name, port1, port2)
 
+        unbind_ovs_links_args = []
         for k, attr in self.OVS_LINKs.items():
             logging.info("Remove OVS links for {} : {}".format(k, attr))
             br_name = "br_{}".format(k.lower())
@@ -1107,9 +1114,12 @@ class VMTopology(object):
             for vlan in vlans:
                 (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
-                self.unbind_ovs_ports(br_name, port1)
-                self.unbind_ovs_ports(br_name, port2)
-                self.unbind_ovs_ports(br_name, injected_iface)
+                unbind_ovs_links_args.append((br_name, port1))
+                unbind_ovs_links_args.append((br_name, port2))
+                unbind_ovs_links_args.append((br_name, injected_iface))
+
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, _]:
+            self.worker.map(lambda args: self.unbind_ovs_ports(*args, processes=processes), unbind_ovs_links_args)
 
     def unbind_vm_link(self, br_name, port1, port2):
         _, if_to_br = VMTopology.brctl_show()
@@ -1306,8 +1316,12 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=6,udp6,in_port=%s,udp_dst=4784,action=output:%s" %
                         (br_name, dut_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
-                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            if self._is_smartswitch_ha:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s,%s" %
+                            (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            else:
+                bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ip,in_port=%s,action=output:%s" %
+                            (br_name, dut_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=5,ipv6,in_port=%s,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=3,in_port=%s,action=output:%s,%s" %

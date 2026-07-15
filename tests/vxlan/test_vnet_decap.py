@@ -33,16 +33,34 @@ def find_ptf_dest_port(duthost, minigraph_facts, except_interfaces=[]):
     """
     Finds an Ethernet port that is operationally UP and does not appear in except_interfaces
     and also is not a member of any PortChannel interface that appears in except_interfaces.
-    Returns the PTF index of that Ethernet port (if such port is found).
+    Returns the PTF index of that Ethernet port and the port name (if such port is found).
     """
     dut_interfaces = duthost.get_interfaces_status()
     ptf_indices = minigraph_facts["minigraph_ptf_indices"]
     except_ports = ecmp_utils.get_ethernet_ports(except_interfaces, minigraph_facts)
     for intf_name, intf_info in dut_interfaces.items():
         if intf_info["oper"] == "up" and intf_name.startswith("Ethernet") and intf_name not in except_ports:
-            return ptf_indices[intf_name]
+            return ptf_indices[intf_name], intf_name
     pytest.skip("No suitable Ethernet port could be found on the DUT for receiving packets from PTF.")
-    return -1
+    return -1, None
+
+
+def get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac):
+    """
+    Returns the destination MAC that an IP-in-IP packet must carry to be L3-terminated
+    (and therefore decapsulated) when it ingresses on 'ingress_intf'.
+
+    On t1 the server/downlink ports are routed (L3) interfaces, so the global router MAC
+    is the termination MAC. On t0/dualtor the server ports are VLAN member ports; routing
+    for that subnet is done by the VLAN SVI, whose MAC may differ from the router MAC
+    (on dualtor it is the shared gateway MAC). Using the router MAC on such a port leaves
+    the frame at L2 and it gets flooded in the VLAN instead of being decapsulated.
+    """
+    if tbinfo["topo"]["type"] == "t0" and ingress_intf is not None:
+        for vlan_name, vlan_info in minigraph_facts.get("minigraph_vlans", {}).items():
+            if ingress_intf in vlan_info.get("members", []):
+                return duthost.get_dut_iface_mac(vlan_name)
+    return router_mac
 
 
 @pytest.fixture(scope="module", params=[4, 6], ids=["inner_ipv4", "inner_ipv6"])
@@ -100,9 +118,12 @@ def setup(request, duthosts, rand_one_dut_hostname, tbinfo, inner_ip_version, ou
                                                               dest_net_prefix=DESTINATION_PREFIX,
                                                               nexthop_prefix=ENDPOINT_PREFIX,
                                                               nh_af=outer_ip_version_str)
-    ptf_port_index = find_ptf_dest_port(duthost, minigraph_facts, except_interfaces=[vnet_interface])
+    ptf_port_index, ingress_intf = find_ptf_dest_port(duthost, minigraph_facts, except_interfaces=[vnet_interface])
     data = {}  # test data
     data["router_mac"] = router_mac
+    # On t0/dualtor the ingress port may be a VLAN member, in which case the L3 termination
+    # (decap) MAC is the VLAN SVI MAC rather than the global router MAC.
+    data["dest_mac"] = get_dest_mac(duthost, tbinfo, minigraph_facts, ingress_intf, router_mac)
     data["outer_ip_version"] = outer_ip_version
     data["inner_ip_version"] = inner_ip_version
     data["vxlan_src_ip"] = ecmp_utils.get_dut_loopback_address(duthost, minigraph_facts, outer_ip_version_str)
@@ -235,6 +256,8 @@ def extract_inner_ip_pkt(outer_pkt, inner_ip_version, outer_ip_version):
         return packet.IPv6(outer_pkt_bytes[outer_ip_header_size:])
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor
 def test_vnet_decap(setup, ptfadapter):
     """
     We send an IP-in-IP packet to the DUT:
@@ -246,6 +269,7 @@ def test_vnet_decap(setup, ptfadapter):
     """
     data = setup
     router_mac = data["router_mac"]
+    dest_mac = data["dest_mac"]
     outer_ip_version = data["outer_ip_version"]
     inner_ip_version = data["inner_ip_version"]
     vxlan_src_ip = data["vxlan_src_ip"]
@@ -256,7 +280,7 @@ def test_vnet_decap(setup, ptfadapter):
 
     inner_ip_pkt = get_inner_ip_packet(vnet_dest, inner_ip_version)  # Does not have the Ethernet header
     ptf_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index)
-    test_pkt = get_outer_packet(ptf_mac, router_mac, vxlan_src_ip, inner_ip_pkt, outer_ip_version)
+    test_pkt = get_outer_packet(ptf_mac, dest_mac, vxlan_src_ip, inner_ip_pkt, outer_ip_version)
     expected_pkt = get_expected_vxlan_packet(outer_ip_version, router_mac, vxlan_src_ip, vnet_endpoint, inner_ip_pkt)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, ptf_port_index, test_pkt)

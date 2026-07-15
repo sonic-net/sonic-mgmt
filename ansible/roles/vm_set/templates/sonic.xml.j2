@@ -57,10 +57,23 @@
   <resource>
     <partition>/machine</partition>
   </resource>
+{% if use_uefi %}
+  <os firmware='efi'>
+    <firmware>
+      <feature enabled='yes' name='secure-boot'/>
+      <feature enabled='no' name='enrolled-keys'/>
+    </firmware>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <boot dev='hd'/>
+    <loader readonly="yes" secure="yes" type="pflash" format="raw">/usr/share/OVMF/OVMF_CODE_4M.secboot.fd</loader>
+    <nvram template="/usr/share/OVMF/OVMF_VARS_4M.fd" templateFormat="raw" format="raw">{{ efi_vars }}</nvram>
+  </os>
+{% else %}
   <os>
     <type arch='x86_64' machine='q35'>hvm</type>
     <boot dev='hd'/>
   </os>
+{% endif %}
   <features>
     <acpi/>
     <apic/>
@@ -113,6 +126,11 @@
       <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
     </memballoon>
     <watchdog model='i6300esb'/>
+{% if use_uefi %}
+    <tpm model="tpm-crb">
+      <backend type="emulator"/>
+    </tpm>
+{% endif %}
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'/>
 </domain>

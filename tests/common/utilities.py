@@ -50,6 +50,8 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
+DEFAULT_VRF_NAME = "default"
+MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
@@ -148,7 +150,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -683,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -720,6 +722,16 @@ def str2bool(str):
     return str.lower() not in ["0", "false", "no"]
 
 
+def get_ptf_eth_ports_from_minigraph_interfaces(minigraph_interfaces, port_indices):
+    """Map minigraph L3 interfaces to PTF eth names when no portchannels exist."""
+    net_ports = []
+    for intf in minigraph_interfaces or []:
+        attachto = intf['attachto']
+        if attachto in port_indices:
+            net_ports.append('eth%d' % port_indices[attachto])
+    return net_ports
+
+
 def setup_ferret(duthost, ptfhost, tbinfo):
     '''
         Sets Ferret service on PTF host.
@@ -742,11 +754,16 @@ def setup_ferret(duthost, ptfhost, tbinfo):
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_interfaces': mgFacts['minigraph_interfaces'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
             'dut_mac': duthost.facts['router_mac']
         }
+        if not vxlanConfigData.get('minigraph_portchannels'):
+            vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+                vxlanConfigData['minigraph_interfaces'],
+                vxlanConfigData['minigraph_port_indices'])
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))
 
