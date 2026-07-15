@@ -76,10 +76,9 @@ def run_pfcwd_basic_test(api,
     ingress_duthost = tx_port["duthost"]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
-    packet_aging = disable_packet_aging if is_nexthop_device(egress_duthost) else enable_packet_aging
-
     for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
                                 (ingress_duthost, tx_port['asic_value'])):
+        packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
         packet_aging(duthost, asic_value)
         start_pfcwd(duthost, asic_value)
         if is_nexthop_device(duthost):
