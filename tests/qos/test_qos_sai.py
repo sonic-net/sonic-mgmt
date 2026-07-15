@@ -1396,6 +1396,9 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
+        # OQ ASICs (gr2/gr2x) don't have VOQs; generator returns flow_config=None.
+        if flow_config is None:
+            pytest.skip("LossyQueueVoq: not applicable on Output-Queued (non-VOQ) ASICs.")
         assert flow_config in ["separate", "shared"], "Invalid flow config '{}'".format(
             flow_config)
 
