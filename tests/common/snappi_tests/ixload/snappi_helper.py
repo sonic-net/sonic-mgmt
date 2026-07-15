@@ -345,12 +345,14 @@ def _get_dpu_ip_from_config_db(duthost, dpu_index=None, ip_field='pa_ipv4', tabl
     if ip_field == 'midplane_bridge_gw':
         ip_prefix = config_db.get("MID_PLANE_BRIDGE", {}).get("GLOBAL", {}).get("ip_prefix", "")
         if not ip_prefix:
-            raise ValueError(f"MID_PLANE_BRIDGE.GLOBAL.ip_prefix not found in config_db on {duthost.hostname}")
+            raise ValueError(
+                f"MID_PLANE_BRIDGE.GLOBAL.ip_prefix not found in config_db on {duthost.hostname}")  # noqa: E713
         return ip_prefix.split("/")[0]
     for entry in config_db.get(table, {}).values():
         if entry.get("dpu_id") == str(dpu_index):
             return entry[ip_field]
-    raise ValueError(f"DPU index {dpu_index} not found in {table} table in config_db on {duthost.hostname}")
+    raise ValueError(
+        f"DPU index {dpu_index} not found in {table} table in config_db on {duthost.hostname}")  # noqa: E713
 
 
 def _get_dpu_loopback_ips(net_connect):
