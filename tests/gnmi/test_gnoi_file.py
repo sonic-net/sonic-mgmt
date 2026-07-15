@@ -98,11 +98,13 @@ def test_file_transfer_to_remote(gnmi_tls, ptfhost, duthosts, rand_one_dut_hostn
 
 
 def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811
-    """Stat a known regular file; verify path, size, last_modified, permissions and umask.
+    """Verify File.Stat on a regular file returns a single StatInfo per the gNOI proto contract.
 
-    PR #697: HandleStat returns exactly one StatInfo for a regular file.
-    The path field must round-trip the host-visible path (no /mnt/host prefix).
-    umask is the constant defaultUmask = 0022 = 18 decimal.
+    Per the gNOI File proto:
+    - Exactly one StatInfo is returned for a regular file.
+    - path is the host-visible path (no /mnt/host prefix).
+    - size, last_modified, permissions, and umask fields are populated.
+    - umask is 0022 (18 decimal).
     """
     resp = gnmi_tls.gnoi.file_stat("/etc/hostname")
 
@@ -125,12 +127,13 @@ def test_gnoi_file_stat_regular_file(gnmi_tls):  # noqa: F811
 
 
 def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
-    """Stat a directory; verify non-recursive listing returns immediate children only.
+    """Verify File.Stat on a directory returns immediate children per the gNOI proto contract.
 
-    PR #697 contract:
-    - The directory itself is NOT included in results.
-    - Each StatInfo.path is the immediate child's host-visible path (starts with '<dir>/').
-    - Each entry has path, last_modified, permissions, umask fields.
+    Per the gNOI File proto contract for directory paths:
+    - Only immediate children are returned (non-recursive).
+    - The directory itself is NOT included in the results.
+    - Each child StatInfo contains: path, last_modified, permissions, and umask fields.
+    - Each child path is the full host-visible path (e.g. '/etc/sonic/<child>').
     """
     resp = gnmi_tls.gnoi.file_stat("/etc/sonic")
 
@@ -157,7 +160,7 @@ def test_gnoi_file_stat_directory(gnmi_tls):  # noqa: F811
 
 
 def test_gnoi_file_stat_not_found(gnmi_tls):  # noqa: F811
-    """Stat a non-existent path; expect NOT_FOUND error."""
+    """Verify File.Stat returns NOT_FOUND error for a non-existent path"""
     try:
         gnmi_tls.gnoi.file_stat("/etc/this_path_does_not_exist_gnoi_test")
         pytest_assert(False, "File.Stat should have failed for non-existent path but returned success")
@@ -193,12 +196,10 @@ def test_gnoi_file_stat_invalid_argument(gnmi_tls, bad_path, reason):  # noqa: F
 def test_gnoi_file_stat_permissions_decimal_octal(gnmi_tls, duthosts, rand_one_dut_hostname):  # noqa: F811
     """Verify permissions field is encoded as decimal-octal per gNOI proto.
 
-    PR #697 contract (statInfoFromFileInfo):
-      strconv.FormatUint(uint64(mode.Perm()), 8)  -> octal string e.g. "644"
-      strconv.ParseUint(octalStr, 10, 32)          -> decimal int 644
-
-    The expected value is derived dynamically from the DUT so the test
-    verifies the encoding invariant regardless of the file's actual mode.
+    Per the gNOI File proto, the permissions field encodes the file mode
+    as its octal string interpreted as a decimal integer (e.g. mode 0644 -> 644).
+    The test fetches the actual mode from the DUT and verifies the encoding holds,
+    independent of the specific file's permissions value.
     """
     duthost = duthosts[rand_one_dut_hostname]
     # Get the actual octal mode string from the DUT (e.g. "644")
