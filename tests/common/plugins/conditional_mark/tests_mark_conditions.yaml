@@ -1419,6 +1419,12 @@ dualtor/test_ipinip.py::test_encap_with_mirror_session:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
 
+dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
+
 dualtor/test_orch_stress.py:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
