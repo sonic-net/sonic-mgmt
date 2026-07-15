@@ -19,8 +19,13 @@ _PMON_UPTIME_SECONDS_CMD = (
     'fi'
 )
 
+PMON_MIN_UPTIME_MINUTES = 6
+# Wait budget must exceed the uptime threshold, else a pmon that (re)started just before
+# the test can never accrue PMON_MIN_UPTIME_MINUTES within the window and the wait times out.
+PMON_READY_TIMEOUT_SECS = PMON_MIN_UPTIME_MINUTES * 60 + 120
 
-def check_pmon_uptime_minutes(duthost, minimal_runtime_minutes=6):
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime_minutes=PMON_MIN_UPTIME_MINUTES):
     """
     @summary: Check whether the pmon container has been running for at least
               minimal_runtime_minutes, computed from its docker start time.
