@@ -378,6 +378,9 @@ def test_listen_range_peer_group_af_translated():
     assert af["route_map_in"] == ["FROM_BGP_SPEAKER"]
     assert af["route_map_out"] == ["TO_BGP_SPEAKER"]
     assert af["soft_reconfiguration_in"] == "true"
+    # 'neighbor <pg> activate' -> admin_status:up so frrcfgd activates the peer-group in
+    # the AF (a listen-range pg has no neighbor rows to carry the activation).
+    assert af["admin_status"] == "up"
     # It is ipv4-only: no ipv6 AF row should be invented.
     assert "default|BGPSLBPassive|ipv6_unicast" not in out["BGP_PEER_GROUP_AF"]
 

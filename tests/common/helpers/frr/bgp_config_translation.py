@@ -445,7 +445,12 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
                     af_row.setdefault("route_map_out", []).append(rm_name)
             elif attr == "soft-reconfiguration" and len(parts) > 3 and parts[3] == "inbound":
                 af_row["soft_reconfiguration_in"] = "true"
-            # 'activate' merely marks AF membership -> the af_row above suffices
+            elif attr == "activate":
+                # frrcfgd renders 'neighbor <pg> activate' from admin_status (nbr_af_key_map,
+                # frrcfgd.py:2184). A listen-range peer-group has no explicit BGP_NEIGHBOR_AF
+                # rows to carry the activation, so without this the peer-group is not
+                # activated in the AF and dynamic (listen-range) peers never establish.
+                af_row["admin_status"] = "up"
     return peer_group, peer_group_af
 
 
