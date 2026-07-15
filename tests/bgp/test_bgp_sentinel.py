@@ -214,8 +214,6 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
 
     duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
 
-    duthost.shell("vtysh -c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"")
-
     yield lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, request.param
 
     # Cleanup bgp sentinel configuration
