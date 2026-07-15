@@ -27,6 +27,36 @@ ZERO_ADDR_V6 = r'::/0'
 logger = logging.getLogger(__name__)
 
 
+def _log_bgpmon_syn_failure_diag(duthost, asichost, local_addr, peer_addr, is_ipv6_only, mode):
+    """On a BGPMON SYN-not-observed failure, dump the DUT state needed to tell *why* the
+    DUT never sent the SYN. The decisive question is whether the monitor neighbor was
+    programmed into FRR at all: in frr_mgmt_framework mode frrcfgd must consume the
+    BGP_MONITORS table -- if `show bgp neighbor <peer>` reports no such neighbor while
+    the CONFIG_DB row exists, that pinpoints a frrcfgd BGP_MONITORS gap rather than a
+    dataplane/route issue. Fires only on failure; read-only; safe in both modes."""
+    ipver = "ipv6" if is_ipv6_only else "ip"
+    logger.error("BGPMON SYN not observed (mode=%s local=%s peer=%s ipv6_only=%s) -- "
+                 "dumping DUT bgpmon state:", mode, local_addr, peer_addr, is_ipv6_only)
+    shell_cmds = [
+        ("CONFIG_DB BGP_MONITORS keys", "sonic-db-cli CONFIG_DB keys 'BGP_MONITORS|*'"),
+        ("route to bgpmon peer (SYN source path)", "show {} route {}".format(ipver, peer_addr)),
+        ("FRR running-config bgpmon lines",
+         "vtysh -c 'show running-config' | grep -iE 'bgpmon|monitor|{}' || true".format(peer_addr)),
+    ]
+    for label, cmd in shell_cmds:
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        logger.error("  [%s]\n%s", label, res.get("stdout") or res.get("stderr") or "<empty>")
+    vtysh_cmds = [
+        ("bgp summary json (is the monitor neighbor present?)", "-c 'show bgp summary json'"),
+        ("bgp neighbor <peer> (programmed into FRR at all?)", "-c 'show bgp neighbor {}'".format(peer_addr)),
+    ]
+    for label, cmd in vtysh_cmds:
+        try:
+            logger.error("  [%s]\n%s", label, asichost.run_vtysh(cmd).get("stdout", "<empty>"))
+        except Exception as exc:                                                    # noqa: BLE001
+            logger.error("  [%s] vtysh %s FAILED: %s", label, cmd, exc)
+
+
 def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False):
     mg_facts = host.get_extended_minigraph_facts(tbinfo)
     ip_cmd = "ipv6" if is_ipv6 else "ip"
@@ -204,9 +234,13 @@ def test_bgpmon(frr_config_mode, dut_with_default_route, localhost, enum_rand_on
     if is_ipv6_only:
         configure_ipv6_bgpmon_update_source(duthost, asn, local_addr)
     # Verify syn packet on ptf
-    (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(
-        test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT
-    )
+    try:
+        (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(
+            test=ptfadapter, pkt=exp_packet, ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT
+        )
+    except AssertionError:
+        _log_bgpmon_syn_failure_diag(duthost, asichost, local_addr, peer_addr, is_ipv6_only, frr_config_mode)
+        raise
     # ip as BGMPMON IP , mac as the neighbor mac(mac for default nexthop that was used for sending syn packet) ,
     # add the neighbor entry and the default route for dut loopback
     ptf_interface = "eth" + str(peer_ports[rcvd_port_index])
