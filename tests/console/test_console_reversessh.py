@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import (
     check_target_line_status,
     disconnect_console_client,
+    ensure_console_session_up,
     get_dut_console_lines,
     get_host_ip_and_creds,
     wait_for_line_idle,
@@ -29,13 +30,16 @@ def _dut_lowest_console_line(conn_graph_facts, duthost):  # noqa: F811
 
 
 @pytest.fixture(scope="function")
-def custom_default_escape_char(duthost, escape_char):
+def custom_default_escape_char(duthost, request):
     """
-    Fixture that sets ``escape_char`` (supplied by ``@pytest.mark.parametrize``)
-    as the DUT-side default console escape character and restores the
-    pre-test value on teardown so ``core_dump_and_config_check`` doesn't
-    flag drift on ``CONSOLE_SWITCH|console_mgmt.default_escape_char``.
+    Set the indirectly parametrized escape character and restore it after the
+    console session fixture has disconnected its client.
     """
+    escape_char = getattr(request, 'param', None)
+    if escape_char is None:
+        yield 'a'
+        return
+
     # Capture pre-test default_escape_char so we can restore it; empty
     # string means the field is absent from CONFIG_DB and we should
     # ``clear`` instead of setting a value back.
@@ -65,7 +69,29 @@ def custom_default_escape_char(duthost, escape_char):
         pytest.fail("Not able to restore custom default escape character: {}".format(e))
 
 
-def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # noqa: F811
+@pytest.fixture(scope="function")
+def console_session(custom_default_escape_char):
+    sessions = []
+
+    def create(duthost, dutip, ressh_user, dutpass, target_line):
+        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                               .format(ressh_user, dutip))
+        sessions.append((client, duthost, target_line))
+        client.expect('[Pp]assword:')
+        client.sendline(dutpass)
+        ensure_console_session_up(client, target_line, custom_default_escape_char)
+        return client
+
+    yield create
+
+    for client, duthost, target_line in sessions:
+        disconnect_console_client(client, custom_default_escape_char)
+        wait_for_line_idle(
+            duthost, target_line,
+            error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
+
+
+def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts, console_session):  # noqa: F811
     """
     Test reverse SSH is working as expect.
     Verify serial session is available after connect DUT via reverse SSH.
@@ -80,29 +106,16 @@ def test_console_reversessh_connectivity(duthost, creds, conn_graph_facts):  # n
         "Target line {} is busy before reverse SSH session start".format(target_line))
 
     ressh_user = "{}:{}".format(dutuser, target_line)
-    client = None
     try:
-        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-                               .format(ressh_user, dutip))
-        client.expect('[Pp]assword:')
-        client.sendline(dutpass)
-
-        # Check the console line state again
+        console_session(duthost, dutip, ressh_user, dutpass, target_line)
         pytest_assert(
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
-    finally:
-        # Send escape sequence to exit reverse SSH session
-        disconnect_console_client(client)
-
-    wait_for_line_idle(
-        duthost, target_line,
-        error_msg="Target line {} is busy after exited reverse SSH session".format(target_line))
 
 
-def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  # noqa: F811
+def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts, console_session):  # noqa: F811
     """
     Test reverse SSH is working as expect.
     Verify active serial session can be shut by DUT.
@@ -117,14 +130,8 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
         "Target line {} is busy before reverse SSH session start".format(target_line))
 
     ressh_user = "{}:{}".format(dutuser, target_line)
-    client = None
     try:
-        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-                               .format(ressh_user, dutip))
-        client.expect('[Pp]assword:')
-        client.sendline(dutpass)
-
-        # Check the console line state again
+        client = console_session(duthost, dutip, ressh_user, dutpass, target_line)
         pytest_assert(
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
@@ -164,9 +171,9 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts):  
 CUSTOM_ESCAPE_CHARS = ["b", "e", "f", "g", "k", "n", "p", "y"]
 
 
-@pytest.mark.parametrize("escape_char", CUSTOM_ESCAPE_CHARS)
+@pytest.mark.parametrize("custom_default_escape_char", CUSTOM_ESCAPE_CHARS, indirect=True)
 def test_console_reversessh_custom_default_escape_character(duthost, creds, conn_graph_facts,  # noqa: F811
-                                                            escape_char, custom_default_escape_char):
+                                                            custom_default_escape_char, console_session):
     """
     Test reverse SSH with custom escape character.
     Verify that default escape keys don't work when escape character is changed,
@@ -182,12 +189,7 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
 
     ressh_user = "{}:{}".format(dutuser, target_line)
     try:
-        client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-                               .format(ressh_user, dutip))
-        client.expect('[Pp]assword:')
-        client.sendline(dutpass)
-
-        # Check the console line state again
+        client = console_session(duthost, dutip, ressh_user, dutpass, target_line)
         pytest_assert(
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
@@ -201,14 +203,5 @@ def test_console_reversessh_custom_default_escape_character(duthost, creds, conn
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} exited with default escape keys when custom escape char is set".format(target_line))
 
-        # Send custom escape sequence (Ctrl-<escape_char> + Ctrl-X) - should exit
-        client.sendcontrol(custom_default_escape_char)
-        client.sendcontrol('x')
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
-
-    # Check the session ended and the line state is idle
-    wait_for_line_idle(
-        duthost, target_line,
-        error_msg="Target line {} is busy after exited reverse SSH session with custom escape keys".format(
-            target_line))

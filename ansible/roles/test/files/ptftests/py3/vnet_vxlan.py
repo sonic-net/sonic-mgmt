@@ -29,7 +29,7 @@ import ptf
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
-from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet,\
+from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet, \
     send_packet, verify_packet, verify_no_packet, verify_packet_any_port, verify_no_packet_any
 from ptf.mask import Mask
 
@@ -520,7 +520,7 @@ class VNET(BaseTest):
                     scapy_pkt = scapy.Ether(received_pkt)
                     upper_bound = self.vxlan_srcport | (
                         0xff >> (8 - self.vxlan_srcport_mask))
-                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport),\
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport), \
                         ("Received packet has UDP src port {} that is not in expected range {} - {}"
                          .format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:
