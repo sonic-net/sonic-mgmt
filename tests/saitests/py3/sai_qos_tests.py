@@ -5055,16 +5055,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
 
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_egr_drp = int(self.test_params['pkts_num_trig_egr_drp'])
+        cell_size = int(self.test_params['cell_size'])
         # Special tuning for cisco gr2 lossy traffic: subtract egress_lossy_pool
         # base watermark from pkts_num_trig_egr_drp. The value is in cells at
         # this point (YAML provides bytes // cell_size), so bytes_per_unit = cell_size.
         pkts_num_trig_egr_drp = adjust_lossy_pkts_for_cisco_gr2(
             self, asic_type, dut_asic, pkts_num_trig_egr_drp,
-            int(self.test_params.get('cell_size', 0)),
+            cell_size,
             param_name='pkts_num_trig_egr_drp')
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
-            cell_size = int(self.test_params['cell_size'])
             if packet_length != 64:
                 cell_occupancy = (packet_length + cell_size + descriptor_size - 1) // cell_size
                 pkts_num_trig_egr_drp //= cell_occupancy
