@@ -387,10 +387,13 @@ def create_snappi_flows(conn_graph_facts, tx_ports, rx_ports, Common_vars):
                                                ending_t0_dut=rx_ports[index]['peer_device'],
                                                get_dut_sid_index=index, Common_vars=Common_vars)
 
-        # Add the destinated tgen sid to sid_full_path
+        # Add the destinated tgen rx-port sid to sid_full_path
         sid_full_path = f'{sid_full_path}:{rx_ports[index]["tgen_endpoint_sid"]}'
         if len(sid_full_path.split(":")) < 8:
             sid_full_path = f'{sid_full_path}::'
+
+        outer_dest = sid_full_path.split(':')[2:]
+        outer_usid_list = [f"{int(x):04d}" for x in outer_dest if x]
 
         # switch-t0-1
         dut = port['peer_device']
@@ -420,6 +423,7 @@ def create_snappi_flows(conn_graph_facts, tx_ports, rx_ports, Common_vars):
             'my_src_mac': port['src_mac_address'],
             'my dest_mac': port['router_mac_address'],
             'my_ipv6_srv6_dest': sid_full_path,
+            'my_sid_list': outer_usid_list,
             'rx_port': rx_ports[index]['location'],
             'rx_port_ip_address': rx_ports[index]['ipAddress'],
             'rx_port_snappi_device_name': rx_port_snappi_device
@@ -907,9 +911,13 @@ def config_traffic_flows(pket_size, duthosts, snappi_config, Common_vars):
             tx_snappi_port_name_for_raw_pkts = Common_vars.port_name_mapper[flow['my_snappi_port']]
             rx_snappi_port_name_for_raw_pkts = Common_vars.port_name_mapper[flow['rx_port']]
 
-            flow_name = (f"{flow['my_snappi_port']}:{tx_snappi_port_name_for_raw_pkts} -> "
-                         f"{flow['rx_port']}:{rx_snappi_port_name_for_raw_pkts}")
+            flow_name = (f"{flow['my_snappi_port']}:{tx_snappi_port_name_for_raw_pkts} -> "  # noqa: E231
+                         f"{flow['rx_port']}:{rx_snappi_port_name_for_raw_pkts} "
+                         f"outer_src:{flow['my_src_ip']} "  # noqa: E231
+                         f"outer_dest:{flow['my_ipv6_srv6_dest']} inner_src:{flow['my_src_ip']} "  # noqa: E231
+                         f"inner_dest:{flow['rx_port_ip_address']}")  # noqa: E231
 
+            logger.info(f'Flow: {flow_name}')
             test_flow = snappi_config.flows.add(name=flow_name)
 
             test_flow.tx_rx.port.tx_name = tx_snappi_port_name_for_raw_pkts
@@ -917,25 +925,26 @@ def config_traffic_flows(pket_size, duthosts, snappi_config, Common_vars):
             test_flow.size.fixed = pket_size
             test_flow.rate.percentage = 100
             test_flow.duration.continuous
+            test_flow.metrics.enable = True
 
             ethernet = test_flow.packet.add()
             ethernet.choice = "ethernet"
             ethernet.ethernet.src.value = flow['my_src_mac']
             ethernet.ethernet.dst.value = Common_vars.config_data[dut.hostname]['router_mac_address']
 
-            ipv6_outer = test_flow.packet.add()
-            ipv6_outer.choice = "ipv6"
-            ipv6_outer.ipv6.src.value = flow['my_src_ip']
-            ipv6_outer.ipv6.dst.value = flow['my_ipv6_srv6_dest']
-            ipv6_outer.ipv6.next_header.value = 43
-            ipv6_outer.ipv6.hop_limit.value = 126
+            ipv6_outer = test_flow.packet.add().ipv6
+            ipv6_outer.src.value = flow['my_src_ip']
+            du = ipv6_outer.dst_usids
+            du.locator.value = Common_vars.sid_locator
+            du.locator_length.value = 32
+            du.usids = flow['my_sid_list']
+            ipv6_outer.hop_limit.value = 64
 
-            ipv6_inner = test_flow.packet.add()
-            ipv6_inner.choice = "ipv6"
-            ipv6_inner.ipv6.src.value = flow['my_src_ip']
-            ipv6_inner.ipv6.dst.value = flow['rx_port_ip_address']
-            ipv6_inner.ipv6.next_header.value = 59
-            ipv6_inner.ipv6.hop_limit.value = 126
+            ipv6_inner = test_flow.packet.add().ipv6
+            ipv6_inner.src.value = flow['my_src_ip']
+            ipv6_inner.dst.value = flow['rx_port_ip_address']
+            ipv6_inner.next_header.value = 59
+            ipv6_inner.hop_limit.value = 64
 
 
 def clear_dut_stats(duthosts):
