@@ -39,6 +39,21 @@ logger = logging.getLogger(__name__)
 
 FRR_CONFIG_MODES = [MODE_TRADITIONAL, MODE_FRR_MGMT_FRAMEWORK]
 
+# bgpcfgd renders these base BGP-sentinel policy objects from its Jinja templates
+# (dockers/docker-fpm-frr/frr/bgpd/templates/sentinels/policies.conf.j2) on every DUT
+# whose image ships that template -- FROM_BGP_SENTINEL/TO_BGP_SENTINEL unconditionally,
+# and sentinel_community when the constants.bgp.sentinel_community global is set --
+# regardless of whether any BGP_SENTINELS are configured. frrcfgd does not implement the
+# BGP-sentinel feature at all (it drives FRR from its native schema, not those templates),
+# so after switching to frr mode these objects legitimately disappear. That is a true
+# frrcfgd capability gap, not a translation miss: the only test that uses sentinels
+# (test_bgp_sentinel) already self-skips in frr via is_bgp_sentinel_supported(). Exempt
+# them from the fail-loud fingerprint so it does not false-fail on this inert scaffolding.
+FRRCFGD_UNSUPPORTED_OBJECTS = {
+    "route_maps": {"FROM_BGP_SENTINEL", "TO_BGP_SENTINEL"},
+    "community_lists": {"sentinel_community"},
+}
+
 
 def skip_if_frr_mgmt_framework(mode, reason):
     """Skip the frr_mgmt_framework variant of a test that exercises a feature frrcfgd
@@ -104,8 +119,19 @@ def _frr_config_fingerprint(duthost):
 def _assert_config_preserved(duthost, mode, baseline_fp):
     """Fail loudly if any BGP object present before the switch is missing after it."""
     after = _frr_config_fingerprint(duthost)
-    dropped = {cat: sorted(objs - after[cat]) for cat, objs in baseline_fp.items()}
-    dropped = {cat: v for cat, v in dropped.items() if v}
+    dropped = {}
+    for cat, objs in baseline_fp.items():
+        missing = objs - after[cat]
+        # A missing object that frrcfgd is known not to support is an expected capability
+        # gap, not a translation miss -- record it visibly but do not fail on it.
+        exempt = missing & FRRCFGD_UNSUPPORTED_OBJECTS.get(cat, set())
+        if exempt:
+            logger.info("Switching to '%s' mode dropped frrcfgd-unsupported %s %s "
+                        "(bgpcfgd base-template artifacts with no frrcfgd equivalent); "
+                        "ignoring -- not a translation miss.", mode, cat, sorted(exempt))
+        real = sorted(missing - exempt)
+        if real:
+            dropped[cat] = real
     pt_assert(not dropped,
               "Switching to '{}' mode dropped BGP config objects that were present in the "
               "original mode: {}. The bgpcfgd->frrcfgd translation did not carry them over -- "
