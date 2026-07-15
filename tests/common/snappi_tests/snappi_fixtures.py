@@ -1553,7 +1553,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             config_facts = facts['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
-            if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
+            if int(port['port_id']) == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
                 logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
                 reconfigure_port = port
                 reconfigure_port['original_subnet'] = subnet[0]
@@ -1584,7 +1584,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         all_values = json.load(f)
 
     for port in ports:
-        port_id = port['port_id']
+        port_id = int(port['port_id'])
         dutIp = port['ipGateway']
         tgenIp = port['ipAddress']
         prefix_length = int(port['prefix'])
