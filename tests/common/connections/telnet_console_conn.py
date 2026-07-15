@@ -39,10 +39,7 @@ class TelnetConsoleConn(BaseConsoleConn):
 
         # Netmiko opens telnet then calls telnet_login() directly — session_preparation() is not
         # invoked first, so BMC→CPU mux must run here before SONiC login probes.
-        if self.bmc_first_console_switch:
-            time.sleep(0.3)
-            self.read_channel()
-            self.switch_bmc_to_cpu_console()
+        self.prepare_bmc_first_console()
 
         output = ""
         return_msg = ""

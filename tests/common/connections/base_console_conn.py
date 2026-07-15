@@ -4,6 +4,7 @@ Base class for console connection of SONiC devices
 
 import logging
 import paramiko
+import re
 import time
 
 from netmiko.cisco_base_connection import CiscoBaseConnection
@@ -124,6 +125,17 @@ class BaseConsoleConn(CiscoBaseConnection):
         self.write_channel(command + self.RETURN)
         self.read_until_pattern(pattern=pattern)
 
+    def prepare_bmc_first_console(self):
+        """
+        On BMC-first UART mux platforms, switch to CPU console before SONiC login.
+        Shared by telnet and SSH console connection paths.
+        """
+        if not self.bmc_first_console_switch:
+            return
+        time.sleep(0.3)
+        self.read_channel()
+        self.switch_bmc_to_cpu_console()
+
     def switch_bmc_to_cpu_console(self):
         """
         Some platforms mux BMC UART before CPU; send Ctrl+U, digit 2, then Enter so SONiC login appears.
@@ -133,7 +145,32 @@ class BaseConsoleConn(CiscoBaseConnection):
         self.write_channel("\x15")
         time.sleep(0.5)
         self.write_channel("2" + newline)
-        time.sleep(1.5)
+        time.sleep(0.5)
+        self.write_channel(newline)
+        output = ""
+        deadline = time.time() + 10
+        # Match telnet_login() prompt patterns plus SONiC boot banner text.
+        cpu_console_pattern = re.compile(
+            r"(?:user:|username|login|user name|assword|SONiC Software|Open Networking)",
+            re.IGNORECASE,
+        )
+        while time.time() < deadline:
+            chunk = self.read_channel()
+            if chunk:
+                output += chunk
+                if cpu_console_pattern.search(chunk):
+                    break
+            else:
+                time.sleep(0.2)
+        if output:
+            self.logger.info(
+                "Console mux response (first 500 chars): %r",
+                output[:500],
+            )
+        else:
+            self.logger.warning(
+                "Console mux: no UART output within 10s after CPU switch"
+            )
 
     def disable_paging(self, command="", delay_factor=1):
         # not supported
