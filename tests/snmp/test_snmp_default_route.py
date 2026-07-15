@@ -47,7 +47,7 @@ def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         for ip in dut_result_nexthops:
             assert ip in snmp_facts['snmp_cidr_route'], "{} ip not found in snmp_facts".format(
                 ip)
-            assert snmp_facts['snmp_cidr_route'][ip]['route_dest'] == '0.0.0.0',\
+            assert snmp_facts['snmp_cidr_route'][ip]['route_dest'] == '0.0.0.0', \
                 "Incorrect route_dest for {} ip".format(ip)
             assert snmp_facts['snmp_cidr_route'][ip]['status'] == '1', "Incorrect status for {} ip".format(
                 ip)

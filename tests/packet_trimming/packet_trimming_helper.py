@@ -713,7 +713,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Check queue counters before filling
     for interface in interfaces:
-        logger.info(f"Queue counters before filling for {interface}:")
+        logger.info(f"Queue counters before filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
@@ -853,7 +853,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
     # Check queue counters after filling
     for interface in interfaces:
-        logger.info(f"Queue counters after filling for {interface}:")
+        logger.info(f"Queue counters after filling for {interface}:")  # noqa: E231
         duthost.shell(f"show queue counters {interface}")
         duthost.shell(f"show queue counters {interface} --json")
 
@@ -1249,7 +1249,7 @@ def compute_buffer_threshold_for_common_device(duthost, interface, queue_id):
         static_threshold = int(buffer_profile["size"]) + int(buffer_scale * pool_size * STATIC_THRESHOLD_MULTIPLIER)
 
         logger.info(f"Computed buffer threshold for queue {queue_id} on {interface}: {static_threshold}")
-        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "
+        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "  # noqa: E231
                     f"Buffer size: {static_threshold}")
 
         return static_threshold
@@ -1528,10 +1528,10 @@ def configure_trimming_acl(duthost, test_ports):
     # Verify ACL configuration
     logger.info("Verifying ACL configuration")
     result = duthost.shell("show acl table")
-    logger.info(f"ACL tables:\n{result['stdout']}")
+    logger.info(f"ACL tables:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell("show acl rule")
-    logger.info(f"ACL rules:\n{result['stdout']}")
+    logger.info(f"ACL rules:\n{result['stdout']}")  # noqa: E231
 
     # Verify table was created successfully
     if ACL_TABLE_NAME not in result["stdout"]:
@@ -1772,10 +1772,10 @@ def update_service_port_buffer_profile(duthost, service_port):
     # Verify buffer configuration
     logger.info("Verifying buffer configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PG|{service_port}|0'")
-    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PG|{service_port}|0 configuration:\n{result['stdout']}")  # noqa: E231
 
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port}'")
-    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"BUFFER_PORT_INGRESS_PROFILE_LIST|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "ingress_lossy_profile" not in result["stdout"]:
         raise RuntimeError(f"Buffer configuration for {service_port} was not applied successfully")
@@ -1830,7 +1830,7 @@ def update_service_port_qos_map(duthost, service_port):
     # Verify QoS map configuration
     logger.info("Verifying QoS map configuration")
     result = duthost.shell(f"redis-cli -n 4 HGETALL 'PORT_QOS_MAP|{service_port}'")
-    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")
+    logger.info(f"PORT_QOS_MAP|{service_port} configuration:\n{result['stdout']}")  # noqa: E231
 
     if "AZURE" not in result["stdout"]:
         raise RuntimeError(f"QoS map configuration for {service_port} was not applied successfully")
@@ -1930,7 +1930,7 @@ def update_port_info_for_portchannel(port_dict, portchannel_name, portchannel_me
     new_port_info['ptf_port_id'] = member_ptf_ids
     new_port_info['dut_members'] = portchannel_members
 
-    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"
+    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"  # noqa: E231
                 f"dut_members={portchannel_members}")
 
     return {portchannel_name: new_port_info}
@@ -2076,7 +2076,7 @@ def get_interface_peer_addresses(mg_facts, interface_name):
 
     # Check if the required interface list exists in mg_facts
     if interface_list_key not in mg_facts:
-        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")
+        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")  # noqa: E713
         return ipv4_peer_addr, ipv6_peer_addr
 
     for interface in mg_facts[interface_list_key]:
@@ -2949,9 +2949,9 @@ def compare_counters(counter1, counter2, keys_to_compare):
 
     for key in keys_to_compare:
         if key not in counter1:
-            raise KeyError(f"Key '{key}' not found in counter1")
+            raise KeyError(f"Key '{key}' not found in counter1")  # noqa: E713
         if key not in counter2:
-            raise KeyError(f"Key '{key}' not found in counter2")
+            raise KeyError(f"Key '{key}' not found in counter2")  # noqa: E713
 
         value1 = counter1[key]
         value2 = counter2[key]
