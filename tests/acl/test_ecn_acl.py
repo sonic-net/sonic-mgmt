@@ -15,6 +15,7 @@ ACL_TABLE_NAME = "ECN_TEST"
 ACL_RULE_NAME = "MARK_UDP_5000"
 UDP_SPORT = 5000
 UDP_DPORT = 6000
+NON_MATCH_UDP_SPORT = 5001
 
 
 def _discover_uplinks(duthost, tbinfo):
@@ -125,6 +126,7 @@ def test_ecn_acl_data_plane(ptfhost, setup_ecn):
         'dst_ip': setup_ecn['dst_ip'],
         'udp_sport': UDP_SPORT,
         'udp_dport': UDP_DPORT,
+        'non_match_udp_sport': NON_MATCH_UDP_SPORT,
     }
     logger.info("PTF params: %s", params)
     ptf_runner(

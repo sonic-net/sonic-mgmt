@@ -95,9 +95,11 @@ Verify matching traffic is ECN-marked in hardware.
 
 #### Test steps
 
-- PTF sends a routed UDP packet (source port 5000) with `ECN=0` to the DUT.
-- Verify the packet forwarded out of the egress uplink has `ECN=3` (CE), with the
-  rest of the packet unchanged.
+- PTF sends a routed UDP packet with the matching source port and `ECN=0`; verify
+  the packet forwarded out of the egress uplink has `ECN=3` (CE), with the rest of
+  the packet unchanged.
+- PTF sends a routed UDP packet with a non-matching source port and `ECN=0`; verify
+  it is still forwarded but its `ECN` is left unchanged (`0`).
 
 ### Test case 3: SRv6 uN coexistence
 
@@ -123,8 +125,6 @@ both `SET_ECN` and SRv6 uN (`th5`/`th6`/`spc5`/`spc6`).
 
 ## Future work / platform limitations
 
-- **SRv6 decap (uDT) interaction:** not hardware-supported yet (Spectrum-5 /
-  Tomahawk-5 SAI/SDK reject `uDT4`/`uDT6`/`uDT46`). By code review SONiC leaves
-  the decap tunnel's ECN mode at the RFC 6040 default, so marking `CE` on
-  to-be-decapped traffic would drop Not-ECT inner packets per RFC 6040 - a
-  caveat to validate once an ASIC supports SRv6 decap.
+- **SRv6 decap (uDT) interaction:** not yet covered. Marking ECN on traffic that is
+  later SRv6-decapsulated also interacts with RFC 6040 decap behaviour, to be
+  validated once SRv6 decap is available.
