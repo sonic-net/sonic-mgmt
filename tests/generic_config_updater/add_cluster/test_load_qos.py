@@ -222,12 +222,12 @@ def apply_patch_add_qos_for_namespace(duthost,
     # BUFFER_PG per-key adds (key = "<port>|<pg_profile>").
     buffer_pg_added = []
     for buffer_key, value in buffer_pg_saved.items():
-            json_patch.append({
-                "op": "add",
-                "path": "{}/BUFFER_PG/{}".format(ns_path, buffer_key),
-                "value": value,
-            })
-            buffer_pg_added.append(buffer_key)
+        json_patch.append({
+            "op": "add",
+            "path": "{}/BUFFER_PG/{}".format(ns_path, buffer_key),
+            "value": value,
+        })
+        buffer_pg_added.append(buffer_key)
     # PORT_QOS_MAP per-key adds (key = "<port>").
     port_qos_map_added = []
     for port_key, value in port_qos_map_saved.items():
@@ -283,6 +283,7 @@ def verify_qos_in_appl_db(duthost, namespace, qos_config, timeout=60, interval=5
     # PORT_QOS_MAP intentionally skipped as APPL_DB
     # do not maintain PORT_QOS_TABLE entries
     table_map = {'BUFFER_PG': 'BUFFER_PG_TABLE'}
+
     def _keys(appl_table):
         cmd = "sonic-db-cli {} APPL_DB keys {}:*".format(ns_prefix, appl_table)
         return [k for k in duthost.shell(cmd)["stdout"].splitlines() if k]
@@ -298,11 +299,10 @@ def verify_qos_in_appl_db(duthost, namespace, qos_config, timeout=60, interval=5
                 appl_table, len(_keys(appl_table)), len(expected)),
         )
 
-
-
 # -----------------------------
 # Test Definitions
 # -----------------------------
+
 
 @pytest.fixture(autouse=True)
 def ignore_expected_qos_errors(loganalyzer, rand_one_dut_front_end_hostname):
@@ -334,6 +334,7 @@ def ignore_expected_qos_errors(loganalyzer, rand_one_dut_front_end_hostname):
             r".*ERR syncd[0-9]*#syncd.*SAI_API_(BUFFER|QOS_MAP|QUEUE).*",
         ]
         loganalyzer[rand_one_dut_front_end_hostname].ignore_regex.extend(ignore_regexes)
+
 
 def test_load_qos(duthosts,
                   rand_one_dut_front_end_hostname,
