@@ -64,7 +64,15 @@ import os
 
 from .attribute_keys import BASE_ATTRIBUTES_KEY
 from .exceptions import AttributeMergeError
-from .paths import REL_ATTR_DIR, REL_NORMALIZATION_MAPPINGS_FILE
+from .paths import (
+    REL_ATTR_DIR,
+    REL_NORMALIZATION_MAPPINGS_FILE,
+    SHARD_VENDORS_DIR,
+    SHARD_PART_NUMBERS_SEGMENT,
+    CDB_FIRMWARE_UPGRADE_CATEGORY,
+    CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+    CDB_FIRMWARE_UPGRADE_URL_FILE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +85,14 @@ PN_RESERVED_SUBSLOTS = ('firmware_overrides', 'platform_hwsku_overrides')
 
 # Allowed top-level keys in a category-level shard body.
 _CATEGORY_TOP_KEYS = frozenset({'mandatory', 'defaults', 'dut', 'transceivers'})
+
+# Per-category files inside a category directory that are not attribute shards
+CATEGORY_NON_SHARD_FILES = {
+    CDB_FIRMWARE_UPGRADE_CATEGORY: frozenset({
+        CDB_FIRMWARE_UPGRADE_MANIFEST_FILE,
+        CDB_FIRMWARE_UPGRADE_URL_FILE,
+    }),
+}
 
 
 class AttributeManager:
@@ -147,6 +163,7 @@ class AttributeManager:
         deterministic across filesystems and Python versions.
         """
         expected_filename = f"{category_name}.json"
+        non_shard_files = CATEGORY_NON_SHARD_FILES.get(category_name, frozenset())
         shards = []
         for root, dirs, files in os.walk(category_dir):
             dirs.sort()
@@ -154,6 +171,8 @@ class AttributeManager:
             parts = [] if rel == '.' else rel.split(os.sep)
             for fname in sorted(files):
                 if not fname.endswith('.json'):
+                    continue
+                if fname in non_shard_files:
                     continue
                 full = os.path.join(root, fname)
                 shards.append(self._classify_shard(category_name, expected_filename, parts, fname, full))
@@ -173,7 +192,7 @@ class AttributeManager:
             if len(parts) == 2:
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('platform', full_path, {'platform': parts[1]})
@@ -184,18 +203,18 @@ class AttributeManager:
                 f"Unrecognized path under platforms/: {full_path}. "
                 "Allowed: platforms/<P>/<cat>.json or platforms/<P>/hwskus/<H>.json."
             )
-        if parts[:2] == ['transceivers', 'vendors']:
+        if parts[:2] == SHARD_VENDORS_DIR.split(os.sep):
             if len(parts) == 3:
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('vendor', full_path, {'vendor': parts[2]})
-            if len(parts) == 5 and parts[3] == 'part_numbers':
+            if len(parts) == 5 and parts[3] == SHARD_PART_NUMBERS_SEGMENT:
                 if fname != expected_filename:
                     raise AttributeMergeError(
-                        f"Unexpected filename {fname} at {full_path}; "
+                        f"Unexpected filename {fname} at {full_path}, "
                         f"expected {expected_filename}."
                     )
                 return ('pn', full_path, {'vendor': parts[2], 'pn': parts[4]})
