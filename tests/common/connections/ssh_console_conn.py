@@ -69,6 +69,10 @@ class SSHConsoleConn(BaseConsoleConn):
         # re-synchronise the terminal back to a fresh "login:" prompt between
         # attempts (the failed attempt leaves a "Login incorrect" banner in the
         # buffer that would otherwise desync the next login).
+
+        # After the console server hands off to DUT serial (direct SSH port or menu port).
+        self.prepare_bmc_first_console()
+
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
