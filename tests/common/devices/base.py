@@ -42,6 +42,9 @@ def ansible_tqm_has_signal_registration():
 _signal_patch_lock = threading.RLock()
 _signal_patch_ref_count = 0
 _original_signal = None
+# pytest-ansible resolves modules through Ansible's process-global, mutable
+# plugin-loader caches.
+_ansible_module_resolution_lock = threading.RLock()
 
 
 @contextmanager
@@ -158,7 +161,9 @@ class AnsibleHostBase(object):
         self.hostname = hostname
 
     def __getattr__(self, module_name):
-        if self.host.has_module(module_name):
+        with _ansible_module_resolution_lock:
+            has_module = self.host.has_module(module_name)
+        if has_module:
             def _run_wrapper(*module_args, **kwargs):
                 return self._run(module_name, *module_args, **kwargs)
             return _run_wrapper
@@ -166,13 +171,17 @@ class AnsibleHostBase(object):
             "'%s' object has no attribute '%s'" % (self.__class__, module_name)
             )
 
+    def _get_ansible_module(self, module_name):
+        with _ansible_module_resolution_lock:
+            return getattr(self.host, module_name)
+
     def _run(self, module_name, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
 
         verbose = complex_args.pop('verbose', True)
-        module = getattr(self.host, module_name)
+        module = self._get_ansible_module(module_name)
         if verbose:
             logger.debug(
                 "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
