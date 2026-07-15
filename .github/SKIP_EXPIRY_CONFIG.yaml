@@ -3,6 +3,16 @@ maintainers:
   - wangxin
   - yxieca
 
+releases:
+  includes:
+    - '^202\d{3}$'
+  excludes:
+    - "202305"
+    - "202311"
+    - "202211"
+    - "202205"
+    - "202012"
+
 expiry:
   default_days: 90
 

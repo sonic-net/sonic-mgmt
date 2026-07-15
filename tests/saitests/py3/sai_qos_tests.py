@@ -45,9 +45,9 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,  # noqa F401
                                       sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID # noqa F401
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID  # noqa F401
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
@@ -2634,7 +2634,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port ingress drop
             if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
                 for cntr in ingress_counters:
-                    if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
+                    if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
                         if cntr == 1:
                             qos_test_assert(
                                 self, recv_counters[cntr] > recv_counters_base[cntr],
@@ -3038,7 +3038,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         switch_init(self.clients)
         initialize_diag_counter(self)
         last_pfc_counter = 0  # noqa F841
-        recv_port_counters = [] # noqa F841
+        recv_port_counters = []  # noqa F841
         transmit_port_counters = []  # noqa F841
 
         # Parse input parameters
@@ -3276,7 +3276,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' \
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
                     or 'Nokia-IXR7220-H6' in hwsku:
                 send_packet(
                     self, src_port_id, pkt,
@@ -3319,7 +3319,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' \
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
                     or 'Nokia-IXR7220-H6' in hwsku:
                 send_packet(
                     self, src_port_id, pkt2,
@@ -3371,7 +3371,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' \
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku \
                     or 'Nokia-IXR7220-H6' in hwsku:
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
@@ -5269,7 +5269,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, recv_counters[pg], pg, recv_counters_base[pg]))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx" or "broadcom":
+                if platform_asic and platform_asic in ("broadcom-dnx", "broadcom"):
                     if cntr == 1:
                         if dut_asic == 'q3d':
                             qos_test_assert(
@@ -5453,7 +5453,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 print("Did not find a second flow in mode '{}'".format(
                     self.flow_config), file=sys.stderr)
-                assert self.flow_config == "shared",\
+                assert self.flow_config == "shared", \
                     "Failed to find a flow that uses a second queue despite being in mode '{}'"\
                     .format(self.flow_config)
             # Cleanup for multi-flow test
@@ -7343,7 +7343,7 @@ class FullMeshTrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def config_traffic(self, dst_port_id, dscp, ecn_bit):
-        if type(ecn_bit) == bool:
+        if isinstance(ecn_bit, bool):
             ecn_bit = 1 if ecn_bit else 0
         self.dscp = dscp
         self.dst_port_id = dst_port_id

@@ -1303,7 +1303,7 @@ def fib_t2_lag(topo, ptf_ip, action="announce", topo_routes={}):
     # T3 VMs per linecard(asic) - key is the dut index, and value is a list of T3 VMs
     t3_vms = {}
     for key, value in vms.items():
-        if type(value['vlans'][0]) == int:
+        if isinstance(value['vlans'][0], int):
             dut_index = 0
         else:
             m = re.match(r"(\d+)\.(\d+)@(\d+)", value['vlans'][0])
