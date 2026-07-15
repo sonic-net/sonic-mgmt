@@ -214,9 +214,18 @@ def router_id_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_fron
 def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, loopback_ip,
                                           tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
-                      .format(CUSTOMIZED_BGP_ROUTER_ID))
+    # bgpcfgd reads the router-id from DEVICE_METADATA|localhost:bgp_router_id; frrcfgd
+    # reads it from BGP_GLOBALS|default:router_id. Write the table the active backend
+    # consumes (same as router_id_setup_and_teardown).
+    frr_mode = duthost.get_frr_mgmt_framework_config()
+    if frr_mode:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
+    else:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"DEVICE_METADATA|localhost\" \"bgp_router_id\" \"{}\""
+                          .format(CUSTOMIZED_BGP_ROUTER_ID))
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "del \"LOOPBACK_INTERFACE|Loopback0|{}/32\"".format(loopback_ip),
                       module_ignore_errors=False)
@@ -224,8 +233,12 @@ def router_id_loopback_setup_and_teardown(duthosts, enum_frontend_dut_hostname, 
 
     yield
 
-    run_config_db_cmd(duthost, enum_frontend_asic_index,
-                      "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
+    if frr_mode:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hset \"BGP_GLOBALS|default\" \"router_id\" \"{}\"".format(loopback_ip))
+    else:
+        run_config_db_cmd(duthost, enum_frontend_asic_index,
+                          "hdel \"DEVICE_METADATA|localhost\" \"bgp_router_id\"")
     run_config_db_cmd(duthost, enum_frontend_asic_index,
                       "hset \"LOOPBACK_INTERFACE|Loopback0|{}/32\" \"NULL\" \"NULL\""
                       .format(loopback_ip))
