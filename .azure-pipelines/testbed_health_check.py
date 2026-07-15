@@ -101,6 +101,7 @@ class TestbedHealthChecker:
         self.log_verbosity = log_verbosity
         self.output_file = output_file
         self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
+        self.is_bmc_testbed = 'bmc' in testbed_name.lower()
 
         # DPU-related state
         self.dpu_hosts = []
@@ -637,7 +638,18 @@ class TestbedHealthChecker:
 
         # Set default critical containers to check
         if not critical_containers:
-            critical_containers = ["syncd", "swss", "bgp"]
+            if self.is_bmc_testbed:
+                critical_containers = [
+                    "gnmi",
+                    "pmon",
+                    "telemetry",
+                    "sysmgr",
+                    "redfish",
+                    "acms",
+                    "database"
+                ]
+            else:
+                critical_containers = ["syncd", "swss", "bgp"]
 
         failed = False
         running_containers_facts_on_hosts = {}
