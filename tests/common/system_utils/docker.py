@@ -109,9 +109,9 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 def _feature_monitor_paused(duthost):
     """Pause the `featured` daemon for the duration of the block, restoring prior state.
 
-    Swss/syncd graceful shutdown can take ~30s. The `featured` daemon, if used, 
-    might restart any feature whose state is 'enabled' as soon as it observes the 
-    container is down, racing against the swap shutdown check and causing 
+    Swss/syncd graceful shutdown can take ~30s. The `featured` daemon, if used,
+    might restart any feature whose state is 'enabled' as soon as it observes the
+    container is down, racing against the swap shutdown check and causing
     "Docker and/or BGP failed to shut down in 30s". So we pause it.
     This is a no-op on platforms/images that do not ship `featured`.
 
