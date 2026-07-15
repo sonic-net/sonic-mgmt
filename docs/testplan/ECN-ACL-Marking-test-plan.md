@@ -7,7 +7,8 @@
 - [Test cases](#test-cases)
   - [test_ecn_acl_control_plane](#test-case-1-control-plane)
   - [test_ecn_acl_data_plane](#test-case-2-data-plane)
-- [TODO](#todo)
+  - [test_srv6_ecn_marking_uN](#test-case-3-srv6-un-coexistence)
+- [Future work / platform limitations](#future-work--platform-limitations)
 
 ## Overview
 
@@ -98,13 +99,32 @@ Verify matching traffic is ECN-marked in hardware.
 - Verify the packet forwarded out of the egress uplink has `ECN=3` (CE), with the
   rest of the packet unchanged.
 
-## TODO
+### Test case 3: SRv6 uN coexistence
 
-- **SRv6 forwarding interaction** (see [`srv6/test_srv6_ecn_acl.py`](../../tests/srv6/test_srv6_ecn_acl.py)):
-  - *Transit (uN):* validated — `ECN_ACTION` marks the SRv6 outer ECN and uN forwarding is
-    unaffected (uN only rewrites the destination address + hop-limit). Tested by
-    `test_srv6_ecn_marking_uN` with a negative control.
-  - *Decap (uDT):* not hardware-supported yet (Spectrum-5 / Tomahawk-5 SAI/SDK). By code review
-    SONiC leaves the decap tunnel's ECN mode at the RFC 6040 default, so marking `CE` on
-    to-be-decapped traffic would drop Not-ECT inner packets per RFC 6040 — a caveat to verify
-    once an ASIC supports SRv6 decap.
+`test_srv6_ecn_marking_uN` (see [`srv6/test_srv6_ecn_acl.py`](../../tests/srv6/test_srv6_ecn_acl.py))
+
+#### Test objective
+
+Verify `ECN_ACTION` marking and SRv6 uN forwarding coexist: an ingress `L3V6`
+ACL marks the SRv6 outer ECN while the DUT still performs the uN uSID shift.
+
+#### Test steps
+
+- PTF sends an SRv6 (IPv6-in-IPv6) packet with outer `ECN=0` whose outer
+  destination hits the DUT's uN SID.
+- Verify the uN-forwarded packet leaves with the outer destination shifted, the
+  hop limit decremented, and outer `ECN=3` (CE) set by the ACL.
+- A negative control (`test_srv6_ecn_negative_control`) sends a non-matching
+  packet and confirms it is still uN-forwarded but its outer ECN stays `0`,
+  proving the marking comes from the ACL and not from SRv6.
+
+This scenario is gated by `conditional_mark` to ASIC generations that support
+both `SET_ECN` and SRv6 uN (`th5`/`th6`/`spc5`/`spc6`).
+
+## Future work / platform limitations
+
+- **SRv6 decap (uDT) interaction:** not hardware-supported yet (Spectrum-5 /
+  Tomahawk-5 SAI/SDK reject `uDT4`/`uDT6`/`uDT46`). By code review SONiC leaves
+  the decap tunnel's ECN mode at the RFC 6040 default, so marking `CE` on
+  to-be-decapped traffic would drop Not-ECT inner packets per RFC 6040 - a
+  caveat to validate once an ASIC supports SRv6 decap.
