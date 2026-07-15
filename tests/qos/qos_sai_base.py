@@ -37,7 +37,6 @@ from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfc
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
 from tests.common.utilities import is_ipv6_only_topology
-from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ class QosBase:
         "t0-88-o8c80", "t0-f2-d40u8", "t0-f2-d40u8-po2vlan"
     ]
     SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
-                          "t1-f2-d10u8",
+                          "t1-f2-d10u8", "t1-isolated-d32u1s2",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
@@ -1303,6 +1302,11 @@ class QosSaiBase(QosBase):
             pytest_assert(
                 not src_dut.sonichost.is_multi_asic, "Fixture not supported on T0 multi ASIC"
             )
+            # TH6 lt2 selects test ports from PortChannel members; detect via hwsku hostvars like dutAsic.
+            _vendor = src_dut.facts["asic_type"]
+            _hostvars = src_dut.host.options['variable_manager']._hostvars[src_dut.hostname]
+            _th6_hwskus = "{0}_th6_hwskus".format(_vendor)
+            isBroadcomTH6Device = _th6_hwskus in _hostvars and src_mgFacts["minigraph_hwsku"] in _hostvars[_th6_hwskus]
             dutLagInterfaces = []
             testPortIds[src_dut_index] = {}
             for _, lag in src_mgFacts["minigraph_portchannels"].items():
@@ -1332,7 +1336,7 @@ class QosSaiBase(QosBase):
                         testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
-            if isBroadcomDevice(src_dut):
+            if isBroadcomTH6Device:
                 testPortIds[src_dut_index][src_asic_index] = set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
@@ -1345,7 +1349,7 @@ class QosSaiBase(QosBase):
             dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
-            elif isBroadcomDevice(src_dut):
+            elif isBroadcomTH6Device:
                 intf_map = src_mgFacts["minigraph_portchannel_interfaces"]
             else:
                 intf_map = src_mgFacts["minigraph_interfaces"]
@@ -1355,9 +1359,9 @@ class QosSaiBase(QosBase):
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
                 if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
-                    if isBroadcomDevice(src_dut):
+                    if isBroadcomTH6Device:
                         if intf in src_mgFacts["minigraph_portchannels"]:
-                            intf = src_mgFacts["minigraph_portchannels"][portConfig["attachto"]]['members'][0]
+                            intf = src_mgFacts["minigraph_portchannels"][intf]['members'][0]
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
@@ -3529,7 +3533,10 @@ class QosSaiBase(QosBase):
         out of scope for this PR.
 
         What this DOES cover:
-        - Fanout-self originated LLDP (stopped via container)
+        - Fanout-self originated LLDP, but only when the LLDP container is
+          running before the test. Fanouts where LLDP is already stopped
+          (e.g. Cisco 8101) are left untouched and are NOT restarted on
+          teardown, so the fixture never changes their LLDP state.
 
         What this does NOT cover (limitation, tracked in #24236):
         - VM-originated LLDP/LACP that transits through the SONiC fanout
@@ -3540,29 +3547,42 @@ class QosSaiBase(QosBase):
         - EOS neighbor LACP multiplier 600 (no EOS-side LAG flap)
         - DUT LLDP/BGP/radvd stopped by stopServices fixture
         """
-        # Stop LLDP container once per fanout (covers fanout-self LLDP).
-        # The 202511 fanout role only stops LLDP for marvell-teralynx;
-        # broadcom SONiC fanouts still run LLDP by default.
-        # Assumption: LLDP is running before the test; "docker stop" rc=0 does
-        # not distinguish "stopped now" from "was already stopped", so the
-        # teardown's symmetric "docker start" will start LLDP even on fanouts
-        # where it was previously off. This is acceptable for the testbeds
-        # in scope (#24236) where LLDP runs by default on Broadcom SONiC.
+        # Stop the LLDP container only when it is *currently running*, and
+        # only restart in teardown the fanouts we actually stopped (tracked
+        # via sonic_lldp_stopped). Rationale: on some SONiC fanouts (e.g.
+        # Cisco 8101) LLDP is intentionally kept stopped/disabled; a symmetric
+        # "docker start" in teardown would wrongly turn it back on. Gating on
+        # the live running state means we (a) never start a container that was
+        # already down, and (b) leave such fanouts untouched. On fanouts where
+        # LLDP runs by default (e.g. Broadcom SONiC) behaviour is unchanged:
+        # it is stopped for the test and restored afterwards.
         if fanout_name not in sonic_lldp_stopped:
             try:
-                result = fanout.host.command(
-                    "docker stop lldp", module_ignore_errors=True)
-                if result.get('failed', False) or result.get('rc', 0) != 0:
-                    logger.warning(
-                        "permit_only_test_traffic_on_fanout: "
-                        "docker stop lldp on SONiC %s returned rc=%s, "
-                        "output=%s", fanout_name, result.get('rc', '?'),
-                        result.get('stdout', result.get('stderr', '')))
-                else:
-                    sonic_lldp_stopped.add(fanout_name)
+                running = fanout.host.command(
+                    "docker ps -q --filter name=lldp --filter status=running",
+                    module_ignore_errors=True)
+                lldp_running = (not running.get('failed', False)
+                                and running.get('rc', 0) == 0
+                                and bool((running.get('stdout') or '').strip()))
+                if not lldp_running:
                     logger.info(
-                        "permit_only_test_traffic_on_fanout: stopped lldp "
-                        "container on SONiC %s", fanout_name)
+                        "permit_only_test_traffic_on_fanout: lldp already "
+                        "stopped on SONiC %s; leaving fanout untouched",
+                        fanout_name)
+                else:
+                    result = fanout.host.command(
+                        "docker stop lldp", module_ignore_errors=True)
+                    if result.get('failed', False) or result.get('rc', 0) != 0:
+                        logger.warning(
+                            "permit_only_test_traffic_on_fanout: "
+                            "docker stop lldp on SONiC %s returned rc=%s, "
+                            "output=%s", fanout_name, result.get('rc', '?'),
+                            result.get('stdout', result.get('stderr', '')))
+                    else:
+                        sonic_lldp_stopped.add(fanout_name)
+                        logger.info(
+                            "permit_only_test_traffic_on_fanout: stopped lldp "
+                            "container on SONiC %s", fanout_name)
             except Exception as e:
                 logger.warning(
                     "permit_only_test_traffic_on_fanout: "
@@ -3805,6 +3825,7 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
+                                      "Mellanox-SN5640-C508O1X2",
                                       "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
                                       "Arista-7060X6-16PE-384C-B-O128S2"]
         is_supported_per_dir = \

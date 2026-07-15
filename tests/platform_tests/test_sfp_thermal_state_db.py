@@ -59,8 +59,9 @@ class TestSfpThermalStateDb:
                 'sonic-db-cli STATE_DB HGET "TRANSCEIVER_DOM_THRESHOLD|{}" {}'.format(port, field),
                 module_ignore_errors=True
             )
-            if result["rc"] == 0 and result["stdout"].strip():
-                thresholds[field] = result["stdout"].strip()
+            value = result["stdout"].strip() if result["rc"] == 0 else ""
+            if value and value.upper() != "N/A":
+                thresholds[field] = value
             else:
                 thresholds[field] = None
         return thresholds
