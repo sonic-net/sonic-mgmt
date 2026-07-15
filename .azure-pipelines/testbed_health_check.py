@@ -35,6 +35,10 @@ from devutil.devices.dpu_utils import (  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+ANSIBLE_POLL_INTERVAL_SECONDS = 5
+CONFIG_DB_CHECK_TIMEOUT_SECONDS = 30
+DUT_BASIC_FACTS_TIMEOUT_SECONDS = 120
+
 
 def get_timestamp_utcnow():
     return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -128,6 +132,36 @@ class TestbedHealthChecker:
             logger.error("Failed to read testbed file {}: {}".format(testbed_file_path, repr(e)))
         return []
 
+    def _get_dut_basic_facts(self, sonichosts):
+        """Gather DUT facts without waiting indefinitely for CONFIG_DB."""
+        config_db_status = sonichosts.command(
+            "sonic-db-cli CONFIG_DB GET CONFIG_DB_INITIALIZED",
+            module_attrs={
+                "async": CONFIG_DB_CHECK_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
+        uninitialized_hosts = [
+            hostname
+            for hostname in sonichosts.hostnames
+            if str(
+                config_db_status.get(hostname, {}).get("stdout", "")
+            ).strip() != "1"
+        ]
+        if uninitialized_hosts:
+            raise HostInitFailed(
+                "CONFIG_DB is not initialized on host(s): {}".format(
+                    ", ".join(uninitialized_hosts)
+                )
+            )
+
+        return sonichosts.dut_basic_facts(
+            module_attrs={
+                "async": DUT_BASIC_FACTS_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
+
     def init_hosts(self):
 
         logger.info("======================= init_hosts starts =======================")
@@ -158,7 +192,7 @@ class TestbedHealthChecker:
                 raise HostInitFailed("Failed to initialize NPU hosts: {}".format(npu_hostnames))
 
             # Get basic facts from NPU hosts
-            npu_basic_facts = npu_sonichosts.dut_basic_facts()
+            npu_basic_facts = self._get_dut_basic_facts(npu_sonichosts)
             self.duts_basic_facts = npu_basic_facts
 
             # Store NPU hosts
@@ -186,13 +220,13 @@ class TestbedHealthChecker:
                     if not dpu_sh:
                         logger.warning("Failed to create SonicHosts for %s, skipping.", dpu_hostname)
                         continue
-                    dpu_facts = dpu_sh.dut_basic_facts()
+                    dpu_facts = self._get_dut_basic_facts(dpu_sh)
                     self.duts_basic_facts.update(dpu_facts)
                     for sonichost in dpu_sh:
                         self.dpu_hosts.append(sonichost)
                     reachable_dpu_hostnames.append(dpu_hostname)
                     logger.info("DPU host %s is reachable and initialized.", dpu_hostname)
-                except (HostsUnreachable, RunAnsibleModuleFailed) as e:
+                except (HostsUnreachable, RunAnsibleModuleFailed, HostInitFailed) as e:
                     logger.warning("DPU host %s is unreachable, skipping: %s", dpu_hostname, repr(e))
 
             if not reachable_dpu_hostnames:
