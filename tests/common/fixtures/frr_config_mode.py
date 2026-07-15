@@ -141,6 +141,13 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     YANG DUT-health checks would otherwise flag. The switch restores the DUT's
     original config on exit, leaving the testbed clean for later modules.
 
+    The ``disable_memory_utilization`` marker is applied automatically (by
+    ``pytest_collection_modifyitems`` in tests/conftest.py, keyed on this fixture) for
+    the same reason: the mode-switch reload makes BGP re-learn the full route table,
+    and on route-heavy DUTs that reconvergence lands inside the memory monitor's
+    before/after window -- a steady-state footprint change the percent-increase
+    threshold would misread as a leak.
+
     Switching is expensive (a config reload), so the fixture is module-scoped --
     pytest groups same-mode instances, switching at most twice per module -- and it
     skips the switch when the DUT is already in the requested mode.

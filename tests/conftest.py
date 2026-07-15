@@ -3682,6 +3682,17 @@ def pytest_collection_modifyitems(config, items):
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
 
+    # Tests that opt into the frr_config_mode fixture switch BGP config mode mid-module
+    # via a `config reload`. On DUTs holding a large route table (e.g. t1-lag) that
+    # reload drops BGP and then re-learns the full table, and the reconvergence lands
+    # inside the test's memory before/after window -- steady-state footprint, not a
+    # leak. The memory_utilization monitor's percent-increase threshold cannot tell the
+    # two apart and false-fails at teardown, so disable it for these tests (same reason
+    # they already carry skip_check_dut_health for the config-diff / YANG checks).
+    for item in items:
+        if "frr_config_mode" in getattr(item, "fixturenames", ()):
+            item.add_marker("disable_memory_utilization")
+
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     """
