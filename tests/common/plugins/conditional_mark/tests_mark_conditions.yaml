@@ -5724,6 +5724,24 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Primary Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Standby Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_eni_out_of_order.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
 tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
   skip:
     reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
@@ -5753,6 +5771,12 @@ tests/ha/test_ha_repairing_dpu.py:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_split_brain.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
 
 #######################################
 #####         upgrade_path        #####
