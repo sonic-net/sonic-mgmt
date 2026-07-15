@@ -653,7 +653,10 @@ def run_bgp_4_byte_asn_community_eos(setup):
         host = bgp_neigh.host
         logger.debug(host.eos_config(lines=vrf_neighbor_lines, parents=parents))
         logger.debug(host.eos_config(
-            lines=["network {}".format(setup['neigh_ipv4_network'])],
+            lines=[
+                "neighbor {} activate".format(setup['dut_ip_v4']),
+                "network {}".format(setup['neigh_ipv4_network']),
+            ],
             parents=parents + ["address-family ipv4"],
         ))
         logger.debug(host.eos_config(
