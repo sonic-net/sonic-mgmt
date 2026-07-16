@@ -28,12 +28,12 @@ BGP_SENTINEL_TMPL = '''\
 {
     "BGP_SENTINELS": {
         "BGPSentinel": {
-            "ip_range": {{ v4_listen_range }},
+            "ip_range": {{ v4_listen_range | tojson }},
             "name": "BGPSentinel",
             "src_address": "{{ v4_src_address }}"
         },
         "BGPSentinelV6": {
-            "ip_range": {{ v6_listen_range }},
+            "ip_range": {{ v6_listen_range | tojson }},
             "name": "BGPSentinelV6",
             "src_address": "{{ v6_src_address }}"
         }
@@ -44,7 +44,7 @@ BGP_SENTINEL_V6_ONLY_TMPL = '''\
 {
     "BGP_SENTINELS": {
         "BGPSentinelV6": {
-            "ip_range": {{ v6_listen_range }},
+            "ip_range": {{ v6_listen_range | tojson }},
             "name": "BGPSentinelV6",
             "src_address": "{{ v6_src_address }}"
         }
@@ -215,21 +215,21 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
 
     # render template and write to DB, check running configuration for BGP_sentinel
     if is_ipv6_only:
-        bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL)
+        bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL, autoescape=True)
         duthost.copy(
             content=bgp_sentinel_tmpl.render(
-                v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                v6_listen_range=[ipv6_subnet, ptf_bp_v6 + '/128'],
                 v6_src_address=lo_ipv6_addr,
             ),
             dest=BGPSENTINEL_CONFIG_FILE,
         )
     else:
-        bgp_sentinel_tmpl = Template(BGP_SENTINEL_TMPL)
+        bgp_sentinel_tmpl = Template(BGP_SENTINEL_TMPL, autoescape=True)
         duthost.copy(
             content=bgp_sentinel_tmpl.render(
-                v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
+                v4_listen_range=[ipv4_subnet, ptf_bp_v4 + '/32'],
                 v4_src_address=lo_ipv4_addr,
-                v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                v6_listen_range=[ipv6_subnet, ptf_bp_v6 + '/128'],
                 v6_src_address=lo_ipv6_addr,
             ),
             dest=BGPSENTINEL_CONFIG_FILE,

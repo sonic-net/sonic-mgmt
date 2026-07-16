@@ -240,7 +240,8 @@ def test_bgpmon_v4(dut_with_default_route, localhost, tbinfo, enum_rand_one_fron
         'local_addr': local_addr,
         'peer_name': BGP_MONITOR_NAME
     }
-    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    with open(BGPMON_TEMPLATE_FILE) as f:
+        bgpmon_template = Template(f.read(), autoescape=True)
     duthost.copy(content=bgpmon_template.render(**bgpmon_args), dest=BGPMON_CONFIG_FILE)
 
     # For Public cloudtype, nht resolve-via-default is not configured in the template.
@@ -350,7 +351,8 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
         'local_addr': local_addr,
         'peer_name': BGP_MONITOR_NAME
     }
-    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    with open(BGPMON_TEMPLATE_FILE) as f:
+        bgpmon_template = Template(f.read(), autoescape=True)
     duthost.copy(content=bgpmon_template.render(**bgpmon_args), dest=BGPMON_CONFIG_FILE)
 
     # For non-internal images, configure DUT neighbor as passive so ExaBGP can actively connect.
