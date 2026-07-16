@@ -26,10 +26,13 @@ from tests.common.helpers.sonic_db import (
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.bmc_utils import (
     BMC_EVENT_LOG,
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     make_bmc_loganalyzer,
     pause_pmon_daemon,
+    recover_switch_host_after_power_off,
     verify_bmc_initiated_reboot,
     wait_host_off,
     wait_host_on,
@@ -108,7 +111,7 @@ class TestBmcctldDaemon:
             startup_lines.extend(lines)
         startup = "\n".join(startup_lines)
         if startup:
-            logger.info(f"bmcctld startup path (event.log):\n{startup}")
+            logger.info(f"bmcctld startup path (event.log)\n{startup}")
         else:
             logger.info(f"No bmcctld STARTUP entries found in {BMC_EVENT_LOG} since reboot")
 
@@ -204,7 +207,7 @@ class TestBmcctldDaemon:
         # Handler logs "System leak..."; MINOR must go to syslog ONLY (event.log is CRITICAL-only).
         orig_leak = redis_hget(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                               'device_leak_status') or 'OK'
+                               'device_leak_status') or 'None'
         if orig_leak == 'CRITICAL':
             logger.info("Trigger 2 [STATE_DB SYSTEM_LEAK_STATUS]: already CRITICAL - skipping")
         else:
@@ -239,12 +242,14 @@ class TestBmcctldDaemon:
             )
 
         # --- Trigger 2b: CRITICAL leak → Switch-Host power off (disruptive) ---
-        # CRITICAL dispatches system_critical_leak_action (default: power_off); verify paired Switch-Host rebooted.
+        # CRITICAL dispatches system_critical_leak_action (default: power_off); verify paired
+        # Switch-Host powered OFF and stays off (it does NOT reboot / come back on its own).
         host = get_switch_host_or_skip_test(self.duthost)
-        pre_boot = get_host_uptime(host)
-        # Ensure policy is power_off (the default).
-        redis_hset(self.duthost, CONFIG_DB, 'LEAK_CONTROL_POLICY|system',
-                   system_critical_leak_action='power_off')
+        critical_pre_boot = get_host_uptime(host)
+        # Defensive: ensure the critical-leak action is power_off so this scenario stays
+        # self-contained even if an earlier test mutated LEAK_CONTROL_POLICY.
+        self.duthost.shell("config liquid-cool leak-action system critical power_off",
+                           module_ignore_errors=True)
         # Pause thermalctld so it doesn't overwrite the injected device_leak_status
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
@@ -252,18 +257,21 @@ class TestBmcctldDaemon:
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status='CRITICAL')
                 logger.info("Trigger 2b [STATE_DB SYSTEM_LEAK_STATUS]: device_leak_status → CRITICAL")
-                wait_host_on(host)
-                verify_bmc_initiated_reboot(host, pre_boot)
+                pytest_assert(
+                    wait_host_off(self.duthost, host),
+                    "Switch-Host did not power OFF after CRITICAL system leak (power_off action)"
+                )
                 trigger_results['SYSTEM_LEAK_STATUS_CRITICAL'] = True
             finally:
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
-                # Best-effort recovery if Switch-Host did not auto-power-on.
-                self.duthost.shell(
-                    "config chassis modules startup SWITCH-HOST",
-                    module_ignore_errors=True
-                )
+
+        # Recovery: power_off leaves the Switch-Host OFF while admin_status stays 'up',
+        # so force a clean down->up transition, then confirm it came back up with a
+        # BMC-initiated reboot cause (the leak-triggered power_off is a BMC power action).
+        recover_switch_host_after_power_off(self.duthost, host, context="after Trigger 2b")
+        verify_bmc_initiated_reboot(host, critical_pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
 
         # --- Trigger 3: STATE_DB RACK_MANAGER_ALERT MINOR severity ---
         # Handler logs "RACK_MGR_MINOR_EVENT"; default action is syslog_only (no power action).
@@ -284,7 +292,7 @@ class TestBmcctldDaemon:
         # At least one trigger must produce a log on a live BMC system
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        logger.info(f"Event logging confirmed: {logged}; not detected: {not_logged}")
+        logger.info(f"Event logging confirmed: {logged}, not detected: {not_logged}")
         pytest_assert(
             any(trigger_results.values()),
             f"bmcctld did not log any event after HSET on: {list(trigger_results.keys())}"
@@ -320,14 +328,14 @@ class TestBmcctldDaemon:
         pre_boot = get_host_uptime(host)
         try:
             hset_cmd(off_key, 'POWER_OFF')
-            wait_host_off(host)
+            wait_host_off(self.duthost, host)
             pytest_assert(hget_status(off_key) == 'DONE',
                           f"POWER_OFF status expected DONE, got {hget_status(off_key)!r}")
             hset_cmd(on_key, 'POWER_ON')
             wait_host_on(host)
             pytest_assert(hget_status(on_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot)
+            verify_bmc_initiated_reboot(host, pre_boot, CAUSE_POWER_DOWN_FROM_BMC)
         finally:
             del_cmd(off_key, on_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -338,14 +346,18 @@ class TestBmcctldDaemon:
         pre_boot = get_host_uptime(host)
         try:
             hset_cmd(gs_key, 'GRACEFUL_SHUT')
-            wait_host_off(host)
+            wait_host_off(self.duthost, host)
             pytest_assert(hget_status(gs_key) == 'DONE',
                           f"GRACEFUL_SHUT status expected DONE, got {hget_status(gs_key)!r}")
             hset_cmd(on2_key, 'POWER_ON')
             wait_host_on(host)
             pytest_assert(hget_status(on2_key) == 'DONE',
                           f"POWER_ON status expected DONE, got {hget_status(on2_key)!r}")
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # Graceful path always falls back to power_off() if GNOI times out/fails,
+            # so accept either the graceful or the hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             del_cmd(gs_key, on2_key)
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
@@ -369,7 +381,7 @@ class TestBmcctldDaemon:
         blocked_key = 'test_blocked_power_on'
         orig_leak = redis_hget(self.duthost, STATE_DB,
                                f'{SYSTEM_LEAK_STATUS_TABLE}|system',
-                               'device_leak_status') or 'OK'
+                               'device_leak_status') or 'None'
         # Pause thermalctld so it doesn't overwrite the injected device_leak_status
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
@@ -386,8 +398,11 @@ class TestBmcctldDaemon:
                 redis_hset(self.duthost, STATE_DB,
                            f'{SYSTEM_LEAK_STATUS_TABLE}|system',
                            device_leak_status=orig_leak)
-                self.duthost.shell("config chassis modules startup SWITCH-HOST",
-                                   module_ignore_errors=True)
+
+        # Recovery: the CRITICAL leak powered the Switch-Host off while admin_status
+        # stayed 'up', so force a clean down->up transition to bring it back.
+        recover_switch_host_after_power_off(self.duthost, host,
+                                            context="after power-on blocked by leak test")
 
         # --- Scenario 5: Unknown command rejected without dispatching power action ---
         # Handler logs "Unknown Rack Manager command: ..." and sets status=FAILED; paired Switch-Host must stay up.
@@ -433,18 +448,24 @@ class TestBmcctldDaemon:
                           f"CONFIG_DB power_on_delay read-back expected {test_delay}, got {readback!r}")
 
             # Scenario B: PDU power cycle BMC → reboot cause IS power loss → bmcctld must apply delay.
+            # The PDU/PSU connection graph is defined for the switch chassis, not the BMC
+            # (the BMC has no power supply of its own), so resolve the PDU via the Switch-Host.
+            # Cutting the switch-chassis PDU outlet removes power from the whole chassis,
+            # including the BMC, which is what this power-loss scenario needs.
+            switch_host = get_switch_host_or_skip_test(self.duthost)
             pdu_ctrl = None
             try:
-                pdu_ctrl = get_pdu_controller(self.duthost)
+                pdu_ctrl = get_pdu_controller(switch_host)
             except Exception as e:
-                pytest.skip(f"PDU controller not available for BMC {self.duthost.hostname}: {e}")
+                pytest.skip(f"PDU controller not available for switch chassis "
+                            f"{switch_host.hostname}: {e}")
             if not pdu_ctrl:
-                pytest.skip(f"No PDU controller wired for BMC {self.duthost.hostname}; "
+                pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname}, "
                             "skipping power-loss scenario")
 
             outlets = pdu_ctrl.get_outlet_status()
             outlet_ids = [o['outlet_id'] for o in outlets if 'outlet_id' in o]
-            pytest_assert(outlet_ids, "PDU controller returned no outlets for BMC")
+            pytest_assert(outlet_ids, "PDU controller returned no outlets for switch chassis")
 
             # Set marker in event.log BEFORE power cycle. event.log is persistent;
             # syslog is tmpfs and is wiped on power loss so cannot be used here.
@@ -466,7 +487,7 @@ class TestBmcctldDaemon:
             for lines in (b_result.get("match_messages") or {}).values():
                 b_lines.extend(lines)
             journal_b = "\n".join(b_lines)
-            logger.info(f"Scenario B (BMC power-loss) event.log entries:\n{journal_b}")
+            logger.info(f"Scenario B (BMC power-loss) event.log entries\n{journal_b}")
 
             poweron_match = re.search(r'issuing power_on', journal_b)
             pytest_assert(
@@ -492,7 +513,10 @@ class TestBmcctldDaemon:
 
         host = get_switch_host_or_skip_test(self.duthost)
 
-        sw_uptime_pre = get_host_uptime(host)
+        # uptime -s reports boot time to the second, and NTP can step the clock by a
+        # second or two without any reboot. Compare the Switch-Host boot time at minute
+        # resolution so such a clock step can't be misread as "isolation broken".
+        sw_uptime_pre = get_host_uptime(host).rsplit(':', 1)[0]
         sw_history_pre = host.show_and_parse('show reboot-cause history') or []
         bmc_uptime_pre = get_host_uptime(self.duthost)
         bmc_history_pre = self.duthost.show_and_parse('show reboot-cause history') or []
@@ -511,7 +535,7 @@ class TestBmcctldDaemon:
                       f"BMC reboot-cause history did not grow: "
                       f"pre={len(bmc_history_pre)} post={len(bmc_history_post)}")
 
-        sw_uptime_post = get_host_uptime(host)
+        sw_uptime_post = get_host_uptime(host).rsplit(':', 1)[0]
         sw_history_post = host.show_and_parse('show reboot-cause history') or []
         pytest_assert(sw_uptime_post == sw_uptime_pre,
                       f"Switch-Host uptime advanced after BMC reboot — isolation broken: "
