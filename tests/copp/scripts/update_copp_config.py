@@ -87,8 +87,8 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
             # configuration as this is lower than 600 PPS
             if tg == "queue4_group3":
                 if asic_type == "cisco-8000":
-                    group_config["cir"] = "400"
-                    group_config["cbs"] = "400"
+                    group_config["cir"] = "600"
+                    group_config["cbs"] = "600"
                 else:
                     continue
             else:
