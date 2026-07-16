@@ -63,7 +63,7 @@ def backup_and_restore_config_db(duthosts, enum_frontend_dut_hostname):
     """
     duthost = duthosts[enum_frontend_dut_hostname]
 
-    # Save current running config and backup config_db.json before tests
+    # Save current running config and backup config_db.json before tests.
     logger.info("Saving running config on {} before test".format(duthost.hostname))
     duthost.command("sudo config save -y")
     logger.info("Backing up {} to {} on {}".format(CONFIG_DB_PATH, CONFIG_DB_BACKUP_PATH, duthost.hostname))
