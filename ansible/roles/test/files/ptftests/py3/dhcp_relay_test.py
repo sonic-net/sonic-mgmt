@@ -1050,7 +1050,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
+        # ISC sets BOOTP giaddr to the incoming VLAN interface address, including on dual-ToR.
+        if self.relay_agent == "isc-relay-agent":
+            giaddr = self.relay_iface_ip
+        elif ((self.link_selection and self.source_interface) or self.server_vrf or self.dual_tor):
             giaddr = self.switch_loopback_ip
         elif self.server_id_override or not self.dual_tor:
             giaddr = self.relay_iface_ip
