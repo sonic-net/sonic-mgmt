@@ -176,9 +176,6 @@ class DHCPTest(DataplaneBaseTest):
         self.max_hop_count = self.test_params.get('max_hop_count', None)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
-        if self.relay_agent == "sonic-relay-agent":
-            if (self.link_selection and self.source_interface) or self.server_vrf:
-                self.link_selection_ip = self.test_params['link_selection_ip']
 
         self.uplink_mac = self.test_params['uplink_mac']
 
