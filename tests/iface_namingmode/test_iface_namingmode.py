@@ -83,13 +83,22 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     up_ports = list(minigraph_facts['minigraph_ports'].keys())
     default_interfaces = list(port_alias_facts['port_name_map'].keys())
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
-    port_speed_facts = port_alias_facts['port_speed']
-    if not port_speed_facts:
-        all_vars = duthost.host.options['variable_manager'].get_vars()
-        iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
-        iface_speed = str(iface_speed)
-        port_speed_facts = {_: iface_speed for _ in
-                            list(port_alias_facts['port_alias_map'].keys())}
+    # Read the configured speed from CONFIG_DB rather than port_config.ini.
+    # port_alias_facts['port_speed'] reflects the hardware default in
+    # port_config.ini which the minigraph routinely overrides to match
+    # the connected fanout (e.g. 400G). Using the hardware default as
+    # `native_speed` causes test_config_interface_speed to
+    # "restore" the port to a speed the fanout does not support, leaving the
+    # link oper-down for every subsequent test on that port.
+    port_speed_by_intf = {}
+    for intf in default_interfaces:
+        asic = duthost.asic_instance(duthost.get_port_asic_instance(intf).asic_index)
+        speed = duthost.command(
+            'sudo {} CONFIG_DB HGET "PORT|{}" speed'.format(asic.sonic_db_cli, intf)
+        )['stdout'].strip()
+        if speed:
+            port_speed_by_intf[intf] = speed
+    port_speed_fallback = port_alias_facts['port_speed'] or {}
 
     port_alias = list()
     port_name_map = dict()
@@ -105,7 +114,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         port_alias.append(port_alias_new)
         port_name_map[item] = port_alias_new
         port_alias_map[port_alias_new] = item
-        port_speed[port_alias_new] = port_speed_facts[port_alias_old]
+        port_speed[port_alias_new] = (port_speed_by_intf.get(item)
+                                      or port_speed_fallback.get(port_alias_old))
 
         # sonic-db-cli command
         db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
@@ -1264,7 +1274,8 @@ class TestConfigInterface():
                       "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
-                                    duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                    duthosts, fanouthosts,
+                                    enum_rand_one_per_hwsku_frontend_hostname,
                                     ignore_host_lane_count_loganalyzer):
         """
         Checks whether 'config interface speed <intf> <speed>' sets
@@ -1286,6 +1297,14 @@ class TestConfigInterface():
         # testbed is configured at a non-platform-default speed.
         if supported_speeds is not None and native_speed in supported_speeds:
             supported_speeds.remove(native_speed)
+            # Skip speeds the connected fanout will not negotiate. A mismatch
+            # leaves the link oper-down past the test, breaking every
+            # subsequent test on this port.
+            fanout, fanout_port = fanout_switch_port_lookup(
+                fanouthosts, duthost.hostname, interface)
+            if fanout is not None:
+                fanout_speeds = fanout.get_supported_speeds(fanout_port) or []
+                supported_speeds = [s for s in supported_speeds if s in fanout_speeds]
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
