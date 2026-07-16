@@ -198,7 +198,8 @@ def teardown_ptf_ip_responder(duthost, ptfhost, responder_conf_path, ip_intf_pai
     ptfhost.file(path=responder_conf_path, state="absent")
     ptfhost.file(path="/etc/supervisor/conf.d/arp_responder.conf", state="absent")
     ptfhost.shell("supervisorctl reread && supervisorctl update", module_ignore_errors=True)
-    if route and ip_intf_pairs:
+    if route:
+        assert ip_intf_pairs, "ip_intf_pairs is required when route=True to clean up host routes"
         for ip, dut_intf, _ in ip_intf_pairs:
             duthost.shell(_ptf_ip_route_cmd("del", ip, dut_intf), module_ignore_errors=True)
     duthost.command("sonic-clear fdb all")
