@@ -74,7 +74,12 @@ class TestThermalctldDaemon:
         - Severity levels are valid (MINOR|CRITICAL)
         - Escalation timeout is configured in LEAK_PROFILE
         - Critical leak events propagate to bmcctld (HOST_STATE consistency)
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         # Get system leak status
         status = get_system_leak_status(self.duthost)
         if status:
@@ -161,7 +166,12 @@ class TestThermalctldDaemon:
         test_thermalctld_faulty_sensor.
 
         The injected key is deleted in a finally block.
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_sensor_leaking"
 
         def sensor_has_value(key, field, value):
@@ -221,7 +231,11 @@ class TestThermalctldDaemon:
           - Checks syslog for any existing 'reported faulty' entries from real hardware
           - Verifies SYSTEM_LEAK_STATUS:system timestamp is present (thermalctld still
             updates the system table even when sensors are faulty)
+
         """
+        # Need a way to induce real faulty leak sensor or mock the faulty leak sensor.
+        pytest.skip("SKIP as we cannot induce a faulty leak sensor now")
+
         FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_faulty_sensor_check"
 
         def sensor_field_equals(key, field, value):
