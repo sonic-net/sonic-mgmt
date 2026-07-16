@@ -182,6 +182,10 @@ class DHCPTest(DataplaneBaseTest):
         # 'dual' for dual tor testing
         # 'single' for regular single tor testing
         self.dual_tor = (self.test_params['testing_mode'] == 'dual')
+        self.sonic_reply_uses_option82 = (
+            self.relay_agent == "sonic-relay-agent"
+            and (self.dual_tor or (self.link_selection and self.source_interface))
+        )
         self.vlan_iface_name = self.test_params.get('downlink_vlan_iface_name', None)
 
         # option82 is a byte string created by the relay agent. It contains the circuit_id and remote_id fields.
@@ -822,7 +826,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=self.LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=True)
-        if (self.link_selection and self.source_interface):
+        if (self.link_selection and self.source_interface) or self.sonic_reply_uses_option82:
             dhcp_ack_packet[scapy.DHCP].options.insert(
                 dhcp_ack_packet[scapy.DHCP].options.index("end"),
                 (82, self.option82)
@@ -876,7 +880,7 @@ class DHCPTest(DataplaneBaseTest):
         # if pad_bytes > 0:
         #    bootp /= scapy.PADDING('\x00' * pad_bytes)
 
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if self.sonic_reply_uses_option82:
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
             if pad_bytes > 0:
                 bootp /= scapy.PADDING('\x00' * pad_bytes)
@@ -1104,7 +1108,7 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_unknown = self.create_dhcp_offer_packet()
         logger.info("Server send unknown packet")
         dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if self.sonic_reply_uses_option82:
             dhcp_unknown[scapy.DHCP].options.insert(
                     dhcp_unknown[scapy.DHCP].options.index("end"),
                     (82, self.option82)
@@ -1115,7 +1119,7 @@ class DHCPTest(DataplaneBaseTest):
     def verify_relayed_unknown_on_client_side(self):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
         dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if self.sonic_reply_uses_option82:
             bootp_len = len(dhcp_offer[scapy.BOOTP])
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
             if pad_bytes > 0:
@@ -1148,7 +1152,7 @@ class DHCPTest(DataplaneBaseTest):
         # Build the DHCP NAK packet
         packet = self.create_dhcp_ack_packet()
         packet[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if self.sonic_reply_uses_option82:
             packet[scapy.DHCP].options.insert(
                     packet[scapy.DHCP].options.index("end"),
                     (82, self.option82)
@@ -1159,7 +1163,7 @@ class DHCPTest(DataplaneBaseTest):
     def verify_relayed_nak(self):
         dhcp_nak = self.create_dhcp_ack_relayed_packet()
         dhcp_nak[scapy.DHCP] = scapy.DHCP(options=[('message-type', 'nak'), ('server_id', self.server_ip[0]), ('end')])
-        if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
+        if self.sonic_reply_uses_option82:
             bootp_len = len(dhcp_nak[scapy.BOOTP])
             pad_bytes = self.DHCP_PKT_BOOTP_MIN_LEN - bootp_len
             if pad_bytes > 0:
