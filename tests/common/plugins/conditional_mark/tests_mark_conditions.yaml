@@ -602,11 +602,20 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202411."
+    reason: "(1) Not supported before release 202411.
+             (2) suppress-fib dynamic-toggle offload/propagation race: the module toggles
+             suppress-fib-pending dynamically at runtime, causing an orchagent/fpmsyncd/FRR race
+             where routes are intermittently not offloaded in FRR / not propagated to the upstream VM.
+             The product fix that makes suppress-fib static (sonic-swss#4333 + sonic-mgmt#22916) is
+             merging to master only and is not backported. Therefore master auto-lifts once the fix
+             lands and the tracking issue is closed, while the release branches 202505/202511/202605
+             never receive the fix and stay skipped for the life of the branch.
+             Tracked by https://github.com/sonic-net/sonic-mgmt/issues/26175"
     conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
+      - "release in ['202505', '202511', '202605']"
+      - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
