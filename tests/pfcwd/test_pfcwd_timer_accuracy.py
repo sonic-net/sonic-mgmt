@@ -69,6 +69,14 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.facts['asic_type']
     logger.info("--- Pfcwd timer test setup ---")
+    # Set syncd log level to INFO on each ASIC.
+    # On multi-ASIC platforms, the host-level swssloglevel wrapper requires
+    # '-n <asic_id>' to target the correct swss container.
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell(f"swssloglevel -n {asic.asic_index} -l INFO -c syncd")
+    else:
+        duthost.command("swssloglevel -l INFO -c syncd")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']

@@ -59,12 +59,6 @@ def suppress_signal_registration_for_non_main_thread():
             def _thread_safe_signal(signum, handler):
                 if threading.current_thread() is threading.main_thread():
                     return _original_signal(signum, handler)
-                logger.warning(
-                    "Skipping signal.signal(%s, %s) from non-main thread %s; "
-                    "ansible-core 2.19+ restricts signal handling to main thread. "
-                    "Returning default handler instead.",
-                    signum, handler, threading.current_thread().name
-                )
                 return signal.getsignal(signum)
 
             signal.signal = _thread_safe_signal
@@ -252,6 +246,14 @@ class AnsibleHostBase(object):
 
         if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
             raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
+
+        # Ensure 'failed' key is always present for backward compatibility with code that
+        # accesses rc['failed'] directly. The _IGNORE hack above is no longer effective in
+        # ansible-core >= 2.21 where the post-processing behavior changed so that 'failed'
+        # is absent from successful command results. Normalizing here is a single robust fix
+        # that covers all call sites without requiring per-file changes.
+        if 'failed' not in hostname_res:
+            hostname_res['failed'] = hostname_res.is_failed
 
         return hostname_res
 

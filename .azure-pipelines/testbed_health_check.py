@@ -16,7 +16,7 @@ import sys
 import json
 import yaml
 from datetime import datetime
-from netaddr import valid_ipv4
+from netaddr import valid_ipv4, valid_ipv6
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -34,6 +34,10 @@ from devutil.devices.dpu_utils import (  # noqa: E402
 )
 
 logger = logging.getLogger(__name__)
+
+ANSIBLE_POLL_INTERVAL_SECONDS = 5
+CONFIG_DB_CHECK_TIMEOUT_SECONDS = 30
+DUT_BASIC_FACTS_TIMEOUT_SECONDS = 120
 
 
 def get_timestamp_utcnow():
@@ -101,6 +105,7 @@ class TestbedHealthChecker:
         self.log_verbosity = log_verbosity
         self.output_file = output_file
         self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
+        self.is_bmc_testbed = 'bmc' in testbed_name.lower()
 
         # DPU-related state
         self.dpu_hosts = []
@@ -127,6 +132,36 @@ class TestbedHealthChecker:
         except Exception as e:
             logger.error("Failed to read testbed file {}: {}".format(testbed_file_path, repr(e)))
         return []
+
+    def _get_dut_basic_facts(self, sonichosts):
+        """Gather DUT facts without waiting indefinitely for CONFIG_DB."""
+        config_db_status = sonichosts.command(
+            "sonic-db-cli CONFIG_DB GET CONFIG_DB_INITIALIZED",
+            module_attrs={
+                "async": CONFIG_DB_CHECK_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
+        uninitialized_hosts = [
+            hostname
+            for hostname in sonichosts.hostnames
+            if str(
+                config_db_status.get(hostname, {}).get("stdout", "")
+            ).strip() != "1"
+        ]
+        if uninitialized_hosts:
+            raise HostInitFailed(
+                "CONFIG_DB is not initialized on host(s): {}".format(
+                    ", ".join(uninitialized_hosts)
+                )
+            )
+
+        return sonichosts.dut_basic_facts(
+            module_attrs={
+                "async": DUT_BASIC_FACTS_TIMEOUT_SECONDS,
+                "poll": ANSIBLE_POLL_INTERVAL_SECONDS,
+            },
+        )
 
     def init_hosts(self):
 
@@ -158,7 +193,7 @@ class TestbedHealthChecker:
                 raise HostInitFailed("Failed to initialize NPU hosts: {}".format(npu_hostnames))
 
             # Get basic facts from NPU hosts
-            npu_basic_facts = npu_sonichosts.dut_basic_facts()
+            npu_basic_facts = self._get_dut_basic_facts(npu_sonichosts)
             self.duts_basic_facts = npu_basic_facts
 
             # Store NPU hosts
@@ -186,13 +221,13 @@ class TestbedHealthChecker:
                     if not dpu_sh:
                         logger.warning("Failed to create SonicHosts for %s, skipping.", dpu_hostname)
                         continue
-                    dpu_facts = dpu_sh.dut_basic_facts()
+                    dpu_facts = self._get_dut_basic_facts(dpu_sh)
                     self.duts_basic_facts.update(dpu_facts)
                     for sonichost in dpu_sh:
                         self.dpu_hosts.append(sonichost)
                     reachable_dpu_hostnames.append(dpu_hostname)
                     logger.info("DPU host %s is reachable and initialized.", dpu_hostname)
-                except (HostsUnreachable, RunAnsibleModuleFailed) as e:
+                except (HostsUnreachable, RunAnsibleModuleFailed, HostInitFailed) as e:
                     logger.warning("DPU host %s is unreachable, skipping: %s", dpu_hostname, repr(e))
 
             if not reachable_dpu_hostnames:
@@ -317,59 +352,57 @@ class TestbedHealthChecker:
         if not hosts_reachable:
             raise HostsUnreachable(self.check_result.errmsg)
 
-        # Verify mgmt-ipv4 address exists
+        # Verify management IP address exists (IPv4 or IPv6)
         config_db_file = "/etc/sonic/config_db.json"
-        ipv4_not_exists_hosts = []
+        mgmt_ip_not_exists_hosts = []
 
         for sonichost in self.sonichosts:
-
             # Skip MGMT_INTERFACE check for DPU hosts - they use midplane IPs, not mgmt interface
             if "dpu" in sonichost.hostname.lower():
-                logger.info("Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname))
+                logger.info(
+                    "Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname)
+                )
                 continue
 
-            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
-                                                                                                           None)
-
-            device_hostname = sonichost.shell(f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}")\
-                .get("stdout", None)
+            rst = sonichost.shell(
+                f"jq '.MGMT_INTERFACE' {config_db_file}",
+                module_ignore_errors=True,
+            ).get("stdout", None)
+            device_hostname = sonichost.shell(
+                f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}"
+            ).get("stdout", None)
 
             if not device_hostname or device_hostname == '"sonic"':
                 raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
                                    f"hostname is still: {device_hostname}")
             # If valid stdout (also check for "null" which jq returns when key doesn't exist)
             if rst is not None and rst.strip() != "" and rst.strip() != "null":
-
                 mgmt_interface = json.loads(rst)
-
-                ipv4_exists = False
-
+                mgmt_ip_exists = False
                 # Use list() to make a copy of mgmt_interface.keys() to avoid
                 for key in list(mgmt_interface):
-                    ip_addr = key.split("|")[1]
-                    ip_addr_without_mask = ip_addr.split('/')[0]
-                    if ip_addr:
-                        is_ipv4 = valid_ipv4(ip_addr_without_mask)
-                        if is_ipv4:
-                            ipv4_exists = True
-                            break
+                    key_parts = key.split("|", 1)
+                    if len(key_parts) < 2:
+                        continue
+                    ip_addr = key_parts[1]
+                    ip_addr_without_mask = ip_addr.split('/', 1)[0]
+                    if ip_addr_without_mask and (valid_ipv4(ip_addr_without_mask) or valid_ipv6(ip_addr_without_mask)):
+                        mgmt_ip_exists = True
+                        break
+                if not mgmt_ip_exists:
+                    mgmt_ip_not_exists_hosts.append(sonichost.hostname)
+                    logger.info("{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname))
+                    self.check_result.errmsg.append(
+                        "{} does not have mgmt IPv4/IPv6 address.".format(sonichost.hostname)
+                    )
 
-                if not ipv4_exists:
-                    ipv4_not_exists_hosts.append(sonichost.hostname)
-                    logger.info("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-                    self.check_result.errmsg.append("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
-
-        if len(ipv4_not_exists_hosts) > 0:
+        if len(mgmt_ip_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
 
         logger.info("======================= pre_check ends =======================")
 
     def run_check(self):
         try:
-
-            # temporarily skip dpu smartswitch
-            if self.testbed_name in ["vms66-t1-8102-7", "vms12-t1-smartswitch-4280-02"]:
-                raise SkipCurrentTestbed()
 
             self.init_hosts()
 
@@ -639,7 +672,18 @@ class TestbedHealthChecker:
 
         # Set default critical containers to check
         if not critical_containers:
-            critical_containers = ["syncd", "swss", "bgp"]
+            if self.is_bmc_testbed:
+                critical_containers = [
+                    "gnmi",
+                    "pmon",
+                    "telemetry",
+                    "sysmgr",
+                    "redfish",
+                    "acms",
+                    "database"
+                ]
+            else:
+                critical_containers = ["syncd", "swss", "bgp"]
 
         failed = False
         running_containers_facts_on_hosts = {}

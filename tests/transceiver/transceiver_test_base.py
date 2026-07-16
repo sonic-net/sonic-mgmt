@@ -20,13 +20,17 @@ logger = logging.getLogger(__name__)
 @pytest.mark.usefixtures("setup")
 class TransceiverTestBase:
     @pytest.fixture(scope="class", autouse=True)
-    def setup(self, request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    def setup(self, request, duthost,
               enum_frontend_asic_index, conn_graph_facts, get_dev_transceiver_details,
               get_transceiver_common_attributes, get_lport_to_pport_mapping):
         """
         Fixture to set up the test environment.
+
+        Uses the canonical shared ``duthost`` fixture (``duthosts[session.dut_index]``)
+        rather than re-resolving ``duthosts[enum_rand_one_per_hwsku_frontend_hostname]``
+        so the class-based tests describe the same DUT as the attribute framework
+        (``get_dev_transceiver_details`` etc. already depend on ``duthost``).
         """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
         logger.info("DUT transceiver details: {}".format(get_dev_transceiver_details))
         if request.cls is not None:

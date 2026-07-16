@@ -40,8 +40,27 @@ class TestIPPacket(object):
     def check_rx_ok(duthost, ingress_iface, pkt_num_min):
         """Check if the ingress port has received enough packets."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
-        rx_ok = int(portstat_out[ingress_iface]["rx_ok"].replace(",", ""))
+        rx_ok_raw = portstat_out[ingress_iface]["rx_ok"].replace(",", "")
+        # Counters read as 'N/A' until the poller has populated COUNTERS_DB;
+        # treat that as "not ready yet" so the wait_until caller keeps polling.
+        if rx_ok_raw == "N/A":
+            return False
+        rx_ok = int(rx_ok_raw)
         return rx_ok >= pkt_num_min
+
+    @staticmethod
+    def check_rx_drop(duthost, ingress_iface, rif_support, rif_rx_ifaces, pkt_num_min):
+        """Check if the ingress drop counter (rx_drp / rif rx_err) has caught up.
+        On some ASICs the drop counter updates a few seconds after rx_ok, so reading
+        it immediately yields a flaky 0. Poll until it settles."""
+        portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
+        rx_drp = int(portstat_out[ingress_iface]["rx_drp"].replace(",", ""))
+        rx_err = 0
+        if rif_support:
+            rif_counter_out = parse_rif_counters(
+                duthost.command("show interfaces counters rif")["stdout_lines"])
+            rx_err = int(rif_counter_out[rif_rx_ifaces]["rx_err"].replace(",", ""))
+        return max(rx_drp, rx_err) >= pkt_num_min
 
     @staticmethod
     def send_packets(duthost, ptfadapter, ptf_port_idx, pkt, count):
@@ -117,12 +136,14 @@ class TestIPPacket(object):
         asic_id = duthost.get_asic_id_from_namespace(ptf_port_idx_namespace)
         ingress_router_mac = duthost.asic_instance(asic_id).get_router_mac()
 
-        # Some platforms do not support rif counter
+        # Some platforms do not support rif counters.
+        # Check via the interfaces and fields the test actually uses (rx_err, tx_err)
         try:
             rif_counter_out = parse_rif_counters(
                 duthost.command("show interfaces counters rif")["stdout_lines"])
-            rif_iface = list(rif_counter_out.keys())[0]
-            rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
+            rif_iface_data = rif_counter_out.get(rif_rx_ifaces, {})
+            rif_support = (rif_iface_data.get('rx_err') not in (None, 'N/A')
+                           and rif_iface_data.get('tx_err') not in (None, 'N/A'))
         except Exception as e:
             logger.info("Show rif counters failed with exception: {}".format(repr(e)))
             rif_support = False
@@ -631,6 +652,15 @@ class TestIPPacket(object):
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
 
+        # The drop counter (rx_drp / rif rx_err) can lag rx_ok by a few seconds on some
+        # ASICs, producing a flaky 0 read. Wait for it to settle before asserting.
+        # Platforms that tolerate/forward the packet (marvell) never drop it, so they
+        # are excluded to avoid an unnecessary 30s timeout.
+        if asic_type not in ["marvell", "marvell-prestera"]:
+            if not wait_until(30, 1, 0, self.check_rx_drop, duthost, peer_ip_ifaces_pair[0][1][0],
+                              rif_support, rif_rx_ifaces, self.PKT_NUM_MIN):
+                logger.warning("Drop counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
+
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
             rif_counter_out = parse_rif_counters(
@@ -645,8 +675,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "nokia-vs"]:
+            logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -705,8 +735,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "nokia-vs"]:
+            logger.info("Skipping packet count check on {} platform".format(asic_type))
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))

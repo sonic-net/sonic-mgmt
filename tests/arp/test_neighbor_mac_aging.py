@@ -62,8 +62,9 @@ class TestNeighborMacAging:
         def check_neighbor_aged_out():
             arp_lines = duthost.command("{} neigh show {}".format(
                 asichost.ip_cmd, neighbor_ip))['stdout_lines']
-            redis_lines = duthost.command("{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*{}*\"".format(
-                asichost.sonic_db_cli, neighbor_ip))['stdout_lines']
+            redis_lines = duthost.command(
+                "{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\\\"{}\\\"*\"".format(
+                    asichost.sonic_db_cli, neighbor_ip))['stdout_lines']
             return len(arp_lines) == 0 and len(redis_lines) == 0
 
         # Verify that the MAC address is aged out from the ARP table and ASIC_DB

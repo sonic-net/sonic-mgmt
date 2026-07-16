@@ -5,6 +5,7 @@ import logging
 import pytest
 import re
 from datetime import datetime
+import time
 from tests.common.platform.device_utils import (  # noqa: F401,F403
     platform_api_conn, start_platform_api_service, get_configured_dpu_names
 )
@@ -27,7 +28,7 @@ SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
 DPU_MAX_ONLINE_TIMEOUT = 360
-DPU_MAX_PROCESS_UP_TIMEOUT = 400
+DPU_READY_TIMEOUT = 760
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -250,6 +251,17 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
             return True
         else:
             return False
+
+
+def _wait_for_dpu_status(duthost, dpu_name, expected_status, action):
+    """
+    Poll until the DPU module reaches *expected_status* ('on' or 'off').
+    """
+    pytest_assert(
+        wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                   check_dpu_module_status, duthost, expected_status, dpu_name),
+        f"DPU {dpu_name} is not {expected_status} after '{action}'"
+    )
 
 
 def check_dpus_module_status(duthost, dpu_list, power_status, wait_timeout=30):
@@ -476,40 +488,67 @@ def get_dpuhost_for_dpu(dpuhosts, dpu_id):
     return None
 
 
-def check_dpu_critical_processes(dpuhosts, dpu_id):
+# Track DPUs we've already warned about being absent from `dpuhosts`, so the
+# wait_until retry loop doesn't repeat the same warning every interval.
+_WARNED_MISSING_DPUHOSTS = set()
 
+
+def check_dpu_critical_processes(dpuhosts, dpu_id):
     """
-    Checks all critical processes are UP on DPU
-    If not, fails the case
+    Checks all critical processes are UP on DPU.
+
+    Designed to be called repeatedly from `wait_until`. Transient "not OK"
+    entries are logged at DEBUG level so they don't produce intermittent
+    ERROR/WARNING noise while waiting for the DPU to settle. Only the final
+    failure (when wait_until gives up) needs to be visible to the caller via
+    the returned False.
+
     Args:
        dpuhosts: DPU Host handle
        dpu_id: DPU ID
     Returns:
-       True if check passes or DPU not in dpuhosts (skip), False if a critical process failed
+       True if check passes (or DPU not in dpuhosts, skipped),
+       False if a critical process is not OK.
     """
     dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
     if dpuhost is None:
-        logging.warning(
-            "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
-            "Testbed may not have SSH access to this DPU.",
-            dpu_id, len(dpuhosts)
-        )
+        if dpu_id not in _WARNED_MISSING_DPUHOSTS:
+            _WARNED_MISSING_DPUHOSTS.add(dpu_id)
+            logging.info(
+                "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
+                "Testbed may not have SSH access to this DPU.",
+                dpu_id, len(dpuhosts)
+            )
         return True
-    cmd = "sudo show system-health detail"
-    output_dpu_process = dpuhost.show_and_parse(cmd)
 
-    for index in range(len(output_dpu_process)):
-        parse_output = output_dpu_process[index]
-        if parse_output['status'].lower() == 'ok':
+    cmd = "sudo show system-health detail"
+    try:
+        output_dpu_process = dpuhost.show_and_parse(cmd)
+    except Exception as e:
+        # SSH/transport hiccups while DPU is still coming up are expected; let
+        # wait_until retry without escalating to ERROR.
+        logging.debug("DPU%d: '%s' failed transiently: %s", dpu_id, cmd, e)
+        return False
+
+    failing = []
+    for parse_output in output_dpu_process:
+        status = (parse_output.get('status') or '').lower()
+        if status == 'ok':
             continue
-        name = parse_output.get("name", "")
-        logging.error(
-            "DPU%d critical process not OK: name=%r status=%r state-detail=%r state-value=%r",
-            dpu_id,
+        name = (parse_output.get('name') or '').strip()
+        failing.append((
             name,
-            parse_output.get("status"),
-            parse_output.get("state-detail"),
-            parse_output.get("state-value"),
+            parse_output.get('status'),
+            parse_output.get('state-detail'),
+            parse_output.get('state-value'),
+        ))
+
+    if failing:
+        # Use DEBUG so retries don't spam the log; the caller's wait_until
+        # will surface a single assertion if this never converges.
+        logging.debug(
+            "DPU%d critical process check pending (%d not OK): %s",
+            dpu_id, len(failing), failing,
         )
         return False
     return True
@@ -678,17 +717,20 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name,
 
     logging.info(f"Checking {dpu_name} is UP post test")
     dpu_online_timeout = DPU_MAX_ONLINE_TIMEOUT + extra_dpu_online_timeout
+    check_start_time = time.time()
     pytest_assert(
         wait_until(dpu_online_timeout, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
+    dpu_online_time = time.time() - check_start_time
+    dpu_proccess_up_timeout = DPU_READY_TIMEOUT - dpu_online_time
 
     dpu_id = int(re.search(r'\d+', dpu_name).group())
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
-            DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            dpu_proccess_up_timeout, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
         f"Critical process check for {dpu_name} has been failed"
     )
@@ -758,34 +800,28 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 duthost.shell,
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
-            executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_module_status, duthost, "off", dpu_name
-            )
+            executor.submit(_wait_for_dpu_status, duthost, dpu_name, "off", "shutdown")
 
 
 def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
     """
-    Parallely Execute DPU startup for given DPU list
+    Serialize DPU startup for given DPU list
     Waits and checks parallely whether DPU is actually UP
     Args:
        duthost: Host handle
        dpu_list: List of DPUs to be startup
-
+       num_dpu_modules: number of dpu modules
     Returns:
        Returns Nothing
     """
+    logging.info("Dispatching startup commands for DPUs serially")
+    for dpu_name in dpu_list:
+        duthost.shell(f"sudo config chassis modules startup {dpu_name}")
+
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Check startup of DPUs in parallel")
         for dpu_name in dpu_list:
-            executor.submit(
-                duthost.shell,
-                f"sudo config chassis modules startup {dpu_name}"
-            )
-            executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_module_status, duthost, "on", dpu_name
-            )
+            executor.submit(_wait_for_dpu_status, duthost, dpu_name, "on", "startup")
 
 
 def check_midplane_status(duthost, dpu_ip, expected_status):

@@ -19,7 +19,7 @@ from tests.bgp.test_startup_tsa_tsb_service import get_tsa_tsb_service_uptime, g
     get_startup_tsb_timer, enable_disable_startup_tsa_tsb_service     # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 logger = logging.getLogger(__name__)

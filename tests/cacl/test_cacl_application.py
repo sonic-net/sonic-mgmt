@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer globally
-    pytest.mark.topology('any')
+    pytest.mark.topology('any', 'bmc')
 ]
 
 
@@ -165,11 +165,13 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     file_path = "/tmp/generated_acl.json"
+    dut_is_bmc = duthost.is_bmc()
 
     rules_data = {}
     snmp_acl_entry = {}
     ssh_acl_entry = {}
     ntp_acl_entry = {}
+    redfish_acl_entry = {}
 
     for index in range(1, 22):
         acl_entry = {}
@@ -199,35 +201,65 @@ def dummy_acl_rules(duthosts, enum_rand_one_per_hwsku_hostname):
         snmp_acl_entry.update(acl_entry)
         ssh_acl_entry.update(acl_entry)
         ntp_acl_entry.update(acl_entry)
+        if dut_is_bmc:
+            redfish_acl_entry.update(acl_entry)
+
+    acl_set = {
+        "SNMP-ACL": {
+            "acl-entries": {
+                "acl-entry": snmp_acl_entry
+            },
+            "config": {
+                "name": "SNMP-ACL"
+            }
+        },
+        "ssh-only": {
+            "acl-entries": {
+                "acl-entry": ssh_acl_entry
+            },
+            "config": {
+                "name": "ssh-only"
+            }
+        },
+        "ntp-acl": {
+            "acl-entries": {
+                "acl-entry": ntp_acl_entry
+            },
+            "config": {
+                "name": "ntp-acl"
+            }
+        }
+    }
+
+    # REDFISH_ACL is only present on BMC. It is not in CONFIG_DB by default,
+    # so pre-create the table before acl-loader runs.
+    if dut_is_bmc:
+        redfish_acl_table = {
+            "ACL_TABLE": {
+                "REDFISH_ACL": {
+                    "policy_desc": "REDFISH_ACL",
+                    "type": "CTRLPLANE",
+                    "stage": "ingress",
+                    "services": ["REDFISH"],
+                }
+            }
+        }
+        redfish_table_path = "/tmp/redfish_acl_table.json"
+        duthost.copy(content=json.dumps(redfish_acl_table, indent=4),
+                     dest=redfish_table_path)
+        duthost.command("config load {} -y".format(redfish_table_path))
+        acl_set["REDFISH-ACL"] = {
+            "acl-entries": {
+                "acl-entry": redfish_acl_entry
+            },
+            "config": {
+                "name": "REDFISH-ACL"
+            }
+        }
 
     rules_data['acl'] = {
         "acl-sets": {
-            "acl-set": {
-                "SNMP-ACL": {
-                    "acl-entries": {
-                        "acl-entry": snmp_acl_entry
-                    },
-                    "config": {
-                        "name": "SNMP-ACL"
-                    }
-                },
-                "ssh-only": {
-                    "acl-entries": {
-                        "acl-entry": ssh_acl_entry
-                    },
-                    "config": {
-                        "name": "ssh-only"
-                    }
-                },
-                "ntp-acl": {
-                    "acl-entries": {
-                        "acl-entry": ntp_acl_entry
-                    },
-                    "config": {
-                        "name": "ntp-acl"
-                    }
-                }
-            }
+            "acl-set": acl_set
         }
     }
 
@@ -518,8 +550,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
-            # network mode for dhcp_server container is bridge, but this rule is not expected to be seen
-            if k == "dhcp_server":
+            # network mode for dhcp_server and redfish containers is bridge, but this rule is not expected to be seen
+            if k in ("dhcp_server", "redfish"):
                 continue
             iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT"
                                   .format(docker_network['bridge']['IPv4Address'],
@@ -533,6 +565,13 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
             ip6tables_rules.append("-A INPUT -s {}/128 -d {}/128 -j ACCEPT"
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
+
+        # dhcp_server uses bridge networking; its startup script adds an iptables
+        # rule to allow syslog (UDP 514) past caclmgrd's catch-all DROP.
+        if "dhcp_server" in docker_network['container']:
+            iptables_rules.append(
+                "-A INPUT -i docker0 -p udp -m udp --dport 514"
+                " -m comment --comment dhcp_server_syslog -j ACCEPT")
 
     else:
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(docker_network['container']['database'

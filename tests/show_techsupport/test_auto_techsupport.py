@@ -6,6 +6,7 @@ import random
 import copy
 import os
 import re
+from decimal import Decimal
 
 from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
@@ -32,9 +33,9 @@ max_limit_test_modes_list = ['techsupport', 'core']
 DEFAULT_STATE = 'enabled'
 DEFAULT_RATE_LIMIT_GLOBAL = 180
 DEFAULT_RATE_LIMIT_FEATURE = 600
-DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
+DEFAULT_MAX_TECHSUPPORT_LIMIT = 10.0
 DEFAULT_AVAILABLE_MEM_THRESHOLD = 10.0
-DEFAULT_MAX_CORE_LIMIT = 5
+DEFAULT_MAX_CORE_LIMIT = 5.0
 DEFAULT_SINCE = '2 days ago'
 
 KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
@@ -94,10 +95,13 @@ class TestAutoTechSupport:
         self.set_test_dockers_list()
 
         logger.info('Waiting until existing(if exist) techsupport processes finish')
-        wait_until(300, 10, 0, is_techsupport_generation_in_expected_state, self.duthost, False)
+        if not wait_until(300, 10, 0, is_techsupport_generation_in_expected_state, self.duthost, False):
+            logger.warning('Existing techsupport generation processes did not finish; cleaning them up')
+            clear_techsupport_generation_processes(self.duthost)
 
         clear_auto_techsupport_history(self.duthost)
         self.duthost.shell('sudo mkdir /var/dump/', module_ignore_errors=True)
+        clear_techsupport_generation_processes(self.duthost)
         clear_folders(self.duthost)
 
         create_core_file_generator_script(self.duthost)
@@ -105,6 +109,7 @@ class TestAutoTechSupport:
         yield
 
         clear_auto_techsupport_history(self.duthost)
+        clear_techsupport_generation_processes(self.duthost)
         clear_folders(self.duthost)
 
     @pytest.fixture(autouse=True, scope='class')
@@ -687,15 +692,10 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
     :return: True in case when techsupport generation in progress
     """
     with allure.step('Checking techsupport generation process'):
-        techsupport_in_progress = False
-        processes_to_be_ignored = 2
-        get_running_tech_procs_cmd = 'ps -aux | grep "coredump_gen_handler"'
-        # Need to ignore 2 lines: one line with "grep...", another line with ansible module which call "grep..."
-        num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
+        running_processes = get_running_techsupport_generation_processes(duthost)
+        num_of_process = len(running_processes)
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
-
-        if num_of_process >= 1:
-            techsupport_in_progress = True
+        techsupport_in_progress = num_of_process >= 1
 
         is_in_expected_state = False
         if expected_in_progress:
@@ -706,6 +706,34 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
                 is_in_expected_state = True
 
         return is_in_expected_state
+
+
+def get_running_techsupport_generation_processes(duthost):
+    """
+    Get coredump handler PIDs. These handlers own auto-techsupport generation.
+    :param duthost: duthost object
+    :return: list of PIDs as strings
+    """
+    cmd = "ps -eo pid=,cmd= | awk '/[c]oredump_gen_handler.py/ {print $1}'"
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout_lines']
+    return [line.strip() for line in output if line.strip().isdigit()]
+
+
+def clear_techsupport_generation_processes(duthost):
+    """
+    Stop stale coredump handlers so a previous failed run cannot block the next one.
+    :param duthost: duthost object
+    """
+    pids = get_running_techsupport_generation_processes(duthost)
+    if not pids:
+        return
+
+    logger.warning('Stopping stale auto-techsupport generation processes: {}'.format(', '.join(pids)))
+    duthost.shell('sudo kill {}'.format(' '.join(pids)), module_ignore_errors=True)
+    if not wait_until(30, 2, 0, is_techsupport_generation_in_expected_state, duthost, False):
+        pids = get_running_techsupport_generation_processes(duthost)
+        if pids:
+            duthost.shell('sudo kill -9 {}'.format(' '.join(pids)), module_ignore_errors=True)
 
 
 def validate_core_files_inside_techsupport(duthost, techsupport_folder, expected_core_files_list):
@@ -863,14 +891,18 @@ def validate_auto_techsupport_global_config(dut_cli, state=None, rate_limit_inte
             assert str(current_rate_limit_interval) == str(rate_limit_interval), \
                 'Wrong configuration for rate_limit_interval: {} expected: {}'.format(current_rate_limit_interval,
                                                                                       rate_limit_interval)
+    # max_techsupport_limit / max_core_size are decimal64; `show auto-techsupport global`
+    # renders them via tabulate's default floatfmt="g", which drops trailing zeros
+    # ("10.0" -> "10"). Compare as Decimal so a display-only format difference does not
+    # fail the assertion.
     if max_techsupport_limit:
         with allure.step('Checking global max techsupport limit'):
-            assert str(current_max_techsupport_limit) == str(max_techsupport_limit), \
+            assert Decimal(str(current_max_techsupport_limit)) == Decimal(str(max_techsupport_limit)), \
                 'Wrong configuration for max_techsupport_limit: {} expected: {}'.format(current_max_techsupport_limit,
                                                                                         max_techsupport_limit)
     if max_core_size:
         with allure.step('Checking global max core size'):
-            assert str(current_max_core_size) == str(max_core_size), \
+            assert Decimal(str(current_max_core_size)) == Decimal(str(max_core_size)), \
                 'Wrong configuration for max_core_size: {} expected: {}'.format(current_max_core_size, max_core_size)
     if since:
         with allure.step('Checking global since'):
@@ -945,7 +977,17 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
     if expected_techsupport_files:
         # ensure that creation of tar.gz file is complete by checking if the intermediate tar
         # file generated is removed
-        assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
+
+        platform = duthost.facts["platform"]
+
+        if platform in ["armhf-nokia_ixs7215_52x-r0"]:
+            # For this platform, techsupport takes more time, so increase waiting time
+            wait = 900
+        else:
+            # For other platforms, fall back to default 600 seconds
+            wait = 600
+
+        assert wait_until(wait, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
     # Do validation for history
