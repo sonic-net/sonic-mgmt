@@ -15,10 +15,15 @@ logger = logging.getLogger(__name__)
 BMC_EVENT_LOG = '/host/bmc/event.log'
 
 # Reboot causes accepted as "BMC-initiated" by Switch-Host
+# Hard power off (ACTION_POWER_OFF: rack-mgr POWER_OFF, CRITICAL-leak power_off)
+CAUSE_POWER_DOWN_FROM_BMC = 'power down request from bmc'
+# Graceful shutdown (ACTION_GRACEFUL_SHUTDOWN: CLI config shutdown, rack-mgr GRACEFUL_SHUT)
+CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC = 'graceful shutdown from bmc'
+CAUSE_POWER_LOSS = 'power loss'
 BMC_INITIATED_REBOOT_CAUSES = (
-    'power down request from bmc',
-    'graceful shutdown from bmc',
-    'power loss',
+    CAUSE_POWER_DOWN_FROM_BMC,
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_LOSS,
 )
 
 
@@ -238,12 +243,32 @@ def get_host_uptime(host):
     return host.shell("uptime -s", module_ignore_errors=True).get('stdout', '').strip()
 
 
-def wait_host_off(host, timeout=180, interval=10, delay=30):
-    """Wait until the Switch-Host SSH is unreachable (powered off)."""
-    return wait_until(
-        timeout, interval, delay,
-        lambda: host.shell("true", module_ignore_errors=True).get('rc') != 0
-    )
+def wait_host_off(duthost, host, timeout=180, interval=10, delay=30):
+    """Wait until the paired Switch-Host is powered off, as observed by the BMC.
+
+    Powered-off is confirmed by two independent BMC-side signals
+      1. Authoritative: the BMC reports the SWITCH-HOST module oper-status as
+         'offline'. bmcctld writes this from the module's real power state
+         (module.get_oper_status()), so it reflects actual power, not just liveness.
+      2. Confirmation: the BMC can no longer ping the Switch-Host on its mgmt IP.
+    """
+    switch_host_ip = getattr(host, 'mgmt_ip', None)
+
+    def _bmc_reports_offline():
+        rows = duthost.show_and_parse("show chassis module status")
+        for row in rows or []:
+            if (row.get('name') or '').strip().startswith('SWITCH-HOST'):
+                return (row.get('oper-status') or '').strip().lower() == 'offline'
+        return False
+
+    def _ping_unreachable():
+        if not switch_host_ip:
+            return True
+        res = duthost.shell(f"ping -c 3 -W 1 {switch_host_ip}", module_ignore_errors=True)
+        return res.get('rc') != 0
+
+    return wait_until(timeout, interval, delay,
+                      lambda: _bmc_reports_offline() and _ping_unreachable())
 
 
 def wait_host_on(host, timeout=420, interval=10, delay=30):
@@ -251,9 +276,40 @@ def wait_host_on(host, timeout=420, interval=10, delay=30):
     return wait_until(timeout, interval, delay, lambda: host.critical_services_fully_started())
 
 
+SWITCH_HOST_STARTUP_ACK = "Starting up chassis module SWITCH-HOST"
+
+
+def recover_switch_host_after_power_off(duthost, host, context=""):
+    """Best-effort recovery of a Switch-Host that a BMC power action left powered OFF.
+
+    A leak/BMC-triggered power_off can leave the module powered off while CONFIG_DB
+    admin_status stays 'up', which makes a bare `config chassis modules startup` a no-op.
+    If the host is still off, force a clean admin down->up transition (shutdown then
+    startup) to clear the stale oper_status and actually re-power it, asserting the
+    startup command was accepted. Finally confirm the host powers back on.
+    """
+    suffix = f" {context}" if context else ""
+    if wait_host_off(duthost, host, delay=5):
+        # shutdown first to clear the stale oper_status / force a real down->up transition
+        duthost.shell("config chassis modules shutdown SWITCH-HOST", module_ignore_errors=True)
+        startup_out = duthost.shell(
+            "config chassis modules startup SWITCH-HOST", module_ignore_errors=True
+        ).get('stdout', '').strip()
+        # Match loosely: the CLI may prepend/append warnings or trailing lines to the ack.
+        pytest_assert(SWITCH_HOST_STARTUP_ACK in startup_out,
+                      f"Failed to command startup Switch-Host in recovery{suffix}, got {startup_out!r}")
+    pytest_assert(wait_host_on(host), f"Switch-Host did not power on{suffix}")
+
+
 def verify_bmc_initiated_reboot(host, pre_uptime,
                                 valid_causes=BMC_INITIATED_REBOOT_CAUSES):
-    """Assert paired Switch-Host rebooted (uptime advanced) with a BMC-initiated cause."""
+    """Assert paired Switch-Host rebooted (uptime advanced) with a BMC-initiated cause.
+
+    `valid_causes` may be a single expected cause string or an iterable of accepted
+    causes; the reported reboot-cause must contain one of them.
+    """
+    if isinstance(valid_causes, str):
+        valid_causes = (valid_causes,)
     post_uptime = get_host_uptime(host)
     pytest_assert(post_uptime and post_uptime != pre_uptime,
                   f"Switch-Host uptime did not advance: pre={pre_uptime!r} post={post_uptime!r}")
