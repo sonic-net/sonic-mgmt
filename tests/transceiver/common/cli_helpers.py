@@ -64,9 +64,7 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-# No "sudo" prefix: the transceiver suite's pytest session already runs as
-# root on the DUT, unlike tests/common/devices/multi_asic.py / sonic_asic.py
-# (which run under a non-root ansible user and so need it).
+# No explicit "sudo" prefix: duthost.command() runs with Ansible become=True (root) on the DUT.
 CONFIG_INTERFACE = "config interface"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
@@ -97,9 +95,9 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 #
 # ``config interface`` places its ``-n <namespace>`` BEFORE the startup/shutdown
 # subcommand (``config interface -n asic0 shutdown Ethernet0``), unlike the
-# ``show``/``sfputil`` families above which append ``-n`` at the end — hence the
-# separate flag placement in ``config_interface_shutdown_cmd``/``_startup_cmd``
-# below rather than reuse of ``_ns_flag``.
+# ``show``/``sfputil`` families above which append ``-n`` at the end — so callers
+# must insert the namespace flag in the correct position (but can still reuse
+# ``_ns_flag`` for the string itself).
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -191,14 +189,12 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
 
 def config_interface_shutdown_cmd(port, namespace=None):
     """Return ``config interface [-n <namespace>] shutdown <port>``."""
-    ns = f" -n {namespace}" if namespace else ""
-    return f"{CONFIG_INTERFACE}{ns} shutdown {port}"
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {port}"
 
 
 def config_interface_startup_cmd(port, namespace=None):
     """Return ``config interface [-n <namespace>] startup <port>``."""
-    ns = f" -n {namespace}" if namespace else ""
-    return f"{CONFIG_INTERFACE}{ns} startup {port}"
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {port}"
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -216,7 +212,7 @@ def _cli_failure_detail(cmd, result):
     are truncated because some sfputil errors dump the full 500+ port list.
     """
     stdout = " ".join(result.get("stdout_lines") or []).strip()
-    stderr = (result.get("stderr") or "").strip()
+    stderr = " ".join((result.get("stderr") or "").splitlines()).strip()
     parts = []
     if stdout:
         parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
