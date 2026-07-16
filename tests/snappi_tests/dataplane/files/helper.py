@@ -1,258 +1,1441 @@
-"""
-test_pfc_unaffected_pause_storm.py
-
-Implements test case Y01 of the PFC Lossy test plan:
-
-    "Lossy Traffic Unaffected During PFC Storm"
-
-A full PFC storm is generated on the lossless priorities (3, 4). While the storm
-keeps the lossless queues continuously paused, all lossy priority flows
-(0, 1, 2, 5, 6, 7) must keep flowing at their configured rate with zero packet
-loss, and the DUT must never generate PFC on the lossy priorities.
-
-Topology assumed: Single-Tier -- the Snappi traffic generator ports are
-directly connected to the SONiC DUT.
-
-Reference test plan:
-    docs/testplan/pfc_lossy_testplan.md  (Y01)
-"""
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import (
-    get_duthost_interface_details,
-    create_snappi_config,
-    set_primary_chassis,
-    create_traffic_items,
-    start_stop,
-    get_stats,
-)  # noqa: F401, F403, F405, E402
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
-from tests.common.snappi_tests.common_helpers import (
-    stop_pfcwd,
-    disable_packet_aging,
-    calc_pfc_pause_flow_rate,
-    get_pfc_frame_count,
-)  # noqa: F401
-
-pytestmark = [pytest.mark.topology("nut")]
+import random
+import re
+from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
+from tests.common.telemetry import UNIT_SECONDS
+from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
+from typing import Any, Dict
+from tabulate import tabulate
+from tests.common.gu_utils import (
+    create_checkpoint,
+    delete_checkpoint,
+    rollback_or_reload,
+)
 logger = logging.getLogger(__name__)
 
-ip_version = "IPv4"
-TIMEOUT = 30
-# Per the test plan, SONiC's ``pfc_enable`` defaults to "3,4" (lossless);
-# every other priority is lossy and must ignore the PFC storm.
-LOSSLESS_PRIO = [3, 4]
-LOSSY_PRIO = [0, 1, 2, 5, 6, 7]
+BLOCKING_SCHEDULER = "SCHEDULER_BLOCK_DATA_PLANE"
+DRILL_DOWN_OPTION = "Custom: (2 bits at offset 126)"
+SELECTED_UD_COLS = [
+    "Egress Tracking",
+    "Tx Frames",
+    "Rx Frames",
+    "Frames Delta",
+    "Loss %",
+    "Tx Frame Rate",
+    "Rx Frame Rate",
+]
+ECN_NON_ECT = 0   # 00
+ECN_ECT1 = 1      # 01
+ECN_ECT0 = 2      # 10
+ECN_CE = 3        # 11
 
-# Pass/Fail thresholds from the test plan (Section: Pass/Fail Criteria).
-RX_RATE_TOLERANCE = 0.02       # lossy Rx rate must stay within +/-2% of configured
-MAX_LOSS_PERCENT = 0.0         # lossy priorities MUST see 0% loss
+# ==============================================================================
+#  Shared BGP convergence test helpers (test_pr_bgp_single_port_{up,down},
+#  test_pr_bgp_device_unisolation). Centralised here so the test modules only
+#  carry their event-specific logic.
+# ==============================================================================
+METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"            # noqa: F405
+METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"          # noqa: F405
+METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"      # noqa: F405
+METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"                              # noqa: F405
+METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS: Final[str] = \
+    "bgp.convergence.dataplane.update.time.ms"                                       # noqa: F405
 
-TRAFFIC_DURATION_SEC = 1000      # data flow run time
-PFC_STORM_LEAD_SEC = 5         # storm starts this many seconds before data flows
+# NOTE: ROUTE_RANGES now lives in the individual test modules and is passed into
+# the helpers below (build_bgp_convergence_config / check_learned_routes_in_dut).
+
+
+@dataclass
+class IxNetConfigParams:
+    traffic_name: str = "TestTraffic"
+    frame_size: int = 512
+    frame_rate: int = 100
+    frame_ordering_mode: str = "RFC2889"
+    traffic_type: str = "ipv4"
+    traffic_mesh: str = "fullMesh"          # manyToMany oneToOne
+    bidirectional: bool = True
+    duration: int = 20
+    latency_bins: Optional[Dict[str, List[Any]]] = None  # type: ignore
+    # latency_bin={"NumberOfBins": 5,"BinLimits": [0.5, 0.75, 1.0, 1.25, 2147483647.0]}
+    # Add more as needed
 
 
 @pytest.fixture(scope="module")
-def port_groups(duthosts, get_snappi_ports):
-    snappi_ports = get_duthost_interface_details(
-        duthosts, get_snappi_ports, ip_version, protocol_type="IP"
-    )
-    pytest_assert(
-        len(snappi_ports) >= 2,
-        "Need at least 2 snappi ports for the test",
-    )
-    pg = []
-    for i in range(0, len(snappi_ports), 2):
-        pg.append(snappi_ports[i:i + 2])
-    return pg
+def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    # noqa F811
+    primary_chassis = duthosts[0].host.options['variable_manager'] \
+        ._hostvars[duthosts[0].hostname].get('chassis_chain_primary', None)
+    if len(fanout_graph_facts_multidut) == 1 and primary_chassis:
+        slave_chassis = [
+            fanout_graph_facts_multidut[fanout]['device_info']['mgmtip']
+            for fanout in fanout_graph_facts_multidut
+        ]
+    elif len(fanout_graph_facts_multidut) > 1:
+        slave_chassis = []
+        for fanout in fanout_graph_facts_multidut:
+            if 'primary' in fanout_graph_facts_multidut[fanout]['device_info']['Type'].lower():
+                primary_chassis = fanout_graph_facts_multidut[fanout]['device_info']['mgmtip']
+            else:
+                slave_chassis.append(fanout_graph_facts_multidut[fanout]['device_info']['mgmtip'])
+        if not primary_chassis:
+            pytest_assert(False, "No primary chassis found in the ansible/ devices.csv file")
+    else:
+        return False
+    ixnconfig = snappi_api.ixnet_specific_config
+    chassis_chain1 = ixnconfig.chassis_chains.add()
+    chassis_chain1.primary = primary_chassis
+    chassis_chain1.topology = chassis_chain1.STAR
+    slaves = [    # noqa F841
+        chassis_chain1.secondary.add(
+            location=slave,
+            sequence_id=index,
+            cable_length='6'
+        )
+        for index, slave in enumerate(slave_chassis, start=2)
+    ]
 
 
-def _lossy_prio_list(config_facts):
-    """Derive the lossy priority list from the DUT config, falling back to the
-    test plan defaults. Lossless priorities are read from ``pfc_enable`` and the
-    lossy set is the complement, restricted to priorities present in
-    DSCP_TO_TC_MAP so every lossy flow can be given a valid DSCP value."""
-    lossless = set(LOSSLESS_PRIO)
+def get_autoneg_fec(duthosts, get_snappi_ports):
+    duthost_processed = []
+    for port in get_snappi_ports:
+        if port['duthost'] not in duthost_processed:
+            autonegs = json.loads(port['duthost'].command("intfutil -c autoneg -j")['stdout'])
+            fecs = json.loads(port['duthost'].command("intfutil -c fec -j")['stdout'])
+        duthost_processed.append(port['duthost'])
+
+        port['autoneg'] = True if autonegs[port["peer_port"]]["Auto-Neg Mode"] == 'enabled' else False
+        port['fec'] = True if fecs[port["peer_port"]]["FEC Admin"] == 'rs' else False
+    return get_snappi_ports
+
+
+def get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, protocol_type):    # noqa F811
+    """
+    Depending on the protocol type, call the respective function to get the interface details
+
+    Args:
+        duthosts: List of duthost objects
+        get_snappi_ports: List of snappi port details
+        subnet_type: 'ipv4' or 'ipv6'
+        protocol_type: 'ip' or 'bgp' or 'vlan'
+
+    Returns:
+        List of snappi port details with interface information populated
+    """
+    if protocol_type.lower() == 'ip':
+        return get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'bgp':
+        return get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'vlan':
+        return get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type)
+    else:
+        pytest_assert(False, f"Unsupported protocol type: {protocol_type}")
+
+
+def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):  # noqa F811
+    """
+    Example:
+    {
+        'ip': '10.36.84.32',
+        'port_id': '3',
+        'peer_port': 'Ethernet64',
+        'peer_device': 'sonic-s6100-dut2',
+        'speed': '100000',
+        'location': '10.36.84.32/1.1',
+        'intf_config_changed': False,
+        'api_server_ip': '10.36.78.134',
+        'asic_type': 'broadcom',
+        'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
+        'snappi_speed_type': 'speed_100_gbps',
+        'asic_value': None,
+        'autoneg': False,
+        'fec': True,
+        'ipAddress': '400::2',
+        'ipGateway': '400::1',
+        'prefix': '126',
+        'src_mac_address': '10:17:00:00:00:13',
+        'subnet': '400::1/126'
+    }
+    """
+    get_autoneg_fec(duthosts, get_snappi_ports)
+    mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+    for duthost in duthosts:
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        doOnce = True
+        for index, port in enumerate(get_snappi_ports):
+            if port['duthost'] == duthost:
+                if doOnce:
+                    # Note: Just get the dut mac address once
+                    mac = duthost.get_dut_iface_mac(port['peer_port'])
+                    doOnce = False
+                peer_port = port['peer_port']
+                int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                if subnet_type.lower() == 'ipv4':
+                    subnet = [ele for ele in int_addrs if "." in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                elif subnet_type.lower() == 'ipv6':
+                    subnet = [ele for ele in int_addrs if ":" in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                else:
+                    pytest.fail(f'Invalid subnet type: {subnet_type}')
+                if not subnet:
+                    pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
+                port['ipGateway'], port['prefix'] = subnet[0].split("/")
+                port['router_mac_address'] = mac
+                port['src_mac_address'] = mac_address_generator[index]
+                port['subnet'] = subnet[0]
+    return get_snappi_ports
+
+
+def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
+    """
+    Example:
+    {
+    'ip': '10.36.84.31',
+    'port_id': '1.5',
+    'peer_port': 'Ethernet68',
+    'peer_device': 'sonic-s6100-dut1',
+    'speed': '100000',
+    'location': '10.36.84.31/1.5',
+    'intf_config_changed': False,
+    'api_server_ip': '10.36.84.32',
+    'asic_type': 'broadcom',
+    'duthost': <MultiAsicSonicHost sonic-s6100-dut1>,
+    'snappi_speed_type': 'speed_100_gbps',
+    'asic_value': None,
+    'router_mac_address': '9c:69:ed:6f:92:51',
+    'src_mac_address': '10:17:00:00:00:11',
+    'ipAddress': '204::2',
+    'ipGateway': '204::1',
+    'asn': 65200},
+    'prefix': 126,
+    'subnet': '204::1/126'
+    }
+    """
+    get_autoneg_fec(duthosts, get_snappi_ports)
+    for duthost in duthosts:
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bgp_neighbors = config_facts['BGP_NEIGHBOR']
+        interfaces = config_facts['INTERFACE']
+        # Get the IP address of the peer port
+        gateway_to_bgp = {
+            v['local_addr']: {
+                'ipAddress': k,
+                'ipGateway': v['local_addr'],
+                'asn': int(v['asn'])
+            }
+            for k, v in bgp_neighbors.items()
+        }
+        peer_to_gateway = {}
+        subnet_type = subnet_type.lower()
+        for port, int_info in interfaces.items():
+            for ip_cidr in int_info:
+                try:
+                    ip_obj = ipaddress.ip_interface(ip_cidr)
+                except ValueError:
+                    continue  # skip non-IP keys
+
+                if ((subnet_type == 'ipv4' and ip_obj.version == 4) or
+                        (subnet_type == 'ipv6' and ip_obj.version == 6)):
+                    peer_to_gateway[port] = (str(ip_obj.ip), ip_obj.network.prefixlen)
+        mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+        valid_ports = []
+        for index, port in enumerate(get_snappi_ports):
+            if port['duthost'] == duthost:
+                # Get the IP address of the peer port
+                port['router_mac_address'] = port['duthost'].facts['router_mac']
+                port['src_mac_address'] = mac_address_generator[index]
+                peer_info = peer_to_gateway.get(port['peer_port'])
+                if peer_info is None:
+                    logger.warning(
+                        "Port %s not found in peer_to_gateway mapping, skipping",
+                        port['peer_port']
+                    )
+                    continue
+                port['ipGateway'] = peer_info[0]
+                bgp_info = gateway_to_bgp.get(port['ipGateway'])
+                if bgp_info is None:
+                    logger.warning(
+                        "No BGP neighbor found for gateway %s on port %s, skipping",
+                        port['ipGateway'], port['peer_port']
+                    )
+                    continue
+                port['ipAddress'] = bgp_info['ipAddress']
+                port['asn'] = bgp_info['asn']
+                port['prefix'] = peer_info[1]
+                port['subnet'] = str(peer_info[0]) + "/" + str(peer_info[1])
+                valid_ports.append(port)
+            else:
+                # Port belongs to different dut, keep it if it was already processed
+                if 'ipAddress' in port:
+                    valid_ports.append(port)
+    return valid_ports
+
+
+def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa F811
+    """
+    Loop through each duthosts to get its vlan details
+
+    Usage:
+        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip = get_duthost_vlan_details(duthosts)
+
+    Return:
+       - duthost_vlan_interface: A dict object containing individual duthost as keys with all the dut's vlan details
+       - subnet_tracker:         A list of subnets for calling ip_address_generator()
+                                 to generate source ip addresses in the subnet
+       - all_vlan_gateway_ip:    A list of all the vlan IP addresses for ip_address_generator() to exclude
+                                 when providing the ip addresses
+
+       duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
+    """
+    get_autoneg_fec(duthosts, get_snappi_ports)
+
+    duthost_vlan_interface = {
+        dut.hostname: {"vlan_id": "", "vlan_ip": "", "subnet": "", "ip_prefix": ""}
+        for dut in duthosts
+    }
+    port_list = []
+    for dut_index, dut in enumerate(duthosts):
+        # subnet_tracker is for ip address generator to know how many ip addresses to provide
+        subnet_tracker = set()
+        # Keep track of all gateway IP addresses to exclude from generating src ip addresses
+        all_vlan_gateway_ip = set()
+        # NOTE! This only gets the first vlan interface
+        facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+        duthost_configdb_vlan_interface = facts["VLAN_INTERFACE"]
+        vlan_id = list(duthost_configdb_vlan_interface.keys())[0]
+        vlan_ip_dict = duthost_configdb_vlan_interface[vlan_id]
+        if subnet_type.lower() == 'ipv4':
+            for subnet in vlan_ip_dict.keys():
+                if '.' in subnet:
+                    vlan_ipprefix = subnet
+                    break
+        elif subnet_type.lower() == 'ipv6':
+            for subnet in vlan_ip_dict.keys():
+                if ':' in subnet:
+                    vlan_ipprefix = subnet
+                    break
+        ipn = IPNetwork(vlan_ipprefix)
+        vlan_ipaddr, prefix_len = str(ipn.ip), ipn.prefixlen
+        subnet = str(IPNetwork(str(ipn.network) + '/' + str(prefix_len)))
+        duthost_vlan_interface[dut.hostname] = {
+            "vlan_id": vlan_id,
+            "vlan_ip": vlan_ipaddr,
+            "subnet": subnet,
+            "ip_prefix": prefix_len,
+        }
+
+        all_vlan_gateway_ip.add(vlan_ipaddr)
+        # subnet_tracker is for ip address generator
+        subnet_tracker.add(subnet)
+        subnet_tracker = list(subnet_tracker)
+        all_vlan_gateway_ip = list(all_vlan_gateway_ip)
+        mac_address_generator = get_macs("AA0%d00000000" % dut_index, count=len(get_snappi_ports))
+        ip_addresses = get_addrs_in_subnet(
+            subnet_tracker[0],
+            number_of_ip=len(get_snappi_ports),
+            exclude_ips=all_vlan_gateway_ip,
+        )
+        snappi_ports = get_snappi_ports
+        for index, port in enumerate(snappi_ports):
+            if port['duthost'] == dut:
+                speed = port["speed"]
+                src_mac_address = mac_address_generator[index]
+
+                # The src port's gateway mac is the router_mac for ALL VLANs
+                router_mac_address = port["duthost"].facts["router_mac"]
+
+                hostname = port["duthost"].hostname
+                vlan_details = duthost_vlan_interface[hostname]
+                port_list.append(
+                    {
+                        "ipAddress": ip_addresses[index],
+                        "ipGateway": vlan_details["vlan_ip"],
+                        "prefix": vlan_details["ip_prefix"],
+                        "subnet": vlan_details["subnet"],
+                        "peer_device": port["peer_device"],
+                        "src_mac_address": src_mac_address,
+                        "router_mac_address": router_mac_address,
+                        "speed": speed,
+                        "snappi_speed_type": port["snappi_speed_type"],
+                        "peer_port": port["peer_port"],
+                        "location": port["location"],
+                        "duthost": port["duthost"],
+                        "api_server_ip": port["api_server_ip"],
+                        "asic_type": port["asic_type"],
+                        "asic_value": port["asic_value"],
+                        "port_id": port["port_id"],
+                        "fec": port["fec"],
+                        "autoneg": port["autoneg"]
+                    }
+                )
+            else:
+                continue
+    return port_list
+
+
+def get_snappi_stats(ixnet, view_name, columns=None):
+    stat_obj = StatViewAssistant(ixnet, view_name)
+    tdf = pd.DataFrame(stat_obj.Rows.RawData, columns=stat_obj.ColumnHeaders)
+    selected_columns = columns if columns else stat_obj.ColumnHeaders
+    tmp = tdf[selected_columns]
+    return tmp
+
+
+def get_fanout_port_groups(snappi_ports, fanout_per_port):
+    if fanout_per_port > 1:
+        num_groups = int(len(snappi_ports) / fanout_per_port)
+        group_list = []
+        for i in range(fanout_per_port):
+            group = []
+            for j in range(num_groups):
+                group.append(snappi_ports[i + j * fanout_per_port])
+            pytest_assert(
+                len(group) % 2 == 0,
+                "Must have Even number of front panel ports to have equal Tx and Rx ports",
+            )
+            group_list.append(tuple(group))
+    else:
+        group_list = [snappi_ports]
+    return group_list
+
+
+def create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params):
+    snappi_ports = get_snappi_ports
+    config = snappi_api.config()
+    _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
+    for role, pconfig in snappi_extra_params.protocol_config.items():
+        for index, port_data in enumerate(pconfig['ports']):
+            layer1 = config.layer1.layer1()[-1]
+            layer1.name = f"{port_data['port_id']}"
+            layer1.port_names = [f"Port_{port_data['port_id']}"]
+            layer1.speed = port_data['snappi_speed_type']
+            layer1.ieee_media_defaults = False
+            layer1.auto_negotiation.rs_fec = port_data['fec']
+            layer1.auto_negotiation.link_training = False
+            layer1.auto_negotiate = port_data['autoneg']
+            if pconfig.get("is_rdma", False):
+                pfc = layer1.flow_control.ieee_802_1qbb
+                pfc.pfc_delay = 0
+                if pfcQueueGroupSize == 8:
+                    for i in range(8):
+                        setattr(pfc, f'pfc_class_{i}', i)
+                elif pfcQueueGroupSize == 4:
+                    for i in range(8):
+                        setattr(pfc, f'pfc_class_{i}', pfcQueueValueDict[i])
+    return config
+
+
+@pytest.fixture(scope="module")
+def create_snappi_config(snappi_api, get_snappi_ports):
+    def _create_snappi_config(snappi_extra_params):
+        config = create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params)
+        pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
+        snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+        count = 0
+        for role, pconfig in snappi_extra_params.protocol_config.items():
+            is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
+            for index, port_data in enumerate(pconfig['ports']):
+                device = config.devices.device(name=f"{role} Topology {index}")[-1]
+                eth = device.ethernets.add(name=f"{role} Ethernet_{index}", mac=port_data["src_mac_address"])
+                eth.connection.port_name = f"Port_{port_data['port_id']}"
+                ip_name = f"{role} {'IPv4' if is_ipv4 else 'IPv6'}_{index}"
+                ip_layer = getattr(eth, 'ipv4_addresses' if is_ipv4 else 'ipv6_addresses').add(
+                    name=ip_name,
+                    address=port_data["ipAddress"],
+                    gateway=port_data["ipGateway"],
+                    prefix=int(port_data["prefix"])
+                )
+                snappi_obj_handles[role]["ip"].append(ip_layer.name)
+
+                if pconfig.get("protocol_type", False) and pconfig['protocol_type'] == "bgp":
+                    bgp = device.bgp
+                    bgp.router_id = port_data["ipGateway"] if is_ipv4 else '1.1.1.1'
+                    iface = bgp.ipv4_interfaces.add() if is_ipv4 else bgp.ipv6_interfaces.add()
+                    setattr(iface, 'ipv4_name' if is_ipv4 else 'ipv6_name', ip_layer.name)
+                    peer = iface.peers.add(
+                        name=f"{role} BGP{'' if is_ipv4 else '+'}_{index}",
+                        as_type='ebgp',
+                        peer_address=port_data["ipGateway"],
+                        as_number=port_data["asn"]
+                    )
+
+                    if pconfig.get("route_ranges", []):
+                        if is_ipv4:
+                            routes = peer.v4_routes.add(name=f"{role}_Network_Group_{index}")
+                        else:
+                            routes = peer.v6_routes.add(name=f"{role}_Network_Group_{index}")
+                        for rr in pconfig['route_ranges'][count]:
+                            routes.addresses.add(
+                                address=rr[0],
+                                prefix=rr[1],
+                                count=rr[2],
+                            )
+                        count += 1
+                        snappi_obj_handles[role]["network_group"].append(routes.name)
+        return config, snappi_obj_handles
+    return _create_snappi_config
+
+
+def create_traffic_items(config, snappi_extra_params):
+    tconfigs = snappi_extra_params.traffic_flow_config
+    for indx, traffic in enumerate(tconfigs):
+        test_flow = config.flows.flow(name=traffic.get("flow_name", "Flow {}".format(indx)))[-1]
+        # A PFC pause storm is a raw L2 (port-to-port) flow, whereas the data
+        # flows are device (topology) based. Only wire the device endpoints for
+        # the device based flows.
+        if not traffic.get("is_pfc", False):
+            test_flow.tx_rx.device.tx_names = traffic["tx_names"]
+            test_flow.tx_rx.device.rx_names = traffic["rx_names"]
+        test_flow.metrics.enable = True
+        test_flow.metrics.loss = True
+        if "mesh_type" in traffic:
+            test_flow.tx_rx.device.mode = traffic["mesh_type"]         # "mesh", one_to_one
+
+        # Default: "continuous" Enum: "fixed_packets" "fixed_seconds" "burst" "continuous"
+        if "traffic_duration_fixed_seconds" in traffic:
+            test_flow.duration.fixed_seconds.seconds = traffic["traffic_duration_fixed_seconds"]
+        elif "traffic_duration_fixed_packets" in traffic:
+            test_flow.duration.fixed_packets.packets = traffic["traffic_duration_fixed_packets"]
+        test_flow.size.fixed = traffic["frame_size"]
+        if traffic.get("is_pfc", False):
+            # ----------------------------------------------------------------
+            # PFC pause storm flow (test_pfc_unaffected_pause_storm).
+            #
+            # The storm is transmitted from the Rx (DUT egress) port back into
+            # the DUT and targets ONLY the lossless priorities (default 3, 4)
+            # via the class-enable vector. Each pause frame carries the maximum
+            # quanta (0xffff) for the paused priorities and is retransmitted at
+            # ``pause_flow_rate_pps`` -- derived per link speed so a fresh pause
+            # window arrives before the previous one expires, keeping the
+            # lossless queues continuously paused. The lossy priorities are left
+            # unset (quanta 0) so a correctly behaving DUT ignores the storm on
+            # its lossy queues.
+            # ----------------------------------------------------------------
+            test_flow.tx_rx.port.tx_name = traffic["pause_tx_port_name"]
+            test_flow.tx_rx.port.rx_name = traffic["pause_rx_port_name"]
+            pause_prio_list = traffic.get("pause_prio_list", [3, 4])
+            pause_quanta = traffic.get("pause_quanta", int("ffff", 16))
+            pause_time = [
+                pause_quanta if prio in pause_prio_list else 0
+                for prio in range(8)
+            ]
+            pause_pkt = test_flow.packet.pfcpause()[-1]
+            pause_pkt.src.value = traffic.get("pfc_pause_src_mac", "00:00:fa:ce:fa:ce")
+            pause_pkt.dst.value = "01:80:C2:00:00:01"
+            pause_pkt.class_enable_vector.value = pfc_class_enable_vector(pause_prio_list)
+            for prio in range(8):
+                setattr(getattr(pause_pkt, "pause_class_{}".format(prio)), "value", pause_time[prio])
+            test_flow.rate.pps = traffic["pause_flow_rate_pps"]
+            continue
+        test_flow.rate.percentage = traffic["line_rate"]
+        if traffic.get("is_rdma", False) and 'Lossy' in test_flow.name:
+            # Lossy priority data flow (test_pfc_unaffected_pause_storm): set only
+            # the PFC queue and DSCP value. Lossy flows are non-ECN, so none of
+            # the ECN codepoint handling below is executed for them.
+            eth, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = pfcQueueValueDict[traffic["prio"]]
+            ipv4.priority.dscp.phb.values = [
+                ipv4.priority.dscp.phb.DEFAULT,
+            ]
+            ipv4.priority.dscp.phb.value = traffic["dscp_value"]
+        elif traffic.get("is_rdma", False):
+            eth, ipv4 = test_flow.packet.ethernet().ipv4()
+            eth.pfc_queue.value = traffic["prio"]
+            ipv4.priority.dscp.phb.values = [
+                ipv4.priority.dscp.phb.DEFAULT,
+            ]
+            ipv4.priority.dscp.phb.value = traffic["dscp_value"]
+            # ECN codepoint(s) carried in the 2 ECN bits of the IP header.
+            # Callers may pass either:
+            #   - "ecn_values": a list of codepoints transmitted as an even mix
+            #                   (used by the mixed-codepoint interference test), or
+            #   - "ecn_value":  a single codepoint. When the key is absent it
+            #                   defaults to ECT(1) so existing callers keep their
+            #                   previous behaviour; pass None (or "none") to leave
+            #                   the ECN field untouched and configure only the DSCP
+            #                   value (used for a non-ECN queue).
+            # Accepted codepoint names: "non_ect" (00), "ect0" (10),
+            # "ect1" (01) and "ce" (11).
+            ecn = ipv4.priority.dscp.ecn
+            ecn_map = {
+                "non_ect": ecn.NON_CAPABLE,               # 00
+                "ect0": ecn.CAPABLE_TRANSPORT_0,          # 10
+                "ect1": ecn.CAPABLE_TRANSPORT_1,          # 01
+                "ce": ecn.CONGESTION_ENCOUNTERED,         # 11
+            }
+            if traffic.get("ecn_values"):
+                ecn.values = [ecn_map[c] for c in traffic["ecn_values"]]
+            elif "ecn_value" in traffic:
+                codepoint = traffic["ecn_value"]
+                # None / "none" -> non-ECN flow: only the DSCP value is set.
+                if codepoint not in (None, "none"):
+                    ecn.value = ecn_map.get(codepoint, ecn.CAPABLE_TRANSPORT_1)
+            else:
+                ecn.value = ecn.CAPABLE_TRANSPORT_1
+        if traffic.get("latency", False):
+            # Latency Config
+            test_flow.metrics.latency.enable = True
+            test_flow.metrics.latency.mode = test_flow.metrics.latency.STORE_FORWARD
+    return config
+
+
+def wait_with_message(message, duration):
+    """Displays a countdown while waiting."""
+    for remaining in range(duration, 0, -1):
+        logger.info(f"{message} {remaining} seconds remaining.")
+        # sys.stdout.flush()
+        time.sleep(1)
+    logger.info("")  # Ensure line break after countdown.
+
+
+@pytest.fixture(scope="function")
+def get_dut_to_dut_port(duthosts,  # noqa: F811
+                        conn_graph_facts,  # noqa: F811
+                        fanout_graph_facts_multidut,  # noqa: F811
+                        ):
+    def _get_dut_to_dut_port(conn_graph_facts, bt1_device_names):
+        device_conn = conn_graph_facts['device_conn']
+        bt1_ports = []
+        bt1_info = {}
+        bt1_device_names = [bt1_device_names]
+        for bt1_device_name in bt1_device_names:
+            for duthost in duthosts:
+                if duthost.hostname != bt1_device_name:
+                    for port in device_conn[duthost.hostname].keys():
+                        if device_conn[duthost.hostname][port]['peerdevice'] == bt1_device_name:
+                            bt1_ports.append(port)
+                        else:
+                            continue
+            if not bt1_ports:
+                pytest_assert(False, f"No ports found for {bt1_device_name} in the connection graph.")
+            bt1_info[bt1_device_name] = bt1_ports
+        return bt1_info
+    return _get_dut_to_dut_port
+
+
+def configure_acl_for_route_withdrawl(destination_ip_list, table_name):
+    destination_ips = [
+        f"{item[0].split('/')[0].rsplit(':', 1)[0]}:{'/' + str(item[1])}"
+        for item in destination_ip_list
+    ]
+    acl_dict = {
+        "acl": {
+            "acl-sets": {
+                "acl-set": {
+                    table_name: {
+                        "acl-entries": {
+                            "acl-entry": {
+                                "1": {
+                                    "actions": {
+                                        "config": {
+                                            "forwarding-action": "DROP"
+                                        }
+                                    },
+                                    "config": {
+                                        "sequence-id": 1
+                                    },
+                                    "ip": {
+                                        "config": {
+                                            "source-ip-address": "::/0"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    # Add one entry for each destination_ip, starting from sequence-id 5, 6, ...
+    for idx, destination_ip in enumerate(destination_ips, start=2):
+        acl_dict["acl"]["acl-sets"]["acl-set"][table_name]["acl-entries"]["acl-entry"][str(idx)] = {
+            "actions": {
+                "config": {
+                    "forwarding-action": "DROP"
+                }
+            },
+            "config": {
+                "sequence-id": idx
+            },
+            "ip": {
+                "config": {
+                    "destination-ip-address": destination_ip
+                }
+            }
+        }
+    return acl_dict
+
+
+def get_stats(api, stat_name, columns=None, return_type='stat_obj'):   # noqa F811
+    """
+    Args:
+        api (pytest fixture): Snappi API
+    """
+    def deep_getattr(obj, attr, default=None):
+        try:
+            for part in attr.split('.'):
+                obj = getattr(obj, part)
+            return obj
+        except AttributeError:
+            return default
+    request = api.metrics_request()
+    logger.info("Fetching {}...".format(stat_name))
+    if stat_name == "Data Plane Port Statistics":
+        ixnet = api._ixnetwork
+        dp_metrics = StatViewAssistant(ixnet, stat_name)
+        df = pd.DataFrame(dp_metrics.Rows.RawData, columns=dp_metrics.ColumnHeaders)
+        df = df[columns] if columns else df
+        cols = ['Tx Frame Rate', 'Rx Frame Rate']
+        df[cols] = df[cols].apply(pd.to_numeric, errors='coerce')
+        if return_type == 'print':
+            logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+        elif return_type == 'df':
+            return df
+    if stat_name == "Traffic Item Statistics":
+        request.flow.flow_names = []
+        stat_obj = api.get_metrics(request).flow_metrics
+        column_headers = [
+            "bytes_rx", "bytes_tx", "frames_rx", "frames_rx_rate", "frames_tx", "frames_tx_rate",
+            "loss", "name", "port_rx", "port_tx", "rx_l1_rate_bps", "rx_rate_bps", "rx_rate_bytes", "rx_rate_kbps",
+            "rx_rate_mbps", "transmit", "tx_l1_rate_bps", "tx_rate_bps", "tx_rate_bytes", "tx_rate_kbps",
+            "tx_rate_mbps", "latency.average_ns", "latency.maximum_ns", "latency.minimum_ns"
+        ]
+    elif stat_name == "Port Statistics":
+        request.port.port_names = []
+        stat_obj = api.get_metrics(request).port_metrics
+        column_headers = [
+            "bytes_rx", "bytes_rx_rate", "bytes_tx", "bytes_tx_rate", "capture", "frames_rx", "frames_rx_rate",
+            "frames_tx", "frames_tx_rate", "link", "location", "name"]
+    rows = [
+        [deep_getattr(stat, column, None) for column in column_headers]
+        for stat in stat_obj
+    ]
+    tdf = pd.DataFrame(rows, columns=column_headers)
+    selected_columns = columns if columns else column_headers
+    # Always surface the traffic item / flow name so per-flow rows are identifiable.
+    if stat_name == "Traffic Item Statistics" and "name" not in selected_columns:
+        selected_columns = ["name"] + list(selected_columns)
+    df = tdf[selected_columns]
+    if return_type == 'print':
+        logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+    elif return_type == 'df':
+        return df
+    else:
+        return stat_obj
+
+
+def seconds_elapsed(start_seconds):
+    return int(round(time.time() - start_seconds))
+
+
+def timed_out(start_seconds, timeout):
+    return seconds_elapsed(start_seconds) > timeout
+
+
+def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
+    """
+    Keeps calling the `func` until it returns true or `timeout_seconds` occurs
+    every `interval_seconds`. `condition_str` should be a constant string
+    implying the actual condition being tested.
+    Usage
+    -----
+    If we wanted to poll for current seconds to be divisible by `n`, we would
+    implement something similar to following:
+    ```
+    import time
+    def wait_for_seconds(n, **kwargs):
+        condition_str = 'seconds to be divisible by %d' % n
+        def condition_satisfied():
+            return int(time.time()) % n == 0
+        poll_until(condition_satisfied, condition_str, **kwargs)
+    ```
+    """
+    if interval_seconds is None:
+        interval_seconds = settings.interval_seconds
+    if timeout_seconds is None:
+        timeout_seconds = settings.timeout_seconds
+    start_seconds = int(time.time())
+
+    logger.info("Waiting for %s ..." % condition_str)
+    while True:
+        res = func()
+        if res:
+            logger.info("Done waiting for %s" % condition_str)
+            break
+        if res is None:
+            raise Exception("Wait aborted for %s" % condition_str)
+        if timed_out(start_seconds, timeout_seconds):
+            msg = "Time out occurred while waiting for %s" % condition_str
+            raise Exception(msg)
+
+        time.sleep(interval_seconds)
+
+
+def get_all_port_names(duthost):
+    """
+    Get all port names on the DUT as a list
+    """
+    result = duthost.command("show interfaces status")
+    output = result["stdout"]
+    interfaces = []
+    for line in output.splitlines():
+        if line.lstrip().startswith("Ethernet"):
+            iface = line.split()[0]
+            interfaces.append(iface)
+    return interfaces
+
+
+def all_ports_startup(duthost):
+    """
+    Startup all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Starting up all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface startup {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
+
+
+def all_ports_shutdown(duthost):
+    """
+    Shutdown all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Shutting down all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface shutdown {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
+
+
+def is_traffic_running(snappi_api, flow_names=[]):
+    """
+    Returns true if traffic in start state
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    return all([int(fs.frames_tx_rate) > 0 for fs in flow_stats])
+
+
+def is_traffic_stopped(snappi_api, flow_names=[]):
+    """
+    Returns true if traffic in stop state
+    """
+    fq = snappi_api.metrics_request()
+    fq.flow.flow_names = flow_names
+    metrics = snappi_api.get_metrics(fq).flow_metrics
+    return all([m.transmit == "stopped" for m in metrics])
+
+
+def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
+    """
+    Returns true if traffic has converged within the threshold
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    for fs in flow_stats:
+        tx_rate = float(fs.frames_tx_rate)
+        rx_rate = float(fs.frames_rx_rate)
+        if tx_rate == 0:
+            return False
+        loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
+        if loss_percentage > threshold:
+            return False
+    return True
+
+
+def _normalize_stat_rows(rows: Any) -> list:
+    """Normalize StatViewAssistant.Rows into list[dict].
+
+    Handles cases where each row element is:
+    - a dict-like (already usable)
+    - a string with lines like "Key: value"
+    - an object whose str() contains the key/value lines
+    """
+    norm = []
+    if rows is None:
+        return norm
+    for r in rows:
+        # If it's already a dict-like
+        if isinstance(r, dict):
+            norm.append(r)
+            continue
+        # Try to get a mapping attribute
+        try:
+            items = getattr(r, 'items', None)
+            if callable(items):
+                norm.append(dict(r.items()))
+                continue
+        except Exception:
+            pass
+
+        # Fallback: string parse
+        s = str(r)
+        # Split into lines, parse 'key: value' pairs
+        entry: Dict[str, str] = {}
+        for line in s.splitlines():
+            if ':' in line:
+                key, val = line.split(':', 1)
+                entry[key.strip()] = val.strip()
+        if entry:
+            norm.append(entry)
+        else:
+            # last resort: store full string under 'value'
+            norm.append({'value': s})
+    return norm
+
+
+def print_ud_statistics(selected_cols, stat_obj) -> Optional[pd.DataFrame]:
+    """Print selected columns from a User Defined Statistics StatViewAssistant.
+
+    Args:
+        stat_obj: a StatViewAssistant instance (already created).
+
+    Returns:
+        pandas.DataFrame or None
+    """
     try:
-        for _, cable in config_facts.get("PORT_QOS_MAP", {}).items():
-            if "pfc_enable" in cable:
-                lossless = {int(p) for p in cable["pfc_enable"].split(",") if p != ""}
-                break
-    except (KeyError, ValueError, AttributeError):
-        lossless = set(LOSSLESS_PRIO)
+        rows = _normalize_stat_rows(stat_obj.Rows)
+        if not rows:
+            logger.info("User Defined Statistics: empty rows")
+            return None
+        df = pd.DataFrame(rows)
+        df = df.reindex(columns=selected_cols)
+        numeric_cols = ["Tx Frames", "Rx Frames", "Frames Delta", "Loss %", "Tx Frame Rate", "Rx Frame Rate"]
+        try:
+            df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
+        except Exception:
+            pass
+        df = df.fillna("")
+        logger.info("\n%s", tabulate(df, headers="keys", tablefmt="psql"))
+        return df
+    except Exception as e:
+        logger.warning("Failed to tabulate UD_Statistics: %s", e)
+        return None
 
-    mapped_tcs = {int(tc) for tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].values()}
-    lossy = sorted(tc for tc in mapped_tcs if tc not in lossless)
-    return lossy if lossy else LOSSY_PRIO
+
+def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
+    logger.info("%s %s", operation.capitalize(), op_type)
+
+    cs = snappi_api.control_state()
+
+    state_map = {
+        ("protocols", "start"): cs.protocol.all.START,
+        ("protocols", "stop"): cs.protocol.all.STOP,
+        ("traffic", "start"): cs.traffic.flow_transmit.START,
+        ("traffic", "stop"): cs.traffic.flow_transmit.STOP,
+    }
+
+    if (op_type, operation) not in state_map:
+        raise ValueError(f"Invalid combination: op_type={op_type}, operation={operation}")
+
+    if op_type == "protocols":
+        cs.protocol.all.state = state_map[(op_type, operation)]
+    elif op_type == "traffic":
+        cs.traffic.flow_transmit.state = state_map[(op_type, operation)]
+
+    snappi_api.set_control_state(cs)
+
+    if op_type == "traffic" and operation == "stop":
+        wait_for(lambda: is_traffic_stopped(snappi_api), "Traffic to Stop", interval_seconds=1, timeout_seconds=180)
+    elif op_type == "traffic" and operation == "start":
+        wait_for(lambda: is_traffic_running(snappi_api), "Traffic to Start", interval_seconds=5, timeout_seconds=180)
+    else:
+        wait(waittime, f"For {op_type} To {operation}")
 
 
-@pytest.mark.parametrize("subnet_type", [ip_version])
-@pytest.mark.parametrize("speed", ["100G"])
-@pytest.mark.parametrize("buffer_model", ["static"])
-@pytest.mark.parametrize("asic_count", ["single"])
-def test_pfc_unaffected_pause_storm(
-        duthosts,
-        snappi_api,  # noqa: F811
-        get_snappi_ports,  # noqa: F811
-        set_primary_chassis,  # noqa: F811
-        create_snappi_config,  # noqa: F811
-        subnet_type,
-        speed,
-        buffer_model,
-        asic_count,
-        port_groups,
-        fanout_graph_facts_multidut,
+def check_bgp_state(snappi_api, subnet_type):
+    req = snappi_api.metrics_request()
+    if subnet_type == "IPv4":
+        req.bgpv4.peer_names = []
+        bgpv4_metrics = snappi_api.get_metrics(req).bgpv4_metrics
+        assert bgpv4_metrics[-1].session_state == "up", "BGP v4 Session State is not UP"
+        logger.info("BGP v4 Session State is UP")
+    elif subnet_type == "IPv6":
+        req.bgpv6.peer_names = []
+        bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
+        assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
+        logger.info("BGP v6 Session State is UP")
+
+
+@pytest.fixture(scope="module", autouse=False)
+def dutconfig_checkpoint(duthosts):  # noqa: F811
+    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
+
+    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
+    rollback_or_reload() falls back to config_reload if the rollback fails, so
+    the DUT always returns to a clean state -- no try/finally needed in the tests.
+    """
+    for duthost in duthosts:
+        create_checkpoint(duthost)
+    yield
+    for duthost in duthosts:
+        rollback_or_reload(duthost)
+        delete_checkpoint(duthost)
+
+
+def _block_egress(duthost, port, queue, scheduler=BLOCKING_SCHEDULER):
+    """Apply a near-zero-rate scheduler to the lossless queue to block egress."""
+    cmd = (
+        f"sonic-db-cli CONFIG_DB HSET 'SCHEDULER|{scheduler}' "
+        "'type' 'DWRR' 'weight' '15' 'pir' '1' 'cir' '1'"
+    )
+    if duthost.facts["asic_type"] == "broadcom":
+        cmd += " 'meter_type' 'packets'"
+    duthost.shell(cmd)
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{scheduler}'"
+    )
+    time.sleep(5)
+    result = duthost.shell(
+        f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{queue}' 'scheduler'"
+    )
+    pytest_assert(scheduler in result["stdout"], f"Scheduler {scheduler} was not applied to {port} queue {queue}")
+
+
+def _unblock_egress(duthost, port, queue, original_scheduler):
+    """Restore the original scheduler on the lossless queue."""
+    duthost.shell(
+        f"sonic-db-cli CONFIG_DB HSET 'QUEUE|{port}|{queue}' 'scheduler' '{original_scheduler}'"
+    )
+    time.sleep(5)
+
+
+def _get_original_scheduler(duthost, port, queue):
+    result = duthost.shell(f"sonic-db-cli CONFIG_DB HGET 'QUEUE|{port}|{queue}' 'scheduler'")
+    original = result["stdout"].strip()
+    pytest_assert(original, f"Could not read scheduler for QUEUE|{port}|{queue}")
+    pytest_assert(
+        original != BLOCKING_SCHEDULER,
+        f"Queue {port}|{queue} is already using the blocking scheduler – DUT may be in a bad state",
+    )
+    return original
+
+
+def _dscp_values(config_facts, prio):
+    """Return the list of DSCP values mapped to ``prio`` in DSCP_TO_TC_MAP."""
+    return [int(dscp) for dscp, tc in config_facts["DSCP_TO_TC_MAP"]["AZURE"].items()
+            if int(tc) == prio]
+
+
+def _traffic_item(ixnet, flow_name):
+    """Return the IxNetwork Traffic Item for a snappi flow name."""
+    ti = ixnet.Traffic.TrafficItem.find(Name=flow_name)
+    pytest_assert(len(ti) == 1, "Traffic item {} not found".format(flow_name))
+    return ti
+
+
+def _ti_row_index(ixnet, flow_name):
+    """Return the row index of ``flow_name`` in the Traffic Item Statistics view."""
+    rows = _normalize_stat_rows(StatViewAssistant(ixnet, "Traffic Item Statistics").Rows)
+    for idx, row in enumerate(rows):
+        if row.get("Traffic Item") == flow_name:
+            return idx
+    pytest_assert(False, "Traffic Item {} not found in statistics".format(flow_name))
+
+
+def _drill_down_egress(ixnet, target_row_index=0):
+    """Drill the Traffic Item view down on the 2 egress ECN bits, producing the
+    per-codepoint 'User Defined Statistics' view for the given target row."""
+    tiview = ixnet.Statistics.View.find(Caption="Traffic Item Statistics")[0]
+    pytest_assert(len(tiview) == 1, "No rows found in Traffic Item Statistics view")
+    drill_down = tiview.DrillDown.find()
+    drill_down.TargetRowIndex = target_row_index
+    drill_down.TargetDrillDownOption = DRILL_DOWN_OPTION
+    drill_down.DoDrillDown()
+    wait_with_message("For drill down operation to complete:", 30)
+    logger.info("Drill Down Finished")
+
+
+def _parse_codepoint(egress_value):
+    """Extract the ECN codepoint (0-3) from a UD 'Egress Tracking' cell value."""
+    tokens = re.findall(r"0x[0-9a-fA-F]+|\d+", str(egress_value))
+    if not tokens:
+        return None
+    tok = tokens[-1]
+    val = int(tok, 16) if tok.lower().startswith("0x") else int(tok)
+    return val if val in (ECN_NON_ECT, ECN_ECT1, ECN_ECT0, ECN_CE) else None
+
+
+def _ud_rows_by_codepoint(ixnet):
+    """Return {codepoint: row_dict} for the current User Defined Statistics view."""
+    ud = StatViewAssistant(ixnet, "User Defined Statistics")
+    print_ud_statistics(SELECTED_UD_COLS, ud)
+    mapping = {}
+    for row in _normalize_stat_rows(ud.Rows):
+        cp = _parse_codepoint(row.get("Egress Tracking", ""))
+        if cp is not None:
+            mapping[cp] = row
+    return mapping
+
+
+def _rx_rate(cp_map, codepoint):
+    """Rx Frame Rate for a codepoint row (0.0 if the codepoint is absent)."""
+    row = cp_map.get(codepoint)
+    if not row:
+        return 0.0
+    try:
+        return float(row.get("Rx Frame Rate", 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _drill_and_get(ixnet, flow_name):
+    """Drill the given flow's Traffic Item down on the egress ECN bits and return
+    its {codepoint: row_dict} User Defined Statistics mapping."""
+    _drill_down_egress(ixnet, _ti_row_index(ixnet, flow_name))
+    logger.info("Drill down on %s flow", flow_name)
+    return _ud_rows_by_codepoint(ixnet)
+
+
+def _ts_seconds(timestamp_str):
+    """Parse the seconds.milliseconds field out of an IxNetwork 'HH:MM:SS.sss'
+    timestamp string (same convention as the original response-time test)."""
+    return float(timestamp_str.split(":")[-1])
+
+
+def build_bgp_convergence_config(
+    duthosts,            # noqa: F811
+    get_snappi_ports,    # noqa: F811
+    create_snappi_config,
+    snappi_extra_params,
+    ip_version,
+    frame_rate,
+    frame_size,
+    route_ranges,
+    port_split="half",
 ):
     """
-    Y01: A PFC storm on the lossless priorities (3, 4) must leave every lossy
-    priority flow (0, 1, 2, 5, 6, 7) at full throughput with zero loss, and the
-    DUT must not generate PFC on the lossy priorities.
+    Build the Tx/Rx BGP protocol + traffic configuration shared by the
+    ``test_pr_bgp_*`` convergence tests.
+
+    ``port_split`` selects how the discovered snappi ports are divided between
+    Tx and Rx:
+
+    * ``"half"``       - first half Tx, second half Rx (single-port flap tests)
+    * ``"interleave"`` - even-indexed Tx, odd-indexed Rx (device unisolation)
+
+    Returns ``(snappi_config, snappi_obj_handles, tx_ports, rx_ports)``. The
     """
-    snappi_extra_params = SnappiTestParams()
-    for snappi_ports in port_groups:
-        logger.info('\n')
-        logger.info("Snappi ports used for the test:")
-        for port in snappi_ports:
-            logger.info('{}: {}'.format(port['peer_port'], port['location']))
-        pytest_assert(len(snappi_ports) >= 2, "Not enough ports for the test, Need at least 2 ports")
-        tx_ports = [snappi_ports[0]]
-        rx_ports = [snappi_ports[1]]
-        egress_duthost = rx_ports[0]['duthost']
+    pytest_assert(
+        ip_version in route_ranges,
+        "Failing test as no route ranges are provided for {}".format(ip_version)
+    )
+    snappi_extra_params.ROUTE_RANGES = route_ranges
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
+    if port_split == "interleave":
+        tx_ports, rx_ports = snappi_ports[::2], snappi_ports[1::2]
+    else:
+        mid = len(snappi_ports) // 2
+        tx_ports, rx_ports = snappi_ports[:mid], snappi_ports[mid:]
+    snappi_extra_params.protocol_config = {
+        "Tx": {
+            "protocol_type": "bgp",
+            "ports": tx_ports,
+            "subnet_type": ip_version,
+            "is_rdma": False,
+        },
+        "Rx": {
+            "route_ranges": route_ranges[ip_version] * len(rx_ports),
+            "protocol_type": "bgp",
+            "ports": rx_ports,
+            "subnet_type": ip_version,
+            "is_rdma": False,
+        },
+    }
+    snappi_config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
+    snappi_extra_params.traffic_flow_config = [
+        {
+            "line_rate": frame_rate,
+            "frame_size": frame_size,
+            "is_rdma": False,
+            "flow_name": "bgp_traffic",
+            "tx_names": snappi_obj_handles["Tx"]["ip"],
+            "rx_names": snappi_obj_handles["Rx"]["network_group"],
+        },
+    ]
+    snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
+    return snappi_config, snappi_obj_handles, tx_ports, rx_ports
 
-        config_facts = egress_duthost.config_facts(host=egress_duthost.hostname, source="running")['ansible_facts']
-        pytest_assert('DSCP_TO_TC_MAP' in config_facts, "DSCP_TO_TC_MAP is not configured on the DUT")
-        lossy_prio_list = _lossy_prio_list(config_facts)
-        logger.info("Lossy priorities under test: {}".format(lossy_prio_list))
-        logger.info("Lossless priorities targeted by PFC storm: {}".format(LOSSLESS_PRIO))
 
-        logger.info("Stopping PFC watchdog")
-        stop_pfcwd(egress_duthost, rx_ports[0]['asic_value'])
-        logger.info("Disabling packet aging if necessary")
-        disable_packet_aging(egress_duthost)
+def make_convergence_metric(db_reporter, description):
+    """Create the BGP convergence dataplane-update GaugeMetric."""
+    return GaugeMetric(
+        METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS,
+        description,
+        UNIT_SECONDS,
+        db_reporter,
+    )
 
-        # Snappi protocol (IP) endpoints for the data flows.
-        snappi_extra_params.protocol_config = {
-            "Tx": {"protocol_type": "ip", "ports": tx_ports,
-                   "subnet_type": subnet_type, 'is_rdma': True},
-            "Rx": {"protocol_type": "ip",
-                   "ports": rx_ports, "subnet_type": subnet_type, 'is_rdma': True},
-        }
-        config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
-        api = snappi_api
 
-        # ------------------------------------------------------------------
-        # Build one lossy data flow per lossy priority, each at an equal share
-        # of the line rate: line_rate / number_of_lossy_priorities.
-        # ------------------------------------------------------------------
-        per_flow_rate = round(100.0 / len(lossy_prio_list), 3)
-        traffic_flow_config = []
-        for prio in lossy_prio_list:
-            dscp_values = [int(dscp) for dscp, tc in config_facts['DSCP_TO_TC_MAP']['AZURE'].items()
-                           if int(tc) == prio]
-            pytest_assert(dscp_values,
-                          "Lossy priority {} is not mapped to any DSCP in DSCP_TO_TC_MAP".format(prio))
-            traffic_flow_config.append({
-                "line_rate": per_flow_rate,
-                "frame_size": 1024,
-                "is_rdma": True,
-                "flow_name": "Lossy Prio {}".format(prio),
-                "tx_names": snappi_obj_handles["Tx"]["ip"],
-                "rx_names": snappi_obj_handles["Rx"]["ip"],
-                "traffic_duration_fixed_seconds": TRAFFIC_DURATION_SEC,
-                "prio": prio,
-                "dscp_value": dscp_values[0],
-                # Lossy flows are non-ECN; leave the ECN field untouched.
-                "ecn_value": None,
-            })
+def record_convergence_metric(
+    metric, db_reporter, event_type, ip_version, snappi_extra_params, pkt_loss_duration
+):
+    """Record ``pkt_loss_duration`` against the shared convergence test labels."""
+    test_labels = {
+        METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
+        METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: snappi_extra_params.ROUTE_RANGES[ip_version][0][0][-1],
+        METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]["line_rate"],
+        METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]["frame_size"],
+        METRIC_LABEL_TG_IP_VERSION: ip_version,
+    }
+    metric.record(pkt_loss_duration, test_labels)
+    db_reporter.report()
 
-        # ------------------------------------------------------------------
-        # Build the PFC pause storm flow. It is transmitted from the Rx (DUT
-        # egress) port back into the DUT and targets ONLY the lossless
-        # priorities. Its rate is derived per link speed so the pause is
-        # continuous for the whole data-flow window.
-        # ------------------------------------------------------------------
-        port_speed_gbps = int(int(rx_ports[0]['speed']) / 1000)
-        pfc_storm_pps = calc_pfc_pause_flow_rate(port_speed_gbps)
-        logger.info("PFC storm rate for {}G link: {} pps".format(port_speed_gbps, pfc_storm_pps))
-        traffic_flow_config.append({
-            "is_pfc": True,
-            "flow_name": "PFC Storm {}".format(",".join(str(p) for p in LOSSLESS_PRIO)),
-            "frame_size": 64,
-            "pause_prio_list": LOSSLESS_PRIO,
-            "pause_quanta": int("ffff", 16),
-            "pause_flow_rate_pps": pfc_storm_pps,
-            "pause_tx_port_name": "Port_{}".format(rx_ports[0]['port_id']),
-            "pause_rx_port_name": "Port_{}".format(tx_ports[0]['port_id']),
-            # Storm runs a little longer than the data flows so it fully covers them.
-            "traffic_duration_fixed_seconds": TRAFFIC_DURATION_SEC + (2 * PFC_STORM_LEAD_SEC),
-        })
 
-        snappi_extra_params.traffic_flow_config = traffic_flow_config
-        config = create_traffic_items(config, snappi_extra_params)
-        api.set_config(config)
-        logger.info("Starting All protocols")
-        start_stop(snappi_api, operation="start", op_type="protocols")
-        logger.info("Wait for Arp to Resolve ...")
-        wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
+def check_learned_routes_in_dut(duthosts, ip_version, rx_ports, route_ranges):
+    """
+    Verify that the route ranges advertised by the snappi Rx ports
+    (``route_ranges[ip_version]``) are actually learned by the SONiC DUT(s).
 
-        # Clear DUT counters so the post-run PFC counter check is clean.
-        egress_duthost.command("sonic-clear counters")
-        egress_duthost.command("sonic-clear pfccounters")
+    For every Rx-owning DUT we poll its BGP table (via the built-in
+    ``duthost.get_route()`` helper, which runs ``show bgp ipv4 unicast <prefix>
+    json`` / ``show bgp ipv6 unicast <prefix> json`` based on the prefix family)
+    and assert that the first network of each advertised route range is present.
+    """
+    # Derive the representative network (first prefix) of every advertised range,
+    # e.g. ("100.1.1.1", 24, 5000) -> "100.1.1.0/24".
+    expected_networks = [
+        str(ipaddress.ip_interface("{}/{}".format(address, prefix_len)).network)
+        for address, prefix_len, _count in route_ranges[ip_version][0]
+    ]
 
-        logger.info("Starting traffic (PFC storm + lossy data flows)")
-        # start_stop(snappi_api, operation="start", op_type="traffic")
+    # Unique DUTs that own an Rx port (preserve order).
+    seen = set()
+    rx_duthosts = []
+    for port in rx_ports:
+        dut = port["duthost"]
+        if dut.hostname not in seen:
+            seen.add(dut.hostname)
+            rx_duthosts.append(dut)
 
-        logger.info('Starting Traffic')
-        cs = snappi_api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-        snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Traffic To start")
-        time.sleep(60)  # Wait for traffic to complete before stopping it
-        logger.info('Stopping Traffic')
-        cs = snappi_api.control_state()
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
-        snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Traffic To stop")
-        # start_stop(snappi_api, operation="stop", op_type="traffic")
-        # ------------------------------------------------------------------
-        # Collect and validate per-flow statistics.
-        # ------------------------------------------------------------------
-        columns = ["name", "frames_tx", "frames_rx", "loss", "frames_tx_rate", "frames_rx_rate"]
-        get_stats(snappi_api, "Traffic Item Statistics", columns, 'print')
-        flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
-        failures = []
-        for prio in lossy_prio_list:
-            flow_name = "Lossy Prio {}".format(prio)
-            stat = next((s for s in flow_stats if s.name == flow_name), None)
-            pytest_assert(stat is not None, "Statistics for flow {} not found".format(flow_name))
+    def _route_present(dut, network):
+        route = dut.get_route(network)
+        return bool(route) and bool(route.get("paths") or route.get("routes"))
 
-            loss_pct = float(stat.loss)
-            if loss_pct > MAX_LOSS_PERCENT:
-                failures.append("Lossy priority {} saw {}% loss (expected 0%)".format(prio, loss_pct))
+    def _all_routes_learned(dut):
+        return all(_route_present(dut, network) for network in expected_networks)
 
-            tx_rate = float(stat.frames_tx_rate)
-            rx_rate = float(stat.frames_rx_rate)
-            if tx_rate > 0:
-                deviation = abs(tx_rate - rx_rate) / tx_rate
-                if deviation > RX_RATE_TOLERANCE:
-                    failures.append(
-                        "Lossy priority {} Rx rate {} deviates {:.2%} from Tx rate {} (> 2%)".format(
-                            prio, rx_rate, deviation, tx_rate))
-            logger.info("Lossy priority {}: loss={}% tx_rate={} rx_rate={}".format(
-                prio, loss_pct, tx_rate, rx_rate))
+    for dut in rx_duthosts:
+        logger.info(
+            "Checking that {} learned the {} routes {} via show bgp unicast".format(
+                dut.hostname, ip_version, expected_networks
+            )
+        )
+        learned = wait_until(120, 5, 0, _all_routes_learned, dut)
+        if not learned:
+            missing = [network for network in expected_networks if not _route_present(dut, network)]
+            pytest_assert(
+                False,
+                "DUT {} did not learn the expected {} routes from snappi; missing: {}".format(
+                    dut.hostname, ip_version, missing
+                ),
+            )
+        logger.info("DUT {} learned the expected {} routes {}".format(dut.hostname, ip_version, expected_networks))
 
-        # The DUT must NOT generate PFC on the lossy priorities.
-        for prio in lossy_prio_list:
-            tx_pfc = get_pfc_frame_count(egress_duthost, rx_ports[0]['peer_port'], prio, is_tx=True)
-            if tx_pfc != 0:
-                failures.append(
-                    "DUT generated {} PFC frames on lossy priority {} (expected 0)".format(tx_pfc, prio))
-            logger.info("DUT Tx PFC frames on lossy priority {}: {}".format(prio, tx_pfc))
 
-        # Stop traffic before asserting so teardown is clean regardless of result.
-        start_stop(snappi_api, operation="stop", op_type="traffic")
+def select_random_t0_t1_port(duthosts, conn_graph_facts, dut_type="t0"):
+    """
+    Randomly pick a DUT of tier ``dut_type`` ("t0" or "t1") and return the port
+    on that DUT which connects it to a DUT of the opposite tier, as defined by
+    the inter-device links in ``links.csv`` (exposed via
+    ``conn_graph_facts['device_conn']``).
+
+    For ``dut_type="t0"`` a random T0 is selected and its T0->T1 port returned;
+    for ``dut_type="t1"`` a random T1 is selected and its T1->T0 port returned.
+
+    Returns a ``{"device_name": <hostname>, "port_name": <port>}`` dict suitable
+    for ``snappi_extra_params.FLAP_DETAILS``.
+    """
+    dut_type = dut_type.lower()
+    peer_type = "t1" if dut_type == "t0" else "t0"
+    device_conn = conn_graph_facts['device_conn']
+    selected_duthosts = [dut for dut in duthosts if '-{}-'.format(dut_type) in dut.hostname.lower()]
+    peer_hostnames = [dut.hostname for dut in duthosts if '-{}-'.format(peer_type) in dut.hostname.lower()]
+    pytest_assert(selected_duthosts, "No {} switch found in duthosts".format(dut_type.upper()))
+    pytest_assert(peer_hostnames, "No {} switch found in duthosts".format(peer_type.upper()))
+
+    selected_dut = random.choice(selected_duthosts)
+    for port, link in device_conn.get(selected_dut.hostname, {}).items():
+        if link.get('peerdevice') in peer_hostnames:
+            logger.info(
+                "Selected {} {} port {} (connected to {} {})".format(
+                    dut_type.upper(), selected_dut.hostname, port, peer_type.upper(), link['peerdevice']
+                )
+            )
+            return {"device_name": selected_dut.hostname, "port_name": port}
+
+    pytest_assert(
+        False,
+        "No {}-{} link found in links.csv for selected {} {} ({} candidates: {})".format(
+            dut_type.upper(), peer_type.upper(), dut_type.upper(),
+            selected_dut.hostname, peer_type.upper(), peer_hostnames
+        ),
+    )
+
+
+def select_unisolation_device(duthosts, dut_type="t1"):
+    """
+    Return the DUT whose hostname tier matches ``dut_type`` (e.g. ``"t1"``),
+    used as the device-unisolation target. Asserts if none is found.
+    """
+    dut_type = dut_type.lower()
+    device = next(
+        (dut for dut in duthosts if '-{}-'.format(dut_type) in dut.hostname.lower()),
+        None
+    )
+    pytest_assert(
+        device is not None,
+        "Failing test as unable to find the unisolation device with dut_type '{}'".format(dut_type)
+    )
+    logger.info("Selected unisolation device {} (dut_type={})".format(device.hostname, dut_type))
+    return device
+
+
+def packet_loss_duration_ms(flow_stat):
+    """
+    Compute packet loss for a single "Traffic Item Statistics" row.
+
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    delta_frames = flow_stat.frames_tx - flow_stat.frames_rx
+
+    pkt_loss_duration = 1000 * (delta_frames / flow_stat.frames_tx_rate)
+    return delta_frames, pkt_loss_duration
+
+
+def assert_rx_ports_receiving(snappi_api, min_frame_rate=1000):
+    """
+    Assert every Rx (second-half) port is receiving traffic above
+    ``min_frame_rate`` frames/sec, using the dataplane port statistics view.
+    """
+    port_stats = get_stats(
+        snappi_api,
+        "Data Plane Port Statistics",
+        columns=["Port", "Tx Frame Rate", "Rx Frame Rate"],
+        return_type="df",
+    )
+    port_stats["port_num"] = port_stats["Port"].str.extract(r"(\d+)").astype(int)
+    port_stats = port_stats.sort_values("port_num")
+    mid = len(port_stats) // 2
+    rx_port_stats = port_stats.iloc[mid:, :]
+    pytest_assert(
+        (rx_port_stats["Rx Frame Rate"] > min_frame_rate).all(),
+        "Not all Rx ports are having frame rate atleast {}".format(min_frame_rate),
+    )
+
+
+def measure_and_record_convergence(
+    snappi_api,
+    metric,
+    db_reporter,
+    event_type,
+    ip_version,
+    snappi_extra_params,
+    convergence="delta_nonzero",
+    converge_timeout=None,
+    delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
+    not_converged_msg="Traffic did not converge after event",
+    rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None,
+):
+    """
+    Shared measurement + assertion + metric-recording tail for the
+    ``test_pr_bgp_*`` convergence tests. Reads the traffic-item statistics,
+    computes the packet-loss duration, asserts convergence, stops traffic and
+    records the metric.
+
+    Parameters
+    ----------
+    convergence : str
+        ``"delta_nonzero"`` - assert frames were dropped (``delta_frames != 0``)
+        and ``is_traffic_converged`` (single-port flap / route events).
+        ``"rate_within"``   - assert Tx/Rx frame rates are within 0.1%
+        (device unisolation).
+    converge_timeout : int, optional
+        When set, poll ``is_traffic_converged`` up to this many seconds before
+        measuring (used by the device-unisolation flows).
+    delta_zero_msg / not_converged_msg / rate_varying_msg : str
+        Assertion failure messages, overridable per event.
+
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    if converge_timeout:
+        wait_for(
+            lambda: is_traffic_converged(snappi_api),
+            "Traffic to Converge",
+            interval_seconds=10,
+            timeout_seconds=converge_timeout,
+        )
+    flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
+    delta_frames, pkt_loss_duration = packet_loss_duration_ms(flow_stats[0])
+    logger.info("Delta Frames : {}".format(delta_frames))
+    if convergence == "rate_within":
+        frame_rate_difference = abs(float(flow_stats[0].frames_tx_rate) - float(flow_stats[0].frames_rx_rate))
+        logger.info("Frames Tx Rate : {}".format(flow_stats[0].frames_tx_rate))
+        logger.info("Frames Rx Rate : {}".format(flow_stats[0].frames_rx_rate))
+        logger.info("Frame Rate Difference : {}".format(frame_rate_difference))
+        pytest_assert(frame_rate_difference <= (0.001 * int(flow_stats[0].frames_tx_rate)), rate_varying_msg)
+    else:
+        pytest_assert(int(delta_frames) != 0, delta_zero_msg)
+        pytest_assert(is_traffic_converged(snappi_api), not_converged_msg)
+    logger.info("Traffic has converged after {}".format(event_type))
+    logger.info('--------------------------   Convergence Numbers   ----------------------------------')
+    logger.info("Convergence Time for {} : {} (ms)".format(event_type, pkt_loss_duration))
+    logger.info('--------------------------------------------------------------------------------------')
+    pytest_assert(max_convergence_ms is None or pkt_loss_duration <= max_convergence_ms,
+                  "Convergence time {} ms exceeds max allowed {} ms".format(pkt_loss_duration, max_convergence_ms))
+    start_stop(snappi_api, operation="stop", op_type="traffic")
+    record_convergence_metric(
+        metric, db_reporter, event_type, ip_version, snappi_extra_params, pkt_loss_duration
+    )
+    return delta_frames, pkt_loss_duration
+
+
+def run_bgp_convergence_event(
+    snappi_api,
+    snappi_config,
+    db_reporter,
+    snappi_extra_params,
+    ip_version,
+    event_type,
+    metric_description,
+    disrupt,
+    cleanup=None,
+    cleanup_first=False,
+    convergence="delta_nonzero",
+    converge_timeout=None,
+    delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
+    not_converged_msg="Traffic did not converge after event",
+    rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None
+):
+    """
+    Drive one BGP convergence event end to end: create the metric, push the
+    snappi config, start protocols, run the event-specific ``disrupt`` callable,
+    measure + record convergence, then tear down in a ``finally`` block.
+
+    ``disrupt()`` performs everything between "protocols started" and "ready to
+    measure" (traffic start, pre-event checks, the disruption, and any settle
+    wait). ``cleanup()`` does event-specific teardown; set ``cleanup_first=True``
+    to run it before the protocol/traffic stop (device unisolation needs this).
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    metric = make_convergence_metric(db_reporter, metric_description)
+    snappi_api.set_config(snappi_config)
+    start_stop(snappi_api, operation="start", op_type="protocols")
+    try:
+        disrupt()
+        return measure_and_record_convergence(
+            snappi_api, metric, db_reporter, event_type, ip_version, snappi_extra_params,
+            convergence=convergence, converge_timeout=converge_timeout,
+            delta_zero_msg=delta_zero_msg, not_converged_msg=not_converged_msg,
+            rate_varying_msg=rate_varying_msg,
+            max_convergence_ms=max_convergence_ms
+        )
+    finally:
+        if cleanup is not None and cleanup_first:
+            cleanup()
         start_stop(snappi_api, operation="stop", op_type="protocols", waittime=1)
-
-        pytest_assert(not failures,
-                      "PFC storm affected lossy traffic:\n{}".format("\n".join(failures)))
-        logger.info("PASS: All lossy priority flows unaffected by the PFC storm on priorities {}".format(
-            LOSSLESS_PRIO))
+        start_stop(snappi_api, operation="stop", op_type="traffic", waittime=1)
+        if cleanup is not None and not cleanup_first:
+            cleanup()
