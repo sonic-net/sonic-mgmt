@@ -138,7 +138,7 @@ def bgp_peer_queue_rows_idle(duthost, show_cmd, queue, ipv4_peers_only):
             "check_queue_status: failed to parse {}".format(show_cmd),
             exc_info=True
         )
-        return True
+        return False
 
     if not bgp_neighbors:
         return True

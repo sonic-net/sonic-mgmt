@@ -57,7 +57,9 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     logger.info("withdraw existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
+    result = wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "inq") is True)
+    if not result:
+        logger.warning("Failed to process all withdraw requests in {} seconds".format(MAX_WAIT_TIME))
     sleep_to_wait(CRM_POLLING_INTERVAL * 100)
     # BGP queues can be idle while CRM/orch still reflects bulk route removal; baseline must be post-settle.
     crm_stable_timeout = 600 if str(topo_name).startswith("lt2") else 240
@@ -93,7 +95,9 @@ def withdraw_and_announce_existing_routes(duthosts, localhost, tbinfo, enum_rand
     logger.info("announce existing ipv4 and ipv6 routes")
     localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
 
-    wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
+    result = wait_until(MAX_WAIT_TIME, CRM_POLLING_INTERVAL, 0, lambda: check_queue_status(duthost, "outq") is True)
+    if not result:
+        logger.warning("Failed to process all announce requests in {} seconds".format(MAX_WAIT_TIME))
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
     logger.info("ipv4 route used {}".format(get_crm_resource_status(duthost, "ipv4_route", "used", namespace)))
     logger.info("ipv6 route used {}".format(get_crm_resource_status(duthost, "ipv6_route", "used", namespace)))
