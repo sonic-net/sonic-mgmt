@@ -6,7 +6,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.bgp import get_asic_config_facts, get_db_cli_prefix
+from tests.common.helpers.bgp import get_asic_config_facts
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
@@ -36,17 +36,24 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
-def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
+def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels=None):
     """Map a BGP neighbor device name to local DUT member interfaces.
 
-    DEVICE_NEIGHBOR keys are physical ports (Ethernet*). LAG members appear as
-    their own entries, so no PortChannel-name lookup is needed here.
+    DEVICE_NEIGHBOR keys are physical ports (Ethernet*) or LAG interfaces
+    (PortChannel*). LAG-backed neighbors are expanded to member ports via
+    PORTCHANNEL_MEMBER; members that also appear directly are included once.
     """
     interfaces = {}
+    portchannels = portchannels or {}
     for ifname, nbr_info in dev_nbrs.items():
         if nbr_info.get('name') != neighbor_name:
             continue
-        interfaces[ifname] = nbr_info
+        if ifname in portchannels:
+            for member in portchannels[ifname]:
+                if member in dev_nbrs:
+                    interfaces[member] = dev_nbrs[member]
+        else:
+            interfaces[ifname] = nbr_info
     return interfaces
 
 
@@ -64,9 +71,10 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
 
+    asichost = duthost.asic_instance(asic_index)
     config_facts = get_asic_config_facts(duthost, asic_index)
-    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
-    if check_frr_mgmt_framework_config(duthost, asic_index):
+    # DEVICE_METADATA lives in host CONFIG_DB; use duthost helper, not per-ASIC namespace.
+    if duthost.get_frr_mgmt_framework_config():
         all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
         all_bgp_neighbors = all_bgp_neighbors[vrfname]
     else:
@@ -89,12 +97,13 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
     logger.debug("setup dev_nbrs {}".format(dev_nbrs))
     logger.debug("setup portchannels {}".format(portchannels))
 
-    # verify sessions are established
-    pytest_assert(wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                  "Not all BGP sessions are established on DUT")
+    # verify sessions are established on the selected ASIC
+    neigh_ips = list(bgp_neighbors.keys())
+    pytest_assert(wait_until(120, 5, 0, asichost.check_bgp_session_state, neigh_ips),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
     for ip, details in bgp_neighbors.items():
-        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
+        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs, portchannels)
         if interfaces:
             details['interface'] = interfaces
 
@@ -122,8 +131,8 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
     yield setup_info
 
-    # verify sessions are established after test
-    if not duthost.check_bgp_session_state(bgp_neighbors):
+    # verify sessions are established after test on the selected ASIC
+    if not asichost.check_bgp_session_state(neigh_ips):
         local_interfaces = list(bgp_neighbors[bgp_neighbor]['interface'].keys())
         for port in local_interfaces:
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
@@ -136,26 +145,8 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-        pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                      "Not all BGP sessions are established on DUT")
-
-
-def check_frr_mgmt_framework_config(duthost, asic_index):
-    """
-    Check if frr_mgmt_framework_config is set to "true" in DEVICE_METADATA
-
-    Args:
-        duthost: DUT host object
-        asic_index: ASIC index for namespace-scoped CONFIG_DB access
-
-    Returns:
-        bool: True if frr_mgmt_framework_config is "true", False otherwise
-    """
-    cmd = '{} CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"'.format(
-        get_db_cli_prefix(duthost, asic_index)
-    )
-    frr_config = duthost.shell(cmd)
-    return frr_config.get("stdout", "").strip() == "true"
+        pytest_assert(wait_until(120, 10, 0, asichost.check_bgp_session_state, neigh_ips),
+                      "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
 
 def verify_bgp_session_down(duthost, bgp_neighbor, asic_index):
@@ -365,5 +356,5 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     if test_type == "swss_docker":
         # It may take up to 6 minutes after restarting swss for BGP sessions to be up
         timeout = 360
-    pytest_assert(wait_until(timeout, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
-                  "Not all BGP sessions are established on DUT")
+    pytest_assert(wait_until(timeout, 10, 0, asichost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
