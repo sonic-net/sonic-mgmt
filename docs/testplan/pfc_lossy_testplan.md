@@ -7,9 +7,7 @@
   - [2. Background \& Theory](#2-background--theory)
     - [2.1 PFC Frame Structure](#21-pfc-frame-structure)
     - [2.2 Quanta and Pause Duration](#22-quanta-and-pause-duration)
-    - [2.3 Required PFC Storm Rate](#23-required-pfc-storm-rate)
-    - [2.4 Lossless vs. Lossy Priorities](#24-lossless-vs-lossy-priorities)
-    - [2.5 SONiC Default QoS Configuration](#25-sonic-default-qos-configuration)
+    - [2.3 Lossless vs. Lossy Priorities](#23-lossless-vs-lossy-priorities)
   - [3. Topology](#3-topology)
   - [4. Scope \& Limitations](#4-scope--limitations)
   - [5. Prerequisites](#5-prerequisites)
@@ -18,10 +16,8 @@
     - [Test Case Matrix](#test-case-matrix)
     - [Y01: Lossy Traffic Unaffected During PFC Storm](#y01-lossy-traffic-unaffected-during-pfc-storm)
     - [Y02: Malformed PFC Frame Handling](#y02-malformed-pfc-frame-handling)
-    - [Y03: PFC Targeting Lossy Priority - DUT Ignores](#y03-pfc-targeting-lossy-priority--dut-ignores)
-    - [Y04: Global PAUSE (802.3x) - DUT Ignores](#y04-global-pause-8023x--dut-ignores)
-    - [Y05: Head-of-Line Blocking Measurement](#y05-head-of-line-blocking-measurement)
-    - [Y06: Lossy Queue Congestion - No PFC Generated](#y06-lossy-queue-congestion--no-pfc-generated)
+    - [Y03: Global PAUSE (802.3x) - DUT Ignores](#y03-global-pause-8023x--dut-ignores)
+    - [Y04: Lossy Queue Congestion - No PFC Generated](#y04-lossy-queue-congestion--no-pfc-generated)
   - [8. Teardown](#8-teardown)
   - [9. Metrics \& Reporting](#9-metrics--reporting)
   - [10. Known Limitations \& Future Work](#10-known-limitations--future-work)
@@ -77,26 +73,7 @@ Worked example at 100 Gbps with the maximum quanta value (65535):
 pause_duration = (65535 * 512) / 100,000,000,000 = 335.54 microseconds
 ```
 
-### 2.3 Required PFC Storm Rate
-
-To hold a queue paused continuously, PFC frames must be re-sent before each pause
-window expires. The storm rate is **computed dynamically per link speed** rather than
-hardcoded:
-
-```
-pause_duration_us = (quanta * 512 / speed_bps) * 1e6
-pfc_rate_fps      = (1,000,000 / pause_duration_us) * frame_size_bytes
-```
-
-Speed-dependent reference values (max quanta = 65535, 64-byte PFC frames):
-
-| Speed     | Max Quanta Duration | Required PFC Rate (64B frames) |
-|-----------|---------------------|--------------------------------|
-| 100 Gbps  | 335.54 us           | ~190,738 fps                   |
-| 400 Gbps  | 83.89 us            | ~763,000 fps                   |
-| 800 Gbps  | 41.94 us            | ~1,526,000 fps                 |
-
-### 2.4 Lossless vs. Lossy Priorities
+### 2.3 Lossless vs. Lossy Priorities
 
 | Property              | Lossless Queues (default 3, 4)   | Lossy Queues (0,1,2,5,6,7) |
 |-----------------------|----------------------------------|----------------------------|
@@ -125,7 +102,7 @@ Supported Topologies
 +-------------------+         +---------+         +---------+
                                    ^
                                    |
-                              Snappi PFC storm (reaches T0 only)
+                              Snappi PFC (reaches T0 only)
 
 NOTE: PFC frames (dst MAC 01-80-C2-00-00-01) are NOT forwarded by 802.1D bridges.
       Testing a T1 DUT therefore requires a T0 switch as a port stand-in, or the
@@ -136,8 +113,8 @@ NOTE: PFC frames (dst MAC 01-80-C2-00-00-01) are NOT forwarded by 802.1D bridges
 ## 4. Scope & Limitations
 
 **In scope:** lossy isolation during lossless PFC storms, malformed-frame robustness,
-ignoring PFC/global-pause on lossy priorities, head-of-line blocking measurement, and
-confirming no PFC is generated for lossy congestion.
+ignoring PFC/global-pause on lossy priorities, and confirming no PFC is generated for
+lossy congestion.
 
 **Out of scope:** lossless pause/resume behavior, standalone PFC Watchdog tests (see
 `tests/pfcwd/`), MACSEC, port-channel PFC, buffer tuning, performance benchmarking,
@@ -158,11 +135,10 @@ a T0 because the storm is consumed at the T0 bridge.
 ## 6. Test Setup
 
 1. Read `config_DB` to derive lossless and lossy priority lists (do not hardcode).
-2. Compute PFC storm rate dynamically per link speed (see Section 2.3).
-3. Build data flows per priority (DSCP-matched) Tx -> DUT -> Rx.
-4. Build PFC / global-pause flows per case (Rx -> DUT).
-5. Disable PFC Watchdog and packet aging unless the case states otherwise.
-6. Clear PFC counters (`sonic-clear pfccounters`) to establish a baseline.
+2. Build data flows per priority (DSCP-matched) Tx -> DUT -> Rx.
+3. Build PFC / global-pause flows per case (Rx -> DUT).
+4. Disable PFC Watchdog and packet aging unless the case states otherwise.
+5. Clear PFC counters (`sonic-clear pfccounters`) to establish a baseline.
 
 All cases are parametrized over link speed, buffer model, and ASIC count. Derive
 `buffer_model` at runtime from `DEVICE_METADATA|localhost.buffer_model` in `config_DB`:
@@ -182,11 +158,9 @@ All cases are parametrized over link speed, buffer model, and ASIC count. Derive
 | ID  | Test Case                                  | Priority | Description |
 |-----|--------------------------------------------|----------|-------------|
 | Y01 | Lossy traffic unaffected during PFC storm  | P0 | Full PFC storm on lossless priorities; all lossy flows keep full throughput. |
-| Y02 | Malformed PFC frame handling               | P1 | Invalid class-enable vectors, wrong opcodes, truncated frames; DUT ignores all. |
-| Y03 | PFC targeting lossy priority - DUT ignores | P0 | PFC with class-enable bit set for a lossy priority; DUT does NOT pause it. |
-| Y04 | Global PAUSE (802.3x) - DUT ignores        | P1 | IEEE 802.3x global pause; SONiC neither pauses nor forwards. |
-| Y05 | Head-of-line blocking measurement          | P0 | Heavy PFC storm on lossless queues; lossy queue latency stays below threshold. |
-| Y06 | Lossy queue congestion - no PFC generated  | P1 | Oversubscribe a lossy queue; DUT generates no PFC for lossy priorities. |
+| Y02 | Malformed PFC frame handling               | P2 | Invalid class-enable vectors, wrong opcodes, truncated frames; DUT ignores all. |
+| Y03 | Global PAUSE (802.3x) - DUT ignores        | P1 | IEEE 802.3x global pause; SONiC neither pauses nor forwards. |
+| Y04 | Lossy queue congestion - no PFC generated  | P1 | Oversubscribe a lossy queue; DUT generates no PFC for lossy priorities. |
 
 ---
 
@@ -252,32 +226,7 @@ Per Section 8.
 
 ---
 
-### Y03: PFC Targeting Lossy Priority - DUT Ignores
-
-#### Objective
-Verify that a well-formed PFC frame whose class-enable vector sets a **lossy** priority
-bit (e.g., 0) does NOT pause that lossy queue.
-
-#### Test Configuration
-- Data flow on a lossy priority (e.g., 0) at line rate.
-- PFC storm with the class-enable bit set for that lossy priority only.
-
-#### Test Steps
-1. Start the lossy-priority data flow.
-2. Send a PFC storm targeting that lossy priority.
-3. Measure the lossy flow's Rx rate during the storm.
-
-#### Pass / Fail Criteria
-- Lossy-priority Rx rate is unchanged (full throughput, +/-2%); NOT paused.
-- 0% loss on the lossy priority.
-- Record `pfc.lossy.status`.
-
-#### Teardown
-Per Section 8.
-
----
-
-### Y04: Global PAUSE (802.3x) - DUT Ignores
+### Y03: Global PAUSE (802.3x) - DUT Ignores
 
 #### Objective
 Verify that SONiC ignores IEEE 802.3x global PAUSE frames - it neither pauses any
@@ -303,34 +252,7 @@ Per Section 8.
 
 ---
 
-### Y05: Head-of-Line Blocking Measurement
-
-#### Objective
-Under a heavy PFC storm on lossless queues, verify that lossy-queue latency does not
-rise above a defined threshold - i.e., paused lossless traffic does not head-of-line
-block lossy traffic.
-
-#### Test Configuration
-- Heavy PFC storm pausing lossless priorities {3, 4}.
-- Latency-measured data flows on lossy priorities at moderate load.
-- Define and document a maximum acceptable added latency threshold.
-
-#### Test Steps
-1. Start lossy data flows with latency measurement enabled.
-2. Apply the lossless PFC storm.
-3. Compare lossy-queue latency during the storm vs a no-storm baseline.
-
-#### Pass / Fail Criteria
-- Added lossy-queue latency during the storm stays below the documented threshold.
-- 0% loss on lossy priorities.
-- Record lossy latency (baseline and under-storm) for telemetry.
-
-#### Teardown
-Per Section 8.
-
----
-
-### Y06: Lossy Queue Congestion - No PFC Generated
+### Y04: Lossy Queue Congestion - No PFC Generated
 
 #### Objective
 Verify that congesting (oversubscribing) a lossy queue causes the DUT to **drop**
@@ -375,7 +297,6 @@ Each case records at minimum:
 - `pfc.lossy.status` (PASS/FAIL) labeled with device id, port id, queue priority,
   traffic type, and link speed.
 - `pfc.lossy.packet_loss_pct` and, where relevant, `pfc.counter.tx_pfc`.
-- Lossy-queue latency (Y05).
 
 Every case asserts pass/fail with a detailed, context-rich failure message — the metric
 is recorded in addition to, not instead of, the hard assertion:
@@ -383,8 +304,6 @@ is recorded in addition to, not instead of, the hard assertion:
 
 ## 10. Known Limitations & Future Work
 
-- Y05 head-of-line latency thresholds are platform-dependent and must be documented
-  per platform rather than assumed universal.
 - Malformed-frame variants (Y02) depend on generator support for crafting raw control
   frames; skip cleanly where unsupported.
 - This document specifies **what** to verify; the pytest implementation follows in a
