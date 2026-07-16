@@ -96,6 +96,23 @@ def setup_env(
         # sleep for a short time, waiting for config apply
         time.sleep(30)
         current_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
+        if set(original_bgp_speaker_config) != set(current_bgp_speaker_config):
+            # A listen-range peer-group's config (e.g. BGPSLBPassive update-source) can go
+            # missing across the frr round-trip + checkpoint rollback. Capture whether it is
+            # gone from CONFIG_DB (rollback/checkpoint gap) or present in CONFIG_DB but not
+            # rendered by frrcfgd (render gap) so the next failure is actionable.
+            logger.error("bgp speaker config drift after rollback -- dumping state for diagnosis")
+            logger.error("CONFIG_DB BGP_PEER_GROUP keys:\n%s", duthost.shell(
+                "sonic-db-cli CONFIG_DB keys 'BGP_PEER_GROUP*'", module_ignore_errors=True).get("stdout", ""))
+            for key in ("BGP_PEER_GROUP|BGPSLBPassive", "BGP_PEER_GROUP|default|BGPSLBPassive",
+                        "BGP_PEER_GROUP|BGPVac", "BGP_PEER_GROUP|default|BGPVac"):
+                out = duthost.shell("sonic-db-cli CONFIG_DB hgetall '{}'".format(key),
+                                    module_ignore_errors=True).get("stdout", "")
+                if out.strip():
+                    logger.error("CONFIG_DB %s:\n%s", key, out)
+            logger.error("FRR listen-range peer-group lines:\n%s", duthost.shell(
+                "vtysh -c 'show running-config' | grep -iE 'BGPSLBPassive|BGPVac|update-source|listen range' "
+                "|| true", module_ignore_errors=True).get("stdout", ""))
         pytest_assert(
             set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
             "bgp speaker config are not suppose to change after test org: {}, cur: {}".format(
