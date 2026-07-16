@@ -346,7 +346,7 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
 
-    # Restore interfaces/neighbors before verifying BGP recovery
+    # Restore interfaces/neighbors before verifying BGP recovery.
     failure_injection.restore()
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
