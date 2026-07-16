@@ -200,7 +200,6 @@ def test_pfc_unaffected_pause_storm(
 
         logger.info("Starting traffic (PFC storm + lossy data flows)")
         # start_stop(snappi_api, operation="start", op_type="traffic")
-
         logger.info('Starting Traffic')
         cs = snappi_api.control_state()
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
@@ -219,6 +218,7 @@ def test_pfc_unaffected_pause_storm(
         columns = ["name", "frames_tx", "frames_rx", "loss", "frames_tx_rate", "frames_rx_rate"]
         get_stats(snappi_api, "Traffic Item Statistics", columns, 'print')
         flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
+
         failures = []
         for prio in lossy_prio_list:
             flow_name = "Lossy Prio {}".format(prio)
