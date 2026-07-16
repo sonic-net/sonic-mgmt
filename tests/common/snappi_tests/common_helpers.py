@@ -877,7 +877,7 @@ def _set_credit_watchdog(duthost, enable, asic_value=None):
     if asic_value:
         namespaces = [asic_value]
     elif duthost.is_multi_asic:
-        namespaces = ['asic{}'.format(a) for a in duthost.facts['asics_present']]
+        namespaces = [asic.namespace for asic in duthost.frontend_asics]
     else:
         namespaces = ['']
     value = "1" if enable else "0"
