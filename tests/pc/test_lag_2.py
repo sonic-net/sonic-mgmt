@@ -163,7 +163,13 @@ class LagTest:
         min_links = runner_cfg.get('min_ports', 1)
         fallback = runner_cfg.get('fallback', False)
         original_fast_rate = runner_cfg.get('fast_rate', False)
-        pc_ips = [n['subnet'] for n in self.mg_facts['minigraph_portchannel_interfaces']
+        # Use the interface's actual host address (addr/prefixlen), not the network
+        # address (subnet). For IPv6 /126 links these differ (subnet is the network
+        # address, e.g. fc00::18/126, while addr is the DUT's real host IP, e.g.
+        # fc00::19); re-adding the subnet value creates a duplicate/overlapping
+        # address alongside the pre-existing one and stalls LAG reconvergence.
+        pc_ips = ['{}/{}'.format(n['addr'], n['prefixlen'])
+                  for n in self.mg_facts['minigraph_portchannel_interfaces']
                   if n['attachto'] == lag_name]
 
         portchannel_mutated = False
