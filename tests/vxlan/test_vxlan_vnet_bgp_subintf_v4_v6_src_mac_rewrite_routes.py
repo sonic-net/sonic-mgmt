@@ -506,19 +506,13 @@ def setup_vnet_routes(vnet_vnis, vni_to_routes, gnmi_tls):     # noqa: F811
 
 def setup_acl_config(duthost, ports, vnet_vnis, vnet_routes_v4, vnet_routes_v6, gnmi_tls):     # noqa: F811
     """
-    Configure ACL tables for inner src MAC rewrite — both IPv4 and IPv6.
-
-    Both ACL_TABLE_TYPE entries must be sent in one gNMI patch.
+    Configure a single ACL table for inner src MAC rewrite — both IPv4 and IPv6 rules in one table.
+    Each rule matches one IP type (INNER_SRC_IP for v4, INNER_SRC_IPV6 for v6) + TUNNEL_VNI.
     """
     gnmic_set_with_bypass(gnmi_tls, f"{GNMI_PATH_PREFIX}/ACL_TABLE_TYPE", {
         ACL_TYPE_NAME: {
             "BIND_POINTS": ["PORT", "PORTCHANNEL"],
-            "MATCHES": ["INNER_SRC_IP", "TUNNEL_VNI"],
-            "ACTIONS": ["COUNTER", "INNER_SRC_MAC_REWRITE_ACTION"]
-        },
-        ACL_TYPE_NAME_V6: {
-            "BIND_POINTS": ["PORT", "PORTCHANNEL"],
-            "MATCHES": ["INNER_SRC_IPV6", "TUNNEL_VNI"],
+            "MATCHES": ["INNER_SRC_IP", "INNER_SRC_IPV6", "TUNNEL_VNI"],
             "ACTIONS": ["COUNTER", "INNER_SRC_MAC_REWRITE_ACTION"]
         }
     }, "acl_type")
@@ -529,45 +523,42 @@ def setup_acl_config(duthost, ports, vnet_vnis, vnet_routes_v4, vnet_routes_v6, 
             "ports": ports,
             "stage": "egress",
             "type": ACL_TYPE_NAME
-        },
-        ACL_TABLE_NAME_V6: {
-            "policy_desc": ACL_TABLE_NAME_V6,
-            "ports": ports,
-            "stage": "egress",
-            "type": ACL_TYPE_NAME_V6
         }
     }, "acl_table")
 
-    gnmic_set_with_bypass(gnmi_tls, f"{GNMI_PATH_PREFIX}/ACL_RULE", {
-        f"{ACL_TABLE_NAME}|rule_{route['vni']}": {
-            "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
-            "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
-            "TUNNEL_VNI": f"{route['vni']}",
-            "PRIORITY": f"{route['vni']}"
-        } for vni in vnet_vnis for route in vnet_routes_v4[vni]
-    }, "acl_rule_v4")
-
-    gnmic_set_with_bypass(gnmi_tls, f"{GNMI_PATH_PREFIX}/ACL_RULE", {
-        f"{ACL_TABLE_NAME_V6}|rule_{route['vni']}": {
-            "INNER_SRC_IPV6": f"{INNER_SRC_IPV6}/128",
-            "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
-            "TUNNEL_VNI": f"{route['vni']}",
-            "PRIORITY": f"{route['vni']}"
-        } for vni in vnet_vnis for route in vnet_routes_v6[vni]
-    }, "acl_rule_v6")
+    acl_rules = {}
+    for vni in vnet_vnis:
+        for route in vnet_routes_v4[vni]:
+            if route["prefix"] == "0.0.0.0/0":
+                continue
+            acl_rules[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v4"] = {
+                "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
+                "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
+                "TUNNEL_VNI": f"{route['vni']}",
+                "PRIORITY": f"{route['vni']}"
+            }
+        for route in vnet_routes_v6[vni]:
+            if route["prefix"] == "::/0":
+                continue
+            acl_rules[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v6"] = {
+                "INNER_SRC_IPV6": f"{INNER_SRC_IPV6}/128",
+                "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
+                "TUNNEL_VNI": f"{route['vni']}",
+                "PRIORITY": f"{route['vni']}"
+            }
+    gnmic_set_with_bypass(gnmi_tls, f"{GNMI_PATH_PREFIX}/ACL_RULE", acl_rules, "acl_rule")
 
     def _acl_tables_and_rules_active(duthost):
         rule_key = "STATE_DB/localhost/ACL_RULE_TABLE"
-        acl_rules = gnmi_tls.gnmic.get(rule_key)[0].get("updates")[0].get("values", {}).get(rule_key, {})
-        for table_name, routes in [(ACL_TABLE_NAME, vnet_routes_v4), (ACL_TABLE_NAME_V6, vnet_routes_v6)]:
-            table_key = f"STATE_DB/localhost/ACL_TABLE_TABLE/{table_name}/status"
-            status = gnmi_tls.gnmic.get(table_key)[0].get("updates")[0].get("values", {}).get(table_key, {})
-            if status.lower() != "active":
+        acl_rule_states = gnmi_tls.gnmic.get(rule_key)[0].get("updates")[0].get("values", {}).get(rule_key, {})
+        table_key = f"STATE_DB/localhost/ACL_TABLE_TABLE/{ACL_TABLE_NAME}/status"
+        status = gnmi_tls.gnmic.get(table_key)[0].get("updates")[0].get("values", {}).get(table_key, {})
+        if status.lower() != "active":
+            return False
+        for rule_key_name in acl_rules:
+            rule_name = rule_key_name.split("|", 1)[1]
+            if acl_rule_states.get(f"{ACL_TABLE_NAME}|{rule_name}", {}).get("status", "").lower() != "active":
                 return False
-            for vni in vnet_vnis:
-                for route in routes[vni]:
-                    if acl_rules.get(f"{table_name}|rule_{route['vni']}", {}).get("status", "").lower() != "active":
-                        return False
         return True
 
     pytest_assert(wait_until(60, 2, 0, _acl_tables_and_rules_active, duthost),
@@ -969,7 +960,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname,
     encap_test_configs = [
         {
             "inner_dst_ip_v4": route_v4["prefix"].split('/')[0] if route_v4["prefix"] != "0.0.0.0/0" else "150.0.0.10",
-            "inner_dst_ip_v6": route_v6["prefix"].split('/')[0],
+            "inner_dst_ip_v6": route_v6["prefix"].split('/')[0] if route_v6["prefix"] != "::/0" else "2001:db8:fa::10",
             "expected_dst_mac": route_v4["mac_address"],
             "expected_vni": route_v4["vni"],
             "expected_dst_ip": route_v4["endpoint"],
@@ -1016,7 +1007,7 @@ def modify_routes_mac_vni_v4(gnmi_tls, encap_test_configs, offset=0):
                 {"endpoint": route["endpoint"], "vni": route["vni"], "mac_address": route["mac_address"]},
                 f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/','_')}",
             )
-            acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}"] = {
+            acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v4"] = {
                 "INNER_SRC_IP": f"{INNER_SRC_IP}/32",
                 "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
                 "TUNNEL_VNI": f"{route['vni']}",
@@ -1070,7 +1061,7 @@ def modify_routes_mac_vni_v6(gnmi_tls, encap_test_configs, offset=1):
                 },
                 f"vnet_route_{route['vnet_vni']}_{route['prefix'].replace('/','_')}",
             )
-            acl_rule_value[f"{ACL_TABLE_NAME_V6}|rule_{route['vni']}"] = {
+            acl_rule_value[f"{ACL_TABLE_NAME}|rule_{route['vni']}_v6"] = {
                 "INNER_SRC_IPV6": f"{INNER_SRC_IPV6}/128",
                 "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
                 "TUNNEL_VNI": f"{route['vni']}",
