@@ -134,6 +134,28 @@ def get_downstream_t1_neighbor(duthost, mg_facts):
     return None
 
 
+def get_all_downstream_t1_neighbors(mg_facts):
+    """Get all downstream T1 neighbors from minigraph facts.
+
+    Args:
+        mg_facts: Minigraph facts dictionary
+
+    Returns:
+        list: Sorted list of unique T1 device names.
+    """
+    minigraph_devices = mg_facts.get('minigraph_devices', {})
+    minigraph_neighbors = mg_facts.get('minigraph_neighbors', {})
+
+    t1_neighbors = set()
+    for neighbor_info in minigraph_neighbors.values():
+        neighbor_name = neighbor_info.get('name')
+        device_info = minigraph_devices.get(neighbor_name, {})
+        if device_info.get('type') == 'LeafRouter':
+            t1_neighbors.add(neighbor_name)
+
+    return sorted(t1_neighbors)
+
+
 def get_interfaces_for_neighbor(mg_facts, neighbor_name):
     """Get the list of interfaces connected to a specific neighbor.
 
@@ -556,3 +578,152 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
             logger.info("All patched BGP neighbors have established sessions")
 
     logger.info(f"dt2 addcluster test completed successfully for neighbor {target_t1}")
+
+
+def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
+    """Stress test: add ALL T1 neighbors in a single GCU patch.
+
+    Measures how many T1s can be added within a 1-hour window on a dt2 device.
+    Generates one patch containing all T1 neighbors, applies it in a single call,
+    and reports throughput metrics.
+
+    The test does NOT timeout the GCU call — it lets it complete and then reports:
+    - Total T1s in patch
+    - Total patch operations
+    - Wall-clock time for apply-patch
+    - Time per T1 (avg)
+    - Whether it fits within the 1-hour budget
+
+    Args:
+        duthosts: DUT hosts fixture
+        rand_one_dut_hostname: Fixture providing a single random DUT hostname
+        loganalyzer: Loganalyzer utility fixture
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("This test is for single-ASIC dt2 devices only")
+    if duthost.get_facts().get("modular_chassis"):
+        pytest.skip("This test is for single-ASIC dt2 devices only")
+
+    STRESS_TIME_BUDGET_SECONDS = 3600  # 1 hour
+
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    all_t1s = get_all_downstream_t1_neighbors(mg_facts)
+    if not all_t1s:
+        pytest.skip("No downstream T1 neighbors found in minigraph")
+
+    logger.info(f"Stress test: adding {len(all_t1s)} T1 neighbors in a single patch: {all_t1s}")
+
+    # Step 1: Backup minigraph and reload for clean state
+    if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
+        pytest.fail(f"{MINIGRAPH} not found on DUT")
+    duthost.shell(f"sudo cp {MINIGRAPH} {MINIGRAPH_BACKUP}")
+
+    logger.info("Reloading minigraph for clean state")
+    duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
+    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+        pytest.fail("Critical services not fully started after minigraph reload")
+
+    # Step 2: Capture full running config (with all T1s)
+    dut_config_path = "/tmp/stress-all.json"
+    full_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-stress-all.json")
+    os.makedirs(os.path.dirname(full_config_path), exist_ok=True)
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+    duthost.fetch(src=dut_config_path, dest=full_config_path, flat=True)
+    duthost.shell(f"rm -f {dut_config_path}")
+
+    # Step 3: Remove ALL T1 neighbors from minigraph
+    local_dir = "/tmp/minigraph_stress_dt2"
+    local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
+    os.makedirs(local_dir, exist_ok=True)
+    duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
+
+    all_affected_ports = set()
+    for t1_name in all_t1s:
+        refactor = MinigraphRefactor(t1_name)
+        success, affected_ports = refactor.process_minigraph(local_minigraph, local_minigraph)
+        if not success:
+            logger.warning(f"Failed to remove {t1_name} from minigraph, skipping")
+            continue
+        all_affected_ports.update(affected_ports)
+        logger.info(f"Removed {t1_name} from minigraph (affected ports: {sorted(affected_ports)})")
+
+    if not all_affected_ports:
+        pytest.skip("Could not remove any T1 neighbors from minigraph")
+
+    duthost.copy(src=local_minigraph, dest=MINIGRAPH)
+
+    # Step 4: Reload minigraph without T1s
+    logger.info("Reloading minigraph without T1 neighbors")
+    duthost.shell("sudo config load_minigraph -y", module_ignore_errors=False)
+    if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
+        pytest.fail("Critical services not fully started after minigraph reload")
+
+    # Step 5: Capture running config without T1s
+    dut_config_path = "/tmp/stress-no-t1s.json"
+    no_t1_config_path = os.path.join(THIS_DIR, "backup", f"{duthost.hostname}-dt2-stress-no-t1s.json")
+    duthost.shell(f"show runningconfiguration all > {dut_config_path}")
+    duthost.fetch(src=dut_config_path, dest=no_t1_config_path, flat=True)
+    duthost.shell(f"rm -f {dut_config_path}")
+
+    # Step 6: Generate single patch for ALL T1s
+    #
+    # NOTE: Same diff-based limitation as the single-T1 test applies here.
+    # Patch quality depends on MinigraphRefactor removing all traces cleanly.
+    logger.info("Generating single GCU patch for all T1 neighbors")
+    patch_file = generate_config_patch(full_config_path, no_t1_config_path)
+
+    with open(patch_file) as f:
+        patch_data = json.load(f)
+
+    logger.info(f"Generated patch: {len(patch_data)} operations for {len(all_t1s)} T1 neighbors")
+    logger.info(f"Operations per T1 (avg): {len(patch_data) / len(all_t1s):.1f}")
+
+    # Step 7: Apply patch — let it run to completion, measure time
+    logger.info("Applying stress patch (%d ops, %d T1s), budget: %ds",
+                len(patch_data), len(all_t1s), STRESS_TIME_BUDGET_SECONDS)
+    gcu_start = time.time()
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        apply_result = apply_patch_with_log_ignore(
+            duthost, json_data=patch_data, dest_file=tmpfile,
+            ignore_loganalyzer=loganalyzer
+        )
+        gcu_elapsed = time.time() - gcu_start
+
+        if apply_result['rc'] != 0 or "Patch applied successfully" not in apply_result['stdout']:
+            pytest.fail(
+                f"Failed to apply stress patch after {gcu_elapsed:.1f}s: {apply_result['stdout']}"
+            )
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    # Report results
+    time_per_t1 = gcu_elapsed / len(all_t1s)
+    t1s_per_hour = 3600.0 / time_per_t1 if time_per_t1 > 0 else float('inf')
+
+    logger.info("=" * 70)
+    logger.info("STRESS TEST RESULTS")
+    logger.info("=" * 70)
+    logger.info(f"  T1 neighbors in patch:    {len(all_t1s)}")
+    logger.info(f"  Total patch operations:   {len(patch_data)}")
+    logger.info(f"  Wall-clock time:          {gcu_elapsed:.1f}s")
+    logger.info(f"  Time per T1 (avg):        {time_per_t1:.1f}s")
+    logger.info(f"  Projected T1s per hour:   {t1s_per_hour:.0f}")
+    logger.info(f"  Budget:                   {STRESS_TIME_BUDGET_SECONDS}s (1 hour)")
+    logger.info(f"  Within budget:            {'YES' if gcu_elapsed <= STRESS_TIME_BUDGET_SECONDS else 'NO'}")
+    logger.info("=" * 70)
+
+    # Fail if exceeded budget
+    if gcu_elapsed > STRESS_TIME_BUDGET_SECONDS:
+        pytest.fail(
+            f"Stress test: GCU apply-patch took {gcu_elapsed:.1f}s for {len(all_t1s)} T1s, "
+            f"exceeded 1-hour budget. Avg {time_per_t1:.1f}s/T1, "
+            f"projected {t1s_per_hour:.0f} T1s/hour."
+        )
+
+    logger.info(
+        f"Stress test PASSED: {len(all_t1s)} T1s added in {gcu_elapsed:.1f}s "
+        f"({time_per_t1:.1f}s/T1, projected {t1s_per_hour:.0f}/hour)"
+    )
