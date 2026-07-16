@@ -202,9 +202,10 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # remote_id (suboption 2) is the switch base MAC. On dual-ToR the VLAN carries a virtual MAC,
-        # so the relay stamps the base MAC (uplink_mac); on single-ToR relay_iface_mac already equals it.
-        remote_id_string = self.uplink_mac if self.dual_tor else self.relay_iface_mac
+        # sonic-relay-agent stamps the switch base MAC on dual-ToR, where the VLAN has a virtual MAC.
+        # ISC stamps the receiving VLAN interface MAC.
+        use_switch_mac = self.dual_tor and self.relay_agent == "sonic-relay-agent"
+        remote_id_string = self.uplink_mac if use_switch_mac else self.relay_iface_mac
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
