@@ -16,6 +16,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
@@ -28,6 +30,18 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('bmc')
+]
+
+SHOW_PLATFORM_LEAK_COMMANDS = [
+    ("show platform leak rack-manager alerts",
+     ['Severity', 'Timestamp'],
+     "No rack-manager alerts found"),
+    ("show platform leak profiles",
+     ['Sensor-Type', 'Max-Minor-Duration-Sec'],
+     "No leak profiles found"),
+    ("show platform leak status",
+     ['Name', 'Leak', 'leak-severity'],
+     "No leak sensor data found"),
 ]
 
 
@@ -77,7 +91,7 @@ class TestBmcCliCommands:
         has_shutdown_timeout = 'shutdown-timeout (sec)' in output_lower
         pytest_assert(has_shutdown_timeout,
                       "show chassis module status: missing 'Shutdown-Timeout (sec)' column on BMC")
-        logger.info(f"show chassis module status output:\n{output}")
+        logger.info(f"show chassis module status output: \n{output}")
 
     def test_show_platform_temperature(self):
         """
@@ -107,7 +121,7 @@ class TestBmcCliCommands:
 
         has_threshold = any(term in output_lower for term in ['high th', 'crit', 'threshold'])
         logger.info(f"show platform temperature: threshold columns present={has_threshold}")
-        logger.info(f"show platform temperature output:\n{output}")
+        logger.info(f"show platform temperature output: \n{output}")
 
         # Cross-check: BMC must surface paired Switch-Host sensors. Skip if Switch-Host unreachable.
         host = get_switch_host_or_skip_test(self.duthost)
@@ -127,7 +141,7 @@ class TestBmcCliCommands:
                       "Switch-Host 'show platform temperature' returned no sensor rows")
         overlap = host_sensors & bmc_sensors
         pytest_assert(overlap,
-                      f"BMC 'show platform temperature' must include ≥1 Switch-Host sensor; "
+                      f"BMC 'show platform temperature' must include ≥1 Switch-Host sensor. "
                       f"switch_host={sorted(host_sensors)} bmc={sorted(bmc_sensors)}")
         logger.info(f"BMC surfaces {len(overlap)} Switch-Host sensor(s): {sorted(overlap)}")
 
@@ -224,7 +238,7 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not reach Offline/off (or Offline/down) after shutdown"
             )
 
-            wait_host_off(host, timeout=300)
+            wait_host_off(self.duthost, host, timeout=300)
 
             startup_result = self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                                 module_ignore_errors=True)
@@ -247,7 +261,12 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not return to Online/on (or Online/up) after startup"
             )
 
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # CLI config shutdown takes the graceful path, which always falls back to
+            # power_off() if GNOI times out/fails, so accept either the graceful or the
+            # hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
@@ -376,7 +395,12 @@ class TestBmcCliCommands:
                     module_ignore_errors=True
                 )
 
-    def test_show_platform_leak_commands(self):
+    @pytest.mark.parametrize(
+        'cmd,expected_fields,expected_output_when_empty',
+        SHOW_PLATFORM_LEAK_COMMANDS,
+        ids=['rack-manager-alerts', 'leak-profiles', 'leak-status'],
+    )
+    def test_show_platform_leak_commands(self, cmd, expected_fields, expected_output_when_empty):
         """
         Verify show platform leak commands produce valid output (LC platforms).
 
@@ -389,24 +413,18 @@ class TestBmcCliCommands:
         test_liquid_cool_config_commands (config-write + verify loop), so it's
         not re-checked here.
         """
-        leak_commands = [
-            ("show platform leak rack-manager alerts",
-             ['Severity', 'Timestamp']),
-            ("show platform leak profiles",
-             ['Sensor-Type', 'Max-Minor-Duration-Sec']),
-            ("show platform leak status",
-             ['Name', 'Leak', 'leak-severity']),
-        ]
-
-        for cmd, expected_fields in leak_commands:
-            result = self.duthost.shell(f"{cmd} 2>&1", module_ignore_errors=True)
-            if result['rc'] != 0:
-                logger.info(f"{cmd!r} not available (expected on non-LC systems)")
-                continue
-            output = result['stdout']
-            for field in expected_fields:
-                pytest_assert(field.lower() in output.lower(),
-                              f"{cmd!r} output missing expected column '{field}'")
+        result = self.duthost.shell(f"{cmd} 2>&1", module_ignore_errors=True)
+        if result['rc'] != 0:
+            pytest.skip(f"{cmd!r} not available (expected on non-LC systems)")
+        output = result['stdout'].strip().lower()
+        if expected_output_when_empty.lower() == output:
+            pytest.skip(f"{cmd!r} returned empty table output")
+        parsed_output = self.duthost._parse_show(result['stdout_lines'])
+        pytest_assert(len(parsed_output) > 0, f"{cmd!r} returned the table with 0 data rows")
+        parsed_fields = set(map(str.lower, parsed_output[0].keys()))
+        for field in expected_fields:
+            pytest_assert(field.lower() in parsed_fields,
+                          f"{cmd!r} output missing expected column '{field}' (available: {parsed_fields})")
 
 
 def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostname, request):
@@ -435,14 +453,14 @@ def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostn
     inv_files = get_inventory_files(request)
     bmc_inv_serial = get_host_visible_vars(inv_files, duthost.hostname).get('serial')
     if bmc_inv_serial:
-        pytest_assert(bmc_inv_serial == bmc_serial,
+        pytest_assert(str(bmc_inv_serial).strip() == bmc_serial,
                       "BMC `Serial Number` ({!r}) from `show version` does not match inventory `serial:` "
                       "for {} ({!r})".format(bmc_serial, duthost.hostname, bmc_inv_serial))
 
     switch_host = get_switch_host_or_skip_test(duthost)
     sw_inv_serial = get_host_visible_vars(inv_files, switch_host.hostname).get('serial')
     if sw_inv_serial:
-        pytest_assert(sw_inv_serial == sw_serial,
+        pytest_assert(str(sw_inv_serial).strip() == sw_serial,
                       "`Switch-Host Serial Number` ({!r}) from `show version` does not match inventory "
                       "`serial:` for paired switch {} ({!r})".format(sw_serial, switch_host.hostname, sw_inv_serial))
 
