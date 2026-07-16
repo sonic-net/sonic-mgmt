@@ -213,28 +213,51 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                         age_quant_len = len(voq_drop_data[0][1])
 
                 if voq_mark_data:
+                    # Validate the per-cell ECN mark probabilities stored in voq_mark_prob_g
+                    # depending on what is exposed by the asic.
+                    wm_prob = data.get("wm_prob")
+                    mark_list = data.get("mark_list")
+                    have_wm_prob = isinstance(wm_prob, list)
+                    have_mark_list = isinstance(mark_list, list)
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
-                                actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
-                                if age_idx == 0:
-                                    mark_level = 0
-                                elif (voq_idx >= 1 and age_idx == 1):
-                                    mark_level = 1
-                                elif (voq_idx >= 1 and age_idx == 2):
-                                    mark_level = 2
-                                elif (voq_idx >= 1 and age_idx >= 3):
-                                    mark_level = 3
-                                else:
-                                    mark_level = 0
-                                expected_value = round(data["wm_prob"][mark_level], 2)
-                                assert (
-                                        actual_value == expected_value
-                                ), '''
-                                        Marking Probability not as expected for Port {} PG {}
-                                        at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
-                                     '''.format(port, pg_to_test, g_idx, voq_idx,
-                                                age_idx, expected_value, actual_value)
+                                raw_value = voq_mark_data[g_idx][voq_idx][age_idx]
+
+                                # All ASICs: the reported value must be a valid probability.
+                                assert 0.0 <= raw_value <= 1.0, (
+                                    "Invalid marking probability for Port {} PG {} at "
+                                    "SMS/VoQ/Age region {}/{}/{}: {}".format(
+                                        port, pg_to_test, g_idx, voq_idx, age_idx, raw_value))
+
+                                # Cisco-8102 enqueue WRED: exact 4-level mapping.
+                                if have_wm_prob:
+                                    actual_value = round(raw_value, 2)
+                                    if age_idx == 0:
+                                        mark_level = 0
+                                    elif (voq_idx >= 1 and age_idx == 1):
+                                        mark_level = 1
+                                    elif (voq_idx >= 1 and age_idx == 2):
+                                        mark_level = 2
+                                    elif (voq_idx >= 1 and age_idx >= 3):
+                                        mark_level = 3
+                                    else:
+                                        mark_level = 0
+                                    expected_value = round(wm_prob[mark_level], 2)
+                                    assert (
+                                            actual_value == expected_value
+                                    ), '''
+                                            Marking Probability not as expected for Port {} PG {}
+                                            at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                         '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                    age_idx, expected_value, actual_value)
+                                # Cisco-8122 palette membership (compared unrounded).
+                                elif have_mark_list:
+                                    assert any(abs(raw_value - level) < 1e-6 for level in mark_list), '''
+                                            Marking Probability not in mark_list for Port {} PG {}
+                                            at SMS/VoQ/Age region {}/{}/{} Value: {} mark_list: {}
+                                         '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                    age_idx, raw_value, mark_list)
 
                 ''' Verify drop is 7 for last quant only'''
                 if voq_drop_data:
