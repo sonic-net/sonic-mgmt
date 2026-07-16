@@ -117,7 +117,7 @@ def default_setup(duthost, vlan_intfs_list):
 
     duthost.shell_cmds(cmds=cmds)
 
-    restart_dhcp_service(duthost)
+    restart_dhcp_service(duthost, ['isc'])
 
     logger.info("default setup expected_content_dict {}".format(expected_content_dict))
     for vlanid in expected_content_dict:
