@@ -681,16 +681,38 @@ def test_dt2_addcluster_stress(duthosts, rand_one_dut_hostname, loganalyzer):
     logger.info(f"Operations per T1 (avg): {len(patch_data) / len(all_t1s):.1f}")
 
     # Step 7: Apply patch — let it run to completion, measure time
-    logger.info("Applying stress patch (%d ops, %d T1s), budget: %ds",
+    logger.info("Applying stress patch (%d ops, %d T1s), timeout: %ds",
                 len(patch_data), len(all_t1s), STRESS_TIME_BUDGET_SECONDS)
     gcu_start = time.time()
     tmpfile = generate_tmpfile(duthost)
     try:
-        apply_result = apply_patch_with_log_ignore(
-            duthost, json_data=patch_data, dest_file=tmpfile,
-            ignore_loganalyzer=loganalyzer
-        )
-        gcu_elapsed = time.time() - gcu_start
+        patch_content = json.dumps(patch_data, indent=4)
+        duthost.copy(content=patch_content, dest=tmpfile)
+
+        # Run with 1-hour timeout (overrides default GCU timeout)
+        cmds = f'config apply-patch {tmpfile}'
+        pool, async_result = duthost.shell(cmds, module_ignore_errors=True,
+                                           module_async=True)
+        try:
+            completed = wait_until(STRESS_TIME_BUDGET_SECONDS, 30, 0,
+                                   lambda: async_result.ready())
+            gcu_elapsed = time.time() - gcu_start
+
+            if not completed:
+                logger.error(
+                    "Stress test: apply-patch did not complete within %ds, terminating",
+                    STRESS_TIME_BUDGET_SECONDS
+                )
+                pytest.fail(
+                    f"Stress test TIMEOUT: GCU apply-patch did not complete within "
+                    f"{STRESS_TIME_BUDGET_SECONDS}s ({STRESS_TIME_BUDGET_SECONDS/3600:.0f}h) "
+                    f"for {len(all_t1s)} T1s ({len(patch_data)} ops)"
+                )
+
+            apply_result = async_result.get()
+        finally:
+            pool.terminate()
+            pool.join()
 
         if apply_result['rc'] != 0 or "Patch applied successfully" not in apply_result['stdout']:
             pytest.fail(
