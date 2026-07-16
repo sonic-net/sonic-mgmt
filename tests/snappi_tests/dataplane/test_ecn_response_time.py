@@ -67,8 +67,10 @@ def port_groups(duthosts, get_snappi_ports):
     snappi_ports = get_duthost_interface_details(
         duthosts, get_snappi_ports, ip_version, protocol_type="IP"
     )
-    pytest_assert(len(snappi_ports) % 3 == 0,
-                  "Number of ports should be a multiple of 3 to create port groups of 3 ports each")
+    pytest_assert(
+        len(snappi_ports) >= 3,
+        "Need at least 3 snappi ports for the test",
+    )
     pg = []
     for i in range(0, len(snappi_ports), 3):
         pg.append(snappi_ports[i:i + 3])
