@@ -295,7 +295,8 @@ def recover_switch_host_after_power_off(duthost, host, context=""):
         startup_out = duthost.shell(
             "config chassis modules startup SWITCH-HOST", module_ignore_errors=True
         ).get('stdout', '').strip()
-        pytest_assert(startup_out == SWITCH_HOST_STARTUP_ACK,
+        # Match loosely: the CLI may prepend/append warnings or trailing lines to the ack.
+        pytest_assert(SWITCH_HOST_STARTUP_ACK in startup_out,
                       f"Failed to command startup Switch-Host in recovery{suffix}, got {startup_out!r}")
     pytest_assert(wait_host_on(host), f"Switch-Host did not power on{suffix}")
 

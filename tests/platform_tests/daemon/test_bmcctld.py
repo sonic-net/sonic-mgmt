@@ -246,6 +246,10 @@ class TestBmcctldDaemon:
         # Switch-Host powered OFF and stays off (it does NOT reboot / come back on its own).
         host = get_switch_host_or_skip_test(self.duthost)
         critical_pre_boot = get_host_uptime(host)
+        # Defensive: ensure the critical-leak action is power_off so this scenario stays
+        # self-contained even if an earlier test mutated LEAK_CONTROL_POLICY.
+        self.duthost.shell("config liquid-cool leak-action system critical power_off",
+                           module_ignore_errors=True)
         # Pause thermalctld so it doesn't overwrite the injected device_leak_status
         with pause_pmon_daemon(self.duthost, 'thermalctld'):
             try:
