@@ -1,0 +1,51 @@
+# common2 Migration Dashboard pipeline
+# ---------------------------------------------------------------------------
+# Standalone pipeline that scans tests/common, identifies modules and functions
+# available for migration to tests/common2, computes each task's test impact and
+# a complexity score (ranked 1..N, easiest first), and prints a contributor
+# dashboard to the task output log. It also publishes a machine-readable JSON
+# artifact.
+#
+# This is a reporting/dashboard pipeline -- it is NOT a PR merge gate. Register
+# it as its own Azure DevOps pipeline pointing at this YAML file.
+#
+# It runs on a schedule (so the dashboard stays fresh as common2 grows) and can
+# be triggered manually at any time. It does not run automatically on every PR.
+#
+# NOTE: For now the pipeline only displays the data in the log and publishes the
+# JSON. Uploading to a GitHub Project is a planned follow-up (see the commented
+# section in steps/run-migration-dashboard.yml).
+# ---------------------------------------------------------------------------
+
+# Do not trigger on branch pushes or PRs; this is a manual/scheduled dashboard.
+trigger: none
+pr: none
+
+schedules:
+  - cron: '0 6 * * 1'
+    displayName: 'Weekly migration dashboard (Mondays 06:00 UTC)'
+    branches:
+      include:
+        - master
+    always: true
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+parameters:
+  - name: maxTier
+    displayName: 'Number of complexity tiers'
+    type: number
+    default: 5
+  - name: top
+    displayName: 'Number of easiest tasks to render in the log (0 = all)'
+    type: number
+    default: 60
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - template: /.azure-pipelines/common2/stages/migration-dashboard.yml
+    parameters:
+      maxTier: ${{ parameters.maxTier }}
+      top: ${{ parameters.top }}

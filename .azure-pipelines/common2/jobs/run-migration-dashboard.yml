@@ -1,0 +1,28 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+  - name: condition
+    type: string
+    default: 'succeeded()'
+  - name: maxTier
+    type: number
+    default: 5
+  - name: top
+    type: number
+    default: 60
+
+jobs:
+  - job: run_migration_dashboard
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    displayName: 'Generate common2 Migration Dashboard'
+    steps:
+      - checkout: self
+        # Full history is needed for accurate impact analysis across the tree.
+        fetchDepth: 0
+      - template: /.azure-pipelines/common2/steps/run-migration-dashboard.yml
+        parameters:
+          maxTier: ${{ parameters.maxTier }}
+          top: ${{ parameters.top }}
