@@ -3957,7 +3957,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
         if self.testbed_type in [
                 'dualtor', 'dualtor-56', 'dualtor-aa-64-breakout',
-                't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120']:
+                't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120', 't0-isolated-d96u32s2']:
             # populate ARP
             # sender's MAC address is corresponding PTF port's MAC address
             # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
