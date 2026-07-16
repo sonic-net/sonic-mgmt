@@ -64,10 +64,10 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-# Unlike sfputil, "config interface" needs root; matches the pre-existing
-# "sudo config interface ..." convention in tests/common/devices/multi_asic.py
-# and tests/common/devices/sonic_asic.py.
-CONFIG_INTERFACE = "sudo config interface"
+# No "sudo" prefix: the transceiver suite's pytest session already runs as
+# root on the DUT, unlike tests/common/devices/multi_asic.py / sonic_asic.py
+# (which run under a non-root ansible user and so need it).
+CONFIG_INTERFACE = "config interface"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -190,13 +190,13 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
 
 
 def config_interface_shutdown_cmd(port, namespace=None):
-    """Return ``sudo config interface [-n <namespace>] shutdown <port>``."""
+    """Return ``config interface [-n <namespace>] shutdown <port>``."""
     ns = f" -n {namespace}" if namespace else ""
     return f"{CONFIG_INTERFACE}{ns} shutdown {port}"
 
 
 def config_interface_startup_cmd(port, namespace=None):
-    """Return ``sudo config interface [-n <namespace>] startup <port>``."""
+    """Return ``config interface [-n <namespace>] startup <port>``."""
     ns = f" -n {namespace}" if namespace else ""
     return f"{CONFIG_INTERFACE}{ns} startup {port}"
 
@@ -329,7 +329,7 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
 
 
 def config_interface_shutdown(duthost, port, namespace=None):
-    """Run ``sudo config interface [-n <namespace>] shutdown <port>`` → ``err``.
+    """Run ``config interface [-n <namespace>] shutdown <port>`` → ``err``.
 
     Returns ``None`` on success, else a short single-line failure string —
     matching the per-port aggregation pattern used across the transceiver
@@ -340,7 +340,7 @@ def config_interface_shutdown(duthost, port, namespace=None):
 
 
 def config_interface_startup(duthost, port, namespace=None):
-    """Run ``sudo config interface [-n <namespace>] startup <port>`` → ``err``.
+    """Run ``config interface [-n <namespace>] startup <port>`` → ``err``.
 
     Returns ``None`` on success, else a short single-line failure string; see
     ``config_interface_shutdown`` for the return-shape rationale.
