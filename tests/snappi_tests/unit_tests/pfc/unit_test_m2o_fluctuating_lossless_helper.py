@@ -37,7 +37,10 @@ import pytest
 MODULE_PATH = (Path(__file__).resolve().parents[3] /
                "snappi_tests/pfc/files/m2o_fluctuating_lossless_helper.py")
 
-FUNCTION_NAMES = ("get_expected_bg_loss_percent",)
+FUNCTION_NAMES = (
+    "get_expected_bg_loss_percent",
+    "get_expected_total_drop_percent",
+)
 
 
 def _load_functions(names):
@@ -174,3 +177,28 @@ def test_expected_bg_loss_matches_analytical_dwrr_split(
     )
 
     assert result == pytest.approx(expected_loss, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "test_rate,bg_prio,bg_rates,bg_loss,expected_total_drop",
+    [
+        # m2o fluctuating-lossless default: total offered = 110%,
+        # bg offered = 80%, bg loss ~= 11.2676% => total drop ~= 8.1946%
+        ([20, 10], [0, 1, 2, 5], [20, 20, 20, 20], 11.2676, 8.1946),
+        # Uniform-weight reference: bg loss = 10% => total drop ~= 7.2727%
+        ([20, 10], [0, 1, 2, 5], [20, 20, 20, 20], 10.0, 7.2727),
+        # Mix-weight from Cisco-8102: bg_prio_list=[2,1,5,6]
+        ([20, 10], [2, 1, 5, 6], [20, 20, 20, 20], 11.2676, 8.1946),
+    ],
+)
+def test_expected_total_drop_percent_matches_weighted_formula(
+        helper_ns, test_rate, bg_prio, bg_rates, bg_loss, expected_total_drop):
+    """Overall drop must equal weighted BG-loss contribution over total load."""
+    result = helper_ns["get_expected_total_drop_percent"](
+        test_flow_rate_percent=test_rate,
+        bg_prio_list=bg_prio,
+        bg_flow_rate_percent=bg_rates,
+        expected_bg_loss_percent=bg_loss,
+    )
+
+    assert result == pytest.approx(expected_total_drop, abs=0.01)

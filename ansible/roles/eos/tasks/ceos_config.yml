@@ -57,3 +57,20 @@
   template: src="{{ base_topo }}-{{ props.swrole }}.j2"
             dest="/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
   delegate_to: "{{ VM_host[0] }}"
+
+# Converged-only: append a stock-compat backplane shim (untagged VLAN 1 path,
+# Vlan1 SVI in the prime peer's VRF carrying its bp_interface IP, and BGP
+# network advertisement of that subnet). Keeps the existing t0-leaf.j2 /
+# t1-lag-*.j2 templates untouched. Skipped on stock topologies and on
+# converged hosts that have no bp_interface (e.g. servers).
+- name: append converged backplane stock-compat shim to startup-config
+  become: yes
+  blockinfile:
+    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
+    marker: "! {mark} CONVERGED BACKPLANE STOCK-COMPAT SHIM"
+    block: "{{ lookup('template', 'ceos_bp_compat.j2') }}"
+    insertbefore: EOF
+  delegate_to: "{{ VM_host[0] }}"
+  when:
+    - topo_is_multi_vrf | default(false) | bool
+    - configuration[hostname]['bp_interface'] is defined

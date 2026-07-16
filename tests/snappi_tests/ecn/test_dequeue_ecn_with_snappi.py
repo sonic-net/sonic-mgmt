@@ -26,7 +26,7 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 # sent to see the marked packets at the end of the flow.
 ECN_PARAMS_BY_ASIC = {
     'default':  {'ecn_params': {'kmin': 50000, 'kmax': 51000, 'pmax': 100}, 'pkt_count': 101},
-    'broadcom': {'ecn_params': {'kmin': 40000, 'kmax': 51000, 'pmax': 100}, 'pkt_count': 301},
+    'broadcom': {'ecn_params': {'kmin': 40000, 'kmax': 168000, 'pmax': 100}, 'pkt_count': 301},
 }
 
 

@@ -38,6 +38,7 @@ all:
           - t0-backend
           - t0-88-o8c80
           - dualtor
+          - dualtor-vpp
           - dualtor-56
           - dualtor-120
           - t2
@@ -53,6 +54,7 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - dualtor-aa
+          - dualtor-aa-vpp
           - dualtor-aa-56
           - dualtor-aa-64
           - dualtor-aa-120
@@ -133,7 +135,7 @@ all:
         mgmt_subnet_mask_length: 24
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
-        ansible_altpassword: YourPaSsWoRd
+        ansible_altpassword: "{{ lookup('env', 'SONIC_MGMT_SONIC_ALTPASSWORD') | default('YourPaSsWoRd', true) }}"
       children:
         vms_1:
       hosts:
@@ -358,7 +360,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9008
           ansible_password: password
           ansible_user: admin
         vlab-vpp-02:
@@ -367,7 +369,7 @@ all:
           type: kvm
           hwsku: Force10-S6000
           asic_type: vpp
-          serial_port: 9001
+          serial_port: 9091
           ansible_password: password
           ansible_user: admin
         vlab-vpp-03:
@@ -419,8 +421,8 @@ vm_host_1:
   hosts:
     STR-ACS-VSERV-01:
       ansible_host: 172.17.0.1
-      ansible_user: use_own_value
-      vm_host_user: use_own_value
+      ansible_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
+      vm_host_user: "{{ lookup('env', 'SONIC_MGMT_VM_HOST_USER') | default('use_own_value', true) }}"
 
 vms_1:
   hosts:
