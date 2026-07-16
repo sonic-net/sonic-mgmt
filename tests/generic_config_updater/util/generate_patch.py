@@ -632,16 +632,10 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
             all_interface_patches.append(p)
             seen_interface_paths.add(p['path'])
 
-    # Build final ordered list respecting all dependencies
-    # NOTE: We split into two phases due to a GCU sorter limitation/bug.
-    # The GCU patch sorter fails with "'PortX' is not in list" when:
-    # - A PORT is being added/modified in the same batch as
-    # - An ACL_TABLE that references that PORT in its 'ports' field
-    # The sorter tries to analyze dependencies but doesn't understand that
-    # the PORT will exist by the time the ACL_TABLE patch is applied.
-    #
-    # Phase 1: Core configuration (PORT, INTERFACE, BGP_NEIGHBOR, etc.)
-    # Phase 2: ACL_TABLE entries (applied after ports exist)
+    # Build final ordered list respecting all dependencies.
+    # Order: PORT -> INTERFACE -> BGP_NEIGHBOR -> other tables -> ACL_TABLE (bindings last)
+    # ACL_TABLE entries come last because their 'ports' field references PORTs that
+    # must already exist in CONFIG_DB for GCU's dependency sorter to resolve them.
 
     # Track coalesced ACL_TABLE entries
     coalesced_acl_tables = set()
@@ -664,52 +658,34 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
             if (patch_namespace, patch_acl_name) not in coalesced_acl_tables:
                 acl_binding_patches.append(patch)
 
-    # Phase 1: All non-ACL patches
-    phase1_patch_list = (coalesced_port_only + all_interface_patches +
-                         coalesced_bgp_neighbor + filtered_patch_list)
+    # Single unified patch: core config first, ACL entries last
+    final_patch_list = (coalesced_port_only + all_interface_patches +
+                        coalesced_bgp_neighbor + filtered_patch_list +
+                        coalesced_acl_table + acl_binding_patches)
 
-    # Phase 2: All ACL_TABLE patches (coalesced + binding updates)
-    phase2_patch_list = coalesced_acl_table + acl_binding_patches
-
-    # Combined list for metadata (but we write separate files)
-    final_patch_list = phase1_patch_list + phase2_patch_list
-
-    phase1_patch = jsonpatch.JsonPatch(phase1_patch_list)
-    phase2_patch = jsonpatch.JsonPatch(phase2_patch_list)
+    final_patch = jsonpatch.JsonPatch(final_patch_list)
 
     # Log the complete patch for diagnostic purposes
-    logger.info("Generated patches with %d total operations (Phase 1: %d, Phase 2: %d):",
-                len(final_patch_list), len(phase1_patch_list), len(phase2_patch_list))
-    logger.info("  Phase 1 (core config):")
-    logger.info("    - PORT entries: %d", len(coalesced_port_only))
-    logger.info("    - INTERFACE entries: %d", len(all_interface_patches))
-    logger.info("    - BGP_NEIGHBOR entries: %d", len(coalesced_bgp_neighbor))
-    logger.info("    - Other entries: %d", len(filtered_patch_list))
-    logger.info("  Phase 2 (ACL bindings):")
-    logger.info("    - ACL_TABLE entries: %d", len(coalesced_acl_table))
-    logger.info("    - ACL binding updates: %d", len(acl_binding_patches))
+    logger.info("Generated patch with %d total operations:", len(final_patch_list))
+    logger.info("  - PORT entries: %d", len(coalesced_port_only))
+    logger.info("  - INTERFACE entries: %d", len(all_interface_patches))
+    logger.info("  - BGP_NEIGHBOR entries: %d", len(coalesced_bgp_neighbor))
+    logger.info("  - Other entries: %d", len(filtered_patch_list))
+    logger.info("  - ACL_TABLE entries: %d", len(coalesced_acl_table))
+    logger.info("  - ACL binding updates: %d", len(acl_binding_patches))
 
-    logger.debug("Phase 1 patch content:\n%s", json.dumps(phase1_patch.patch, indent=2))
-    logger.debug("Phase 2 patch content:\n%s", json.dumps(phase2_patch.patch, indent=2))
+    logger.debug("Patch content:\n%s", json.dumps(final_patch.patch, indent=2))
 
-    # Generate output paths in same directory as full config
+    # Generate output path in same directory as full config
     output_dir = os.path.dirname(full_config_path)
-    phase1_file = os.path.join(output_dir, 'generated_patch_phase1.json')
-    phase2_file = os.path.join(output_dir, 'generated_patch_phase2.json')
+    patch_file = os.path.join(output_dir, 'generated_patch.json')
 
-    # Write phase 1 patch (core config)
-    with open(phase1_file, 'w') as file:
-        json.dump(phase1_patch.patch, file, indent=4)
-
-    # Write phase 2 patch (ACL bindings)
-    with open(phase2_file, 'w') as file:
-        json.dump(phase2_patch.patch, file, indent=4)
+    with open(patch_file, 'w') as file:
+        json.dump(final_patch.patch, file, indent=4)
 
     # Also write metadata file with information about patch generation
     metadata = {
         'total_patches': len(final_patch_list),
-        'phase1_patches': len(phase1_patch_list),
-        'phase2_patches': len(phase2_patch_list),
         'port_patches': len(coalesced_port_only),
         'acl_table_patches': len(coalesced_acl_table),
         'interface_patches': len(all_interface_patches),
@@ -721,5 +697,4 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
     with open(metadata_file, 'w') as file:
         json.dump(metadata, file, indent=4)
 
-    # Return tuple of (phase1_file, phase2_file)
-    return phase1_file, phase2_file
+    return patch_file
