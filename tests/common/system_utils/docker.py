@@ -2,6 +2,7 @@
 
 import collections
 import logging
+import textwrap
 
 from tests.common import config_reload
 from tests.common.utilities import wait_until
@@ -13,6 +14,9 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 logger = logging.getLogger(__name__)
+
+DOCKER_PROXY_CONF_DIR = "/etc/systemd/system/docker.service.d"
+DOCKER_PROXY_CONF_FILE = "{}/http-proxy.conf".format(DOCKER_PROXY_CONF_DIR)
 
 _DockerRegistryInfo = collections.namedtuple("DockerRegistryInfo", "host username password")
 
@@ -59,7 +63,66 @@ def load_docker_registry_info(duthost, creds):
     return DockerRegistryInfo(host, username, password)
 
 
-def download_image(duthost, registry, image_name, image_version="latest"):
+def ensure_docker_proxy(duthost, creds):
+    """Ensure the Docker daemon on the DUT has HTTP/HTTPS proxy configured.
+
+    After a SONiC image reinstall the overlay filesystem is rebuilt, which
+    wipes ``/etc/systemd/system/docker.service.d/http-proxy.conf``.  This
+    helper re-creates the file from the lab's ``proxy_env`` credentials so
+    that ``docker login`` / ``docker pull`` can reach external registries.
+
+    The function is idempotent — if the proxy drop-in already exists with the
+    correct content, Docker is **not** restarted.
+
+    Args:
+        duthost (SonicHost): The target device.
+        creds (dict): Credentials dict (must contain ``proxy_env`` with at
+            least ``http_proxy`` to have any effect).
+    """
+    proxy_env = creds.get("proxy_env", {})
+    http_proxy = proxy_env.get("http_proxy", "")
+    https_proxy = proxy_env.get("https_proxy", "")
+    no_proxy = proxy_env.get("no_proxy", "localhost,127.0.0.1")
+
+    if not http_proxy:
+        logger.debug("No proxy_env.http_proxy in creds — skipping Docker proxy setup")
+        return
+
+    desired_content = textwrap.dedent("""\
+        [Service]
+        Environment="HTTP_PROXY={http_proxy}"
+        Environment="HTTPS_PROXY={https_proxy}"
+        Environment="NO_PROXY={no_proxy}"
+    """).format(http_proxy=http_proxy, https_proxy=https_proxy, no_proxy=no_proxy).strip()
+
+    # Check whether the drop-in already has the desired content
+    existing = duthost.shell(
+        "cat {} 2>/dev/null || true".format(DOCKER_PROXY_CONF_FILE),
+        module_ignore_errors=True
+    )["stdout"].strip()
+
+    if existing == desired_content:
+        logger.info("Docker proxy drop-in already up-to-date — no restart needed")
+        return
+
+    logger.info("Configuring Docker daemon proxy on %s (http=%s)", duthost.hostname, http_proxy)
+    duthost.shell("sudo mkdir -p {}".format(DOCKER_PROXY_CONF_DIR))
+    duthost.shell("echo '{}' | sudo tee {}".format(desired_content, DOCKER_PROXY_CONF_FILE))
+    duthost.shell("sudo systemctl daemon-reload")
+    duthost.shell("sudo systemctl restart docker")
+
+    # Give dockerd a moment to come back
+    def _docker_ready():
+        res = duthost.shell("docker info", module_ignore_errors=True)
+        return res["rc"] == 0
+
+    if not wait_until(30, 5, 0, _docker_ready):
+        logger.warning("Docker daemon did not become ready within 30s after proxy config change")
+    else:
+        logger.info("Docker daemon restarted with proxy config successfully")
+
+
+def download_image(duthost, registry, image_name, image_version="latest", creds=None):
     """Attempts to download the specified image from the registry.
 
     Args:
@@ -67,7 +130,13 @@ def download_image(duthost, registry, image_name, image_version="latest"):
         registry (DockerRegistryInfo): The registry from which to pull the image.
         image_name (str): The name of the image to download.
         image_version (str): The version of the image to download.
+        creds (dict, optional): Credentials dict.  When provided the
+            function ensures the Docker daemon has proxy configured before
+            attempting ``docker login``.
     """
+    if creds:
+        ensure_docker_proxy(duthost, creds)
+
     try:
         if registry.username and registry.password:
             duthost.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
@@ -173,7 +242,7 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
             if not wait_until(120, 5, 0, mgmt_plane_ready):
                 logger.warning("Management plane did not recover within 120s — proceeding to docker login anyway")
         registry = load_docker_registry_info(duthost, creds)
-        download_image(duthost, registry, docker_rpc_image, duthost.os_version)
+        download_image(duthost, registry, docker_rpc_image, duthost.os_version, creds=creds)
 
         tag_image(
             duthost,
