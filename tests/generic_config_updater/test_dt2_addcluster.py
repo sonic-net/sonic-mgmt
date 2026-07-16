@@ -32,6 +32,7 @@ import json
 import logging
 import os
 import shutil
+import time
 import pytest
 
 from tests.common.config_reload import config_reload
@@ -385,18 +386,33 @@ def test_dt2_addcluster_workflow(duthosts, rand_one_dut_hostname, loganalyzer):
                             acl_bound_ports.add(port)
 
     # Apply patch
-    logger.info("Applying GCU patch (%d operations)", len(patch_data))
+    # Performance expectation: single T1 addition should complete within this budget.
+    # We do NOT timeout the call — let it finish, then fail if it exceeded the budget.
+    GCU_TIME_BUDGET_SECONDS = 60  # 1 minute for one T1 addition
+
+    logger.info("Applying GCU patch (%d operations), time budget: %ds",
+                len(patch_data), GCU_TIME_BUDGET_SECONDS)
+    gcu_start = time.time()
     tmpfile = generate_tmpfile(duthost)
     try:
         apply_result = apply_patch_with_log_ignore(
             duthost, json_data=patch_data, dest_file=tmpfile,
             ignore_loganalyzer=loganalyzer
         )
+        gcu_elapsed = time.time() - gcu_start
         if apply_result['rc'] != 0 or "Patch applied successfully" not in apply_result['stdout']:
-            pytest.fail(f"Failed to apply patch: {apply_result['stdout']}")
-        logger.info("Patch applied successfully")
+            pytest.fail(f"Failed to apply patch after {gcu_elapsed:.1f}s: {apply_result['stdout']}")
+        logger.info("Patch applied successfully in %.1fs (budget: %ds)",
+                    gcu_elapsed, GCU_TIME_BUDGET_SECONDS)
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+    # Fail if GCU exceeded the time budget
+    if gcu_elapsed > GCU_TIME_BUDGET_SECONDS:
+        pytest.fail(
+            f"GCU apply-patch took {gcu_elapsed:.1f}s, exceeded budget of "
+            f"{GCU_TIME_BUDGET_SECONDS}s for single T1 addition"
+        )
 
     # Step 8: Verification
     # -------------------------------------------------------------------------
