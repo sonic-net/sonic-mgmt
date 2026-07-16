@@ -1,5 +1,6 @@
 import pytest
 
+import json
 import time
 import logging
 
@@ -136,9 +137,11 @@ class LagTest:
         intf, po_interfaces = self.__get_lag_intf_info(lag_facts, lag_name)
         peer_device = self.vm_neighbors[intf]['name']
         namespace_id = self.__get_lag_intf_namespace_id(lag_facts, lag_name)
-        if namespace_id and str(namespace_id).isdigit():
+        raw_namespace_id = namespace_id  # preserve numeric id for teamdctl
+        if namespace_id is not None and str(namespace_id).isdigit():
             namespace_id = 'asic{}'.format(namespace_id)
         ns_opt = '-n {}'.format(namespace_id) if namespace_id else ''
+        teamd_ns_opt = ('-n ' + str(raw_namespace_id)) if str(raw_namespace_id).isdigit() else ''
 
         # Collect PTF interfaces and neighbor LAG interfaces for this LAG
         iface_behind_lag_member = []
@@ -152,10 +155,14 @@ class LagTest:
         ]
         vm_host = self.nbrhosts[peer_device]['host']
 
-        # Snapshot PortChannel config for full restoration
+        # Snapshot the PortChannel attributes this test mutates (min_links, fallback,
+        # fast_rate) and the member IPs (pc_ips, below), so they can be restored in
+        # the finally block. This does not capture every possible PortChannel
+        # attribute (e.g. MTU, description) -- only what this test itself changes.
         runner_cfg = lag_facts['lags'][lag_name]['po_config']['runner']
         min_links = runner_cfg.get('min_ports', 1)
         fallback = runner_cfg.get('fallback', False)
+        original_fast_rate = runner_cfg.get('fast_rate', False)
         pc_ips = [n['subnet'] for n in self.mg_facts['minigraph_portchannel_interfaces']
                   if n['attachto'] == lag_name]
 
@@ -183,17 +190,28 @@ class LagTest:
             pytest_assert(wait_until(30, 1, 5, self.__check_portchannel_up, lag_name),
                           "PortChannel {} did not come up after fast-rate reconfiguration".format(lag_name))
 
-            # Also set neighbor to fast mode so DUT's teamd switches TX to 1s.
-            # In KVM/vs, teamd only switches TX interval to 1s when the partner
-            # also sends Short_Timeout=1, even though DUT has fast_rate=true configured.
-            # This verifies: DUT fast_rate config causes the neighbor to auto-adapt
-            # (Short_Timeout=1 propagated via LACP PDU), and with both sides in fast
-            # mode the session operates at 1s end-to-end.
+            # Verify DUT-side fast_rate is actually applied before invoking neighbor
+            teamdctl_out = self.duthost.shell(
+                'sudo teamdctl {} {} state dump'.format(teamd_ns_opt, lag_name))['stdout']
+            teamd_state = json.loads(teamdctl_out)
+            pytest_assert(
+                teamd_state.get('runner', {}).get('fast_rate') is True,
+                "DUT fast_rate not applied to {} — teamd runner.fast_rate={}".format(
+                    lag_name, teamd_state.get('runner', {}).get('fast_rate')))
+
+            # Also set neighbor to fast mode so both sides operate at 1s intervals.
+            # DUT already advertises Short_Timeout=1 via LACP PDUs; this confirms
+            # end-to-end fast-rate session at 1s.
             for neighbor_lag_intf in neighbor_lag_intfs:
                 logger.info("Changing lacp rate to fast for %s in %s" % (neighbor_lag_intf, peer_device))
                 vm_host.set_interface_lacp_rate_mode(neighbor_lag_intf, 'fast')
             neighbor_rate_mutated = True
-            time.sleep(5)
+
+            # Setting neighbor to fast mode causes a brief LACP renegotiation on physical DUTs,
+            # during which the PortChannel may go down for up to ~30 seconds before reconverging.
+            # Wait up to 60s to allow LACP state machine to complete reconvergence.
+            pytest_assert(wait_until(60, 1, 3, self.__check_portchannel_up, lag_name),
+                          "PortChannel {} did not recover after setting neighbor to fast rate".format(lag_name))
 
             # Verify LACP PDUs at 1-second intervals (0.5s tolerance for post-reconvergence transient)
             for iface_behind_lag in iface_behind_lag_member:
@@ -212,14 +230,26 @@ class LagTest:
                                        module_ignore_errors=True)
                 self.duthost.shell("sudo config portchannel {} del {}"
                                    .format(ns_opt, lag_name), module_ignore_errors=True)
+                # module_ignore_errors=True on every re-add step so a single transient
+                # failure doesn't abort the finally block and leave later re-adds (and
+                # thus the PortChannel) partially restored for downstream tests.
                 self.duthost.shell(
-                    "sudo config portchannel {} add {} --min-links={} {}"
-                    .format(ns_opt, lag_name, min_links, '--fallback=true' if fallback else ''))
+                    "sudo config portchannel {} add {} --min-links={} {} {}"
+                    .format(ns_opt, lag_name, min_links,
+                            '--fallback=true' if fallback else '',
+                            '--fast-rate=true' if original_fast_rate else ''),
+                    module_ignore_errors=True)
                 for po_intf in list(po_interfaces.keys()):
                     self.duthost.shell("sudo config portchannel {} member add {} {}"
-                                       .format(ns_opt, lag_name, po_intf))
+                                       .format(ns_opt, lag_name, po_intf),
+                                       module_ignore_errors=True)
                 for ip in pc_ips:
-                    self.duthost.shell("sudo config interface {} ip add {} {}".format(ns_opt, lag_name, ip))
+                    self.duthost.shell("sudo config interface {} ip add {} {}".format(ns_opt, lag_name, ip),
+                                       module_ignore_errors=True)
+                # Explicit post-condition check: confirm the PortChannel actually came
+                # back up after restoration instead of assuming the re-add steps worked.
+                if not wait_until(30, 1, 3, self.__check_portchannel_up, lag_name):
+                    logger.error("PortChannel %s did not come back up after restore", lag_name)
 
     def __verify_lag_minlink(self, host, lag_name, lag_facts,
                              neighbor_intf, deselect_time, wait_timeout=30):
@@ -408,7 +438,7 @@ def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
     # Skip lacp_rate_dut on vsonic neighbors — PTF timing verification requires EOS
     if testcase == "lacp_rate_dut":
         if request.config.getoption("--neighbor_type") == 'sonic':
-            pytest.skip("lacp_rate_dut is not supported in vsonic")
+            pytest.skip("lacp_rate_dut requires EOS neighbor for set_interface_lacp_rate_mode; vsonic not supported")
 
     ptfhost = common_setup_teardown
 
