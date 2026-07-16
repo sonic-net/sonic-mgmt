@@ -213,8 +213,6 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     else:
         ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
 
-    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-
     # render template and write to DB, check running configuration for BGP_sentinel
     if is_ipv6_only:
         bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL)
