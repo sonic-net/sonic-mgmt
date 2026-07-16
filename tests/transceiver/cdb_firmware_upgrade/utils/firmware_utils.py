@@ -184,6 +184,8 @@ def get_required_firmware_metadata_for_all_transceivers(
         else:
             selected_firmware = sorted_firmware[:NUM_LATEST_FIRMWARE_VERSIONS]
 
+        num_required_firmware = NUM_LATEST_FIRMWARE_VERSIONS + 1  # latest versions + gold
+
         # Add gold firmware
         gold_firmware_metadata = get_transceiver_gold_firmware_metadata(
             normalized_vendor_name,
@@ -202,10 +204,18 @@ def get_required_firmware_metadata_for_all_transceivers(
                     seen_versions.add(version)
                     unique_firmware.append(firmware)
             selected_firmware = unique_firmware
+
+            if len(selected_firmware) < num_required_firmware:
+                for firmware in sorted_firmware[NUM_LATEST_FIRMWARE_VERSIONS:]:
+                    version = firmware.get('version')
+                    if version and version not in seen_versions:
+                        seen_versions.add(version)
+                        selected_firmware.append(firmware)
+                        if len(selected_firmware) >= num_required_firmware:
+                            break
         else:
             logger.error(f"No gold firmware metadata found for transceiver type {transceiver_key}")
 
-        num_required_firmware = NUM_LATEST_FIRMWARE_VERSIONS + 1  # latest versions + gold
         if len(selected_firmware) != num_required_firmware:
             pytest.fail(
                 f"Expected exactly {num_required_firmware} firmware versions "
