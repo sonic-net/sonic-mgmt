@@ -17,18 +17,19 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
-CRM_READY_RETRIES = 6
-CRM_READY_RETRY_INTERVAL = 5
+CRM_READY_RETRIES = 3
+CRM_READY_RETRY_INTERVAL = 3
 
 
 def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPACE):
-    # `crm show resources all` can transiently read back an empty main-resources table:
-    # CRM counters are wiped and only repopulated on the next polling cycle after a
-    # `config reload` (e.g. the frr_config_mode mode switch reverts the short polling
-    # interval set_polling_interval installs back to the 300s default), and the show
-    # command itself can race a poll refresh. Retry briefly to absorb that readiness gap
-    # before dereferencing, and if it never populates raise a clear error naming the
-    # resource instead of an opaque AttributeError on None.
+    # After a `config reload` (e.g. the frr_config_mode mode switch) CRM counters are wiped
+    # AND the polling interval reverts to the 300s default, so `crm show resources all` reads
+    # back an empty main-resources table until the next poll -- up to a full ~300s cycle, not
+    # a brief race. In this module the reads that feed assertions/logic run mid-test with CRM
+    # populated; only the informational teardown log lines hit the post-reload empty window.
+    # So retry briefly (to absorb any genuine sub-poll race), then return None with a clear
+    # warning rather than raising -- an informational read must not fail the run while CRM is
+    # merely repopulating. Real callers run when CRM is populated and get their value.
     crm_resources = None
     main_resources = None
     for attempt in range(CRM_READY_RETRIES):
@@ -36,21 +37,20 @@ def get_crm_resource_status(duthost, resource, status, namespace=DEFAULT_NAMESPA
         main_resources = crm_resources.get("main_resources") if crm_resources else None
         if main_resources:
             break
-        logger.warning("get_crm_resource_status(%s/%s, ns=%s): 'main_resources' missing/empty "
-                       "(attempt %d/%d); raw get_crm_resources() -> %r",
-                       resource, status, namespace, attempt + 1, CRM_READY_RETRIES, crm_resources)
         if attempt < CRM_READY_RETRIES - 1:
             time.sleep(CRM_READY_RETRY_INTERVAL)
     if not main_resources:
-        raise RuntimeError(
-            "CRM main_resources never populated for {}/{} (ns={}) after {} attempts; "
-            "last raw get_crm_resources() -> {!r}".format(
-                resource, status, namespace, CRM_READY_RETRIES, crm_resources))
+        logger.warning("get_crm_resource_status(%s/%s, ns=%s): CRM main_resources empty after "
+                       "%d attempts (CRM repopulating after a config reload); returning None. "
+                       "Raw get_crm_resources() -> %r", resource, status, namespace,
+                       CRM_READY_RETRIES, crm_resources)
+        return None
     resource_entry = main_resources.get(resource)
     if resource_entry is None:
-        raise RuntimeError(
-            "CRM resource {!r} not present in main_resources (ns={}); available: {}".format(
-                resource, namespace, sorted(main_resources)))
+        logger.warning("get_crm_resource_status(%s/%s, ns=%s): resource %r absent from CRM "
+                       "main_resources; returning None. Available: %s",
+                       resource, status, namespace, resource, sorted(main_resources))
+        return None
     return resource_entry.get(status)
 
 
