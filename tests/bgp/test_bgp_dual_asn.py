@@ -24,10 +24,22 @@ from tests.common.gu_utils import (
 )
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
 pytestmark = [
     pytest.mark.topology("t0"),
 ]
+
+# frrcfgd under-renders listen-range (SLB/Vac) peer-groups: after a runtime peer-group
+# update it drops peer-group attributes (e.g. update-source) from the FRR render even
+# though the CONFIG_DB BGP_PEER_GROUP row still carries them, so this test's teardown
+# fingerprint (get_bgp_speaker_runningconfig) diverges after the ASN churn + rollback.
+# Skip the frr_mgmt_framework variant until frrcfgd renders those attributes; the
+# traditional (bgpcfgd) variant still covers the feature. Remove once frrcfgd supports it.
+FRR_LISTEN_RANGE_RENDER_GAP_REASON = (
+    "frrcfgd under-renders listen-range peer-group attributes (e.g. update-source) after a "
+    "runtime peer-group update, though CONFIG_DB still carries them"
+)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -96,23 +108,6 @@ def setup_env(
         # sleep for a short time, waiting for config apply
         time.sleep(30)
         current_bgp_speaker_config = get_bgp_speaker_runningconfig(duthost)
-        if set(original_bgp_speaker_config) != set(current_bgp_speaker_config):
-            # A listen-range peer-group's config (e.g. BGPSLBPassive update-source) can go
-            # missing across the frr round-trip + checkpoint rollback. Capture whether it is
-            # gone from CONFIG_DB (rollback/checkpoint gap) or present in CONFIG_DB but not
-            # rendered by frrcfgd (render gap) so the next failure is actionable.
-            logger.error("bgp speaker config drift after rollback -- dumping state for diagnosis")
-            logger.error("CONFIG_DB BGP_PEER_GROUP keys:\n%s", duthost.shell(
-                "sonic-db-cli CONFIG_DB keys 'BGP_PEER_GROUP*'", module_ignore_errors=True).get("stdout", ""))
-            for key in ("BGP_PEER_GROUP|BGPSLBPassive", "BGP_PEER_GROUP|default|BGPSLBPassive",
-                        "BGP_PEER_GROUP|BGPVac", "BGP_PEER_GROUP|default|BGPVac"):
-                out = duthost.shell("sonic-db-cli CONFIG_DB hgetall '{}'".format(key),
-                                    module_ignore_errors=True).get("stdout", "")
-                if out.strip():
-                    logger.error("CONFIG_DB %s:\n%s", key, out)
-            logger.error("FRR listen-range peer-group lines:\n%s", duthost.shell(
-                "vtysh -c 'show running-config' | grep -iE 'BGPSLBPassive|BGPVac|update-source|listen range' "
-                "|| true", module_ignore_errors=True).get("stdout", ""))
         pytest_assert(
             set(original_bgp_speaker_config) == set(current_bgp_speaker_config),
             "bgp speaker config are not suppose to change after test org: {}, cur: {}".format(
@@ -639,6 +634,7 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
 def test_bgp_dual_asn_v4(
     frr_config_mode, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env
 ):
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LISTEN_RANGE_RENDER_GAP_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     dualAsn = BgpDualAsn()

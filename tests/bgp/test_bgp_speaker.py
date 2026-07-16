@@ -316,11 +316,37 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    assert wait_until(120, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), (
-        "Not all dynamic neighbors were learned. "
-        "DUT Host: {}"
-        "Speaker IPs: {}"
-    ).format(duthost, speaker_ips)
+    if not wait_until(120, 10, 0, is_all_neighbors_learned, duthost, speaker_ips):
+        # Dynamic (listen-range) neighbors did not all reach accepted-prefixes==1. In
+        # frr_mgmt_framework mode this is typically the listen-range peer-group's
+        # address-family activation (e.g. the v6 route is announced over the v4 session via
+        # MP-BGP, so BGPSLBPassive must be activated in ipv6-unicast). Capture per-neighbor
+        # AF state plus the SLB/Vac peer-group AF rows -- CONFIG_DB (the translator's output)
+        # vs the FRR render (frrcfgd) -- so the next run shows whether the ipv6 AF activation
+        # is missing from CONFIG_DB (translator gap, fixable here) or present in CONFIG_DB but
+        # not rendered by frrcfgd (frrcfgd render gap).
+        logger.error("dynamic neighbors not learned -- dumping BGP speaker listen-range state")
+        for ip in speaker_ips:
+            logger.error("show bgp neighbor %s json:\n%s", ip.ip, duthost.shell(
+                'vtysh -c "show bgp neighbor %s json"' % ip.ip,
+                module_ignore_errors=True).get("stdout", ""))
+        logger.error("CONFIG_DB BGP_PEER_GROUP_AF keys:\n%s", duthost.shell(
+            "sonic-db-cli CONFIG_DB keys 'BGP_PEER_GROUP_AF*'", module_ignore_errors=True).get("stdout", ""))
+        for pg in ("BGPSLBPassive", "BGPVac"):
+            for af in ("ipv4_unicast", "ipv6_unicast"):
+                out = duthost.shell(
+                    "sonic-db-cli CONFIG_DB hgetall 'BGP_PEER_GROUP_AF|default|{}|{}'".format(pg, af),
+                    module_ignore_errors=True).get("stdout", "")
+                if out.strip():
+                    logger.error("CONFIG_DB BGP_PEER_GROUP_AF|default|%s|%s:\n%s", pg, af, out)
+        logger.error("FRR peer-group AF activation:\n%s", duthost.shell(
+            "vtysh -c 'show running-config' | grep -iE 'address-family|BGPSLBPassive|BGPVac' || true",
+            module_ignore_errors=True).get("stdout", ""))
+        assert False, (
+            "Not all dynamic neighbors were learned. "
+            "DUT Host: {}"
+            "Speaker IPs: {}"
+        ).format(duthost, speaker_ips)
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(prefix.encode().decode()))

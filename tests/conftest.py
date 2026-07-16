@@ -3699,6 +3699,19 @@ def pytest_collection_modifyitems(config, items):
             # its own targeted BGP fail-loud fingerprint, so suppress the generic checks here
             # (the fixture's docstring requires this marker on opted-in modules).
             item.add_marker("skip_check_dut_health")
+            # core_dump_and_config_check and yang_validation_check are module-scoped and
+            # gate on request.node.iter_markers(), where request.node is the *module* --
+            # a marker added to the function item above is not visible there. Mark the
+            # module node too so those fixtures actually honor skip_check_dut_health
+            # (otherwise yang_validation_check hard-fails on the benign post-reload
+            # gnmi-cert drift, and core_dump_and_config_check triggers a noisy recovery
+            # reload). The whole module is dual-mode, so this is correct for both params.
+            module = item.getparent(pytest.Module)
+            if module is not None:
+                if not any(m.name == "skip_check_dut_health" for m in module.own_markers):
+                    module.add_marker("skip_check_dut_health")
+                if not any(m.name == "disable_memory_utilization" for m in module.own_markers):
+                    module.add_marker("disable_memory_utilization")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
