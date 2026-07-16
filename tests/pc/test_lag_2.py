@@ -186,8 +186,10 @@ class LagTest:
             for ip in pc_ips:
                 self.duthost.shell("sudo config interface {} ip add {} {}".format(ns_opt, lag_name, ip))
 
-            # Wait for LAG to re-establish before verifying timing
-            pytest_assert(wait_until(30, 1, 5, self.__check_portchannel_up, lag_name),
+            # Wait for LAG to re-establish before verifying timing. Physical DUTs can take
+            # longer than KVM to reconverge after delete/recreate + member re-add, so use
+            # the same 60s window as the neighbor-side reconvergence wait below.
+            pytest_assert(wait_until(60, 1, 3, self.__check_portchannel_up, lag_name),
                           "PortChannel {} did not come up after fast-rate reconfiguration".format(lag_name))
 
             # Verify DUT-side fast_rate is actually applied before invoking neighbor
