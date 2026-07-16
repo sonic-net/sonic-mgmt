@@ -3692,6 +3692,13 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "frr_config_mode" in getattr(item, "fixturenames", ()):
             item.add_marker("disable_memory_utilization")
+            # The mid-module mode switch does a `config reload` that legitimately perturbs
+            # the DUT (BGP re-render, telemetry/gnmi cert regen, swss restart), which the
+            # generic post-test DUT-health checks (config-diff, YANG validation, core-dump /
+            # recovery reload) flag as drift or fail on "SwSS not ready". frr_config_mode has
+            # its own targeted BGP fail-loud fingerprint, so suppress the generic checks here
+            # (the fixture's docstring requires this marker on opted-in modules).
+            item.add_marker("skip_check_dut_health")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
