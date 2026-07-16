@@ -74,21 +74,38 @@ def test_renders_valid_json_with_nexthops():
                                       "nhipv4": "10.10.246.254",
                                       "nhipv6": "fc0a::ff"})
     assert "BGP_NEIGHBOR" in cfg
-    # bgp peers + both exabgp next hops are present.
+    # Real bgp peers stay in BGP_NEIGHBOR (eBGP PEER_V4/V6).
     assert "10.0.0.0" in cfg["BGP_NEIGHBOR"]
-    assert "10.10.246.254" in cfg["BGP_NEIGHBOR"]
-    assert "fc0a::ff" in cfg["BGP_NEIGHBOR"]
+    # The exabgp injector is iBGP -> it goes in BGP_INTERNAL_NEIGHBOR, NOT
+    # BGP_NEIGHBOR (so it never poisons the eBGP PEER_V4/V6 peer-group).
+    assert "10.10.246.254" not in cfg["BGP_NEIGHBOR"]
+    assert "fc0a::ff" not in cfg["BGP_NEIGHBOR"]
+    assert "10.10.246.254" in cfg["BGP_INTERNAL_NEIGHBOR"]
+    assert "fc0a::ff" in cfg["BGP_INTERNAL_NEIGHBOR"]
+    # injector is iBGP: its asn equals this neighbor's own bgp asn.
+    assert cfg["BGP_INTERNAL_NEIGHBOR"]["10.10.246.254"]["asn"] == "64001"
+    # local_addr is the Loopback0 address (no prefix).
+    assert cfg["BGP_INTERNAL_NEIGHBOR"]["10.10.246.254"]["local_addr"] == "100.1.0.29"
+    assert cfg["BGP_INTERNAL_NEIGHBOR"]["fc0a::ff"]["local_addr"] == "2064:100::1d"
+    # Loopback4096 (internal peer manager dependency) is present, reusing
+    # Loopback0's addresses.
+    assert "Loopback4096" in cfg["LOOPBACK_INTERFACE"]
+    assert "Loopback4096|100.1.0.29/32" in cfg["LOOPBACK_INTERFACE"]
+    assert "Loopback4096|2064:100::1d/128" in cfg["LOOPBACK_INTERFACE"]
 
 
 def test_valid_json_without_nexthops():
     """Topologies that do not define nhipv4/nhipv6 must still render valid JSON
-    (no undefined-variable blow-up, no dangling comma)."""
+    (no undefined-variable blow-up, no dangling comma), and emit an empty
+    BGP_INTERNAL_NEIGHBOR."""
     cfg = _render_json(_base_host(), {"swrole": "leaf"})
     nbrs = cfg["BGP_NEIGHBOR"]
     # Only the real bgp peers remain; no empty/None next-hop key sneaks in.
     assert set(nbrs.keys()) == {"10.0.0.0", "fc00::0"}
     assert "" not in nbrs
     assert "None" not in nbrs
+    # No injector -> BGP_INTERNAL_NEIGHBOR renders as an empty (but valid) table.
+    assert cfg["BGP_INTERNAL_NEIGHBOR"] == {}
 
 
 def test_empty_nexthop_is_skipped():
@@ -97,25 +114,28 @@ def test_empty_nexthop_is_skipped():
                                       "nhipv4": "",
                                       "nhipv6": None})
     assert set(cfg["BGP_NEIGHBOR"].keys()) == {"10.0.0.0", "fc00::0"}
+    assert cfg["BGP_INTERNAL_NEIGHBOR"] == {}
 
 
 def test_only_v4_nexthop():
     cfg = _render_json(_base_host(), {"swrole": "leaf",
                                       "nhipv4": "10.10.246.254"})
     nbrs = cfg["BGP_NEIGHBOR"]
-    assert "10.10.246.254" in nbrs
-    assert all(":" not in k or k in ("fc00::0",) for k in nbrs)
-    assert set(nbrs.keys()) == {"10.0.0.0", "fc00::0", "10.10.246.254"}
+    # Real peers only in BGP_NEIGHBOR; the v4 injector is in the internal table.
+    assert set(nbrs.keys()) == {"10.0.0.0", "fc00::0"}
+    assert set(cfg["BGP_INTERNAL_NEIGHBOR"].keys()) == {"10.10.246.254"}
 
 
 def test_no_bgp_peers_only_nexthops():
-    """No real peers, only exabgp next hops: still valid JSON, no leading comma."""
+    """No real peers, only exabgp next hops: still valid JSON, no leading comma.
+    BGP_NEIGHBOR is empty; both injectors land in BGP_INTERNAL_NEIGHBOR."""
     host = _base_host()
     host["bgp"]["peers"] = {}
     cfg = _render_json(host, {"swrole": "leaf",
                               "nhipv4": "10.10.246.254",
                               "nhipv6": "fc0a::ff"})
-    assert set(cfg["BGP_NEIGHBOR"].keys()) == {"10.10.246.254", "fc0a::ff"}
+    assert cfg["BGP_NEIGHBOR"] == {}
+    assert set(cfg["BGP_INTERNAL_NEIGHBOR"].keys()) == {"10.10.246.254", "fc0a::ff"}
 
 
 def test_backplane_placed_after_front_panel_links():

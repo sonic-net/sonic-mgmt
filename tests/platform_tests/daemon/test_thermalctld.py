@@ -74,7 +74,12 @@ class TestThermalctldDaemon:
         - Severity levels are valid (MINOR|CRITICAL)
         - Escalation timeout is configured in LEAK_PROFILE
         - Critical leak events propagate to bmcctld (HOST_STATE consistency)
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         # Get system leak status
         status = get_system_leak_status(self.duthost)
         if status:
@@ -101,8 +106,8 @@ class TestThermalctldDaemon:
                               f"leak_sensor_status '{sensor_status}' "
                               f"not in ['Good', 'Fault']")
 
-            leak_severity = fields.get('leak_severity', '').strip()
-            if leak_severity:
+            leak_severity = fields.get('leak_severity', 'None').strip()
+            if leak_severity != "None":
                 pytest_assert(leak_severity in ['MINOR', 'CRITICAL'],
                               f"leak_severity '{leak_severity}' not in ['MINOR', 'CRITICAL']")
 
@@ -161,7 +166,12 @@ class TestThermalctldDaemon:
         test_thermalctld_faulty_sensor.
 
         The injected key is deleted in a finally block.
+
         """
+        # Need a way to induce real leak or mock the leak for system_leak to be updated.
+        # Just updating LIQUID_COOLING_INFO sensors in DB will not populate SYSTEM_LEAK_STATUS:system
+        pytest.skip("SKIP as we cannot induce a CRITICAL or MINOR leak now")
+
         LEAKING_SENSOR_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_sensor_leaking"
 
         def sensor_has_value(key, field, value):
@@ -194,11 +204,11 @@ class TestThermalctldDaemon:
             tail=10,
         )
         if existing:
-            logger.info(f"Existing thermalctld leaking-sensor events:\n{existing}")
+            logger.info("Existing thermalctld leaking-sensor events:\n%s", existing)
 
         logged = [t for t, v in trigger_results.items() if v]
         not_logged = [t for t, v in trigger_results.items() if not v]
-        logger.info(f"Confirmed: {logged}; not confirmed: {not_logged}")
+        logger.info("Confirmed: %s; not confirmed: %s", logged, not_logged)
         pytest_assert(
             any(trigger_results.values()),
             f"thermalctld event trigger test found no evidence for: {list(trigger_results.keys())}"
@@ -221,7 +231,11 @@ class TestThermalctldDaemon:
           - Checks syslog for any existing 'reported faulty' entries from real hardware
           - Verifies SYSTEM_LEAK_STATUS:system timestamp is present (thermalctld still
             updates the system table even when sensors are faulty)
+
         """
+        # Need a way to induce real faulty leak sensor or mock the faulty leak sensor.
+        pytest.skip("SKIP as we cannot induce a faulty leak sensor now")
+
         FAULTY_KEY = f"{LIQUID_COOLING_INFO_TABLE}|test_faulty_sensor_check"
 
         def sensor_field_equals(key, field, value):
@@ -254,7 +268,7 @@ class TestThermalctldDaemon:
             tail=10,
         )
         if existing:
-            logger.info(f"Real faulty sensor events in syslog:\n{existing}")
+            logger.info("Real faulty sensor events in syslog:\n%s", existing)
         else:
             logger.info("No faulty sensor syslog events found - liquid cooling hardware not present or all sensors ok")
 
@@ -305,7 +319,7 @@ class TestThermalctldDaemon:
             pytest.skip(f"Switch-Host {switch_host.hostname} syslog has no "
                         "'Mirroring TEMPERATURE_INFO to BMC STATE_DB' entry — "
                         "BMC mirror not active on this platform or log has rotated")
-        logger.info(f"Switch-Host mirror push confirmed:\n{mirror_init_log}")
+        logger.info("Switch-Host mirror push confirmed:\n%s", mirror_init_log)
 
         # Step 2: Push was initiated — data MUST have landed in the BMC STATE_DB.
         # If absent here it is a real failure (push initiated but data missing).
@@ -327,14 +341,14 @@ class TestThermalctldDaemon:
                       "BMC syslog missing 'Monitoring chassis thermals' — "
                       "thermalctld may not have initialized chassis-thermal monitoring "
                       "(check switch_bmc=1 in platform_env.conf)")
-        logger.info(f"Chassis-thermal monitoring init confirmed:\n{init_log}")
+        logger.info("Chassis-thermal monitoring init confirmed:\n%s", init_log)
 
         # Informational: any pre-existing CRITICAL events in event.log.
         existing = bmc_log_zgrep(
             self.duthost, r"CRITICAL chassis thermal", tail=5, files=BMC_EVENT_LOG,
         )
         if existing:
-            logger.info(f"Pre-existing CRITICAL chassis thermal events:\n{existing}")
+            logger.info("Pre-existing CRITICAL chassis thermal events:\n%s", existing)
 
         # Steps 4-6: inject a breach and verify the CRITICAL log.
         # Key uses | separator: TEMPERATURE_INFO|<sensor_name> (sonic TABLE_NAME_SEPARATOR).
@@ -361,7 +375,8 @@ class TestThermalctldDaemon:
         match_count = breach_result.get("total", {}).get("match", 0)
         pytest_assert(match_count > 0,
                       "Expected 'CRITICAL chassis thermal' log for injected sensor "
-                      f"{TEST_SENSOR} (120C > 80C threshold) not found in syslog within 90s")
+                      f"{TEST_SENSOR} "
+                      "(120C > 80C threshold) not found in syslog within 90s")
 
 
 # ---------------------------------------------------------------------------

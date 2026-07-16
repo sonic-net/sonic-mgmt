@@ -116,7 +116,11 @@ def set_arp_reply(ptfhost, interface_list, value):
     """
     for interface in interface_list:
         ptfhost.shell("sysctl -w net.ipv4.conf.{}.arp_ignore={}".format(interface, value))
-    ptfhost.shell("sysctl -p")
+    # "sysctl -w" already applies each setting live. A bare "sysctl -p" only
+    # reads the legacy /etc/sysctl.conf, which Debian trixie's procps no longer
+    # ships, so it fails on newer PTF images. Reload from the drop-in dirs
+    # instead, tolerating their absence.
+    ptfhost.shell("sysctl --system", module_ignore_errors=True)
 
 
 def ptf_teardown(ptfhost, ptf_ports):
