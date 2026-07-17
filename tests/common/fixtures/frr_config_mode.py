@@ -70,6 +70,20 @@ def skip_if_frr_mgmt_framework(mode, reason):
         pytest.skip("frr_mgmt_framework mode not supported for this test: {}".format(reason))
 
 
+FRR_BGP_DEVICE_GLOBAL_GAP_REASON = "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)"
+
+
+def skip_module_if_frr_native(duthost):
+    """Skip a BGP_DEVICE_GLOBAL module (TSA/TSB, IDF isolation, W-ECMP) when the DUT
+    natively runs frrcfgd. Those features are driven by the BGP_DEVICE_GLOBAL table, which
+    frrcfgd does not consume by design, so the modules are not parametrized over
+    frr_config_mode -- they just skip outright in native frr mode. Shared by the five such
+    modules (test_traffic_shift{,_lc,_sup}, test_seq_idf_isolation, test_startup_tsa_tsb_service)
+    to avoid copy-pasting the skip fixture."""
+    if duthost.get_frr_mgmt_framework_config():
+        pytest.skip(FRR_BGP_DEVICE_GLOBAL_GAP_REASON)
+
+
 def _core_dumps(duthost):
     cmd = ("ls /var/core/ | grep -v python || true" if "20191130" in duthost.os_version
            else "ls /var/core/ || true")

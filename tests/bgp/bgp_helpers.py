@@ -483,7 +483,7 @@ def _allow_list_as_prefix_list(value):
     return [p for p in str(value).split(',') if p]
 
 
-def _get_allow_list_drop_community(duthost, namespace):
+def _get_allow_list_drop_community(duthost):
     """Read the allow-list drop_community from constants.yml on the DUT."""
     if DROP_COMMUNITY:
         return DROP_COMMUNITY
@@ -589,7 +589,7 @@ def _get_af_route_maps_in(duthost, db_cli, table):
 def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
     """frr_mgmt_framework path for apply_allow_list (see comment block above)."""
     db_cli = get_db_cli_prefix_for_namespace(namespace)
-    drop_community = _get_allow_list_drop_community(duthost, namespace)
+    drop_community = _get_allow_list_drop_community(duthost)
     tables, rm_by_af, created_keys = _build_allow_list_frr_config(allow_list, drop_community)
 
     # Attach the allow-list route-map inbound on every inbound-filtered peer-group

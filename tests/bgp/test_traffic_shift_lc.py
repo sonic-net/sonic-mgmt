@@ -3,6 +3,7 @@ import re
 import threading
 
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import remove_bgp_neighbors, restore_bgp_neighbors, initial_tsa_check_before_and_after_test
 from tests.common import config_reload
@@ -428,9 +429,4 @@ def test_load_minigraph_with_traffic_shift_away(
 
 @pytest.fixture(scope="module", autouse=True)
 def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
-    # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
-    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework mode.
-    # This module is therefore not parametrized over frr_config_mode; it just skips outright
-    # when the DUT natively runs frrcfgd. Remove when frrcfgd consumes BGP_DEVICE_GLOBAL.
-    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
-        pytest.skip("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])
