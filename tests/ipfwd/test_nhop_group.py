@@ -23,7 +23,7 @@ CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 PTF_QUEUE_LEN = 100000
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1')
+    pytest.mark.topology('t1', 't2', 'lrh', 'urh', 'm1', "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
@@ -337,6 +337,12 @@ def validate_asic_route(duthost, route, exist=True):
         return exist is False
 
 
+def is_high_scale_platform(duthost) -> bool:
+    interfaces_status = duthost.sonichost.get_interfaces_status()
+    number_of_interfaces = len(interfaces_status.keys())
+    return number_of_interfaces >= 128
+
+
 def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
@@ -365,6 +371,10 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         default_max_nhop_paths = 8
         polling_interval = 10
         sleep_time = 120
+    elif is_high_scale_platform(duthost):
+        default_max_nhop_paths = 32
+        polling_interval = 10
+        sleep_time = 380
     else:
         default_max_nhop_paths = 32
         polling_interval = 10
@@ -448,7 +458,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost) or "7060X6" in duthost.sonichost.get_facts()['platform'].upper():
+    if is_cisco_device(duthost) or is_high_scale_platform(duthost):
         pytest_assert(
             crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
@@ -840,7 +850,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
                                               "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
-                                              "gr2": gr2_asic_flow_map}
+                                              "spc6": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -974,5 +984,11 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     finally:
         asic.command(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        for i in range(0, len(gather_facts['src_port'])):
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                            gather_facts['src_port'][i])
+            logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
+            if is_vs_device(duthost) is False:
+                fanout.no_shutdown(fanout_port)
         nhop.delete_routes()
         arplist.clean_up()

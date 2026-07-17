@@ -254,10 +254,27 @@ class TestChassisApi(PlatformApiTestBase):
         for field in expected_syseeprom_info_dict:
             pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'"
                           .format(field, duthost.hostname))
-            pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
-                          "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, syseeprom_info_dict[field],
-                                 expected_syseeprom_info_dict[field], duthost.hostname))
+
+            # Special handling for vendor extension field (0xFD) which can be a list or single value.
+            # Some platforms have multiple vendor extensions.
+            if field == ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT.lower():
+                actual_value = syseeprom_info_dict[field]
+                expected_value = expected_syseeprom_info_dict[field]
+
+                # Normalize both to lists for comparison
+                actual_list = actual_value if isinstance(actual_value, list) else [actual_value]
+                expected_list = expected_value if isinstance(expected_value, list) else [expected_value]
+
+                for expected_item in expected_list:
+                    pytest_assert(expected_item in actual_list,
+                                  "System EEPROM vendor extension is incorrect - "
+                                  "expected '{}' not found in '{}' on '{}'".
+                                  format(expected_item, actual_list, duthost.hostname))
+            else:
+                pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
+                              "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
+                              format(field, syseeprom_info_dict[field],
+                                     expected_syseeprom_info_dict[field], duthost.hostname))
 
     def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                               platform_api_conn):    # noqa: F811
@@ -332,7 +349,10 @@ class TestChassisApi(PlatformApiTestBase):
                 pytest.skip("No fans found on device")
 
         if duthost.facts.get("chassis"):
-            expected_num_fans = len(duthost.facts.get("chassis").get('fans'))
+            fans = duthost.facts.get("chassis").get('fans')
+            expected_num_fans = (
+                sum(1 for f in fans if isinstance(f, dict) and f.get("name")) if fans else 0
+            )
             pytest_assert(num_fans == expected_num_fans,
                           "Number of fans ({}) does not match expected number ({})"
                           .format(num_fans, expected_num_fans))

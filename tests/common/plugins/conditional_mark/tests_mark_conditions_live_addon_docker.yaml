@@ -1,0 +1,11 @@
+#######################################
+#####   live addon docker          #####
+#######################################
+
+live_addon_docker/test_live_addon_docker.py:
+  skip:
+    reason: "Live-addon docker tests require vendor JSON for this asic_type (skip VS/KVM and other platforms)"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+      - "asic_type in ['vs']"

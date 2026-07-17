@@ -16,17 +16,17 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
 from tests.common.snappi_tests.common_helpers import stop_pfcwd
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor, \
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa: F401
 from tests.common.dualtor.nic_simulator_control import active_active_ports                              # noqa: F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
-    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled,\
-    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup,\
-    toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor,\
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info, \
+    get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled, \
+    config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup, \
+    toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor, \
     toggle_all_aa_ports_to_rand_unselected_tor  # noqa: F401
 
-from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
-    dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host,\
+from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter, \
+    dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host, \
     setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa: F401
 from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, \
     stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging, \
@@ -677,7 +677,6 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     src_port = _last_port_in_last_lag(t1_ports)
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
-    ptfadapter.dataplane.flush()
     failures = []
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
@@ -689,6 +688,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
                                                inner_dscp=inner_dscp,
                                                outer_dscp=outer_dscp,
                                                ecn=1)
+        ptfadapter.dataplane.flush()
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
         pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap

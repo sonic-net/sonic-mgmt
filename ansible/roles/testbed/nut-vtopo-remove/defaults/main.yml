@@ -1,0 +1,7 @@
+---
+# Naming prefix for TG Docker containers
+vnut_container_prefix: "net"
+
+# VM storage paths
+vnut_sonic_vm_storage: "{{ ansible_env.HOME }}/sonic-vm"
+vnut_vm_disk_dir: "{{ vnut_sonic_vm_storage }}/disks"

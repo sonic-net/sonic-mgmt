@@ -7,10 +7,10 @@ import logging
 import time
 import pytest
 import json
+from tests.qos.qos_fixtures import lossless_prio_list  # noqa F401
 
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
@@ -100,11 +100,15 @@ def verify_command_result(result, cmd):
     assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
+@pytest.mark.disable_loganalyzer
 def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
     """
     @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
     """
+
     duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts["asic_type"].lower() == 'broadcom':
+        pytest.skip("test not supported for broadcom devices")
 
     cmd = "show platform npu rx cgm_global -d"
 
@@ -209,28 +213,51 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                         age_quant_len = len(voq_drop_data[0][1])
 
                 if voq_mark_data:
+                    # Validate the per-cell ECN mark probabilities stored in voq_mark_prob_g
+                    # depending on what is exposed by the asic.
+                    wm_prob = data.get("wm_prob")
+                    mark_list = data.get("mark_list")
+                    have_wm_prob = isinstance(wm_prob, list)
+                    have_mark_list = isinstance(mark_list, list)
                     for g_idx in range(sms_quant_len):
                         for voq_idx in range(voq_quant_len):
                             for age_idx in range(age_quant_len):
-                                actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
-                                if age_idx == 0:
-                                    mark_level = 0
-                                elif (voq_idx >= 1 and age_idx == 1):
-                                    mark_level = 1
-                                elif (voq_idx >= 1 and age_idx == 2):
-                                    mark_level = 2
-                                elif (voq_idx >= 1 and age_idx >= 3):
-                                    mark_level = 3
-                                else:
-                                    mark_level = 0
-                                expected_value = round(data["wm_prob"][mark_level], 2)
-                                assert (
-                                        actual_value == expected_value
-                                ), '''
-                                        Marking Probability not as expected for Port {} PG {}
-                                        at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
-                                     '''.format(port, pg_to_test, g_idx, voq_idx,
-                                                age_idx, expected_value, actual_value)
+                                raw_value = voq_mark_data[g_idx][voq_idx][age_idx]
+
+                                # All ASICs: the reported value must be a valid probability.
+                                assert 0.0 <= raw_value <= 1.0, (
+                                    "Invalid marking probability for Port {} PG {} at "
+                                    "SMS/VoQ/Age region {}/{}/{}: {}".format(
+                                        port, pg_to_test, g_idx, voq_idx, age_idx, raw_value))
+
+                                # Cisco-8102 enqueue WRED: exact 4-level mapping.
+                                if have_wm_prob:
+                                    actual_value = round(raw_value, 2)
+                                    if age_idx == 0:
+                                        mark_level = 0
+                                    elif (voq_idx >= 1 and age_idx == 1):
+                                        mark_level = 1
+                                    elif (voq_idx >= 1 and age_idx == 2):
+                                        mark_level = 2
+                                    elif (voq_idx >= 1 and age_idx >= 3):
+                                        mark_level = 3
+                                    else:
+                                        mark_level = 0
+                                    expected_value = round(wm_prob[mark_level], 2)
+                                    assert (
+                                            actual_value == expected_value
+                                    ), '''
+                                            Marking Probability not as expected for Port {} PG {}
+                                            at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                         '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                    age_idx, expected_value, actual_value)
+                                # Cisco-8122 palette membership (compared unrounded).
+                                elif have_mark_list:
+                                    assert any(abs(raw_value - level) < 1e-6 for level in mark_list), '''
+                                            Marking Probability not in mark_list for Port {} PG {}
+                                            at SMS/VoQ/Age region {}/{}/{} Value: {} mark_list: {}
+                                         '''.format(port, pg_to_test, g_idx, voq_idx,
+                                                    age_idx, raw_value, mark_list)
 
                 ''' Verify drop is 7 for last quant only'''
                 if voq_drop_data:
@@ -246,3 +273,78 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                                         SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
                                      '''.format(port, pg_to_test, g_idx, voq_idx,
                                                 age_idx, expected_value, actual_value)
+
+
+def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            enum_rand_one_frontend_asic_index, lossless_prio_list):  # noqa: F811
+
+    # Verify the ecn config utility CLI's
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_index = enum_rand_one_frontend_asic_index
+
+    if duthost.is_multi_asic:
+        asic = " -n asic" + str(asic_index)
+    else:
+        asic = ''
+
+    # show ECN WRED configuration
+    cmd = 'ecnconfig -l{}'.format(asic)
+
+    result = duthost.command(cmd)
+    assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
+    if result['stdout_lines']:
+        ecn_list = {}
+        for iter, line in enumerate(result['stdout_lines']):
+            if iter < 2 or '---' in line or not line.strip():
+                continue
+            else:
+                key, value = line.split(maxsplit=1)
+                ecn_list[key.strip()] = value.strip()
+    logging.info("ecn config : {}".format(ecn_list))
+
+    # Verify ecnconfig status on lossless queue
+    test_prio_list = lossless_prio_list
+    for prio in test_prio_list:
+        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+        result = duthost.command(cmd)
+        assert result['rc'] == 0, f"Missing ecn configuration : {result['stderr']}"
+        if 'queue' in result['stdout_lines'][1]:
+            status = result['stdout_lines'][1].split(':')
+            logging.info("{} status is {}".format(status[0], status[1]))
+        try:
+            # toggle the ecn status on prio queue
+            if status[1] == "off":
+                cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
+            else:
+                cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
+            result = duthost.command(cmd)
+        except Exception as e:
+            logging.info("Error on setting ecn queue : {}".format(e))
+        assert result['rc'] == 0, 'Set wred_profile command failed '
+
+    # revert the changes
+    for prio in test_prio_list:
+        cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
+        result = duthost.command(cmd)
+        status = result['stdout_lines'][1].split(':')
+        if status[1] == "off":
+            cmd = 'sudo ecnconfig {} -q {} on'.format(asic, prio)
+        else:
+            cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
+        result = duthost.command(cmd)
+        assert result['rc'] == 0, 'Set wred_profile command failed '
+
+    # Verify counterpoll CLI for enabling and disabling ecn statistics
+    # WRED_ECN_QUEUE_STAT
+    # WRED_ECN_PORT_STAT
+    wred_stat = {'WRED_ECN_QUEUE_STAT': 'wredqueue', 'WRED_ECN_PORT_STAT': 'wredport'}
+    try:
+        for k, v in wred_stat.items():
+            duthost.command("sudo counterpoll {} {} enable".format(v, asic))
+    except Exception as e:
+        raise Exception("Error on enabling counterpoll wred stats : {}".format(e))
+
+    cmd = 'sudo counterpoll show {}'.format(asic)
+    result = duthost.command(cmd)
+    assert 'WRED_ECN_QUEUE_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
+    assert 'WRED_ECN_PORT_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"

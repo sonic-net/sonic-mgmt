@@ -18,6 +18,7 @@ sys.path.append("..")
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa: E402
 from tests.common.connections.console_host import ConsoleHost   # noqa: E402
+from tests.common.utilities import update_console_creds  # noqa: E402
 
 g_inv_mgr = None
 g_task_runner = None
@@ -161,6 +162,7 @@ def get_console_info_from_conn_graph(hostname):
     console_info = {}
     if hostname in g_conn_graph_facts['device_console_info'] and g_conn_graph_facts['device_console_info'][hostname]:
         console_info['console_type'] = g_conn_graph_facts['device_console_info'][hostname]['Protocol']
+        console_info['auth_type'] = g_conn_graph_facts['device_console_info'][hostname].get('AuthType', '')
         console_info['console_host'] = g_conn_graph_facts['device_console_info'][hostname]['ManagementIp']
         console_info['console_port'] = g_conn_graph_facts['device_console_link'][hostname]['ConsolePort']['peerport']
     return console_info
@@ -171,7 +173,7 @@ def get_console_info_from_inventory(attrs):
     Read console info from inventory file. This should be a fallback of get_console_info_from_conn_graph.
     """
     console_info = {}
-    keys = ['console_type', 'console_host', 'console_port']
+    keys = ['console_type', 'console_host', 'console_port', 'auth_type']
     for k in keys:
         if k in attrs:
             console_info[k] = attrs[k]
@@ -270,6 +272,7 @@ def action_console(parameters):
     hosts = parameters['hosts']
     for hostname, vars in hosts.items():
         console_info = get_console_info(hostname, vars)
+        update_console_creds(vars['creds'], console_info.get('auth_type', ''))
         if not console_info:
             continue
         console_host = ConsoleHost(console_type=console_info['console_type'],

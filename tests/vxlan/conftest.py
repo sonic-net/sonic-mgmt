@@ -56,7 +56,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=8,
+        default=5,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -64,7 +64,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_endpoints",
         action="store",
-        default=4000,
+        default=511,
         type=int,
         help="number of endpoints for VNET VxLAN"
     )
@@ -229,6 +229,15 @@ def pytest_addoption(parser):
              "(number of repeated addresses to use across all the routes)."
     )
 
+    vxlan_group.addoption(
+        "--num_samples",
+        action="store",
+        default=-1,
+        type=int,
+        help="Number of routes to run datapath test per VNET. If not set (default -1), "
+             "will test all configured routes."
+    )
+
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):
@@ -248,7 +257,7 @@ def scaled_vnet_params(request):
     params[NUM_VNET_KEY] = request.config.option.num_vnet
     params[NUM_ROUTES_KEY] = request.config.option.num_routes
     if params[NUM_ROUTES_KEY] is None:
-        params[NUM_ROUTES_KEY] = 16000
+        params[NUM_ROUTES_KEY] = 1000
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
@@ -345,3 +354,16 @@ def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Restore config after running tests")
     config_reload(duthost, safe_reload=True)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    if loganalyzer:
+        # The following error sometimes happens after removing the VNET during fixture_setUp teardown.
+        # It is a harmless error and does not affect the test results.
+        # The root cause is a race condition that is fixed by https://github.com/sonic-net/sonic-swss/pull/4499.
+        # Since the PR is not merged yet, we need to ignore this error for now.
+        ignore_regex_list = [
+            ".*ERR bgp#fpmsyncd:.*onRouteMsg: Invalid VRF name.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)

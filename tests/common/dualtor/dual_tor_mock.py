@@ -68,9 +68,12 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: 
     """
     Helper function for setting active/standby state to orchagent
     """
-    def check_config_applied(num_tor_mux_intfs):
-        out = dut.shell('redis-cli -n 0 keys "MUX_CABLE_TABLE:*" | wc -l')
-        return out['stdout_lines'][0] == str(num_tor_mux_intfs)
+    def check_config_applied():
+        for intf in tor_mux_intfs:
+            out = dut.shell('redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
+            if out['stdout_lines'][0] != state:
+                return False
+        return True
     logger.info("Applying {} state to orchagent".format(state))
 
     intf_configs = []
@@ -101,7 +104,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: 
     logger.debug('SWSS config string is {}'.format(swss_config_str))
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
-    wait_until(120, 5, 5, check_config_applied, len(tor_mux_intfs))
+    wait_until(120, 10, 5, check_config_applied)
 
 
 def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa: F811
@@ -341,10 +344,10 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
     Also adds the 'subtype' field in the device metadata table and sets it to 'DualToR'
     '''
     def check_config_applied():
-        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines'][-1]
+        out = dut.shell('redis-cli -n 4 HGETALL "DEVICE_METADATA|localhost"')['stdout_lines']
         device_metadata_done = 'DualToR' in out
-        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines'][0]
-        peerswitch_done = 'ipv4_address' in out
+        out = dut.shell('redis-cli -n 4 HGETALL "PEER_SWITCH|switch_hostname"')['stdout_lines']
+        peerswitch_done = out and 'address_ipv4' in out
         return device_metadata_done and peerswitch_done
     logger.info("Applying PEER_SWITCH table")
     dut = rand_selected_dut
@@ -363,16 +366,24 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         logger.info("Restarting swss service to regenerate config.bcm")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
-
     cmds = ['redis-cli -n 4 HSET "{}" "address_ipv4" "{}"'.format(peer_switch_key, mock_peer_switch_loopback_ip.ip),
             'redis-cli -n 4 HSET "{}" "{}" "{}"'.format(device_meta_key, 'peer_switch', peer_switch_hostname)]
     dut.shell_cmds(cmds=cmds)
-    if restart_swss:
+    logger.info("Wait for 120 seconds for complete update of configs after swss restart")
+    pytest_assert(
+        wait_until(120, 5, 5, check_config_applied),
+        "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to appear in CONFIG_DB"
+    )
+    if ((restart_swss) and (dut.get_asic_name() != 'gb')):
         # Restart swss on TH2 or TD3 platform to apply changes
         logger.info("Restarting swss service")
         dut.shell('systemctl reset-failed swss; systemctl restart swss')
         wait_critical_processes(dut)
-    wait_until(120, 5, 5, check_config_applied)
+    logger.info("Wait for 120 seconds for complete update of configs after swss restart")
+    pytest_assert(
+        wait_until(120, 5, 5, check_config_applied),
+        "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to remain applied after swss restart"
+    )
 
 
 @pytest.fixture(scope='module')

@@ -32,6 +32,10 @@
     - name: Copy arp responder supervisor configuration to the PTF container. Specifying args when there is a preboot type
       template: src=arp_responder.conf.j2 dest=/etc/supervisor/conf.d/arp_responder.conf
       vars:
+        # NOTE: keep this path in sync with tests.common.helpers.constants
+        # ARP_RESPONDER_PER_SUFFIX_CONFIG_FMT (= /tmp/from_t1_%s.json). The
+        # literal stays here because Jinja templates have no Python import
+        # surface; convert via Ansible vars/set_fact if a refactor is desired.
         - arp_responder_args: '-e -c /tmp/from_t1_{{ item }}.json'
       delegate_to: "{{ ptf_host }}"
       when: item and item != 'None'

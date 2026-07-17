@@ -136,164 +136,551 @@ def get_host_addresses(subnet, count):
         return str(e)
 
 
-ip = []
-peer_ip = []
-ipv6 = []
-peer_ipv6 = []
-# START ---------------------   T2 BGP Case -------------------
-'''
-    PRE-REQUISITE :
-    DUT Configs:
-        For the T2 DUT configuration, use the following topo file:
-            For multi-asic:  topo_tgen_t2_2lc_masic_route_conv.yml (or define one if topology is different)
-            For single-asic: topo_tgen_t2_2lc_route_conv.yml (or define one if topology is different)
-        For the T1 DUT configuration: Please ensure to configure the DUT using the initial_setup() fixture
-            in the tests/snappi_tests/multidut/bgp/conftest.py
-        For Fanout(if Applicable): Please ensure to configure the DUT using the initial_setup() fixture in the
-            tests/snappi_tests/multidut/bgp/conftest.py
+# =============================================================================
+# BGP OUTBOUND ROUTE CONVERGENCE TEST CONFIGURATIONS
+# =============================================================================
+#
+# This file contains configuration variables for BGP outbound route convergence tests.
+# It supports two topology types:
+#   - T2_CHASSIS: Multi-DUT chassis topology (Uplink LC, Downlink LC, Supervisor)
+#   - T2_PIZZABOX: Single-DUT pizzabox topology (multi-asic)
+#
+# PRE-REQUISITE:
+#   DUT Configs:
+#     For T2 Chassis: Use topo_tgen_t2_2lc_masic_route_conv.yml (multi-asic)
+#                     or topo_tgen_t2_2lc_route_conv.yml (single-asic)
+#     For T2 Pizzabox: Use topo_t2_tgen_route_conv.yml (multi-asic)
+#     For Lower Tier DUT: Configure using initial_setup() fixture in conftest.py
+#     For Fanout: Configure using initial_setup() fixture in conftest.py
+#
+# =============================================================================
 
-'''
-# *********** Common variables for Performance and Outbound ****************
-T2_SNAPPI_AS_NUM = 65400
+# =============================================================================
+# TOPOLOGY TYPE CONSTANTS
+# =============================================================================
+TOPOLOGY_T2_CHASSIS = 'T2_CHASSIS'
+TOPOLOGY_T2_PIZZABOX = 'T2_PIZZABOX'
+TOPOLOGY_RH_PIZZABOX = 'RH_PIZZABOX'
+
+# =============================================================================
+# COMMON CONSTANTS (shared by both topologies)
+# =============================================================================
+# AS Numbers:
+#   T2_DUT_AS_NUM (65100): The T2 DUT under test
+#   UPPER_TIER_SNAPPI_AS_NUM (65400): T3/Spine devices emulated via Snappi on uplink side
+#   BACKUP_T2_SNAPPI_AS_NUM (65300): Backup T2 DUTs emulated via Snappi on downlink side
+#   LOWER_TIER_DUT_AS_NUM (65200): Lower tier DUT AS number
 T2_DUT_AS_NUM = 65100
+UPPER_TIER_SNAPPI_AS_NUM = 65400
+BACKUP_T2_SNAPPI_AS_NUM = 65300
+LOWER_TIER_DUT_AS_NUM = 65200
+
+# BGP Configuration
 BGP_TYPE = 'ebgp'
-SNAPPI_TRIGGER = 60  # timeout value for snappi operation
-DUT_TRIGGER = 180    # longer timeout value for dut operation
-DUT_TRIGGER_SHORT = 60    # shorter timeout value for dut operation
+SNAPPI_TRIGGER = 60      # timeout value for snappi operation
+DUT_TRIGGER = 180        # longer timeout value for dut operation
+DUT_TRIGGER_SHORT = 60   # shorter timeout value for dut operation
 
-ipv4_subnet = '20.0.1.1/31'
-ipv6_subnet = '2000:1:1:1::1/126'
-v4_prefix_length = int(ipv4_subnet.split('/')[1])
-v6_prefix_length = int(ipv6_subnet.split('/')[1])
+# IP Subnets
+IPV4_SUBNET = '20.0.1.1/31'
+IPV6_SUBNET = '2000:1:1:1::1/126'
+V4_PREFIX_LENGTH = int(IPV4_SUBNET.split('/')[1])
+V6_PREFIX_LENGTH = int(IPV6_SUBNET.split('/')[1])
 
-# *********** Outbound case variables ****************
-# Expect the T1 and T2 ports to be routed ports and not part of any portchannel.
-T1_SNAPPI_AS_NUM = 65300
-T1_DUT_AS_NUM = 65200
+# BGP Communities
+COMMUNITY_LOWER_TIER_LEAK = ["8075:54000"]
+COMMUNITY_LOWER_TIER_DROP = ["8075:54001"]
+COMMUNITY_UPPER_TIER = ["8075:316", "8075:10400"]
+
+# Other constants
 AS_PATHS = [65002]
+NUM_REGIONAL_HUBS = 2
+FANOUT_PRESENCE = True
 
-snappi_community_for_t1 = ["8075:54000"]
-snappi_community_for_t1_drop = ["8075:54001"]
-snappi_community_for_t2 = ["8075:316", "8075:10400"]
-fanout_presence = True
-num_regionalhubs = 2
+# =============================================================================
+# TOPOLOGY-SPECIFIC CONFIGURATIONS
+# Organized by: TOPOLOGY -> VENDOR -> DATA
+# =============================================================================
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
-t2_uplink_fanout_info = {
-    'HW_PLATFORM1': {
-        'fanout_ip': '10.3.146.9',
-        'port_mapping': [
-            {'fanout_port': 'Ethernet64', 'uplink_port': 'Ethernet0'},
-            {'fanout_port': 'Ethernet68', 'uplink_port': 'Ethernet8'},
-            {'fanout_port': 'Ethernet72', 'uplink_port': 'Ethernet16'},
-            {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'}
-        ]
+
+TOPOLOGY_CONFIG = {
+    # =========================================================================
+    # T2 CHASSIS TOPOLOGY (Multi-DUT: Uplink LC, Downlink LC, Supervisor)
+    # =========================================================================
+    TOPOLOGY_T2_CHASSIS: {
+        'Vendor1': {
+            # Device hostnames: [lower_tier, uplink_dut, downlink_dut, supervisor]
+            'device_hostnames': ["str2-7260cx3-d10-u42", "str2-7250-lc1-2", "str2-7250-lc2-2", "str2-7250-sup-2"],
+
+            'lower_tier_info': {
+                'dut_ip': '10.64.246.10',
+                'ports': ['Ethernet24', 'Ethernet28'],
+                'interconnect_port': 'Ethernet0',
+            },
+
+            'lower_tier_snappi_ports': [
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.3",
+                    "peer_port": "Ethernet24",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.3",
+                    "api_server_ip": "10.64.246.188",
+                },
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.4",
+                    "peer_port": "Ethernet28",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.4",
+                    "api_server_ip": "10.64.246.188",
+                },
+            ],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.3.146.9',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet64', 'uplink_port': 'Ethernet0'},
+                    {'fanout_port': 'Ethernet68', 'uplink_port': 'Ethernet8'},
+                    {'fanout_port': 'Ethernet72', 'uplink_port': 'Ethernet16'},
+                    {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'},
+                    {'fanout_port': 'Ethernet80', 'uplink_port': 'Ethernet40'},
+                    {'fanout_port': 'Ethernet84', 'uplink_port': 'Ethernet48'},
+                    {'fanout_port': 'Ethernet88', 'uplink_port': 'Ethernet56'},
+                    {'fanout_port': 'Ethernet92', 'uplink_port': 'Ethernet64'},
+                    {'fanout_port': 'Ethernet96', 'uplink_port': 'Ethernet144'},
+                    {'fanout_port': 'Ethernet100', 'uplink_port': 'Ethernet152'},
+                    {'fanout_port': 'Ethernet104', 'uplink_port': 'Ethernet160'},
+                    {'fanout_port': 'Ethernet108', 'uplink_port': 'Ethernet168'},
+                    {'fanout_port': 'Ethernet112', 'uplink_port': 'Ethernet176'},
+                    {'fanout_port': 'Ethernet116', 'uplink_port': 'Ethernet184'},
+                    {'fanout_port': 'Ethernet120', 'uplink_port': 'Ethernet192'},
+                    {'fanout_port': 'Ethernet124', 'uplink_port': 'Ethernet200'}
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                'asic0': {
+                    'PortChannel0': ['Ethernet0', 'Ethernet8'],
+                    'PortChannel1': ['Ethernet16'],
+                    'PortChannel2': ['Ethernet24'],
+                    'PortChannel3': ['Ethernet40'],
+                    'PortChannel4': ['Ethernet48'],
+                    'PortChannel5': ['Ethernet56'],
+                    'PortChannel6': ['Ethernet64']
+                },
+                'asic1': {
+                    'PortChannel7': ['Ethernet144'],
+                    'PortChannel8': ['Ethernet152'],
+                    'PortChannel9': ['Ethernet160'],
+                    'PortChannel10': ['Ethernet168'],
+                    'PortChannel11': ['Ethernet176'],
+                    'PortChannel12': ['Ethernet184'],
+                    'PortChannel13': ['Ethernet192'],
+                    'PortChannel14': ['Ethernet200']
+                }
+            },
+
+            'dut_interconnect_port': {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
+        },
+
+        'Vendor2': {
+            # Device hostnames: [lower_tier, uplink_dut, downlink_dut, supervisor]
+            'device_hostnames': ["str2-7260cx3-d10-u42", "str3-7800-lc6-2", "str3-7800-lc5-2", "str3-7808-sup-2"],
+
+            'lower_tier_info': {
+                'dut_ip': '10.64.246.10',
+                'ports': ['Ethernet24', 'Ethernet28'],
+                'interconnect_port': 'Ethernet32',
+            },
+
+            'lower_tier_snappi_ports': [
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.3",
+                    "peer_port": "Ethernet24",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.3",
+                    "api_server_ip": "10.64.246.188",
+                },
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.4",
+                    "peer_port": "Ethernet28",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.4",
+                    "api_server_ip": "10.64.246.188",
+                },
+            ],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.3.146.9',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet128', 'uplink_port': 'Ethernet0'},
+                    {'fanout_port': 'Ethernet132', 'uplink_port': 'Ethernet4'},
+                    {'fanout_port': 'Ethernet136', 'uplink_port': 'Ethernet8'},
+                    {'fanout_port': 'Ethernet140', 'uplink_port': 'Ethernet12'},
+                    {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet16'},
+                    {'fanout_port': 'Ethernet148', 'uplink_port': 'Ethernet20'},
+                    {'fanout_port': 'Ethernet152', 'uplink_port': 'Ethernet24'},
+                    {'fanout_port': 'Ethernet156', 'uplink_port': 'Ethernet28'},
+                    {'fanout_port': 'Ethernet160', 'uplink_port': 'Ethernet32'},
+                    {'fanout_port': 'Ethernet164', 'uplink_port': 'Ethernet36'},
+                    {'fanout_port': 'Ethernet168', 'uplink_port': 'Ethernet40'},
+                    {'fanout_port': 'Ethernet172', 'uplink_port': 'Ethernet44'},
+                    {'fanout_port': 'Ethernet176', 'uplink_port': 'Ethernet48'},
+                    {'fanout_port': 'Ethernet180', 'uplink_port': 'Ethernet52'},
+                    {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet56'},
+                    {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet60'}
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                None: {
+                    'PortChannel0': ['Ethernet0', 'Ethernet4'],
+                    'PortChannel1': ['Ethernet8'],
+                    'PortChannel2': ['Ethernet12'],
+                    'PortChannel3': ['Ethernet16'],
+                    'PortChannel4': ['Ethernet20'],
+                    'PortChannel5': ['Ethernet24'],
+                    'PortChannel6': ['Ethernet28'],
+                    'PortChannel7': ['Ethernet32'],
+                    'PortChannel8': ['Ethernet36'],
+                    'PortChannel9': ['Ethernet40'],
+                    'PortChannel10': ['Ethernet44'],
+                    'PortChannel11': ['Ethernet48'],
+                    'PortChannel12': ['Ethernet52'],
+                    'PortChannel13': ['Ethernet56'],
+                    'PortChannel14': ['Ethernet60']
+                }
+            },
+
+            'dut_interconnect_port': {'port_name': 'Ethernet0', 'asic_value': None},
+        },
     },
-    'HW_PLATFORM2': {}
-}
 
-# The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
-t1_t2_device_hostnames = {
-    'HW_PLATFORM1': [
-        "sonic-t1", "sonic-t2-uplink", "sonic-t2-downlink", "sonic-t2-supervisor"
-    ],
-    'HW_PLATFORM2': [
-    ]
-}
+    # =========================================================================
+    # T2 PIZZABOX TOPOLOGY (Single-DUT: multi-asic pizzabox)
+    # =========================================================================
+    TOPOLOGY_T2_PIZZABOX: {
+        'Vendor1': {
+            # Device hostnames: [lower_tier, dut]
+            'device_hostnames': ["str2-7260cx3-d10-u42", "str-7280dr3-1"],
 
-t1_ports = {
-     'HW_PLATFORM1': {
-         t1_t2_device_hostnames['HW_PLATFORM1'][0]:
-         [
-            'Ethernet24',
-            'Ethernet28'
-         ]
-     },
-     'HW_PLATFORM2': {
-     }
-}
+            'lower_tier_info': {
+                'dut_ip': '10.64.246.10',
+                'ports': ['Ethernet24', 'Ethernet28'],
+                'interconnect_port': 'Ethernet112',
+            },
 
-t1_dut_info = {
-    'HW_PLATFORM1': {
-        'dut_ip': '10.64.246.10',
+            'lower_tier_snappi_ports': [
+                {
+                    "ip": "10.64.247.89",
+                    "port_id": "9.3",
+                    "peer_port": "Ethernet24",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.64.247.89/9.3",
+                    "api_server_ip": "10.64.247.89",
+                },
+                {
+                    "ip": "10.64.247.89",
+                    "port_id": "9.4",
+                    "peer_port": "Ethernet28",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.64.247.89/9.4",
+                    "api_server_ip": "10.64.247.89",
+                },
+            ],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.64.247.77',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet128', 'uplink_port': 'Ethernet0'},
+                    {'fanout_port': 'Ethernet132', 'uplink_port': 'Ethernet8'},
+                    {'fanout_port': 'Ethernet136', 'uplink_port': 'Ethernet16'},
+                    {'fanout_port': 'Ethernet140', 'uplink_port': 'Ethernet24'},
+                    {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet32'},
+                    {'fanout_port': 'Ethernet148', 'uplink_port': 'Ethernet40'},
+                    {'fanout_port': 'Ethernet152', 'uplink_port': 'Ethernet48'},
+                    {'fanout_port': 'Ethernet156', 'uplink_port': 'Ethernet56'},
+                    {'fanout_port': 'Ethernet160', 'uplink_port': 'Ethernet64'},
+                    {'fanout_port': 'Ethernet164', 'uplink_port': 'Ethernet72'},
+                    {'fanout_port': 'Ethernet168', 'uplink_port': 'Ethernet80'},
+                    {'fanout_port': 'Ethernet172', 'uplink_port': 'Ethernet88'},
+                    {'fanout_port': 'Ethernet176', 'uplink_port': 'Ethernet96'},
+                    {'fanout_port': 'Ethernet180', 'uplink_port': 'Ethernet104'},
+                    {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet112'},
+                    {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet120'}
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                'asic0': {
+                    'PortChannel0': ['Ethernet0', 'Ethernet8'],
+                    'PortChannel1': ['Ethernet16'],
+                    'PortChannel2': ['Ethernet24'],
+                    'PortChannel3': ['Ethernet32'],
+                    'PortChannel4': ['Ethernet40'],
+                    'PortChannel5': ['Ethernet48'],
+                    'PortChannel6': ['Ethernet56'],
+                    'PortChannel7': ['Ethernet64'],
+                    'PortChannel8': ['Ethernet72'],
+                    'PortChannel9': ['Ethernet80'],
+                    'PortChannel10': ['Ethernet88'],
+                    'PortChannel11': ['Ethernet96'],
+                    'PortChannel12': ['Ethernet104'],
+                    'PortChannel13': ['Ethernet112'],
+                    'PortChannel14': ['Ethernet120']
+                }
+            },
+
+            'dut_interconnect_port': {'port_name': 'Ethernet256', 'asic_value': 'asic1'},
+        },
     },
-    'HW_PLATFORM2': {
-        'dut_ip': '10.64.246.10',
+
+    # =========================================================================
+    # TOPOLOGY: RH (Regional Hub) PIZZABOX
+    # RH is a device role similar to T2. This config has no lower-tier DUT
+    # connected yet — only uplink fanout + IXIA for route convergence testing.
+    # The fanout acts as a pure L2 bridge (all protocols disabled, empty CoPP).
+    # =========================================================================
+    TOPOLOGY_RH_PIZZABOX: {
+        'Vendor1': {
+            'device_hostnames': ["rh-dut-01"],
+
+            # RH has no lower tier — empty dict allows future extension
+            'lower_tier_info': {},
+
+            'lower_tier_snappi_ports': [],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.0.0.100',
+                'asic_type': 'dnx',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet0', 'uplink_port': 'Ethernet128', 'vlan': 1000},
+                    {'fanout_port': 'Ethernet4', 'uplink_port': 'Ethernet132', 'vlan': 1001},
+                    {'fanout_port': 'Ethernet8', 'uplink_port': 'Ethernet136', 'vlan': 1002},
+                    {'fanout_port': 'Ethernet12', 'uplink_port': 'Ethernet140', 'vlan': 1003},
+                    {'fanout_port': 'Ethernet16', 'uplink_port': 'Ethernet144', 'vlan': 1004},
+                    {'fanout_port': 'Ethernet20', 'uplink_port': 'Ethernet148', 'vlan': 1005},
+                    {'fanout_port': 'Ethernet24', 'uplink_port': 'Ethernet152', 'vlan': 1006},
+                    {'fanout_port': 'Ethernet28', 'uplink_port': 'Ethernet156', 'vlan': 1007},
+                    {'fanout_port': 'Ethernet32', 'uplink_port': 'Ethernet160', 'vlan': 1008},
+                    {'fanout_port': 'Ethernet36', 'uplink_port': 'Ethernet164', 'vlan': 1009},
+                    {'fanout_port': 'Ethernet40', 'uplink_port': 'Ethernet168', 'vlan': 1010},
+                    {'fanout_port': 'Ethernet44', 'uplink_port': 'Ethernet172', 'vlan': 1011},
+                    {'fanout_port': 'Ethernet48', 'uplink_port': 'Ethernet176', 'vlan': 1012},
+                    {'fanout_port': 'Ethernet52', 'uplink_port': 'Ethernet180', 'vlan': 1013},
+                    {'fanout_port': 'Ethernet56', 'uplink_port': 'Ethernet184', 'vlan': 1014},
+                    {'fanout_port': 'Ethernet60', 'uplink_port': 'Ethernet188', 'vlan': 1015},
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                None: {
+                    'PortChannel101': ['Ethernet128'],
+                    'PortChannel102': ['Ethernet132'],
+                    'PortChannel103': ['Ethernet136'],
+                    'PortChannel104': ['Ethernet140'],
+                    'PortChannel105': ['Ethernet144'],
+                    'PortChannel106': ['Ethernet148'],
+                    'PortChannel107': ['Ethernet152'],
+                    'PortChannel108': ['Ethernet156'],
+                    'PortChannel109': ['Ethernet160'],
+                    'PortChannel110': ['Ethernet164'],
+                    'PortChannel111': ['Ethernet168'],
+                    'PortChannel112': ['Ethernet172'],
+                    'PortChannel113': ['Ethernet176'],
+                    'PortChannel114': ['Ethernet180'],
+                    'PortChannel115': ['Ethernet184'],
+                    'PortChannel116': ['Ethernet188'],
+                }
+            },
+
+            'dut_interconnect_port': {},
+        },
+    },
+}
+
+
+# =============================================================================
+# ACCESSOR FUNCTIONS
+# =============================================================================
+
+def get_topology_config(topology_type, vendor, key=None, default=None):
+    """
+    Get configuration value for a topology/vendor combination.
+
+    Args:
+        topology_type: TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX, or TOPOLOGY_RH_PIZZABOX
+        vendor: VendorName
+        key: Optional key to retrieve specific value. If None, returns entire vendor config.
+        default: Default value if key not found
+
+    Returns:
+        Configuration value or default
+    """
+    vendor_config = TOPOLOGY_CONFIG.get(topology_type, {}).get(vendor, {})
+    if key is None:
+        return vendor_config
+    return vendor_config.get(key, default)
+
+
+def get_device_hostnames(topology_type, vendor):
+    """Get device hostnames for a topology/vendor combination."""
+    return get_topology_config(topology_type, vendor, 'device_hostnames', [])
+
+
+def detect_topology_and_vendor(hostnames):
+    """
+    Detect topology type and vendor from DUT hostnames.
+
+    Args:
+        hostnames: List of DUT hostnames
+
+    Returns:
+        tuple: (topology_type, vendor) or (None, None) if not found
+    """
+    for topology_type in TOPOLOGY_CONFIG:
+        for vendor in TOPOLOGY_CONFIG[topology_type]:
+            device_hostnames = get_device_hostnames(topology_type, vendor)
+            if any(host in device_hostnames for host in hostnames):
+                return topology_type, vendor
+    return None, None
+
+
+def get_lower_tier_info(topology_type, vendor):
+    """Get lower tier device info (IP, ports, interconnect port)."""
+    return get_topology_config(topology_type, vendor, 'lower_tier_info', {})
+
+
+def get_lower_tier_snappi_ports(topology_type, vendor):
+    """Get Snappi ports connected to lower tier device."""
+    return get_topology_config(topology_type, vendor, 'lower_tier_snappi_ports', [])
+
+
+def get_uplink_fanout_info(topology_type, vendor):
+    """Get fanout info for uplink ports."""
+    return get_topology_config(topology_type, vendor, 'uplink_fanout', {})
+
+
+def get_uplink_portchannel_members(topology_type, vendor):
+    """Get portchannel members for uplink ports."""
+    return get_topology_config(topology_type, vendor, 'uplink_portchannel_members', {})
+
+
+def get_dut_interconnect_port(topology_type, vendor):
+    """Get DUT-side interconnect port info."""
+    return get_topology_config(topology_type, vendor, 'dut_interconnect_port', {})
+
+
+def get_as_numbers():
+    """
+    Get AS numbers used in BGP configuration.
+
+    Returns:
+        dict: Dictionary with AS number mappings
+    """
+    return {
+        'dut_as': T2_DUT_AS_NUM,
+        'upper_tier_snappi_as': UPPER_TIER_SNAPPI_AS_NUM,
+        'backup_t2_snappi_as': BACKUP_T2_SNAPPI_AS_NUM,
+        'lower_tier_dut_as': LOWER_TIER_DUT_AS_NUM,
     }
-}
-
-t1_snappi_ports = {
-    'HW_PLATFORM1': [
-        {'ip': '10.1.1.1', 'port_id': '11.3', 'peer_port': 'Ethernet24', 'peer_device': 'sonic-t1',
-         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.3', 'api_server_ip': '10.2.2.2'},
-        {'ip': '10.1.1.1', 'port_id': '11.4', 'peer_port': 'Ethernet28', 'peer_device': 'sonic-t1',
-         'speed': 'speed_100_gbps', 'location': '10.1.1.1/11.4', 'api_server_ip': '10.2.2.2'},
-    ],
-    'HW_PLATFORM2': []
-}
-
-# asic_value is None if it's non-chassis based or single line card
-t2_uplink_portchannel_members = {
-    'HW_PLATFORM1': {
-          t1_t2_device_hostnames['HW_PLATFORM1'][1]: {
-              'asic0': {
-                  'PortChannel0': ['Ethernet0'],
-                  'PortChannel1': ['Ethernet8'],
-                  'PortChannel2': ['Ethernet16'],
-                  'PortChannel3': ['Ethernet24'],
-              },
-              'asic1': {
-              }
-          }
-    },
-    'HW_PLATFORM2': {
-
-    }
-}
-
-# TODO: Multiple interconnected ports scenario
-t1_side_interconnected_port = {
-    'HW_PLATFORM1': 'Ethernet0',
-    'HW_PLATFORM2': None
-}
-
-t2_side_interconnected_port = {
-    'HW_PLATFORM1': {'port_name': 'Ethernet272', 'asic_value': 'asic1'},
-    'HW_PLATFORM2': {}
-}
-
-routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][
-                          t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][0]])
-portchannel_count = sum([len(portchannel_info) for _, portchannel_info in
-                        t2_uplink_portchannel_members[list(t2_uplink_portchannel_members.keys())[0]][
-                        t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][1]].items()])
 
 
-def generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet):
-    v4_start_ips = create_ip_list(ipv4_subnet.split('/')[0], routed_port_count+portchannel_count, mask=16)
-    v6_start_ips = create_ip_list(ipv6_subnet.split('/')[0], routed_port_count+portchannel_count, mask=64)
+def get_routed_port_count(topology_type, vendor):
+    """Calculate routed port count for a topology/vendor."""
+    lower_tier_info = get_lower_tier_info(topology_type, vendor)
+    if not lower_tier_info:
+        return 0
+    interconnect = get_dut_interconnect_port(topology_type, vendor)
+    interconnect_count = 1 if interconnect else 0
+    return interconnect_count + len(lower_tier_info.get('ports', []))
+
+
+def get_portchannel_count(topology_type, vendor):
+    """Calculate portchannel count for a topology/vendor."""
+    portchannel_members = get_uplink_portchannel_members(topology_type, vendor)
+    count = 0
+    for asic_key, portchannels in portchannel_members.items():
+        count += len(portchannels)
+    return count
+
+
+def generate_ips_for_bgp(ipv4_subnet, ipv6_subnet, total_count):
+    """
+    Generate IP addresses for BGP case.
+    Reusable function for both T2 chassis and T2 pizzabox topologies.
+
+    Args:
+        ipv4_subnet: IPv4 subnet string (e.g., '20.0.1.1/31')
+        ipv6_subnet: IPv6 subnet string (e.g., '2000:1:1:1::1/126')
+        total_count: Total number of IP pairs to generate (routed_port_count + portchannel_count)
+
+    Returns:
+        tuple: (ip_list, peer_ip_list, ipv6_list, peer_ipv6_list, router_id_list)
+    """
+    v4_start_ips = create_ip_list(ipv4_subnet.split('/')[0], total_count, mask=16)
+    v6_start_ips = create_ip_list(ipv6_subnet.split('/')[0], total_count, mask=64)
     count = 2  # Note: count is always 2
 
-    for index in range(0, routed_port_count+portchannel_count):
-        v4_host_addresses = get_host_addresses(str(v4_start_ips[index])+'/'+str(ipv4_subnet.split('/')[1]), count)
-        v6_host_addresses = get_host_addresses(str(v6_start_ips[index])+'/'+str(ipv6_subnet.split('/')[1]), count)
-        ip.append(str(v4_host_addresses[0]))
-        peer_ip.append(str(v4_host_addresses[1]))
-        ipv6.append(str(v6_host_addresses[0]))
-        peer_ipv6.append(str(v6_host_addresses[1]))
+    ip_list = []
+    peer_ip_list = []
+    ipv6_list = []
+    peer_ipv6_list = []
+
+    for index in range(0, total_count):
+        v4_host_addresses = get_host_addresses(str(v4_start_ips[index]) + '/' + str(ipv4_subnet.split('/')[1]), count)
+        v6_host_addresses = get_host_addresses(str(v6_start_ips[index]) + '/' + str(ipv6_subnet.split('/')[1]), count)
+        ip_list.append(str(v4_host_addresses[0]))
+        peer_ip_list.append(str(v4_host_addresses[1]))
+        ipv6_list.append(str(v6_host_addresses[0]))
+        peer_ipv6_list.append(str(v6_host_addresses[1]))
+
+    router_id_list = create_ip_list('100.0.0.1', total_count, mask=32)
+    return ip_list, peer_ip_list, ipv6_list, peer_ipv6_list, router_id_list
 
 
-generate_ips_for_bgp_case(ipv4_subnet, ipv6_subnet)
-router_ids = create_ip_list('100.0.0.1', routed_port_count+portchannel_count, mask=32)
-t1_t2_dut_ipv4_list = ip[:routed_port_count]
-t1_t2_snappi_ipv4_list = peer_ip[:routed_port_count]
+def get_bgp_ips_for_topology(topology_type, vendor):
+    """
+    Generate and return BGP IP addresses for a specific topology/vendor.
 
-t2_dut_portchannel_ipv4_list = ip[routed_port_count:]
-snappi_portchannel_ipv4_list = peer_ip[routed_port_count:]
+    Args:
+        topology_type: TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX, or TOPOLOGY_RH_PIZZABOX
+        vendor: Vendor identifier
 
-t1_t2_dut_ipv6_list = ipv6[:routed_port_count]
-t1_t2_snappi_ipv6_list = peer_ipv6[:routed_port_count]
+    Returns:
+        dict: Dictionary containing all IP lists for BGP configuration
+    """
+    routed_port_count = get_routed_port_count(topology_type, vendor)
+    portchannel_count = get_portchannel_count(topology_type, vendor)
+    total_count = routed_port_count + portchannel_count
 
-t2_dut_portchannel_ipv6_list = ipv6[routed_port_count:]
-snappi_portchannel_ipv6_list = peer_ipv6[routed_port_count:]
+    ip, peer_ip, ipv6, peer_ipv6, router_ids = generate_ips_for_bgp(
+        IPV4_SUBNET, IPV6_SUBNET, total_count)
 
-# END ---------------------   T2 BGP Case -------------------
+    return {
+        'dut_ipv4_list': ip[:routed_port_count],
+        'snappi_ipv4_list': peer_ip[:routed_port_count],
+        'dut_portchannel_ipv4_list': ip[routed_port_count:],
+        'snappi_portchannel_ipv4_list': peer_ip[routed_port_count:],
+        'dut_ipv6_list': ipv6[:routed_port_count],
+        'snappi_ipv6_list': peer_ipv6[:routed_port_count],
+        'dut_portchannel_ipv6_list': ipv6[routed_port_count:],
+        'snappi_portchannel_ipv6_list': peer_ipv6[routed_port_count:],
+        'router_ids': router_ids,
+        'routed_port_count': routed_port_count,
+        'portchannel_count': portchannel_count,
+    }
+
+
+# =============================================================================
+# END OF BGP OUTBOUND ROUTE CONVERGENCE CONFIGURATIONS
+# =============================================================================

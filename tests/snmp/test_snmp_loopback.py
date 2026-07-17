@@ -5,7 +5,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.utilities import skip_release
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -54,7 +54,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             stdout_lines = result['stdout_lines'][0][0]
         else:
             stdout_lines = result['stdout_lines'][0]
-        assert "SONiC Software Version" in stdout_lines,\
+        assert "SONiC Software Version" in stdout_lines, \
             "Sysdescr not found in SNMP result from IP {}".format(ip)
-        assert snmp_facts['ansible_sysdescr'] in stdout_lines,\
+        assert snmp_facts['ansible_sysdescr'] in stdout_lines, \
             "Sysdescr from IP{} not matching with result from Mgmt IPv4.".format(ip)
