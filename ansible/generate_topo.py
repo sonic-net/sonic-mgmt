@@ -82,6 +82,15 @@ roles_cfg = {
     },
 }
 
+# Backend (BT) neighbor role definitions. These are referenced by the
+# "downlink_role_ports" setting in hw_port_cfg, which assigns specific downlink
+# panel ports to backend neighbors instead of the DUT role's default downlink.
+backend_roles_cfg = {
+    "bt0": {"role": "bt0", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 1},
+    "bt1": {"role": "bt1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
+    "bt2": {"role": "bt2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 1},
+}
+
 hw_port_cfg = {
     'default':          {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          "panel_port_step": 1},
@@ -240,6 +249,23 @@ hw_port_cfg = {
                          "uplink_ports": [28, 29, 30, 31],
                          "peer_ports": [],
                          "skip_ports": [],
+                         "panel_port_step": 1},
+    # t1 with 96 backend downlinks + 4 T2 uplinks on a 28-port device.
+    # The middle 4 panel ports (12..15) have no breakout and connect to T2
+    # (SpineRouter), while the other 24 panel ports use 4-port breakout for the
+    # backend downlinks: 60 BT0 links (ports 0..11, 16..18), 32 BT1 links
+    # (ports 19..26) and 4 BT2 links (port 27).
+    'd96u4':            {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [12, 13, 14, 15],
+                         "uplink_role": {"role": "t2", "asn": 65200, "asn_v6": 65200,
+                                         "asn_increment": 0},
+                         "peer_ports": [],
+                         "skip_ports": [],
+                         "downlink_role_ports": {
+                             "bt0": list(range(0, 12)) + list(range(16, 19)),
+                             "bt1": list(range(19, 27)),
+                             "bt2": [27],
+                         },
                          "panel_port_step": 1},
 }
 
@@ -447,7 +473,7 @@ def generate_topo_link_based(role: str,
                 raise ValueError(
                     "Uplink port specified for a role that doesn't have an uplink")
 
-            vm_role_cfg = dut_role_cfg["uplink"]
+            vm_role_cfg = port_cfg.get("uplink_role", dut_role_cfg["uplink"])
 
             link_id_end = link_id_start + port_cfg['us_breakout']
             link_step = port_cfg['us_link_step']
@@ -574,7 +600,7 @@ def generate_topo(role: str,
                 raise ValueError(
                     "Uplink port specified for a role that doesn't have an uplink")
 
-            vm_role_cfg = dut_role_cfg["uplink"]
+            vm_role_cfg = port_cfg.get("uplink_role", dut_role_cfg["uplink"])
 
             link_id_end = link_id_start + port_cfg['us_breakout']
             num_breakout = port_cfg['us_breakout']
@@ -600,6 +626,13 @@ def generate_topo(role: str,
             # If downlink is not specified, we consider it is host interface
             if dut_role_cfg["downlink"] is not None:
                 vm_role_cfg = dut_role_cfg["downlink"]
+
+            # If the port is assigned to a specific downlink neighbor role,
+            # e.g. backend routers (bt0/bt1/bt2), use that role instead.
+            for backend_role, backend_ports in port_cfg.get("downlink_role_ports", {}).items():
+                if panel_port_id in backend_ports:
+                    vm_role_cfg = backend_roles_cfg[backend_role]
+                    break
 
             link_id_end = link_id_start + port_cfg['ds_breakout']
             num_breakout = port_cfg['ds_breakout']
@@ -780,6 +813,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 128 -l 'd32'  # 32 DL only
     - ./generate_topo.py -r t0 -k isolated-mix -t t0-isolated -c 320 -l 'd32u32s2-mix'  # mix layout
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 32 -l 'd28u4'  # 28 DL + 4 UL
+    - ./generate_topo.py -r t1 -t t1-hub -c 28 -l 'd96u4'  # 96 backend DLs (60 BT0 + 32 BT1 + 4 BT2) + 4 T2 ULs
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'
