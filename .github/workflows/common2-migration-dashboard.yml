@@ -50,7 +50,7 @@ jobs:
           set -e
           mkdir -p dashboard-out
           # The analyzer uses only the Python standard library (no pip install).
-          python .azure-pipelines/common2/scripts/migration_dashboard.py \
+          python .github/workflows/scripts/migration_dashboard.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --max-tier "$MAX_TIER" \
             --top "$TOP" \
