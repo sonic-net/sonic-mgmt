@@ -160,6 +160,14 @@ VOLATILE_VALUES = {
         "UID",
         # These are below 'LAG_TABLE|*' top-level keys
         "setup.pid",
+        # Kernel interface index of the PortChannel netdev, published by
+        # tlm_teamd. It is a monotonically increasing per-netns counter
+        # assigned at netdev creation, so its absolute value is
+        # non-deterministic across boot cycles and has no functional meaning.
+        "team_device.ifinfo.ifindex",
+        # Per-member kernel interface index below 'LAG_MEMBER_TABLE|*'; same
+        # non-determinism as the PortChannel ifindex above.
+        "ifinfo.ifindex",
         # These are below 'DOCKER_STATS|*' top-level keys
         "PIDS",
         "MEM_BYTES",
