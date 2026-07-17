@@ -435,7 +435,8 @@ def gather_config_db_facts(config_db, basic_facts):
 
     # Update basic facts with metadata
     basic_facts['num_asic'] = basic_facts.get('asic_count', 1)
-    basic_facts['router_mac'] = localhost_metadata.get('mac', '')
+    # Normalize to lowercase (canonical MAC form) to match SonicAsicHost.get_router_mac().
+    basic_facts['router_mac'] = localhost_metadata.get('mac', '').lower()
     basic_facts['modular_chassis'] = is_chassis(basic_facts.get('asic_type', ''))
     basic_facts['switch_type'] = localhost_metadata.get('switch_type', '')
     basic_facts['router_type'] = localhost_metadata.get('type', '')
