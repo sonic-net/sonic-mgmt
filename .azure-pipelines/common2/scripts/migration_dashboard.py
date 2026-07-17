@@ -33,6 +33,7 @@ import re
 import sys
 import warnings
 from dataclasses import dataclass, field, asdict
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 
 # tests/common contains many regex strings with invalid escape sequences that
@@ -774,6 +775,110 @@ def build_json(tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: 
 
 
 # ---------------------------------------------------------------------------
+# Markdown report emitter (rendered by GitHub Actions as the run "report" via
+# $GITHUB_STEP_SUMMARY, and published as a downloadable artifact)
+# ---------------------------------------------------------------------------
+
+
+def _md_cell(value: object) -> str:
+    """Escape a value for use inside a Markdown table cell."""
+    text = "" if value is None else str(value)
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def build_markdown_lines(
+    tasks: List[ModuleTask],
+    done_tasks: List[ModuleTask],
+    max_tier: int,
+    top: Optional[int],
+) -> List[str]:
+    """Return the dashboard as a Markdown report (summary + sortable table)."""
+    hardest = max_tier + 1
+    ordered = sorted(tasks, key=lambda x: x.rank)
+    shown = ordered if top is None else ordered[:top]
+    distinct_direct = len({t for task in tasks for t in task.impacted_tests})
+    distinct_trans = len(
+        {t for task in tasks for t in task.impacted_tests_transitive}
+    )
+    subtasks = sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)
+
+    lines: List[str] = []
+    lines.append("# common → common2 Migration Dashboard")
+    lines.append("")
+    lines.append(
+        f"_Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} "
+        "by `.azure-pipelines/common2/scripts/migration_dashboard.py`._"
+    )
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Metric | Value |")
+    lines.append("| --- | ---: |")
+    lines.append(f"| Modules available to migrate | {len(tasks)} |")
+    lines.append(f"| Modules already migrated | {len(done_tasks)} |")
+    lines.append(f"| Distinct tests impacted (direct) | {distinct_direct} |")
+    lines.append(f"| Distinct tests impacted (transitive) | {distinct_trans} |")
+    lines.append(f"| Granular function/class sub-tasks | {subtasks} |")
+    lines.append("")
+    lines.append(
+        "**How to read the numbers** (all follow _lower = easier_): "
+        f"**rank** = global order 1..{len(tasks)} (rank 1 is the single easiest); "
+        f"**tier** = difficulty band 1 (easy) .. {hardest} (hard); "
+        "**score** = raw weighted effort (higher = more work)."
+    )
+    lines.append("")
+    lines.append("Column key: **Tests** = tests importing the module directly · "
+                 "**Tx** = tests impacted transitively (hidden cascade) · "
+                 "**Deps** = other common modules it imports · "
+                 "**Typed** = % of params/returns already annotated · "
+                 "**UT** = has common2 unit tests.")
+    lines.append("")
+    heading = "## Migration work queue (easiest first)"
+    if top is not None and len(ordered) > top:
+        heading += f" — showing top {top} of {len(ordered)}"
+    lines.append(heading)
+    lines.append("")
+    lines.append(
+        "| Rank | Tier | Score | Tests | Tx | Deps | LOC | Fns | Typed | UT "
+        "| Module | Target domain |"
+    )
+    lines.append(
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :-: "
+        "| --- | --- |"
+    )
+    for task in shown:
+        module_disp = task.rel_path.replace("tests/common/", "")
+        lines.append(
+            f"| {task.rank} | {task.tier} | {task.score:.2f} "
+            f"| {len(task.impacted_tests)} | {len(task.impacted_tests_transitive)} "
+            f"| {len(task.depends_on_direct)} | {task.loc} "
+            f"| {task.num_functions + task.num_classes} "
+            f"| {int(task.typed_ratio * 100)}% "
+            f"| {'Y' if task.has_common2_unit_tests else 'N'} "
+            f"| `{_md_cell(module_disp)}` | `{_md_cell(task.domain)}` |"
+        )
+    if top is not None and len(ordered) > top:
+        lines.append("")
+        lines.append(
+            f"_… and {len(ordered) - top} more. Download the YAML/JSON artifact "
+            "for the full list and per-function sub-tasks._"
+        )
+    lines.append("")
+
+    if done_tasks:
+        lines.append("## Already migrated (for reference)")
+        lines.append("")
+        lines.append("| Module | Target |")
+        lines.append("| --- | --- |")
+        for task in done_tasks:
+            lines.append(
+                f"| `{_md_cell(task.rel_path)}` | `{_md_cell(task.target_path)}` |"
+            )
+        lines.append("")
+    return lines
+
+
+# ---------------------------------------------------------------------------
 # YAML emitter (hand-written so we can embed explanatory comments; no pyyaml
 # dependency because the pipeline agent is bare and pyyaml cannot emit comments)
 # ---------------------------------------------------------------------------
@@ -949,6 +1054,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         help="Optional path to write the machine-readable JSON artifact.")
     parser.add_argument("--yaml-out", default="",
                         help="Optional path to write the commented-YAML dashboard artifact.")
+    parser.add_argument("--markdown-out", default="",
+                        help="Optional path to write the Markdown report (GitHub run summary).")
     return parser.parse_args(argv)
 
 
@@ -1027,6 +1134,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         with open(out_path, "w", encoding="utf-8") as handle:
             handle.write("\n".join(build_yaml_lines(tasks, done_tasks, args.max_tier)))
         print(f"\nWrote commented dashboard YAML to: {out_path}")
+
+    if args.markdown_out:
+        out_path = args.markdown_out
+        if not os.path.isabs(out_path):
+            out_path = os.path.join(repo_root, out_path)
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "\n".join(build_markdown_lines(tasks, done_tasks, args.max_tier, top))
+            )
+            handle.write("\n")
+        print(f"\nWrote Markdown report to: {out_path}")
 
     return 0
 

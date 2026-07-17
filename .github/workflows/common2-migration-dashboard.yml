@@ -1,0 +1,77 @@
+name: common2 Migration Dashboard
+
+# Daily report of what can be migrated from tests/common to tests/common2,
+# how much work each candidate is (rank/tier/score), and which tests it
+# impacts. The tabular report is rendered on the workflow run summary page and
+# the machine-readable YAML/JSON are published as downloadable artifacts.
+
+on:
+  schedule:
+    # 01:00 UTC every day.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      maxTier:
+        description: "Number of difficulty tiers (produces tiers 1..maxTier+1)."
+        required: false
+        default: "5"
+        type: string
+      top:
+        description: "How many easiest tasks to render in the report table (0 = all)."
+        required: false
+        default: "60"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migration-dashboard:
+    if: github.repository_owner == 'sonic-net'
+    name: Generate common2 migration dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          # Full history is not required; the analyzer only reads the working tree.
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate migration dashboard
+        env:
+          MAX_TIER: ${{ github.event.inputs.maxTier || '5' }}
+          TOP: ${{ github.event.inputs.top || '60' }}
+        run: |
+          set -e
+          mkdir -p dashboard-out
+          # The analyzer uses only the Python standard library (no pip install).
+          python .azure-pipelines/common2/scripts/migration_dashboard.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --max-tier "$MAX_TIER" \
+            --top "$TOP" \
+            --markdown-out dashboard-out/migration_dashboard.md \
+            --yaml-out dashboard-out/migration_dashboard.yaml \
+            --json-out dashboard-out/migration_dashboard.json
+
+      - name: Publish report to run summary
+        if: always()
+        run: |
+          if [ -f dashboard-out/migration_dashboard.md ]; then
+            cat dashboard-out/migration_dashboard.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Dashboard report was not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload dashboard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: common2-migration-dashboard
+          path: dashboard-out/
+          if-no-files-found: warn
+          retention-days: 30
