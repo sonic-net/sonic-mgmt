@@ -3,7 +3,7 @@ name: common2 Migration Dashboard
 # Daily report of what can be migrated from tests/common to tests/common2,
 # how much work each candidate is (rank/tier/score), and which tests it
 # impacts. The tabular report is rendered on the workflow run summary page and
-# the machine-readable YAML/JSON are published as downloadable artifacts.
+# the same data is upserted into a GitHub Project (one card per module).
 
 on:
   push:
@@ -24,6 +24,11 @@ on:
         required: false
         default: "60"
         type: string
+      dryRun:
+        description: "Compute + log the project changes without mutating the project."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -33,6 +38,15 @@ jobs:
     if: github.repository_owner == 'opcoder0'
     name: Generate common2 migration dashboard
     runs-on: ubuntu-latest
+    env:
+      # A PAT (classic: `project` scope) or fine-grained token with
+      # "Projects: read and write". The default GITHUB_TOKEN CANNOT write to
+      # user/org Projects, so this secret is required for the upsert step.
+      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+      # Owner of the project (defaults to the repo owner) and the project
+      # number (the N in https://github.com/users/<owner>/projects/N).
+      PROJECT_OWNER: ${{ github.repository_owner }}
+      PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -58,7 +72,6 @@ jobs:
             --max-tier "$MAX_TIER" \
             --top "$TOP" \
             --markdown-out dashboard-out/migration_dashboard.md \
-            --yaml-out dashboard-out/migration_dashboard.yaml \
             --json-out dashboard-out/migration_dashboard.json
 
       - name: Publish report to run summary
@@ -70,11 +83,16 @@ jobs:
             echo "Dashboard report was not generated." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload dashboard artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: common2-migration-dashboard
-          path: dashboard-out/
-          if-no-files-found: warn
-          retention-days: 30
+      - name: Upsert dashboard into GitHub Project
+        # Only runs when a project write token is configured (skipped otherwise
+        # so forks without the secret don't fail).
+        if: env.PROJECT_TOKEN != ''
+        env:
+          DRY_RUN: ${{ github.event.inputs.dryRun == 'true' && '--dry-run' || '' }}
+        run: |
+          set -e
+          python .github/workflows/scripts/upsert_migration_project.py \
+            --json dashboard-out/migration_dashboard.json \
+            --project-owner "$PROJECT_OWNER" \
+            --project-number "$PROJECT_NUMBER" \
+            $DRY_RUN
