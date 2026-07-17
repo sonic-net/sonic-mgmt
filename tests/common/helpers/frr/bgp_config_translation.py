@@ -398,10 +398,10 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
     bgpcfgd renders these peer-groups' attributes from templates, so they live only in
     the running-config, not CONFIG_DB; we read them back from there.
 
-    frrcfgd BGP_PEER_GROUP uses cmn_key_map (frrcfgd.py:2154-2165, 2420):
+    frrcfgd BGP_PEER_GROUP uses cmn_key_map (frrcfgd.py):
     ``asn``->remote-as, ``local_addr``->update-source, ``passive_mode``->passive,
     ``ebgp_multihop``(+``ebgp_multihop_ttl``)->ebgp-multihop. BGP_PEER_GROUP_AF carries
-    ``route_map_in`` / ``route_map_out`` / ``soft_reconfiguration_in`` (frrcfgd.py:2422)
+    ``route_map_in`` / ``route_map_out`` / ``soft_reconfiguration_in`` (frrcfgd.py)
     for each address-family the peer-group is activated in.
 
     Returns ``(peer_group, peer_group_af)`` dicts keyed like the other builders.
@@ -464,7 +464,7 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
                 af_row["soft_reconfiguration_in"] = "true"
             elif attr == "activate":
                 # frrcfgd renders 'neighbor <pg> activate' from admin_status (nbr_af_key_map,
-                # frrcfgd.py:2184). A listen-range peer-group has no explicit BGP_NEIGHBOR_AF
+                # frrcfgd.py). A listen-range peer-group has no explicit BGP_NEIGHBOR_AF
                 # rows to carry the activation, so without this the peer-group is not
                 # activated in the AF and dynamic (listen-range) peers never establish.
                 af_row["admin_status"] = "up"
@@ -474,7 +474,7 @@ def _extract_extra_peer_groups(running_config, primary_names, bgp_asn):
 def _build_listen_prefixes(config_db):
     """Translate the traditional ``BGP_PEER_RANGE`` table (dynamic-neighbor listen
     ranges, e.g. for BGPSLBPassive / BGPVac) into frrcfgd's ``BGP_GLOBALS_LISTEN_PREFIX``
-    (frrcfgd.py:2271, 2418; yang key ``vrf_name|ip_prefix``, leaf ``peer_group`` ->
+    (frrcfgd.py; yang key ``vrf_name|ip_prefix``, leaf ``peer_group`` ->
     ``bgp listen range <prefix> peer-group <pg>``). bgpcfgd consumes BGP_PEER_RANGE
     directly; frrcfgd expresses the same range through this table."""
     src = config_db.get("BGP_PEER_RANGE")
@@ -502,11 +502,11 @@ def _build_listen_prefixes(config_db):
 # --------------------------------------------------------------------------- #
 
 # frrcfgd origin tokens accepted by the aggregate-address 'aggr-origin' format
-# (frrcfgd.py:1061-1063 -- 'unspecified' is treated as "emit nothing").
+# (frrcfgd.py -- 'unspecified' is treated as "emit nothing").
 _AGG_VALID_ORIGINS = ("igp", "egp", "incomplete", "unspecified")
 
 # Every field bgpcfgd's AggregateAddressMgr reads off a BGP_AGGREGATE_ADDRESS row
-# (sonic-bgpcfgd/bgpcfgd/managers_aggregate_address.py:12-16). Anything outside
+# (sonic-bgpcfgd/bgpcfgd/managers_aggregate_address.py). Anything outside
 # this set is unrecognized input and must fail loudly.
 _AGG_KNOWN_FIELDS = frozenset((
     "as-set", "summary-only", "origin",
@@ -520,10 +520,10 @@ def _apply_bbr(config_db, peer_group_af):
     frrcfgd has no BGP_BBR table handler, so BBR cannot be carried as a table.
     bgpcfgd's BBRMgr, when status==enabled, pushes ``neighbor <pg> allowas-in 1``
     on the ipv4/ipv6 address-families of its BBR peer-groups
-    (sonic-bgpcfgd/bgpcfgd/managers_bbr.py:161-167). The frrcfgd equivalent of
+    (sonic-bgpcfgd/bgpcfgd/managers_bbr.py). The frrcfgd equivalent of
     ``allowas-in 1`` is ``allow_as_in='true'`` + ``allow_as_count='1'`` on the
-    BGP_PEER_GROUP_AF row (nbr_af_key_map, frrcfgd.py:2183 -- the map is shared by
-    BGP_PEER_GROUP_AF, frrcfgd.py:2422). When disabled we leave the rows unset."""
+    BGP_PEER_GROUP_AF row (nbr_af_key_map, frrcfgd.py -- the map is shared by
+    BGP_PEER_GROUP_AF, frrcfgd.py). When disabled we leave the rows unset."""
     bbr = config_db.get("BGP_BBR")
     if not bbr:
         return
@@ -548,7 +548,7 @@ def _apply_wcmp(config_db, policy, ipv4_pg, ipv6_pg):
     ``set extcommunity bandwidth num-multipaths``
     (docker-fpm-frr/frr/bgpd/wcmp/bgpd.wcmp.conf.j2). frrcfgd emits that same line
     from ``set_extcommunity_bandwidth_type == 'NUM_MULTIPATHS'`` on a ROUTE_MAP row
-    (route_map_key_map, frrcfgd.py:2252-2254; handler frrcfgd.py:577). We model it
+    (route_map_key_map, frrcfgd.py; handler frrcfgd.py). We model it
     as a ROUTE_MAP entry keyed like every other ROUTE_MAP row this module emits."""
     dev = config_db.get("BGP_DEVICE_GLOBAL")
     if not dev:
@@ -566,26 +566,26 @@ def _apply_wcmp(config_db, policy, ipv4_pg, ipv6_pg):
             "name": name, "route_operation": "permit", "stmt_name": "100",
         })
         # set_extcommunity_bandwidth_type NUM_MULTIPATHS -> 'set extcommunity
-        # bandwidth num-multipaths' (frrcfgd.py:2252-2254).
+        # bandwidth num-multipaths' (frrcfgd.py).
         entry["set_extcommunity_bandwidth_type"] = "NUM_MULTIPATHS"
 
 
 def _build_aggregate_addresses(config_db):
     """Translate the traditional ``BGP_AGGREGATE_ADDRESS`` table into frrcfgd's
-    ``BGP_GLOBALS_AF_AGGREGATE_ADDR`` (registered frrcfgd.py:2725; af_aggregate_key_map
-    frrcfgd.py:2290). The frr key is ``<vrf>|<afi_safi>|<ip_prefix>`` and the row
-    carries ``as_set`` / ``summary_only`` / ``origin`` (frrcfgd.py:2290, formats at
-    frrcfgd.py:950-951, 1061-1063).
+    ``BGP_GLOBALS_AF_AGGREGATE_ADDR`` (registered frrcfgd.py; af_aggregate_key_map
+    frrcfgd.py). The frr key is ``<vrf>|<afi_safi>|<ip_prefix>`` and the row
+    carries ``as_set`` / ``summary_only`` / ``origin`` (frrcfgd.py, formats at
+    frrcfgd.py-1063).
 
     bgpcfgd's ``as-set`` / ``summary-only`` / ``origin``
-    (managers_aggregate_address.py:12-16) map straight across. Three bgpcfgd fields
+    (managers_aggregate_address.py) map straight across. Three bgpcfgd fields
     have NO frr_mgmt_framework equivalent, so rather than silently drop them we fail
     loudly when they carry meaning:
 
     * ``bbr-required`` gates whether the aggregate is installed on BBR state
-      (managers_aggregate_address.py:74-84) -- frrcfgd installs unconditionally;
+      (managers_aggregate_address.py) -- frrcfgd installs unconditionally;
     * ``aggregate-address-prefix-list`` / ``contributing-address-prefix-list`` add
-      side prefix-lists (managers_aggregate_address.py:116-134) that frrcfgd's
+      side prefix-lists (managers_aggregate_address.py) that frrcfgd's
       aggregate schema cannot express."""
     src = config_db.get("BGP_AGGREGATE_ADDRESS")
     if not src:
@@ -611,7 +611,7 @@ def _build_aggregate_addresses(config_db):
                     raise FrrTranslationError(
                         "BGP_AGGREGATE_ADDRESS {!r} has origin {!r}; expected one of {}".format(
                             key, fval, _AGG_VALID_ORIGINS))
-                # 'unspecified' is frrcfgd's "emit nothing" sentinel (frrcfgd.py:1062);
+                # 'unspecified' is frrcfgd's "emit nothing" sentinel (frrcfgd.py);
                 # only carry a concrete origin.
                 if fval != "unspecified":
                     row["origin"] = fval
@@ -677,7 +677,7 @@ def translate_config_db(config_db, running_config, peer_group_json):
         if rows:
             result[table] = rows
     # Drop the traditional bgpcfgd tables now fully expressed in frr schema;
-    # frrcfgd has no handler for them (table_handler_list, frrcfgd.py:2694-2751).
+    # frrcfgd has no handler for them (table_handler_list, frrcfgd.py).
     result.pop("BGP_AGGREGATE_ADDRESS", None)
     result.pop("BGP_BBR", None)
     result.pop("BGP_PEER_RANGE", None)

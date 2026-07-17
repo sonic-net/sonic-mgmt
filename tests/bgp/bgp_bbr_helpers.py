@@ -43,7 +43,8 @@ def program_bbr_for_mode(duthost, enabled):
     *does* support allowas-in natively (BGP_PEER_GROUP_AF ``allow_as_in``), so program
     the equivalent directly on every peer-group address-family. Callers still set the
     BGP_BBR table (so its value is asserted / persisted); this just adds the frr-native
-    realization. See the reframed frrcfgd BGP_BBR-consumer tracking item.
+    realization. frrcfgd not consuming BGP_BBR is by design -- it uses the native
+    allowas-in schema rather than the bgpcfgd convenience table.
     """
     if not duthost.get_frr_mgmt_framework_config():
         return

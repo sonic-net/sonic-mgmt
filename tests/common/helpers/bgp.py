@@ -92,17 +92,20 @@ def flatten_bgp_neighbors(bgp_neighbors):
     ``config_facts['BGP_NEIGHBOR']`` there yields VRF names, not IPs).
 
     This flattens across all VRFs; on the common single-``default``-VRF case that is
-    exactly the traditional flat dict.
+    exactly the traditional flat dict. The same shape difference applies to the other
+    VRF-aware neighbor tables (``BGP_INTERNAL_NEIGHBOR``, ``BGP_VOQ_CHASSIS_NEIGHBOR``);
+    callers that iterate those by IP in frr mode should flatten them the same way. Those
+    tables only appear on multi-ASIC / VoQ-chassis DUTs, where the mode-switch fixture runs
+    the DUT's native mode only, so the divergence is limited in practice.
     """
     if not bgp_neighbors:
         return {}
-    # Flat form: the values are per-neighbor detail dicts carrying neighbor
-    # attributes (asn / name / admin_status / local_addr). VRF-keyed form: the
-    # values are themselves {ip: details} dicts that carry none of those.
+    # Structural check (no field-name sniffing): in the flat form each value is a
+    # per-neighbor detail dict whose values are scalars (asn, name, ...); in the VRF-keyed
+    # form each value is itself an {ip: details} mapping, i.e. at least one of its values is
+    # a dict. Treat "no nested dict" as already-flat.
     sample = next(iter(bgp_neighbors.values()))
-    if isinstance(sample, dict) and any(
-        k in sample for k in ("asn", "name", "admin_status", "local_addr")
-    ):
+    if not isinstance(sample, dict) or not any(isinstance(v, dict) for v in sample.values()):
         return dict(bgp_neighbors)
     flat = {}
     for vrf_neighbors in bgp_neighbors.values():

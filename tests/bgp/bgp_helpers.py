@@ -454,15 +454,15 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
 #           {route_operation: permit, set_community_inline: <drop_community|no-export>,
 #            set_community_additive: true}   -> "set community <c> additive"
 #
-# route_operation/seq -> "route-map <NAME> permit <seq>" (frrcfgd.py:3907-3933);
+# route_operation/seq -> "route-map <NAME> permit <seq>" (frrcfgd.py);
 # match_prefix_set -> "match ip[v6] address prefix-list" with the af resolved from
-# the referenced PREFIX_SET (frrcfgd.py:2220-2221,3270-3277); match_community ->
+# the referenced PREFIX_SET (frrcfgd.py-3277); match_community ->
 # "match community" (2230); set_community_inline+set_community_additive ->
 # "set community <c> additive" (2245, hdl_set_community_additive 505-532).
 #
 # The route-map is attached inbound by overwriting route_map_in on every
 # BGP_PEER_GROUP_AF that already has an inbound route-map (nbr_af_key_map
-# route_map_in, frrcfgd.py:2191) -- this replaces the peer-group's stock inbound
+# route_map_in, frrcfgd.py) -- this replaces the peer-group's stock inbound
 # map with our allow-list map for the duration of the test; the originals are
 # stashed and restored by remove_allow_list. bgpcfgd instead wires the map in via
 # a `call` from the stock inbound map; overwriting route_map_in is the frr-schema

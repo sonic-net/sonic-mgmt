@@ -289,9 +289,19 @@ def _switch_mode(duthost, mod, mode):
     pt_assert(wait_until(180, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"),
               "bgp service did not come up after switching to '{}' mode".format(mode))
     baseline = mod._frr_baseline_neighbors
+    # Capture the last-polled established set so the failure message reuses it instead of
+    # firing another vtysh query -- the message string is built eagerly on every (including
+    # successful) switch, so calling _bgp_established_neighbors() in .format() would run an
+    # extra query per switch.
+    last_established = {}
+
+    def _neighbors_recovered():
+        last_established["set"] = _bgp_established_neighbors(duthost)
+        return baseline <= last_established["set"]
+
     pt_assert(
-        wait_until(180, 10, 0, lambda: baseline <= _bgp_established_neighbors(duthost)),
+        wait_until(180, 10, 0, _neighbors_recovered),
         "Switching to '{}' mode did not preserve BGP: neighbors {} were not all "
         "re-established (established now: {}).".format(
-            mode, sorted(baseline), sorted(_bgp_established_neighbors(duthost))))
+            mode, sorted(baseline), sorted(last_established.get("set", set()))))
     _assert_config_preserved(duthost, mode, mod._frr_baseline_fingerprint)
