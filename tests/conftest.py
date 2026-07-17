@@ -2242,7 +2242,7 @@ def pytest_generate_tests(metafunc):
             _, _tbinfo = get_tbinfo(metafunc)
             _topo_dut = _tbinfo.get("topo", {}).get("properties", {}).get("topology", {}).get("DUT", {})
             _vcs = _topo_dut.get("vlan_configs") or {}
-            _variants = [k for k in _vcs.keys() if k != "default_vlan_config"]
+            _variants = sorted(k for k in _vcs.keys() if k != "default_vlan_config")
             metafunc.parametrize(
                 "parametrize_vlan_config_from_topo",
                 _variants, indirect=True, ids=_variants,

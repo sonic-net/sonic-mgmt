@@ -192,6 +192,9 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
     )
     variant = vlan_configs[variant_name]
 
+    default_variant = vlan_configs.get(vlan_configs.get("default_vlan_config"), {})
+    default_mac = next((v.get("mac") for v in default_variant.values() if v.get("mac")), None)
+
     # Read what's currently deployed so we know what to remove.
     running_config = duthost.get_running_config_facts()
     current_vlan_names = list(running_config.get("VLAN", {}).keys())
@@ -248,7 +251,7 @@ def _generate_config_patch_from_variant(duthost, localhost, tbinfo, variant_name
         ipv4 = vparams.get("prefix")
         ipv6 = vparams.get("prefix_v6")
         ipv4_secondary = vparams.get("secondary_subnet")
-        mac = vparams.get("mac")
+        mac = vparams.get("mac") or default_mac
         intf_indices = vparams.get("intfs", []) or []
 
         # Build (dut_port, ptf_idx) pairs. Log skipped indices so a
