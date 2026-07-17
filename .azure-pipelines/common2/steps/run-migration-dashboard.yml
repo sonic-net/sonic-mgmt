@@ -27,24 +27,28 @@ steps:
         --repo-root "$(Build.SourcesDirectory)" \
         --max-tier ${{ parameters.maxTier }} \
         --top ${{ parameters.top }} \
+        --yaml-out "$(Build.ArtifactStagingDirectory)/migration_dashboard.yaml" \
         --json-out "$(Build.ArtifactStagingDirectory)/migration_dashboard.json"
     displayName: 'Print common2 migration dashboard'
 
   # Publish the machine-readable dashboard so a later step (or the future
-  # GitHub Project upload) can consume it without recomputing.
+  # GitHub Project upload) can consume it without recomputing. The YAML file is
+  # the human-friendly primary record (it carries inline comments explaining
+  # rank/tier/score); the JSON is kept for programmatic consumption.
   - task: PublishPipelineArtifact@1
-    displayName: 'Publish migration dashboard JSON'
+    displayName: 'Publish migration dashboard (YAML + JSON)'
     condition: succeededOrFailed()
     inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/migration_dashboard.json'
+      targetPath: '$(Build.ArtifactStagingDirectory)'
       artifact: '${{ parameters.jsonArtifactName }}'
 
   # ---------------------------------------------------------------------------
   # FUTURE: upload the dashboard to a GitHub Project board.
   # This is intentionally disabled for now (the pipeline only prints to the log
-  # and publishes the JSON artifact). When project permissions are available,
-  # enable a step here that reads migration_dashboard.json and creates/updates
-  # one GitHub Project item per task/sub-task via the GitHub GraphQL API, e.g.:
+  # and publishes the dashboard artifacts). When project permissions are
+  # available, enable a step here that reads migration_dashboard.json and
+  # creates/updates one GitHub Project item per task/sub-task via the GitHub
+  # GraphQL API, e.g.:
   #
   # - script: |
   #     python .azure-pipelines/common2/scripts/upload_to_github_project.py \

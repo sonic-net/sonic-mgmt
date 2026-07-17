@@ -13,9 +13,11 @@ finer granularity, every public function/class):
    global rank ``1..N`` (easiest first) so a contributor can pick something
    manageable, even a single function.
 
-For now the dashboard is printed to the task output log. A machine-readable JSON
-artifact is also emitted (``--json-out``) so a later pipeline step can push the
-same data to a GitHub Project without re-computing anything.
+For now the dashboard is printed to the task output log. A commented, human-
+readable YAML artifact is emitted (``--yaml-out``) as the primary machine record
+(comments explain what rank/tier/score mean). A JSON artifact can also be emitted
+(``--json-out``) for a later pipeline step that pushes the data to a GitHub
+Project programmatically.
 
 The script has no third-party dependencies -- it only uses the standard library
 so it runs on a bare pipeline agent.
@@ -27,6 +29,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import sys
 import warnings
 from dataclasses import dataclass, field, asdict
@@ -159,12 +162,25 @@ class ModuleTask:
     num_classes: int
     typed_ratio: float
     documented_ratio: float
-    internal_common_deps: List[str]
     has_common2_unit_tests: bool
     fully_migrated: bool
+    # --- Dependency information (what this module needs) ---
+    # Other tests/common modules this module imports directly. Migrating this
+    # module cleanly means these must also be migrated (or bridged).
+    depends_on_direct: List[str] = field(default_factory=list)
+    # Full transitive closure of tests/common modules reached from this module.
+    depends_on_transitive: List[str] = field(default_factory=list)
+    # --- Impact information (what needs this module) ---
     symbols: List[Symbol] = field(default_factory=list)
+    # Test files that import this module directly.
     impacted_tests: List[str] = field(default_factory=list)
+    # All files (tests + helpers) that import this module directly.
     impacted_consumers: List[str] = field(default_factory=list)
+    # Test files that reach this module directly OR through the common import
+    # graph (i.e. they import another common module that imports this one).
+    impacted_tests_transitive: List[str] = field(default_factory=list)
+    # All files that reach this module directly or transitively.
+    impacted_files_transitive: List[str] = field(default_factory=list)
     score: float = 0.0
     tier: int = 0
     rank: int = 0
@@ -294,6 +310,71 @@ def build_import_index(
 
 
 # ---------------------------------------------------------------------------
+# Dependency graph (concrete impact analysis)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ImpactGraph:
+    """Module-level import graph over tests/common plus external importers."""
+
+    # dotted common module -> repo-relative path.
+    dotted_to_rel: Dict[str, str] = field(default_factory=dict)
+    # common module -> common modules it imports (forward dependency edges).
+    forward: Dict[str, Set[str]] = field(default_factory=dict)
+    # common module -> common modules that import it (reverse edges).
+    reverse: Dict[str, Set[str]] = field(default_factory=dict)
+    # common module -> every file (repo-relative) that imports it directly.
+    direct_importers: Dict[str, Set[str]] = field(default_factory=dict)
+
+
+def build_impact_graph(
+    import_index: Dict[str, ConsumerImports], common_abs: str, repo_root: str
+) -> ImpactGraph:
+    """Build a dependency graph of tests/common modules and their importers."""
+    dotted_to_rel: Dict[str, str] = {}
+    for abs_path in iter_python_files(common_abs):
+        rel = os.path.relpath(abs_path, repo_root).replace(os.sep, "/")
+        dotted_to_rel[to_dotted(rel)] = rel
+    common_dotted = set(dotted_to_rel)
+
+    forward: Dict[str, Set[str]] = {d: set() for d in common_dotted}
+    reverse: Dict[str, Set[str]] = {d: set() for d in common_dotted}
+    direct_importers: Dict[str, Set[str]] = {d: set() for d in common_dotted}
+
+    for consumer_rel, imports in import_index.items():
+        consumer_dotted = to_dotted(consumer_rel)
+        imported_common = {m for m in imports.modules if m in common_dotted}
+        for target in imported_common:
+            if target == consumer_dotted:
+                continue
+            direct_importers[target].add(consumer_rel)
+            if consumer_dotted in common_dotted:
+                forward[consumer_dotted].add(target)
+                reverse[target].add(consumer_dotted)
+
+    return ImpactGraph(
+        dotted_to_rel=dotted_to_rel,
+        forward=forward,
+        reverse=reverse,
+        direct_importers=direct_importers,
+    )
+
+
+def graph_closure(start: str, edges: Dict[str, Set[str]]) -> Set[str]:
+    """Return every node reachable from ``start`` following ``edges``."""
+    seen: Set[str] = set()
+    stack = [start]
+    while stack:
+        node = stack.pop()
+        for neighbour in edges.get(node, ()):  # noqa: B007
+            if neighbour not in seen and neighbour != start:
+                seen.add(neighbour)
+                stack.append(neighbour)
+    return seen
+
+
+# ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
 
@@ -315,7 +396,7 @@ def compute_module_score(task: ModuleTask) -> float:
     """
     volume = task.loc / 40.0 + (task.num_functions + task.num_classes) * 1.5
     blast = len(task.impacted_tests) * 1.2
-    coupling = len(task.internal_common_deps) * 2.0
+    coupling = len(task.depends_on_direct) * 2.0 + len(task.depends_on_transitive) * 0.3
     quality_gap = (1.0 - task.typed_ratio) * 6.0 + (1.0 - task.documented_ratio) * 3.0
     unit_gap = 0.0 if task.has_common2_unit_tests else 4.0
     return round(volume + blast + coupling + quality_gap + unit_gap, 2)
@@ -366,7 +447,7 @@ def registry_migrated_symbols_for(rel_path: str) -> Set[str]:
 def analyze_module(
     abs_path: str,
     repo_root: str,
-    import_index: Dict[str, ConsumerImports],
+    graph: ImpactGraph,
     common2_unit_test_modules: Set[str],
     registry_symbols_lookup,
 ) -> Optional[ModuleTask]:
@@ -390,16 +471,8 @@ def analyze_module(
     typed_values: List[float] = []
     documented = 0
     total_symbols = 0
-    internal_deps: Set[str] = set()
 
     for node in tree.body:
-        if isinstance(node, ast.ImportFrom) and node.module and "common" in node.module:
-            internal_deps.add(node.module)
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if "tests.common" in alias.name:
-                    internal_deps.add(alias.name)
-
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if node.name.startswith("_"):
                 continue
@@ -441,23 +514,36 @@ def analyze_module(
     typed_ratio = round(sum(typed_values) / len(typed_values), 2) if typed_values else 0.0
     documented_ratio = round(documented / total_symbols, 2) if total_symbols else 0.0
 
-    # Impact analysis: which consumers import this module (or a symbol from it)?
-    impacted_consumers: List[str] = []
-    impacted_tests: List[str] = []
-    for consumer_rel, imports in import_index.items():
-        if consumer_rel == rel:
-            continue
-        hit = dotted in imports.modules or any(
-            m == dotted or m.startswith(dotted + ".") for m in imports.modules
-        )
-        if not hit:
-            continue
-        impacted_consumers.append(consumer_rel)
-        if is_test_file(consumer_rel):
-            impacted_tests.append(consumer_rel)
+    # --- Dependency information: what this module needs (forward edges) ---
+    def to_rel_list(dotted_names: Set[str]) -> List[str]:
+        rels = []
+        for name in dotted_names:
+            rel_path = graph.dotted_to_rel.get(name)
+            # Skip package __init__ nodes: importing a package usually just
+            # pulls a submodule, which is already listed separately.
+            if rel_path and not rel_path.endswith("__init__.py"):
+                rels.append(rel_path)
+        return sorted(set(rels))
 
-    impacted_consumers.sort()
-    impacted_tests.sort()
+    deps_direct_dotted = graph.forward.get(dotted, set())
+    deps_transitive_dotted = graph_closure(dotted, graph.forward)
+    depends_on_direct = to_rel_list(deps_direct_dotted)
+    depends_on_transitive = to_rel_list(deps_transitive_dotted)
+
+    # --- Impact information: what needs this module (reverse edges) ---
+    dependents_direct = {c for c in graph.direct_importers.get(dotted, set()) if c != rel}
+    impacted_consumers = sorted(dependents_direct)
+    impacted_tests = sorted(c for c in dependents_direct if is_test_file(c))
+
+    # Transitive: any file that imports this module OR any common module that
+    # (transitively) imports this module.
+    ancestors = graph_closure(dotted, graph.reverse)
+    affected_files: Set[str] = set()
+    for node in {dotted} | ancestors:
+        affected_files |= graph.direct_importers.get(node, set())
+    affected_files.discard(rel)
+    impacted_files_transitive = sorted(affected_files)
+    impacted_tests_transitive = sorted(f for f in affected_files if is_test_file(f))
 
     # Attribute impacted tests to individual symbols by name usage.
     consumer_text_cache: Dict[str, str] = {}
@@ -491,12 +577,15 @@ def analyze_module(
         num_classes=sum(1 for s in symbols if s.kind == "class"),
         typed_ratio=typed_ratio,
         documented_ratio=documented_ratio,
-        internal_common_deps=sorted(internal_deps),
         has_common2_unit_tests=dotted in common2_unit_test_modules,
         fully_migrated=fully_migrated,
+        depends_on_direct=depends_on_direct,
+        depends_on_transitive=depends_on_transitive,
         symbols=symbols,
         impacted_tests=impacted_tests,
         impacted_consumers=impacted_consumers,
+        impacted_tests_transitive=impacted_tests_transitive,
+        impacted_files_transitive=impacted_files_transitive,
     )
     return task
 
@@ -560,14 +649,17 @@ def print_dashboard(
     print()
     print("  How to use this dashboard:")
     print("    * Pick a LOW rank / LOW tier task to start small -- even a single function counts.")
-    print("    * 'Impacted tests' are the tests you must re-run/validate after migrating.")
+    print("    * 'Tests' = tests importing the module directly; 'Tx' = tests affected transitively")
+    print("      (through the common import graph). A big gap between them signals cascade risk.")
+    print("    * 'Deps' = other tests/common modules this one imports; migrating cleanly may pull")
+    print("      those in too (see the per-module dependency chain below).")
     print("    * 'Target' is the proposed tests/common2 domain path (see DIRECTORY_STRUCTURE.md).")
     print("    * Every migrated function needs type hints, a docstring, and unit tests (>=80% cov).")
     print()
 
     header = (
-        f"{'Rank':>4}  {'Tier':>4}  {'Score':>6}  {'Tests':>5}  {'LOC':>5}  "
-        f"{'Fns':>3}  {'Typed':>6}  {'UT':>3}  {'Module':<44}  {'Target domain'}"
+        f"{'Rank':>4}  {'Tier':>4}  {'Score':>7}  {'Tests':>5}  {'Tx':>4}  {'Deps':>4}  "
+        f"{'LOC':>5}  {'Fns':>3}  {'Typed':>6}  {'UT':>3}  {'Module':<38}  {'Target domain'}"
     )
     print("Migration work queue (easiest first)")
     print("-" * 100)
@@ -576,15 +668,16 @@ def print_dashboard(
     shown = ordered if top is None else ordered[:top]
     for task in shown:
         module_disp = task.rel_path.replace("tests/common/", "")
-        if len(module_disp) > 44:
-            module_disp = "..." + module_disp[-41:]
+        if len(module_disp) > 38:
+            module_disp = "..." + module_disp[-35:]
         print(
-            f"{task.rank:>4}  {task.tier:>4}  {task.score:>6}  "
-            f"{len(task.impacted_tests):>5}  {task.loc:>5}  "
+            f"{task.rank:>4}  {task.tier:>4}  {task.score:>7}  "
+            f"{len(task.impacted_tests):>5}  {len(task.impacted_tests_transitive):>4}  "
+            f"{len(task.depends_on_direct):>4}  {task.loc:>5}  "
             f"{task.num_functions + task.num_classes:>3}  "
             f"{int(task.typed_ratio * 100):>5}%  "
             f"{'Y' if task.has_common2_unit_tests else 'N':>3}  "
-            f"{module_disp:<44}  {task.domain}"
+            f"{module_disp:<38}  {task.domain}"
         )
     if top is not None and len(ordered) > top:
         print(f"  ... and {len(ordered) - top} more (increase --top or read the JSON artifact).")
@@ -592,7 +685,7 @@ def print_dashboard(
 
     # Granular detail for the most approachable tasks.
     detail_count = min(len(shown), 15 if top is None else top)
-    print("Granular sub-tasks for the top approachable modules")
+    print("Granular sub-tasks and full dependency impact for the top approachable modules")
     print("-" * 100)
     for task in shown[:detail_count]:
         print()
@@ -601,10 +694,28 @@ def print_dashboard(
         print(f"    Type-hint cover : {_bar(task.typed_ratio)} {int(task.typed_ratio * 100)}%   "
               f"Docstrings: {int(task.documented_ratio * 100)}%   "
               f"Unit tests in common2: {'yes' if task.has_common2_unit_tests else 'no'}")
-        if task.internal_common_deps:
-            deps = ", ".join(task.internal_common_deps[:4])
-            more = "" if len(task.internal_common_deps) <= 4 else f" (+{len(task.internal_common_deps) - 4} more)"
-            print(f"    Depends on      : {deps}{more}")
+
+        # Full dependency impact (concrete lists, not a qualitative flag).
+        print("    DEPENDS ON (migrate/bridge these too):")
+        if task.depends_on_direct:
+            for dep in task.depends_on_direct:
+                print(f"        <- {dep}")
+            extra = [d for d in task.depends_on_transitive if d not in task.depends_on_direct]
+            if extra:
+                print(f"        (transitively also reaches {len(extra)} more common module(s):)")
+                for dep in extra[:8]:
+                    print(f"            .. {dep}")
+                if len(extra) > 8:
+                    print(f"            .. (+{len(extra) - 8} more, see JSON)")
+        else:
+            print("        (none - self-contained, safe to migrate in isolation)")
+
+        print(
+            f"    IMPACT: {len(task.impacted_tests)} test(s) import it directly, "
+            f"{len(task.impacted_consumers)} file(s) total; "
+            f"{len(task.impacted_tests_transitive)} test(s) affected transitively."
+        )
+
         pending = [s for s in task.symbols if not s.migrated]
         migrated = [s for s in task.symbols if s.migrated]
         if migrated:
@@ -637,7 +748,7 @@ def print_dashboard(
         print()
 
     print("=" * 100)
-    print("End of dashboard. Machine-readable data is in the JSON artifact (see --json-out).")
+    print("End of dashboard. Machine-readable data is in the YAML artifact (see --yaml-out).")
     print("=" * 100)
 
 
@@ -649,6 +760,9 @@ def build_json(tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: 
             "available_modules": len(tasks),
             "migrated_modules": len(done_tasks),
             "distinct_impacted_tests": len({t for task in tasks for t in task.impacted_tests}),
+            "distinct_impacted_tests_transitive": len(
+                {t for task in tasks for t in task.impacted_tests_transitive}
+            ),
             "granular_subtasks": sum(
                 len([s for s in t.symbols if not s.migrated]) for t in tasks
             ),
@@ -657,6 +771,153 @@ def build_json(tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: 
         "tasks": [asdict(t) for t in sorted(tasks, key=lambda x: x.rank)],
         "migrated": [asdict(t) for t in done_tasks],
     }
+
+
+# ---------------------------------------------------------------------------
+# YAML emitter (hand-written so we can embed explanatory comments; no pyyaml
+# dependency because the pipeline agent is bare and pyyaml cannot emit comments)
+# ---------------------------------------------------------------------------
+
+_YAML_SAFE = re.compile(r"^[A-Za-z0-9_./:@+-]+$")
+
+
+def _yaml_scalar(value: object) -> str:
+    """Render a Python scalar as a safe YAML scalar."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return f"{value:.2f}"
+    text = "" if value is None else str(value)
+    if text == "":
+        return '""'
+    if _YAML_SAFE.match(text) and text not in ("true", "false", "null", "~"):
+        return text
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _yaml_list(lines: List[str], key: str, items: List[str], indent: str) -> None:
+    """Append a YAML block-sequence (or ``[]`` when empty) for a list of strings."""
+    if not items:
+        lines.append(f"{indent}{key}: []")
+        return
+    lines.append(f"{indent}{key}:")
+    for item in items:
+        lines.append(f"{indent}  - {_yaml_scalar(item)}")
+
+
+def build_yaml_lines(
+    tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: int
+) -> List[str]:
+    """Return the full commented-YAML dashboard as a list of text lines."""
+    hardest = max_tier + 1
+    lines: List[str] = []
+    lines.append(
+        "# ============================================================================"
+    )
+    lines.append("# common -> common2 Migration Dashboard")
+    lines.append(
+        "# ============================================================================"
+    )
+    lines.append(
+        "# Generated by .azure-pipelines/common2/scripts/migration_dashboard.py"
+    )
+    lines.append("#")
+    lines.append("# How to read the difficulty numbers (ALL follow \"lower = easier\"):")
+    lines.append("#   rank  : global ordering 1..N across every available module.")
+    lines.append("#           rank 1 is the single EASIEST module to migrate. Pick a")
+    lines.append("#           low rank for your first contribution.")
+    lines.append(f"#   tier  : difficulty band from 1 (easiest) to {hardest} (hardest).")
+    lines.append("#           Modules in the same tier are comparable in effort.")
+    lines.append("#   score : raw weighted effort estimate (unbounded float, higher =")
+    lines.append("#           more work). Derived from lines of code, number of")
+    lines.append("#           functions/classes, impacted tests, coupling to other")
+    lines.append("#           common modules, and missing typing/docstrings/unit-tests.")
+    lines.append("#")
+    lines.append("# Each task also lists per-symbol (function/class) sub-tasks with")
+    lines.append("# their own rank/tier/score so you can pick a single function instead")
+    lines.append("# of a whole module.")
+    lines.append("#")
+    lines.append("# Dependency & impact fields:")
+    lines.append("#   depends_on_direct       : other tests/common modules this module")
+    lines.append("#                             imports (usually must migrate too).")
+    lines.append("#   depends_on_transitive   : full import closure reached from here.")
+    lines.append("#   impacted_tests          : tests importing this module directly.")
+    lines.append("#   impacted_tests_transitive: tests reaching it directly OR through")
+    lines.append("#                             the common import graph (hidden cascade).")
+    lines.append(
+        "# ============================================================================"
+    )
+    lines.append("")
+    lines.append("schema_version: 1")
+    lines.append("")
+    distinct_direct = len({t for task in tasks for t in task.impacted_tests})
+    distinct_trans = len(
+        {t for task in tasks for t in task.impacted_tests_transitive}
+    )
+    subtasks = sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)
+    lines.append("summary:")
+    lines.append(f"  available_modules: {len(tasks)}")
+    lines.append(f"  migrated_modules: {len(done_tasks)}")
+    lines.append(f"  distinct_impacted_tests: {distinct_direct}")
+    lines.append(f"  distinct_impacted_tests_transitive: {distinct_trans}")
+    lines.append(f"  granular_subtasks: {subtasks}")
+    lines.append(f"  max_tier: {hardest}  # tiers range 1 (easy) .. {hardest} (hard)")
+    lines.append("")
+    lines.append("# Available migration tasks, easiest (rank 1) first.")
+    lines.append("tasks:")
+    for task in sorted(tasks, key=lambda x: x.rank):
+        lines.append("")
+        lines.append(
+            f"  # ---- rank {task.rank} | tier {task.tier} "
+            f"(1=easy..{hardest}=hard) | score {task.score:.2f} ----"
+        )
+        lines.append(f"  - rank: {task.rank}")
+        lines.append(f"    tier: {task.tier}  # 1 = easiest ... {hardest} = hardest")
+        lines.append(f"    score: {task.score:.2f}  # raw effort, higher = more work")
+        lines.append(f"    module: {_yaml_scalar(task.rel_path)}")
+        lines.append(f"    target: {_yaml_scalar(task.target_path)}")
+        lines.append(f"    domain: {_yaml_scalar(task.domain)}")
+        lines.append(f"    loc: {task.loc}")
+        lines.append(f"    num_functions: {task.num_functions}")
+        lines.append(f"    num_classes: {task.num_classes}")
+        lines.append(f"    typed_ratio: {task.typed_ratio:.2f}")
+        lines.append(f"    documented_ratio: {task.documented_ratio:.2f}")
+        lines.append(
+            f"    has_common2_unit_tests: {_yaml_scalar(task.has_common2_unit_tests)}"
+        )
+        _yaml_list(lines, "depends_on_direct", task.depends_on_direct, "    ")
+        _yaml_list(lines, "depends_on_transitive", task.depends_on_transitive, "    ")
+        _yaml_list(lines, "impacted_tests", task.impacted_tests, "    ")
+        _yaml_list(
+            lines, "impacted_tests_transitive", task.impacted_tests_transitive, "    "
+        )
+        pending = [s for s in task.symbols if not s.migrated]
+        if not pending:
+            lines.append("    symbols: []")
+            continue
+        lines.append("    symbols:  # bite-sized sub-tasks (pick one function/class)")
+        for sym in sorted(pending, key=lambda s: s.score):
+            lines.append(f"      - name: {_yaml_scalar(sym.name)}")
+            lines.append(f"        kind: {_yaml_scalar(sym.kind)}")
+            lines.append(f"        tier: {sym.tier}  # 1 = easiest ... {hardest} = hardest")
+            lines.append(f"        score: {sym.score:.2f}")
+            lines.append(f"        loc: {sym.loc}")
+            lines.append(f"        typed_ratio: {sym.typed_ratio:.2f}")
+            lines.append(f"        has_docstring: {_yaml_scalar(sym.has_docstring)}")
+            _yaml_list(lines, "impacted_tests", sym.impacted_tests, "        ")
+    lines.append("")
+    lines.append("# Already migrated to common2 (for reference; no action needed).")
+    if not done_tasks:
+        lines.append("migrated: []")
+    else:
+        lines.append("migrated:")
+        for task in done_tasks:
+            lines.append(f"  - module: {_yaml_scalar(task.rel_path)}")
+            lines.append(f"    target: {_yaml_scalar(task.target_path)}")
+    lines.append("")
+    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -686,6 +947,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         help="Show only the N easiest tasks in the log (0 = all).")
     parser.add_argument("--json-out", default="",
                         help="Optional path to write the machine-readable JSON artifact.")
+    parser.add_argument("--yaml-out", default="",
+                        help="Optional path to write the commented-YAML dashboard artifact.")
     return parser.parse_args(argv)
 
 
@@ -717,8 +980,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     _ = collect_common2_symbols(common2_abs)  # reserved for future soft-match hints
 
-    # 2. Reverse import index for impact analysis.
+    # 2. Reverse import index + module dependency graph for impact analysis.
     import_index = build_import_index(tests_abs, repo_root)
+    graph = build_impact_graph(import_index, common_abs, repo_root)
 
     # 3. Analyze every candidate module.
     tasks: List[ModuleTask] = []
@@ -730,7 +994,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         task = analyze_module(
             abs_path,
             repo_root,
-            import_index,
+            graph,
             common2_unit_test_modules,
             registry_migrated_symbols_for,
         )
@@ -754,6 +1018,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         with open(out_path, "w", encoding="utf-8") as handle:
             json.dump(build_json(tasks, done_tasks, args.max_tier), handle, indent=2)
         print(f"\nWrote machine-readable dashboard JSON to: {out_path}")
+
+    if args.yaml_out:
+        out_path = args.yaml_out
+        if not os.path.isabs(out_path):
+            out_path = os.path.join(repo_root, out_path)
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(build_yaml_lines(tasks, done_tasks, args.max_tier)))
+        print(f"\nWrote commented dashboard YAML to: {out_path}")
 
     return 0
 
