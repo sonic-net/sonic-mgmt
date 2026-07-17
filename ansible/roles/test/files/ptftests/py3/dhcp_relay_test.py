@@ -205,13 +205,20 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Single-ToR ISC: relay_iface_mac (base MAC).
-        # Single-ToR SONiC: relay_iface_mac (base MAC).
-        # Dual-ToR ISC: relay_iface_mac (virtual VLAN MAC).
-        # Dual-ToR SONiC: uplink_mac (base MAC).
-        remote_id_string = self.relay_iface_mac
-        if self.relay_agent == "sonic-relay-agent" and self.dual_tor:
+        if self.relay_agent == "isc-relay-agent" and not self.dual_tor:
+            # Single-ToR ISC uses the receiving VLAN MAC, which is the base MAC.
+            remote_id_string = self.relay_iface_mac
+        elif self.relay_agent == "sonic-relay-agent" and not self.dual_tor:
+            # Single-ToR SONiC uses the base MAC, which is also the VLAN MAC.
+            remote_id_string = self.relay_iface_mac
+        elif self.relay_agent == "isc-relay-agent" and self.dual_tor:
+            # Dual-ToR ISC uses the receiving VLAN's virtual MAC.
+            remote_id_string = self.relay_iface_mac
+        elif self.relay_agent == "sonic-relay-agent" and self.dual_tor:
+            # Dual-ToR SONiC uses the switch base MAC, not the virtual VLAN MAC.
             remote_id_string = self.uplink_mac
+        else:
+            raise ValueError("Unsupported DHCP relay agent: {}".format(self.relay_agent))
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
