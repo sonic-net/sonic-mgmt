@@ -23,6 +23,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, UPSTREAM_NEIGHBOR_MAP
 from tests.common import config_reload
 from tests.common.reboot import reboot
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -602,13 +603,16 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
     Addresses issue: https://github.com/sonic-net/sonic-buildimage/issues/21423
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
-    prefix = "3.3.3.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:3::/64" if ipv6 else "3.3.3.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=1,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
@@ -627,13 +631,16 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
     4. Traffic continues to be forwarded across all paths after warmboot
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
-    prefix = "4.4.4.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:4::/64" if ipv6 else "4.4.4.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=3,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
@@ -652,6 +659,8 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
     3. Continue to forward traffic correctly after warmboot completes
     """
     duthost = rand_selected_dut
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        pytest.skip("ISSU is not enabled on this HWSKU, warm reboot is not supported")
     unselected_duthost = rand_unselected_dut
     prefix = "2000:3::/64"
 
@@ -679,12 +688,13 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    prefix = "5.5.5.0/24"
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:5::/64" if ipv6 else "5.5.5.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                               prefix, nexthop_count=2,
                               is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
-                              ipv6=False):
+                              ipv6=ipv6):
         # Perform config reload
         duthost.shell('config save -y')
         if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
