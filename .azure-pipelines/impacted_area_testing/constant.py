@@ -13,7 +13,10 @@ PR_TOPOLOGY_TYPE = ["t0_checker", "t0-2vlans_checker", "t0-sonic_checker", "t1_c
 
 EXCLUDE_TEST_SCRIPTS = [
     "test_posttest.py",
-    "test_pretest.py"
+    "test_pretest.py",
+    # Temporary: skip until sonic-buildimage#28061 (caclmgrd FRR loopback ACL rules
+    # submodule bump for sonic-host-services#389) is merged.
+    "cacl/test_cacl_application.py"
 ]
 
 # The mapping of topology type in PR test and topology recorded in kusto and the name of PR test.
