@@ -18,7 +18,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology("any"),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)

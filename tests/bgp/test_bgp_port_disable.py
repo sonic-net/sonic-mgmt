@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any')
 ]
 
 FRR_USER_UID = '300'

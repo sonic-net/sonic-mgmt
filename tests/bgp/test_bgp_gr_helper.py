@@ -14,7 +14,7 @@ from tests.common.utilities import is_ipv6_only_topology
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs'),
-    pytest.mark.disable_memory_utilization,
+    pytest.mark.disable_memory_utilization
 ]
 
 logger = logging.getLogger(__name__)

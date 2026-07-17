@@ -14,7 +14,7 @@ from tests.common.reboot import reboot
 pytestmark = [
     pytest.mark.topology("t2", "lrh", "urh"),
     pytest.mark.device_type('physical'),
-    pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)

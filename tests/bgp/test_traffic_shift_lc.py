@@ -21,7 +21,7 @@ from tests.conftest import get_hosts_per_hwsku, backup_golden_config, restore_go
     update_golden_config_tsa_enabled
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2')
 ]
 
 logger = logging.getLogger(__name__)

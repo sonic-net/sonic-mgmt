@@ -15,7 +15,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.topology("t0", "t1"),
-    pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_loganalyzer
 ]
 
 logger = logging.getLogger(__name__)

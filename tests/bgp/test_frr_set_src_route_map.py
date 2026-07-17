@@ -13,7 +13,7 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', 't2'),
+    pytest.mark.topology('t0', 't1', 't2')
 ]
 
 

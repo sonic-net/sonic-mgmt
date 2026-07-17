@@ -24,7 +24,7 @@ STATS_COLLECT_INTERVAL = 5
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lrh', 'urh', 'lt2', 'ft2'),
-    pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_loganalyzer
 ]
 
 

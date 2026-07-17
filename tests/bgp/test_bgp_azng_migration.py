@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 pytestmark = [
-    pytest.mark.topology('t2'),
+    pytest.mark.topology('t2')
 ]
 
 

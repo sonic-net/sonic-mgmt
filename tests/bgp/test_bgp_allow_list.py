@@ -15,7 +15,7 @@ from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa:F401
 
 pytestmark = [
     pytest.mark.topology('t1', 'm1', 'c0'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)

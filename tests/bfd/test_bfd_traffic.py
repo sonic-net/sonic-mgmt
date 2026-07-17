@@ -11,7 +11,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
     pytest.mark.topology("t2", "lrh", "urh"),
-    pytest.mark.device_type('physical'),
+    pytest.mark.device_type('physical')
 ]
 
 logger = logging.getLogger(__name__)

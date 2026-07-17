@@ -3,7 +3,7 @@ from tests.common.helpers.bgp import run_bgp_facts
 
 pytestmark = [
     pytest.mark.topology('any', 't0-sonic', 't1-multi-asic'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 

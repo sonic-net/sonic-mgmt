@@ -26,9 +26,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
-pytestmark = [
-    pytest.mark.topology("t0"),
-]
+pytestmark = [pytest.mark.topology("t0")]
 
 # frrcfgd under-renders listen-range (SLB/Vac) peer-groups: after a runtime peer-group
 # update it drops peer-group attributes (e.g. update-source) from the FRR render even

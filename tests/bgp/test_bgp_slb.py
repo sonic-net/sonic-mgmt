@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_require
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 PEER_COUNT = 1

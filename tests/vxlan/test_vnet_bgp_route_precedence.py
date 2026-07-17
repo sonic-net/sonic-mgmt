@@ -62,7 +62,7 @@ SUPPORTED_INIT_NEXTHOP_STATE = ['initially_up', 'initially_down']
 
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
-    pytest.mark.topology("t1"),
+    pytest.mark.topology("t1")
 ]
 
 

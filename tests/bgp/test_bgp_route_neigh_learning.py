@@ -8,7 +8,7 @@ from tests.common.devices.csonic import CsonicHost
 from tests.common.utilities import wait_until
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 Logger = logging.getLogger(__name__)

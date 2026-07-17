@@ -17,7 +17,7 @@ from ipaddress import ip_interface
 
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any')
 ]
 
 logger = logging.getLogger(__name__)

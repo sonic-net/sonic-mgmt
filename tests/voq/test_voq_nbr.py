@@ -32,7 +32,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory  # noqa:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2', 'lrh', 'urh'),
+    pytest.mark.topology('t2', 'lrh', 'urh')
 ]
 
 NEW_MAC = "00:01:94:00:00:01"

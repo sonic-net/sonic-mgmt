@@ -19,7 +19,7 @@ from bgp_bbr_helpers import get_bbr_default_state, program_bbr_for_mode
 
 pytestmark = [
     pytest.mark.topology('t1'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
     ]
 
 

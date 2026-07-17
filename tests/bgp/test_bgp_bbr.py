@@ -31,7 +31,7 @@ from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu, program_bb
 
 pytestmark = [
     pytest.mark.topology('t1', 't1-multi-asic'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)

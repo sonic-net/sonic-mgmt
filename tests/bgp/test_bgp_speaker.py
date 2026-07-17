@@ -37,7 +37,7 @@ FRR_EBGP_REQUIRES_POLICY_GAP_REASON = (
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.device_type('vs'),
+    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
