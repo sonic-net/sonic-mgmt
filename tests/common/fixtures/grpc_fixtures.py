@@ -208,6 +208,10 @@ def gnmi_tls(request, duthosts, ptfhost):
     Opt-in to UDS via indirect parametrize:
         @pytest.mark.parametrize("gnmi_tls", ["tls", "uds"], indirect=True)
 
+    TLS certificate validity can be overridden via indirect parametrize:
+        @pytest.mark.parametrize(
+            "gnmi_tls", [{"transport": "tls", "validity_days": 4800}], indirect=True)
+
     Without parametrize, defaults to TLS (backward compatible).
 
     TLS flow:
@@ -229,11 +233,21 @@ def gnmi_tls(request, duthosts, ptfhost):
     """
     duthost = _get_target_duthost(duthosts, request)
 
-    transport = getattr(request, 'param', 'tls')
+    param = getattr(request, 'param', 'tls')
+    if isinstance(param, dict):
+        transport = param.get('transport', 'tls')
+        validity_days = param.get('validity_days')
+    else:
+        transport = param
+        validity_days = None
 
     if transport == 'uds':
         yield from _gnmi_uds_flow(duthost)
         return
+
+    cert_options = {}
+    if validity_days is not None:
+        cert_options['validity_days'] = validity_days
 
     # --- existing TLS flow below (unchanged) ---
     checkpoint_name = "gnoi_tls_setup"
@@ -247,7 +261,7 @@ def gnmi_tls(request, duthosts, ptfhost):
     pygnmi_client = None
     try:
         # 2. Generate and distribute certificates
-        _create_gnoi_certs(duthost, ptfhost, cert_dir)
+        _create_gnoi_certs(duthost, ptfhost, cert_dir, **cert_options)
 
         # 3. Configure server for TLS mode
         _configure_gnoi_tls_server(duthost)
@@ -460,7 +474,7 @@ def ptf_gnoi(ptf_grpc):
 # Internal helpers (unchanged)
 # ---------------------------------------------------------------------------
 
-def _create_gnoi_certs(duthost, ptfhost, cert_dir):
+def _create_gnoi_certs(duthost, ptfhost, cert_dir, **kwargs):
     """
     Generate and distribute gNOI TLS certificates.
 
@@ -470,11 +484,13 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir):
         duthost: DUT host instance (for IP and copying server certs)
         ptfhost: PTF host instance (for copying client certs)
         cert_dir: Local directory to store generated certificates
+        **kwargs: Optional arguments passed to the certificate generator
     """
     logger.info("Generating gNOI TLS certificates")
 
     # Generate certificates with 1-day backdating to handle clock skew
-    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip)
+    generator = create_gnmi_cert_generator(
+        server_ip=duthost.mgmt_ip, **kwargs)
     generator.write_all(cert_dir)
 
     logger.info(f"Certificates generated in {cert_dir}")
