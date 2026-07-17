@@ -95,6 +95,8 @@ def mocker_factory(localhost, duthosts, enum_rand_one_per_hwsku_hostname):
         mocker_object = None
 
         if 'mlnx' in platform or 'nvidia' in platform:
+            from tests.common.helpers.nvidia_bmc_liquid_leakage_control_test_helper \
+                import LiquidLeakageMockerNvidiaBMC  # noqa: F401
             mocker_type = BaseMocker.get_mocker_type(mocker_name)
             if mocker_type:
                 mocker_object = mocker_type(dut)
