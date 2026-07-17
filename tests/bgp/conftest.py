@@ -20,14 +20,15 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from tests.common import config_reload
-from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
-    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
+from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE, \
+    BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST, \
     BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def check_results(results):
     """
     failed_results = {}
     for node_name, node_results in list(results.items()):
-        failed_node_results = [res for res in node_results if res['failed']]
+        failed_node_results = [res for res in node_results if res.get('failed', False)]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
     if failed_results:
@@ -107,7 +108,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -180,7 +181,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
                         parents=['router bgp {}'.format(asn), 'address-family ipv6'],
                         module_ignore_errors=True)
                     )
-        elif isinstance(node['host'], SonicHost):
+        elif isinstance(node['host'], (SonicHost, CsonicHost)):
             node_results.append(node['host'].config(
                 lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
                 parents=['router bgp {}'.format(asn)],
@@ -472,7 +473,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 ptfhost.shell("ip address flush %s scope global" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
-    def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
+    def _setup_interfaces_t1_t2_drh(mg_facts, peer_count):
         try:
             connections = []
             is_backend_topo = "backend" in tbinfo["topo"]["name"]
@@ -622,11 +623,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0"]):
-        setup_func = _setup_interfaces_t1_or_t2
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2", "c0", "lrh", "urh"]):
+        setup_func = _setup_interfaces_t1_t2_drh
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
-            setup_func = _setup_interfaces_t1_or_t2
+            setup_func = _setup_interfaces_t1_t2_drh
         else:
             setup_func = _setup_interfaces_t0_or_mx
     else:

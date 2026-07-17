@@ -33,13 +33,13 @@ Before executing the system tests, ensure the following pre-requisites are met:
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
-- `system.json` is properly formatted and accessible; required attributes are defined for the transceivers under test, and platform-specific settings are correctly configured
+- `system.json` is properly formatted and accessible; required attributes are defined for the transceivers under test, and platform-specific settings are correctly configured (see [Attributes](#attributes) for the shard layout)
 
 System health (running daemons, fresh logs) and transceiver baseline (presence, gold firmware, link-up) are covered by the parent's [Common Session-Level Prerequisites](test_plan.md#common-session-level-prerequisites) and [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks); see the prerequisite matrix for which gates System consumes.
 
 ## Attributes
 
-A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports.
+A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports. The category is sharded across all five shard scopes (category, platform, HWSKU, vendor, per-PN) under `attributes/system/`; see [File Organization](test_plan.md#file-organization) for the shard contract and [Loader Validation](test_plan.md#loader-validation) for how it is enforced.
 
 The following table summarizes the key attributes used in system testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
@@ -81,11 +81,12 @@ The following table summarizes the key attributes used in system testing. This t
 | low_pwr_request_hw_asserted | boolean | True | O | platform | Whether to check DataPath state and LowPwrRequestHW signal. When True, expects LowPwrRequestHW signal to be asserted (1); when False, skips these checks |
 | cmis_bootup_low_power_test_supported | boolean | False | O | platform | Whether to test that CMIS transceivers boot up in low power mode when xcvrd is disabled during startup |
 | tx_disable_test_supported | boolean | False | O | transceivers | Whether transceiver supports Tx disable testing and DataPath state verification |
+| breakout_concurrent_startup_iterations | integer | 3 | O | transceivers or platform_hwsku_overrides | Number of shuffle/restart iterations for the breakout concurrent startup test. Higher values increase race-window exposure. |
+| breakout_subport_settle_sec | integer | 90 | O | transceivers or platform_hwsku_overrides | Wait time after concurrent startup of all sibling subports before reading `cmis_state`. Must exceed `CMIS_MAX_RETRIES * (modulePwrUp + dpDeinit + dpInit + dpActivate)` for the module under test. |
 | optics_si_settings | dict | {} | O | transceivers | Dictionary containing optics SI settings with nested structure for parameters like OutputAmplitudeTargetRx, OutputEqPreCursorTargetRx, OutputEqPostCursorTargetRx, etc. Each parameter contains per-lane values (e.g., OutputAmplitudeTargetRx1-8). Test runs if dictionary is non-empty. |
 | media_si_settings | dict | {} | O | platform_hwsku_overrides | Dictionary containing media SI settings following media_settings.json structure for comparison with APPL_DB values. Test runs if dictionary is non-empty. |
 | frequency_values | list | [] | O | transceivers | List of frequency values for C-CMIS transceivers. First value is the default frequency, followed by test frequencies (min/max supported). Test runs if list is non-empty. |
 | tx_power_values | list | [] | O | transceivers | List of tx power values in dBm for C-CMIS transceivers. First value is the default tx power, followed by test power levels (min/max supported). Test runs if list is non-empty. |
-| expected_application_code | integer | - | O | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
 | link_stability_monitor_sec | integer | 300 | O | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
 
 For information about attribute override hierarchy and precedence, please refer to the [Priority-Based Attribute Resolution](test_plan.md#priority-based-attribute-resolution) documentation.
@@ -141,25 +142,30 @@ This procedure is used after any test that modifies transceiver state or after s
    - Verify port is operationally up
    - Wait for configured timeout period before declaring failure
 
-2. **LLDP Verification** (if `verify_lldp_on_link_up` is True)
+2. **Link Flap / Stability Verification**
+   - **Stability (always):** over a short post-recovery observation window, confirm the port does not flap — no new flap events and `last_up_time` stays steady. This sub-check is **forward-looking only** — it observes from recovery onward and does not use the pre-operation flap count — so it holds even for operations whose counters reset when the port DB is rebuilt.
+   - **No flap across the operation (only where the counter survives):** additionally, for operations where the link is expected to stay up *and* APPL_DB is **not** rebuilt — i.e. `xcvrd` / `pmon` restart — assert the port did not flap during the operation by comparing the current flap count against the baseline recorded in [Common Setup](#common-test-setup-and-teardown) (boolean: count unchanged / no new flap).
+   - This baseline comparison is **not** applied to operations that rebuild/clear the port DB — `swss` / `syncd` restart, `config reload`, cold/warm/fast reboot, and power cycle — because the flap count resets to `0`; for those, the stability sub-check above is the only flap check.
+
+3. **LLDP Verification** (if `verify_lldp_on_link_up` is True)
    - Verify port appears in LLDP neighbor table
    - Confirm LLDP neighbor information is correctly populated (remote device ID, port ID, etc. if applicable)
 
-3. **CMIS State Verification** (for CMIS active optical transceivers (can be checked via `cmis_active_optical` attribute))
+4. **Remote-Side Link Verification** (optional — enabled by callers that opt in, e.g. the disruptive Event Handling and System Recovery test cases)
+   - Resolve the peer port via the shared [Remote-Side Port Resolution](test_plan.md#remote-side-port-resolution) and verify the remote-side port is operationally up.
+   - Skipped when the caller does not request it (e.g. read-only diagnostic checks). A port under test with no peer entry in the connection graph is a configuration error, per the shared resolution contract.
+   - Per-operation peer link-flap expectations (e.g. the peer bounces once on reseat/reboot) are asserted in the individual test cases, not here.
+
+5. **CMIS State Verification** (for CMIS active optical transceivers (can be checked via `cmis_active_optical` attribute))
    - Verify DataPathState is `DPActivated` for operational ports
    - Verify ConfigState is `ConfigSuccess`
 
-4. **SI Settings Verification** (if applicable)
+6. **SI Settings Verification** (if applicable)
    - **Optics SI Settings**: If `optics_si_settings` is defined, verify current EEPROM values match configured attributes
    - **Media SI Settings**: If `media_si_settings` is defined, verify PORT_TABLE APPL_DB values match configured attributes. Also, ensure `NPU_SI_SETTINGS_SYNC_STATUS_KEY` is set to `NPU_SI_SETTINGS_DONE` in `PORT_TABLE` of `APPL_DB`
    - Log any discrepancies for analysis
 
-5. **Application Code Verification** (if `expected_application_code` is defined and not null)
-   - Read current application code from transceiver EEPROM
-   - Verify the actual application code matches the `expected_application_code` value
-   - Log any discrepancies for analysis
-
-6. **Docker and Process Health Check**
+7. **Docker and Process Health Check**
    - Verify all critical services (`xcvrd, pmon, swss, syncd`) are running for at least 3 minutes
    - Ensure no core files are present in `/var/core`
    - Log any service failures for analysis
@@ -197,11 +203,11 @@ The following tests aim to validate the link status and stability of transceiver
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | Port shutdown validation | 1. For each transceiver port individually:<br>   a. Issue `config interface shutdown <port>`.<br>   b. Wait for `port_shutdown_wait_sec`.<br>   c. Verify port is operationally down.<br>2. Validate link status using CLI configuration. | Ensure that the link goes down within the configured timeout period for each port. |
-| 2 | Port startup validation | 1. For each transceiver port individually:<br>   a. Issue `config interface startup <port>`.<br>   b. Wait for `port_startup_wait_sec`.<br>2. Execute **Standard Port Recovery and Verification Procedure**. | Ensure that the port passes all verification checks including link status, LLDP, CMIS states, SI settings, and application code validation. |
+| 2 | Port startup validation | 1. For each transceiver port individually:<br>   a. Issue `config interface startup <port>`.<br>   b. Wait for `port_startup_wait_sec`.<br>2. Execute **Standard Port Recovery and Verification Procedure**. | Ensure that the port passes all verification checks including link status, LLDP, CMIS states, and SI settings. |
 
 ### Process and Service Restart Test Cases
 
-**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: the framework's PID check is overridden in this subcategory's conftest since service restarts are the subject of the test; instead, verify that each restarted service comes back up and is running before the test is considered complete. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
+**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: because the per-test PID check evaluates only the monitored processes listed in `DEFAULT_MONITORED_PROCESSES` (`tests/transceiver/common/health_checks.py`, currently only `xcvrd`), this subcategory adds the name of the *monitored* process whose restart is expected (today only `"xcvrd"`) — not the name of the restarted service — to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest. The framework's per-test PID check then treats the PID change as expected rather than a regression; the parent health check still verifies the monitored process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
@@ -222,7 +228,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 2 | Cold reboot link recovery | 1. Verify current link states to be up for all transceivers.<br>2. Execute a cold reboot.<br>3. Wait for `cold_reboot_settle_sec` and monitor link recovery after reboot.<br>4. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
 | 3 | Warm reboot link recovery | 1. Skip test if `warm_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform warm reboot.<br>4. Wait for `warm_reboot_settle_sec` and monitor link recovery after reboot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure `xcvrd` restarts and maintains link stability for all ports, with comprehensive verification checks passing. |
 | 4 | Fast reboot link recovery | 1. Skip test if `fast_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform fast reboot.<br>4. Wait for `fast_reboot_settle_sec` and monitor link establishment timing.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
-| 5 | Power cycle link recovery | 1. Skip test if `power_cycle_supported` is False.<br>2. Verify current link states are up for all transceivers.<br>3. Perform a controlled chassis power cycle.<br>4. Wait for `power_cycle_settle_sec` and monitor link recovery after full boot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-power cycle and pass comprehensive verification checks (link status, LLDP, CMIS states, SI settings, application code if defined, docker and process stability). |
+| 5 | Power cycle link recovery | 1. Skip test if `power_cycle_supported` is False.<br>2. Verify current link states are up for all transceivers.<br>3. Perform a controlled chassis power cycle.<br>4. Wait for `power_cycle_settle_sec` and monitor link recovery after full boot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-power cycle and pass comprehensive verification checks (link status, LLDP, CMIS states, SI settings, docker and process stability). |
 
 ### Transceiver Event Handling Test Cases
 
@@ -234,6 +240,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 2 | Transceiver low power mode validation | 1. Skip test if `low_power_mode_supported` is False.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. Ensure transceiver is in high power mode initially.<br>4. Put the transceiver in low power mode using CLI command.<br>5. Wait for `transceiver_reset_i2c_recover_sec`.<br>6. Verify port is linked down and DataPath is in DPDeactivated state.<br>7. Verify transceiver is in low power mode through CLI.<br>8. Disable low power mode (restore to high power mode).<br>9. Wait for `transceiver_reset_i2c_recover_sec`.<br>10. Execute **Standard Port Recovery and Verification Procedure**.<br>11. Execute **State Preservation and Restoration** (restoration phase). | Ensure transceiver transitions correctly between high and low power modes. Port should be down in low power mode and up in high power mode with all verification checks passing. |
 | 3 | CMIS transceiver boot-up low power mode test | 1. Skip test if `cmis_bootup_low_power_test_supported` is False.<br>2. Add `"skip_xcvrd": true,` to the `pmon_daemon_control.json` file.<br>3. Reboot the device using cold reboot.<br>4. Wait for `cold_reboot_settle_sec` and verify system is operational.<br>5. Verify CMIS transceiver is in low power mode after boot-up.<br>6. Revert the `pmon_daemon_control.json` file to original state.<br>7. Restart pmon service: `sudo systemctl restart pmon`.<br>8. Wait for `pmon_restart_settle_sec` and verify normal operation restored.<br>9. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure CMIS transceiver boots up in low power mode when xcvrd is disabled. System should restore normal operation after reverting configuration and restarting pmon with all verification checks passing. |
 | 4 | Transceiver Tx disable DataPath validation | 1. Skip test if `tx_disable_test_supported` is False.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. Verify transceiver is in operational state with DataPath in DPActivated state.<br>4. Read MaxDurationDPTxTurnOff value from EEPROM (page 1h, byte 168.7:4) using appropriate API.<br>5. Disable Tx by writing to EEPROM or calling `tx_disable` API.<br>6. Monitor DataPath state transition from DPActivated within the MaxDurationDPTxTurnOff time read from EEPROM.<br>7. Verify DataPath state changes from DPActivated to a different state within the specified time.<br>8. Issue `config interface shutdown <port>` and wait for `port_shutdown_wait_sec`.<br>9. Issue `config interface startup <port>` and wait for `port_startup_wait_sec`.<br>10. Execute **Standard Port Recovery and Verification Procedure**.<br>11. Execute **State Preservation and Restoration** (restoration phase). | Ensure DataPath state transitions correctly within MaxDurationDPTxTurnOff time (read from EEPROM) when Tx is disabled. Port should recover after shutdown/startup cycle with all verification checks passing. This test can be run as a stress test with multiple iterations. |
+| 5 | CMIS breakout subport concurrent recovery after reset | 1. Skip test if the transceiver is not a CMIS active-optical module (check via `cmis_active_optical`) or if `transceiver_reset_supported` is False.<br>2. Identify all logical sibling subports `S = {S1..Sn}` mapped to the same physical port as the test port (i.e. ports that share `index` in CONFIG_DB `PORT` table).<br>3. Skip test if `len(S) < 2`.<br>4. Execute **State Preservation and Restoration** (capture phase) for every port in `S`.<br>5. For `breakout_concurrent_startup_iterations` iterations:<br>   a. Issue `config interface shutdown` for every port in `S`. Wait `port_shutdown_wait_sec`.<br>   b. Verify all are operationally down and DataPath is in `DPDeactivated` for all lanes.<br>   c. Issue `sfputil reset <S1>` to force the module into `ModuleLowPwr` with default `DPDeinit=0x00` and `OutputDisableTx=0x00` registers. Wait `transceiver_reset_i2c_recover_sec`.<br>   d. Bring all subports in `S` back up **concurrently in randomized order** (e.g. via parallel shell jobs `for p in $(shuf -e ${S[@]}); do config interface startup $p & done; wait`, or a single Python helper invoking `subprocess.run(["config","interface","startup", port])` for each port back-to-back without inter-port sleep).<br>   e. Wait `breakout_subport_settle_sec` for CMIS state machines to converge.<br>   f. For every port in `S`, verify `redis-cli -n 6 hget "TRANSCEIVER_STATUS_SW\|<port>" cmis_state == "READY"` (NOT `"FAILED"`).<br>   g. Verify syslog contains no `pmon#CmisManagerTask` `: FAILED` lines and no `timeout for 'DataPathDeactivated/DataPathInitialized'` lines for any port in `S` from the iteration window.<br>   h. Execute **Standard Port Recovery and Verification Procedure** for every port in `S`.<br>6. Execute **State Preservation and Restoration** (restoration phase). | Ensure that all sibling subports of a CMIS breakout module recover to `cmis_state=READY` regardless of admin-up arrival order after a module reset. No port should be stuck in `cmis_state=FAILED` and there should be no `"timeout for 'DataPathDeactivated/DataPathInitialized'"` error in syslog. This validates that xcvrd's CMIS state machine handles the `ModuleLowPwr -> ModuleReady` auto-init transition correctly when multiple subports race to issue `set_lpmode(False)`. |
 
 ### Diagnostic Test Cases
 
