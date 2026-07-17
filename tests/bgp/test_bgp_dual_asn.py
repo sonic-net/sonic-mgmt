@@ -24,20 +24,8 @@ from tests.common.gu_utils import (
 )
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
 pytestmark = [pytest.mark.topology("t0")]
-
-# frrcfgd under-renders listen-range (SLB/Vac) peer-groups: after a runtime peer-group
-# update it drops peer-group attributes (e.g. update-source) from the FRR render even
-# though the CONFIG_DB BGP_PEER_GROUP row still carries them, so this test's teardown
-# fingerprint (get_bgp_speaker_runningconfig) diverges after the ASN churn + rollback.
-# Skip the frr_mgmt_framework variant until frrcfgd renders those attributes; the
-# traditional (bgpcfgd) variant still covers the feature. Remove once frrcfgd supports it.
-FRR_LISTEN_RANGE_RENDER_GAP_REASON = (
-    "frrcfgd under-renders listen-range peer-group attributes (e.g. update-source) after a "
-    "runtime peer-group update, though CONFIG_DB still carries them"
-)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -632,7 +620,6 @@ def announce_route(ptfhost, exabgp_port, prefix, nexthop):
 def test_bgp_dual_asn_v4(
     frr_config_mode, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo, setup_env
 ):
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LISTEN_RANGE_RENDER_GAP_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     dualAsn = BgpDualAsn()

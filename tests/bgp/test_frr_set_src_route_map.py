@@ -6,7 +6,6 @@ import pytest
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.gcu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.utilities import wait_until
 
@@ -30,12 +29,6 @@ logger = logging.getLogger(__name__)
 
 # These tests exercise zebra 'set src' route-maps (RM_SET_SRC/RM_SET_SRC6). frrcfgd's
 # route-map model has no 'set src' clause, so the feature cannot be programmed via
-# frr_mgmt_framework -- skip the frr variant (genuine capability gap).
-@pytest.fixture(autouse=True)
-def _skip_set_src_in_frr_mgmt_framework(frr_config_mode):
-    skip_if_frr_mgmt_framework(frr_config_mode, "frrcfgd route-map model has no 'set src' clause")
-
-
 def _get_frontend_bgp_docker_names(duthost):
     """Return bgp container names for frontend ASICs only."""
     if not duthost.is_multi_asic:

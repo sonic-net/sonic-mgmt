@@ -13,18 +13,8 @@ from tests.common.config_reload import config_reload
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_MONITOR_PORT
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 
 logger = logging.getLogger(__name__)
-
-# frrcfgd builds the BGPMON peer-group but does not program the BGP_MONITORS neighbor into FRR,
-# so the monitor session never establishes. Skip the frr_mgmt_framework variant of the
-# monitor-session tests until frrcfgd programs BGP_MONITORS neighbors; the traditional (bgpcfgd)
-# variant still covers the feature. Remove these skips once frrcfgd supports it.
-FRR_BGP_MONITORS_GAP_REASON = (
-    "frrcfgd does not program the BGP_MONITORS neighbor into FRR (only the BGPMON peer-group), "
-    "so the BGP monitor session never establishes"
-)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -744,7 +734,6 @@ def test_bgp_stress_link_flap_with_monitor(frr_config_mode, duthosts, rand_one_d
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_BGP_MONITORS_GAP_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level
@@ -832,7 +821,6 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(frr_config_mode, duthost
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_BGP_MONITORS_GAP_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level

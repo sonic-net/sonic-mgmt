@@ -18,22 +18,6 @@ from tests.common.utilities import wait_until
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
     is_route_flow_counter_supported  # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
-
-# In frr_mgmt_framework mode the DUT runs with FRR's default `bgp ebgp-requires-policy`
-# (ENABLED): frrcfgd has no CONFIG_DB field to express `no bgp ebgp-requires-policy`, which
-# the traditional path renders unconditionally (bgpd.main.conf.j2). The SLB/Vac listen-range
-# peer-groups carry an inbound route-map only in their ipv4 address-family, so ipv6 routes
-# announced over the dynamic sessions (MP-BGP over the v4 session) are discarded for missing
-# policy and never learned. Skip the frr variant of the v6 speaker test until frr mode
-# applies `no bgp ebgp-requires-policy`; the traditional variant still covers it. The v4
-# variant is unaffected (its AF has the route-map). Remove once frr mode supports it.
-FRR_EBGP_REQUIRES_POLICY_GAP_REASON = (
-    "frr_mgmt_framework mode runs with ebgp-requires-policy enabled (no frrcfgd field for "
-    "'no bgp ebgp-requires-policy'); the SLB listen-range peer-group has no ipv6 route-map, "
-    "so v6 routes over the dynamic sessions are discarded"
-)
-
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -433,13 +417,12 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts,
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 9114)])
-def test_bgp_speaker_announce_routes_v6(frr_config_mode, common_setup_teardown, tbinfo, duthosts,
+def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts,
                                         rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu,
                                         vlan_mac, is_route_flow_counter_supported):     # noqa:F811
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_EBGP_REQUIRES_POLICY_GAP_REASON)
     duthost = duthosts[rand_one_dut_hostname]
     nexthops = common_setup_teardown[4]
     bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost, ptfhost, ipv4, ipv6,

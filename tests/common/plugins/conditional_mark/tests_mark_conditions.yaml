@@ -470,6 +470,67 @@ bgp/test_bgp_link_local.py::test_bgp_link_local[portchannel]:
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/26960
 
+# frr_mgmt_framework (frrcfgd) BGP parity gaps. The frr_mgmt_framework variant of these
+# tests is skipped until the community frrcfgd gaps close, gated on a single upstream
+# tracking issue so the skips auto-lift when it is resolved (fail-safe: an unreachable
+# GitHub still skips). Keyed on the "[frr_mgmt_framework" param prefix so only the frr
+# variant is skipped -- the traditional (bgpcfgd) variant keeps running.
+bgp/test_bgpmon.py::test_bgpmon[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgpmon.py::test_bgpmon_no_resolve_via_default[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd under-renders listen-range peer-group attributes (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd does not apply 'no bgp ebgp-requires-policy' (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_frr_set_src_route_map.py::.*\[frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd route-map model has no zebra 'set src' clause (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_allow_list.py::.*\[frr_mgmt_framework:
+  regex: true
+  skip:
+    reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
+bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath[frr_mgmt_framework:
+  skip:
+    reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+
 bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"

@@ -13,7 +13,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 
 pytestmark = [
@@ -26,15 +25,6 @@ MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_ADDR_V6 = r'::/0'
 logger = logging.getLogger(__name__)
-
-# frrcfgd builds the BGPMON peer-group but does not program the BGP_MONITORS neighbor into FRR,
-# so the monitor session never establishes (no SYN). Skip the frr_mgmt_framework variant of the
-# monitor-session tests until frrcfgd programs BGP_MONITORS neighbors; the traditional (bgpcfgd)
-# variant still covers the feature. Remove these skips once frrcfgd supports it.
-FRR_BGP_MONITORS_GAP_REASON = (
-    "frrcfgd does not program the BGP_MONITORS neighbor into FRR (only the BGPMON peer-group), "
-    "so the BGP monitor session never establishes"
-)
 
 
 def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False):
@@ -192,7 +182,6 @@ def test_bgpmon(frr_config_mode, dut_with_default_route, localhost, enum_rand_on
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_BGP_MONITORS_GAP_REASON)
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
@@ -282,7 +271,6 @@ def test_bgpmon_no_resolve_via_default(frr_config_mode, dut_with_default_route, 
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' or 'ipv6 nht resolve-via-default' is disabled.
     """
-    skip_if_frr_mgmt_framework(frr_config_mode, FRR_BGP_MONITORS_GAP_REASON)
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     local_addr, peer_addr, peer_ports, asn, is_ipv6_only, router_id = common_setup_teardown

@@ -14,7 +14,6 @@ import ipaddr as ipaddress
 from jinja2 import Template
 from natsort import natsorted
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
@@ -444,9 +443,6 @@ def test_bbr_enabled_dut_asn_in_aspath(frr_config_mode, duthosts, rand_one_dut_h
     # loses its continue-flow (frrcfgd has no 'on-match next'), so the default
     # drop-community is applied and not cleaned up, suppressing the advertisement.
     # Skip until frrcfgd gains route-map continue-flow; re-verify then.
-    skip_if_frr_mgmt_framework(
-        frr_config_mode, "route advertisement suppressed by allow-list-framework "
-        "'on-match next' gap in frrcfgd route-maps")
     duthost = duthosts[rand_one_dut_hostname]
     bbr_route = setup['bbr_route']
     bbr_route_v6 = setup['bbr_route_v6']
