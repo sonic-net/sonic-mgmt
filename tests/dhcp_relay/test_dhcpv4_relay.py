@@ -250,6 +250,7 @@ def test_dhcpv4_relay_disabled_validation(ptfhost, dut_dhcp_relay_data, validate
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "dhcpv4_disable_flag": True,
@@ -335,6 +336,7 @@ def test_dhcp_relay_option82_suboptions(ptfhost, dut_dhcp_relay_data, validate_d
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "link_selection": link_selection,
@@ -418,6 +420,7 @@ def test_dhcp_relay_agent_mode(
                     "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                     "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                     "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "host_mac": str(duthost.facts["router_mac"]),
                     "testing_mode": testing_mode,
                     "kvm_support": True,
                     "relay_agent": relay_agent,
@@ -597,6 +600,7 @@ def test_dhcp_relay_with_non_default_vrf(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "link_selection": link_selection,
@@ -631,6 +635,7 @@ def test_dhcp_relay_with_non_default_vrf(
             duthost.shell(
                 f"sudo config interface vrf unbind {loopback_for_src}",
                 module_ignore_errors=True)
+            duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
 
         # VRF config cleanup
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
@@ -793,6 +798,7 @@ def test_dhcp_relay_with_different_non_default_vrf(
                                "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                                "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "host_mac": str(duthost.facts["router_mac"]),
                                "testing_mode": testing_mode,
                                "kvm_support": True,
                                "relay_agent": relay_agent,
@@ -896,6 +902,7 @@ def test_dhcp_max_hop_count(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
                     "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
                     "uplink_mac": str(dhcp_relay['uplink_mac']),
+                    "host_mac": str(duthost.facts["router_mac"]),
                     "testing_mode": testing_mode,
                     "kvm_support": True,
                     "relay_agent": relay_agent,
