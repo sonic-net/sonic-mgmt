@@ -83,6 +83,14 @@ BGP_SCALE_T1S = [
     't1-isolated-d254u2', 't1-isolated-d254u2s1', 't1-isolated-d254u2s2',
     't1-isolated-d510u2', 't1-isolated-d510u2s2'
 ]
+T1_ROUTER_TYPE_BY_PROPERTY = {
+    'spine': 'spine',
+    'leaf': 'leaf',
+    'tor': 'tor',
+    'bt0': 'tor',
+    'bt1': 'leaf',
+    'bt2': 'spine',
+}
 ROUTES_BATCH_SIZE = 200
 
 # Describe default number of COLOs
@@ -619,6 +627,14 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
             current_routes_offset += last_suffix
 
 
+def get_t1_router_type(properties):
+    """Map topology property groups to the T1 synthetic route model."""
+    for property_name in properties:
+        if property_name in T1_ROUTER_TYPE_BY_PROPERTY:
+            return T1_ROUTER_TYPE_BY_PROPERTY[property_name]
+    return None
+
+
 def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce", tor_default_route=False,
                downstream_neighbor_groups=0, topo_routes={}):
     common_config = topo['configuration_properties'].get('common', {})
@@ -725,13 +741,14 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         aggregate_routes_v6 = get_ipv6_routes(aggregate_routes)
         if k not in topo_routes:
             topo_routes[k] = {}
-        router_type = None
-        if 'spine' in v['properties']:
-            router_type = 'spine'
-        elif 'tor' in v['properties']:
-            router_type = 'tor'
+        router_type = get_t1_router_type(v['properties'])
         tornum = v.get('tornum', None)
         tor_index = tornum - 1 if tornum is not None else None
+        if 'bt0' in v['properties'] and tor_index is not None:
+            # The backend topology can have more BT0 peers than logical ToRs in
+            # the synthetic route space. Reuse indices so every peer announces
+            # routes instead of dropping peers whose index exceeds tor_number.
+            tor_index %= tor_number
         if router_type:
             if enable_ipv4_routes_generation:
                 routes_v4, _ = generate_routes("v4", podset_number, tor_number, tor_subnet_number,
