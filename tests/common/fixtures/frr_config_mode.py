@@ -22,6 +22,7 @@ silently.
 """
 import json
 import logging
+import os
 
 import pytest
 
@@ -67,6 +68,48 @@ def skip_if_frr_mgmt_framework(mode, reason):
     """
     if mode == MODE_FRR_MGMT_FRAMEWORK:
         pytest.skip("frr_mgmt_framework mode not supported for this test: {}".format(reason))
+
+
+def _core_dumps(duthost):
+    cmd = ("ls /var/core/ | grep -v python || true" if "20191130" in duthost.os_version
+           else "ls /var/core/ || true")
+    return set(duthost.shell(cmd, module_ignore_errors=True)["stdout"].split())
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _frr_mode_core_dump_check(request, duthosts):
+    """Focused core-dump (crash) detection for frr_config_mode dual-mode modules.
+
+    Opted-in modules carry ``skip_check_dut_health`` because the mid-module mode-switch
+    ``config reload`` legitimately perturbs the generic config-diff / YANG / memory checks
+    (and its recovery reload races swss). That marker also disables the generic core-dump
+    detection in ``core_dump_and_config_check`` -- but a process crash during a dual-mode
+    BGP test must still be caught. So run a focused core-dump-only check here (no config-diff,
+    no recovery reload) for modules the collection hook marked ``frr_dual_mode``. A no-op for
+    every other module, so it does not touch the rest of the suite.
+    """
+    if request.node.get_closest_marker("frr_dual_mode") is None:
+        yield
+        return
+
+    pre = {dut.hostname: _core_dumps(dut) for dut in duthosts}
+
+    yield
+
+    logs_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "logs")
+    new_by_host = {}
+    for dut in duthosts:
+        new = sorted(_core_dumps(dut) - pre.get(dut.hostname, set()))
+        if new:
+            new_by_host[dut.hostname] = new
+            for core in new:
+                try:
+                    dut.fetch(src="/var/core/{}".format(core), dest=logs_dir)
+                except Exception as e:
+                    logger.warning("Could not fetch core dump %s from %s: %s", core, dut.hostname, e)
+    pt_assert(not new_by_host,
+              "New core dump(s) appeared during this frr dual-mode module -- a process crashed: "
+              "{}".format(new_by_host))
 
 
 def _bgp_established_neighbors(duthost):

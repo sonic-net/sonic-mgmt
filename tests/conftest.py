@@ -3688,6 +3688,12 @@ def pytest_collection_modifyitems(config, items):
             # its own targeted BGP fail-loud fingerprint, so suppress the generic checks here
             # (the fixture's docstring requires this marker on opted-in modules).
             item.add_marker("skip_check_dut_health")
+            # skip_check_dut_health also disables the generic core-dump (crash) detection,
+            # which we do NOT want to lose. Mark the module frr_dual_mode so a focused
+            # core-dump-only check (the _frr_mode_core_dump_check fixture) still runs -- it
+            # keeps crash detection without re-triggering the config-diff / recovery reload
+            # that the mode switch legitimately perturbs.
+            item.add_marker("frr_dual_mode")
             # core_dump_and_config_check and yang_validation_check are module-scoped and
             # gate on request.node.iter_markers(), where request.node is the *module* --
             # a marker added to the function item above is not visible there. Mark the
@@ -3701,6 +3707,8 @@ def pytest_collection_modifyitems(config, items):
                     module.add_marker("skip_check_dut_health")
                 if not any(m.name == "disable_memory_utilization" for m in module.own_markers):
                     module.add_marker("disable_memory_utilization")
+                if not any(m.name == "frr_dual_mode" for m in module.own_markers):
+                    module.add_marker("frr_dual_mode")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
