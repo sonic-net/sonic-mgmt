@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 RATE_LIMIT_BURST = 100
 RATE_LIMIT_INTERVAL = 10
 # Container -> host syslog forwarding is asynchronous and, on loaded/virtual testbeds,
-# can lag well beyond a minute. 
+# can lag well beyond a minute.
 SYSLOG_FORWARD_TIMEOUT = 120
 SYSLOG_FORWARD_INTERVAL = 2
 # Generate 101 packets in tests/syslog/log_generator.py, so that 1 log message will be dropped by rsyslogd
