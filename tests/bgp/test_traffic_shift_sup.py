@@ -1,6 +1,5 @@
 import logging
 import pytest
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import config_reload
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
@@ -51,7 +50,7 @@ def verify_traffic_shift_state_all_lcs(duthosts, ts_state, state):
             executor.submit(verify_traffic_shift_state, linecard)
 
 
-def test_TSA(frr_config_mode, duthosts, enum_supervisor_dut_hostname):
+def test_TSA(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSA
     Verify all linecards transition to maintenance state after TSA on supervisor
@@ -77,7 +76,7 @@ def test_TSA(frr_config_mode, duthosts, enum_supervisor_dut_hostname):
         suphost.shell("TSB")
 
 
-def test_TSB(frr_config_mode, duthosts, enum_supervisor_dut_hostname):
+def test_TSB(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSB
     Verify all linecards transition back to normal state from maintenance after TSB on supervisor
@@ -105,7 +104,7 @@ def test_TSB(frr_config_mode, duthosts, enum_supervisor_dut_hostname):
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_chassis_with_config_reload(frr_config_mode, duthosts, enum_supervisor_dut_hostname):
+def test_TSA_TSB_chassis_with_config_reload(duthosts, enum_supervisor_dut_hostname):
     """
     Test TSA/TSB with config reload
     Verify all linecards remain in Maintenance state after TSA and config reload on supervisor
@@ -144,10 +143,11 @@ def test_TSA_TSB_chassis_with_config_reload(frr_config_mode, duthosts, enum_supe
         initial_tsa_check_before_and_after_test(duthosts)
 
 
-@pytest.fixture(autouse=True)
-def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
     # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
-    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
-    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
-    skip_if_frr_mgmt_framework(
-        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework mode.
+    # This module is therefore not parametrized over frr_config_mode; it just skips outright
+    # when the DUT natively runs frrcfgd. Remove when frrcfgd consumes BGP_DEVICE_GLOBAL.
+    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
+        pytest.skip("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")

@@ -1,7 +1,6 @@
 import logging
 import re
 import pytest
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
     initial_tsa_check_before_and_after_test
@@ -66,7 +65,7 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
     return True
 
 
-def test_TSA(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
+def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
              nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA
@@ -120,7 +119,7 @@ def test_TSA(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
 
 def test_TSB(
-        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
         bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
@@ -172,7 +171,7 @@ def test_TSB(
         initial_tsa_check_before_and_after_test(duthosts)
 
 
-def test_TSA_B_C_with_no_neighbors(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                    bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check, tbinfo):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
@@ -246,7 +245,7 @@ def test_TSA_B_C_with_no_neighbors(frr_config_mode, duthosts, enum_rand_one_per_
 
 @pytest.mark.disable_loganalyzer
 def test_TSA_TSB_with_config_reload(
-        frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut,
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut,
         bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
@@ -319,7 +318,7 @@ def test_TSA_TSB_with_config_reload(
 
 
 @pytest.mark.disable_loganalyzer
-def test_load_minigraph_with_traffic_shift_away(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                                 ptfhost, nbrhosts, nbrhosts_to_dut, bgpmon_setup_teardown,
                                                 traffic_shift_community, tbinfo):
     """
@@ -394,10 +393,11 @@ def test_load_minigraph_with_traffic_shift_away(frr_config_mode, duthosts, enum_
             initial_tsa_check_before_and_after_test(duthosts)
 
 
-@pytest.fixture(autouse=True)
-def _skip_bgp_device_global_in_frr_mgmt_framework(frr_config_mode):
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
     # TSA/TSB, IDF isolation and W-ECMP are driven by the BGP_DEVICE_GLOBAL table, which
-    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework
-    # mode. Skip the frr variant until frrcfgd consumes BGP_DEVICE_GLOBAL.
-    skip_if_frr_mgmt_framework(
-        frr_config_mode, "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")
+    # frrcfgd does not consume, so these features have no effect in frr_mgmt_framework mode.
+    # This module is therefore not parametrized over frr_config_mode; it just skips outright
+    # when the DUT natively runs frrcfgd. Remove when frrcfgd consumes BGP_DEVICE_GLOBAL.
+    if duthosts[rand_one_dut_hostname].get_frr_mgmt_framework_config():
+        pytest.skip("frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)")
