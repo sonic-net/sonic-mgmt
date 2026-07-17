@@ -154,13 +154,40 @@ def _is_switchless_node(duthost):
         return False
 
 
-@pytest.fixture(scope="module", params=FRR_CONFIG_MODES)
+def pytest_addoption(parser):
+    parser.addoption(
+        "--frr-config-mode", action="store", default="both",
+        choices=["both"] + FRR_CONFIG_MODES,
+        help="FRR config mode(s) to run frr_config_mode-parametrized tests in. 'both' "
+             "(default) runs each opted-in test in traditional (bgpcfgd) AND "
+             "frr_mgmt_framework (frrcfgd). 'traditional' or 'frr_mgmt_framework' runs only "
+             "that mode -- e.g. --frr-config-mode=frr_mgmt_framework exercises frrcfgd only and "
+             "bypasses the bgpcfgd variant (the DUT is switched into frr_mgmt_framework mode "
+             "for the run, or run as-is if it already boots in that mode).")
+
+
+def pytest_generate_tests(metafunc):
+    # Parametrize frr_config_mode over the selected mode(s). Done here (rather than via
+    # params= on the fixture) so --frr-config-mode can narrow it to a single mode, while
+    # keeping the "[traditional]" / "[frr_mgmt_framework]" param IDs that conditional_mark
+    # and -k rely on.
+    if "frr_config_mode" in metafunc.fixturenames:
+        selected = metafunc.config.getoption("--frr-config-mode")
+        modes = FRR_CONFIG_MODES if selected == "both" else [selected]
+        metafunc.parametrize("frr_config_mode", modes, indirect=True, scope="module")
+
+
+@pytest.fixture(scope="module")
 def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     """Run a test in BOTH the traditional (bgpcfgd) and frr_mgmt_framework (frrcfgd)
     config modes in a single pytest run.
 
     Tests (or their module-scoped setup fixtures) opt in by requesting this fixture;
     doing so parametrizes them over the two modes and yields the active mode string.
+
+    Use ``--frr-config-mode={both,traditional,frr_mgmt_framework}`` (default ``both``) to
+    narrow the run to a single mode -- e.g. ``--frr-config-mode=frr_mgmt_framework`` exercises
+    only frrcfgd and bypasses the bgpcfgd variant.
 
     Opted-in modules MUST also carry ``pytest.mark.skip_check_dut_health``: the mode
     switch rewrites BGP config_db mid-module and reloads, which the config-diff /
@@ -186,8 +213,10 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
 
     Skips (with a clear reason, rather than running something wrong):
       * multi-ASIC DUT (per-ASIC switching not supported yet);
-      * the DUT's original mode is not traditional (we only translate traditional->frr);
-      * no golden_config_db.json (needed to persist the mode across config reload).
+      * a mode that differs from the DUT's boot mode when that boot mode is not traditional
+        (we only translate traditional<->frr; a same-mode native run is allowed);
+      * no golden_config_db.json when a switch is required (needed to persist the mode
+        across config reload).
     """
     mode = request.param
     duthost = duthosts[rand_one_dut_hostname]
@@ -219,14 +248,21 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
         mod._frr_baseline_neighbors = _bgp_established_neighbors(duthost)
         mod._frr_baseline_fingerprint = _frr_config_fingerprint(duthost)
 
-    if mod._frr_original_config_mode != MODE_TRADITIONAL:
-        pytest.skip("dual-mode FRR switching requires a DUT that starts in traditional "
-                    "(bgpcfgd) mode; this DUT is in {}".format(mod._frr_original_config_mode))
-    if not duthost.is_file_existed(GOLDEN_CFG_FILE):
-        pytest.skip("{} not present on DUT; cannot persist unified routing mode across "
-                    "config reload".format(GOLDEN_CFG_FILE))
+    # The translator only converts traditional<->frr, so a mode other than the DUT's
+    # original one is only reachable from a traditional start. A run that stays in the DUT's
+    # original mode (e.g. --frr-config-mode=frr_mgmt_framework on a DUT that already boots in
+    # frr_mgmt_framework) needs no switch and no translation, so allow it.
+    if mode != mod._frr_original_config_mode and mod._frr_original_config_mode != MODE_TRADITIONAL:
+        pytest.skip("frr_config_mode can only switch modes from a traditional (bgpcfgd) start; "
+                    "this DUT boots in {}, so only that mode can be exercised".format(
+                        mod._frr_original_config_mode))
 
     if mod._frr_applied_config_mode != mode:
+        # A mode switch persists the new mode in golden config so it survives the reload; a
+        # no-switch native run (mode == the DUT's boot mode) does not need it.
+        if not duthost.is_file_existed(GOLDEN_CFG_FILE):
+            pytest.skip("{} not present on DUT; cannot persist routing mode across config "
+                        "reload".format(GOLDEN_CFG_FILE))
         _switch_mode(duthost, mod, mode)
 
     yield mode
