@@ -41,10 +41,11 @@ import re
 DEFAULT_VRF = "default"
 DEFAULT_IPV4_PEER_GROUP = "PEER_V4"
 DEFAULT_IPV6_PEER_GROUP = "PEER_V6"
-BGP_DEFAULT_ASN = "65100"
 
-# Fields present on a traditional BGP_NEIGHBOR row that have no place on an
-# frrcfgd BGP_NEIGHBOR row (they are expressed differently / not at all).
+# Fields present on a traditional BGP_NEIGHBOR row that do not belong on the frrcfgd
+# BGP_NEIGHBOR row: rrclient/nhopself are re-emitted onto the neighbor's BGP_NEIGHBOR_AF
+# row (as route-reflector-client / next-hop-self), and admin_status is carried through
+# explicitly below -- so they are stripped here only to be placed correctly.
 _NEIGHBOR_EXCLUDED_KEYS = ("nhopself", "rrclient", "admin_status")
 
 
@@ -154,8 +155,8 @@ def _route_map_names_for_peer_group(peer_group, route_map_names):
 def _parse_prefix_list(line, family):
     """Parse 'ip[v6] prefix-list NAME seq N permit|deny PREFIX [ge X] [le Y]'.
 
-    Returns (name, entry_dict). Raises on a line we recognize as a prefix-list
-    but cannot parse."""
+    Returns (name, entry_dict, family_label) where family_label is "IPv4"/"IPv6".
+    Raises on a line we recognize as a prefix-list but cannot parse."""
     parts = line.split()
     # parts: <ip|ipv6> prefix-list NAME seq N action PREFIX ...
     if len(parts) < 7 or parts[3] != "seq":
@@ -283,7 +284,11 @@ def _extract_route_maps(running_config, tables):
         elif line.startswith("match community "):
             entry["match_community"] = line.split()[2]
         elif line.startswith("set community ") and line.endswith(" additive"):
-            entry["set_community_inline"] = [line.split()[2], "additive"]
+            # frrcfgd models 'additive' as the companion field set_community_additive,
+            # not as a member of the community value list (frrcfgd handler
+            # hdl_set_community_additive appends ' additive' only when that field is 'true').
+            entry["set_community_inline"] = line.split()[2:-1]
+            entry["set_community_additive"] = "true"
         elif line == "set ipv6 next-hop prefer-global":
             entry["set_ipv6_next_hop_prefer_global"] = "true"
         elif line == "on-match next":
@@ -357,15 +362,27 @@ def _build_neighbors(config_db, ipv4_pg, ipv6_pg, route_map_names):
             vrf, ip = DEFAULT_VRF, key
         af = _afi_safi(ip)
         pg = ipv4_pg if af == "ipv4_unicast" else ipv6_pg
+        # Carry the source admin_status through (default up when absent) rather than
+        # forcing up -- an admin_status="down" neighbor must not silently come up.
+        admin_status = value.get("admin_status", "up")
         row = {k: v for k, v in value.items() if k not in _NEIGHBOR_EXCLUDED_KEYS}
-        row.update({"vrf_name": vrf, "neighbor": ip, "admin_status": "up",
+        row.update({"vrf_name": vrf, "neighbor": ip, "admin_status": admin_status,
                     "peer_group_name": pg})
         neighbors["{}|{}".format(vrf, ip)] = row
         rin, rout = _route_map_names_for_peer_group(pg, route_map_names)
-        neighbor_af["{}|{}|{}".format(vrf, ip, af)] = {
-            "admin_status": "up", "vrf_name": vrf, "neighbor": ip, "afi_safi": af,
+        af_row = {
+            "admin_status": admin_status, "vrf_name": vrf, "neighbor": ip, "afi_safi": af,
             "route_map_in": rin, "route_map_out": rout,
         }
+        # rrclient/nhopself are AF-level in frrcfgd (route-reflector-client / next-hop-self).
+        # Re-emit them onto the neighbor's AF row when enabled so a route-reflector client
+        # or next-hop-self neighbor is not silently dropped on the switch; the no-op
+        # ("0"/"false"/absent) case needs no line.
+        if value.get("rrclient") in ("1", "true"):
+            af_row["rrclient"] = "true"
+        if value.get("nhopself") in ("1", "true"):
+            af_row["nhself"] = "true"
+        neighbor_af["{}|{}|{}".format(vrf, ip, af)] = af_row
     return neighbors, neighbor_af
 
 

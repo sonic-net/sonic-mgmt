@@ -96,10 +96,11 @@ class FrrConfigModeMigrator(object):
             raise FrrTranslationError(
                 "{} not present; cannot persist unified routing mode across config "
                 "reload".format(GOLDEN_CFG_FILE))
-        self._backup()
-
-        # Persist the running DB to disk, then read it as the translation source.
+        # Persist the running DB to disk FIRST, then back it up, so the backup captures the
+        # true pre-switch running config (not a stale on-disk copy). The traditional-mode
+        # restore reinstates this backup, so it must reflect what was actually running.
         self.duthost.shell("sudo config save -y")
+        self._backup()
         config_db = self._read_json_file(CONFIG_DB_FILE)
         if config_db is None:
             raise FrrTranslationError("Could not read {}".format(CONFIG_DB_FILE))
