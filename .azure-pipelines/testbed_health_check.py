@@ -476,6 +476,10 @@ class TestbedHealthChecker:
             logger.info("======================= skip check_bgp_session_state for snappi =======================")
             return
 
+        if self.is_bmc_testbed:
+            logger.info("======================= skip check_bgp_session_state for bmc =======================")
+            return
+
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
                 if v['state'] != expected_state:
@@ -565,6 +569,10 @@ class TestbedHealthChecker:
         """
         if self.is_snappi_testbed:
             logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
+
+        if self.is_bmc_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for bmc ===================")
             return
 
         failed = False
