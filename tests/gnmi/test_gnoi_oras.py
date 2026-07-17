@@ -134,10 +134,10 @@ def _find_gnmi_container(duthost):
     # NF-based awk instead of --format '{{.Names}}': double braces would be
     # eaten by Ansible's Jinja2 templating of module args.
     names = duthost.shell("docker ps | awk 'NR>1 {print $NF}'")["stdout_lines"]
-    for candidate in ("gnmi", "telemetry"):
-        if candidate in names:
-            return candidate
-    pytest.skip("No gnmi/telemetry container running on DUT")
+    container = next((c for c in ("gnmi", "telemetry") if c in names), None)
+    if container is None:
+        pytest.skip("No gnmi/telemetry container running on DUT")
+    return container
 
 
 # ---------------------------------------------------------------------------

@@ -77,8 +77,14 @@ class OrasRegistryHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def _read_file(self, subdir, name):
-        # basename() blocks path traversal via crafted tag/digest names
-        fpath = os.path.join(self.server.data_dir, subdir, os.path.basename(name))
+        # Strip any directory components from the crafted tag/digest name, then
+        # resolve the final path and confirm it is still contained within the
+        # intended sub-directory. This defends against path traversal even if
+        # basename() leaves anything unexpected behind (e.g. symlinks).
+        base_dir = os.path.realpath(os.path.join(self.server.data_dir, subdir))
+        fpath = os.path.realpath(os.path.join(base_dir, os.path.basename(name)))
+        if os.path.commonpath([base_dir, fpath]) != base_dir:
+            return None
         if not os.path.isfile(fpath):
             return None
         with open(fpath, "rb") as f:
@@ -100,6 +106,8 @@ def main():
     server.auth_header = "Basic " + base64.b64encode(creds).decode()
 
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    # Disallow the deprecated TLSv1 / TLSv1.1 protocol versions
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(
         os.path.join(args.dir, "server.crt"),
         os.path.join(args.dir, "server.key"))
