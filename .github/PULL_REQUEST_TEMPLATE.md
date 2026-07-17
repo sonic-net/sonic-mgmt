@@ -40,6 +40,10 @@ work item above. The linked tracker should explain the failure in detail,
 including whether it is a day-one issue or a regression, the affected
 branch/image/platform/test, and why this branch needs the fix. Backport or
 cherry-pick requests without a linked issue/work item may not be favored.
+
+If you request a backport/cherry-pick, provide both:
+1. A GitHub issue or Microsoft ADO work item tracking the change.
+2. Test evidence from the target branch(es) requested below.
 -->
 - [ ] 202311
 - [ ] 202405
@@ -49,7 +53,7 @@ cherry-pick requests without a linked issue/work item may not be favored.
 - [ ] 202512
 - [ ] 202605
 
-Tracking issue/work item for backport/cherry-pick request:
+Tracking issue/work item for backport/cherry-pick request (GitHub issue or Microsoft ADO):
 Failure type: <!-- day-one issue / regression / other -->
 
 ### Approach
@@ -58,6 +62,10 @@ Failure type: <!-- day-one issue / regression / other -->
 #### How did you do it?
 
 #### How did you verify/test it?
+<!--
+If you request a backport/cherry-pick, include test evidence from the target
+branch(es), not only from master.
+-->
 
 #### Any platform specific information?
 
