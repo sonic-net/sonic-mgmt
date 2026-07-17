@@ -36,10 +36,6 @@ from tests.transceiver.common import db_helpers
 
 logger = logging.getLogger(__name__)
 
-# Same enumeration ``health_checks.py`` uses, so the recovery core check and the
-# autouse per-test health fixture agree on what counts as a core file.
-_FIND_CORE_FILES_CMD = "find /var/core/ -maxdepth 1 -type f -printf '%f\\n'"
-
 # Minimum continuous uptime (seconds) the health check requires of every
 # critical service (pmon, swss, syncd containers and the xcvrd process).
 # Per system_test_plan.md "Docker and Process Health Check": services must be
@@ -49,37 +45,15 @@ _FIND_CORE_FILES_CMD = "find /var/core/ -maxdepth 1 -type f -printf '%f\\n'"
 MIN_CRITICAL_SERVICE_UPTIME_SEC = 180
 
 
-def list_core_files(duthost):
-    """Return the set of core-file basenames currently in ``/var/core/``.
-
-    Callers capture this BEFORE a disruptive action and pass it to
-    :func:`standard_port_recovery_and_verification` via
-    ``shared_state['core_baseline']`` so the recovery health check flags only
-    cores created during the test, not pre-existing/stale ones (e.g. old
-    ``zebra``/``orchagent`` cores left in ``/var/core`` from earlier crashes).
-
-    Returns an empty set on command failure so a probe error never masquerades
-    as "no cores"; the caller's later diff simply has nothing to subtract.
-    """
-    result = duthost.shell(_FIND_CORE_FILES_CMD, module_ignore_errors=True)
-    if result.get("rc", 1) != 0:
-        logger.warning(
-            "Failed to list /var/core/ (rc=%s): %s",
-            result.get("rc"), (result.get("stderr") or "").strip(),
-        )
-        return set()
-    stdout = result.get("stdout", "")
-    return set(stdout.splitlines()) if stdout.strip() else set()
-
-
 def resolve_namespace(duthost, port):
-    """Return the ASIC network namespace owning ``port`` (``""`` on single-ASIC).
+    """Return the ASIC network namespace owning ``port`` (``None`` on single-ASIC).
 
     Mirrors the resolution used by the EEPROM / link-behavior tests
     (``get_namespace_from_asic_id`` of the port's ASIC instance). Multi-ASIC DBs
     (STATE_DB / APPL_DB, including LLDP) are per-namespace, so every per-port DB
     read in this module scopes to the owning ASIC; on a single-ASIC DUT this is
-    ``""`` and ``db_helpers.hgetall_dict`` emits no ``-n`` flag.
+    ``None`` (``DEFAULT_NAMESPACE``) and ``db_helpers.hgetall_dict`` emits no
+    ``-n`` flag.
     """
     return duthost.get_namespace_from_asic_id(
         duthost.get_port_asic_instance(port).asic_index
@@ -125,55 +99,6 @@ def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
     return {"passed": False, "observed": observed, "details": details}
 
 
-def wait_for_ports_oper_state(duthost, ports, expected_state, timeout_sec):
-    """Poll ``show interface description`` ONCE per cycle until every port in
-    ``ports`` reaches ``expected_state`` (or ``timeout_sec`` elapses).
-
-    Unlike calling :func:`wait_for_port_oper_state` per port, this issues a
-    single ``show interface description`` per poll (via
-    ``get_dut_interfaces_status``) and checks the whole batch against that one
-    snapshot — so verifying N ports costs one command per cycle, not N. Ports
-    drop out of the poll as soon as they reach ``expected_state``; the loop ends
-    when all are satisfied or the deadline passes.
-
-    Args:
-        duthost: SONiC DUT host fixture.
-        ports: iterable of logical interface names to check together.
-        expected_state: ``"up"`` or ``"down"`` (case-insensitive).
-        timeout_sec: maximum seconds to wait for the whole batch.
-
-    Returns:
-        dict: ``{port: {'passed': bool, 'observed': str, 'details': str}}``
-    """
-    ports = list(ports)
-    expected = (expected_state or "").strip().lower()
-    deadline = time.monotonic() + max(0, int(timeout_sec))
-    observed = {port: "missing" for port in ports}
-    pending = set(ports)
-    while True:
-        intf_status = get_dut_interfaces_status(duthost)  # one `show interface description`
-        for port in list(pending):
-            state = (intf_status.get(port, {}) or {}).get("oper", "missing")
-            observed[port] = state
-            if state and state.strip().lower() == expected:
-                pending.discard(port)
-        if not pending or time.monotonic() >= deadline:
-            break
-        time.sleep(_OPER_POLL_INTERVAL_SEC)
-
-    results = {}
-    for port in ports:
-        passed = bool(observed[port]) and observed[port].strip().lower() == expected
-        if passed:
-            details = f"{port}: oper={observed[port]} (expected {expected}) within {timeout_sec}s"
-            logger.info("Oper-state wait PASSED: %s", details)
-        else:
-            details = f"{port}: oper={observed[port]} (expected {expected}) after {timeout_sec}s timeout"
-            logger.warning("Oper-state wait FAILED: %s", details)
-        results[port] = {"passed": passed, "observed": observed[port], "details": details}
-    return results
-
-
 # ──────────────────────────────────────────────────────────────────────
 # LLDP neighbor poll
 # ──────────────────────────────────────────────────────────────────────
@@ -191,7 +116,7 @@ def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
     ``namespace`` scopes the query to the port's ASIC on a multi-ASIC DUT, where
     LLDP tables are per-namespace; when ``None`` it is resolved from ``port`` so
     callers that don't track namespaces (e.g. the post-session check) still query
-    the right ASIC. On a single-ASIC DUT it is ``""`` and no ``-n`` flag is
+    the right ASIC. On a single-ASIC DUT it is ``None`` and no ``-n`` flag is
     emitted.
 
     Returns:
@@ -264,13 +189,20 @@ def _get_transceiver_status(duthost, parent_port, shared_state, namespace=None):
 
 
 def check_cmis_state(duthost, port, shared_state, namespace=None):
-    """Verify CMIS DataPathState=DPActivated and ConfigState=ConfigSuccess.
+    """Verify CMIS DataPathState=DataPathActivated and ConfigState=ConfigSuccess.
+
+    ("DataPathActivated" is the literal STATE_DB string, per
+    ``docs/testplan/transceiver/test_plan.md``; the CMIS spec's own nibble name
+    for the same state, used at the EEPROM layer in ``cmis_helper.py``, is
+    "DPActivated".)
 
     Reads the parent port's ``TRANSCEIVER_STATUS`` once (cached via
     ``shared_state``) and validates every ``host_lane*_datapath_state``
     and ``host_lane*_config_state`` field actually present in the hash, so
     the check adapts to however many host lanes the port's breakout mode
-    exposes instead of assuming a fixed lane count.
+    exposes instead of assuming a fixed lane count. If NEITHER field is present
+    at all (schema mismatch or a partial STATE_DB publish), the check fails
+    rather than vacuously passing.
 
     ``namespace`` scopes the STATE_DB read to the owning ASIC; when ``None`` it is
     resolved from ``port`` (a breakout parent shares its subports' ASIC).
@@ -287,13 +219,25 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 
     bad_datapath = []
     bad_config = []
+    datapath_fields_seen = 0
+    config_fields_seen = 0
     for k, v in status.items():
         if k.startswith("host_lane") and k.endswith("_datapath_state"):
+            datapath_fields_seen += 1
             if v != "DataPathActivated":
                 bad_datapath.append(f"{k}={v}")
         elif k.startswith("host_lane") and k.endswith("_config_state"):
+            config_fields_seen += 1
             if v != "ConfigSuccess":
                 bad_config.append(f"{k}={v}")
+
+    if datapath_fields_seen == 0 and config_fields_seen == 0:
+        details = (
+            f"{port} (parent {parent}) TRANSCEIVER_STATUS|{parent} has no "
+            "host_lane*_datapath_state or host_lane*_config_state fields - "
+            "cannot confirm CMIS state (schema mismatch or partial publish)"
+        )
+        return {"passed": False, "details": details}
 
     if bad_datapath or bad_config:
         problems = []
@@ -304,7 +248,7 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
         details = f"{port} (parent {parent}) CMIS state NOT activated - " + "; ".join(problems)
         return {"passed": False, "details": details}
 
-    return {"passed": True, "details": f"{port} (parent {parent}) CMIS DPActivated + ConfigSuccess"}
+    return {"passed": True, "details": f"{port} (parent {parent}) CMIS DataPathActivated + ConfigSuccess"}
 
 
 def standard_port_recovery_and_verification(
@@ -340,10 +284,10 @@ def standard_port_recovery_and_verification(
         shared_state: optional dict shared across calls in the same test so
             the logical->physical port map and per-parent
             ``TRANSCEIVER_STATUS`` queries happen at most once. May carry a
-            ``'core_baseline'`` set (from :func:`list_core_files`, captured
-            before the disruptive action) so the health check flags only cores
-            created during the test; when absent, every core in ``/var/core``
-            is treated as new.
+            ``'core_baseline'`` set (the ``/var/core`` basenames captured by the
+            caller before the disruptive action) so the health check flags only
+            cores created during the test; when absent, every core in
+            ``/var/core`` is treated as new.
         min_uptime_sec: minimum continuous uptime (seconds) required of the
             critical containers and the xcvrd process in the step-4 health
             check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC` (180,
@@ -359,7 +303,7 @@ def standard_port_recovery_and_verification(
 
     # Owning ASIC namespace, resolved once and reused for every per-namespace DB
     # read below (LLDP / TRANSCEIVER_STATUS).
-    # ``""`` on single-ASIC -> no ``-n`` flag.
+    # ``None`` on single-ASIC -> no ``-n`` flag.
     namespace = resolve_namespace(duthost, port)
 
     sys_attrs = port_attrs.get(SYSTEM_ATTRIBUTES_KEY, {})
