@@ -49,8 +49,9 @@ def get_iptable_rules(duthost, ip_netns_namespace_prefix):
 @pytest.fixture(scope="module", autouse=True)
 def restore_test_env(duthosts, rand_one_dut_front_end_hostname):
     duthost = duthosts[rand_one_dut_front_end_hostname]
+    golden_config_exists = duthost.stat(path="/etc/sonic/golden_config_db.json")["stat"]["exists"]
     config_reload(duthost, config_source="minigraph", safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True,
-                  override_config=True)
+                  override_config=golden_config_exists)
     yield
 
 
