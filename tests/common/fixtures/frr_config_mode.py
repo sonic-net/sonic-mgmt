@@ -56,12 +56,13 @@ FRRCFGD_UNSUPPORTED_OBJECTS = {
 
 
 def skip_if_frr_mgmt_framework(mode, reason):
-    """Skip the frr_mgmt_framework variant of a test that exercises a feature frrcfgd
-    does not (yet) implement (e.g. BGP_BBR).
+    """Skip the frr_mgmt_framework variant of a test that cannot run under frrcfgd -- e.g.
+    GCU add-cluster, whose patch paths assume the flat (non-VRF-keyed) BGP_NEIGHBOR schema.
 
-    The traditional (bgpcfgd) variant still runs, so coverage is preserved; the frr
-    variant is skipped with a reason (track the gap in Jira so frrcfgd can be
-    extended). Call this from a test or its setup fixture, passing the yielded
+    The traditional (bgpcfgd) variant still runs, so coverage is preserved. For genuine
+    frrcfgd capability gaps prefer gating the skip via the ``conditional_mark`` plugin on a
+    tracking issue (so it auto-lifts when the issue closes); use this helper for the simpler
+    in-test case. Call it from a test or its setup fixture, passing the yielded
     ``frr_config_mode`` value.
     """
     if mode == MODE_FRR_MGMT_FRAMEWORK:
