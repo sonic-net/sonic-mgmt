@@ -6,6 +6,9 @@ name: common2 Migration Dashboard
 # the machine-readable YAML/JSON are published as downloadable artifacts.
 
 on:
+  push:
+    branches:
+      - common-to-common2-migration-plan
   schedule:
     # 01:00 UTC every day.
     - cron: "0 1 * * *"
@@ -27,7 +30,7 @@ permissions:
 
 jobs:
   migration-dashboard:
-    if: github.repository_owner == 'sonic-net'
+    if: github.repository_owner == 'opcoder0'
     name: Generate common2 migration dashboard
     runs-on: ubuntu-latest
     steps:
