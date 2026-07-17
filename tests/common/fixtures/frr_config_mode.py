@@ -258,7 +258,7 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     Skips (with a clear reason, rather than running something wrong):
       * multi-ASIC DUT (per-ASIC switching not supported yet);
       * a mode that differs from the DUT's boot mode when that boot mode is not traditional
-        (we only translate traditional<->frr; a same-mode native run is allowed);
+        (we only translate traditional -> frr; a same-mode native run is allowed);
       * no golden_config_db.json when a switch is required (needed to persist the mode
         across config reload).
     """
@@ -292,7 +292,8 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
         mod._frr_baseline_neighbors = _bgp_established_neighbors(duthost)
         mod._frr_baseline_fingerprint = _frr_config_fingerprint(duthost)
 
-    # The translator only converts traditional<->frr, so a mode other than the DUT's
+    # The translator only converts traditional -> frr (the reverse is a config_db
+    # backup-restore, not a translation), so a mode other than the DUT's
     # original one is only reachable from a traditional start. A run that stays in the DUT's
     # original mode (e.g. --frr-config-mode=frr_mgmt_framework on a DUT that already boots in
     # frr_mgmt_framework) needs no switch and no translation, so allow it.

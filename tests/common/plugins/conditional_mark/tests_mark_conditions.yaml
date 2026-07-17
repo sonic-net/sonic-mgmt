@@ -428,7 +428,8 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
-bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath[frr_mgmt_framework:
+bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd route-map model has no 'on-match next' continue-flow (sonic-buildimage#28482)"
     conditions:
@@ -459,7 +460,8 @@ bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
     conditions:
       - "'-v6-' in topo_name"
 
-bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4[frr_mgmt_framework:
+bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd under-renders listen-range peer-group attributes (sonic-buildimage#28482)"
     conditions:
@@ -635,7 +637,8 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
-bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6[frr_mgmt_framework:
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd does not apply 'no bgp ebgp-requires-policy' (sonic-buildimage#28482)"
     conditions:
@@ -654,14 +657,16 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor[frr_mgmt_framework:
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/28482
 
 
-bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor[frr_mgmt_framework:
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
     conditions:
@@ -761,14 +766,16 @@ bgp/test_bgpmon.py::test_bgpmon:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
-bgp/test_bgpmon.py::test_bgpmon[frr_mgmt_framework:
+bgp/test_bgpmon.py::test_bgpmon\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/28482
 
 
-bgp/test_bgpmon.py::test_bgpmon_no_resolve_via_default[frr_mgmt_framework:
+bgp/test_bgpmon.py::test_bgpmon_no_resolve_via_default\[.*frr_mgmt_framework:
+  regex: true
   skip:
     reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
     conditions:

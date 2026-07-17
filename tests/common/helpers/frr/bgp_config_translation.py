@@ -284,11 +284,10 @@ def _extract_route_maps(running_config, tables):
         elif line.startswith("match community "):
             entry["match_community"] = line.split()[2]
         elif line.startswith("set community ") and line.endswith(" additive"):
-            # frrcfgd models 'additive' as the companion field set_community_additive,
-            # not as a member of the community value list (frrcfgd handler
-            # hdl_set_community_additive appends ' additive' only when that field is 'true').
-            entry["set_community_inline"] = line.split()[2:-1]
-            entry["set_community_additive"] = "true"
+            # Community upstream frrcfgd renders set_community_inline as a space-joined list
+            # and has no separate 'additive' companion field, so keep every community plus the
+            # trailing 'additive' token in the list (-> 'set community <c1> <c2> additive').
+            entry["set_community_inline"] = line.split()[2:]
         elif line == "set ipv6 next-hop prefer-global":
             entry["set_ipv6_next_hop_prefer_global"] = "true"
         elif line == "on-match next":
@@ -574,8 +573,7 @@ def _build_aggregate_addresses(config_db):
     """Translate the traditional ``BGP_AGGREGATE_ADDRESS`` table into frrcfgd's
     ``BGP_GLOBALS_AF_AGGREGATE_ADDR`` (registered frrcfgd.py; af_aggregate_key_map
     frrcfgd.py). The frr key is ``<vrf>|<afi_safi>|<ip_prefix>`` and the row
-    carries ``as_set`` / ``summary_only`` / ``origin`` (frrcfgd.py, formats at
-    frrcfgd.py-1063).
+    carries ``as_set`` / ``summary_only`` / ``origin`` (frrcfgd.py).
 
     bgpcfgd's ``as-set`` / ``summary-only`` / ``origin``
     (managers_aggregate_address.py) map straight across. Three bgpcfgd fields

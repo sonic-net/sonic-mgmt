@@ -451,14 +451,15 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
 #   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|30000   (no-community deployment entry)
 #           {route_operation: permit, match_prefix_set: PL_..._empty_V4}
 #   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|65535   (default rule)
-#           {route_operation: permit, set_community_inline: <drop_community|no-export>,
-#            set_community_additive: true}   -> "set community <c> additive"
+#           {route_operation: permit,
+#            set_community_inline: [<drop_community|no-export>, additive]}
+#              -> "set community <c> additive"
 #
 # route_operation/seq -> "route-map <NAME> permit <seq>" (frrcfgd.py);
 # match_prefix_set -> "match ip[v6] address prefix-list" with the af resolved from
-# the referenced PREFIX_SET (frrcfgd.py-3277); match_community ->
-# "match community" (2230); set_community_inline+set_community_additive ->
-# "set community <c> additive" (2245, hdl_set_community_additive 505-532).
+# the referenced PREFIX_SET (frrcfgd.py); match_community -> "match community"; and
+# set_community_inline (a space-joined list, so a trailing 'additive' element renders
+# as "set community <c> additive") (frrcfgd.py).
 #
 # The route-map is attached inbound by overwriting route_map_in on every
 # BGP_PEER_GROUP_AF that already has an inbound route-map (nbr_af_key_map
@@ -557,8 +558,7 @@ def _build_allow_list_frr_config(allow_list, drop_community):
             # Default rule (seq 65535): tag everything not explicitly allowed.
             drop = 'no-export' if default_action == 'deny' else drop_community
             add('ROUTE_MAP', '{}|65535'.format(rm_name),
-                {'route_operation': 'permit', 'set_community_inline': drop,
-                 'set_community_additive': 'true'})
+                {'route_operation': 'permit', 'set_community_inline': [drop, 'additive']})
 
     return tables, rm_by_af, created_keys
 

@@ -27,8 +27,8 @@ ITERATION_LEVEL_MAP = {
 logger = logging.getLogger(__name__)
 
 
-# These tests exercise zebra 'set src' route-maps (RM_SET_SRC/RM_SET_SRC6). frrcfgd's
-# route-map model has no 'set src' clause, so the feature cannot be programmed via
+# The frr_mgmt_framework variant is skipped via conditional_mark (see
+# tests_mark_conditions.yaml): frrcfgd's route-map model has no zebra 'set src' clause.
 def _get_frontend_bgp_docker_names(duthost):
     """Return bgp container names for frontend ASICs only."""
     if not duthost.is_multi_asic:

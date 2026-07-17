@@ -104,7 +104,6 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, frr_config_mod
             neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
 
     # Update bgp_neighbors with the new 'interface' key
-    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
     for ip, details in bgp_neighbors.items():
         logger.debug(ip)
         # In frr_mgmt_framework mode 'show ip interface' reports the neighbor ip as a

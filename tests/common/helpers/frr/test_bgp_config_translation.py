@@ -128,16 +128,18 @@ def test_route_map_name_preserved():
     assert out["BGP_NEIGHBOR_AF"]["default|10.0.0.1|ipv4_unicast"]["route_map_in"] == ["FROM_BGP_PEER_V4"]
 
 
-def test_set_community_additive_uses_companion_field():
+def test_set_community_additive_kept_in_inline_list():
     running = "\n".join([
         "route-map SET_COMM permit 10",
-        " set community 65100:100 additive",
+        " set community 65100:100 65100:200 additive",
     ])
     out = translate_config_db(_base_config_db(), running, _peer_group_json())
     rm = out["ROUTE_MAP"]["SET_COMM|10"]
-    # frrcfgd expects 'additive' as the companion field, not packed into the value list.
-    assert rm["set_community_inline"] == ["65100:100"]
-    assert rm["set_community_additive"] == "true"
+    # Community frrcfgd has no set_community_additive companion field; it space-joins the
+    # inline list, so every community plus the trailing 'additive' token must stay in the
+    # list (and all communities are kept, not just the first).
+    assert rm["set_community_inline"] == ["65100:100", "65100:200", "additive"]
+    assert "set_community_additive" not in rm
 
 
 def test_neighbor_admin_status_down_is_preserved():

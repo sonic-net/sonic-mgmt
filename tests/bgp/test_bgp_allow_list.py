@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 # route-map 'on-match next' (continue-flow), which frrcfgd's route-map model does not
 # yet represent -- so the allow-list behavior cannot be realized in frr_mgmt_framework
 # mode today. The mode-aware code is intentionally KEPT for when frrcfgd gains that
-# support; until then, skip the frr variant. Remove this fixture to re-enable it.
+# support; until then the frr variant is skipped via conditional_mark
+# (bgp/test_bgp_allow_list.py::.*[frr_mgmt_framework in tests_mark_conditions.yaml).
 DEPLOYMENT_ID = '0'
 ALLOW_LIST = {
     'BGP_ALLOWED_PREFIXES': {
