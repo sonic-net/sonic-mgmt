@@ -136,65 +136,6 @@ This table lists the transceiver flag tables in STATE_DB. All the relevant field
 | TRANSCEIVER_VDM_HWARN_FLAG* |
 | TRANSCEIVER_VDM_LWARN_FLAG* |
 
-
-## Physical OIR API
-
-The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources. This API is needed to abstract the physical OIR operations for all OIR methods (manual, pseudo and automated) and provide a consistent interface for the test cases to interact with the underlying OIR mechanisms, regardless of the specific hardware or platform being tested.
-
-A class named `PhysicalOir` is defined under `tests.common.physical_oir` module. If the class cannot be imported, the physical OIR tests are skipped. The class has following methods:
-
-1. **Constructor Method**
-   - Description: Initializes the PhysicalOir class.
-   - Parameters:
-        - `duthost` : AnsibleHost object of the dut.
-        - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
-        - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.  Following attributes are fetched from the `port_attributes_dict` object for further processing:
-            - `ports_under_test`: List of ports to be tested.
-            - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
-            - `oir_method`: The method used for OIR ("manual", "pseudo" or "automated").
-            - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
-
-2. **is_available**
-    - Description: Checks if the testbed supports physical OIR.
-    - Parameters: None
-    - Returns: Boolean indicating availability.
-
-3. **insert_sfps**
-    - Description: Inserts SFPs on the ports specified by the ports_under_test attribute.
-    - Parameters: None
-    - Returns: None when the operation is complete.
-
-4. **remove_sfps**
-    - Description: Removes SFPs from the ports specified by the ports_under_test attribute.
-    - Parameters: None
-    - Returns: None when the operation is complete.
-
-5. **cleanup**
-    - Description: Cleans up resources used by the PhysicalOir class.
-    - Parameters: None
-    - Returns: None
-
-The `PhysicalOir` class should look like below:
-
-```python
-# File tests/common/physical_oir.py
-class PhysicalOir:
-    def __init__(self, duthost, ansible_adhoc, port_attributes_dict):
-        # Initiate the class with required attributes
-
-    def is_available(self) -> bool:
-        # Check if physical OIR is supported in the testbed
-
-    def insert_sfps(self) -> None:
-        # Insert SFPs on the ports specified by the ports_under_test attribute
-
-    def remove_sfps(self) -> None:
-        # Remove SFPs from the ports specified by the ports_under_test attribute
-
-    def cleanup(self) -> None:
-        # Cleanup resources used by the PhysicalOir class
-```
-
 #### CLI commands
 
 Refer to [CLI commands](./test_plan.md#cli-commands) section for the CLI commands used in the above test cases.
