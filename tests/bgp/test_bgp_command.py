@@ -3,6 +3,7 @@ import logging
 import re
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import is_ipv6_only_topology
 
 
 pytestmark = [
@@ -13,67 +14,47 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+def bgp_container_name(duthost, asic_index):
+    """Return the BGP docker container name for the given frontend ASIC."""
+    if duthost.is_multi_asic:
+        return "bgp{}".format(asic_index)
+    return "bgp"
+
+
 # Function to parse the "Displayed X routes and Y total paths" line
 def parse_routes_and_paths(output):
     match = re.search(r"Displayed\s+(\d+)\s+routes\s+and\s+(\d+)\s+total paths", output)
     if match:
-        routes = int(match.group(1))
-        paths = int(match.group(2))
-        return routes, paths
+        return int(match.group(1)), int(match.group(2))
     return None
 
 
-@pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
-def test_bgp_network_command(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version, tbinfo
-):
-    """
-    @summary: This test case is to verify the output of "show ip bgp network" command
-    if it matches the output of "docker exec -i bgp vtysh -c show bgp ipv4 all" command
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    # Determine if we are on IPv6 only topology
-    ipv6_only_topo = (
-        "-v6-" in tbinfo["topo"]["name"]
-        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
-        else False
-    )
+def run_bgp_network_show(duthost, asic_index, ip_version):
+    """Run namespace-scoped 'show ip/ipv6 bgp network' on multi-ASIC DUTs."""
+    cmd = "show ip bgp network" if ip_version == "ipv4" else "show ipv6 bgp network"
+    if duthost.is_multi_asic:
+        return duthost.asic_instance(asic_index).command(cmd, new_format=True)
+    return duthost.shell(cmd)
 
-    if ip_version == "ipv4":
-        if ipv6_only_topo:
-            pytest.skip("Skipping IPv4 BGP network command test in IPv6 only topology")
-        bgp_network_cmd = "show ip bgp network"
-        bgp_docker_cmd = 'docker exec -i bgp vtysh -c "show bgp ipv4 all"'
-    elif ip_version == "ipv6":
-        bgp_network_cmd = "show ipv6 bgp network"
-        bgp_docker_cmd = 'docker exec -i bgp vtysh -c "show bgp ipv6 all"'
 
-    bgp_network_result = duthost.shell(bgp_network_cmd)
-    bgp_network_output = bgp_network_result["stdout"]
-    pytest_assert(
-        bgp_network_result["rc"] == 0,
-        "{} return value is not 0, output={}".format(
-            bgp_network_cmd, bgp_network_output
-        ),
+def run_bgp_vtysh_all(duthost, asic_index, ip_version):
+    vtysh_cmd = (
+        'vtysh -c "show bgp ipv4 all"'
+        if ip_version == "ipv4"
+        else 'vtysh -c "show bgp ipv6 all"'
     )
+    container = bgp_container_name(duthost, asic_index)
+    return duthost.shell("docker exec -i {} {}".format(container, vtysh_cmd))
+
+
+def verify_bgp_network_outputs(bgp_network_cmd, bgp_docker_cmd, bgp_network_output, bgp_docker_output):
     pytest_assert(
         "*=" in bgp_network_output or "*>" in bgp_network_output,
-        "Failed to run '{}' command, output={}".format(
-            bgp_network_cmd, bgp_network_output
-        ),
-    )
-
-    bgp_docker_result = duthost.shell(bgp_docker_cmd)
-    bgp_docker_output = bgp_docker_result["stdout"]
-    pytest_assert(
-        bgp_docker_result["rc"] == 0,
-        "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
+        "Failed to run '{}' command, output={}".format(bgp_network_cmd, bgp_network_output),
     )
     pytest_assert(
         "*=" in bgp_docker_output or "*>" in bgp_docker_output,
-        "Failed to run '{}' command, output={}".format(
-            bgp_docker_cmd, bgp_docker_output
-        ),
+        "Failed to run '{}' command, output={}".format(bgp_docker_cmd, bgp_docker_output),
     )
     # Remove the first two lines from the docker command output
     bgp_docker_output_lines = bgp_docker_output.splitlines()[2:]
@@ -88,29 +69,62 @@ def test_bgp_network_command(
     bgp_network_routes_and_paths = parse_routes_and_paths(bgp_network_output)
     bgp_docker_routes_and_paths = parse_routes_and_paths(bgp_docker_output)
     logger.info(
-        "Routes and paths from '{}': {}".format(
-            bgp_network_cmd, bgp_network_routes_and_paths
-        )
+        "Routes and paths from '{}': {}".format(bgp_network_cmd, bgp_network_routes_and_paths)
     )
     logger.info(
-        "Routes and paths from '{}': {}".format(
-            bgp_docker_cmd, bgp_docker_routes_and_paths
-        )
+        "Routes and paths from '{}': {}".format(bgp_docker_cmd, bgp_docker_routes_and_paths)
     )
 
-    if bgp_network_routes_and_paths is None or bgp_docker_routes_and_paths is None:
-        pytest_assert(
-            bgp_network_routes_and_paths is not None
-            and bgp_docker_routes_and_paths is not None,
-            "Failed to parse routes and paths from one of the outputs.",
-        )
-
+    pytest_assert(
+        bgp_network_routes_and_paths is not None and bgp_docker_routes_and_paths is not None,
+        "Failed to parse routes and paths from one of the outputs.",
+    )
     # Compare the routes and paths
     pytest_assert(
         bgp_network_routes_and_paths == bgp_docker_routes_and_paths,
         "Routes and total path value are mismatched: {} != {}".format(
             bgp_network_routes_and_paths, bgp_docker_routes_and_paths
         ),
+    )
+
+
+@pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
+def test_bgp_network_command(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
+    ip_version, tbinfo
+):
+    """
+    @summary: This test case is to verify the output of "show ip bgp network" command
+    if it matches the output of "docker exec -i bgp vtysh -c show bgp ipv4 all" command.
+    On multi-ASIC DUTs both sides target the same frontend ASIC (bgp{N} container).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_index = enum_rand_one_frontend_asic_index
+
+    if ip_version == "ipv4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 BGP network command test in IPv6 only topology")
+
+    bgp_network_cmd = "show ip bgp network" if ip_version == "ipv4" else "show ipv6 bgp network"
+    container = bgp_container_name(duthost, asic_index)
+    vtysh_subcmd = "show bgp ipv4 all" if ip_version == "ipv4" else "show bgp ipv6 all"
+    bgp_docker_cmd = 'docker exec -i {} vtysh -c "{}"'.format(container, vtysh_subcmd)
+
+    bgp_network_result = run_bgp_network_show(duthost, asic_index, ip_version)
+    bgp_network_output = bgp_network_result["stdout"]
+    pytest_assert(
+        bgp_network_result["rc"] == 0,
+        "{} return value is not 0, output={}".format(bgp_network_cmd, bgp_network_output),
+    )
+
+    bgp_docker_result = run_bgp_vtysh_all(duthost, asic_index, ip_version)
+    bgp_docker_output = bgp_docker_result["stdout"]
+    pytest_assert(
+        bgp_docker_result["rc"] == 0,
+        "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
+    )
+
+    verify_bgp_network_outputs(
+        bgp_network_cmd, bgp_docker_cmd, bgp_network_output, bgp_docker_output
     )
 
 
@@ -124,19 +138,10 @@ def test_bgp_commands_with_like_bgp_container(
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    # Determine if we are on IPv6 only topology
-    ipv6_only_topo = (
-        "-v6-" in tbinfo["topo"]["name"]
-        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
-        else False
-    )
+    if ip_version == "ipv4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 BGP commands test in IPv6 only topology")
 
-    if ip_version == "ipv4":
-        if ipv6_only_topo:
-            pytest.skip("Skipping IPv4 BGP commands test in IPv6 only topology")
-        bgp_summary_cmd = "show ip bgp summary"
-    else:
-        bgp_summary_cmd = "show ipv6 bgp summary"
+    bgp_summary_cmd = "show ip bgp summary" if ip_version == "ipv4" else "show ipv6 bgp summary"
 
     # Create like-bgp container with "bgp" in name
     like_bgp_container_name = "database-like-bgp"
