@@ -241,12 +241,11 @@ class DHCPTest(DataplaneBaseTest):
             #  Byte 0: Suboption number, always set to 151
             #  Byte 1: Length of the Type field and VRF name
             #  Byte 2: Type 0, indicating an ASCII VPN identifier
-            #  Bytes 3+: UTF-8 encoded VRF name
+            #  Bytes 3+: ASCII-encoded VRF name
             if self.server_vrf:
-                vrf_data = self.client_vrf
-                vrf_bytes = '\x00' + vrf_data
+                vrf_bytes = b'\x00' + self.client_vrf.encode('ascii')
                 self.option82 += struct.pack('BB', self.VRF_NAME_SUBOPTION, len(vrf_bytes))
-                self.option82 += vrf_bytes.encode('utf-8')
+                self.option82 += vrf_bytes
                 # A VSS-aware server echoes 151 but removes VSS-Control from its reply.
                 self.server_response_option82 = self.option82
                 # VSS-Control has no payload and asks the server to acknowledge VSS processing.
