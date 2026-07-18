@@ -127,6 +127,7 @@ class DHCPTest(DataplaneBaseTest):
     LINK_SELECTION_SUBOPTION = 5
     SERVER_ID_OVERRIDE_SUBOPTION = 11
     VRF_NAME_SUBOPTION = 151
+    VSS_CONTROL_SUBOPTION = 152
     MAX_HOP_COUNT = 16
 
     def __init__(self):
@@ -197,6 +198,7 @@ class DHCPTest(DataplaneBaseTest):
         circuit_id_string = self.hostname + ":" + self.client_iface_alias
         if self.relay_agent == "sonic-relay-agent":
             circuit_id_string = circuit_id_string + ":" + self.vlan_iface_name
+        self.server_response_option82 = None
         self.option82 = struct.pack('BB', self.CIRCUIT_ID_SUBOPTION, len(circuit_id_string))
         self.option82 += circuit_id_string.encode('utf-8')
 
@@ -237,13 +239,18 @@ class DHCPTest(DataplaneBaseTest):
             # It conveys the client VRF name to the DHCP server.
             # Structure:
             #  Byte 0: Suboption number, always set to 151
-            #  Byte 1: Length of VRF name + 1 (to pad with a null byte)
-            #  Bytes 2+: Null byte followed by the UTF-8 encoded VRF name
+            #  Byte 1: Length of the Type field and VRF name
+            #  Byte 2: Type 0, indicating an ASCII VPN identifier
+            #  Bytes 3+: UTF-8 encoded VRF name
             if self.server_vrf:
                 vrf_data = self.client_vrf
                 vrf_bytes = '\x00' + vrf_data
                 self.option82 += struct.pack('BB', self.VRF_NAME_SUBOPTION, len(vrf_bytes))
                 self.option82 += vrf_bytes.encode('utf-8')
+                # A VSS-aware server echoes 151 but removes VSS-Control from its reply.
+                self.server_response_option82 = self.option82
+                # VSS-Control has no payload and asks the server to acknowledge VSS processing.
+                self.option82 += struct.pack('BB', self.VSS_CONTROL_SUBOPTION, 0)
 
         # In 'dual' testing mode, vlan ip is stored as suboption 5 of option 82.
         # It consists of the following:
@@ -258,6 +265,9 @@ class DHCPTest(DataplaneBaseTest):
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
             link_selection_added = True
+
+        if self.server_response_option82 is None:
+            self.server_response_option82 = self.option82
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -501,6 +511,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=False,
+                          relay_agent_option=None,
                           ):
         """
         Return a DHCPOFFER packet
@@ -516,6 +527,7 @@ class DHCPTest(DataplaneBaseTest):
         @param netmask_client Subnet mask of client
         @param dhcp_lease Time in seconds of DHCP lease
         @param padding_bytes Number of '\x00' bytes to append to end of packet
+        @param relay_agent_option Option 82 bytes returned by the simulated server
         Destination IP can be unicast or broadcast (255.255.255.255)
         Source port is always 67 (DHCP server port)
         Destination port by default is 68 (DHCP client port),
@@ -546,13 +558,16 @@ class DHCPTest(DataplaneBaseTest):
         # The length of option82 is 41 bytes, and dhcp relay will strip option82,
         # when the length of next option is bigger than 42 bytes,
         # it could introduce the overwritten issue.
+        if relay_agent_option is None:
+            relay_agent_option = self.server_response_option82
+
         pkt /= scapy.DHCP(
             options=[
                 ("message-type", "offer"),
                 ("server_id", siaddr),
                 ("lease_time", int(dhcp_lease)),
                 ("subnet_mask", netmask_client),
-                (82, self.option82),
+                (82, relay_agent_option),
                 ("vendor_class_id",
                  "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
                 ("end"),
@@ -562,7 +577,7 @@ class DHCPTest(DataplaneBaseTest):
             pkt /= scapy.PADDING("\x00" * padding_bytes)
         return pkt
 
-    def create_dhcp_offer_packet(self):
+    def create_dhcp_offer_packet(self, relay_agent_option=None):
         if (self.link_selection and self.source_interface) or self.dual_tor:
             ip_dst = self.switch_loopback_ip
             ip_gateway = self.switch_loopback_ip
@@ -582,7 +597,8 @@ class DHCPTest(DataplaneBaseTest):
             netmask_client=self.client_subnet,
             dhcp_lease=self.LEASE_TIME,
             padding_bytes=0,
-            set_broadcast_bit=True)
+            set_broadcast_bit=True,
+            relay_agent_option=relay_agent_option)
 
     def create_dhcp_offer_relayed_packet(self):
         my_chaddr = binascii.unhexlify(self.client_mac.replace(':', ''))
@@ -820,7 +836,7 @@ class DHCPTest(DataplaneBaseTest):
         if (self.link_selection and self.source_interface):
             dhcp_ack_packet[scapy.DHCP].options.insert(
                 dhcp_ack_packet[scapy.DHCP].options.index("end"),
-                (82, self.option82)
+                (82, self.server_response_option82)
             )
 
         return dhcp_ack_packet
@@ -937,6 +953,22 @@ class DHCPTest(DataplaneBaseTest):
         logger.info("Server send offer packet via interface: {}".format(self.server_port_indices[0]))
         log_dhcp_packet_info(dhcp_offer)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
+
+    def server_send_unprocessed_vss_offer(self):
+        dhcp_offer = self.create_dhcp_offer_packet(relay_agent_option=self.option82)
+        logger.info("VSS-unaware server sends offer retaining VSS-Control")
+        log_dhcp_packet_info(dhcp_offer)
+        testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
+
+    def verify_unprocessed_vss_offer_dropped(self):
+        dhcp_offer = self.create_dhcp_offer_relayed_packet()
+        masked_offer = Mask(dhcp_offer)
+        self.set_common_ignored_mask_fields(masked_offer)
+        captured_count = testutils.count_matched_packets_all_ports(
+            self, masked_offer, [self.client_port_index], timeout=3)
+        self.assertEqual(
+            captured_count, 0,
+            "VSS-unaware server offer was forwarded to the client")
 
     # Verify that the DHCPOFFER would be received by our simulated client
     def verify_offer_received(self):
@@ -1099,7 +1131,7 @@ class DHCPTest(DataplaneBaseTest):
         if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
             dhcp_unknown[scapy.DHCP].options.insert(
                     dhcp_unknown[scapy.DHCP].options.index("end"),
-                    (82, self.option82)
+                    (82, self.server_response_option82)
             )
         log_dhcp_packet_info(dhcp_unknown)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_unknown)
@@ -1143,7 +1175,7 @@ class DHCPTest(DataplaneBaseTest):
         if self.relay_agent == "sonic-relay-agent" and (self.link_selection and self.source_interface):
             packet[scapy.DHCP].options.insert(
                     packet[scapy.DHCP].options.index("end"),
-                    (82, self.option82)
+                    (82, self.server_response_option82)
             )
         log_dhcp_packet_info(packet)
         testutils.send_packet(self, self.server_port_indices[0], packet)
@@ -1262,6 +1294,10 @@ class DHCPTest(DataplaneBaseTest):
             self.client_send_discover(
                 self.dest_mac_address, self.client_udp_src_port)
             self.verify_relayed_discover()
+            if self.relay_agent == "sonic-relay-agent" and self.server_vrf:
+                self.dataplane.flush()
+                self.server_send_unprocessed_vss_offer()
+                self.verify_unprocessed_vss_offer_dropped()
             self.server_send_offer()
             self.verify_offer_received()
             self.client_send_request(
