@@ -146,6 +146,12 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl_dscp_rewrite.py:
+  skip:
+    reason: "Egress ACL DSCP rewrite tests only supported on Cisco 8101/8102 platforms"
+    conditions:
+      - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
+
 #######################################
 #####          acstests              #####
 #######################################
