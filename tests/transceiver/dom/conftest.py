@@ -4,11 +4,14 @@ from datetime import datetime, timezone
 
 import pytest
 
+from tests.common.platform.interface_utils import get_dut_interfaces_status
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common.db_helpers import hgetall_dict
+from tests.transceiver.common.health_checks import run_post_check, run_pre_check
+from tests.transceiver.conftest import health_check_events
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +26,8 @@ LANE_NUM_PLACEHOLDER = "LANE_NUM"
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
+DOM_FLAP_COUNTER_FIELDS = ("flap_count", "flaps", "link_flap_count")
+DOM_STABILITY_FIELDS = ("last_change", "last changed", "last_change_time")
 
 _FLOAT_PATTERN = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
 _PORT_SUFFIX_PATTERN = re.compile(r"^(.*?)(\d+)$")
@@ -181,6 +186,145 @@ def _build_dom_polling_failures(duthost, port_attributes_dict):
     return failures
 
 
+def _read_dom_interface_status(duthost, dom_ports):
+    """Read current interface status for DOM ports."""
+    try:
+        status_by_port = duthost.get_interfaces_status()
+    except Exception as exc:
+        logger.debug("Failed to read 'show interfaces status': %s", exc)
+        status_by_port = {}
+
+    if not status_by_port:
+        try:
+            status_by_port = get_dut_interfaces_status(duthost)
+        except Exception as exc:
+            logger.warning("Failed to read interface status: %s", exc)
+            status_by_port = {}
+
+    return {
+        port: status_by_port.get(port, {})
+        for port in dom_ports
+    }
+
+
+def _build_dom_link_liveness_checks(status_by_port, phase):
+    """Build checks that DOM ports are admin-up and oper-up."""
+    checks = []
+    for port, status in status_by_port.items():
+        admin = status.get("admin", status.get("admin_state", status.get("admin_status", "missing")))
+        oper = status.get("oper", status.get("oper_state", status.get("oper_status", "missing")))
+        passed = str(admin).lower() == "up" and str(oper).lower() == "up"
+        checks.append((
+            "dom_link_liveness_{}_{}".format(phase, port),
+            passed,
+            "{} {} interface status admin={} oper={}".format(phase, port, admin, oper),
+        ))
+    return checks
+
+
+def _extract_dom_stability_marker(status):
+    """Extract a comparable flap counter or last-change marker from status."""
+    for field in DOM_FLAP_COUNTER_FIELDS:
+        if field not in status:
+            continue
+        numeric = parse_numeric(status.get(field))
+        if numeric is not None:
+            return ("counter", field, numeric)
+
+    for field in DOM_STABILITY_FIELDS:
+        if field in status:
+            return ("stable", field, str(status.get(field)))
+
+    return None
+
+
+def _build_dom_link_stability_checks(baseline_status_by_port, post_status_by_port):
+    """Build checks that link stability markers did not change during a test."""
+    checks = []
+    for port, baseline_status in baseline_status_by_port.items():
+        baseline_marker = _extract_dom_stability_marker(baseline_status)
+        post_marker = _extract_dom_stability_marker(post_status_by_port.get(port, {}))
+        if baseline_marker is None or post_marker is None:
+            continue
+
+        baseline_kind, baseline_field, baseline_value = baseline_marker
+        post_kind, post_field, post_value = post_marker
+        if baseline_kind != post_kind or baseline_field != post_field:
+            continue
+
+        passed = post_value == baseline_value
+        detail = "{} {} baseline={!r} post={!r}".format(
+            port,
+            baseline_field,
+            baseline_value,
+            post_value,
+        )
+        checks.append(("dom_link_stability_{}".format(port), passed, detail))
+
+    return checks
+
+
+def _read_dom_sensor_snapshots(dom_ports, dom_db_reader):
+    """Read current DOM sensor STATE_DB hashes for all DOM ports."""
+    read_sensor = dom_db_reader["sensor"]
+    return {
+        port: read_sensor(port)
+        for port in dom_ports
+    }
+
+
+def _build_dom_freshness_checks(snapshot_by_port, dom_port_context, parse_dom_update_time, now_utc):
+    """Build freshness check tuples for configured DOM ports."""
+    checks = []
+    for port, context in dom_port_context.items():
+        dom_attrs = context["dom"]
+        max_age_min = dom_attrs.get("data_max_age_min")
+        if max_age_min is None:
+            continue
+
+        sensor_data = snapshot_by_port.get(port, {})
+        check_name = "dom_data_freshness_{}".format(port)
+        if not sensor_data:
+            checks.append((
+                check_name,
+                False,
+                "{} missing TRANSCEIVER_DOM_SENSOR data".format(port),
+            ))
+            continue
+
+        parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
+        if parsed_time is None:
+            checks.append((
+                check_name,
+                False,
+                "{} last_update_time missing or unparsable".format(port),
+            ))
+            continue
+
+        try:
+            max_age = float(max_age_min)
+        except (TypeError, ValueError):
+            checks.append((
+                check_name,
+                False,
+                "{} invalid data_max_age_min={!r}".format(port, max_age_min),
+            ))
+            continue
+
+        age_minutes = (now_utc - parsed_time).total_seconds() / 60.0
+        checks.append((
+            check_name,
+            age_minutes <= max_age,
+            "{} last_update_time age_min={:.2f}, limit={}".format(
+                port,
+                age_minutes,
+                max_age_min,
+            ),
+        ))
+
+    return checks
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _dom_session_prerequisites(
     duthost,
@@ -277,14 +421,71 @@ def dom_db_reader(duthost):
     }
 
 
-@pytest.fixture
-def dom_sensor_by_port(dom_ports, dom_db_reader):
-    """Read current TRANSCEIVER_DOM_SENSOR data for every DOM port."""
-    read_sensor = dom_db_reader["sensor"]
-    return {
-        port: read_sensor(port)
-        for port in dom_ports
+@pytest.fixture(autouse=True)
+def dom_per_test_snapshots(
+    request,
+    duthost,
+    dom_ports,
+    dom_port_context,
+    dom_db_reader,
+    parse_dom_update_time,
+    dom_now_utc,
+):
+    """Capture DOM snapshots and run DOM-specific per-test checks."""
+    snapshots = {
+        "baseline": {
+            "captured_at": dom_now_utc(),
+            "sensor_by_port": {},
+            "interface_by_port": {},
+        },
+        "post": {
+            "captured_at": None,
+            "sensor_by_port": {},
+            "interface_by_port": {},
+        },
     }
+
+    snapshots["baseline"]["interface_by_port"] = _read_dom_interface_status(duthost, dom_ports)
+    snapshots["baseline"]["sensor_by_port"] = _read_dom_sensor_snapshots(dom_ports, dom_db_reader)
+    pre_checks = _build_dom_link_liveness_checks(
+        snapshots["baseline"]["interface_by_port"],
+        "pre-test",
+    )
+    pre_checks += _build_dom_freshness_checks(
+        snapshots["baseline"]["sensor_by_port"],
+        dom_port_context,
+        parse_dom_update_time,
+        snapshots["baseline"]["captured_at"],
+    )
+    run_pre_check(request, pre_checks, health_check_events)
+
+    yield snapshots
+
+    snapshots["post"]["captured_at"] = dom_now_utc()
+    snapshots["post"]["interface_by_port"] = _read_dom_interface_status(duthost, dom_ports)
+    snapshots["post"]["sensor_by_port"] = _read_dom_sensor_snapshots(dom_ports, dom_db_reader)
+    post_checks = _build_dom_link_liveness_checks(
+        snapshots["post"]["interface_by_port"],
+        "post-test",
+    )
+    post_checks += _build_dom_link_stability_checks(
+        snapshots["baseline"]["interface_by_port"],
+        snapshots["post"]["interface_by_port"],
+    )
+    post_checks += _build_dom_freshness_checks(
+        snapshots["post"]["sensor_by_port"],
+        dom_port_context,
+        parse_dom_update_time,
+        snapshots["post"]["captured_at"],
+    )
+    run_post_check(request, post_checks, health_check_events)
+
+
+@pytest.fixture
+def dom_sensor_by_port(dom_per_test_snapshots):
+    """Return baseline TRANSCEIVER_DOM_SENSOR data captured for this test."""
+    return dom_per_test_snapshots["baseline"]["sensor_by_port"]
+
 
 
 @pytest.fixture(scope="module")
