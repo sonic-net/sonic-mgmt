@@ -364,7 +364,7 @@ def standard_port_recovery_and_verification(
         containers.append(asic.get_docker_name("syncd"))
     container_list = " ".join(containers)
     health_script = (
-        f"for c in {container_list}; do "
+        "for c in " + container_list + "; do "
         "  pid=$(docker inspect -f '{{.State.Pid}}' \"$c\" 2>/dev/null || echo 0); "
         "  if [ \"$pid\" -gt 0 ] 2>/dev/null; then "
         "    et=$(ps -o etimes= -p \"$pid\" 2>/dev/null | tr -d ' '); "
