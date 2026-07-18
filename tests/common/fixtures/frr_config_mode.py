@@ -284,6 +284,19 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     if not hasattr(mod, "_frr_original_config_mode"):
         mod._frr_original_config_mode = _current_mode(duthost)
 
+    # macsec: the mode-switch config reload disrupts macsec-protected PortChannel/BGP
+    # sessions, which re-negotiate slowly and flakily after a reload (so the switch-back's
+    # BGP-preservation check fails even though the test bodies pass). Mode switching is
+    # orthogonal to the BGP config schema, and the generic DUT-health checks already disable
+    # themselves under --enable_macsec, so run only the DUT's native mode here too.
+    if getattr(request.config.option, "enable_macsec", False):
+        if mode == mod._frr_original_config_mode:
+            yield mode
+            return
+        pytest.skip("FRR config-mode switching is skipped with --enable_macsec (the reload "
+                    "disrupts macsec sessions); only the DUT's native '{}' mode is exercised"
+                    .format(mod._frr_original_config_mode))
+
     # Some DUTs cannot have their BGP config-mode switched:
     #   * multi-asic DUTs use per-namespace BGP config the translator does not handle yet;
     #   * supervisor/chassis-control nodes run no bgp container at all (a mode switch there
