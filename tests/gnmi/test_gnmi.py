@@ -1,7 +1,7 @@
 import pytest
 import logging
 
-from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
+from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
 from tests.common.utilities import wait_until
@@ -42,85 +42,78 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, gnmi_tls):
         ).format([m.get("name") for m in result.get("supported_models", [])])
 
 
-def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost,
-                                        setup_gnmi_server, setup_gnmi_rotated_server,
-                                        check_dut_timestamp):
+def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, gnmi_tls):
     '''
     Verify GNMI capabilities with different roles
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
-    with allure.step("Verify GNMI capabilities with noaccess role"):
-        role = "gnmi_noaccess"
-        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
-        assert ret != 0, (
-            "GNMI capabilities authenticate with noaccess role command unexpectedly succeeded "
-            "(zero return code) for a client with noaccess role.\n"
-            "- Error message: {}"
-        ).format(msg)
+    try:
+        with allure.step("Verify GNMI capabilities with noaccess role"):
+            add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", "gnmi_noaccess")
+            with pytest.raises((PygnmiClientCallError, PygnmiClientConnectionError)) as exc_info:
+                gnmi_tls.pygnmi_client.capabilities()
+            error = str(exc_info.value).lower()
+            assert "does not have access" in error or \
+                   "permission denied" in error or "unauthenticated" in error, (
+                "Expected an authorization error for noaccess role, but got: {}"
+            ).format(str(exc_info.value))
 
-        assert role in msg, (
-            "Expected role '{}' in GNMI capabilities authenticate with noaccess role response, but got: {}"
-        ).format(role, msg)
+        with allure.step("Verify GNMI capabilities with readonly role"):
+            add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", "gnmi_readonly")
+            result = gnmi_tls.pygnmi_client.capabilities()
+            assert "gnmi_version" in result, (
+                "'gnmi_version' key not found in capabilities response for readonly role.\n"
+                "- Actual keys: {}"
+            ).format(list(result.keys()))
+            assert any(enc == "json_ietf" for enc in result.get("supported_encodings", [])), (
+                "'json_ietf' not found in supported_encodings for readonly role.\n"
+                "- Actual encodings: {}"
+            ).format(result.get("supported_encodings", []))
+            assert any("sonic-db" in m.get("name", "") for m in result.get("supported_models", [])), (
+                "'sonic-db' not found in any supported_models name for readonly role.\n"
+                "- Actual models: {}"
+            ).format([m.get("name") for m in result.get("supported_models", [])])
 
-    with allure.step("Verify GNMI capabilities with readonly role"):
-        role = "gnmi_readonly"
-        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
-        assert ret == 0, (
-            "GNMI capabilities authenticate readonly command failed (non-zero return code).\n"
-            "- Error message: {}"
-        ).format(msg)
+        with allure.step("Verify GNMI capabilities with readwrite role"):
+            add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", "gnmi_readwrite")
+            result = gnmi_tls.pygnmi_client.capabilities()
+            assert "gnmi_version" in result, (
+                "'gnmi_version' key not found in capabilities response for readwrite role.\n"
+                "- Actual keys: {}"
+            ).format(list(result.keys()))
+            assert any(enc == "json_ietf" for enc in result.get("supported_encodings", [])), (
+                "'json_ietf' not found in supported_encodings for readwrite role.\n"
+                "- Actual encodings: {}"
+            ).format(result.get("supported_encodings", []))
+            assert any("sonic-db" in m.get("name", "") for m in result.get("supported_models", [])), (
+                "'sonic-db' not found in any supported_models name for readwrite role.\n"
+                "- Actual models: {}"
+            ).format([m.get("name") for m in result.get("supported_models", [])])
 
-        assert "sonic-db" in msg, (
-            "Expected 'sonic-db' in GNMI capabilities authenticate with readonly role response, but got: {}"
-        ).format(msg)
+        with allure.step("Verify GNMI capabilities with empty role"):
+            add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", "")
+            result = gnmi_tls.pygnmi_client.capabilities()
+            assert "gnmi_version" in result, (
+                "'gnmi_version' key not found in capabilities response for empty role.\n"
+                "- Actual keys: {}"
+            ).format(list(result.keys()))
+            assert any(enc == "json_ietf" for enc in result.get("supported_encodings", [])), (
+                "'json_ietf' not found in supported_encodings for empty role.\n"
+                "- Actual encodings: {}"
+            ).format(result.get("supported_encodings", []))
+            assert any("sonic-db" in m.get("name", "") for m in result.get("supported_models", [])), (
+                "'sonic-db' not found in any supported_models name for empty role.\n"
+                "- Actual models: {}"
+            ).format([m.get("name") for m in result.get("supported_models", [])])
 
-        assert "JSON_IETF" in msg, (
-            "Expected 'JSON_IETF' in GNMI capabilities authenticate with readonly role  response, but got: {}"
-        ).format(msg)
-
-    with allure.step("Verify GNMI capabilities with readwrite role"):
-        role = "gnmi_readwrite"
-        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
-        assert ret == 0, (
-            "GNMI capabilities authenticate readwrite role command failed (non-zero return code).\n"
-            "- Error message: {}"
-        ).format(msg)
-
-        assert "sonic-db" in msg, (
-            "Expected 'sonic-db' in GNMI capabilities with readwrite role response, but got: {}"
-        ).format(msg)
-
-        assert "JSON_IETF" in msg, (
-            "Expected 'JSON_IETF' in GNMI capabilities  with readwrite role response, but got: {}"
-        ).format(msg)
-
-    with allure.step("Verify GNMI capabilities with empty role"):
-        role = ""
-        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
-        assert ret == 0, (
-            "GNMI capabilities authenticate with empty role command failed (non-zero return code).\n"
-            "- Error message: {}"
-        ).format(msg)
-
-        assert "sonic-db" in msg, (
-            "Expected 'sonic-db' in GNMI capabilities with empty role response, but got: {}"
-        ).format(msg)
-
-        assert "JSON_IETF" in msg, (
-            "Expected 'JSON_IETF' in GNMI capabilities with empty role response, but got: {}"
-        ).format(msg)
-
-    # Restore default role
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+    finally:
+        # Restore default role so subsequent tests start from a known state
+        add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
 @pytest.fixture(scope="function")
-def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
+def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname, gnmi_tls):
     duthost = duthosts[rand_one_dut_hostname]
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     add_gnmi_client_common_name(duthost, "invalid.cname")
@@ -134,19 +127,12 @@ def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
     add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
 
 
-def gnmi_create_vnet(duthost, ptfhost, cert=None):
-    file_name = "vnet.txt"
-    text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
-    with open(file_name, 'w') as file:
-        file.write(text)
-    ptfhost.copy(src=file_name, dest='/root')
-    # Add DASH_VNET_TABLE
-    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
+def gnmi_create_vnet(duthost, pygnmi_client: PygnmiClient):
+    vnet_value = {"Vnet1": {"vni": "1000", "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2"}}
     msg = ""
     try:
-        gnmi_set(duthost, ptfhost, [], update_list, [], cert)
-    except Exception as e:
-        logger.info("Failed to set: " + str(e))
+        pygnmi_client.set(update=[("/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE", vnet_value)])
+    except (PygnmiClientCallError, PygnmiClientConnectionError) as e:
         msg = str(e)
 
     gnmi_log = dump_gnmi_log(duthost)
@@ -156,17 +142,14 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
 
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
-                                                  ptfhost,
                                                   setup_invalid_client_cert_cname,
-                                                  setup_gnmi_server,
-                                                  setup_gnmi_rotated_server,
-                                                  check_dut_timestamp):
+                                                  gnmi_tls):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost)
+    msg, gnmi_log = gnmi_create_vnet(duthost, gnmi_tls.pygnmi_client)
 
     assert "Unauthenticated" in msg, (
         "'Unauthenticated' error message not found in GNMI response. "
@@ -289,7 +272,18 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     gnmi_log = ""
     while retry > 0:
         retry -= 1
-        msg, gnmi_log = gnmi_create_vnet(duthost, ptfhost, "gnmiclient.revoked")
+        file_name = "vnet.txt"
+        text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
+        with open(file_name, 'w') as file:
+            file.write(text)
+        ptfhost.copy(src=file_name, dest='/root')
+        update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
+        msg = ""
+        try:
+            gnmi_set(duthost, ptfhost, [], update_list, [], "gnmiclient.revoked")
+        except Exception as e:
+            msg = str(e)
+        gnmi_log = dump_gnmi_log(duthost)
         # retry when download crl failed, ptf device network not stable
         if "desc = Peer certificate revoked" in gnmi_log:
             break
