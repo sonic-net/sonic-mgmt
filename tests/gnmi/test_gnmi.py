@@ -6,6 +6,8 @@ from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_c
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
+from tests.common.pygnmi_client import PygnmiClient, PygnmiClientCallError, PygnmiClientConnectionError  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -14,34 +16,35 @@ allure.logger = logger
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server")
 ]
 
 
-def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, gnmi_tls):
     '''
     Verify GNMI capabilities
     '''
-    duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost)
-    assert ret == 0, (
-        "GNMI capabilities command failed (non-zero return code).\n"
-        "- Error message: {}"
-    ).format(msg)
+    with allure.step("Verify GNMI capabilities response"):
+        result = gnmi_tls.pygnmi_client.capabilities()
+        assert "gnmi_version" in result, (
+            "'gnmi_version' key not found in GNMI capabilities response.\n"
+            "- Actual keys: {}"
+        ).format(list(result.keys()))
 
-    assert "sonic-db" in msg, (
-        "'sonic-db' not found in GNMI capabilities response message.\n"
-        "- Actual message: {}"
-    ).format(msg)
+        assert any(enc == "json_ietf" for enc in result.get("supported_encodings", [])), (
+            "'json_ietf' not found in GNMI capabilities supported_encodings.\n"
+            "- Actual encodings: {}"
+        ).format(result.get("supported_encodings", []))
 
-    assert "JSON_IETF" in msg, (
-        "'JSON_IETF' not found in GNMI capabilities response message.\n"
-        "- Actual message: {}"
-    ).format(msg)
+        assert any("sonic-db" in m.get("name", "") for m in result.get("supported_models", [])), (
+            "'sonic-db' not found in any supported_models name.\n"
+            "- Actual models: {}"
+        ).format([m.get("name") for m in result.get("supported_models", [])])
 
 
-def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost,
+                                        setup_gnmi_server, setup_gnmi_rotated_server,
+                                        check_dut_timestamp):
     '''
     Verify GNMI capabilities with different roles
     '''
@@ -154,7 +157,10 @@ def gnmi_create_vnet(duthost, ptfhost, cert=None):
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
                                                   ptfhost,
-                                                  setup_invalid_client_cert_cname):
+                                                  setup_invalid_client_cert_cname,
+                                                  setup_gnmi_server,
+                                                  setup_gnmi_rotated_server,
+                                                  check_dut_timestamp):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
@@ -215,7 +221,9 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
     ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
-def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
+def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost,
+                               setup_gnmi_server, setup_gnmi_rotated_server,
+                               check_dut_timestamp):
     '''
     Verify GNMI subscribe sample request
     '''
@@ -266,7 +274,10 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost):
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
                                                  rand_one_dut_hostname,
                                                  ptfhost,
-                                                 setup_crl_server_on_ptf):
+                                                 setup_crl_server_on_ptf,
+                                                 setup_gnmi_server,
+                                                 setup_gnmi_rotated_server,
+                                                 check_dut_timestamp):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
