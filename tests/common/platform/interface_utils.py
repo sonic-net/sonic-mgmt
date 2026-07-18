@@ -14,7 +14,6 @@ from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 import ast
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.utilities import wait_until
 
 
 def parse_intf_status(lines):
@@ -108,6 +107,10 @@ def wait_ports_oper_status(duthost, ports, status, wait_sec, poll_interval_sec=2
     as a failure (rather than raising) so a missing/renamed port aggregates like
     any other laggard.
     """
+    # Imported lazily to avoid a module-load import cycle
+    # (tests.common.utilities <-> tests.common.platform.interface_utils).
+    from tests.common.utilities import wait_until
+
     def _ports_not_at_status():
         snapshot = get_dut_interfaces_status(duthost)
         return [port for port in ports

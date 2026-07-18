@@ -97,11 +97,16 @@ def _iter_targets(port_attributes_dict, ports):
     """Yield ``(port, attrs)`` for each CMIS active-optical port under test.
 
     ``ports`` (if not None) restricts to that subset; non-CMIS / non-active-optical
-    ports are skipped (DataPath fields do not apply to them).
+    ports are skipped (DataPath fields do not apply to them). When ``ports`` is
+    given we iterate it directly (O(len(ports)) dict look-ups) rather than
+    scanning every port and doing a membership test, so polling stays cheap on
+    large fabrics.
     """
-    for port, attrs in port_attributes_dict.items():
-        if ports is not None and port not in ports:
-            continue
+    if ports is None:
+        candidates = port_attributes_dict.items()
+    else:
+        candidates = ((port, port_attributes_dict.get(port)) for port in ports)
+    for port, attrs in candidates:
         if not attrs or not is_cmis_active_optical(attrs.get(EEPROM_ATTRIBUTES_KEY, {})):
             continue
         yield port, attrs
