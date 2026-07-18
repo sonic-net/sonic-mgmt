@@ -97,9 +97,7 @@ def check_snappi_versions():
 _skip_required, _skip_reason = check_snappi_versions()
 
 # Import dualtor mock fixtures for proper orchagent mocking
-from tests.common.dualtor.dual_tor_mock import apply_mock_dual_tor_tables  # noqa: F401, E402
-from tests.common.dualtor.dual_tor_mock import apply_mock_dual_tor_kernel_configs  # noqa: F401, E402
-from tests.common.dualtor.dual_tor_mock import apply_active_state_to_orchagent  # noqa: F401, E402
+from tests.common.dualtor.dual_tor_mock import *  # noqa: F401, F403, E402
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs  # noqa: F401, E402
 
 # Import Snappi/IXIA fixtures and utilities
