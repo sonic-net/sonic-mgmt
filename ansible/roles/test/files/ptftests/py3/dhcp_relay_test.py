@@ -174,6 +174,9 @@ class DHCPTest(DataplaneBaseTest):
         self.portchannels_ip_list = self.test_params.get('portchannels_ip_list', None)
         self.agent_relay_mode = self.test_params.get('agent_relay_mode', None)
         self.max_hop_count = self.test_params.get('max_hop_count', None)
+        self.client_giaddr = self.test_params.get('client_giaddr', self.switch_loopback_ip)
+        self.include_client_option82 = self.test_params.get('include_client_option82', True)
+        self.expected_forward = self.test_params.get('expected_forward', None)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
         if self.relay_agent == "sonic-relay-agent":
@@ -300,11 +303,12 @@ class DHCPTest(DataplaneBaseTest):
             discover_packet[scapy.IP].src = self.client_ip
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
             discover_packet[scapy.BOOTP].hops = self.max_hop_count if self.max_hop_count == self.MAX_HOP_COUNT else 1
-            discover_packet[scapy.BOOTP].giaddr = self.switch_loopback_ip
-            discover_packet[scapy.DHCP].options.insert(
-                discover_packet[scapy.DHCP].options.index("end"),
-                (82, relay_option82)
-            )
+            discover_packet[scapy.BOOTP].giaddr = self.client_giaddr
+            if self.include_client_option82:
+                discover_packet[scapy.DHCP].options.insert(
+                    discover_packet[scapy.DHCP].options.index("end"),
+                    (82, relay_option82)
+                )
 
         return discover_packet
 
@@ -337,8 +341,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or
-           self.server_vrf or self.dual_tor or self.agent_relay_mode):
+        if self.agent_relay_mode and self.client_giaddr:
+            giaddr = self.client_giaddr
+        elif ((self.link_selection and self.source_interface) or
+              self.server_vrf or self.dual_tor):
             giaddr = self.switch_loopback_ip
         elif self.server_id_override or not self.dual_tor:
             giaddr = self.relay_iface_ip
@@ -349,7 +355,10 @@ class DHCPTest(DataplaneBaseTest):
                         dport=self.DHCP_SERVER_PORT, len=308)
 
         # Relay-side behavior based on agent_mode
-        if self.agent_relay_mode == "discard":
+        if not self.include_client_option82:
+            dhcp_options = [('message-type', 'discover'), ('end')]
+
+        elif self.agent_relay_mode == "discard":
             dhcp_options = [('message-type', 'discover'), (82, self.option82), ('end')]
 
         elif self.agent_relay_mode == "replace":
@@ -1203,11 +1212,33 @@ class DHCPTest(DataplaneBaseTest):
         logger.info("Expect receiving {} packets from port [{}]".format(packet_type, self.server_port_indices))
         log_dhcp_packet_info(pkt)
         num_expected_packets = self.num_dhcp_servers
-        if self.agent_relay_mode == "discard" or self.dhcpv4_disable_flag or self.max_hop_count == self.MAX_HOP_COUNT:
-            # Expected result: No packet sent
+        if self.expected_forward is None:
+            expected_forward = not (
+                self.agent_relay_mode == "discard"
+                or self.dhcpv4_disable_flag
+                or self.max_hop_count == self.MAX_HOP_COUNT
+            )
+        else:
+            expected_forward = self.expected_forward
+        if expected_forward:
+            packet_mask = mask
+        else:
             num_expected_packets = 0
+            unexpected_packet = (
+                scapy.Ether(src=self.uplink_mac)
+                / scapy.IP()
+                / scapy.UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
+            )
+            packet_mask = Mask(unexpected_packet)
+            packet_mask.set_do_not_care_scapy(scapy.Ether, "dst")
+            for field in ("version", "ihl", "tos", "len", "id", "flags",
+                          "frag", "ttl", "chksum", "src", "dst", "options"):
+                packet_mask.set_do_not_care_scapy(scapy.IP, field)
+            packet_mask.set_do_not_care_scapy(scapy.UDP, "chksum")
+            packet_mask.set_do_not_care_scapy(scapy.UDP, "len")
+            packet_mask.set_ignore_extra_bytes()
         captured_count = testutils.count_matched_packets_all_ports(
-            self, mask, self.server_port_indices)
+            self, packet_mask, self.server_port_indices)
         self.assertTrue(captured_count == num_expected_packets,
                         "Failed: %s packet counts are not equal %d != %d"
                         % (packet_type, captured_count, num_expected_packets))
