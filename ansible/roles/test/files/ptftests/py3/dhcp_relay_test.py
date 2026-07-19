@@ -174,6 +174,7 @@ class DHCPTest(DataplaneBaseTest):
         self.portchannels_ip_list = self.test_params.get('portchannels_ip_list', None)
         self.agent_relay_mode = self.test_params.get('agent_relay_mode', None)
         self.max_hop_count = self.test_params.get('max_hop_count', None)
+        self.client_giaddr = self.test_params.get('client_giaddr', self.switch_loopback_ip)
         self.client_vrf = self.test_params.get('client_vrf', None)
         self.dhcpv4_disable_flag = self.test_params.get('dhcpv4_disable_flag', None)
         if self.relay_agent == "sonic-relay-agent":
@@ -210,6 +211,8 @@ class DHCPTest(DataplaneBaseTest):
         remote_id_string = self.uplink_mac if self.dual_tor else self.relay_iface_mac
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
+
+        self.client_option82 = b'\x01\x07Vlan100\x02\x06\x11\x22\x33\x44\x55\x66'
 
         link_selection_added = False  # set below; dual-tor block skips SubOption 5 if set
 
@@ -286,24 +289,14 @@ class DHCPTest(DataplaneBaseTest):
                 discover_packet[scapy.IP].dst = self.switch_loopback_ip
                 discover_packet[scapy.IP].src = self.client_ip
         else:
-            # Sub-option 1: Circuit ID (VLAN 100)
-            # Circuit ID sub-option type 1, length 7, data 'Vlan100'
-            circuit_id = b'\x01' + bytes([7]) + b'Vlan100'
-
-            # Sub-option 2: Remote ID (MAC address)
-            # Remote ID sub-option type 2, length 6, MAC address
-            remote_id = b'\x02' + bytes([6]) + bytes.fromhex("112233445566")
-            # Combine the new sub-options for relay
-            relay_option82 = circuit_id + remote_id
-
             discover_packet[scapy.Ether].dst = self.uplink_mac
             discover_packet[scapy.IP].src = self.client_ip
             discover_packet[scapy.IP].dst = self.switch_loopback_ip
             discover_packet[scapy.BOOTP].hops = self.max_hop_count if self.max_hop_count == self.MAX_HOP_COUNT else 1
-            discover_packet[scapy.BOOTP].giaddr = self.switch_loopback_ip
+            discover_packet[scapy.BOOTP].giaddr = self.client_giaddr
             discover_packet[scapy.DHCP].options.insert(
                 discover_packet[scapy.DHCP].options.index("end"),
-                (82, relay_option82)
+                (82, self.client_option82)
             )
 
         return discover_packet
@@ -337,8 +330,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        if ((self.link_selection and self.source_interface) or
-           self.server_vrf or self.dual_tor or self.agent_relay_mode):
+        if self.agent_relay_mode == "forward":
+            giaddr = self.client_giaddr
+        elif ((self.link_selection and self.source_interface) or
+              self.server_vrf or self.dual_tor or self.agent_relay_mode):
             giaddr = self.switch_loopback_ip
         elif self.server_id_override or not self.dual_tor:
             giaddr = self.relay_iface_ip
@@ -354,6 +349,9 @@ class DHCPTest(DataplaneBaseTest):
 
         elif self.agent_relay_mode == "replace":
             dhcp_options = [('message-type', 'discover'), (82, self.option82), ('end')]
+
+        elif self.agent_relay_mode == "forward":
+            dhcp_options = [('message-type', 'discover'), (82, self.client_option82), ('end')]
 
         elif self.agent_relay_mode == "append":
             # Sub-option 1: Circuit ID (VLAN 100)
