@@ -1968,7 +1968,6 @@ def _time_budget_for(n_mors):
 
 
 SCALING_CHECKPOINT = "gcu_scaling"
-_SCALING_ACL_TABLES = ("DATAACL", "EVERFLOW", "EVERFLOWV6")
 
 
 def _is_internal_port_scaling(port_name):
@@ -2076,6 +2075,8 @@ def _record_platform_metadata(duthost, config_facts, selection, record_property)
                             module_ignore_errors=True)["stdout"].strip()
         record_property("gcu_sonic_image", img)
     except Exception:
+        # Best-effort metadata capture; a missing sonic_version.yml or
+        # shell error shouldn't fail the scaling measurement itself.
         pass
     record_property("gcu_hwsku", facts.get("hwsku", ""))
     record_property("gcu_switch_type", facts.get("switch_type", ""))
@@ -2521,6 +2522,7 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
     if switch_type not in ("voq", "chassis-packet"):
         pytest.skip("Unsupported switch_type={}".format(switch_type))
 
+    selection = None
     try:
         selection = _select_n_mors(config_facts, n_mors)
     except ValueError as exc:
