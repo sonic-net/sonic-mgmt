@@ -192,6 +192,14 @@ def check_link_stability(duthost, port, window_sec, namespace=None):
         return port_table.get("flap_count"), port_table.get("last_up_time")
 
     baseline_flap, baseline_up = _snapshot()
+    if baseline_flap is None and baseline_up is None:
+        details = (
+            f"{port}: PORT_TABLE:{port} has neither flap_count nor last_up_time - "
+            "cannot verify stability (schema mismatch or partial publish)"
+        )
+        logger.warning("Stability check FAILED: %s", details)
+        return {"passed": False, "details": details}
+
     time.sleep(window_sec)
     current_flap, current_up = _snapshot()
 

@@ -43,13 +43,22 @@ def _list_core_files(duthost):
     return set(stdout.splitlines()) if stdout.strip() else set()
 
 
-def _get_pid_uptime_sec(duthost, pid):
+def _get_pid_uptime_sec(duthost, container, pid):
     """Return ``pid``'s continuous uptime in seconds via ``ps -o etimes=``.
+
+    ``pid`` (as returned by :func:`get_program_info`) is scoped to
+    ``container``'s own PID namespace, not the host's - the same reason
+    ``kill_process_by_pid`` in ``tests/common/helpers/dut_utils.py`` runs its
+    ``kill`` via ``docker exec {container} kill {pid}`` rather than on the
+    host directly. Probing ``pid`` with a bare host-side ``ps`` would either
+    find nothing (spurious failure) or collide with an unrelated host process
+    reusing that PID number (a wrong uptime, potentially a false pass), so
+    this runs ``ps`` inside ``container`` via ``docker exec``.
 
     Returns ``None`` if the PID can't be queried (process already gone, or
     the ``ps`` call itself failed) so the caller decides how to treat that.
     """
-    result = duthost.shell(f"ps -o etimes= -p {pid}", module_ignore_errors=True)
+    result = duthost.shell(f"docker exec {container} ps -o etimes= -p {pid}", module_ignore_errors=True)
     if result.get("rc", 1) != 0:
         return None
     stdout = (result.get("stdout") or "").strip()
@@ -124,7 +133,7 @@ def verify_health(duthost, baseline, monitored_processes=None, expect_pid_change
                 f"Process {process} PID changed: {baseline_pid} -> {pid} (unexpected restart)"
             )
         if min_uptime_sec is not None:
-            uptime = _get_pid_uptime_sec(duthost, pid)
+            uptime = _get_pid_uptime_sec(duthost, container, pid)
             if uptime is None:
                 failures.append(f"Process {process} ({container}): could not determine uptime for pid {pid}")
             elif uptime < min_uptime_sec:
