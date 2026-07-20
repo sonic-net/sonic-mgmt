@@ -43,6 +43,8 @@ TEXT_FIELDS = {
     # column name -> function producing the string from a task dict
     "Target": lambda t: t["target_path"],
     "Domain": lambda t: t["domain"],
+    "Direct Test Dependencies": lambda t: "\n".join(t.get("impacted_tests") or []),
+    "Transitive Test Dependencies": lambda t: "\n".join(t.get("impacted_tests_transitive") or []),
 }
 
 NUMBER_FIELDS = {
