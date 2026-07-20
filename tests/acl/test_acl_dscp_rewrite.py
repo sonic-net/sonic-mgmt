@@ -212,8 +212,6 @@ def fixture_setUp_vxlan_vnet_routes(duthosts,
 
     # Cleanup code.
     del_acl_tables(duthost)
-    outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-    payload_version = ecmp_utils.get_payload_version(encap_type)
     ecmp_utils.create_and_apply_config(data['duthost'],
                                        vnet,
                                        tc_new_dest,
