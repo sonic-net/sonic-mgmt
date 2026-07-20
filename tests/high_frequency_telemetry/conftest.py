@@ -44,58 +44,33 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    if not duthost.is_service_fully_started("swss"):
+        pytest.fail("swss container is not running")
+
     def get_swss_uptime_seconds():
-        """Get swss container uptime in seconds from docker ps"""
+        """Get swss container uptime in seconds via docker inspect."""
         try:
-            # Use docker ps to get status info - avoid template conflicts
+            # Step 1: Get container start time from docker inspect JSON
             result = duthost.shell(
-                'docker ps --filter "name=swss"',
+                "docker inspect swss | grep StartedAt | head -1 | cut -d'\"' -f4",
                 module_ignore_errors=True
             )
-            if result['rc'] != 0:
+            if result['rc'] != 0 or not result['stdout'].strip():
+                return 0
+            started_at = result['stdout'].strip()
+
+            # Step 2: Calculate uptime on DUT to avoid clock differences
+            result = duthost.shell(
+                f'started=$(date -ud "{started_at}" +%s) && '
+                'echo $(($(date -u +%s) - started))',
+                module_ignore_errors=True
+            )
+            if result['rc'] != 0 or not result['stdout'].strip():
                 return 0
 
-            stdout_lines = result['stdout_lines']
-            if len(stdout_lines) < 2:  # No container found (only header)
-                return 0
-
-            # Find the swss container line and extract status
-            for line in stdout_lines[1:]:  # Skip header
-                if 'swss' in line:
-                    # Line format: CONTAINER_ID IMAGE COMMAND
-                    # CREATED STATUS PORTS NAMES
-                    # Example: d0a33fe4d37f docker-orchagent:latest
-                    # "/usr/bin/docker-ini…" 8 days ago Up 18 minutes swss
-                    parts = line.split()
-
-                    # Find "Up" and get the next parts for time
-                    try:
-                        up_index = parts.index('Up')
-                        if up_index + 2 < len(parts):
-                            time_value = parts[up_index + 1]
-                            time_unit = parts[up_index + 2]
-
-                            logger.debug(f"swss container status: "
-                                         f"Up {time_value} {time_unit}")
-
-                            # Convert to seconds
-                            time_num = int(time_value)
-                            if 'second' in time_unit:
-                                return time_num
-                            elif 'minute' in time_unit:
-                                return time_num * 60
-                            elif 'hour' in time_unit:
-                                return time_num * 3600
-                            elif 'day' in time_unit:
-                                return time_num * 86400
-                            else:
-                                return 20  # Unknown format, assume long enough
-                    except (ValueError, IndexError):
-                        logger.warning(f"Failed to parse status line: {line}")
-                        return 0
-
-            return 0  # No swss container found
-
+            uptime = int(result['stdout'].strip())
+            logger.debug(f"swss container uptime: {uptime}s")
+            return uptime
         except Exception as e:
             logger.warning(f"Failed to get swss uptime: {e}")
             return 0
@@ -107,28 +82,7 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     min_uptime = 10  # Require at least 10 seconds uptime
 
     if uptime == 0:
-        logger.warning("swss container is not running, attempting to start...")
-
-        # Try to restart swss service
-        duthost.shell('sudo systemctl restart swss',
-                      module_ignore_errors=True)
-
-        # Wait for container to start and stabilize
-        max_wait = 40  # Total wait time
-        logger.info(f"Waiting up to {max_wait} seconds for swss container "
-                    f"to start and stabilize...")
-
-        for i in range(max_wait):
-            time.sleep(1)
-            current_uptime = get_swss_uptime_seconds()
-            if current_uptime >= min_uptime:
-                logger.info(f"swss container is stable "
-                            f"(uptime: {current_uptime}s)")
-                break
-        else:
-            raise RuntimeError(f"swss container failed to stabilize "
-                               f"after {max_wait} seconds")
-
+        pytest.fail("Failed to determine swss container uptime")
     elif uptime < min_uptime:
         wait_time = min_uptime - uptime + 1  # +1 for safety margin
         logger.info(f"swss container uptime is {uptime}s, "
