@@ -1395,6 +1395,18 @@ def check_disk_usage(duthosts):
 
     DISK_USAGE_THRESHOLD = 90  # percentage - aligned with monit resource limit
 
+    # Pseudo/virtual filesystems are not backed by real storage, are not
+    # monitored by monit, and routinely report misleading usage. For example
+    # efivarfs (mounted at /sys/firmware/efi/efivars) exposes a tiny UEFI
+    # variable store that frequently sits at ~99% and is unrelated to disk
+    # health. Skip these filesystem types to avoid false-positive failures.
+    SKIP_FSTYPES = frozenset([
+        "efivarfs", "tmpfs", "devtmpfs", "devpts", "sysfs", "proc",
+        "cgroup", "cgroup2", "overlay", "squashfs", "ramfs", "debugfs",
+        "tracefs", "securityfs", "pstore", "mqueue", "hugetlbfs",
+        "configfs", "fusectl", "bpf", "autofs", "binfmt_misc",
+    ])
+
     def _check(*args, **kwargs):
         init_result = {"failed": False, "check_item": "disk_usage"}
         result = parallel_run(_check_disk_usage_on_dut, args, kwargs, duthosts,
@@ -1408,7 +1420,7 @@ def check_disk_usage(duthosts):
         logger.info("Checking disk usage on %s..." % dut.hostname)
         check_result = {"failed": False, "check_item": "disk_usage", "host": dut.hostname}
 
-        res = dut.shell("df --output=pcent,target,source", module_ignore_errors=True)
+        res = dut.shell("df --output=pcent,target,source,fstype", module_ignore_errors=True)
         if res["rc"] != 0:
             logger.error("Failed to get disk usage on %s: %s" % (dut.hostname, res.get("stderr", "")))
             check_result["failed"] = True
@@ -1420,9 +1432,9 @@ def check_disk_usage(duthosts):
             line = line.strip()
             if not line:
                 continue
-            # Format: "Use% Mounted on Filesystem" e.g. " 92% /     /dev/sda3"
-            parts = line.split(None, 2)
-            if len(parts) < 2:
+            # Format: "Use% Mounted on Filesystem Type" e.g. " 92% /     /dev/sda3 ext4"
+            parts = line.split(None, 3)
+            if len(parts) < 3:
                 continue
             usage_str = parts[0].rstrip('%')
             try:
@@ -1430,7 +1442,12 @@ def check_disk_usage(duthosts):
             except ValueError:
                 continue
             mount_point = parts[1]
-            filesystem = parts[2] if len(parts) > 2 else ""
+            filesystem = parts[2]
+            fstype = parts[3] if len(parts) > 3 else ""
+            # Skip pseudo/virtual filesystems (e.g. efivarfs, tmpfs) that are
+            # not real storage and would otherwise cause false positives.
+            if fstype in SKIP_FSTYPES:
+                continue
             if usage_pct >= DISK_USAGE_THRESHOLD:
                 over_threshold.append({
                     "mount": mount_point,
