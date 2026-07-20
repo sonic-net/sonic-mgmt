@@ -20,6 +20,8 @@ GCUTIMEOUT_MAP = {
     # H6-128: bulk PFC_WD apply-patch (256 ports); default 600s
     # triggers a false TimeoutError even after the command has already succeeded (test_pfcwd_status).
     'x86_64-nokia_ixr7220_h6_128-r0': 1800,
+    # Cisco 8000 LC: port speed GCU patches with cluster restore can exceed 900s.
+    'x86_64-88_lc0_36fh-r0': 1800,
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -365,7 +367,7 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """
     output = rollback(duthost, cp)
 
-    if output['rc'] or "Config rolled back successfully" not in output['stdout']:
+    if output.get('rc', 1) or "Config rolled back successfully" not in output.get('stdout', ''):
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         pytest.fail("config rollback failed. Restored by config_reload")
 
@@ -537,14 +539,19 @@ def expect_acl_table_match_multiple_bindings(duthost,
                 return False
 
             first_line = output[0]
-            first_line_diff = set(first_line.values()) ^ set(expected_first_line_content)
-            if not set(first_line.values()) == set(expected_first_line_content):
+            table_bindings = [line["binding"] for line in output if line.get("binding")]
+
+            if first_line["binding"] not in expected_bindings:
+                logger.warning(f"Unexpected first ACL table binding: {first_line['binding']}")
+                return False
+
+            actual_first_line = set(first_line.values()) - set(expected_bindings)
+            expected_first_line = set(expected_first_line_content) - set(expected_bindings)
+            first_line_diff = actual_first_line ^ expected_first_line
+            if actual_first_line != expected_first_line:
                 logger.warning(f"First line content does not match. Difference: {first_line_diff}")
                 return False
 
-            table_bindings = [first_line["binding"]]
-            for i in range(len(output)):
-                table_bindings.append(output[i]["binding"])
             table_bindings_diff = set(table_bindings) ^ set(expected_bindings)
             if not set(table_bindings) == set(expected_bindings):
                 logger.warning(f"ACL Table bindings don't fully match. Difference: {table_bindings_diff}")

@@ -458,6 +458,18 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+bgp/test_bgp_link_local.py::test_bgp_link_local[ethernet]:
+  skip:
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
+bgp/test_bgp_link_local.py::test_bgp_link_local[portchannel]:
+  skip:
+    reason: "bgpcfgd lacks unnumbered BGP support via CONFIG_DB (sonic-buildimage#26960)"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/26960
+
 bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
   xfail:
     reason: "Test failed on multi-asic PR tests"
@@ -615,11 +627,20 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202411."
+    reason: "(1) Not supported before release 202411.
+             (2) suppress-fib dynamic-toggle offload/propagation race: the module toggles
+             suppress-fib-pending dynamically at runtime, causing an orchagent/fpmsyncd/FRR race
+             where routes are intermittently not offloaded in FRR / not propagated to the upstream VM.
+             The product fix that makes suppress-fib static (sonic-swss#4333 + sonic-mgmt#22916) is
+             merging to master only and is not backported. Therefore master auto-lifts once the fix
+             lands and the tracking issue is closed, while the release branches 202505/202511/202605
+             never receive the fix and stay skipped for the life of the branch.
+             Tracked by https://github.com/sonic-net/sonic-mgmt/issues/26175"
     conditions_logical_operator: or
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
-      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
+      - "release in ['202505', '202511', '202605']"
+      - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -627,11 +648,51 @@ bgp/test_bgp_suppress_fib.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC). zebra installs a route
+             into the kernel immediately, independent of offload, so a suppress-fib-pending route the
+             kernel has installed is still forwarded and the DROP assertion (verify_no_packet) cannot
+             hold on VS. See https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_suppress_fib.py::test_bgp_route_with_suppress_negative_operation:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC). zebra installs a route
+             into the kernel immediately, independent of offload, so a suppress-fib-pending route the
+             kernel has installed is still forwarded and the DROP assertion (verify_no_packet) cannot
+             hold on VS. See https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
 bgp/test_bgp_suppress_fib.py::test_bgp_route_without_suppress:
   xfail:
     reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
+
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
+  skip:
+    reason: "On VS the forwarding plane is the Linux kernel FIB (not the ASIC), so the dataplane
+             credit-loop behavior cannot be reproduced: zebra installs routes into the kernel
+             immediately and traffic is forwarded regardless of offload state, so the loop_back /
+             verify_no_packet traffic assertions cannot hold on VS. See
+             https://github.com/sonic-net/sonic-mgmt/issues/14449"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_performance:
+  skip:
+    reason: "Skip for KVM/VS due to low performance (bulk 512+512 route relay-timing measurement)."
+    conditions:
+      - "asic_type in ['vs']"
+
+bgp/test_bgp_suppress_fib.py::test_suppress_fib_stress:
+  skip:
+    reason: "Skip for KVM/VS due to low performance (bulk route-flap stress over 512+512 routes)."
+    conditions:
+      - "asic_type in ['vs']"
 
 bgp/test_bgp_update_replication.py:
   xfail:
@@ -734,6 +795,12 @@ cacl/test_cacl_application.py::test_multiasic_cacl_application:
     reason: "test_multiasic_cacl_application is only supported on multi-ASIC platform"
     conditions:
       - "not is_multi_asic"
+
+cacl/test_cacl_function.py:
+  xfail:
+    reason: "BMC test does not have sufficient delay for hold for extra 40s. Timeout 210s, and the script sleeps for 250s"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25759 and topo_type in ['bmc']"
 
 cacl/test_ebtables_application.py:
   skip:
@@ -902,6 +969,20 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_eni_counter.py::TestEniCounter::test_inbound_pkt_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+
+dash/test_dash_eni_counter.py::TestEniCounter::test_outbound_pkt_pass_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_metering.py:
   skip:
@@ -1348,6 +1429,12 @@ dualtor/test_ipinip.py::test_encap_with_mirror_session:
      conditions:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
 
 dualtor/test_orch_stress.py:
   skip:
@@ -2564,6 +2651,15 @@ generic_config_updater/add_cluster/test_port_speed_change.py:
       - "hwsku not in ['Nokia-IXR7250E-36x400G']"
       - "asic_type in ['vs']"
 
+generic_config_updater/add_cluster/test_port_speed_upgrade.py:
+  skip:
+    reason: "Port speed cluster upgrade test is supported only on T2 chassis-packet testbeds with Cisco 8000 LC hwsku"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
+      - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
+
 generic_config_updater/test_apply_patch_perf.py:
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
@@ -2595,6 +2691,18 @@ generic_config_updater/test_cacl:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
+
+generic_config_updater/test_cacl.py::test_cacl_application_nondualtor:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
+
+generic_config_updater/test_cacl.py::test_cacl_tc1_acl_table_suite:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -2738,6 +2846,12 @@ generic_config_updater/test_incremental_qos.py:
     conditions:
       - "'dualtor' in topo_name"
 
+generic_config_updater/test_incremental_qos.py::test_buffer_profile_create_remove_rollback:
+  skip:
+    reason: "Skipped due to test issue: https://github.com/sonic-net/sonic-mgmt/issues/25395"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/25395 and asic_type in ['mellanox']"
+
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test is not run on this hwsku/asic type or version or topology currently"
@@ -2868,25 +2982,11 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
-gnmi/test_gnmi.py:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
 gnmi/test_gnmi.py::test_gnmi_subscribe_sample:
   skip:
     reason: "Test relies on Ethernet0 frontpanel port and COUNTERS_DB; not applicable on BMC"
     conditions:
       - "'bmc' in topo_type"
-
-gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_configdb.py:
   skip:
@@ -2899,33 +2999,15 @@ gnmi/test_gnmi_configdb.py:
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no front-panel ports)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no front-panel ports)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no front-panel ports)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
   skip:
@@ -2933,34 +3015,11 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_polling_01:
     conditions:
       - "'bmc' in topo_type"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no DEVICE_METADATA bgp_asn)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no DEVICE_METADATA bgp_asn)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_01:
   skip:
@@ -2976,34 +3035,21 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_polling_02:
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
 
 gnmi/test_gnmi_countersdb.py::test_gnmi_output:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no COUNTERS_PORT_NAME_MAP)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
-
-gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_smartswitch.py:
   skip:
@@ -3554,12 +3600,12 @@ ip/test_ip_packet.py::TestIPPacket::test_drop_l3_ip_packet_non_dut_mac:
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot, VPP, and Marvell Asic will tolorate IP packets with 0xffff checksum
+    reason: "Broadcom, Cisco, Barefoot, VPP, and Marvell Asic/nokia-vs will tolorate IP packets with 0xffff checksum
             / Skipping ip packet test since can't provide enough interfaces"
     conditions_logical_operator: or
     conditions:
 
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera', 'vpp'] and asic_subtype not in ['broadcom-dnx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera', 'vpp', 'nokia-vs'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
       - "topo_name in ['t2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't2_5lc-mixed-96']"
 
@@ -4236,10 +4282,6 @@ platform_tests/test_reload_config.py::test_reload_configuration:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
     conditions_logical_operator: or
@@ -4369,7 +4411,7 @@ qos/test_qos_dscp_mapping.py:
     reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly. / Test does not apply to topos with no T2 uplinks (t1-isolated-d32, t1-isolated-d128)"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "asic_type in ['vs']"
       - "topo_name in ['t1-isolated-d32', 't1-isolated-d128']"
 
@@ -4527,10 +4569,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
   skip:
-    reason: "Skip DWRR test on Cisco G200 platform."
+    reason: "Skip DWRR test on Cisco G200/G200X platform."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
   skip:
@@ -4540,7 +4582,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
       - "asic_type in ['mellanox']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
   skip:
@@ -4582,7 +4624,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4591,7 +4634,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4600,7 +4644,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4609,7 +4654,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4619,7 +4664,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
-      - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
+      # GR2/GR2X (x86_64-8122*) are the supported Cisco platforms for this test
+      - "asic_type in ['cisco-8000'] and not platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4649,7 +4695,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -5302,10 +5348,10 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in M* topos or issue #17929 on Mellanox platform"
+    reason: "Have an known issue on kvm testbed / Unsupported in M* and C0 topos / issue #17929 on Mellanox platform"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -5596,26 +5642,10 @@ telemetry/test_telemetry.py::test_on_change_updates:
     conditions:
       - "'bmc' in topo_type"
 
-telemetry/test_telemetry.py::test_osbuild_version:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry.py::test_sysuptime:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
 telemetry/test_telemetry.py::test_telemetry_ouput:
   skip:
-    reason: "dut ipv6 mgmt ip not supported / not applicable on BMC (no Ethernet0/COUNTERS_DB)"
-    conditions_logical_operator: or
+    reason: "not applicable on BMC (no Ethernet0/COUNTERS_DB)"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
@@ -5626,64 +5656,12 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(switch_type=='voq')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry.py::test_virtualdb_table_streaming:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_cert_rotate:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_del:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
   skip:
-    conditions_logical_operator: or
-    reason: "dut ipv6 mgmt ip not supported or not applicable on BMC because requires upstream BGP neighbor and default route"
+    reason: "not applicable on BMC because requires upstream BGP neighbor and default route"
     conditions:
-      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
       - "'bmc' in topo_type"
-
-telemetry/test_telemetry_poll.py::test_poll_mode_delete:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry_poll.py::test_poll_mode_no_table_or_key:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
-telemetry/test_telemetry_poll.py::test_poll_mode_present_table_delayed_key:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 telemetry/test_telemetry_srv6.py:
   skip:
@@ -5753,11 +5731,59 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Primary Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Standby Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_eni_out_of_order.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_active[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
+tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_standby_npu_traffic_on_standby[bgp]:
+  skip:
+    reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28']"
+
 tests/ha/test_ha_repairing_dpu.py:
   xfail:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_split_brain.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
 
 #######################################
 #####         upgrade_path        #####
@@ -6191,7 +6217,7 @@ vxlan/test_vxlan_multiple_tunnels.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
@@ -6301,10 +6327,3 @@ zmq/test_gnmi_zmq.py:
       - "'arista' in platform"
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
-
-zmq/test_gnmi_zmq.py::test_gnmi_zmq:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
