@@ -103,7 +103,6 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
         return
 
     asic = duthost.facts["asic_type"]
-    platform = duthost.facts["platform"]
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
