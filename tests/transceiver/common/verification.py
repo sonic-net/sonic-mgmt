@@ -7,12 +7,14 @@ Lives at the location reserved by
 Implements the subset of the procedure defined in
 ``docs/testplan/transceiver/system_test_plan.md`` (§ Common Verification
 Procedures) that the Link Behavior System tests exercise after restoring a
-port: link status → link flap/stability → LLDP → CMIS state →
+batch of ports: link status → link flap/stability → LLDP → CMIS state →
 docker/process health. Each check returns a result dict (with ``'passed'``
 and ``'details'`` keys) and the top-level
-:func:`standard_port_recovery_and_verification` aggregates every sub-failure
-into one ``details`` string so a single call surfaces every problem on the
-port.
+:func:`standard_port_recovery_and_verification` runs every step batched
+across the whole ``ports`` list - one polling loop / observation window per
+step instead of one per port - and aggregates each port's sub-failures into
+its own ``details`` string, so a single call surfaces every problem on every
+port without multiplying the fixed-wait and host-wide steps by port count.
 
 Remote-Side Link Verification (test-plan step 4, optional/opt-in - enabled by
 callers such as disruptive Event Handling and System Recovery tests) and the
@@ -77,32 +79,53 @@ def resolve_namespace(duthost, port):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
-    """Poll until ``port`` reaches ``expected_state`` oper status.
+def wait_for_ports_oper_state(duthost, ports, expected_state, timeout_sec):
+    """Poll until every port in ``ports`` reaches ``expected_state`` oper status.
 
     Thin adapter over :func:`tests.common.platform.interface_utils.wait_ports_oper_status`
-    (single ``show interface description`` dump per poll, via ``wait_until``)
-    for the single-port case used by the Standard Port Recovery procedure.
+    (one ``show interface description`` dump per poll cycle, via ``wait_until``,
+    checked against every port in ``ports``) so N ports share one polling
+    budget/dump instead of each port paying for its own serial
+    ``wait_ports_oper_status([port], ...)`` call.
 
     Args:
         duthost: SONiC DUT host fixture.
-        port: logical interface name, e.g. ``"Ethernet0"``.
+        ports: list of logical interface names, e.g. ``["Ethernet0", "Ethernet4"]``.
         expected_state: ``"up"`` or ``"down"`` (case-insensitive).
-        timeout_sec: maximum number of seconds to wait.
+        timeout_sec: maximum number of seconds to wait - a shared budget for
+            every port in ``ports``, not per port.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
+        ``ports``.
+    """
+    expected = (expected_state or "").strip().lower()
+    fails = wait_ports_oper_status(duthost, ports, expected, timeout_sec)
+    # wait_ports_oper_status's failure strings are "port {port} did not reach
+    # oper-{status} within {wait_sec}s" (its own format, owned in this repo),
+    # so the port token is reliably the second whitespace-separated field.
+    fail_by_port = {fail.split(" ", 2)[1]: fail for fail in fails}
+
+    per_port = {}
+    for port in ports:
+        if port in fail_by_port:
+            details = fail_by_port[port]
+            logger.warning("Oper-state wait FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        else:
+            details = f"{port}: oper={expected} within {timeout_sec}s"
+            logger.info("Oper-state wait PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+    return per_port
+
+
+def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
+    """Single-port convenience wrapper over :func:`wait_for_ports_oper_state`.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
     """
-    expected = (expected_state or "").strip().lower()
-    fails = wait_ports_oper_status(duthost, [port], expected, timeout_sec)
-    if not fails:
-        details = f"{port}: oper={expected} within {timeout_sec}s"
-        logger.info("Oper-state wait PASSED: %s", details)
-        return {"passed": True, "details": details}
-
-    details = fails[0]
-    logger.warning("Oper-state wait FAILED: %s", details)
-    return {"passed": False, "details": details}
+    return wait_for_ports_oper_state(duthost, [port], expected_state, timeout_sec)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -112,40 +135,84 @@ def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
 _LLDP_POLL_INTERVAL_SEC = 3
 
 
-def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
-    """Poll APPL_DB ``LLDP_ENTRY_TABLE:<port>`` until a neighbor is learned.
+def check_lldp_neighbors_present(duthost, port_timeouts, namespaces=None):
+    """Poll APPL_DB ``LLDP_ENTRY_TABLE:<port>`` until every port has a neighbor.
 
     A non-empty ``LLDP_ENTRY_TABLE:<port>`` hash means lldpd has at least
     one neighbor record for ``port``. Used by System tests to confirm the
     far end re-converged after a disruptive operation.
 
-    ``namespace`` scopes the query to the port's ASIC on a multi-ASIC DUT, where
-    LLDP tables are per-namespace; when ``None`` it is resolved from ``port`` so
-    callers that don't track namespaces (e.g. the post-session check) still query
-    the right ASIC. On a single-ASIC DUT it is ``None`` and no ``-n`` flag is
-    emitted.
+    Polls are interleaved across every port in ``port_timeouts`` - each cycle
+    checks every still-pending port and drops the ones that now have a
+    neighbor, then sleeps once before the next cycle - so N ports' waits
+    overlap instead of summing N serial worst-case timeouts. Each port keeps
+    its own ``timeout_sec`` (ports may request different
+    ``lldp_neighbor_wait_sec`` values), so a port with a short timeout can
+    fail out while others with longer budgets keep polling.
+
+    ``namespaces`` maps port -> ASIC namespace (``None`` on single-ASIC DUTs,
+    where LLDP tables are per-namespace); a port missing from ``namespaces``
+    (or a caller passing ``None``) has its namespace resolved from the port
+    itself, so callers that don't track namespaces (e.g. the post-session
+    check) still query the right ASIC.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        port_timeouts: dict of ``{port: timeout_sec}``.
+        namespaces: optional dict of ``{port: namespace}``.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
+        ``port_timeouts``.
+    """
+    if namespaces is None:
+        namespaces = {}
+
+    def _namespace_for(port):
+        namespace = namespaces.get(port)
+        return namespace if namespace is not None else resolve_namespace(duthost, port)
+
+    start = time.monotonic()
+    deadlines = {port: start + max(0, int(timeout_sec)) for port, timeout_sec in port_timeouts.items()}
+    remaining = set(port_timeouts)
+    passed_ports = set()
+
+    while remaining:
+        now = time.monotonic()
+        for port in list(remaining):
+            entry = db_helpers.hgetall_dict(
+                duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{port}", namespace=_namespace_for(port)
+            )
+            if entry:
+                passed_ports.add(port)
+                remaining.discard(port)
+            elif now >= deadlines[port]:
+                remaining.discard(port)
+        if not remaining:
+            break
+        time.sleep(_LLDP_POLL_INTERVAL_SEC)
+
+    per_port = {}
+    for port, timeout_sec in port_timeouts.items():
+        if port in passed_ports:
+            details = f"{port}: LLDP neighbor present within {timeout_sec}s"
+            logger.info("LLDP check PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+        else:
+            details = f"{port}: no LLDP neighbor after {timeout_sec}s"
+            logger.warning("LLDP check FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+    return per_port
+
+
+def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
+    """Single-port convenience wrapper over :func:`check_lldp_neighbors_present`.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
     """
-    if namespace is None:
-        namespace = resolve_namespace(duthost, port)
-    deadline = time.monotonic() + max(0, int(timeout_sec))
-    while True:
-        entry = db_helpers.hgetall_dict(
-            duthost, "APPL_DB", f"LLDP_ENTRY_TABLE:{port}", namespace=namespace
-        )
-        if entry:
-            details = f"{port}: LLDP neighbor present within {timeout_sec}s"
-            logger.info("LLDP check PASSED: %s", details)
-            return {"passed": True, "details": details}
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(_LLDP_POLL_INTERVAL_SEC)
-
-    details = f"{port}: no LLDP neighbor after {timeout_sec}s"
-    logger.warning("LLDP check FAILED: %s", details)
-    return {"passed": False, "details": details}
+    namespaces = {port: namespace} if namespace is not None else None
+    return check_lldp_neighbors_present(duthost, {port: timeout_sec}, namespaces=namespaces)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -153,13 +220,15 @@ def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def check_link_stability(duthost, port, window_sec, namespace=None):
-    """Verify ``port`` does not flap over a short post-recovery observation window.
+def check_ports_stability(duthost, ports, window_sec, namespaces=None):
+    """Verify no port in ``ports`` flaps over one shared post-recovery observation window.
 
     Implements the "Stability (always)" sub-check of system_test_plan.md's
-    Link Flap/Stability Verification step: snapshots APPL_DB
+    Link Flap/Stability Verification step: snapshots every port's APPL_DB
     ``PORT_TABLE:<port>`` ``flap_count``/``last_up_time`` once, waits
-    ``window_sec``, then re-reads and requires both fields to be unchanged.
+    ``window_sec`` a single time (not once per port), then re-reads every
+    port and requires both fields to be unchanged. N ports therefore share
+    one ``window_sec`` window instead of serializing N x ``window_sec``.
 
     This sub-check is **forward-looking only** - it observes from recovery
     onward and never compares against a pre-operation baseline - so it holds
@@ -170,45 +239,73 @@ def check_link_stability(duthost, port, window_sec, namespace=None):
     restart) needs the pre-operation baseline from each test's own Common
     Setup and is asserted by the individual test case, not here.
 
-    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None`` it
-    is resolved from ``port``.
+    ``namespaces`` maps port -> ASIC namespace; a port missing from it (or a
+    caller passing ``None``) has its namespace resolved from the port itself.
+
+    Args:
+        duthost: SONiC DUT host fixture.
+        ports: list of logical interface names.
+        window_sec: shared observation window, in seconds.
+        namespaces: optional dict of ``{port: namespace}``.
+
+    Returns:
+        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per ``ports``.
+    """
+    if namespaces is None:
+        namespaces = {}
+
+    def _namespace_for(port):
+        namespace = namespaces.get(port)
+        return namespace if namespace is not None else resolve_namespace(duthost, port)
+
+    def _snapshot_all():
+        snapshot = {}
+        for port in ports:
+            port_table = db_helpers.hgetall_dict(
+                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=_namespace_for(port)
+            )
+            snapshot[port] = (port_table.get("flap_count"), port_table.get("last_up_time"))
+        return snapshot
+
+    baseline = _snapshot_all()
+    time.sleep(window_sec)
+    current = _snapshot_all()
+
+    per_port = {}
+    for port in ports:
+        baseline_flap, baseline_up = baseline[port]
+        current_flap, current_up = current[port]
+
+        if baseline_flap is None and baseline_up is None:
+            details = (
+                f"{port}: PORT_TABLE:{port} has neither flap_count nor last_up_time - "
+                "cannot verify stability (schema mismatch or partial publish)"
+            )
+            logger.warning("Stability check FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        elif current_flap != baseline_flap or current_up != baseline_up:
+            details = (
+                f"{port}: flap detected during {window_sec}s stability window "
+                f"(flap_count {baseline_flap}->{current_flap}, "
+                f"last_up_time {baseline_up}->{current_up})"
+            )
+            logger.warning("Stability check FAILED: %s", details)
+            per_port[port] = {"passed": False, "details": details}
+        else:
+            details = f"{port}: stable for {window_sec}s (flap_count={current_flap}, last_up_time={current_up})"
+            logger.info("Stability check PASSED: %s", details)
+            per_port[port] = {"passed": True, "details": details}
+    return per_port
+
+
+def check_link_stability(duthost, port, window_sec, namespace=None):
+    """Single-port convenience wrapper over :func:`check_ports_stability`.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
     """
-    if namespace is None:
-        namespace = resolve_namespace(duthost, port)
-
-    def _snapshot():
-        port_table = db_helpers.hgetall_dict(
-            duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace
-        )
-        return port_table.get("flap_count"), port_table.get("last_up_time")
-
-    baseline_flap, baseline_up = _snapshot()
-    if baseline_flap is None and baseline_up is None:
-        details = (
-            f"{port}: PORT_TABLE:{port} has neither flap_count nor last_up_time - "
-            "cannot verify stability (schema mismatch or partial publish)"
-        )
-        logger.warning("Stability check FAILED: %s", details)
-        return {"passed": False, "details": details}
-
-    time.sleep(window_sec)
-    current_flap, current_up = _snapshot()
-
-    if current_flap != baseline_flap or current_up != baseline_up:
-        details = (
-            f"{port}: flap detected during {window_sec}s stability window "
-            f"(flap_count {baseline_flap}->{current_flap}, "
-            f"last_up_time {baseline_up}->{current_up})"
-        )
-        logger.warning("Stability check FAILED: %s", details)
-        return {"passed": False, "details": details}
-
-    details = f"{port}: stable for {window_sec}s (flap_count={current_flap}, last_up_time={current_up})"
-    logger.info("Stability check PASSED: %s", details)
-    return {"passed": True, "details": details}
+    namespaces = {port: namespace} if namespace is not None else None
+    return check_ports_stability(duthost, [port], window_sec, namespaces=namespaces)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -306,20 +403,35 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 
 
 def standard_port_recovery_and_verification(
-    duthost, port, port_attrs, link_up_timeout_sec, shared_state=None,
+    duthost, ports, port_attributes_dict, link_up_timeout_sec, shared_state=None,
     min_uptime_sec=MIN_CRITICAL_SERVICE_UPTIME_SEC,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
+    expect_pid_change=None,
 ):
-    """Run the Standard Port Recovery and Verification Procedure on one port.
+    """Run the Standard Port Recovery and Verification Procedure on a batch of ports.
 
-    Steps (per ``system_test_plan.md``):
-      1. Link Status         - port oper-up within ``link_up_timeout_sec``.
+    Each step below runs batched across every port in ``ports`` - one polling
+    loop / observation window / host-wide check per call, not one per port -
+    so N ports share fixed costs instead of multiplying them:
+      1. Link Status         - one poll (via
+                               :func:`wait_for_ports_oper_state`) of every port
+                               off the same ``show interface description``
+                               dump per cycle; oper-up within ``link_up_timeout_sec``.
       2. Link Flap/Stability - the mandatory "Stability (always)" sub-check,
-                               iff link came up: no flap / ``last_up_time``
-                               change over ``stability_window_sec``.
-      3. LLDP                - neighbor learned, iff ``verify_lldp_on_link_up``.
-      4. CMIS State          - DataPathActivated + ConfigSuccess, iff the
-                               port is ``cmis_active_optical``.
+                               for every port that came up: one shared
+                               ``stability_window_sec`` observation window
+                               (snapshot all -> sleep once -> re-read all)
+                               instead of one window per port.
+      3. LLDP                - neighbor learned, for every up port with
+                               ``verify_lldp_on_link_up``; per-port polls are
+                               interleaved (poll all pending -> drop satisfied
+                               -> repeat) so waits overlap instead of summing.
+      4. CMIS State          - DataPathActivated + ConfigSuccess, for every up
+                               port that is ``cmis_active_optical``; per-parent
+                               ``TRANSCEIVER_STATUS`` reads are cached in
+                               ``shared_state`` so subports of the same
+                               breakout group cost one extra STATE_DB read,
+                               not one per subport.
       5. Docker/process health - delegates to
                                :func:`tests.transceiver.common.health_checks.verify_health`,
                                the single owner of the xcvrd/syncd/orchagent
@@ -327,21 +439,27 @@ def standard_port_recovery_and_verification(
                                test by the autouse ``_per_test_health_check``
                                fixture), plus the >= 180 s uptime floor from
                                the test plan that fixture does not enforce.
-                               Runs unconditionally - independent of link state.
+                               Host-wide and port-count-independent: runs
+                               exactly once per call regardless of ``len(ports)``,
+                               and unconditionally - independent of any port's
+                               link state.
 
     Remote-Side Link Verification (test-plan step 4, optional/opt-in) and the
     optics/media-SI + application-code steps (test-plan step 6) are
     intentionally not implemented here; they land with the event-handling and
     diagnostics tests that exercise them.
 
-    All sub-failures are accumulated and reported together so a single
-    call surfaces every problem on the port.
+    Every port's sub-failures are accumulated and reported together so a
+    single call surfaces every problem on every port.
 
     Args:
         duthost: SONiC DUT host fixture.
-        port: logical interface name to validate.
-        port_attrs: per-port attribute dict (entry of ``port_attributes_dict``).
-        link_up_timeout_sec: budget for waiting on oper-up.
+        ports: list of logical interface names to validate.
+        port_attributes_dict: dict of ``{port: port_attrs}`` (as produced by
+            the ``port_attributes_dict`` fixture), with one entry per port in
+            ``ports``.
+        link_up_timeout_sec: budget for waiting on oper-up - shared across
+            every port in ``ports``, not per port.
         shared_state: optional dict shared across calls in the same test so
             the logical->physical port map and per-parent
             ``TRANSCEIVER_STATUS`` queries happen at most once. Must carry a
@@ -356,61 +474,85 @@ def standard_port_recovery_and_verification(
             (180, i.e. the test plan's 3-minute floor). Callers that
             deliberately restart a service must dwell long enough for it to
             clear this floor before calling.
-        stability_window_sec: post-recovery observation window (seconds) for
-            the step-2 stability sub-check. Defaults to
+        stability_window_sec: shared post-recovery observation window
+            (seconds) for the step-2 stability sub-check, applied once across
+            every port that came up. Defaults to
             :data:`DEFAULT_STABILITY_WINDOW_SEC` (5) - the test plan does not
             pin an exact duration, only "a short post-recovery observation
             window".
+        expect_pid_change: set of monitored process names (see
+            ``health_checks.DEFAULT_MONITORED_PROCESSES``) whose PID is
+            expected to differ from ``shared_state['health_baseline']`` in
+            the step-5 health check - e.g. the process this call's disruptive
+            action deliberately restarted (xcvrd/pmon restart scenarios).
+            Passed straight through to
+            :func:`tests.transceiver.common.health_checks.verify_health`.
+            Without it, a process restarted by the caller's own disruptive
+            action would fail step 5 as an "unexpected restart" even though
+            ``min_uptime_sec`` was satisfied.
 
     Returns:
-        dict: ``{'passed': bool, 'details': str}``
+        dict: ``{'passed': bool, 'per_port': {port: {'passed': bool, 'details': str}}, 'details': str}``
     """
     if shared_state is None:
         shared_state = {}
 
-    # Owning ASIC namespace, resolved once and reused for every per-namespace DB
-    # read below (LLDP / TRANSCEIVER_STATUS).
+    # Owning ASIC namespace per port, resolved once and reused for every
+    # per-namespace DB read below (LLDP / TRANSCEIVER_STATUS / stability).
     # ``None`` on single-ASIC -> no ``-n`` flag.
-    namespace = resolve_namespace(duthost, port)
+    namespaces = {port: resolve_namespace(duthost, port) for port in ports}
 
-    sys_attrs = port_attrs.get(SYSTEM_ATTRIBUTES_KEY, {})
-    eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+    per_port_failures = {port: [] for port in ports}
+    checks_ran = {port: [] for port in ports}  # human-readable checks that ran, per port
 
-    failures = []
-    checks_ran = []  # human-readable list of checks that ran, for the pass message
+    # 1. Link status - one batched poll covers every port.
+    link_results = wait_for_ports_oper_state(duthost, ports, "up", link_up_timeout_sec)
+    for port in ports:
+        checks_ran[port].append("link up")
+        if not link_results[port]["passed"]:
+            per_port_failures[port].append(link_results[port]["details"])
 
-    # 1. Link status.
-    link_result = wait_for_port_oper_state(duthost, port, "up", link_up_timeout_sec)
-    checks_ran.append("link up")
-    if not link_result["passed"]:
-        failures.append(link_result["details"])
+    up_ports = [port for port in ports if link_results[port]["passed"]]
 
     # 2. Link Flap/Stability - mandatory "Stability (always)" sub-check, only
-    #    if link came up (nothing to observe stability of otherwise).
-    if link_result["passed"]:
-        stability_result = check_link_stability(
-            duthost, port, stability_window_sec, namespace=namespace
+    #    for ports that came up (nothing to observe stability of otherwise).
+    #    One shared window covers every up port.
+    if up_ports:
+        stability_results = check_ports_stability(
+            duthost, up_ports, stability_window_sec, namespaces=namespaces
         )
-        checks_ran.append("stability")
-        if not stability_result["passed"]:
-            failures.append(stability_result["details"])
+        for port, result in stability_results.items():
+            checks_ran[port].append("stability")
+            if not result["passed"]:
+                per_port_failures[port].append(result["details"])
 
-    # 3. LLDP - only if requested and link came up (otherwise LLDP is moot).
-    if link_result["passed"] and sys_attrs.get("verify_lldp_on_link_up", True):
-        lldp_timeout = sys_attrs.get("lldp_neighbor_wait_sec", 60)
-        lldp_result = check_lldp_neighbor_present(
-            duthost, port, timeout_sec=lldp_timeout, namespace=namespace
+    # 3. LLDP - only for up ports that request it (otherwise LLDP is moot);
+    #    per-port timeouts honored, polls interleaved across the batch.
+    lldp_port_timeouts = {}
+    for port in up_ports:
+        sys_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
+        if sys_attrs.get("verify_lldp_on_link_up", True):
+            lldp_port_timeouts[port] = sys_attrs.get("lldp_neighbor_wait_sec", 60)
+    if lldp_port_timeouts:
+        lldp_results = check_lldp_neighbors_present(
+            duthost, lldp_port_timeouts, namespaces=namespaces
         )
-        checks_ran.append("LLDP")
-        if not lldp_result["passed"]:
-            failures.append(lldp_result["details"])
+        for port, result in lldp_results.items():
+            checks_ran[port].append("LLDP")
+            if not result["passed"]:
+                per_port_failures[port].append(result["details"])
 
-    # 4. CMIS state - only if link came up and port is CMIS active-optical.
-    if link_result["passed"] and eeprom_attrs.get("cmis_active_optical"):
-        cmis_result = check_cmis_state(duthost, port, shared_state, namespace=namespace)
-        checks_ran.append("CMIS state")
-        if not cmis_result["passed"]:
-            failures.append(cmis_result["details"])
+    # 4. CMIS state - only for up ports that are CMIS active-optical.
+    #    check_cmis_state caches TRANSCEIVER_STATUS per breakout parent in
+    #    shared_state, so looping here costs at most one extra STATE_DB read
+    #    per breakout group, not one per subport.
+    for port in up_ports:
+        eeprom_attrs = port_attributes_dict.get(port, {}).get(EEPROM_ATTRIBUTES_KEY, {})
+        if eeprom_attrs.get("cmis_active_optical"):
+            cmis_result = check_cmis_state(duthost, port, shared_state, namespace=namespaces.get(port))
+            checks_ran[port].append("CMIS state")
+            if not cmis_result["passed"]:
+                per_port_failures[port].append(cmis_result["details"])
 
     # 5. Docker and process health check (per system_test_plan.md). Delegates
     #    to health_checks.verify_health - the single owner of the
@@ -418,29 +560,46 @@ def standard_port_recovery_and_verification(
     #    automatically once per test by the autouse _per_test_health_check
     #    fixture in tests/transceiver/conftest.py) - passing min_uptime_sec so
     #    it additionally enforces the test plan's >= 3-minute uptime floor,
-    #    which that per-test fixture does not check.
-    #    Runs unconditionally - if the port's link didn't come back, knowing
-    #    whether a critical service died on the way is exactly the diagnostic
-    #    we want.
-    checks_ran.append("health")
+    #    which that per-test fixture does not check. expect_pid_change is
+    #    forwarded as-is so callers whose disruptive action deliberately
+    #    restarts a monitored process (e.g. xcvrd/pmon restart) can declare it
+    #    and avoid a false "unexpected restart" failure against the baseline.
+    #    Host-wide: runs exactly once for the whole batch, unconditionally -
+    #    if a port's link didn't come back, knowing whether a critical
+    #    service died on the way is exactly the diagnostic we want, for every
+    #    port in the batch.
     health_baseline = shared_state.get("health_baseline")
     if health_baseline is None:
-        failures.append(
-            f"{port} health: shared_state['health_baseline'] not seeded - caller must "
-            "call health_checks.capture_baseline(duthost) before the disruptive action"
+        health_failure = (
+            "shared_state['health_baseline'] not seeded - caller must call "
+            "health_checks.capture_baseline(duthost) before the disruptive action"
         )
     else:
         health_result = health_checks.verify_health(
-            duthost, health_baseline, min_uptime_sec=min_uptime_sec
+            duthost, health_baseline, expect_pid_change=expect_pid_change,
+            min_uptime_sec=min_uptime_sec,
         )
-        if not health_result["passed"]:
-            failures.append(f"{port} health: " + "; ".join(health_result["failures"]))
+        health_failure = None if health_result["passed"] else "; ".join(health_result["failures"])
+    for port in ports:
+        checks_ran[port].append("health")
+        if health_failure is not None:
+            per_port_failures[port].append(f"health: {health_failure}")
 
-    if failures:
-        details = f"{port}: " + "; ".join(failures)
-        logger.warning("Standard Port Recovery FAILED: %s", details)
-        return {"passed": False, "details": details}
+    per_port = {}
+    overall_passed = True
+    for port in ports:
+        failures = per_port_failures[port]
+        if failures:
+            overall_passed = False
+            details = f"{port}: " + "; ".join(failures)
+            logger.warning("Standard Port Recovery FAILED: %s", details)
+        else:
+            details = f"{port}: " + " + ".join(checks_ran[port]) + " all OK"
+            logger.info("Standard Port Recovery PASSED: %s", details)
+        per_port[port] = {"passed": not failures, "details": details}
 
-    details = f"{port}: " + " + ".join(checks_ran) + " all OK"
-    logger.info("Standard Port Recovery PASSED: %s", details)
-    return {"passed": True, "details": details}
+    return {
+        "passed": overall_passed,
+        "per_port": per_port,
+        "details": "; ".join(per_port[port]["details"] for port in ports),
+    }
