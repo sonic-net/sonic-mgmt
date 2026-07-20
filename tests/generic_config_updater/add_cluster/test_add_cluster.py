@@ -1938,9 +1938,34 @@ NIGHTLY_MOR_COUNTS = [5, 20]
 WEEKLY_MOR_COUNTS = [24, 30]
 SANITY_MOR_COUNTS = [1]
 
-# Vaibhav's stated operational target (Meeting 1, 2026-07-01): 1 hour end-to-end.
-# Override with env GCU_TIME_BUDGET_S for local experimentation.
+# test_max_mors_under_budget sweeps to find the largest N that fits under a
+# FIXED absolute ceiling — the operational 1-hour target.
 DEFAULT_TIME_BUDGET_S = 3600
+
+# nightly/weekly/sanity use a per-N budget: catches per-MOR perf regressions
+# instead of only flagging when total elapsed exceeds the 1-hour target.
+# Data on ``str3-7800-lc4-1`` (SONiC.internal-202601.170538176, 202405-
+# equivalent sonic-utilities): elapsed/N observed ~1.47 s/change * ~34
+# changes/MOR ~= 50 s/MOR.  60 s/MOR gives ~20% headroom over the current
+# baseline; small-N runs are covered by BUDGET_FLOOR_S which pays for the
+# fixed apply-patch overhead visible even at N=1 (~50s measured).
+# GCU_TIME_BUDGET_S env var overrides to an absolute budget (useful for
+# local debugging / capacity experiments).
+PER_MOR_BUDGET_S = 60
+BUDGET_FLOOR_S = 300
+
+
+def _time_budget_for(n_mors):
+    """Per-N time budget for the scaling assertion.
+
+    Returns max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * n_mors) unless
+    GCU_TIME_BUDGET_S is set, in which case that absolute value wins.
+    """
+    override = os.environ.get("GCU_TIME_BUDGET_S")
+    if override is not None:
+        return int(override)
+    return max(BUDGET_FLOOR_S, PER_MOR_BUDGET_S * int(n_mors))
+
 
 SCALING_CHECKPOINT = "gcu_scaling"
 _SCALING_ACL_TABLES = ("DATAACL", "EVERFLOW", "EVERFLOWV6")
@@ -2009,81 +2034,6 @@ def _select_n_mors(config_facts, n):
     }
 
 
-def _build_scaling_acl_reattach_patch(config_facts_localhost, selection,
-                                      mg_facts):
-    """Build the localhost-only ACL_TABLE ports re-attach patch.
-
-    Used by the scaling test AFTER the (filtered) add_cluster call, since we
-    passed include_acl_table=False and stripped ACL_TABLE ports for the N
-    MORs in the setup step.
-    """
-    del mg_facts  # kept for signature symmetry; not needed here
-    acl_local = config_facts_localhost.get("ACL_TABLE", {})
-    patch = []
-    for tname in _SCALING_ACL_TABLES:
-        entry = acl_local.get(tname)
-        if not entry or "ports" not in entry:
-            continue
-        # Restore the full ports list (which includes our N MORs since the
-        # module-scoped config_facts_localhost was captured pre-modification).
-        patch.append({
-            "op": "replace",
-            "path": f"/localhost/ACL_TABLE/{tname}/ports",
-            "value": list(entry["ports"]),
-        })
-    _ = selection  # unused; kept for future per-MOR ACL granularity
-    return patch
-
-
-class _TimedApplyResult(object):
-    """Container for one timed apply_patch call."""
-
-    def __init__(self):
-        self.elapsed_s = 0.0
-        self.success = False
-        self.hwproxy_timeout = False
-        self.stdout = ""
-
-
-def _timed_apply_patch(duthost, patch_list):
-    """Run apply_patch, record wall-clock, detect HWProxy-style timeouts.
-
-    Uses the shared apply_patch/generate_tmpfile/delete_tmpfile helpers so
-    behaviour matches every other GCU test (including the async wrapper
-    that raises TimeoutError on the internal wait_until fuse).
-    """
-    result = _TimedApplyResult()
-    if not patch_list:
-        result.success = True
-        return result
-    tmpfile = generate_tmpfile(duthost)
-    start = time.time()
-    try:
-        output = apply_patch(duthost, json_data=patch_list, dest_file=tmpfile)
-        result.elapsed_s = time.time() - start
-        result.stdout = output.get("stdout", "")
-        result.success = (
-            output.get("rc") == 0 and
-            "Patch applied successfully" in result.stdout
-        )
-        if not result.success:
-            lowered = (result.stdout + output.get("stderr", "")).lower()
-            if ("hardwareproxy" in lowered or "hardware proxy" in lowered or
-                    "connectiondroppedbydevice" in lowered or
-                    "waitforregex" in lowered):
-                result.hwproxy_timeout = True
-    except TimeoutError:
-        # apply_patch's internal wait_until fuse fired
-        result.elapsed_s = time.time() - start
-        result.hwproxy_timeout = True
-    finally:
-        try:
-            delete_tmpfile(duthost, tmpfile)
-        except Exception:
-            pass
-    return result
-
-
 def _verify_bgp_up_scaling(duthost, bgp_neigh_ips, timeout=180):
     """Poll ``show ip bgp summary -d all`` for all peers reaching Established.
 
@@ -2149,6 +2099,17 @@ def _cli_remove_selected_mors(duthost, selection, namespace):
     before PORTCHANNEL.  Both asic-namespace and localhost tables are cleaned.
     ``module_ignore_errors=True`` because some entries may exist on only one
     side (asic vs localhost) or may have been auto-removed by prior ops.
+
+    Scope note (INTERFACE table): this test targets ``PORTCHANNEL``-based
+    MORs on T2/lt2 topologies, where port members are grouped under
+    ``PORTCHANNEL_INTERFACE`` — not ``INTERFACE`` (which is used for
+    L3-on-port designs).  We therefore deliberately do not strip
+    ``INTERFACE|{port}`` entries.  The rollback fixture undoes any stray
+    state at teardown regardless.
+
+    Persistence note: we intentionally do NOT ``config save`` after the
+    CLI removals.  Persisting would defeat the ``config rollback`` in
+    ``scaling_checkpoint`` teardown, which is the primary cleanup path.
 
     Safe by construction: our fixture takes a checkpoint before this runs
     and calls ``config rollback`` in teardown, so any intermediate state
@@ -2635,21 +2596,6 @@ def _run_scaling_measurement(duthost, tbinfo, config_facts, config_facts_localho
         bgp_up = _verify_bgp_up_scaling(duthost, selection["bgp_neigh_ips"])
     e2e_elapsed_s = time.time() - apply_start
 
-    # ---- ACL re-attach: not needed with CLI-based removal above
-    # (we never detached ACL_TABLE ports in the setup step). If a future
-    # variant of the setup does detach ACL, uncomment the block below.
-    #
-    # if success:
-    #     acl_patch = _build_scaling_acl_reattach_patch(
-    #         config_facts_localhost, selection, mg_facts)
-    #     if acl_patch:
-    #         tmp = generate_tmpfile(duthost)
-    #         try:
-    #             out = apply_patch(duthost, json_data=acl_patch, dest_file=tmp)
-    #             expect_op_success(duthost, out)
-    #         finally:
-    #             delete_tmpfile(duthost, tmp)
-
     return {
         "selection": selection,
         "ns_label": ns_label,
@@ -2719,7 +2665,7 @@ def _run_and_publish(duthost, tbinfo, config_facts, config_facts_localhost,
         duthost, tbinfo, config_facts, config_facts_localhost,
         mg_facts, namespace, n_mors, record_property)
 
-    budget = int(os.environ.get("GCU_TIME_BUDGET_S", DEFAULT_TIME_BUDGET_S))
+    budget = _time_budget_for(n_mors)
 
     record_property("gcu_tier", tier)
     record_property("gcu_n_mors", n_mors)
