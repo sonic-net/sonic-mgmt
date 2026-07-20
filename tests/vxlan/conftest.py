@@ -354,3 +354,16 @@ def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Restore config after running tests")
     config_reload(duthost, safe_reload=True)
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(duthost, loganalyzer):
+    if loganalyzer:
+        # The following error sometimes happens after removing the VNET during fixture_setUp teardown.
+        # It is a harmless error and does not affect the test results.
+        # The root cause is a race condition that is fixed by https://github.com/sonic-net/sonic-swss/pull/4499.
+        # Since the PR is not merged yet, we need to ignore this error for now.
+        ignore_regex_list = [
+            ".*ERR bgp#fpmsyncd:.*onRouteMsg: Invalid VRF name.*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
