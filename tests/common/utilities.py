@@ -148,7 +148,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -683,7 +683,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
