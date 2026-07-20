@@ -193,15 +193,22 @@ def test_ha_dpu_failure(
         dut, scope_key, expected_state="down",
         timeout=60, interval=5,
     )
-    pytest_assert(
-        down_ok,
-        f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not reach "
-        f"'down' for {scope_key} while {dpu_name} was powered off. "
-        f"Observed: {down_state}"
-    )
 
-    logger.info(f"Startup {dpu_name} on {dut.hostname}")
-    pytest_assert(dpu_power_on_for_index(dut, dpu_id), f"Failed to bring up {dpu_name} on {dut.hostname}")
+    # Restore the DPU before fixture teardown even when state validation fails.
+    try:
+        pytest_assert(
+            down_ok,
+            f"{dut.hostname}: DASH_HA_SCOPE_STATE PMON fields did not reach "
+            f"'down' for {scope_key} while {dpu_name} was powered off. "
+            f"Observed: {down_state}"
+        )
+    finally:
+        logger.info(f"Startup {dpu_name} on {dut.hostname}")
+        power_on_ok = dpu_power_on_for_index(dut, dpu_id)
+        if not power_on_ok:
+            logger.error(f"Failed to bring up {dpu_name} on {dut.hostname}")
+
+    pytest_assert(power_on_ok, f"Failed to bring up {dpu_name} on {dut.hostname}")
 
     # Verify HA scope PMON state returns to "up" after powering the DPU back on.
     logger.info(
