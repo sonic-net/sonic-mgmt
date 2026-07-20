@@ -167,6 +167,7 @@ class GnmiFixture:
     grpc: object        # PtfGrpc (TLS/plaintext) or DutGrpc (UDS)
     gnoi: object        # PtfGnoi or DutGnoi
     pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
+    revoked_cert_paths: Optional[CertPaths] = None
     transport: str = 'tls'      # 'tls' or 'uds'
     _duthost: object = None  # For post-reboot reconfiguration
 
@@ -237,9 +238,11 @@ def gnmi_tls(request, duthosts, ptfhost):
     if isinstance(param, dict):
         transport = param.get('transport', 'tls')
         validity_days = param.get('validity_days')
+        crl = param.get('crl', False)
     else:
         transport = param
         validity_days = None
+        crl = False
 
     if transport == 'uds':
         yield from _gnmi_uds_flow(duthost)
@@ -259,12 +262,62 @@ def gnmi_tls(request, duthosts, ptfhost):
     create_checkpoint(duthost, checkpoint_name)
 
     pygnmi_client = None
+    crl_server_started = False
     try:
         # 2. Generate and distribute certificates
-        _create_gnoi_certs(duthost, ptfhost, cert_dir, **cert_options)
+        crl_distribution_url = ""
+        is_mgmt_ipv6_only = False
+        if crl:
+            dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+            is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+            if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+                crl_distribution_url = (
+                    f"http://[{ptfhost.mgmt_ipv6}]:8080/sonic.crl.pem"
+                )
+            else:
+                crl_distribution_url = (
+                    f"http://{ptfhost.mgmt_ip}:8080/sonic.crl.pem"
+                )
+
+        _create_gnoi_certs(
+            duthost,
+            ptfhost,
+            cert_dir,
+            include_crl=crl,
+            crl_distribution_url=crl_distribution_url,
+            **cert_options,
+        )
+
+        if crl:
+            crl_server_src = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                "gnmi",
+                "crl",
+                "crl_server.py",
+            )
+            ptfhost.copy(src=crl_server_src, dest="/root/crl_server.py")
+            ptfhost.shell("rm -f /root/crl.log")
+            crl_server_cmd = (
+                "nohup /root/env-python3/bin/python /root/crl_server.py "
+                "--port 8080"
+            )
+            if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+                crl_server_cmd += f" --bind {ptfhost.mgmt_ipv6}"
+            ptfhost.shell(crl_server_cmd + " &")
+            crl_server_started = True
+
+            def server_ready_log_exist():
+                result = ptfhost.shell(
+                    "sed -n '/Ready handle request/p' /root/crl.log",
+                    module_ignore_errors=True,
+                )
+                return bool(result.get("stdout_lines"))
+
+            if not wait_until(60, 1, 0, server_ready_log_exist):
+                raise Exception("CRL server failed to become ready within 60 seconds")
 
         # 3. Configure server for TLS mode
-        _configure_gnoi_tls_server(duthost)
+        _configure_gnoi_tls_server(duthost, enable_crl=crl)
 
         # 4. Restart gNOI server process
         _restart_gnoi_server(duthost)
@@ -283,6 +336,13 @@ def gnmi_tls(request, duthosts, ptfhost):
             client_cert=ptf_cert_paths['client_cert'],
             client_key=ptf_cert_paths['client_key'],
         )
+        revoked_cert_paths = None
+        if crl:
+            revoked_cert_paths = CertPaths(
+                ca_cert=f"{cert_dir}/{grpc_config.CA_CERT}",
+                client_cert=f"{cert_dir}/gnmiclient.revoked.cer",
+                client_key=f"{cert_dir}/gnmiclient.revoked.key",
+            )
 
         client = PtfGrpc(ptfhost, target, plaintext=False)
         client.configure_tls_certificates(
@@ -309,6 +369,7 @@ def gnmi_tls(request, duthosts, ptfhost):
             grpc=client,
             gnoi=gnoi_client,
             pygnmi_client=pygnmi_client,
+            revoked_cert_paths=revoked_cert_paths,
             transport='tls',
             _duthost=duthost,
         )
@@ -325,6 +386,12 @@ def gnmi_tls(request, duthosts, ptfhost):
                 pygnmi_client.close()
             except Exception as e:
                 logger.error("Failed to close PygnmiClient: %s", e)
+
+        if crl_server_started:
+            ptfhost.shell(
+                "pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'",
+                module_ignore_errors=True,
+            )
 
         try:
             output = rollback(duthost, checkpoint_name)
@@ -474,7 +541,14 @@ def ptf_gnoi(ptf_grpc):
 # Internal helpers (unchanged)
 # ---------------------------------------------------------------------------
 
-def _create_gnoi_certs(duthost, ptfhost, cert_dir, **kwargs):
+def _create_gnoi_certs(
+    duthost,
+    ptfhost,
+    cert_dir,
+    include_crl=False,
+    crl_distribution_url="",
+    **kwargs,
+):
     """
     Generate and distribute gNOI TLS certificates.
 
@@ -492,6 +566,11 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir, **kwargs):
     generator = create_gnmi_cert_generator(
         server_ip=duthost.mgmt_ip, **kwargs)
     generator.write_all(cert_dir)
+    if include_crl:
+        generator.generate_revoked_cert_with_crl(
+            crl_distribution_url=crl_distribution_url,
+            output_dir=cert_dir,
+        )
 
     logger.info(f"Certificates generated in {cert_dir}")
 
@@ -507,11 +586,13 @@ def _create_gnoi_certs(duthost, ptfhost, cert_dir, **kwargs):
     ptfhost.copy(src=f'{cert_dir}/{grpc_config.CA_CERT}', dest=copy_destinations['ptf'][grpc_config.CA_CERT])
     ptfhost.copy(src=f'{cert_dir}/{grpc_config.CLIENT_CERT}', dest=copy_destinations['ptf'][grpc_config.CLIENT_CERT])
     ptfhost.copy(src=f'{cert_dir}/{grpc_config.CLIENT_KEY}', dest=copy_destinations['ptf'][grpc_config.CLIENT_KEY])
+    if include_crl:
+        ptfhost.copy(src=f"{cert_dir}/sonic.crl.pem", dest="/root/sonic.crl.pem")
 
     logger.info("Certificate generation and distribution completed")
 
 
-def _configure_gnoi_tls_server(duthost):
+def _configure_gnoi_tls_server(duthost, enable_crl=False):
     """Configure CONFIG_DB for TLS mode."""
     logger.info("Configuring gNOI server for TLS mode")
 
@@ -520,6 +601,8 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" user_auth cert')
+    if enable_crl:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" enable_crl true')
 
     # Configure certificate paths using centralized config
     config_db_settings = grpc_config.get_config_db_cert_settings()
@@ -533,6 +616,12 @@ def _configure_gnoi_tls_server(duthost):
         '''"gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,'''
         '''gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
     )
+    if enable_crl:
+        duthost.shell(
+            '''sonic-db-cli CONFIG_DB hset '''
+            '''"GNMI_CLIENT_CERT|test.client.revoked.gnmi.sonic" '''
+            '''"role@" "gnmi_readwrite"'''
+        )
 
     logger.info("TLS configuration completed")
 

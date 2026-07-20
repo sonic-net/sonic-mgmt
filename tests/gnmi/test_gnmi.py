@@ -254,13 +254,11 @@ def test_gnmi_subscribe_sample(duthosts, rand_one_dut_hostname, ptfhost,
         validates_subscribe_sample(stdout_msg)
 
 
+@pytest.mark.parametrize(
+    "gnmi_tls", [{"transport": "tls", "crl": True}], indirect=True)
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
                                                  rand_one_dut_hostname,
-                                                 ptfhost,
-                                                 setup_crl_server_on_ptf,
-                                                 setup_gnmi_server,
-                                                 setup_gnmi_rotated_server,
-                                                 check_dut_timestamp):
+                                                 gnmi_tls):
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path
@@ -272,17 +270,29 @@ def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
     gnmi_log = ""
     while retry > 0:
         retry -= 1
-        file_name = "vnet.txt"
-        text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
-        with open(file_name, 'w') as file:
-            file.write(text)
-        ptfhost.copy(src=file_name, dest='/root')
-        update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
+        revoked_client = None
         msg = ""
         try:
-            gnmi_set(duthost, ptfhost, [], update_list, [], "gnmiclient.revoked")
-        except Exception as e:
+            revoked_client = PygnmiClient(
+                gnmi_tls.host,
+                gnmi_tls.port,
+                ca_cert=gnmi_tls.revoked_cert_paths.ca_cert,
+                client_cert=gnmi_tls.revoked_cert_paths.client_cert,
+                client_key=gnmi_tls.revoked_cert_paths.client_key,
+                connect=False,
+            )
+            revoked_client.set(update=[(
+                "/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE",
+                {"Vnet1": {
+                    "vni": "1000",
+                    "guid": "559c6ce8-26ab-4193-b946-ccc6e8f930b2",
+                }},
+            )])
+        except (PygnmiClientCallError, PygnmiClientConnectionError) as e:
             msg = str(e)
+        finally:
+            if revoked_client is not None:
+                revoked_client.close()
         gnmi_log = dump_gnmi_log(duthost)
         # retry when download crl failed, ptf device network not stable
         if "desc = Peer certificate revoked" in gnmi_log:
