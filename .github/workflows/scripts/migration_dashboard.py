@@ -792,7 +792,7 @@ def build_markdown_lines(
     max_tier: int,
     top: Optional[int],
 ) -> List[str]:
-    """Return the dashboard as a Markdown report (summary + sortable table)."""
+    """Return the dashboard as a human-readable Markdown report."""
     hardest = max_tier + 1
     ordered = sorted(tasks, key=lambda x: x.rank)
     shown = ordered if top is None else ordered[:top]
@@ -812,13 +812,11 @@ def build_markdown_lines(
     lines.append("")
     lines.append("## Summary")
     lines.append("")
-    lines.append("| Metric | Value |")
-    lines.append("| --- | ---: |")
-    lines.append(f"| Modules available to migrate | {len(tasks)} |")
-    lines.append(f"| Modules already migrated | {len(done_tasks)} |")
-    lines.append(f"| Distinct tests impacted (direct) | {distinct_direct} |")
-    lines.append(f"| Distinct tests impacted (transitive) | {distinct_trans} |")
-    lines.append(f"| Granular function/class sub-tasks | {subtasks} |")
+    lines.append(f"- Modules available to migrate: **{len(tasks)}**")
+    lines.append(f"- Modules already migrated: **{len(done_tasks)}**")
+    lines.append(f"- Distinct tests impacted (direct): **{distinct_direct}**")
+    lines.append(f"- Distinct tests impacted (transitive): **{distinct_trans}**")
+    lines.append(f"- Granular function/class sub-tasks: **{subtasks}**")
     lines.append("")
     lines.append(
         "**How to read the numbers** (all follow _lower = easier_): "
@@ -827,53 +825,91 @@ def build_markdown_lines(
         "**score** = raw weighted effort (higher = more work)."
     )
     lines.append("")
-    lines.append("Column key: **Tests** = tests importing the module directly · "
-                 "**Tx** = tests impacted transitively (hidden cascade) · "
-                 "**Deps** = other common modules it imports · "
-                 "**Typed** = % of params/returns already annotated · "
-                 "**UT** = has common2 unit tests.")
-    lines.append("")
+
     heading = "## Migration work queue (easiest first)"
     if top is not None and len(ordered) > top:
         heading += f" — showing top {top} of {len(ordered)}"
     lines.append(heading)
     lines.append("")
-    lines.append(
-        "| Rank | Tier | Score | Tests | Tx | Deps | LOC | Fns | Typed | UT "
-        "| Module | Target domain |"
-    )
-    lines.append(
-        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :-: "
-        "| --- | --- |"
-    )
+
     for task in shown:
         module_disp = task.rel_path.replace("tests/common/", "")
-        lines.append(
-            f"| {task.rank} | {task.tier} | {task.score:.2f} "
-            f"| {len(task.impacted_tests)} | {len(task.impacted_tests_transitive)} "
-            f"| {len(task.depends_on_direct)} | {task.loc} "
-            f"| {task.num_functions + task.num_classes} "
-            f"| {int(task.typed_ratio * 100)}% "
-            f"| {'Y' if task.has_common2_unit_tests else 'N'} "
-            f"| `{_md_cell(module_disp)}` | `{_md_cell(task.domain)}` |"
-        )
-    if top is not None and len(ordered) > top:
+        lines.append(f"### {task.rank}. {module_disp}")
         lines.append("")
+        lines.append(f"- **Target:** `{_md_cell(task.target_path)}`")
+        lines.append(f"- **Domain:** `{_md_cell(task.domain)}`")
+        lines.append(f"- **Tier:** {task.tier}")
+        lines.append(f"- **Score:** {task.score:.2f}")
+        lines.append(f"- **LOC:** {task.loc}")
+        lines.append(
+            f"- **Size:** {task.num_functions + task.num_classes} function/class items"
+        )
+        lines.append(f"- **Typed:** {int(task.typed_ratio * 100)}%")
+        lines.append(f"- **Direct tests:** {len(task.impacted_tests)}")
+        lines.append(f"- **Transitive tests:** {len(task.impacted_tests_transitive)}")
+        lines.append(f"- **Common dependencies:** {len(task.depends_on_direct)}")
+        lines.append(f"- **Common2 unit tests present:** {'Yes' if task.has_common2_unit_tests else 'No'}")
+        lines.append("")
+
+        deps = task.depends_on_direct or []
+        trans = [d for d in task.depends_on_transitive or [] if d not in deps]
+        lines.append("#### Dependencies")
+        lines.append("")
+        if deps:
+            lines.append("**Direct dependencies**")
+            for dep in deps:
+                lines.append(f"- `{_md_cell(dep)}`")
+            if trans:
+                lines.append("")
+                lines.append("**Transitive dependencies**")
+                for dep in trans:
+                    lines.append(f"- `{_md_cell(dep)}`")
+        else:
+            lines.append("- None")
+        lines.append("")
+
+        direct = task.impacted_tests or []
+        tx = task.impacted_tests_transitive or []
+        lines.append("#### Impacted tests")
+        lines.append("")
+        if direct:
+            lines.append("**Directly impacted tests**")
+            for path in direct:
+                lines.append(f"- `{_md_cell(path)}`")
+        else:
+            lines.append("- No direct test impact recorded")
+        if tx:
+            lines.append("")
+            lines.append("**Transitively impacted tests**")
+            for path in tx:
+                lines.append(f"- `{_md_cell(path)}`")
+        lines.append("")
+
+        pending = [s for s in task.symbols if not s.migrated]
+        if pending:
+            lines.append("#### Sub-tasks")
+            lines.append("")
+            for sym in sorted(pending, key=lambda s: s.score):
+                lines.append(
+                    f"- [{sym.kind}] `{_md_cell(sym.name)}` — tier {sym.tier}, "
+                    f"score {sym.score:.2f}, {sym.loc} LOC"
+                )
+            lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    if top is not None and len(ordered) > top:
         lines.append(
             f"_… and {len(ordered) - top} more. Download the YAML/JSON artifact "
-            "for the full list and per-function sub-tasks._"
+            "for the full list and machine-readable details._"
         )
-    lines.append("")
+        lines.append("")
 
     if done_tasks:
         lines.append("## Already migrated (for reference)")
         lines.append("")
-        lines.append("| Module | Target |")
-        lines.append("| --- | --- |")
         for task in done_tasks:
-            lines.append(
-                f"| `{_md_cell(task.rel_path)}` | `{_md_cell(task.target_path)}` |"
-            )
+            lines.append(f"- `{_md_cell(task.rel_path)}` → `{_md_cell(task.target_path)}`")
         lines.append("")
     return lines
 

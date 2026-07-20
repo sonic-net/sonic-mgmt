@@ -39,12 +39,13 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 # built-in card **Title** (which holds the module path), so no dedicated
 # "Module" column is needed.
 
+DASHBOARD_PATH = "https://github.com/opcoder023/sonic-mgmt/blob/common-to-common2-migration-plan/.github/workflows/scripts/migration_dashboard.md"  # noqa: E501
+
 TEXT_FIELDS = {
     # column name -> function producing the string from a task dict
     "Target": lambda t: t["target_path"],
     "Domain": lambda t: t["domain"],
-    "Direct Test Dependencies": lambda t: "\n".join(t.get("impacted_tests") or []),
-    "Transitive Test Dependencies": lambda t: "\n".join(t.get("impacted_tests_transitive") or []),
+    "Dependency Details": lambda t: DASHBOARD_PATH,
 }
 
 NUMBER_FIELDS = {
@@ -426,10 +427,14 @@ def build_card_body(task: dict, migrated: bool) -> str:
     trans = [d for d in (task.get("depends_on_transitive") or []) if d not in deps]
     lines.append("### Dependencies (migrate or bridge these too)")
     if deps:
+        lines.append("**Direct dependencies**")
         for dep in deps:
             lines.append(f"- `{dep}`")
         if trans:
-            lines.append(f"- _…plus {len(trans)} more reached transitively_")
+            lines.append("")
+            lines.append("**Transitive dependencies**")
+            for dep in trans:
+                lines.append(f"- `{dep}`")
     else:
         lines.append("- _none — self-contained, safe to migrate in isolation_")
     lines.append("")
@@ -441,10 +446,16 @@ def build_card_body(task: dict, migrated: bool) -> str:
         f"- **{len(direct)}** test(s) import it directly; "
         f"**{len(tx)}** affected transitively."
     )
-    for path in direct[:15]:
-        lines.append(f"  - `{path}`")
-    if len(direct) > 15:
-        lines.append(f"  - _…and {len(direct) - 15} more_")
+    if direct:
+        lines.append("")
+        lines.append("**Directly impacted tests**")
+        for path in direct:
+            lines.append(f"- `{path}`")
+    if tx:
+        lines.append("")
+        lines.append("**Transitively impacted tests**")
+        for path in tx:
+            lines.append(f"- `{path}`")
     lines.append("")
 
     pending = [s for s in (task.get("symbols") or []) if not s.get("migrated")]
