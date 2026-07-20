@@ -15,6 +15,11 @@ import pytest
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.cisco_data import (
+    CISCO_8122_PREFIX,
+    CISCO_8122_GR2_PREFIX,
+    CISCO_8122_GR2X_PREFIX,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,11 @@ DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
 ANSIBLE_LIBRARY_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../../../ansible/library'))
 MARK_CONDITIONS_CONSTANTS = {
+    # Cisco platform prefixes for use in conditions like:
+    #   platform.startswith(constants['CISCO_8122_PREFIX'])
+    "CISCO_8122_PREFIX": CISCO_8122_PREFIX,
+    "CISCO_8122_GR2_PREFIX": CISCO_8122_GR2_PREFIX,
+    "CISCO_8122_GR2X_PREFIX": CISCO_8122_GR2X_PREFIX,
     "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
                      't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
                      'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout',
@@ -31,8 +41,8 @@ MARK_CONDITIONS_CONSTANTS = {
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
                      'lt2-p32o64', 'lt2-o128', 'ft2-64', 'ft2-16', 't2_one_hwsku_min', 't2_one_hwsku_max',
                      't2-single-node-min', 't2_single_node_min', 't2_single_node_max',
-                     't2_single_node_max_64p', 't2-single-node-max-64p',
-                     't2_single_node_max_64p_v2', 'urh_min', 'lrh_min']
+                     't2_single_node_max_64p', 't2-single-node-max-64p', 't2_single_node_max_64p_v2',
+                     'urh_min', 'lrh_min', 'lt2-o224', 'lt2-o32', 'lt2-o256-u32d224']
 }
 
 
@@ -711,12 +721,16 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
-    # Normalize nodeids: strip root directory prefix if present (pytest 9.0+ includes it)
+    # Normalize nodeids to match the tests/-relative condition keys. rootdir may
+    # float above tests/ (e.g. --inventory ../ansible/veos_vtb), so strip both
+    # basename(rootpath) and a leading "tests/" or all conditional skips no-op.
     root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
     for item in items:
         nodeid = item.nodeid
         if nodeid.startswith(root_prefix):
             nodeid = nodeid[len(root_prefix):]
+        if nodeid.startswith("tests/"):
+            nodeid = nodeid[len("tests/"):]
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:

@@ -123,6 +123,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
+                  'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror')
@@ -2225,7 +2226,9 @@ _hosts_per_hwsku_per_module = {}
 _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
 _macsec_frontend_hosts_per_hwsku_per_module = {}
-def pytest_generate_tests(metafunc):        # noqa: E302
+
+
+def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -3098,7 +3101,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts, request):
 
 
 def compare_running_config(pre_running_config, cur_running_config):
-    if type(pre_running_config) != type(cur_running_config):
+    if type(pre_running_config) is not type(cur_running_config):
         return False
     if pre_running_config == cur_running_config:
         return True
@@ -3920,6 +3923,34 @@ def setup_connection(request, setup_gnmi_server):
                                                         client_key_path=client_key)
         yield gnmi_connection
         channel.close()
+
+
+def backup_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH, backup_path))
+
+
+def restore_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(backup_path, GOLDEN_CONFIG_DB_PATH))
+
+
+def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
+    """
+    @summary: Update golden_config_db.json on the DUT to set tsa_enabled in BGP_DEVICE_GLOBAL.
+    Handles both multi-asic and single-asic cases.
+    """
+    golden_config_db = json.loads(duthost.shell("cat {}".format(GOLDEN_CONFIG_DB_PATH))['stdout'])
+    tsa_enabled_str = "true" if tsa_enabled else "false"
+
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.asics:
+            golden_config_db.setdefault(asic.namespace, {}) \
+                            .setdefault("BGP_DEVICE_GLOBAL", {}) \
+                            .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+    else:
+        golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
+                        .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+
+    duthost.copy(content=json.dumps(golden_config_db, indent=4), dest=GOLDEN_CONFIG_DB_PATH)
 
 
 @pytest.fixture(scope="module", autouse=True)

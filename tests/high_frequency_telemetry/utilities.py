@@ -1604,7 +1604,7 @@ def start_influxdb(ptfhost, port=8181, timeout=30):
 
     ptfhost.shell(
         f"nohup influxdb3 serve --object-store memory --node-id test "
-        f"--http-bind={port} --without-auth "
+        f"--http-bind=0.0.0.0:{port} --without-auth "
         "> /var/log/influxdb3.log 2>&1 &",
         module_ignore_errors=False,
     )
@@ -1784,6 +1784,15 @@ def validate_influxdb_intervals(ptfhost, bucket="home", port=8181,
                 "passed": False}
 
     groups = parse_influxdb_json(result["stdout"])
+    # Split by object_name — OTel puts all ports under one measurement,
+    # so unsplit timestamps interleave and halve the inter-arrival delta.
+    sub_groups = {}
+    for measurement, rows in groups.items():
+        for row in rows:
+            obj = row.get("object_name", "")
+            key = f"{measurement}|{obj}" if obj else measurement
+            sub_groups.setdefault(key, []).append(row)
+    groups = sub_groups
     all_stats = {}
     violations = []
 

@@ -87,7 +87,6 @@ The following table summarizes the key attributes used in system testing. This t
 | media_si_settings | dict | {} | O | platform_hwsku_overrides | Dictionary containing media SI settings following media_settings.json structure for comparison with APPL_DB values. Test runs if dictionary is non-empty. |
 | frequency_values | list | [] | O | transceivers | List of frequency values for C-CMIS transceivers. First value is the default frequency, followed by test frequencies (min/max supported). Test runs if list is non-empty. |
 | tx_power_values | list | [] | O | transceivers | List of tx power values in dBm for C-CMIS transceivers. First value is the default tx power, followed by test power levels (min/max supported). Test runs if list is non-empty. |
-| expected_application_code | integer | - | O | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
 | link_stability_monitor_sec | integer | 300 | O | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
 
 For information about attribute override hierarchy and precedence, please refer to the [Priority-Based Attribute Resolution](test_plan.md#priority-based-attribute-resolution) documentation.
@@ -143,25 +142,30 @@ This procedure is used after any test that modifies transceiver state or after s
    - Verify port is operationally up
    - Wait for configured timeout period before declaring failure
 
-2. **LLDP Verification** (if `verify_lldp_on_link_up` is True)
+2. **Link Flap / Stability Verification**
+   - **Stability (always):** over a short post-recovery observation window, confirm the port does not flap — no new flap events and `last_up_time` stays steady. This sub-check is **forward-looking only** — it observes from recovery onward and does not use the pre-operation flap count — so it holds even for operations whose counters reset when the port DB is rebuilt.
+   - **No flap across the operation (only where the counter survives):** additionally, for operations where the link is expected to stay up *and* APPL_DB is **not** rebuilt — i.e. `xcvrd` / `pmon` restart — assert the port did not flap during the operation by comparing the current flap count against the baseline recorded in [Common Setup](#common-test-setup-and-teardown) (boolean: count unchanged / no new flap).
+   - This baseline comparison is **not** applied to operations that rebuild/clear the port DB — `swss` / `syncd` restart, `config reload`, cold/warm/fast reboot, and power cycle — because the flap count resets to `0`; for those, the stability sub-check above is the only flap check.
+
+3. **LLDP Verification** (if `verify_lldp_on_link_up` is True)
    - Verify port appears in LLDP neighbor table
    - Confirm LLDP neighbor information is correctly populated (remote device ID, port ID, etc. if applicable)
 
-3. **CMIS State Verification** (for CMIS active optical transceivers (can be checked via `cmis_active_optical` attribute))
+4. **Remote-Side Link Verification** (optional — enabled by callers that opt in, e.g. the disruptive Event Handling and System Recovery test cases)
+   - Resolve the peer port via the shared [Remote-Side Port Resolution](test_plan.md#remote-side-port-resolution) and verify the remote-side port is operationally up.
+   - Skipped when the caller does not request it (e.g. read-only diagnostic checks). A port under test with no peer entry in the connection graph is a configuration error, per the shared resolution contract.
+   - Per-operation peer link-flap expectations (e.g. the peer bounces once on reseat/reboot) are asserted in the individual test cases, not here.
+
+5. **CMIS State Verification** (for CMIS active optical transceivers (can be checked via `cmis_active_optical` attribute))
    - Verify DataPathState is `DPActivated` for operational ports
    - Verify ConfigState is `ConfigSuccess`
 
-4. **SI Settings Verification** (if applicable)
+6. **SI Settings Verification** (if applicable)
    - **Optics SI Settings**: If `optics_si_settings` is defined, verify current EEPROM values match configured attributes
    - **Media SI Settings**: If `media_si_settings` is defined, verify PORT_TABLE APPL_DB values match configured attributes. Also, ensure `NPU_SI_SETTINGS_SYNC_STATUS_KEY` is set to `NPU_SI_SETTINGS_DONE` in `PORT_TABLE` of `APPL_DB`
    - Log any discrepancies for analysis
 
-5. **Application Code Verification** (if `expected_application_code` is defined and not null)
-   - Read current application code from transceiver EEPROM
-   - Verify the actual application code matches the `expected_application_code` value
-   - Log any discrepancies for analysis
-
-6. **Docker and Process Health Check**
+7. **Docker and Process Health Check**
    - Verify all critical services (`xcvrd, pmon, swss, syncd`) are running for at least 3 minutes
    - Ensure no core files are present in `/var/core`
    - Log any service failures for analysis
@@ -199,11 +203,11 @@ The following tests aim to validate the link status and stability of transceiver
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | Port shutdown validation | 1. For each transceiver port individually:<br>   a. Issue `config interface shutdown <port>`.<br>   b. Wait for `port_shutdown_wait_sec`.<br>   c. Verify port is operationally down.<br>2. Validate link status using CLI configuration. | Ensure that the link goes down within the configured timeout period for each port. |
-| 2 | Port startup validation | 1. For each transceiver port individually:<br>   a. Issue `config interface startup <port>`.<br>   b. Wait for `port_startup_wait_sec`.<br>2. Execute **Standard Port Recovery and Verification Procedure**. | Ensure that the port passes all verification checks including link status, LLDP, CMIS states, SI settings, and application code validation. |
+| 2 | Port startup validation | 1. For each transceiver port individually:<br>   a. Issue `config interface startup <port>`.<br>   b. Wait for `port_startup_wait_sec`.<br>2. Execute **Standard Port Recovery and Verification Procedure**. | Ensure that the port passes all verification checks including link status, LLDP, CMIS states, and SI settings. |
 
 ### Process and Service Restart Test Cases
 
-**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: the framework's PID check is overridden in this subcategory's conftest since service restarts are the subject of the test; instead, verify that each restarted service comes back up and is running before the test is considered complete. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
+**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: because the per-test PID check evaluates only the monitored processes listed in `DEFAULT_MONITORED_PROCESSES` (`tests/transceiver/common/health_checks.py`, currently only `xcvrd`), this subcategory adds the name of the *monitored* process whose restart is expected (today only `"xcvrd"`) — not the name of the restarted service — to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest. The framework's per-test PID check then treats the PID change as expected rather than a regression; the parent health check still verifies the monitored process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
@@ -224,7 +228,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 2 | Cold reboot link recovery | 1. Verify current link states to be up for all transceivers.<br>2. Execute a cold reboot.<br>3. Wait for `cold_reboot_settle_sec` and monitor link recovery after reboot.<br>4. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
 | 3 | Warm reboot link recovery | 1. Skip test if `warm_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform warm reboot.<br>4. Wait for `warm_reboot_settle_sec` and monitor link recovery after reboot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure `xcvrd` restarts and maintains link stability for all ports, with comprehensive verification checks passing. |
 | 4 | Fast reboot link recovery | 1. Skip test if `fast_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform fast reboot.<br>4. Wait for `fast_reboot_settle_sec` and monitor link establishment timing.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
-| 5 | Power cycle link recovery | 1. Skip test if `power_cycle_supported` is False.<br>2. Verify current link states are up for all transceivers.<br>3. Perform a controlled chassis power cycle.<br>4. Wait for `power_cycle_settle_sec` and monitor link recovery after full boot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-power cycle and pass comprehensive verification checks (link status, LLDP, CMIS states, SI settings, application code if defined, docker and process stability). |
+| 5 | Power cycle link recovery | 1. Skip test if `power_cycle_supported` is False.<br>2. Verify current link states are up for all transceivers.<br>3. Perform a controlled chassis power cycle.<br>4. Wait for `power_cycle_settle_sec` and monitor link recovery after full boot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-power cycle and pass comprehensive verification checks (link status, LLDP, CMIS states, SI settings, docker and process stability). |
 
 ### Transceiver Event Handling Test Cases
 

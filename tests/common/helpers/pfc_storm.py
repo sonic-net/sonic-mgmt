@@ -32,6 +32,7 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "Arista DCS-7260CX3": "Tomahawk2",
         "Arista-7260CX3": "Tomahawk2",
         "Arista-7260QX3": "Tomahawk2",
+        "M2-W6940-64X1-FR4": "Tomahawk5",
         "Nokia-IXR7220": "Tomahawk6",
         }
 

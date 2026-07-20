@@ -678,6 +678,7 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - crm/test_crm.py
   - crm/test_crm_available.py
+  - decap/test_decap.py
   - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
   - drop_packets/test_drop_counters.py
@@ -711,6 +712,10 @@ t1-lag-vpp:
   - route/test_route_perf.py
   - route/test_route_bgp_ecmp.py
   - route/test_route_map_check.py
+  - ssh/test_ssh_ciphers.py
+  - ssh/test_ssh_default_password.py
+  - ssh/test_ssh_limit.py
+  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - vxlan/test_vxlan_ecmp.py
