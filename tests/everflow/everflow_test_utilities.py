@@ -1067,12 +1067,14 @@ class BaseEverflowTest(object):
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session remove {}".format(session_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command, module_ignore_errors=module_ignore_errors)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
         if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
@@ -1198,6 +1200,7 @@ class BaseEverflowTest(object):
 
     @staticmethod
     def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
             duthost.shell("if [ -e {0} ] && [ ! -d {0} ]; then rm -f {0}; fi; mkdir -p {0}".format(DUT_RUN_DIR))
             duthost.copy(src=os.path.join(FILE_DIR, EVERFLOW_RULE_DELETE_FILE),
@@ -1207,7 +1210,8 @@ class BaseEverflowTest(object):
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command, module_ignore_errors=module_ignore_errors)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
         time.sleep(2)
 
     @abstractmethod
