@@ -6,7 +6,6 @@ import pytest
 import logging
 
 import ptf.testutils as testutils
-import nnpy
 from tests.common.helpers.assertions import pytest_assert
 from erspan_helpers import (
     NUM_SAMPLES,
@@ -57,9 +56,10 @@ def _relax_nn_send_timeout(ptfadapter, inject_index, timeout_ms=SEND_SOCKET_TIME
     sends block on backpressure until the ptf_nn_agent drains its queue
     '''
     try:
+        import nnpy
         sock = ptfadapter.dataplane.ports[(0, inject_index)].packet_inject.socket
         sock.setsockopt(nnpy.SOL_SOCKET, nnpy.SNDTIMEO, timeout_ms)
-    except (KeyError, AttributeError) as exc:
+    except (ImportError, KeyError, AttributeError) as exc:
         logger.debug("Could not raise nn send timeout on port %s: %s", inject_index, exc)
 
 
@@ -379,10 +379,9 @@ def test_erspan_truncation_packet_size(
 
 
 @pytest.mark.parametrize('erspan_session',
-                         [{'sample_rate': 256},
-                          {'sample_rate': 512},
-                          {'sample_rate': 1024}],
-                         ids=['rate256', 'rate512', 'rate1024'],
+                         [{'sample_rate': 100},
+                          {'sample_rate': 256}],
+                         ids=['rate100', 'rate256'],
                          indirect=True)
 def test_erspan_sampling_rx_direction(
         skip_if_vs_platform,
@@ -391,10 +390,10 @@ def test_erspan_sampling_rx_direction(
         erspan_session):
     '''
     Verify RX (ingress) sampling yields ~1 in N frames: mirrored count within
-    [950, 1050] (NUM_SAMPLES +-5%).
+    [9500, 10500] (NUM_SAMPLES +-5%).
 
     Steps: configure sample_rate=N; send NUM_SAMPLES x N frames from the source port;
-    assert the mirrored count is within [950, 1050].
+    assert the mirrored count is within [9500, 10500].
     '''
     sample_rate = erspan_session['sample_rate']
     packets = _send_sampled_traffic_and_collect(
@@ -417,7 +416,7 @@ def test_erspan_sampling_rx_with_truncation(
         ptfadapter,
         erspan_session):
     '''
-    Verify RX sampling and truncation together: mirrored count within [950, 1050]
+    Verify RX sampling and truncation together: mirrored count within [9500, 10500]
     AND each mirrored frame truncated to ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256 + truncate_size=128; send NUM_SAMPLES x 256
@@ -440,10 +439,9 @@ def test_erspan_sampling_rx_with_truncation(
 
 
 @pytest.mark.parametrize('erspan_session',
-                         [{'sample_rate': 256, 'direction': 'tx'},
-                          {'sample_rate': 512, 'direction': 'tx'},
-                          {'sample_rate': 1024, 'direction': 'tx'}],
-                         ids=['rate256', 'rate512', 'rate1024'],
+                         [{'sample_rate': 100, 'direction': 'tx'},
+                          {'sample_rate': 256, 'direction': 'tx'}],
+                         ids=['rate100', 'rate256'],
                          indirect=True)
 def test_erspan_sampling_tx_direction(
         skip_if_vs_platform,
@@ -453,7 +451,7 @@ def test_erspan_sampling_tx_direction(
         erspan_session):
     '''
     Verify TX (egress) sampling emits ERSPAN at the configured 1:N ratio (mirrored
-    count within [950, 1050]).
+    count within [9500, 10500]).
 
     direction=tx binds the egress mirror to the source port, so only traffic *leaving*
     it is mirrored. We inject unicast on a peer VLAN member, addressed to a MAC pinned by
@@ -461,7 +459,7 @@ def test_erspan_sampling_tx_direction(
     (egress) only, triggering the mirror without VLAN-wide broadcast flooding.
 
     Steps: configure sample_rate=N, direction=tx; inject NUM_SAMPLES x N unicast frames
-    on the peer (tx_ingress) port; assert the mirrored count is within [950, 1050].
+    on the peer (tx_ingress) port; assert the mirrored count is within [9500, 10500].
     '''
     sample_rate = erspan_session['sample_rate']
     packets = _send_sampled_traffic_and_collect(
@@ -486,7 +484,7 @@ def test_erspan_sampling_tx_with_truncation(
         erspan_session):
     '''
     Verify TX (egress) sampling with truncation: mirrored count within
-    [950, 1050] and each frame truncated to ~ENCAP_OVERHEAD + truncate_size.
+    [9500, 10500] and each frame truncated to ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=tx; inject
     NUM_SAMPLES x 256 1500B unicast frames (dst PROBE_UNICAST_DST_MAC) on the
@@ -509,10 +507,9 @@ def test_erspan_sampling_tx_with_truncation(
 
 
 @pytest.mark.parametrize('erspan_session',
-                         [{'sample_rate': 256, 'direction': 'both'},
-                          {'sample_rate': 512, 'direction': 'both'},
-                          {'sample_rate': 1024, 'direction': 'both'}],
-                         ids=['rate256', 'rate512', 'rate1024'],
+                         [{'sample_rate': 100, 'direction': 'both'},
+                          {'sample_rate': 256, 'direction': 'both'}],
+                         ids=['rate100', 'rate256'],
                          indirect=True)
 def test_erspan_sampling_both_direction(
         skip_if_vs_platform,
@@ -528,10 +525,10 @@ def test_erspan_sampling_both_direction(
     RX leg: inject on the source port       -> ingress mirror.
     TX leg: inject unicast on the tx_ingress peer port
             -> DUT forwards out the source port -> egress mirror.
-    Pass: each leg's mirrored count within [950, 1050] (NUM_SAMPLES +-5%).
+    Pass: each leg's mirrored count within [9500, 10500] (NUM_SAMPLES +-5%).
 
     Steps: configure sample_rate=N, direction=both; run the RX leg then the TX leg;
-    assert each leg's mirrored count is within [950, 1050].
+    assert each leg's mirrored count is within [9500, 10500].
     '''
     sample_rate = erspan_session['sample_rate']
 
@@ -563,7 +560,7 @@ def test_erspan_sampling_both_with_truncation(
     '''
     Verify direction=both sampling and truncation on both legs: same two-leg setup as
     test_erspan_sampling_both_direction but with truncate_size and 1500B frames.
-    Pass: each leg's count within [950, 1050] AND every frame truncated to
+    Pass: each leg's count within [9500, 10500] AND every frame truncated to
     ~ENCAP_OVERHEAD + truncate_size.
 
     Steps: configure sample_rate=256, truncate_size=128, direction=both; run RX and TX

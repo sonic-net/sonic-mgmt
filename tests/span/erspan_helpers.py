@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Sampling verification constants.
 # We send NUM_SAMPLES * sample_rate packets so that the expected mirrored
 # packets are within the expected range.
-NUM_SAMPLES = 1000
+NUM_SAMPLES = 10000
 MIN_EXPECTED_SAMPLES = int(0.95 * NUM_SAMPLES)
 MAX_EXPECTED_SAMPLES = int(1.05 * NUM_SAMPLES)
 
@@ -61,7 +61,7 @@ def collect_erspan_packets(ptfadapter, gre_egress_ports, mirror_session_info, ti
     Returns:
         list of raw packet bytes for each matching ERSPAN frame.
     '''
-    from scapy.layers.inet import IP, GRE
+    from scapy.all import IP, GRE
     from scapy.layers.l2 import Ether
 
     src_ip = mirror_session_info['src_ip']

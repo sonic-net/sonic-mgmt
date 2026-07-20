@@ -133,9 +133,10 @@ and `GRE.proto == session.gre_type`. This three-tuple uniquely identifies frames
 under test and is robust against ASIC-specific ERSPAN encapsulation differences (e.g. extra
 ERSPAN II/III header bytes between GRE and the inner frame).
 
-Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 1000` and `N = sample_rate`) so
-the expected mirrored count is `~NUM_SAMPLES = 1000` regardless of `N`, and assert the observed count
-is within `[950, 1050]` (`NUM_SAMPLES ± 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
+Sampling tests send `NUM_SAMPLES * N` packets (where `NUM_SAMPLES = 10000` and `N = sample_rate`) so
+the expected mirrored count is `~NUM_SAMPLES = 10000` regardless of `N` (e.g. 1,000,000 packets at
+`1:100` and 2,560,000 packets at `1:256`), and assert the observed count is within `[9500, 10500]`
+(`NUM_SAMPLES ± 5%`, via `MIN_EXPECTED_SAMPLES` / `MAX_EXPECTED_SAMPLES`).
 
 ## 7 Test cases
 
@@ -180,7 +181,7 @@ maps to exactly one test function. Traffic is generated per mirror direction:
 - **BOTH:** run the RX leg and the TX leg separately, asserting each leg independently.
 
 ERSPAN GRE packets are collected on the collector port using the 3-tuple match. Unless noted, the
-observed mirror count must fall within `[950, 1050]` (`NUM_SAMPLES ± 5%`), and any truncated frame
+observed mirror count must fall within `[9500, 10500]` (`NUM_SAMPLES ± 5%`), and any truncated frame
 length is checked within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pktlen, truncate_size))`.
 
 #### 7.4.1 Validate ERSPAN truncation across packet sizes
@@ -213,16 +214,16 @@ frame length is within `MIRROR_LEN_TOLERANCE` of `(~62B encap overhead + min(pkt
 #### 7.4.2 Validate RX sampled mirroring rates
 **Test:** `test_erspan_sampling_rx_direction`
 
-**Objective:** By replaying `NUM_SAMPLES * N` packets through the ingress pipeline at rates `1:256`,
-`1:512`, and `1:1024`, verify that RX (ingress) sampling mirrors approximately 1 of every N packets,
-landing the observed count in `[950, 1050]`.
+**Objective:** By replaying `NUM_SAMPLES * N` packets through the ingress pipeline at rates `1:100`
+and `1:256`, verify that RX (ingress) sampling mirrors approximately 1 of every N packets,
+landing the observed count in `[9500, 10500]`.
 
 **Steps:**
 - Configure `sample_rate=N` (direction defaults to rx).
 - Send `NUM_SAMPLES * N` packets on the source port.
 - Collect GRE-encapsulated packets on the collector port using the 3-tuple match.
 
-**Pass criteria:** Observed mirror count is within `[950, 1050]` (`NUM_SAMPLES ± 5%`).
+**Pass criteria:** Observed mirror count is within `[9500, 10500]` (`NUM_SAMPLES ± 5%`).
 
 #### 7.4.3 Validate RX sampled mirroring with truncation
 **Test:** `test_erspan_sampling_rx_with_truncation`
@@ -234,7 +235,7 @@ mirrored copy is truncated to the configured size.
 **Steps:** Configure `sample_rate=256` + `truncate_size=128`; send `NUM_SAMPLES * 256` large
 (1500B) packets on the source port.
 
-**Pass criteria:** Observed mirror count within `[950, 1050]` AND each captured mirror is truncated
+**Pass criteria:** Observed mirror count within `[9500, 10500]` AND each captured mirror is truncated
 to `~62B encap overhead + 128`.
 
 #### 7.4.4 Validate TX sampled mirroring rates
@@ -242,7 +243,7 @@ to `~62B encap overhead + 128`.
 
 **Objective:** By injecting unicast on the `tx_ingress` peer port so the DUT forwards frames out the
 source port (egress), verify that TX (egress) sampling mirrors approximately 1 of every N packets at
-rates `1:256`, `1:512`, and `1:1024`.
+rates `1:100` and `1:256`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=tx`.
@@ -250,7 +251,7 @@ rates `1:256`, `1:512`, and `1:1024`.
   port; the DUT forwards them out the source port (egress), triggering the egress mirror.
 - Collect ERSPAN GRE packets on the collector port.
 
-**Pass criteria:** Observed mirror count within `[950, 1050]` (`NUM_SAMPLES ± 5%`).
+**Pass criteria:** Observed mirror count within `[9500, 10500]` (`NUM_SAMPLES ± 5%`).
 
 #### 7.4.5 Validate TX sampled mirroring with truncation
 **Test:** `test_erspan_sampling_tx_with_truncation`
@@ -261,7 +262,7 @@ are both sampled approximately 1 of every N packets and truncated to the configu
 **Steps:** Configure `sample_rate=256`, `truncate_size=128`, `direction=tx`; inject `NUM_SAMPLES * 256`
 large (1500B) unicast frames on the `tx_ingress` peer port.
 
-**Pass criteria:** Observed mirror count within `[950, 1050]` AND each mirrored frame is truncated to
+**Pass criteria:** Observed mirror count within `[9500, 10500]` AND each mirrored frame is truncated to
 `~62B encap overhead + 128`.
 
 #### 7.4.6 Validate BOTH-direction sampled mirroring rates
@@ -270,7 +271,7 @@ large (1500B) unicast frames on the `tx_ingress` peer port.
 **Objective:** By injecting on the source port (RX leg) and injecting unicast on the `tx_ingress`
 peer port so the DUT forwards frames out the source port (TX leg), verify that `direction=both`
 samples both ingress- and egress-triggered traffic, each leg mirroring approximately 1 of every N
-packets at rates `1:256`, `1:512`, and `1:1024`.
+packets at rates `1:100` and `1:256`.
 
 **Steps:**
 - Create an ERSPAN session with `sample_rate=N`, `direction=both`.
@@ -280,7 +281,7 @@ packets at rates `1:256`, `1:512`, and `1:1024`.
   the DUT forwards them out the source port (egress mirror).
 - Collect ERSPAN GRE packets on the collector port for each leg.
 
-**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` (`NUM_SAMPLES ± 5%`),
+**Pass criteria:** Each leg's observed mirror count is within `[9500, 10500]` (`NUM_SAMPLES ± 5%`),
 proving both the ingress and egress bindings are active.
 
 #### 7.4.7 Validate BOTH-direction sampled mirroring with truncation
@@ -294,7 +295,7 @@ to the configured size.
 (inject on the source port) and TX leg (inject on the `tx_ingress` peer port) with large (1500B)
 unicast frames addressed to `PROBE_UNICAST_DST_MAC`.
 
-**Pass criteria:** Each leg's observed mirror count is within `[950, 1050]` AND every mirrored frame
+**Pass criteria:** Each leg's observed mirror count is within `[9500, 10500]` AND every mirrored frame
 on each leg is truncated to `~62B encap overhead + 128`.
 
 ### 7.5 Session lifecycle
