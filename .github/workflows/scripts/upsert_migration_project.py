@@ -297,6 +297,10 @@ class MigrationProjectUpserter:
             return
         if self.dry_run:
             return
+        if value is None:
+            return
+        if str(value).strip() == "":
+            return
         mutation = """
         mutation($p: ID!, $i: ID!, $f: ID!, $v: String!) {
           updateProjectV2ItemFieldValue(
