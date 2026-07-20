@@ -373,7 +373,7 @@ def acl_table_setup_and_cleanup(setUp, duthost, encap_type):
     Yields the table name (TABLE_V4 or TABLE_V6) based on encap_type.
     """
     setUp_vnet = setUp
-    #Enable acl counter and reduce interval to 1s
+    # Enable acl counter and reduce interval to 1s
     duthost.shell('counterpoll acl interval 1000')
     setup_acl_tables(duthost, setUp_vnet)
 
@@ -564,10 +564,10 @@ def verify_acl_rules(setup_vnet, duthost, encap_type, expectedDscp, match_fields
     pkt = create_inner_packet(setup_vnet, duthost, encap_type, match_fields)
     exp_pkt = create_expected_packet(setup_vnet, duthost, encap_type, expectedDscp, pkt)
     setup_vnet['ptfadapter'].dataplane.flush()
-    #Clear ACL Counter
+    # Clear ACL Counter
     Logger.info("Clear ACL counters (aclshow -c):\n%s", duthost.shell('aclshow -c')['stdout'])
     testutils.send(test=setup_vnet['ptfadapter'], port_id=setup_vnet['ptf_src_port'], pkt=pkt)
-    #Check ACL Counter
+    # Check ACL Counter
     time.sleep(3)
     Logger.info("ACL counters (aclshow -a):\n%s", duthost.shell('aclshow -a')['stdout'])
     testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'], pkt=exp_pkt, ports=setup_vnet['ptf_dst_ports'])  
@@ -582,6 +582,7 @@ def test_acl_create_delete_tables(setUp, duthost, encap_type, acl_table_setup_an
     dstPrefix = dstip + '/' + str(mask)
     create_acl_rule(duthost, TABLE, '1', '9999', str(40), dstPrefix)
     verify_acl_rules(setUp_vnet, duthost, encap_type, 40)
+
 
 def test_acl_rules_with_different_dscp(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
@@ -811,7 +812,7 @@ def test_acl_rule_no_match_default_dscp(setUp, duthost, encap_type, acl_table_se
     Logger.info("Creating ACL rules")
     for rule in rules:
         create_acl_rule(duthost, TABLE, rule['rule_id'], rule['priority'],
-                       rule['dscp_action'], dstPrefix, rule['match'])
+                        rule['dscp_action'], dstPrefix, rule['match'])
 
     # Verify traffic that doesn't match any rule gets default DSCP 33
     Logger.info("Verifying non-matching traffic uses default DSCP 33")
