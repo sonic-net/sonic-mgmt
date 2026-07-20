@@ -5,6 +5,7 @@ from tests.common.utilities import wait_until
 # (tests/smartswitch/common/device_utils_dpu.py: DPU_MAX_ONLINE_TIMEOUT / DPU_TIME_INT).
 CHECK_DPU_STATE_TIMEOUT = 360
 CHECK_DPU_STATE_TIME_INT = 30
+DPU_TRANSITION_SETTLE_TIMEOUT = 120
 DPU_STARTUP_ATTEMPTS = 2
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ def dpu_power_on_for_index(duthost, dpu_index):    # noqa F811
     """
     for attempt in range(1, DPU_STARTUP_ATTEMPTS + 1):
         startup_accepted = wait_until(
-            CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, 0,
+            DPU_TRANSITION_SETTLE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, 0,
             _startup_dpu_when_transition_settled, duthost, dpu_index
         )
         if not startup_accepted:
