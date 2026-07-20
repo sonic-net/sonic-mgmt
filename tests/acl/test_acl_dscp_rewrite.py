@@ -64,7 +64,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     portchannels = list(mg_facts['minigraph_portchannels'].keys())
     if not portchannels:
         pytest.skip('No portchannels found')
-    
+
     dut_port = portchannels[0]
     dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
@@ -108,7 +108,7 @@ def fixture_setUp_vxlan_vnet_routes(duthosts,
     data['minigraph_facts'] = minigraph_data
     data['tbinfo'] = tbinfo
     data['duthost'] = duthost
-    
+
     # Determine IPv4 and IPv6 loopback addresses by checking address format
     for lo_interface in data['minigraph_facts']['minigraph_lo_interfaces']:
         addr = lo_interface['addr']
@@ -570,7 +570,7 @@ def verify_acl_rules(setup_vnet, duthost, encap_type, expectedDscp, match_fields
     # Check ACL Counter
     time.sleep(3)
     Logger.info("ACL counters (aclshow -a):\n%s", duthost.shell('aclshow -a')['stdout'])
-    testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'], pkt=exp_pkt, ports=setup_vnet['ptf_dst_ports'])  
+    testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'], pkt=exp_pkt, ports=setup_vnet['ptf_dst_ports'])
 
 
 def test_acl_create_delete_tables(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
@@ -763,7 +763,7 @@ def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_clean
                      encap_type,
                      33,
                      deleted_rule['match'])
-    
+
     # Verify remaining 3 rules still work
     for rule in rules:
         verify_acl_rules(setUp_vnet,
