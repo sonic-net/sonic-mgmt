@@ -230,3 +230,10 @@ x86_64-nexthop_.*:
     valid_timeout: 10
     greater_timeout: 16777
     too_big_timeout: 16778
+
+# th6-128 Nokia
+x86_64-nokia_ixr7220_h6_128-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 350
