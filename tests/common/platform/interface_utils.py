@@ -154,6 +154,9 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
 # This API to check the interface information actoss all front end ASIC's
 def check_all_interface_information(dut, interfaces, xcvr_skip_list):
+    # No front-panel interfaces to check (e.g. SONiC BMC has no front-panel ports)
+    if len(interfaces) == 0:
+        return True
     for asic_index in dut.get_frontend_asic_ids():
         # Get the interfaces pertaining to that asic
         interface_list = get_port_map(dut, asic_index)
