@@ -234,8 +234,21 @@ class MigrationProjectUpserter:
 
     # -- helpers -----------------------------------------------------------
 
-    def _field(self, name: str) -> Optional[dict]:
-        return self.field_map.get(name.lower())
+    def _field(self, name: str, expected_data_type: Optional[str] = None) -> Optional[dict]:
+        field = self.field_map.get(name.lower())
+        if not field:
+            logger.warning("field '%s' missing; skipping", name)
+            return None
+        if expected_data_type:
+            actual_data_type = (field.get("dataType") or "").upper()
+            expected = expected_data_type.upper()
+            if actual_data_type != expected:
+                logger.warning(
+                    "field '%s' has dataType '%s' but expected '%s'; skipping",
+                    name, field.get("dataType"), expected_data_type,
+                )
+                return None
+        return field
 
     def _cached(self, key: str, field_name: str) -> object:
         return self.field_values.get(key, {}).get(field_name.lower())
@@ -279,9 +292,8 @@ class MigrationProjectUpserter:
         graphql(self.token, mutation, {"draftId": content_id, "body": body})
 
     def _set_text(self, item_id: str, name: str, value: str) -> None:
-        field = self._field(name)
+        field = self._field(name, "TEXT")
         if not field:
-            logger.warning("field '%s' missing; skipping", name)
             return
         if self.dry_run:
             return
@@ -296,9 +308,8 @@ class MigrationProjectUpserter:
                                        "f": field["id"], "v": str(value)})
 
     def _set_number(self, item_id: str, name: str, value: float) -> None:
-        field = self._field(name)
+        field = self._field(name, "NUMBER")
         if not field:
-            logger.warning("field '%s' missing; skipping", name)
             return
         if self.dry_run:
             return
@@ -313,7 +324,7 @@ class MigrationProjectUpserter:
                                        "f": field["id"], "v": float(value)})
 
     def _set_single_select(self, item_id: str, name: str, option: str) -> None:
-        field = self._field(name)
+        field = self._field(name, "SINGLE_SELECT")
         if not field:
             return  # optional field
         option_id = None
