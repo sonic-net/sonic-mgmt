@@ -206,7 +206,11 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
         # Our remote_id string simply consists of the MAC address of the port that received the request
-        remote_id_string = self.uplink_mac if self.dual_tor and self.relay_agent == "sonic-relay-agent" else self.relay_iface_mac
+        remote_id_string = (
+            self.uplink_mac
+            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
+            else self.relay_iface_mac
+        )
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
 
