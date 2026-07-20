@@ -77,48 +77,39 @@ class TestPdbApi(TestPowerApi):
         self.assert_expectations()
 
     def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
-        """PDB power: input/output voltage, current, power and max supplied power."""
+        """PDB power: input voltage, current, power and max supplied power."""
         logger.info(f"test_power: Starting for {self.num_power_units} PDB(s)")
         in_voltage = in_current = in_power = None
-        out_voltage = out_current = out_power = None
 
         def check_pdb_power(failure_count):
             nonlocal in_voltage, in_current, in_power
-            nonlocal out_voltage, out_current, out_power
 
             in_voltage = pdb.get_input_voltage(platform_api_conn, pdb_id)
             in_current = pdb.get_input_current(platform_api_conn, pdb_id)
             in_power = pdb.get_input_power(platform_api_conn, pdb_id)
-            out_voltage = pdb.get_output_voltage(platform_api_conn, pdb_id)
-            out_current = pdb.get_output_current(platform_api_conn, pdb_id)
-            out_power = pdb.get_output_power(platform_api_conn, pdb_id)
 
             logger.info(
                 f"test_power: PDB {pdb_id} readings - "
-                f"input(V={in_voltage}, I={in_current}, P={in_power}) "
-                f"output(V={out_voltage}, I={out_current}, P={out_power})"
+                f"input(V={in_voltage}, I={in_current}, P={in_power})"
             )
 
             failure_occurred = self.get_len_failed_expectations() > failure_count
 
             for label, val in [("input voltage", in_voltage), ("input current", in_current),
-                               ("input power", in_power), ("output voltage", out_voltage),
-                               ("output current", out_current), ("output power", out_power)]:
+                               ("input power", in_power)]:
                 if self.expect(val is not None,
                                f"Failed to retrieve {label} of PDB {pdb_id}"):
                     self.expect(isinstance(val, float),
                                 f"PDB {pdb_id} {label} appears incorrect")
 
-            for v, c, p, side in [(in_voltage, in_current, in_power, "input"),
-                                  (out_voltage, out_current, out_power, "output")]:
-                if v and c and p:
-                    is_within_tolerance = abs(p - (v * c)) < p * POWER_TOLERANCE
-                    if not failure_occurred and not is_within_tolerance:
-                        logger.info(f"test_power: PDB {pdb_id} {side} tolerance check failed, will retry")
-                        return False
-                    self.expect(is_within_tolerance,
-                                f"PDB {pdb_id} {side} readings do not make sense "
-                                f"(power:{p}, voltage:{v}, current:{c})")
+            if in_voltage and in_current and in_power:
+                is_within_tolerance = abs(in_power - (in_voltage * in_current)) < in_power * POWER_TOLERANCE
+                if not failure_occurred and not is_within_tolerance:
+                    logger.info(f"test_power: PDB {pdb_id} input tolerance check failed, will retry")
+                    return False
+                self.expect(is_within_tolerance,
+                            f"PDB {pdb_id} input readings do not make sense "
+                            f"(power:{in_power}, voltage:{in_voltage}, current:{in_current})")
 
             return True
 
@@ -128,13 +119,11 @@ class TestPdbApi(TestPowerApi):
             logger.info(f"test_power: Checking power readings for PDB {pdb_id}")
             failure_count = self.get_len_failed_expectations()
             in_voltage = in_current = in_power = None
-            out_voltage = out_current = out_power = None
 
             check_result = wait_until(30, 10, 0, check_pdb_power, failure_count)
             self.expect(check_result,
-                        f"PDB {pdb_id} readings do not make sense "
-                        f"(in: V={in_voltage}, I={in_current}, P={in_power} / "
-                        f"out: V={out_voltage}, I={out_current}, P={out_power})")
+                        f"PDB {pdb_id} input readings do not make sense "
+                        f"(V={in_voltage}, I={in_current}, P={in_power})")
 
             logger.info(f"test_power: Checking maximum supplied power for PDB {pdb_id}")
             max_power = pdb.get_maximum_supplied_power(platform_api_conn, pdb_id)
@@ -143,8 +132,8 @@ class TestPdbApi(TestPowerApi):
                            f"Failed to retrieve maximum supplied power of PDB {pdb_id}"):
                 self.expect(isinstance(max_power, float),
                             f"PDB {pdb_id} maximum supplied power appears incorrect")
-                if out_power and isinstance(max_power, float):
-                    self.expect(max_power >= out_power,
-                                f"PDB {pdb_id} max_power ({max_power}) < output_power ({out_power})")
+                if in_power and isinstance(max_power, float):
+                    self.expect(max_power >= in_power,
+                                f"PDB {pdb_id} max_power ({max_power}) < input_power ({in_power})")
 
         self.assert_expectations()

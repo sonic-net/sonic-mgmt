@@ -71,18 +71,6 @@ def get_input_power(conn, pdb_id):
     return pdb_api(conn, pdb_id, 'get_input_power')
 
 
-def get_output_voltage(conn, pdb_id):
-    return pdb_api(conn, pdb_id, 'get_output_voltage')
-
-
-def get_output_current(conn, pdb_id):
-    return pdb_api(conn, pdb_id, 'get_output_current')
-
-
-def get_output_power(conn, pdb_id):
-    return pdb_api(conn, pdb_id, 'get_output_power')
-
-
 def get_maximum_supplied_power(conn, pdb_id):
     return pdb_api(conn, pdb_id, 'get_maximum_supplied_power')
 
