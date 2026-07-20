@@ -29,6 +29,69 @@ ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 180
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
 
+SMARTSWITCH_INTERNAL_PORT_TYPES = frozenset({
+    'DPU-NPU Data Port',
+    'NPU-DPU Data Port',
+})
+
+
+def _get_smartswitch_internal_ports(duthost, default_interfaces, minigraph_facts):
+    """
+    Return SmartSwitch internal NPU-DPU backplane ports.
+
+    Prefer the explicit PORT.type metadata from CONFIG_DB. Older images may
+    not populate that field, so fall back to topology-derived classification:
+    ports exposed by the platform but absent from every front-panel minigraph
+    reference are treated as internal.
+
+    The fallback is intentionally restricted to SmartSwitch platforms.
+    """
+    if not duthost.is_smartswitch:
+        return set()
+
+    config_facts = duthost.get_running_config_facts()
+    port_table = config_facts.get('PORT', {})
+
+    internal_ports = {
+        port
+        for port, attributes in port_table.items()
+        if attributes.get('type') in SMARTSWITCH_INTERNAL_PORT_TYPES
+    }
+    if internal_ports:
+        logger.info(
+            "Detected SmartSwitch internal ports from CONFIG_DB PORT.type: %s",
+            sorted(internal_ports)
+        )
+        return internal_ports.intersection(default_interfaces)
+
+    front_panel_ports = set(minigraph_facts.get('minigraph_ports', {}))
+    front_panel_ports.update(minigraph_facts.get('minigraph_neighbors', {}))
+
+    for portchannel in minigraph_facts.get('minigraph_portchannels', {}).values():
+        front_panel_ports.update(portchannel.get('members', []))
+
+    for vlan in minigraph_facts.get('minigraph_vlans', {}).values():
+        front_panel_ports.update(vlan.get('members', []))
+
+    for interface_fact_name in (
+        'minigraph_interfaces',
+        'minigraph_vlan_interfaces',
+        'minigraph_portchannel_interfaces',
+    ):
+        for interface in minigraph_facts.get(interface_fact_name, []):
+            attachto = interface.get('attachto')
+            if attachto in default_interfaces:
+                front_panel_ports.add(attachto)
+
+    internal_ports = set(default_interfaces) - front_panel_ports
+    logger.warning(
+        "CONFIG_DB PORT.type did not identify SmartSwitch internal ports; "
+        "using minigraph fallback. Classified internal ports: %s",
+        sorted(internal_ports)
+    )
+    return internal_ports
+
+
 @pytest.fixture
 def ignore_host_lane_count_loganalyzer(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     def wrapper(ignore_condition=False):
@@ -82,6 +145,22 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     port_alias_facts = duthost.port_alias(hwsku=hwsku, include_internal=True)['ansible_facts']
     up_ports = list(minigraph_facts['minigraph_ports'].keys())
     default_interfaces = list(port_alias_facts['port_name_map'].keys())
+
+    internal_ports = _get_smartswitch_internal_ports(
+        duthost,
+        default_interfaces,
+        minigraph_facts
+    )
+    if internal_ports:
+        logger.info(
+            "Skipping SmartSwitch internal backplane ports in interface naming mode tests: %s",
+            sorted(internal_ports)
+        )
+        default_interfaces = [
+            interface for interface in default_interfaces
+            if interface not in internal_ports
+        ]
+
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
     port_speed_facts = port_alias_facts['port_speed']
     if not port_speed_facts:
@@ -817,6 +896,13 @@ class TestShowQueue():
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
+                    if intf not in setup['port_name_map']:
+                        logger.debug(
+                            "Skipping interface %s because it is not part of the "
+                            "front-panel naming-mode test set",
+                            intf
+                        )
+                        continue
                     alias = setup['port_name_map'][intf]
                     assert (
                         re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None
