@@ -3,6 +3,7 @@ import re
 import logging
 
 from snappi_tests.dataplane.files.helper import get_autoneg_fec, get_macs
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +350,7 @@ def assign_sid_to_duts(Common_vars):
             return group1, group2
 
         group1_sids, group2_sids = split_in_half(Common_vars.total_tgen_ports)
-        Common_vars.config_data[dut]['my_sids'] = group1_sids + group2_sids
+        Common_vars.config_data[Common_vars.t1_dut]['my_sids'] = group1_sids + group2_sids
 
         for t0_dut, t1_sid_group in zip(Common_vars.t0_duts, [group1_sids, group2_sids]):
             Common_vars.config_data[Common_vars.t1_dut]['t1_sid_paths'][t0_dut] = t1_sid_group
@@ -484,7 +485,7 @@ def get_complete_srv6_path(conn_graph_facts, starting_t0_dut, ending_t0_dut, get
     # 206:1006:3006:2006:306  <-- This does not include the tgen endpoint SID.
     #                             Added in create_snappi_flows() when this function returns
     dut_sid_path = ':'.join(srv6_dest_sid_path)
-    srv6_full_sid_path = f'fcbb:bbbb:{dut_sid_path}'
+    srv6_full_sid_path = f'{Common_vars.sid_prefix}:{dut_sid_path}'
 
     logger.info(srv6_full_sid_path)
     return srv6_full_sid_path
@@ -534,6 +535,9 @@ def set_dut_tier_level(Common_vars):
     """
     # Get all DUTs and its Common_vars.tier type
     for dut in Common_vars.dut_list:
+        # Reset per-DUT so an unmatched hostname can't inherit the previous DUT's tier.
+        dut_tier = None
+
         match = re.search('.*-t0|_t0', dut)
         if match:
             dut_tier = 't0'
@@ -552,6 +556,11 @@ def set_dut_tier_level(Common_vars):
             dut_tier = 't2'
             Common_vars.tier[dut] = Create_Tier(name=dut, type="Core")
             Common_vars.core_list.append(Common_vars.tier[dut])
+
+        pytest_assert(dut_tier is not None,
+                      f"DUT '{dut}' does not match any tier naming pattern "
+                      f"(expected a t0/t1/t2 suffix, e.g. 'switch-t0-1' or 'switch_t1'); "
+                      f"cannot assign a tier_level.")
 
         Common_vars.config_data[dut]['tier_level'] = dut_tier
 
@@ -702,15 +711,15 @@ def config_dut_sids(duthosts, Common_vars):
         count = 1
         for sid in Common_vars.config_data[dut.hostname]['my_sids']:
             logger.info(f'Configuring {dut.hostname}: sonic-db-cli CONFIG_DB hset '
-                        f'"SRV6_MY_LOCATORS|loc{count}" prefix "fcbb:bbbb:{sid}::" func_len 0')
+                        f'"SRV6_MY_LOCATORS|loc{count}" prefix "{Common_vars.sid_prefix}:{sid}::" func_len 0')
 
             dut.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_LOCATORS|loc{count}" '
-                      f'prefix "fcbb:bbbb:{sid}::" func_len 0')
+                      f'prefix "{Common_vars.sid_prefix}:{sid}::" func_len 0')
 
-            logger.info(f'    sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48" '
+            logger.info(f'  sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48" '
                         f'action uN decap_dscp_mode pipe')
 
-            dut.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48" '
+            dut.shell(f'sonic-db-cli CONFIG_DB hset "SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48" '
                       f'action uN decap_dscp_mode pipe')
             count += 1
 
@@ -813,7 +822,7 @@ def construct_static_route_dut_to_tgen(conn_graph_facts, Common_vars):
             snappi_dest_host_ip = Common_vars.config_data[dut]['tgen_ports'][index]['ipAddress']
             snappi_dest_port = Common_vars.config_data[dut]['tgen_ports'][index]['peer_port']
 
-            static_route = (f'sonic-db-cli CONFIG_DB hset "STATIC_ROUTE|fcbb:bbbb:{snappi_sid}::/48" '
+            static_route = (f'sonic-db-cli CONFIG_DB hset "STATIC_ROUTE|{Common_vars.sid_prefix}:{snappi_sid}::/48" '
                             f'nexthop {snappi_dest_host_ip} ifname {snappi_dest_port}')
 
             logger.info(f'Static route from T0 to tgen: {static_route}')
@@ -848,7 +857,7 @@ def construct_dut_peer_connections(dut_connection_parings, Common_vars):
                         Common_vars.config_data[adjacent_dut]['dut_link_ip_addresses'][dut][index].split("/")[0]
                     )
 
-                    to_route = f'fcbb:bbbb:{adjacent_dut_sid}::/48'
+                    to_route = f'{Common_vars.sid_prefix}:{adjacent_dut_sid}::/48'
                     static_route = (f'sonic-db-cli CONFIG_DB hset "STATIC_ROUTE|{to_route}" '
                                     f'nexthop {next_hop_ip} ifname {next_hop_local_dut_port}')
 
@@ -935,7 +944,7 @@ def config_traffic_flows(pket_size, duthosts, snappi_config, Common_vars):
             ipv6_outer = test_flow.packet.add().ipv6
             ipv6_outer.src.value = flow['my_src_ip']
             du = ipv6_outer.dst_usids
-            du.locator.value = Common_vars.sid_locator
+            du.locator.value = f'{Common_vars.sid_prefix}::'
             du.locator_length.value = 32
             du.usids = flow['my_sid_list']
             ipv6_outer.hop_limit.value = 64
@@ -1067,18 +1076,25 @@ def verify_nut_stats(aligned, snappi_stats):
         logger.info(f"\n=== Link port index {row['index']} ===")
         snappi_tx_frames = snappi_stats[row['index']].frames_tx
 
+        tx_frames = int(snappi_tx_frames)
+
         for hop in row['chain']:
             ig, eg = hop['ingress_port'], hop['egress_port']
-            ig_rx = hop['ingress_stats'].get('RX_OK', '-')
-            eg_tx = hop['egress_stats'].get('TX_OK', '-')
+            # _num() yields an int or None; an endpoint hop with no port has an
+            # empty stats dict, so both may be missing entirely.
+            ig_rx = hop['ingress_stats'].get('RX_OK')
+            eg_tx = hop['egress_stats'].get('TX_OK')
             logger.info(f"  {hop['tier']:3} {hop['dut']:14} "
-                        f"in {str(ig):12}(RX_OK={ig_rx})  ->  out {str(eg):12}(TX_OK={eg_tx})")
+                        f"in {str(ig):12}(RX_OK={'-' if ig_rx is None else ig_rx})  ->  "
+                        f"out {str(eg):12}(TX_OK={'-' if eg_tx is None else eg_tx})")
 
             # The DUT counter RX/TX stats must be equal or more than the TX-port transmitted packets.
             # It is ok for DUT link ports to have a little more packets from periodic protocol packets.
-            if int(ig_rx) < int(snappi_tx_frames) or int(eg_tx) < int(snappi_tx_frames):
-                logger.warning('FAILED: DUT counter stats shows less packets than transmitted packets')
-                result = False
+            # Skip endpoint sides / unparsed counters (None) -- there is nothing to compare there.
+            for label, val in (('ingress RX_OK', ig_rx), ('egress TX_OK', eg_tx)):
+                if val is not None and val < tx_frames:
+                    logger.warning(f"FAILED: {hop['dut']} {label}={val} < transmitted {tx_frames}")
+                    result = False
 
     return result
 
@@ -1173,9 +1189,11 @@ def remove_srv6_config(Common_vars):
     for dut in Common_vars.dut_hosts:
         count = 1
         for sid in Common_vars.config_data[dut.hostname]['my_sids']:
-            logger.info(f'Removing SRv6 loc{count} sid fcbb:bbbb:{sid}::/48 and locator on {dut.hostname} ...')  # E231
+            logger.info(f'Removing SRv6 loc{count} sid {Common_vars.sid_prefix}:{sid}::/48 '    # E231
+                        f'and locator on {dut.hostname} ...')
             dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_LOCATORS|loc{count}"')
-            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|loc{count}|fcbb:bbbb:{sid}::/48"')  # E231
+            dut.shell(f'sudo sonic-db-cli CONFIG_DB DEL '
+                      f'"SRV6_MY_SIDS|loc{count}|{Common_vars.sid_prefix}:{sid}::/48"')  # E231
             count += 1
 
     # Remove static routes on DUTs

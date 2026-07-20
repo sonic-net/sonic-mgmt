@@ -3,6 +3,7 @@ import logging
 import pytest
 import re
 from itertools import product
+# from rich import print as pr
 import collections
 
 from snappi_tests.dataplane.files.helper import create_traffic_items, start_stop, get_stats
@@ -38,7 +39,7 @@ class Common_vars:
     # This dict contains a blueprint of all DUTS, TGENs and how
     # they are connected.
     config_data = {}
-    sid_locator = 'fcbb:bbbb::'
+    sid_prefix = 'fcbb:bbbb'
     static_route_subnet_start = '5000'
     tgen_endpoint_sid_start = 101
     t0_dut_sid_start = 201
@@ -106,9 +107,13 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
     get_dut_list(conn_graph_facts, Common_vars)
 
     # Just in case snappi-sonic has more duts than links.csv
+    pop_list = []
     for index, dut in enumerate(duthosts):
         if dut.hostname not in Common_vars.dut_list:
-            duthosts.pop(index)
+            pop_list.append(index)
+
+    for index in pop_list:
+        duthosts.pop(index)
 
     # Sort the snappi_port list in numerical natural order
     snappi_ports.sort(key=lambda p: [int(n) for n in re.findall(r'\d+', p['location'])])
@@ -275,15 +280,12 @@ def test_srv6_nut_topology(snappi_api,                 # noqa F811
             test_failed = True
 
     if test_failed:
-        remove_srv6_config(Common_vars)
         pytest_assert(False, "SRv6 NUT-test failed")
 
     if t0_1_stat_result is False:
-        remove_srv6_config(Common_vars)
         pytest_assert(False, "DUT stat counter failed")
 
     if t0_2_stat_result is False:
-        remove_srv6_config(Common_vars)
         pytest_assert(False, "DUT stat counter failed")
 
     db_reporter.report()
