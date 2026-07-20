@@ -18,6 +18,7 @@
           't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
           't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
           't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+          't1-isolated-d32u1s2',
           't1-isolated-d224u8', 't1-isolated-v6-d224u8',
           't1-isolated-d28u1', 't1-isolated-v6-d28u1',
           't1-isolated-d28u4',
@@ -3609,9 +3610,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
     conditions:
       - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
   xfail:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform or IPv6-only issue https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_count:
   xfail:
@@ -4312,11 +4315,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
 
 qos/test_qos_dscp_mapping.py:
   skip:
-    reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly."
+    reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly. / Test does not apply to topos with no T2 uplinks (t1-isolated-d32, t1-isolated-d128)"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
       - "asic_type in ['vs']"
+      - "topo_name in ['t1-isolated-d32', 't1-isolated-d128']"
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping[pipe:
   skip:
@@ -4869,11 +4873,29 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
 
+route/test_static_route.py::test_static_route_ecmp_warmboot:
+  skip:
+    reason: "Warm reboot is not supported on dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+route/test_static_route.py::test_static_route_ipv6_warmboot:
+  skip:
+    reason: "Warm reboot is not supported on dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+
+route/test_static_route.py::test_static_route_warmboot:
+  skip:
+    reason: "Warm reboot is not supported on dualtor topology"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
 #####           sai_qualify       #####
@@ -6044,7 +6066,7 @@ vxlan/test_vxlan_multiple_tunnels.py:
   skip:
     reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test cannot currently run on most platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
