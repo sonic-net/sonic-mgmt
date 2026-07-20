@@ -144,6 +144,28 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
               skip_test_module_over_backend_topologies):        # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
+    # This test suite splits the DUT's uplink PortChannels into two VNETs and
+    # verifies traffic between them.  The vnet_config_db.j2 template only tags
+    # PORTCHANNEL_INTERFACE entries with vnet_name (not physical INTERFACE
+    # entries), and the data-plane checks look up PTF ports through
+    # PORTCHANNEL_MEMBER.  On t0 variants where T1 uplinks are configured as
+    # routed subinterfaces directly on physical Ethernet ports,
+    # there are no PortChannels at all and every test in this module would fail with
+    # "No PTF ports found for Vnet1".  Skip the entire module in that case.
+    pre_cfg = get_cfg_facts(duthost)
+    pc_intfs = [pc for pc in pre_cfg.get('PORTCHANNEL_INTERFACE', {}) if '|' not in pc]
+    # Need at least 4 PortChannels: 2 for Vnet1 + 2 for Vnet2 (see
+    # setup_vnet_cfg above, which uses vnet1_num = 2 and expects an
+    # ARISTA03/04T1 dynamic peer group in the remainder).
+    if len(pc_intfs) < 4:
+        pytest.skip(
+            f"test_bgp_vnet requires a t0 topology with >= 4 PortChannel uplinks."
+            f"This DUT is running a "
+            f"topology without PortChannels (found {len(pc_intfs)} PortChannel "
+            f"interfaces); vnet_name tagging only works on PORTCHANNEL_INTERFACE "
+            f"entries."
+        )
+
     # backup config_db.json
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
