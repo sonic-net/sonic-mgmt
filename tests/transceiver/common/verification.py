@@ -18,21 +18,23 @@ are added alongside the diagnostics tests that exercise them, rather than
 shipped here ahead of any caller.
 
 DB reads go through :mod:`tests.transceiver.common.db_helpers`
-(``hgetall_dict``).
+(``hgetall_dict``). The docker/process health step delegates entirely to
+:mod:`tests.transceiver.common.health_checks`, which owns the
+xcvrd/syncd/orchagent process check and the ``/var/core`` diff shared with
+the rest of the transceiver suite.
 """
 import logging
-import re
 import time
 
 from tests.common.platform.interface_utils import (
     get_dut_interfaces_status,
-    get_physical_port_indices,
+    get_lport_to_first_subport_mapping,
 )
 from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import db_helpers
+from tests.transceiver.common import db_helpers, health_checks
 
 logger = logging.getLogger(__name__)
 
@@ -151,31 +153,16 @@ def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
 def _resolve_parent_port(duthost, port, shared_state):
     """Return the parent (first sibling) of ``port`` in its breakout group.
 
-    For a breakout cage with logical ports Ethernet0..Ethernet<N-1>, every
-    member resolves to the parent ``Ethernet0``. The logical->physical map is
-    cached in ``shared_state`` so it is queried at most once per test.
+    Thin cached wrapper over the repo's shared
+    :func:`tests.common.platform.interface_utils.get_lport_to_first_subport_mapping`
+    (the same helper the ``lport_to_first_subport_mapping`` session fixture in
+    ``tests/transceiver/conftest.py`` uses), rather than a parallel
+    reimplementation of the same physical-port grouping. The mapping is cached
+    in ``shared_state`` so it is queried at most once per test.
     """
-    if "logical_to_physical" not in shared_state:
-        shared_state["logical_to_physical"] = get_physical_port_indices(duthost)
-        phys_to_logicals = {}
-        for logical, phys in shared_state["logical_to_physical"].items():
-            if phys is None:
-                continue
-            phys_to_logicals.setdefault(phys, []).append(logical)
-
-        def _eth_index(p):
-            digits = "".join(c for c in p if c.isdigit())
-            return int(digits) if digits else 0
-
-        shared_state["physical_to_parent"] = {
-            phys: min(logicals, key=_eth_index)
-            for phys, logicals in phys_to_logicals.items()
-        }
-
-    phys = shared_state["logical_to_physical"].get(port)
-    if phys is None:
-        return port
-    return shared_state["physical_to_parent"].get(phys, port)
+    if "lport_to_first_subport" not in shared_state:
+        shared_state["lport_to_first_subport"] = get_lport_to_first_subport_mapping(duthost)
+    return shared_state["lport_to_first_subport"].get(port, port)
 
 
 def _get_transceiver_status(duthost, parent_port, shared_state, namespace=None):
@@ -262,12 +249,14 @@ def standard_port_recovery_and_verification(
       2. LLDP                - neighbor learned, iff ``verify_lldp_on_link_up``.
       3. CMIS State          - DataPathActivated + ConfigSuccess, iff the
                                port is ``cmis_active_optical``.
-      4. Docker/process health - critical containers (pmon, swss, syncd) and
-                               xcvrd (inside pmon) all running for >= 180 s,
-                               and no NEW core files in ``/var/core`` relative to
-                               ``shared_state['core_baseline']`` (pre-existing /
-                               stale cores are ignored). Runs unconditionally -
-                               independent of link state.
+      4. Docker/process health - delegates to
+                               :func:`tests.transceiver.common.health_checks.verify_health`,
+                               the single owner of the xcvrd/syncd/orchagent
+                               process + ``/var/core`` check (also run once per
+                               test by the autouse ``_per_test_health_check``
+                               fixture), plus the >= 180 s uptime floor from
+                               the test plan that fixture does not enforce.
+                               Runs unconditionally - independent of link state.
 
     The optics/media-SI and application-code steps from the test plan are
     intentionally not implemented here; they land with the diagnostics tests
@@ -283,17 +272,18 @@ def standard_port_recovery_and_verification(
         link_up_timeout_sec: budget for waiting on oper-up.
         shared_state: optional dict shared across calls in the same test so
             the logical->physical port map and per-parent
-            ``TRANSCEIVER_STATUS`` queries happen at most once. May carry a
-            ``'core_baseline'`` set (the ``/var/core`` basenames captured by the
-            caller before the disruptive action) so the health check flags only
-            cores created during the test; when absent, every core in
-            ``/var/core`` is treated as new.
-        min_uptime_sec: minimum continuous uptime (seconds) required of the
-            critical containers and the xcvrd process in the step-4 health
-            check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC` (180,
-            i.e. the test plan's 3-minute floor). Callers that deliberately
-            restart a service must dwell long enough for it to clear this
-            value before calling.
+            ``TRANSCEIVER_STATUS`` queries happen at most once. Must carry a
+            ``'health_baseline'`` entry - the dict returned by
+            :func:`tests.transceiver.common.health_checks.capture_baseline`,
+            captured by the caller before the disruptive action - so step 4
+            can diff against it.
+        min_uptime_sec: minimum continuous uptime (seconds) required of each
+            monitored process (each a representative for its container - see
+            ``health_checks.DEFAULT_MONITORED_PROCESSES``) in the step-4
+            health check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC`
+            (180, i.e. the test plan's 3-minute floor). Callers that
+            deliberately restart a service must dwell long enough for it to
+            clear this floor before calling.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
@@ -335,122 +325,29 @@ def standard_port_recovery_and_verification(
         if not cmis_result["passed"]:
             failures.append(cmis_result["details"])
 
-    # 4. Docker and process health check (per system_test_plan.md):
-    #      - critical containers (pmon, swss, syncd) running for >= 3 min
-    #      - xcvrd inside pmon running for >= 3 min via supervisorctl
-    #      - no NEW core files in /var/core (vs the caller-seeded
-    #        shared_state['core_baseline']); stale/pre-existing cores are ignored
-    #    One bash script collects everything per port to keep SSH round-trips
-    #    to a single call; the parse below is line-based on the structured
-    #    output it emits ("CONTAINER|<name>|<state>|<etimes>",
-    #    "PROCESS|xcvrd|<supervisorctl_line>", and a "CORES_BEGIN".."CORES_END"
-    #    block listing /var/core/* basenames).
+    # 4. Docker and process health check (per system_test_plan.md). Delegates
+    #    to health_checks.verify_health - the single owner of the
+    #    xcvrd/syncd/orchagent process check and the /var/core diff (also run
+    #    automatically once per test by the autouse _per_test_health_check
+    #    fixture in tests/transceiver/conftest.py) - passing min_uptime_sec so
+    #    it additionally enforces the test plan's >= 3-minute uptime floor,
+    #    which that per-test fixture does not check.
     #    Runs unconditionally - if the port's link didn't come back, knowing
     #    whether a critical service died on the way is exactly the diagnostic
     #    we want.
     checks_ran.append("health")
-    health_failures = []
-    # Pre-existing/stale cores (seeded by the caller before the disruptive
-    # action) are subtracted out so only cores created during the test fail it.
-    core_baseline = shared_state.get("core_baseline", set())
-    # Critical containers to check. swss/syncd are per-ASIC services: on a
-    # multi-ASIC DUT they are suffixed (swss0/syncd0, swss1/syncd1, ...) while a
-    # single-ASIC DUT keeps the bare names - ``get_docker_name`` yields the right
-    # form for each. pmon is a single host-level container (and also hosts
-    # xcvrd), so it is checked once regardless of ASIC count.
-    containers = ["pmon"]
-    for asic in duthost.asics:
-        containers.append(asic.get_docker_name("swss"))
-        containers.append(asic.get_docker_name("syncd"))
-    container_list = " ".join(containers)
-    health_script = (
-        "for c in " + container_list + "; do "
-        "  pid=$(docker inspect -f '{{.State.Pid}}' \"$c\" 2>/dev/null || echo 0); "
-        "  if [ \"$pid\" -gt 0 ] 2>/dev/null; then "
-        "    et=$(ps -o etimes= -p \"$pid\" 2>/dev/null | tr -d ' '); "
-        "    echo \"CONTAINER|$c|up|${et:-?}\"; "
-        "  else "
-        "    echo \"CONTAINER|$c|down|0\"; "
-        "  fi; "
-        "done; "
-        "sv_line=$(docker exec pmon supervisorctl status xcvrd 2>/dev/null | head -1); "
-        "echo \"PROCESS|xcvrd|${sv_line:-MISSING}\"; "
-        "echo CORES_BEGIN; "
-        "find /var/core/ -maxdepth 1 -type f -printf '%f\\n' 2>/dev/null; "
-        "echo CORES_END"
-    )
-    health_out = duthost.shell(health_script, module_ignore_errors=True)
-    if health_out.get("rc", 1) != 0:
-        health_failures.append(
-            f"health probe failed (rc={health_out.get('rc')}, "
-            f"stderr={(health_out.get('stderr') or '').strip()})"
+    health_baseline = shared_state.get("health_baseline")
+    if health_baseline is None:
+        failures.append(
+            f"{port} health: shared_state['health_baseline'] not seeded - caller must "
+            "call health_checks.capture_baseline(duthost) before the disruptive action"
         )
     else:
-        core_files = []
-        in_cores = False
-        for raw in (health_out.get("stdout_lines") or []):
-            line = raw.rstrip()
-            if line == "CORES_BEGIN":
-                in_cores = True
-                continue
-            if line == "CORES_END":
-                in_cores = False
-                continue
-            if in_cores:
-                if line.strip():
-                    core_files.append(line.strip())
-                continue
-            parts = line.split("|")
-            if parts[0] == "CONTAINER" and len(parts) >= 4:
-                name, state, et_str = parts[1], parts[2], parts[3]
-                if state != "up":
-                    health_failures.append(f"container {name}: not running")
-                    continue
-                try:
-                    et = int(et_str)
-                except (ValueError, TypeError):
-                    health_failures.append(
-                        f"container {name}: unparseable uptime {et_str!r}"
-                    )
-                    continue
-                if et < min_uptime_sec:
-                    health_failures.append(
-                        f"container {name}: uptime {et}s < {min_uptime_sec}s"
-                    )
-            elif parts[0] == "PROCESS" and len(parts) >= 3:
-                # parts[2:] reassembled in case the supervisorctl line contains
-                # a literal '|' (it doesn't today, but be defensive).
-                sv_text = "|".join(parts[2:])
-                if sv_text == "MISSING":
-                    health_failures.append("process xcvrd: supervisorctl unreachable")
-                    continue
-                if "RUNNING" not in sv_text:
-                    health_failures.append(
-                        f"process xcvrd: not RUNNING ({sv_text.strip()!r})"
-                    )
-                    continue
-                # Supervisor emits either "uptime H:M:S" or "uptime N day(s), H:M:S".
-                m = re.search(r"uptime\s+(?:(\d+)\s+days?,\s+)?(\d+):(\d+):(\d+)", sv_text)
-                if not m:
-                    health_failures.append(
-                        f"process xcvrd: no uptime field ({sv_text.strip()!r})"
-                    )
-                    continue
-                days = int(m.group(1) or 0)
-                h, mn, s = int(m.group(2)), int(m.group(3)), int(m.group(4))
-                xcvrd_uptime = days * 86400 + h * 3600 + mn * 60 + s
-                if xcvrd_uptime < min_uptime_sec:
-                    health_failures.append(
-                        f"process xcvrd: uptime {xcvrd_uptime}s < {min_uptime_sec}s"
-                    )
-        new_cores = sorted(set(core_files) - core_baseline)
-        if new_cores:
-            health_failures.append(
-                f"/var/core has new core file(s) since test start: {', '.join(new_cores)}"
-            )
-
-    if health_failures:
-        failures.append(f"{port} health: " + "; ".join(health_failures))
+        health_result = health_checks.verify_health(
+            duthost, health_baseline, min_uptime_sec=min_uptime_sec
+        )
+        if not health_result["passed"]:
+            failures.append(f"{port} health: " + "; ".join(health_result["failures"]))
 
     if failures:
         details = f"{port}: " + "; ".join(failures)
