@@ -7,15 +7,18 @@ Lives at the location reserved by
 Implements the subset of the procedure defined in
 ``docs/testplan/transceiver/system_test_plan.md`` (§ Common Verification
 Procedures) that the Link Behavior System tests exercise after restoring a
-port: link status → LLDP → CMIS state → docker/process health. Each check
-returns a result dict (with ``'passed'`` and ``'details'`` keys) and the
-top-level :func:`standard_port_recovery_and_verification` aggregates every
-sub-failure into one ``details`` string so a single call surfaces every
-problem on the port.
+port: link status → link flap/stability → LLDP → CMIS state →
+docker/process health. Each check returns a result dict (with ``'passed'``
+and ``'details'`` keys) and the top-level
+:func:`standard_port_recovery_and_verification` aggregates every sub-failure
+into one ``details`` string so a single call surfaces every problem on the
+port.
 
-The optics/media-SI and application-code checks called out in the test plan
-are added alongside the diagnostics tests that exercise them, rather than
-shipped here ahead of any caller.
+Remote-Side Link Verification (test-plan step 4, optional/opt-in - enabled by
+callers such as disruptive Event Handling and System Recovery tests) and the
+optics/media-SI + application-code checks (test-plan step 6) are
+intentionally not implemented here; they are added alongside the diagnostics
+and event-handling tests that exercise them.
 
 DB reads go through :mod:`tests.transceiver.common.db_helpers`
 (``hgetall_dict``). The docker/process health step delegates entirely to
@@ -45,6 +48,13 @@ logger = logging.getLogger(__name__)
 # service (e.g. xcvrd restart) must dwell long enough for the restarted service
 # to clear this floor before calling the health check.
 MIN_CRITICAL_SERVICE_UPTIME_SEC = 180
+
+# Post-recovery observation window (seconds) for the mandatory Link
+# Flap/Stability "Stability (always)" sub-check in system_test_plan.md, which
+# does not pin an exact duration ("a short post-recovery observation window").
+# Kept small since this runs once per port on every Standard Port Recovery
+# call.
+DEFAULT_STABILITY_WINDOW_SEC = 5
 
 
 def resolve_namespace(duthost, port):
@@ -145,6 +155,61 @@ def check_lldp_neighbor_present(duthost, port, timeout_sec=30, namespace=None):
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Link Flap / Stability check
+# ──────────────────────────────────────────────────────────────────────
+
+
+def check_link_stability(duthost, port, window_sec, namespace=None):
+    """Verify ``port`` does not flap over a short post-recovery observation window.
+
+    Implements the "Stability (always)" sub-check of system_test_plan.md's
+    Link Flap/Stability Verification step: snapshots APPL_DB
+    ``PORT_TABLE:<port>`` ``flap_count``/``last_up_time`` once, waits
+    ``window_sec``, then re-reads and requires both fields to be unchanged.
+
+    This sub-check is **forward-looking only** - it observes from recovery
+    onward and never compares against a pre-operation baseline - so it holds
+    even for operations whose flap counter resets when the port DB is rebuilt
+    (``swss``/``syncd`` restart, ``config reload``, reboots, power cycle). The
+    test plan's second, operation-scoped sub-check ("no flap across the
+    operation", only where the counter survives - e.g. ``xcvrd``/``pmon``
+    restart) needs the pre-operation baseline from each test's own Common
+    Setup and is asserted by the individual test case, not here.
+
+    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None`` it
+    is resolved from ``port``.
+
+    Returns:
+        dict: ``{'passed': bool, 'details': str}``
+    """
+    if namespace is None:
+        namespace = resolve_namespace(duthost, port)
+
+    def _snapshot():
+        port_table = db_helpers.hgetall_dict(
+            duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace
+        )
+        return port_table.get("flap_count"), port_table.get("last_up_time")
+
+    baseline_flap, baseline_up = _snapshot()
+    time.sleep(window_sec)
+    current_flap, current_up = _snapshot()
+
+    if current_flap != baseline_flap or current_up != baseline_up:
+        details = (
+            f"{port}: flap detected during {window_sec}s stability window "
+            f"(flap_count {baseline_flap}->{current_flap}, "
+            f"last_up_time {baseline_up}->{current_up})"
+        )
+        logger.warning("Stability check FAILED: %s", details)
+        return {"passed": False, "details": details}
+
+    details = f"{port}: stable for {window_sec}s (flap_count={current_flap}, last_up_time={current_up})"
+    logger.info("Stability check PASSED: %s", details)
+    return {"passed": True, "details": details}
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Standard Port Recovery and Verification Procedure
 # (see docs/testplan/transceiver/system_test_plan.md)
 # ──────────────────────────────────────────────────────────────────────
@@ -241,15 +306,19 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 def standard_port_recovery_and_verification(
     duthost, port, port_attrs, link_up_timeout_sec, shared_state=None,
     min_uptime_sec=MIN_CRITICAL_SERVICE_UPTIME_SEC,
+    stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
 ):
     """Run the Standard Port Recovery and Verification Procedure on one port.
 
     Steps (per ``system_test_plan.md``):
       1. Link Status         - port oper-up within ``link_up_timeout_sec``.
-      2. LLDP                - neighbor learned, iff ``verify_lldp_on_link_up``.
-      3. CMIS State          - DataPathActivated + ConfigSuccess, iff the
+      2. Link Flap/Stability - the mandatory "Stability (always)" sub-check,
+                               iff link came up: no flap / ``last_up_time``
+                               change over ``stability_window_sec``.
+      3. LLDP                - neighbor learned, iff ``verify_lldp_on_link_up``.
+      4. CMIS State          - DataPathActivated + ConfigSuccess, iff the
                                port is ``cmis_active_optical``.
-      4. Docker/process health - delegates to
+      5. Docker/process health - delegates to
                                :func:`tests.transceiver.common.health_checks.verify_health`,
                                the single owner of the xcvrd/syncd/orchagent
                                process + ``/var/core`` check (also run once per
@@ -258,9 +327,10 @@ def standard_port_recovery_and_verification(
                                the test plan that fixture does not enforce.
                                Runs unconditionally - independent of link state.
 
-    The optics/media-SI and application-code steps from the test plan are
-    intentionally not implemented here; they land with the diagnostics tests
-    that exercise them.
+    Remote-Side Link Verification (test-plan step 4, optional/opt-in) and the
+    optics/media-SI + application-code steps (test-plan step 6) are
+    intentionally not implemented here; they land with the event-handling and
+    diagnostics tests that exercise them.
 
     All sub-failures are accumulated and reported together so a single
     call surfaces every problem on the port.
@@ -275,15 +345,20 @@ def standard_port_recovery_and_verification(
             ``TRANSCEIVER_STATUS`` queries happen at most once. Must carry a
             ``'health_baseline'`` entry - the dict returned by
             :func:`tests.transceiver.common.health_checks.capture_baseline`,
-            captured by the caller before the disruptive action - so step 4
+            captured by the caller before the disruptive action - so step 5
             can diff against it.
         min_uptime_sec: minimum continuous uptime (seconds) required of each
             monitored process (each a representative for its container - see
-            ``health_checks.DEFAULT_MONITORED_PROCESSES``) in the step-4
+            ``health_checks.DEFAULT_MONITORED_PROCESSES``) in the step-5
             health check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC`
             (180, i.e. the test plan's 3-minute floor). Callers that
             deliberately restart a service must dwell long enough for it to
             clear this floor before calling.
+        stability_window_sec: post-recovery observation window (seconds) for
+            the step-2 stability sub-check. Defaults to
+            :data:`DEFAULT_STABILITY_WINDOW_SEC` (5) - the test plan does not
+            pin an exact duration, only "a short post-recovery observation
+            window".
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
@@ -308,7 +383,17 @@ def standard_port_recovery_and_verification(
     if not link_result["passed"]:
         failures.append(link_result["details"])
 
-    # 2. LLDP - only if requested and link came up (otherwise LLDP is moot).
+    # 2. Link Flap/Stability - mandatory "Stability (always)" sub-check, only
+    #    if link came up (nothing to observe stability of otherwise).
+    if link_result["passed"]:
+        stability_result = check_link_stability(
+            duthost, port, stability_window_sec, namespace=namespace
+        )
+        checks_ran.append("stability")
+        if not stability_result["passed"]:
+            failures.append(stability_result["details"])
+
+    # 3. LLDP - only if requested and link came up (otherwise LLDP is moot).
     if link_result["passed"] and sys_attrs.get("verify_lldp_on_link_up", True):
         lldp_timeout = sys_attrs.get("lldp_neighbor_wait_sec", 60)
         lldp_result = check_lldp_neighbor_present(
@@ -318,14 +403,14 @@ def standard_port_recovery_and_verification(
         if not lldp_result["passed"]:
             failures.append(lldp_result["details"])
 
-    # 3. CMIS state - only if link came up and port is CMIS active-optical.
+    # 4. CMIS state - only if link came up and port is CMIS active-optical.
     if link_result["passed"] and eeprom_attrs.get("cmis_active_optical"):
         cmis_result = check_cmis_state(duthost, port, shared_state, namespace=namespace)
         checks_ran.append("CMIS state")
         if not cmis_result["passed"]:
             failures.append(cmis_result["details"])
 
-    # 4. Docker and process health check (per system_test_plan.md). Delegates
+    # 5. Docker and process health check (per system_test_plan.md). Delegates
     #    to health_checks.verify_health - the single owner of the
     #    xcvrd/syncd/orchagent process check and the /var/core diff (also run
     #    automatically once per test by the autouse _per_test_health_check
