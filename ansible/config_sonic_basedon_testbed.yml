@@ -665,6 +665,23 @@
           - sonic_mgmt_ipv6|bool
           - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
 
+      - name: Append PTF inband IP to NTP server list
+        set_fact:
+          ntp_servers: "{{ ntp_servers + [ configuration_properties['common']['nhipv4'],  configuration_properties['common']['nhipv6'] ] }}"
+
+      - name: Append PTF server IPv4 to NTP server list
+        set_fact:
+          ntp_servers: "{{ ntp_servers + [ testbed_facts['ptf_ip'] ] }}"
+        when:
+          - testbed_facts['ptf_ip'] is defined and testbed_facts['ptf_ip'] != ""
+          - not sonic_mgmt_ipv6|bool
+
+      - name: Append PTF server IPv6 to NTP server list
+        set_fact:
+          ntp_servers: "{{ ntp_servers + [ testbed_facts['ptf_ipv6'] ] }}"
+        when:
+          - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
+
       - debug: msg="Configuring IPv6-only management mode={{ sonic_mgmt_ipv6|default(false) }}"
         when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
