@@ -58,6 +58,20 @@ NUMBER_FIELDS = {
 }
 
 
+def resolve_auth_token() -> str:
+    """Resolve the token used for GraphQL mutations.
+
+    This mirrors the skip-expiry workflow: prefer the GitHub App token from
+    GITHUB_APP_TOKEN or GH_APP_TOKEN and fall back to the standard
+    GITHUB_TOKEN environment variable.
+    """
+    for env_var in ("GITHUB_APP_TOKEN", "GH_APP_TOKEN"):
+        token = os.getenv(env_var, "").strip()
+        if token:
+            return token
+    return os.getenv("GITHUB_TOKEN", "").strip()
+
+
 def graphql(token: str, query: str, variables: dict) -> dict:
     """POST a GraphQL request with simple retry/backoff (stdlib only)."""
     body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
@@ -104,7 +118,7 @@ class MigrationProjectUpserter:
         self.project_id = project_id.strip()
         self.dry_run = dry_run
         if not self.token:
-            raise ValueError("a token is required (PROJECT_TOKEN / GITHUB_TOKEN)")
+            raise ValueError("a token is required (GITHUB_APP_TOKEN / GH_APP_TOKEN / GITHUB_TOKEN)")
         if not self.project_id:
             raise ValueError("a project id is required")
         self.field_map: Dict[str, dict] = {}
@@ -431,34 +445,12 @@ def build_card_body(task: dict, migrated: bool) -> str:
     return "\n".join(lines)
 
 
-def resolve_project_id(token: str, owner: str, number: int) -> str:
-    """Resolve a Project (v2) node id from an owner login + project number."""
-    query = """
-    query($login: String!, $number: Int!) {
-      user(login: $login) { projectV2(number: $number) { id } }
-      organization(login: $login) { projectV2(number: $number) { id } }
-    }
-    """
-    data = graphql(token, query, {"login": owner, "number": number})
-    for scope in ("user", "organization"):
-        node = ((data.get(scope) or {}).get("projectV2") or {})
-        if node.get("id"):
-            return node["id"]
-    raise RuntimeError(f"Could not resolve project #{number} for '{owner}'")
-
-
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", required=True,
                         help="Path to migration_dashboard.json.")
     parser.add_argument("--project-id", default=os.getenv("PROJECT_ID", ""),
-                        help="Project (v2) node id. If empty, resolved from "
-                             "--project-owner/--project-number.")
-    parser.add_argument("--project-owner", default=os.getenv("PROJECT_OWNER", ""),
-                        help="Login that owns the project (user or org).")
-    parser.add_argument("--project-number", type=int,
-                        default=int(os.getenv("PROJECT_NUMBER", "0") or "0"),
-                        help="Project number (the N in /projects/N).")
+                        help="Project (v2) node id.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log intended changes without mutating the project.")
     return parser.parse_args(argv)
@@ -468,9 +460,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = parse_args(argv)
 
-    token = os.getenv("PROJECT_TOKEN", "").strip() or os.getenv("GITHUB_TOKEN", "").strip()
+    token = resolve_auth_token()
     if not token:
-        logger.error("PROJECT_TOKEN or GITHUB_TOKEN must be set")
+        logger.error("GITHUB_APP_TOKEN, GH_APP_TOKEN, or GITHUB_TOKEN must be set")
         return 2
 
     with open(args.json, "r", encoding="utf-8") as handle:
@@ -478,11 +470,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     project_id = args.project_id.strip()
     if not project_id:
-        if not args.project_owner or not args.project_number:
-            logger.error("provide --project-id OR --project-owner and --project-number")
-            return 2
-        project_id = resolve_project_id(token, args.project_owner, args.project_number)
-        logger.info("Resolved project id: %s", project_id)
+        logger.error("provide --project-id")
+        return 2
 
     upserter = MigrationProjectUpserter(token, project_id, dry_run=args.dry_run)
 

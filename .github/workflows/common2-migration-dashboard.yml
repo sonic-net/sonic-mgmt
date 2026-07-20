@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   migration-dashboard:
@@ -39,14 +40,12 @@ jobs:
     name: Generate common2 migration dashboard
     runs-on: ubuntu-latest
     env:
-      # A PAT (classic: `project` scope) or fine-grained token with
-      # "Projects: read and write". The default GITHUB_TOKEN CANNOT write to
-      # user/org Projects, so this secret is required for the upsert step.
-      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
-      # Owner of the project (defaults to the repo owner) and the project
-      # number (the N in https://github.com/users/<owner>/projects/N).
-      PROJECT_OWNER: ${{ github.repository_owner }}
-      PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+      # Mirror the working skip_issue_expiry workflow: use the standard GitHub
+      # token plus a GitHub App token, and provide the target Project (v2) ID.
+      GH_CTOC2_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_CTOC2_PROJECT_ID: ${{ secrets.GH_CTOC2_PROJECT_ID }}
+      GH_CTOC2_APP_ID: ${{ secrets.GH_CTOC2_APP_ID }}
+      GH_CTOC2_APP_PRIVATE_KEY: ${{ secrets.GH_CTOC2_APP_PRIVATE_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -83,16 +82,26 @@ jobs:
             echo "Dashboard report was not generated." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Get GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GH_CTOC2_APP_ID }}
+          private-key: ${{ env.GH_CTOC2_APP_PRIVATE_KEY }}
+
       - name: Upsert dashboard into GitHub Project
-        # Only runs when a project write token is configured (skipped otherwise
-        # so forks without the secret don't fail).
-        if: env.PROJECT_TOKEN != ''
+        # Only runs when the Project ID is configured.
+        if: env.GH_CTOC2_PROJECT_ID != ''
         env:
           DRY_RUN: ${{ github.event.inputs.dryRun == 'true' && '--dry-run' || '' }}
+          GITHUB_TOKEN: ${{ env.GH_CTOC2_GITHUB_TOKEN }}
+          GITHUB_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          PROJECT_ID: ${{ env.GH_CTOC2_PROJECT_ID }}
         run: |
           set -e
           python .github/workflows/scripts/upsert_migration_project.py \
             --json dashboard-out/migration_dashboard.json \
-            --project-owner "$PROJECT_OWNER" \
-            --project-number "$PROJECT_NUMBER" \
+            --project-id "$PROJECT_ID" \
             $DRY_RUN
