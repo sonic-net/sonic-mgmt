@@ -314,7 +314,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
     vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port,
-                                                        vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
+                                                       vxlan_sport=vxlan_sport, vxlan_mask=vxlan_mask)
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 120s)")
     ready_state = wait_until(
@@ -456,8 +456,8 @@ def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts
     logger.info("Reconfiguring VXLAN switch after config reload")
     vxlan_port = setup_params["vxlan_port"]
     vxlan_router_mac = configure_vxlan_switch_with_mac(duthost, vxlan_port,
-                                                        vxlan_sport=setup_params.get("vxlan_sport"),
-                                                        vxlan_mask=setup_params.get("vxlan_mask"))
+                                                       vxlan_sport=setup_params.get("vxlan_sport"),
+                                                       vxlan_mask=setup_params.get("vxlan_mask"))
     setup_params["mac_switch"] = vxlan_router_mac
 
     logger.info("Running PTF traffic after config reload")
