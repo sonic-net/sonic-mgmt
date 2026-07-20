@@ -160,3 +160,11 @@ def get_maximum_consumed_power(conn, mod_idx):
 
 def reboot(conn, mod_idx, reboot_type):
     return module_api(conn, mod_idx, 'reboot', [reboot_type])
+
+
+def do_power_cycle(conn, mod_idx):
+    return module_api(conn, mod_idx, 'do_power_cycle')
+
+
+def set_admin_state(conn, mod_idx, up):
+    return module_api(conn, mod_idx, 'set_admin_state', [up])

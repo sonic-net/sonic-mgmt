@@ -32,6 +32,7 @@ function show_help_and_exit()
     echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
     echo "    -6             : IPv6-only management mode (use IPv6 for DUT mgmt connectivity)"
+    echo "    -M             : run all 4 prober_type x neighbor_mode MUX_CABLE combos (dualtor/dualtor_io only)"
 
     exit $1
 }
@@ -57,33 +58,7 @@ function get_dut_from_testbed_file() {
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
-
-            topo_name=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('topo', ''))")
-            use_converged_peers=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('use_converged_peers', ''))")
-            converge_topo_if_needed "$topo_name" "$use_converged_peers"
         fi
-    fi
-}
-
-function converge_topo_if_needed
-{
-    topo_name="$1"
-    use_converged_peers="$2"
-    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/ansible"
-    VARS_DIR="$ANSIBLE_DIR/vars"
-    topo_file="$VARS_DIR/topo_${topo_name}.yml"
-    backup_file="${topo_file}".bak
-    if [[ "$use_converged_peers" == "True" ]]; then
-        echo "use_converged_peers is true, converging topo..."
-
-        if [[ -f "$backup_file" ]];then
-            echo "Backup file exists, recover..."
-            sudo cp "$backup_file" "$topo_file"
-        elif [[ -f "$topo_file" ]]; then
-            echo "Back up topo file"
-            sudo cp "$topo_file" "$backup_file"
-        fi
-        sudo PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -152,6 +127,7 @@ function setup_environment()
     DPU_NAME="None"
     NO_CLEAR_CACHE="False"
     IPV6_ONLY_MGMT="False"
+    MUX_COMBO_MODE="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -314,6 +290,7 @@ function run_debug_tests()
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
     echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
+    echo "MUX_COMBO_MODE:        ${MUX_COMBO_MODE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
@@ -432,6 +409,53 @@ function run_bsl_tests()
     python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
 }
 
+function run_mux_combo_tests()
+{
+    # Run dualtor/dualtor_io suites for all 4 prober_type x neighbor_mode combos.
+    # Each combination gets its own full pytest invocation so the session-scoped
+    # fixture apply_mux_cable_combo in tests/common/dualtor/mux_cable_config.py
+    # picks up --prober_type and --neighbor_mode and applies them before tests.
+
+    MUX_COMBOS=(
+        "hardware,host-route"
+        "hardware,prefix-route"
+        "software,host-route"
+        "software,prefix-route"
+    )
+
+    COMBO_RC=0
+
+    for combo in "${MUX_COMBOS[@]}"; do
+        IFS=',' read -r PROBER_TYPE NEIGHBOR_MODE <<< "$combo"
+        echo "============================================================"
+        echo "=== MUX COMBO: prober_type=${PROBER_TYPE}, neighbor_mode=${NEIGHBOR_MODE} ==="
+        echo "============================================================"
+
+        COMBO_EXTRA="${EXTRA_PARAMETERS} --prober_type ${PROBER_TYPE} --neighbor_mode ${NEIGHBOR_MODE}"
+
+        if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
+            COMBO_LOG_DIR="${LOG_PATH}/mux_combo_${PROBER_TYPE}_${NEIGHBOR_MODE}"
+            mkdir -p ${COMBO_LOG_DIR}
+            COMBO_LOGGING="--junit-xml=${COMBO_LOG_DIR}/tr.xml --log-file=${COMBO_LOG_DIR}/test.log"
+        else
+            COMBO_LOGGING=""
+        fi
+
+        echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ret_code=$?
+
+        if [ ${ret_code} -ne 0 ]; then
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} failed with rc=${ret_code} ==="
+            COMBO_RC=1
+        else
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} passed ==="
+        fi
+    done
+
+    return ${COMBO_RC}
+}
+
 setup_environment
 
 for arg in "$@"; do
@@ -455,7 +479,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw6" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rs:S:t:uxw6" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -508,6 +532,9 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw6" opt; do
             ;;
         m )
             TEST_METHOD=${OPTARG}
+            ;;
+        M )
+            MUX_COMBO_MODE="True"
             ;;
         n )
             TESTBED_NAME=${OPTARG}
@@ -577,18 +604,14 @@ RC=0
 
 if [[ x"${BSL}" == x"True" ]]; then
     run_bsl_tests || RC=$?
+elif [[ x"${MUX_COMBO_MODE}" == x"True" ]]; then
+    run_mux_combo_tests || RC=$?
 else
     run_${TEST_METHOD}_tests || RC=$?
 fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
-fi
-
-if [[ -f "$backup_file" ]];then
-    echo "Backup exists, restore backup file"
-    sudo rm -f "$topo_file"
-    sudo mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}

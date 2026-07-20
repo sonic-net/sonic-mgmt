@@ -35,19 +35,7 @@ pytestmark = [
 ]
 
 PKTS_NUM = 100
-
-
-@pytest.fixture(scope="function")
-def ignore_log_oq_watchdog(duthosts, loganalyzer):
-    if not loganalyzer:
-        yield
-        return
-    ignore_list = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*"]
-    for dut in duthosts:
-        for line in ignore_list:
-            loganalyzer[dut.hostname].ignore_regex.append(line)
-    yield
-    return
+EXPECT_OQ_WD_DETECT_RE = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*Output Queue appears to be stuck*"]
 
 
 class TestOqWatchdog(QosSaiBase):
@@ -60,8 +48,8 @@ class TestOqWatchdog(QosSaiBase):
 
     def testOqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, ignore_log_oq_watchdog,
-            disable_voq_watchdog_function_scope
+            get_src_dst_asic_and_duts,
+            disable_voq_watchdog_function_scope, loganalyzer
     ):
         """
             Test OQ watchdog functionality.
@@ -88,6 +76,8 @@ class TestOqWatchdog(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
         interfaces = self.get_port_channel_members(dst_dut, dst_port)
+
+        loganalyzer[dst_dut.hostname].expect_regex.extend(EXPECT_OQ_WD_DETECT_RE)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])

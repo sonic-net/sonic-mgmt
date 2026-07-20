@@ -276,14 +276,9 @@ class PolicyTest(ControlPlaneBaseTest):
                 "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
         else:
             self.log("Checking constraints (NoPolicyApplied):")
-            self.log(
-                "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
-                (int(rx_pps),
-                 int(self.PPS_LIMIT_MIN),
-                 str(rx_pps <= self.PPS_LIMIT_MIN))
-            )
-            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
-                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
+            # for no traps case, check on the recevied packets instead of port level counters
+            assert recv_count == 0, "Copp policer constraint check failed, Actual Received Packets: {} " \
+                "Expected Received Packets: {}".format(recv_count, 0)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -328,6 +323,37 @@ class DHCPTopoT1Test(PolicyTest):
         self.log("DHCPTopoT1Test")
         self.run_suite()
 
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
+
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
@@ -360,11 +386,8 @@ class DHCPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -409,11 +432,8 @@ class DHCP6Test(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -457,6 +477,37 @@ class DHCP6TopoT1Test(PolicyTest):
         self.log("DHCP6TopoT1Test")
         self.run_suite()
 
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
+
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
@@ -480,11 +531,8 @@ class LLDPTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -516,11 +564,8 @@ class UDLDTest(PolicyTest):
         # Marvell based platforms have cir/cbs in steps of 125
         if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
-        # Cisco G100 based platform has CIR 600
-        elif self.asic_type == "cisco-8000" and "8111" in self.platform:
-            self.PPS_LIMIT = 600
         elif self.asic_type == "cisco-8000":
-            self.PPS_LIMIT = 400
+            self.PPS_LIMIT = 600
         # M0 devices have CIR of 300 for DHCP
         elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
@@ -754,7 +799,10 @@ class VlanSubnetTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -796,7 +844,10 @@ class VlanSubnetIPinIPTest(PolicyTest):
 
         # Verify with different PPS if neighbor miss trap is supported by the platform
         if self.neighbor_miss_trap_supported:
-            self.PPS_LIMIT = 200
+            if self.asic_type == "cisco-8000":
+                self.PPS_LIMIT = 600
+            else:
+                self.PPS_LIMIT = 200
             self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
             self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 

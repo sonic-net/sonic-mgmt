@@ -428,7 +428,12 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+            },
+            "OP": "SET"
+        },
+        {
+            "SWITCH_TABLE:switch": {
                 "vxlan_security": "true"
             },
             "OP": "SET"
@@ -437,8 +442,9 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
+    for config in vxlan_sport_config:
+        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
     if 'pensando' in dpuhost.facts['asic_type']:
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
@@ -495,27 +501,49 @@ def dpu_index(request):
     return request.config.getoption("--dpu_index")
 
 
+def _apply_pl_sip(sip_params):
+    encoding_ip, encoding_mask, overlay_sip, overlay_sip_mask = sip_params
+    pl.PL_ENCODING_IP = encoding_ip
+    pl.PL_ENCODING_MASK = encoding_mask
+    pl.PL_OVERLAY_SIP = overlay_sip
+    pl.PL_OVERLAY_SIP_MASK = overlay_sip_mask
+    pl_sip_encoding = f"{encoding_ip}/{encoding_mask}"
+    overlay_sip_prefix = f"{overlay_sip}/{overlay_sip_mask}"
+    for cfg in pl.PL_SIP_CONFIGS:
+        for entry in cfg.values():
+            if "pl_sip_encoding" in entry:
+                entry["pl_sip_encoding"] = pl_sip_encoding
+            if "overlay_sip_prefix" in entry:
+                entry["overlay_sip_prefix"] = overlay_sip_prefix
+
+
+@pytest.fixture(scope="module", autouse=True)
+def configure_pl_sip_for_platform(request):
+    if "dpuhosts" not in request.fixturenames:
+        return
+    dpuhost = request.getfixturevalue("dpuhosts")[request.getfixturevalue("dpu_index")]
+    sip_params = pl.PL_SIP_ALTERNATE if "bluefield" in dpuhost.facts["asic_type"] else pl.DEFAULT_PL_SIP
+    _apply_pl_sip(sip_params)
+
+
 @pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
 def single_endpoint(request):
     return request.param
 
 
 @pytest.fixture
-def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
+def dpu_setup(dpuhosts, dpu_index, skip_config):
     if skip_config:
 
         return
     dpuhost = dpuhosts[dpu_index]
-    # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
-    dpuhost.shell(f'ip route replace {duthost.mgmt_ip}/32 via 169.254.200.254')
+
     intfs = dpuhost.shell("show ip int")["stdout"]
     dpu_cmds = list()
     if "Loopback0" not in intfs:
         dpu_cmds.append("config loopback add Loopback0")
         dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
 
-    if dpuhost.npu_data_port_ip:
-        dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
     dpuhost.shell_cmds(cmds=dpu_cmds)
 
 

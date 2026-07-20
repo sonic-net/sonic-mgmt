@@ -1,5 +1,6 @@
 import logging
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.bgp import get_db_cli_prefix
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_INCONSISTENT, TS_NO_NEIGHBORS, TS_UNEXPECTED
 
 logger = logging.getLogger(__name__)
@@ -42,9 +43,7 @@ def get_traffic_shift_state(host, cmd="TSC"):
 def check_tsa_persistence_support(duthost):
     # For multi-asic, check DB in one of the namespaces
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    sonic_db_cmd = "sonic-db-cli {}".format("-n " +
-                                            namespace if namespace else "")
+    sonic_db_cmd = get_db_cli_prefix(duthost, asic_index)
     tsa_in_configdb = duthost.shell('{} CONFIG_DB HGET "BGP_DEVICE_GLOBAL|STATE" "tsa_enabled"'.format(sonic_db_cmd),
                                     module_ignore_errors=False)['stdout_lines']
     if not tsa_in_configdb:

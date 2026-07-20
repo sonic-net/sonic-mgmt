@@ -249,6 +249,83 @@ class TestUpperBoundProbingAlgorithm:
         assert complete_calls[0][0][2].value == IterationOutcome.UNREACHED.value
         assert complete_calls[1][0][2].value == IterationOutcome.REACHED.value
 
+    @pytest.mark.order(8120)
+    def test_run_pool_size_cap_triggers_abort(self):
+        """Test that algorithm aborts when current exceeds 3x pool_size"""
+        self.setUp()
+        # All checks return unreached — simulates dead PFC counter
+        self.mock_executor.check.return_value = (True, False)
+
+        algo = UpperBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        # pool_size=100, initial_value=100: iter1=100, iter2=200, iter3=400 > 300 (3x100) → abort
+        result, phase_time = algo.run(
+            src_port=24, dst_port=28, initial_value=100, pool_size=100
+        )
+
+        assert result is None  # Aborted
+        # Should have run 2 iterations (100, 200) then abort at 400
+        assert self.mock_executor.check.call_count == 2
+        self.mock_observer.on_error.assert_called_once()
+        error_msg = self.mock_observer.on_error.call_args[0][0]
+        assert "3x pool_size" in error_msg
+        assert "100 pkt" in error_msg
+
+    @pytest.mark.order(8121)
+    def test_run_pool_size_cap_does_not_trigger_when_threshold_found(self):
+        """Test that pool_size cap does not interfere when threshold is found within range"""
+        self.setUp()
+        self.mock_executor.check.side_effect = [
+            (True, False),  # iter1: 100 → unreached
+            (True, True),   # iter2: 200 → reached (threshold found before cap)
+        ]
+
+        algo = UpperBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        result, phase_time = algo.run(
+            src_port=24, dst_port=28, initial_value=100, pool_size=100
+        )
+
+        assert result == 200  # Found threshold
+        self.mock_observer.on_error.assert_not_called()
+
+    @pytest.mark.order(8122)
+    def test_run_pool_size_none_no_cap(self):
+        """Test that pool_size=None (default) disables the cap — backward compatible"""
+        self.setUp()
+        # 5 iterations all unreached, no pool_size cap
+        self.mock_executor.check.return_value = (True, False)
+
+        algo = UpperBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        result, phase_time = algo.run(
+            src_port=24, dst_port=28, initial_value=100
+            # pool_size not passed → None → no cap
+        )
+
+        # Should run all 20 max_iterations without aborting on pool_size
+        assert result is None
+        assert self.mock_executor.check.call_count == 20
+        # Error should be "exceeded maximum iterations", not "3x pool_size"
+        error_msg = self.mock_observer.on_error.call_args[0][0]
+        assert "maximum iterations" in error_msg
+
+    @pytest.mark.order(8123)
+    def test_run_pool_size_cap_boundary(self):
+        """Test pool_size cap boundary: current exactly at 3x should NOT abort"""
+        self.setUp()
+        self.mock_executor.check.return_value = (True, False)
+
+        algo = UpperBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        # pool_size=200, initial=100: iter1=100, iter2=200, iter3=400, iter4=800>600 → abort
+        # 400 is exactly 2x pool_size (not > 3x=600), so iter3 should run
+        result, phase_time = algo.run(
+            src_port=24, dst_port=28, initial_value=100, pool_size=200
+        )
+
+        assert result is None
+        # iter1=100, iter2=200, iter3=400, iter4=800>600 → 3 checks run, abort at 4th doubling
+        assert self.mock_executor.check.call_count == 3
+        error_msg = self.mock_observer.on_error.call_args[0][0]
+        assert "3x pool_size" in error_msg
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

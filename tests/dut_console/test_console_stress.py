@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 
@@ -6,6 +8,9 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_memory_utilization
 ]
+
+# Shell prompt terminator so send_command waits for the prompt, not a garbled serial base prompt.
+PROMPT_PATTERN = r"[#$]\s*$"
 
 
 def test_console_stress_output(duthost_console):
@@ -28,9 +33,12 @@ def test_console_stress_output(duthost_console):
     # Each line: "LINE_XXXX: " + 10 blocks of '0123456789' (110 chars per line)
     # Generate 1000 lines = 110,000 chars total
     num_lines = 1000
+    # Disable echo verification: the wrapped 9600-baud echo never matches and a half-typed command leaves a PS2 prompt.
     output = duthost_console.send_command(
-        f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",
-        max_loops=300
+        f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",  # noqa: E231
+        read_timeout=300,
+        expect_string=PROMPT_PATTERN,
+        cmd_verify=False
     )
 
     # Parse output into lines
@@ -45,14 +53,14 @@ def test_console_stress_output(duthost_console):
 
     # Verify exact content of each line
     for line_idx, line in enumerate(pattern_lines):
-        expected_line = f"LINE_{line_idx:04d}: " + '0123456789' * 10
+        expected_line = f"LINE_{line_idx:04d}: " + '0123456789' * 10  # noqa: E231
         pytest_assert(line == expected_line,
                       f"Line {line_idx}: Content mismatch\n"
                       f"Expected: '{expected_line}'\n"
                       f"Got:      '{line}'")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response, "Console not responsive after large output")
 
 
@@ -75,17 +83,18 @@ def test_console_stress_input(duthost_console):
     # Use 100,000 characters: 10,000 repetitions of '0123456789'
     large_string = '0123456789' * 10000  # 100,000 chars
 
-    # Send the large string via echo and capture the output
-    output = duthost_console.send_command(
-        f"echo '{large_string}'",
-        max_loops=300
+    expected_hash = hashlib.md5(large_string.encode()).hexdigest()
+    output = duthost_console.send_command_timing(
+        f"echo -n '{large_string}' | md5sum",
+        read_timeout=300,
+        last_read=2.0
     )
 
-    # Verify the output matches what we sent
-    pytest_assert(output.strip() == large_string,
-                  f"Echo output mismatch: expected {len(large_string)} chars, got {len(output.strip())} chars")
+    pytest_assert(expected_hash in output,
+                  f"Input integrity check failed: md5sum of echoed 100K chars "
+                  f"expected {expected_hash}, console returned: {output!r}")
 
     # Verify console is still responsive
-    response = duthost_console.send_command("echo test_responsive")
+    response = duthost_console.send_command("echo test_responsive", expect_string=PROMPT_PATTERN)
     pytest_assert("test_responsive" in response,
                   "Console not responsive after large input")

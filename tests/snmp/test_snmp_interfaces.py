@@ -40,6 +40,20 @@ def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
                                                                     CounterpollConstants.RIF])
 
 
+@pytest.fixture(scope="module")
+def snmp_interfaces_module_facts(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+    """
+    One SNMP walk per module except for test_snmp_interfaces_error_discard / verify_snmp_counter
+    (needs fresh facts after counter writes).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    return get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+
+
 def get_interfaces(duthost, tbinfo):
     """
     Method to get interfaces for testing
@@ -245,6 +259,50 @@ def verify_snmp_speed(facts, snmp_facts, results):
     return results
 
 
+def _compare_snmp_facts(duthost, snmp_facts, ports_list, namespace=None):
+    """Run the SNMP-vs-DUT comparison once. Returns the diff dict (empty == match)."""
+    dut_facts = collect_all_facts(duthost, ports_list, namespace)
+    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+    return verify_port_ifindex(snmp_facts, speed_snmp)
+
+
+def _wait_for_snmp_match(duthost, localhost, creds_all_duts, initial_snmp_facts,
+                         ports_list, namespace=None, timeout=60, interval=10):
+    """
+    Compare DUT facts against SNMP facts with retry to absorb operstatus races.
+
+    The first attempt reuses the module-scoped ``initial_snmp_facts`` (fast path).
+    If that comparison reports a diff, subsequent retries re-fetch fresh SNMP facts
+    so transient mismatches between SNMP walk time and DUT state (commonly seen as
+    ``operstatus: unknown`` on the management port or PortChannel during startup)
+    can settle without failing the test.
+
+    Asserts via ``pytest_assert`` if no attempt succeeds within ``timeout`` seconds.
+    """
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    snmp_community = creds_all_duts[duthost.hostname]["snmp_rocommunity"]
+
+    state = {'snmp_facts': initial_snmp_facts, 'first_pass': True, 'last_diff': {}}
+
+    def attempt():
+        if not state['first_pass']:
+            logger.info("Re-fetching SNMP facts before retry")
+            state['snmp_facts'] = get_snmp_facts(
+                duthost, localhost, host=hostip, version="v2c",
+                community=snmp_community, wait=True)['ansible_facts']
+        state['first_pass'] = False
+        state['last_diff'] = _compare_snmp_facts(
+            duthost, state['snmp_facts'], ports_list, namespace)
+        if state['last_diff']:
+            logger.info("SNMP comparison diff (will retry): {}".format(state['last_diff']))
+        return not state['last_diff']
+
+    pytest_assert(wait_until(timeout, interval, 0, attempt),
+                  "Unexpected comparsion of SNMP: {}".format(state['last_diff']))
+
+
 def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
                         port_counters, num_port_intfs):
     """
@@ -287,25 +345,20 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
     if not check_counter_with_margin(int(rif_snmp_facts['ifOutDiscards']), expected_out_discards, 'ifOutDiscards'):
         return False
 
-    if not check_counter_with_margin(int(rif_snmp_facts['ifInErrors']), COUNTER_VALUE, 'ifInErrors'):
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInErrors']), COUNTER_VALUE * num_port_intfs, 'ifInErrors'):
         return False
 
-    if not check_counter_with_margin(int(rif_snmp_facts['ifOutErrors']), COUNTER_VALUE, 'ifOutErrors'):
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutErrors']), COUNTER_VALUE * num_port_intfs, 'ifOutErrors'):
         return False
 
     return True
 
 
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_interfaces(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     snmp_ifnames = [v['name']
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
@@ -325,16 +378,12 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
 
 
 @pytest.mark.bsl
-def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
+def test_snmp_mgmt_interface(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts,
+                             localhost, creds_all_duts):
     """compare the snmp facts between observed states and target state"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
 
@@ -351,23 +400,19 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
     if duthost.num_asics() == 1:
         ports_list = []
         ports_list.extend(list(config_facts.get('MGMT_INTERFACE', {}).keys()))
-        dut_facts = collect_all_facts(duthost, ports_list)
-        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-        result = verify_port_ifindex(snmp_facts, speed_snmp)
-        pytest_assert(
-            not result, "Unexpected comparsion of SNMP: {}".format(result))
+        # Retry the comparison to absorb operstatus race during startup
+        # (mgmt port operstatus may report 'unknown' if STATE_DB hasn't settled
+        # by the time of the initial module-scoped SNMP walk).
+        _wait_for_snmp_match(duthost, localhost, creds_all_duts,
+                             snmp_facts, ports_list)
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, snmp_interfaces_module_facts,
+                              localhost, creds_all_duts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(
-        duthost.hostname).vars['ansible_host']
-    snmp_facts = get_snmp_facts(
-        duthost, localhost, host=hostip, version="v2c",
-        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+    snmp_facts = snmp_interfaces_module_facts
 
     for asic in duthost.asics:
         config_facts = duthost.config_facts(
@@ -377,12 +422,11 @@ def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localh
         for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
             ports_list.extend(list(config_facts.get(i, {}).keys()))
 
-        dut_facts = collect_all_facts(duthost, ports_list, asic.namespace)
-        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-        result = verify_port_ifindex(snmp_facts, speed_snmp)
-        pytest_assert(
-            not result, "Unexpected comparsion of SNMP: {}".format(result))
+        # Retry the comparison to absorb operstatus race during startup
+        # (PortChannel/physical port operstatus may transiently mismatch the
+        # cached SNMP walk if state hasn't fully settled).
+        _wait_for_snmp_match(duthost, localhost, creds_all_duts,
+                             snmp_facts, ports_list, asic.namespace)
 
 
 def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,

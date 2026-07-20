@@ -51,6 +51,7 @@ all:
           - t0-118
           - t0-backend
           - t0-f2-d40u8
+          - t0-f2-d40u8-po2vlan
           - t0-standalone-32
           - t0-standalone-64
           - t0-standalone-128
@@ -79,6 +80,7 @@ all:
           - tgen-t1-3-lag
           - mgmttor
           - t2
+          - t2-isolated-d128s2
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -94,8 +96,11 @@ all:
           - c0-lo
           - dpu-1
           - ft2-64
+          - ft2-16
           - lt2-p32o64
           - lt2-o128
+          - urh
+          - lrh
       children:
         server_1:
         server_2:

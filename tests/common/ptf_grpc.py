@@ -69,7 +69,7 @@ class PtfGrpc:
             # Auto-configuration from GNMIEnvironment
             if duthost is None:
                 raise ValueError("duthost is required when using GNMIEnvironment auto-configuration")
-            self.target = f"{duthost.mgmt_ip}:{target_or_env.gnmi_port}"
+            self.target = f"[{duthost.mgmt_ip}]:{target_or_env.gnmi_port}"
             self.plaintext = not target_or_env.use_tls if plaintext is None else plaintext
             self.env = target_or_env
 
@@ -146,6 +146,12 @@ class PtfGrpc:
 
             for name, value in items:
                 cmd.extend(["-H", f"{name}: {value}"])
+
+        # Auto-inject ss_target headers set via with_ss_target() so callers don't need to pass metadata
+        if self.ss_target_type:
+            cmd.extend(["-H", f"x-sonic-ss-target-type: {self.ss_target_type}"])
+        if self.ss_target_index is not None:
+            cmd.extend(["-H", f"x-sonic-ss-target-index: {self.ss_target_index}"])
 
         # Add custom headers
         for name, value in self.headers.items():

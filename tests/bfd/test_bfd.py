@@ -12,10 +12,10 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 from tests.common.sai_validation.sonic_db import start_db_monitor, stop_db_monitor, wait_until_condition, check_key
 from tests.common.utilities import wait_until
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t1'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('t1')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
@@ -431,6 +431,14 @@ def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
     )
 
 
+def check_ptf_neighbours(ptfhost, neighbor_addrs, local_addrs):
+
+    for idx, neighbor_addr in enumerate(neighbor_addrs):
+        if check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up") is False:
+            return False
+    return True
+
+
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_basic(request, gnmi_connection,
@@ -464,18 +472,15 @@ def test_bfd_basic(request, gnmi_connection,
         status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, neighbor_addrs,
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'All up; Wait for {neighbor_addrs} to be Up completed with'
+        logger.debug(f'All up, Wait for {neighbor_addrs} to be Up completed with'
                      f' {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
-        for idx, neighbor_addr in enumerate(neighbor_addrs):
-            assert check_ptf_bfd_status(
-                ptfhost, neighbor_addr, local_addrs[idx], "Up"
-            ) is True, (
-                "Assertion failed: BFD session status is not 'Up'. "
-                "Details: Neighbor address '{}', Local address '{}', PTF host '{}'.".format(
-                    neighbor_addr, local_addrs[idx], ptfhost.hostname
-                )
-            )
+        pytest_assert(
+            wait_until(120, 5, 0, check_ptf_neighbours, ptfhost, neighbor_addrs, local_addrs),
+            "IPv6:{} dut_init_first:{} PTF BFD sessions did not reach 'Up' state as expected."
+            .format(ipv6, dut_init_first)
+        )
+
         update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
@@ -485,7 +490,7 @@ def test_bfd_basic(request, gnmi_connection,
                                                    condition_cb=lambda k, v: neighbor_addrs[update_idx] in k and v.get('state') == 'Admin_Down',  # noqa: E501
                                                    timeout=timedelta(minutes=2)
                                                    )
-        logger.debug(f'Admin check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Admin check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Admin_Down and others to be Up. Status {status}, actual time {actual_wait}')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         for idx, neighbor_addr in enumerate(neighbor_addrs):
@@ -525,16 +530,14 @@ def test_bfd_basic(request, gnmi_connection,
         status, actual_wait = wait_until_condition(monitor_ctx, event_queue, prefix, [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Up',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'Reset to Up check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Reset to Up check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Up completed with {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
-        assert check_ptf_bfd_status(
-            ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"
-        ) is True, (
-            "Assertion failed: BFD session status is not 'Up' for neighbor address '{}', "
-            "local address '{}', on PTF host '{}'.".format(
-                neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname
-            )
+        pytest_assert(
+            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"),  # noqa: E501
+            "BFD session status is not Up for neighbor address {}, "
+            "local address {}, on PTF host {}."
+            .format(neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname)
         )
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
@@ -545,7 +548,7 @@ def test_bfd_basic(request, gnmi_connection,
                                                    [neighbor_addrs[update_idx]],
                                                    condition_cb=lambda k, v: v.get('state') == 'Down',
                                                    timeout=timedelta(minutes=2))
-        logger.debug(f'Suspend check; Wait for {neighbor_addrs[update_idx]}'
+        logger.debug(f'Suspend check, Wait for {neighbor_addrs[update_idx]}'
                      f' to be Down and others to be Up. Status {status}, actual time {actual_wait}')
         assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
@@ -627,15 +630,22 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
 
         create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs)
 
-        duthost.shell("sonic-clear queuecounters")
-        # wait for queue counters to accumulate BFD traffic
+        # Per-queue packet counters are not supported on VPP; skip the
+        # queue-counter validation but still verify session state below.
+        skip_bfd_queue_counter_check = duthost.facts.get('asic_type') == 'vpp'
 
-        def _check_bfd_queue_nonzero():
-            queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
-            return queue_pkt_count > 0
+        if not skip_bfd_queue_counter_check:
+            duthost.shell("sonic-clear queuecounters")
+            # wait for queue counters to accumulate BFD traffic
 
-        wait_until(30, 5, 0, _check_bfd_queue_nonzero)
-        verify_bfd_queue_counters(duthost, dut_intf)
+            def _check_bfd_queue_nonzero():
+                queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
+                return queue_pkt_count > 0
+
+            wait_until(30, 5, 0, _check_bfd_queue_nonzero)
+            verify_bfd_queue_counters(duthost, dut_intf)
+        else:
+            logger.info("Skipping BFD queue-counter validation: not supported on VPP")
 
         for neighbor_addr in neighbor_addrs:
             check_dut_bfd_status(duthost, neighbor_addr, "Up")

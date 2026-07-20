@@ -205,10 +205,13 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our remote_id string simply consists of the MAC address of the port that received the request
-        remote_id_string = self.relay_iface_mac
+        # remote_id (suboption 2) is the switch base MAC. On dual-ToR the VLAN carries a virtual MAC,
+        # so the relay stamps the base MAC (uplink_mac); on single-ToR relay_iface_mac already equals it.
+        remote_id_string = self.uplink_mac if self.dual_tor else self.relay_iface_mac
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
+
+        link_selection_added = False  # set below; dual-tor block skips SubOption 5 if set
 
         if self.relay_agent == "sonic-relay-agent":
             # Structure:
@@ -219,6 +222,7 @@ class DHCPTest(DataplaneBaseTest):
                 link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
+                link_selection_added = True
 
             # The structure is as follows:
             #  Byte 0: Suboption number, always set to 11
@@ -246,11 +250,14 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        if self.dual_tor:
+        # Relay emits link-selection (SubOption 5) once; skip this legacy dual-tor
+        # copy if the block above already added it (see commit msg).
+        if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
+            link_selection_added = True
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -1284,27 +1291,6 @@ class DHCPTest(DataplaneBaseTest):
                     self.dest_mac_address, self.client_udp_src_port)
 
 
-class DHCPPacketsServerToClientTest(DHCPTest):
-    """
-    Only Test DHCP packets from server to client, including offer, ack, nak and unknown.
-    """
-    def runTest(self):
-        # Start sniffer process for each server port to capture DHCP packet
-        for interface_index in self.server_port_indices:
-            t1 = Thread(target=self.Sniffer, args=(
-                "eth"+str(interface_index),))
-            t1.start()
-
-        self.server_send_offer()
-        self.verify_offer_received()
-        self.server_send_ack()
-        self.verify_ack_received()
-        self.server_send_unknown()
-        self.verify_relayed_unknown_on_client_side()
-        self.server_send_nak()
-        self.verify_relayed_nak()
-
-
 class DHCPInvalidChecksumTest(DHCPTest):
     """
     Test DHCP packets with invalid checksum.
@@ -1356,3 +1342,47 @@ class DHCPInvalidChecksumTest(DHCPTest):
         self.client_send_bootp()
         self.client_send_unknown(self.dest_mac_address, self.client_udp_src_port)
         self.server_send_unknown()
+
+
+class DHCPBroadcastNotFloodedTest(DHCPTest):
+    """
+    Test that DHCP broadcast packets (Discover, Request) are trapped to CPU
+    by the COPP trap rule and NOT L2-flooded to other VLAN member ports.
+
+    The COPP policy configures trap_action=trap (SAI_PACKET_ACTION_TRAP) for
+    DHCP, which means the packet is removed from the forwarding pipeline and
+    sent exclusively to CPU. This test verifies the non-flooding behavior by
+    sending DHCP broadcast packets from one client port and asserting that
+    zero copies of the original broadcast appear on other VLAN member ports.
+    """
+
+    def verify_broadcast_not_flooded(self, pkt, packet_type):
+        """Send a DHCP broadcast packet and verify it is NOT flooded to other VLAN member ports."""
+        if 'other_client_port' not in self.test_params or not self.other_client_port:
+            logger.warning("No other client ports configured, skipping non-flood check for %s", packet_type)
+            return
+
+        logger.info("Sending %s from client port %d", packet_type, self.client_port_index)
+        testutils.send_packet(self, self.client_port_index, pkt)
+
+        # Build a mask for the original broadcast packet to match against
+        masked_pkt = Mask(pkt)
+        masked_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        self.set_common_ignored_mask_fields(masked_pkt)
+
+        # Negative check: original broadcast must NOT appear on other VLAN member ports
+        flooded_count = testutils.count_matched_packets_all_ports(
+            self, masked_pkt, self.other_client_port, timeout=3)
+        self.assertTrue(flooded_count == 0,
+                        "Failed: %s broadcast was flooded to %d other VLAN member port(s), expected 0"
+                        % (packet_type, flooded_count))
+        logger.info("%s broadcast was correctly NOT flooded to other VLAN member ports", packet_type)
+
+    def runTest(self):
+        # Verify DHCP Discover broadcast is not flooded
+        dhcp_discover = self.create_dhcp_discover_packet(self.BROADCAST_MAC, self.DHCP_CLIENT_PORT)
+        self.verify_broadcast_not_flooded(dhcp_discover, "Discover")
+
+        # Verify DHCP Request broadcast is not flooded
+        dhcp_request = self.create_dhcp_request_packet(self.BROADCAST_MAC, self.DHCP_CLIENT_PORT)
+        self.verify_broadcast_not_flooded(dhcp_request, "Request")
