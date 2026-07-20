@@ -30,8 +30,8 @@ import logging
 import time
 
 from tests.common.platform.interface_utils import (
-    get_dut_interfaces_status,
     get_lport_to_first_subport_mapping,
+    wait_ports_oper_status,
 )
 from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
@@ -76,11 +76,13 @@ def resolve_namespace(duthost, port):
 # Oper-state poll
 # ──────────────────────────────────────────────────────────────────────
 
-_OPER_POLL_INTERVAL_SEC = 2
-
 
 def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
-    """Poll ``show interface description`` until ``port`` reaches ``expected_state``.
+    """Poll until ``port`` reaches ``expected_state`` oper status.
+
+    Thin adapter over :func:`tests.common.platform.interface_utils.wait_ports_oper_status`
+    (single ``show interface description`` dump per poll, via ``wait_until``)
+    for the single-port case used by the Standard Port Recovery procedure.
 
     Args:
         duthost: SONiC DUT host fixture.
@@ -89,26 +91,18 @@ def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
         timeout_sec: maximum number of seconds to wait.
 
     Returns:
-        dict: ``{'passed': bool, 'observed': str, 'details': str}``
+        dict: ``{'passed': bool, 'details': str}``
     """
     expected = (expected_state or "").strip().lower()
-    deadline = time.monotonic() + max(0, int(timeout_sec))
-    while True:
-        intf_status = get_dut_interfaces_status(duthost)
-        observed = (intf_status.get(port, {}) or {}).get("oper", "missing")
-        if observed and observed.strip().lower() == expected:
-            details = f"{port}: oper={observed} (expected {expected}) within {timeout_sec}s"
-            logger.info("Oper-state wait PASSED: %s", details)
-            return {"passed": True, "observed": observed, "details": details}
-        if time.monotonic() >= deadline:
-            break
-        time.sleep(_OPER_POLL_INTERVAL_SEC)
+    fails = wait_ports_oper_status(duthost, [port], expected, timeout_sec)
+    if not fails:
+        details = f"{port}: oper={expected} within {timeout_sec}s"
+        logger.info("Oper-state wait PASSED: %s", details)
+        return {"passed": True, "details": details}
 
-    details = (
-        f"{port}: oper={observed} (expected {expected}) after {timeout_sec}s timeout"
-    )
+    details = fails[0]
     logger.warning("Oper-state wait FAILED: %s", details)
-    return {"passed": False, "observed": observed, "details": details}
+    return {"passed": False, "details": details}
 
 
 # ──────────────────────────────────────────────────────────────────────
