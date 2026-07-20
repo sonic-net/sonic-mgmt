@@ -240,7 +240,7 @@ class ThriftInterface(BaseTest):
             dut_port_list.append(dut_port)
         self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(dut_port_list)
         cmd_set_block_data_plane_scheduler = \
-            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" "type" DWRR "weight" 15 "pir" 1'
+            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" "type" DWRR "weight" 15 "cir" 1 "pir" 1'
 
         self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
                              cmd_set_block_data_plane_scheduler)
