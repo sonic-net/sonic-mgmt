@@ -42,8 +42,8 @@ def ansible_tqm_has_signal_registration():
 _signal_patch_lock = threading.RLock()
 _signal_patch_ref_count = 0
 _original_signal = None
-# pytest-ansible resolves modules through Ansible's process-global, mutable
-# plugin-loader caches.
+# pytest-ansible resolves modules through Ansible's mutable plugin-loader
+# caches, which are shared by all threads in the current Python process.
 _ansible_module_resolution_lock = threading.RLock()
 
 
