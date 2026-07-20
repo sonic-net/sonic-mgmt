@@ -504,32 +504,52 @@ def check_health_field_not_equal(duthost, field, unexpected):
     return not value or value != unexpected
 
 
-def check_system_health_led_info(duthost):
-    system_health_summary = duthost.shell('show system-health summary')['stdout']
-
-    "System status LED  red"
-    system_led_res = re.findall(r"System status LED\s+(\w+)", system_health_summary)
-    if system_led_res:
-        system_led_status = system_led_res[0].strip()
-    logger.info(f"System status LED is {system_led_status}")
-
-    # Regex to find all status names and values
-    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", system_health_summary)
+def _fetch_led_and_status(duthost):
+    """Fetch system health summary and return (led_color_lower, status_dict)."""
+    summary = duthost.shell('show system-health summary')['stdout']
+    # Use [\w ]+ to capture multi-word colors like "blinking green"
+    led_res = re.findall(r"System status LED\s+([\w ]+)", summary)
+    led_status = led_res[0].strip().lower() if led_res else ""
+    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", summary)
     status_dict = {name: status for name, status in status_data}
+    return led_status, status_dict
+
+
+def check_system_health_led_info(duthost):
+    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
+    expected_normal = led_cfg["normal"].lower()
+    not_normal = {color.lower() for key, color in led_cfg.items() if key != "normal"}
+
+    # Cache the consistent snapshot captured inside the closure to avoid a
+    # re-fetch that could observe a different value on a flapping LED.
+    # last_observed is always updated so assertion messages show real state on timeout.
+    consistent_snapshot = {}
+    last_observed = {}
+
+    def _led_consistent():
+        led, status_dict = _fetch_led_and_status(duthost)
+        last_observed['led'] = led
+        last_observed['status_dict'] = status_dict
+        all_ok = all(status == "OK" for status in status_dict.values())
+        if led == expected_normal if all_ok else led in not_normal:
+            consistent_snapshot['led'] = led
+            consistent_snapshot['status_dict'] = status_dict
+            return True
+        return False
+
+    # LED update by system-health daemon is asynchronous; wait for it to reflect current status
+    result = wait_until(WAIT_TIMEOUT, 10, 0, _led_consistent)
+
+    system_led_status = consistent_snapshot.get('led', last_observed.get('led', ''))
+    status_dict = consistent_snapshot.get('status_dict', last_observed.get('status_dict', {}))
+    logger.info(f"System status LED is {system_led_status}")
     logger.info(f"Status dict is {status_dict}")
 
-    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
-
-    system_status_lower = system_led_status.lower()
     if all(status == "OK" for status in status_dict.values()):
-        # Logic for healthy system: must match the 'normal' key value
-        expected_normal = led_cfg["normal"].lower()
-        assert system_status_lower == expected_normal, \
+        assert result and system_led_status == expected_normal, \
             f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
-        not_normal = {color for key, color in led_cfg.items() if key != "normal"}
-        assert system_status_lower in not_normal, \
+        assert result and system_led_status in not_normal, \
             f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
     return True

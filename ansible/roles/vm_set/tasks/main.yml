@@ -23,6 +23,24 @@
 # your environment.
 
 # ---- Fail if Ubuntu < 22.04 or Debian < 13 ----
+# Callers of this role are inconsistent about fact gathering:
+#   * Some set `gather_facts: no` (testbed_renumber_vm_topology.yml,
+#     testbed_connect_vms.yml, testbed_disconnect_vms.yml, testbed_start_k8s_VMs.yml,
+#     testbed_stop_k8s_VMs.yml, testbed_connect_topo.yml) so that their `pre_tasks`
+#     can override ansible_user / ansible_password from vm_host_user etc. before any
+#     connection is made.
+#   * Others rely on the default `gather_facts: yes` (testbed_add_vm_topology.yml,
+#     testbed_remove_vm_topology.yml, testbed_start_VMs.yml, testbed_stop_VMs.yml).
+# Gather a minimal fact subset here, but only when the facts are missing, so the
+# checks work for both kinds of caller. `gather_subset: min` is cheap and skips the
+# expensive interface/hardware enumeration; the `when` guard makes it a no-op when
+# the caller already gathered facts.
+- name: Gather minimal host facts for distribution checks
+  setup:
+    gather_subset:
+      - min
+  when: ansible_distribution is not defined or ansible_distribution_version is not defined
+
 - name: Fail if distribution is not Ubuntu or Debian
   fail:
     msg: >-
@@ -238,6 +256,21 @@
   set_fact:
     topo_is_multi_vrf: False
   when: topo_is_multi_vrf is not defined
+
+# Honor the converger-provided front-panel count for EVERY vm_set action, not
+# just 'start'. A converged (multi-VRF) cEOS prime hosts many merged sub-peers,
+# so the converger surfaces the required fp count as max_fp_num_provided at the
+# topo root. The 'add_topo' action creates the br-<vm>-N OVS bridges
+# (add_ceos_list.yml "Create VMs network") and then binds them; without this
+# override max_fp_num stays at the default 4, only 4 bridges are created, and
+# the subsequent bind fails with "Too many vlans. Maximum is 4". start.yml has
+# its own copy for the 'start' action; doing it here covers add_topo /
+# connect_vms / renumber too. Gated on max_fp_num_provided so stock and
+# non-converged topologies are byte-identical.
+- name: Pick provided max num of fp
+  set_fact:
+    max_fp_num: "{{ max_fp_num_provided }}"
+  when: max_fp_num_provided is defined
 
 - name: Check VM type
   fail:

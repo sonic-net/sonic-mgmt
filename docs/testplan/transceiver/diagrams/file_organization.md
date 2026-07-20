@@ -34,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_fw_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -119,8 +128,16 @@ tests/transceiver/
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
-│   └── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
+│   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)
+│   ├── cli_parser_helper.py                 # CLI output parsers: presence / hexdump / read-eeprom (+ RC_FAILURE);
+│   │                                        #   baseline parse_eeprom remains in utils/cli_parser_helper.py
+│   ├── cmis_helper.py                       # CMIS page decode: page 11h DataPath state, page 01h CDB capability
+│   └── eeprom_decode.py                     # SFF-8024 family classify + per-family vendor-field offsets + stem/DAC helpers
 │
 ├── eeprom/
 │   ├── __init__.py
@@ -204,13 +221,13 @@ tests/transceiver/
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
 │
-├── cdb_fw_upgrade/
+├── cdb_firmware_upgrade/
 │   ├── __init__.py
-│   ├── conftest.py                          # CDB FW upgrade-specific fixtures; autouse fixture requests
+│   ├── conftest.py                          # CDB firmware upgrade-specific fixtures; autouse fixture requests
 │   │                                        #   presence_verified, links_verified from top-level conftest.py
-│   │                                        #   (gold FW is CDB FW's own reportable test, so that gate is
+│   │                                        #   (gold FW is CDB firmware upgrade's own reportable test, so that gate is
 │   │                                        #    intentionally not consumed.)
-│   └── test_fw_upgrade.py                   # CDB FW upgrade test cases; includes gold FW check
+│   └── test_fw_upgrade.py                   # CDB firmware upgrade test cases; includes gold FW check
 │                                            #   (reportable test case; calls common/prerequisites.py::check_gold_firmware)
 │
 ├── port_config/
@@ -244,13 +261,13 @@ tests/transceiver/
 │  health_checks.py         │  │  eeprom/conftest.py  — requests links_   │
 │  prerequisites.py         │  │                        verified only     │
 │  verification.py          │  │                        (TC 1-2 own       │
-│                           │  │                        presence/gold_fw) │
-│  state_management.py      │  │  dom/conftest.py     — requests presence,│
-│  db_helpers.py            │  │                        gold_fw, links    │
+│  state_management.py      │  │                        presence/gold_fw) │
+│  db_helpers.py            │  │  dom/conftest.py     — requests presence,│
+│  dmesg_helpers.py         │  │                        gold_fw, links    │
 │  cli_helpers.py           │  │  system/conftest.py  — requests presence,│
-│                           │  │                        gold_fw, links    │
-│                           │  │  cdb_fw/conftest.py  — requests presence,│
-│                           │  │                        links             │
+│  cli_parser_helper.py     │  │                        gold_fw, links    │
+│  cmis_helper.py           │  │  cdb_fw/conftest.py  — requests presence,│
+│  eeprom_decode.py         │  │                        links             │
 └──────────┬────────────────┘  └──────────────────┬───────────────────────┘
            │ uses                                 │ uses
            ▼                                      ▼

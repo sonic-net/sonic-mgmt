@@ -1,0 +1,6 @@
+{
+    "firmware_versions": ["3.5.7", "2.0.5", "2.1.0"],
+    "gold_firmware_version": "2.1.0",
+    "firmware_download_cdb_abort_support": false,
+    "dual_bank_supported": false
+}
