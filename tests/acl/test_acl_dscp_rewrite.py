@@ -378,6 +378,7 @@ def acl_table_setup_and_cleanup(setUp, duthost, encap_type):
 
     # Enable acl counter and reduce interval to 1s
     duthost.shell('counterpoll acl interval 1000')
+    
     setup_acl_tables(duthost, setUp_vnet)
 
     if 'v4_in' in encap_type:
@@ -388,8 +389,7 @@ def acl_table_setup_and_cleanup(setUp, duthost, encap_type):
     yield table
 
     # Restore ACL counterpoll interval to pre-test value
-    duthost.set_counter_poll_interval(
-        'ACL', original_interval, wait_for_new_interval=False)
+    duthost.set_counter_poll_interval('ACL', original_interval, wait_for_new_interval=False)
 
     Logger.info("Cleaning up ACL tables")
     del_acl_tables(duthost)
