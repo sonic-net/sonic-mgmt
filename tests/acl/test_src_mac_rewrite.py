@@ -34,18 +34,18 @@ ACL_COUNTERS_UPDATE_INTERVAL = 10
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 ACL_REMOVE_RULES_FILE = "acl_rules_del.json"
-ACL_RULES_FILE = 'acl_config.json'
 TMP_DIR = '/tmp'
 CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 
 # VXLAN/VNET configuration constants
 PTF_VTEP_IP = "100.0.1.10"  # PTF VTEP endpoint IP
-DUT_VTEP_IP = "10.1.0.32"   # DUT VTEP IP
 VXLAN_UDP_PORT = 4789       # Standard VXLAN UDP port
 VXLAN_VNI = 10000           # Primary VXLAN Network Identifier
 VXLAN_VNI_2 = 20000         # Secondary VNI for multi-VNI testing
 VXLAN_VNI_3 = 30000         # Tertiary VNI for multi-VNI testing
-RANDOM_MAC = "00:aa:bb:cc:dd:ee"  # Random MAC for outer Ethernet dst
+VNET_PRIMARY_NAME = "Vnet-0"          # Primary VNET name (ecmp_utils default naming)
+VNET_PRIMARY_ROUTE_IP = "150.0.3.1"   # Primary VNET route destination IP
+VNET_PRIMARY_ROUTE_PREFIX = f"{VNET_PRIMARY_ROUTE_IP}/32"
 
 ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
@@ -87,7 +87,7 @@ def _check_acl_counter_updated(dut, tbl, rule, prev):
     return False
 
 
-def _check_vnet_route(duthost, vnet="Vnet-0", prefix="150.0.3.1/32"):
+def _check_vnet_route(duthost, vnet=VNET_PRIMARY_NAME, prefix=VNET_PRIMARY_ROUTE_PREFIX):
     result = duthost.shell(
         "redis-cli -n 6 HGET 'VNET_ROUTE_TUNNEL_TABLE|{}|{}' 'state'".format(vnet, prefix),
         module_ignore_errors=True
@@ -229,7 +229,6 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     # VXLAN/VNET configuration values
     data['vxlan_tunnel_name'] = "tunnel_v4"
     data['ptf_vtep_ip'] = PTF_VTEP_IP
-    data['dut_vtep_ip'] = DUT_VTEP_IP
 
     # MAC addresses for packet crafting
     data['outer_src_mac'] = ptfadapter.dataplane.get_mac(0, send_ptf_port)
@@ -249,23 +248,22 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
         duthost=rand_selected_dut,
         tunnel_name=data['vxlan_tunnel_name'],
         src_ip=data['loopback_src_ip'],
-        portchannel_name=selected_pc,
         router_mac=rand_selected_dut.facts['router_mac']
     )
 
     # Verify VNET was created and wait for its route to be active (confirms orchagent programmed it)
     vnet_list = rand_selected_dut.show_and_parse('show vnet brief')
-    pytest_assert(any(entry.get('vnet name') == 'Vnet-0' for entry in vnet_list),
-                  "Vnet-0 not found in 'show vnet brief' output")
+    pytest_assert(any(entry.get('vnet name') == VNET_PRIMARY_NAME for entry in vnet_list),
+                  f"{VNET_PRIMARY_NAME} not found in 'show vnet brief' output")
 
     # Wait for VNET route to be active in STATE_DB (confirms orchagent programmed it)
     if not wait_until(60, 5, 5, _check_vnet_route, rand_selected_dut):
         vnet_route_state = rand_selected_dut.shell(
-            "redis-cli -n 6 HGETALL 'VNET_ROUTE_TUNNEL_TABLE|Vnet-0|150.0.3.1/32'",
+            f"redis-cli -n 6 HGETALL 'VNET_ROUTE_TUNNEL_TABLE|{VNET_PRIMARY_NAME}|{VNET_PRIMARY_ROUTE_PREFIX}'",
             module_ignore_errors=True
         )["stdout"]
         logger.error("STATE_DB VNET route entry:\n%s", vnet_route_state)
-        pytest.fail("VNET route for 150.0.3.1/32 is not active in STATE_DB")
+        pytest.fail(f"VNET route for {VNET_PRIMARY_ROUTE_PREFIX} is not active in STATE_DB")
 
     return data
 
@@ -421,11 +419,10 @@ def remove_acl_rules(duthost):
                   "ACL rule still in STATE_DB after removal")
 
 
-def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None):
+def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, router_mac=None):
     # --- VXLAN parameters ---
     vnet_base = VXLAN_VNI
     ptf_vtep = PTF_VTEP_IP
-    dut_vtep = DUT_VTEP_IP
 
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = True
     ecmp_utils.Constants['DEBUG'] = False
@@ -433,7 +430,7 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
     # First create the VXLAN tunnel manually (since we need specific src_ip)
     tunnel_config = {
         "VXLAN_TUNNEL": {
-            tunnel_name: {"src_ip": dut_vtep}
+            tunnel_name: {"src_ip": src_ip}
         }
     }
 
@@ -458,14 +455,14 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
     logger.info(f"Created primary VNET: {vnet_vni_map}")
 
-    # Get the VNET name (should be "Vnet-0" based on ecmp_utils naming)
+    # Get the VNET name (should be VNET_PRIMARY_NAME based on ecmp_utils naming)
     vnet_name = list(vnet_vni_map.keys())[0]
 
     # Configure VNET route via CONFIG_DB so 'show vnet route all' can see it
     logger.info("Configuring primary VNET route via CONFIG_DB")
     route_config = {
         "VNET_ROUTE_TUNNEL": {
-            f"{vnet_name}|150.0.3.1/32": {
+            f"{vnet_name}|{VNET_PRIMARY_ROUTE_PREFIX}": {
                 "endpoint": ptf_vtep
             }
         }
@@ -574,10 +571,7 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
         try:
             logger.info("Cleaning up temporary files...")
             temp_files = [
-                f"/tmp/{ACL_RULES_FILE}",  # acl_config.json
                 f"/tmp/{ACL_REMOVE_RULES_FILE}",  # acl_rules_del.json
-                "/tmp/dual_acl_rules.json",  # Created by test_multiple_acl_rules
-                "/tmp/acl_rule_no_priority.json",  # Created by test_acl_rule_no_priority
                 "/tmp/inner_src_mac_rewrite_type_acl_type.json",  # Created by setup_acl_table_type
                 "/tmp/vxlan_tunnel_chunk.json",  # Created by create_vxlan_vnet_config
                 "/tmp/additional_vnets_chunk.json",  # Created by create_additional_vnets
@@ -610,6 +604,10 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     assert that the inner src MAC is not equal to rewrite_mac.
     """
     router_mac = duthost.facts["router_mac"]
+    dut_vtep_ip = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'VXLAN_TUNNEL|tunnel_v4' src_ip"
+    )["stdout"].strip()
+    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in CONFIG_DB")
     # vxlan_router_mac is the MAC the ASIC uses as inner eth_src/dst before any ACL rewrite
     vxlan_router_mac = duthost.shell(
         "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
@@ -631,7 +629,7 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     expected_pkt = testutils.simple_vxlan_packet(
         eth_src=router_mac,
         eth_dst="ff:ff:ff:ff:ff:ff",
-        ip_src=DUT_VTEP_IP,
+        ip_src=dut_vtep_ip,
         ip_dst=PTF_VTEP_IP,
         ip_id=0,
         ip_flags=0x2,
@@ -684,7 +682,7 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     )
 
     # Check ACL counter - for partial matches, counter should NOT increment
-    count_after = get_acl_counter(duthost, table_name, rule_name)
+    count_after = get_acl_counter(duthost, table_name, rule_name, timeout=0)
     logger.info("ACL counter for IP %s: before=%s, after=%s", src_ip, count_before, count_after)
     pytest_assert(count_after == count_before,
                   f"ACL counter incremented unexpectedly for partial match ({test_description}): "
@@ -696,6 +694,10 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
                                  src_ip, dst_ip, orig_src_mac, expected_inner_src_mac,
                                  table_name, rule_name, vni=VXLAN_VNI):
     router_mac = duthost.facts["router_mac"]
+    dut_vtep_ip = duthost.shell(
+        "sonic-db-cli CONFIG_DB HGET 'VXLAN_TUNNEL|tunnel_v4' src_ip"
+    )["stdout"].strip()
+    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in CONFIG_DB")
     # vxlan_router_mac is the MAC the ASIC uses as inner eth_dst (and default inner eth_src
     # before ACL rewrite) — distinct from router_mac on Cisco-8000
     vxlan_router_mac = duthost.shell(
@@ -718,7 +720,7 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     expected_pkt = testutils.simple_vxlan_packet(
         eth_src=router_mac,
         eth_dst="ff:ff:ff:ff:ff:ff",
-        ip_src=DUT_VTEP_IP,
+        ip_src=dut_vtep_ip,
         ip_dst=PTF_VTEP_IP,
         ip_id=0,
         ip_flags=0x2,
@@ -782,7 +784,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    inner_dst_ip = "150.0.3.1"  # Route destination
+    inner_dst_ip = VNET_PRIMARY_ROUTE_IP  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
     inner_src_ip = "201.0.0.101"  # Source IP for test packets
 
@@ -887,7 +889,7 @@ def test_partial_match(setUp):
         setup_multi_vni_acl_rule(duthost, "202.1.1.100/32", str(VXLAN_VNI), rewrite_mac_1, rule_name_1, "1001")
         _send_and_verify_no_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
-            "202.1.1.200", "150.0.3.1", original_inner_src_mac,
+            "202.1.1.200", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
             ACL_TABLE_NAME, rule_name_1,
             rewrite_mac=rewrite_mac_1,
             test_description="VNI matches but IP does not"
@@ -896,10 +898,10 @@ def test_partial_match(setUp):
 
         # Case 2: Source IP matches but VNI does not match
         logger.info("=== Case 2: IP matches but VNI does not ===")
-        setup_multi_vni_acl_rule(duthost, "202.2.2.100/32", str(VXLAN_VNI_3), rewrite_mac_2, rule_name_2, "1001")
+        setup_multi_vni_acl_rule(duthost, "202.2.2.100/32", str(VXLAN_VNI_3), rewrite_mac_2, rule_name_2, "1002")
         _send_and_verify_no_mac_rewrite(
             ptfadapter, ptf_port_1, ptf_port_2, duthost,
-            "202.2.2.100", "150.0.3.1", original_inner_src_mac,
+            "202.2.2.100", VNET_PRIMARY_ROUTE_IP, original_inner_src_mac,
             ACL_TABLE_NAME, rule_name_2,
             rewrite_mac=rewrite_mac_2,
             test_description="IP matches but VNI does not"
@@ -939,7 +941,7 @@ def test_multiple_acl_rules(setUp):
     # Test parameters
     test_src_ip_1 = "203.1.1.100"
     test_src_ip_2 = "203.1.1.200"  # Different source IP
-    test_dst_ip = "150.0.3.1"
+    test_dst_ip = VNET_PRIMARY_ROUTE_IP
     test_vni = str(VXLAN_VNI)  # Same VNI for both rules
     priority_1 = "1005"        # Priorities must be unique within an ACL table
     priority_2 = "1006"
