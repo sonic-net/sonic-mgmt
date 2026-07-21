@@ -43,7 +43,7 @@ def _pick_neighbor(asichost):
             return intf, peer, False
 
     # Fall back to IPv6 peers
-    ipv6_interfaces = asichost.show_ipv6_interface()["ansible_facts"].get("ipv6_interfaces", {})
+    ipv6_interfaces = asichost.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
     for intf, attrs in ipv6_interfaces.items():
         peer = attrs.get("peer_ipv6")
         if peer and peer != "N/A":
