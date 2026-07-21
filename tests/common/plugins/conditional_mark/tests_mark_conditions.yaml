@@ -3102,6 +3102,12 @@ gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
 
+gnmi_native/test_read.py::test_interface_mtu:
+  skip:
+    reason: "native gNMI MTU tracer requires front-panel port data"
+    conditions:
+      - "'bmc' in topo_type"
+
 ###############################################
 #####       golden_config_infra           #####
 ###############################################
