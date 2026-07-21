@@ -106,29 +106,6 @@ DOMAIN_KEYWORDS: List[Tuple[str, str]] = [
 
 DEFAULT_DOMAIN = "utilities/helpers"
 
-# Authoritative registry of code already migrated to common2, keyed by the
-# common2 target file. ``symbols`` are the public names that were consolidated
-# there. Symbols listed here are reported as DONE (and excluded from the
-# "available" work queue) so contributors don't re-migrate them.
-#
-# This is intentionally explicit and easy to extend as more libraries land in
-# common2. Keep source paths relative to the repo root.
-MIGRATED_REGISTRY: Dict[str, Dict[str, object]] = {
-    "routing/bgp/bgp_route_control.py": {
-        "sources": ["tests/common/helpers/bgp.py"],
-        "symbols": [
-            "announce_route",
-            "withdraw_route",
-            "announce_route_with_community",
-            "withdraw_route_with_community",
-            "install_route_from_exabgp",
-            "update_routes",
-            "BGPRouteController",
-        ],
-    },
-}
-
-
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
@@ -497,17 +474,6 @@ def collect_common2_symbols(common2_abs: str) -> Set[str]:
                 if not node.name.startswith("_"):
                     names.add(node.name)
     return names
-
-
-def registry_migrated_symbols_for(rel_path: str) -> Set[str]:
-    """Symbols the migration registry marks as already migrated from a source."""
-    migrated: Set[str] = set()
-    normalized = rel_path.replace(os.sep, "/")
-    for entry in MIGRATED_REGISTRY.values():
-        sources = [s.replace(os.sep, "/") for s in entry.get("sources", [])]  # type: ignore[arg-type]
-        if normalized in sources:
-            migrated.update(entry.get("symbols", []))  # type: ignore[arg-type]
-    return migrated
 
 
 def analyze_module(
@@ -1287,7 +1253,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             repo_root,
             graph,
             common2_unit_test_modules,
-            registry_migrated_symbols_for,
+            lambda rel_path: set(),
         )
         if task is None:
             continue
