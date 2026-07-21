@@ -139,6 +139,8 @@ The following procedures are referenced throughout the test cases to ensure cons
 
 This procedure runs after any test that modifies transceiver state or after system disruptions.
 
+This procedure is **composable**. Each numbered sub-check below (Link Status, Stability, LLDP, CMIS State, SI Settings, Docker and Process Health) is an independently callable verification building block. The Standard Procedure is a thin **orchestrator** that runs the common full-recovery sequence over those building blocks with sensible defaults; callers that need a different subset compose the individual building blocks directly rather than forcing every check through one entry point. Which sub-checks apply to a given port is driven primarily by that port's attributes (e.g. `cmis_active_optical`, `verify_lldp_on_link_up`) plus a small set of caller-supplied knobs (link-up wait budget, post-recovery stability window, expected PID changes, minimum-uptime guard) — so callers tune behavior through data and a few parameters, not a wide matrix of enable/disable flags. New calling operations reuse the same building blocks; they do not re-implement link, stability, LLDP, CMIS, SI, or health logic.
+
 **Contract**
 
 - **Operates on a set of ports.** Callers pass the list of ports to validate; single-port callers pass a one-element list. Host-wide and per-physical-port work is shared across the set — the process/health check runs **once per invocation**, the logical→physical port map is resolved **once**, each parent port's `TRANSCEIVER_STATUS` is queried **once**, and the fixed-wait sub-checks (stability window, oper-state poll, LLDP poll) are batched so total wall-clock is bounded by the slowest port, not the sum across ports.
@@ -178,6 +180,13 @@ This procedure runs after any test that modifies transceiver state or after syst
    - **System-specific addition — minimum-uptime guard:** the caller passes the minimum continuous uptime each restarted process must have accumulated. This is not a new constant — it is the same per-operation settle time the caller already waited before invoking this procedure (e.g. `pmon_restart_settle_sec` for a pmon restart, `syncd_restart_settle_sec` for a syncd restart, `<op>_settle_sec` for reboots / config reload / power cycle). A process reading `RUNNING` but with uptime below the value the test just waited on means it crash-restarted during the settle window — the exact signal a raw `RUNNING` check misses.
    - **Mandatory for restart operations:** any operation that intentionally restarts a monitored process **must** pass that process's `<op>_settle_sec` as its minimum-uptime requirement, paired with its expected-PID-change declaration for the same process. The two always travel together: the PID-change declaration says "this restart is expected," and the uptime requirement says "it must have stayed up since." Omitting either for a restart operation is a spec violation — the recovery would either false-fail on the PID change or silently skip the crash-loop guard.
    - For an operation that does **not** restart any monitored process, the caller passes no uptime requirement; the PID-unchanged check above already proves no crash-restart occurred.
+
+**Composition by calling operation** (illustrative — each operation supplies only the knobs it needs and reuses the building blocks above):
+
+- **Transceiver OIR / reseat** — full orchestrator run (Link Status → Stability → LLDP → CMIS → Health) with defaults.
+- **Firmware upgrade** — full orchestrator run, but declare the expected PID change for the process the upgrade restarts (e.g. `xcvrd`) and pass that process's `<op>_settle_sec` as the minimum-uptime guard. The link is expected to stay up, so the across-operation no-flap assertion in the Stability sub-check applies.
+- **Signal-integrity verification** — compose Link Status + SI Settings + Docker and Process Health directly, skipping LLDP and CMIS when they are not relevant to the operation.
+- **Reboot / config reload / power cycle** — full orchestrator run sized with `<op>_settle_sec`; the across-operation no-flap assertion is **not** applied because the port DB is rebuilt (the forward-looking Stability check is the only flap check for these).
 
 ### State Preservation and Restoration
 
