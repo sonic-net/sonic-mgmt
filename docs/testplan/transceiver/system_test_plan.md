@@ -147,7 +147,7 @@ This procedure runs after any test that modifies transceiver state or after syst
 - **Gating.** Sub-checks 2, 3, and 5 run for a port only if that port's sub-check 1 (Link Status) passed — stability, LLDP, and CMIS state are meaningless on a port that never came up. Sub-check 7 (Docker and Process Health) runs **unconditionally**: if a link failed to recover, knowing whether a critical service died on the way is exactly the diagnostic wanted.
 
 1. **Link Status Verification**
-   - Verify each port is operationally up within the caller-supplied link-up wait. This budget is operation-specific — the caller passes the wait it already used for the invoking operation (e.g. `port_startup_wait_sec` after a port startup, `<op>_settle_sec` after a reboot / config reload / power cycle) rather than a fixed value defined here.
+   - Verify each port is operationally up within a caller-supplied link-up wait budget. This budget is operation-specific — the caller sizes it to match the invoking operation (e.g. `port_startup_wait_sec` for a port startup, `<op>_settle_sec` for a reboot / config reload / power cycle) rather than a fixed value defined here.
 
 2. **Link Flap / Stability Verification** (per port, only if the port linked up)
    - **Stability (always):** over a short, caller-supplied post-recovery observation window (a helper parameter with a small default — not an inventory attribute — since the exact duration is not pinned here), confirm the port does not flap — no new flap events and `last_up_time` stays steady. This sub-check is **forward-looking only** — it observes from recovery onward and does not use the pre-operation flap count — so it holds even for operations whose counters reset when the port DB is rebuilt.
