@@ -113,7 +113,7 @@ def generate_mac_address(index):
 
 
 @pytest.fixture(name="setUp", scope="module")
-def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
+def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     if 'dualtor' in tbinfo['topo']['name']:
         pytest.skip("test_src_mac_rewrite does not support dualtor topology - "
                     "VXLAN tunnel config does not propagate to APP_DB on dualtor")
@@ -239,6 +239,12 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
     # Create configuration backup before making any changes
     backup_config(rand_selected_dut)
 
+    # Register cleanup as a finalizer (instead of a separate tearDown fixture that
+    # depends on setUp) so it still runs even if setUp fails partway through below.
+    # Otherwise a mid-setup failure leaves the DUT with unclean/invalid CONFIG_DB
+    # that then fails pre-test YANG validation on subsequent runs.
+    request.addfinalizer(lambda: cleanup_test_configuration(rand_selected_dut, data['vxlan_tunnel_name']))
+
     # Configure VXLAN/VNET infrastructure once for all test scenarios
     create_vxlan_vnet_config(
         duthost=rand_selected_dut,
@@ -263,20 +269,6 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
         pytest.fail("VNET route for 150.0.3.1/32 is not active in STATE_DB")
 
     return data
-
-
-@pytest.fixture(name="tearDown", scope="module", autouse=True)
-def fixture_tearDown(setUp):
-    yield  # This allows tests to run first
-
-    try:
-        duthost = setUp['duthost']
-        vxlan_tunnel_name = setUp['vxlan_tunnel_name']
-        cleanup_test_configuration(duthost, vxlan_tunnel_name)
-        logger.info("Module tearDown completed successfully")
-    except Exception as e:
-        logger.error(f"Module tearDown failed: {e}")
-        # Don't raise the exception since tests may have passed
 
 
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL, prev_count=0):
@@ -379,7 +371,7 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     acl_rule = {
         "ACL_RULE": {
             f"{ACL_TABLE_NAME}|rule_1": {
-                "priority": "1005",
+                "PRIORITY": "1005",
                 "TUNNEL_VNI": vni,
                 "INNER_SRC_IP": inner_src_ip,
                 "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
@@ -404,7 +396,7 @@ def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     acl_rule = {
         "ACL_RULE": {
             f"{ACL_TABLE_NAME}|rule_1": {
-                "priority": "1005",
+                "PRIORITY": "1005",
                 "TUNNEL_VNI": vni,
                 "INNER_SRC_IP": inner_src_ip,
                 "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
@@ -1035,7 +1027,7 @@ def setup_multi_vni_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name,
     acl_rule = {
         "ACL_RULE": {
             f"{ACL_TABLE_NAME}|{rule_name}": {
-                "priority": priority,
+                "PRIORITY": priority,
                 "TUNNEL_VNI": vni,
                 "INNER_SRC_IP": inner_src_ip,
                 "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac
