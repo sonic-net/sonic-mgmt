@@ -338,8 +338,8 @@ class TestControlPlaneOnlyDown:
 
 class TestAutoRecoveryDisabled:
     """
-    Test: With CONFIG_DB FEATURE|dpu-auto-recovery state=disable, verify
-    chassisd does NOT automatically power-cycle a failed DPU
+    Test: With CONFIG_DB DEVICE_METADATA|localhost dpu_auto_recovery=disable,
+    verify chassisd does NOT automatically power-cycle a failed DPU
     (ManualIntervention state).
 
     Expected behavior per HLD:
