@@ -3124,9 +3124,11 @@ gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
 
 gnmi_native/test_read.py::test_interface_mtu:
   skip:
-    reason: "native gNMI MTU tracer requires front-panel port data"
+    reason: "native gNMI MTU tracer requires a host-global PORT table"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
 
 ###############################################
 #####       golden_config_infra           #####
