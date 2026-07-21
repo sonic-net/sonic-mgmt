@@ -210,7 +210,6 @@ def fixture_setUp_vxlan_vnet_routes(rand_selected_dut,
     yield data
 
     # Cleanup code.
-    del_acl_tables(duthost)
     ecmp_utils.create_and_apply_config(data['duthost'],
                                        vnet,
                                        tc_new_dest,
