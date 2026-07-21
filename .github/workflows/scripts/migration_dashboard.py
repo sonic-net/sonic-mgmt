@@ -136,10 +136,10 @@ MIGRATED_REGISTRY: Dict[str, Dict[str, object]] = {
 
 @dataclass
 class Symbol:
-    """A public top-level function or class within a candidate module."""
+    """A public top-level function, class, or pytest fixture within a candidate module."""
 
     name: str
-    kind: str  # "function" or "class"
+    kind: str  # "function", "class", or "fixture"
     lineno: int
     loc: int
     has_docstring: bool
@@ -148,6 +148,7 @@ class Symbol:
     impacted_tests: List[str] = field(default_factory=list)
     score: float = 0.0
     tier: int = 0
+    is_fixture: bool = False
 
 
 @dataclass
@@ -235,6 +236,33 @@ def typed_ratio_for_function(node: ast.FunctionDef) -> float:
     if node.returns is not None:
         annotated += 1
     return annotated / slots if slots else 1.0
+
+
+def is_pytest_fixture(node: ast.FunctionDef) -> bool:
+    """Return True when a top-level function appears to be a pytest fixture."""
+    if node.name.startswith("_"):
+        return False
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Call):
+            func = decorator.func
+            names: List[str] = []
+            if isinstance(func, ast.Name):
+                names.append(func.id)
+            elif isinstance(func, ast.Attribute):
+                names.append(func.attr)
+                if isinstance(func.value, ast.Name):
+                    names.append(func.value.id)
+            if any(name == "fixture" for name in names) or any(
+                name == "pytest" for name in names
+            ):
+                return True
+        if isinstance(decorator, ast.Name):
+            if decorator.id == "fixture":
+                return True
+        elif isinstance(decorator, ast.Attribute):
+            if decorator.attr == "fixture":
+                return True
+    return False
 
 
 def resolve_domain(rel_path: str) -> str:
@@ -484,8 +512,9 @@ def analyze_module(
             if has_doc:
                 documented += 1
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                fixture = is_pytest_fixture(node)
                 tr = typed_ratio_for_function(node)
-                kind = "function"
+                kind = "fixture" if fixture else "function"
             else:
                 # Class type-hint quality = average of its public methods.
                 method_ratios = [
@@ -506,6 +535,7 @@ def analyze_module(
                     has_docstring=has_doc,
                     typed_ratio=round(tr, 2),
                     migrated=node.name in registry_migrated,
+                    is_fixture=kind == "fixture",
                 )
             )
 
