@@ -172,7 +172,6 @@ This procedure is **composable**. Each numbered sub-check below (Link Status, St
    - **Optics SI Settings**: If `optics_si_settings` is defined, verify the transceiver's applied signal-integrity settings match the configured intent.
    - **Media SI Settings**: If `media_si_settings` is defined, verify the port's applied media-side signal-integrity settings match the configured intent and that the SI settings sync to the NPU has completed successfully.
    - Log any discrepancies for analysis.
-   <!-- TODO: Once the Signal Integrity test plan merges, reference its shared SI verification procedure here so the concrete verification steps live in one place. -->
 
 7. **Docker and Process Health Check**
    - **Reuses the Common Per-Test Health Check logic, run once per invocation:** this step applies the same verification as the [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) — every framework-monitored process is running with an unchanged PID since the pre-test baseline (unless the caller declares an expected PID change for a specific process — see the restart guidance below — in which case that process's restart is permitted while all others must still show an unchanged PID), and no new process crash / core dumps appeared. Because this procedure can be invoked mid-test (from State Restoration, Common Teardown, or directly within a test case), when the per-test health check has not otherwise run, it performs that check itself — once per invocation and independent of port count.
