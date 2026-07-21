@@ -2,6 +2,7 @@ import inspect
 import json
 import logging
 import collections
+import os
 import signal
 import threading
 from contextlib import contextmanager
@@ -42,9 +43,11 @@ def ansible_tqm_has_signal_registration():
 _signal_patch_lock = threading.RLock()
 _signal_patch_ref_count = 0
 _original_signal = None
-# pytest-ansible resolves modules through Ansible's mutable plugin-loader
-# caches, which are shared by all threads in the current Python process.
+# pytest-ansible resolves modules through mutable plugin-loader caches shared
+# by threads in each Python process. Reset the process-local lock after fork so
+# a child cannot inherit it while held by a vanished parent thread.
 _ansible_module_resolution_lock = threading.RLock()
+os.register_at_fork(after_in_child=_ansible_module_resolution_lock._at_fork_reinit)
 
 
 @contextmanager
