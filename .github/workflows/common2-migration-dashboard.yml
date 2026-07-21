@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   migration-dashboard:
-    if: github.repository_owner == 'opcoder023'
+    if: github.repository_owner == 'sonic-net'
     name: Generate common2 migration dashboard
     runs-on: ubuntu-latest
     env:
