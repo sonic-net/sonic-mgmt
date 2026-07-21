@@ -14,6 +14,11 @@ def get_dpu_dataplane_port(duthost, dpu_index):
         if_dpu_index = 224 + dpu_index*8
         interface = f"Ethernet{if_dpu_index}"
 
+    for vlan_interface, vlan_info in duthost.get_vlan_brief().items():
+        if interface in vlan_info.get("members", []):
+            logger.info(f"DPU dataplane interface {interface} is VLAN member, use VLAN interface: {vlan_interface}")
+            return vlan_interface
+
     logger.info(f"DPU dataplane interface: {interface}")
     return interface
 

@@ -21,7 +21,7 @@ DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
 pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
-    pytest.mark.topology("t1", "vs")
+    pytest.mark.topology("t1")
 ]
 
 
@@ -86,7 +86,7 @@ def fixture_setUp(duthosts,
             data['t2'].append(nbrhosts[name])
 
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox", "marvell-teralynx", "vs"]:
+    if asic_type not in ["cisco-8000", "mellanox", "marvell-teralynx", "vs", "vpp"]:
         pytest.skip(f"{asic_type} is not a supported platform for this test. \
                 Only support MNLX, CISCO and marvell-teralynx platforms.")
 
@@ -300,7 +300,7 @@ class Test_VxLAN_route_Advertisement():
             result = t2device['host'].run_command(cmd)
             while len(result['stdout'][0]) == 0 and retry_count > 0:
                 time.sleep(10)
-                result = self.vxlan_test_setup['t2']['host'].run_command(cmd)
+                result = t2device['host'].run_command(cmd)
                 retry_count = retry_count - 1
             if len(result['stdout'][0]) == 0:
                 py_assert(False, "Routes not propogated to the T2.")

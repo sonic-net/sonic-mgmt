@@ -9,12 +9,14 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.srv6_helper import create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid
 from tests.packet_trimming.constants import (
     SERVICE_PORT, DEFAULT_DSCP, SRV6_TUNNEL_MODE, SRV6_MY_LOCATOR_LIST, SRV6_MY_SID_LIST,
-    COUNTER_TYPE)
+    COUNTER_TYPE, SRV6_ROUTE_PREFIX)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
-    configure_tc_to_dscp_map, set_buffer_profiles_for_block_and_trim_queues, create_blocking_scheduler,
-    configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp, get_test_ports)
+    configure_tc_to_dscp_map, set_buffer_profile_for_block_queue, set_buffer_profile_for_trim_queue,
+    create_blocking_scheduler, configure_trimming_action, cleanup_trimming_acl, get_queue_id_by_dscp,
+    get_test_ports, create_trim_queue_test_buffer_profile, delete_trim_queue_test_buffer_profile,
+    is_queue_level_trim_sent_drop_supported)
 
 
 logger = logging.getLogger(__name__)
@@ -137,6 +139,7 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
 @pytest.fixture(scope="module")
 def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     counter_dscp = PacketTrimmingConfig.get_counter_dscp(duthost)
+    logger.info(f"The counter DSCP: {counter_dscp}")
     counter_queue = get_queue_id_by_dscp(counter_dscp, test_params['ingress_port']['name'], dut_qos_maps_module)
     counter_param = copy.deepcopy(test_params)
     counter_param['block_queue'] = counter_queue
@@ -149,15 +152,35 @@ def trim_counter_params(duthost, test_params, dut_qos_maps_module):
     return counter_param
 
 
+@pytest.fixture(scope="module")
+def queue_level_trim_supported(duthost):
+    """
+    Whether the platform supports queue-level TrimSent / TrimDrop counters.
+
+    Computed once per module (lazy init) so the per-port consistency checks do not repeat the
+    same platform lookup on every call.
+    """
+    supported = is_queue_level_trim_sent_drop_supported(duthost)
+    logger.info(f"Queue-level TrimSent/TrimDrop counters supported on this platform: {supported}")
+    return supported
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_trimming(duthost, test_params):
+def setup_trimming(duthost, test_params, trim_counter_params, request):
     """
     Set up all prerequisites for packet trimming tests.
 
     Args:
         duthost: DUT host object
         test_params: Test parameters from test_params fixture
+        trim_counter_params: Test parameters from trim_counter_params fixture (for counter tests)
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip the setup for GCU config tests.
+        yield
+        return
+
     logger.info("Prepare packet trimming related configurations")
     platform = duthost.facts['platform']
 
@@ -183,17 +206,33 @@ def setup_trimming(duthost, test_params):
         # The first interface is uplink interface, use uplink buffer profile
         uplink_port = test_params['egress_ports'][0]
         block_interface = uplink_port['dut_members']
+        counter_uplink_port = trim_counter_params['egress_ports'][0]
+        counter_block_interface = counter_uplink_port['dut_members']
         logger.info(f"Apply uplink buffer profile to interfaces: {block_interface}")
-        set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
-                                                      test_params['trim_buffer_profiles']['uplink'])
+        set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                           test_params['trim_buffer_profiles']['uplink'])
+        set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                           trim_counter_params['trim_buffer_profiles']['uplink'])
+        create_trim_queue_test_buffer_profile(duthost)
+        set_buffer_profile_for_trim_queue(duthost, block_interface)
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
         if len(test_params['egress_ports']) > 1:
             downlink_port = test_params['egress_ports'][1]
             block_interface = downlink_port['dut_members']
-            logger.info(f"Apply downlink buffer profile to interfaces: {block_interface}")
-            set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
-                                                          test_params['trim_buffer_profiles']['downlink'])
+            logger.info(f"Apply downlink buffer profile to {block_interface}:{test_params['block_queue']}")
+            set_buffer_profile_for_block_queue(duthost, block_interface, test_params['block_queue'],
+                                               test_params['trim_buffer_profiles']['downlink'])
+            set_buffer_profile_for_trim_queue(duthost, block_interface)
+
+        # Also set the downlink buffer profile for the block queue used in counter tests, if applicable.
+        if len(trim_counter_params['egress_ports']) > 1:
+            counter_downlink_port = trim_counter_params['egress_ports'][1]
+            counter_block_interface = counter_downlink_port['dut_members']
+            logger.info(f"Apply downlink buffer profile to "
+                        f"{counter_block_interface}:{trim_counter_params['block_queue']}")
+            set_buffer_profile_for_block_queue(duthost, counter_block_interface, trim_counter_params['block_queue'],
+                                               trim_counter_params['trim_buffer_profiles']['downlink'])
 
     with allure.step("Create scheduler used for blocking egress queues"):
         create_blocking_scheduler(duthost)
@@ -214,6 +253,11 @@ def setup_trimming(duthost, test_params):
     with allure.step("Disable trimming in buffer profile"):
         for buffer_profile in test_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
+        for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+            configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
+
+    with allure.step("Delete trim queue test buffer profile"):
+        delete_trim_queue_test_buffer_profile(duthost)
 
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)
@@ -246,35 +290,32 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
         dscp_mode = request.param
         create_srv6_sid(rand_selected_dut, locator_name, ip_addr, action, vrf, dscp_mode)
 
-    # If there are multiple uplink interfaces, they are in ECMP relationship, and SRv6 packets would
-    # be sent out through a randomly selected interface. For trimming with SRv6 test, we use the first
-    # uplink interface as the test interface and shutdown all other interfaces to ensure packet forwarding.
-    egress_port_1 = test_params['egress_ports'][0]
-    exclude_ports = egress_port_1['dut_members']
-    all_ports = set(upstream_links.keys()) | set(peer_links.keys())
-    shutdown_ports = [k for k in all_ports if k not in exclude_ports]
-    logger.info(f"Shutting down ports: {shutdown_ports}")
+    # Get egress interface and nexthop
+    egress_intf = test_params['egress_ports'][0]['name']
+    nexthop = test_params['egress_ports'][0]['ipv6']
+    logger.info(f"Egress interface: {egress_intf}, nexthop: {nexthop}")
 
-    # Shut down all collected ports
-    for port in shutdown_ports:
-        logger.info(f"Shutting down port: {port}")
-        duthost.shutdown(port)
+    # Use static route to control egress interface
+    rand_selected_dut.command(
+        f'sonic-db-cli CONFIG_DB HSET "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}" '
+        f'nexthop {nexthop} ifname {egress_intf}'
+    )
+    logger.info(f"Added static route {SRV6_ROUTE_PREFIX} -> {nexthop} via {egress_intf}")
 
     yield dscp_mode
 
-    # Restore all previously shutdown ports
-    for port in shutdown_ports:
-        logger.info(f"Starting up port: {port}")
-        duthost.no_shutdown(port)
-
-    for locator_param in SRV6_MY_LOCATOR_LIST:
-        locator_name = locator_param[0]
-        del_srv6_locator(rand_selected_dut, locator_name)
+    # Cleanup: Remove static route
+    rand_selected_dut.command(f'sonic-db-cli CONFIG_DB DEL "STATIC_ROUTE|default|{SRV6_ROUTE_PREFIX}"')
+    logger.info(f"Removed static route {SRV6_ROUTE_PREFIX}")
 
     for sid_param in SRV6_MY_SID_LIST:
         locator_name = sid_param[0]
         ip_addr = sid_param[1]
         del_srv6_sid(rand_selected_dut, locator_name, ip_addr)
+
+    for locator_param in SRV6_MY_LOCATOR_LIST:
+        locator_name = locator_param[0]
+        del_srv6_locator(rand_selected_dut, locator_name)
 
 
 @pytest.fixture(scope="function")
@@ -304,10 +345,15 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clear_counters(duthost):
+def clear_counters(duthost, request):
     """
     Clear all counters on the DUT.
     """
+    if request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_symmetric" or \
+       request.module.__name__ == "tests.packet_trimming.test_packet_trimming_config_asymmetric":
+        # Skip for GCU config tests.
+        return
+
     duthost.shell("sonic-clear counters")
     duthost.shell("sonic-clear queuecounters")
     duthost.shell("sonic-clear switchcounters")

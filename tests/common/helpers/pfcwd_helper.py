@@ -9,7 +9,9 @@ import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
+from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
+from tests.common.devices.eos import EosHost
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -20,11 +22,16 @@ EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     "mellanox":
         r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
-        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
-        r"timestamp_last:[0-9]+\.[0-9]+\|(effective|real)_poll_time:[0-9]+"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+(?:\.[0-9]+)?\|"
+        r"timestamp_last:[0-9]+(?:\.[0-9]+)?\|(?:effective|real)_poll_time:[0-9]+(?:\.[0-9]+)?"
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+PFCWD_DEFAULT_DETECT_TIME = 200
+PFCWD_DEFAULT_RESTORE_TIME = 200
+PFCWD_DEFAULT_POLL_INTERVAL = 200
+PFCWD_DEFAULT_PORT_NUM = 32
+PFCWD_MAX_POLL_INTERVAL = 1000
 
 logger = logging.getLogger(__name__)
 
@@ -327,6 +334,43 @@ def set_pfc_timers():
     return pfc_timers
 
 
+def update_pfc_poll_interval(duthost, poll_interval):
+    logger.info("Setting PFC watchdog poll interval to {}ms".format(poll_interval))
+    duthost.command("pfcwd interval {}".format(poll_interval))
+
+
+def calculate_pfcwd_default_timers(duthost):
+    """
+    Calculate PFC watchdog default timers dynamically based on port count.
+
+    The logic from sonic-utilities pfcwd start_default:
+    https://github.com/sonic-net/sonic-utilities/blob/fb3d73db/pfcwd/main.py#L402
+
+    Args:
+        duthost: DUT host instance
+
+    Returns:
+        pfc_timers (dict): dynamically calculated PFC watchdog timers
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    port_num = len(config_facts.get('PORT', {}))
+
+    multiply = max(1, (port_num - 1) // PFCWD_DEFAULT_PORT_NUM + 1)
+
+    poll_interval = min(PFCWD_DEFAULT_POLL_INTERVAL * multiply, PFCWD_MAX_POLL_INTERVAL)
+
+    pfc_timers = {
+        'pfc_wd_detect_time': PFCWD_DEFAULT_DETECT_TIME * multiply,
+        'pfc_wd_restore_time': PFCWD_DEFAULT_RESTORE_TIME * multiply,
+        'pfc_wd_restore_time_large': 3000,
+        'pfc_wd_poll_time': poll_interval
+    }
+
+    logger.info(f"Port count: {port_num}, multiply factor: {multiply}, calculated PFC timers: {pfc_timers}")
+
+    return pfc_timers
+
+
 def select_test_ports(test_ports):
     """
     Select a subset of ports from the generated port info
@@ -387,6 +431,31 @@ def fetch_vendor_specific_diagnosis_re(duthost):
         return ""
 
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
+
+
+def is_pfcwd_hw_recovery_enabled(duthost):
+    """
+    Check if PFC watchdog is using hardware-based recovery mechanism.
+
+    Hardware-based recovery uses ASIC-level PFC DLR which controls egress/TX
+    traffic by ignoring PFC XOFF. The per-queue TX OK/DROP cells surfaced by
+    'show pfcwd stats' are sourced from the software-recovery code path and
+    stay at 0 on HW-recovery platforms even when silicon is dropping.
+
+    Returns:
+        bool: True if RECOVERY_MECHANISM is "hardware", False otherwise.
+    """
+    try:
+        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+        result = duthost.shell(cmd, module_ignore_errors=True)
+        output = result.get('stdout', '').strip().strip('"').strip("'").lower()
+        is_hardware = (output == "hardware")
+        logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
+            output or "not set", is_hardware))
+        return is_hardware
+    except Exception as e:
+        logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
+        return False
 
 
 @pytest.fixture(scope='class', autouse=False)
@@ -518,7 +587,7 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
     dst_ips = []
     for selected_test_port in selected_test_ports:
         selected_test_port_info = test_ports_info[selected_test_port]
-        if type(selected_test_port_info["rx_port_id"]) == list:
+        if isinstance(selected_test_port_info["rx_port_id"], list):
             src_ports.append(selected_test_port_info["rx_port_id"][0])
         else:
             src_ports.append(selected_test_port_info["rx_port_id"])
@@ -595,6 +664,9 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if dut.facts['asic_type'] == 'vs':
         return True
+    if not pfcwd_stat:
+        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        return False
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
@@ -604,6 +676,182 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
                 int(pfcwd_stat[0]['storm_detect_count']) == int(pfcwd_stat[0]['restored_count']):
             return True
     return False
+
+
+def _parse_pfcwd_stats(dut):
+    """
+    Parse 'show pfcwd stat' output into a lookup dictionary.
+
+    Returns:
+        dict: {(port, queue): {'status': str, 'storm_detect_count': int, 'restored_count': int}}
+    """
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
+    stats_dict = {}
+
+    for item in pfcwd_stat_output:
+        port, queue = item['queue'].split(':')
+        storm_detect_count, restored_count = item['storm detected/restored'].split('/')
+        stats_dict[(port, int(queue))] = {
+            'status': item['status'],
+            'storm_detect_count': int(storm_detect_count),
+            'restored_count': int(restored_count)
+        }
+
+    return stats_dict
+
+
+def _get_storm_test_ports(storm_hndle):
+    """
+    Extract list of (port, queue) tuples from storm handle.
+
+    Returns:
+        list: [(port, queue), ...]
+    """
+    ports = []
+    for peer in storm_hndle.peer_params.keys():
+        fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
+        device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+        queue_idx = storm_hndle.storm_handle[peer].pfc_queue_idx
+
+        for intf in fanout_intfs:
+            test_port = device_conn[intf]['peerport']
+            ports.append((test_port, queue_idx))
+
+    return ports
+
+
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
+                                                 baseline_counters=None, threshold_percentage=100,
+                                                 stormed_ports_list=None, test_ports_info=None):
+    """Verify if threshold percentage of ports reached expected PFC storm state."""
+    if dut.facts['asic_type'] == 'vs':
+        return True
+
+    # Get all ports to check and current stats
+    ports_to_check = _get_storm_test_ports(storm_hndle)
+
+    # Filter to only ports with background traffic if selected_test_ports is provided
+    if selected_test_ports:
+        ports_to_check = [(p, q) for p, q in ports_to_check if p in selected_test_ports]
+        logger.debug(f"Filtered to {len(ports_to_check)} ports with background traffic")
+
+    # For restore, only check ports that actually stormed
+    if expected_state == "restore" and stormed_ports_list:
+        ports_to_check = [(p, q) for p, q in ports_to_check if p in stormed_ports_list]
+        logger.info(f"Restore: checking {len(ports_to_check)}/{len(stormed_ports_list)} stormed ports")
+
+    pfcwd_stats_dict = _parse_pfcwd_stats(dut)
+
+    # Verify each port
+    ports_in_expected_state = 0
+    # Track per-port result so the duplicate-neighbor grouping below can recompute
+    # both the numerator and denominator consistently.
+    port_results = {}
+    for test_port, queue_idx in ports_to_check:
+        port_stats = pfcwd_stats_dict.get((test_port, queue_idx))
+
+        if not port_stats:
+            continue
+
+        current_detect_count = port_stats['storm_detect_count']
+        current_restored_count = port_stats['restored_count']
+        current_status = port_stats['status']
+
+        is_in_expected_state = False
+        if expected_state == "storm":
+            # For storm state verification, check if detect_count increased since baseline
+            # OR if port is currently in storm status with detect_count >= baseline
+            baseline_detect = baseline_counters.get(test_port, 0)
+            if (current_detect_count > baseline_detect or
+                    ("storm" in current_status and current_detect_count >= baseline_detect and
+                     current_detect_count > current_restored_count)):
+                logger.debug(f"Port {test_port} queue {queue_idx} has new storm detection "
+                             f"(baseline={baseline_detect}, current={current_detect_count}, "
+                             f"status={current_status})")
+                is_in_expected_state = True
+        else:  # restore
+            if ("storm" not in current_status) and (current_detect_count == current_restored_count):
+                is_in_expected_state = True
+
+        port_results[test_port] = port_results.get(test_port, False) or is_in_expected_state
+
+        if is_in_expected_state:
+            ports_in_expected_state += 1
+            if expected_state == "storm" and stormed_ports_list is not None and test_port not in stormed_ports_list:
+                stormed_ports_list.append(test_port)
+        else:
+            logger.debug(f"Port {test_port}:{queue_idx} not in {expected_state} state")
+
+    total_ports = len(ports_to_check)
+    if total_ports == 0:
+        logger.warning("No ports found to verify")
+        return False
+
+    # On non-dualtor t0 topologies, setup_pfc_test assigns a single VLAN neighbor IP
+    # (self.vlan_nw) to every VLAN port, so at most one of those ports can actually
+    # receive PTF background traffic -- the DUT does one ND/ARP lookup and routes all
+    # traffic out a single port. Counting every such VLAN port individually against the
+    # storm threshold inflates the denominator and causes false failures.
+    #
+    # To keep the numerator and denominator consistent, group VLAN ports that share a
+    # test_neighbor_addr and treat each group as one "effective" port (success = any
+    # member reached the expected state). Non-VLAN ports (routed interfaces and
+    # PortChannel members, which also share a neighbor IP by design in parse_pc_list)
+    # are always counted individually. This adjustment only applies to the storm phase.
+    if expected_state == "storm" and test_ports_info:
+        vlan_ip_groups = {}
+        standalone_ports = []
+        seen_ports = set()
+        for port, _queue_idx in ports_to_check:
+            if port in seen_ports:
+                continue
+            seen_ports.add(port)
+            info = test_ports_info.get(port, {}) or {}
+            ip = info.get('test_neighbor_addr')
+            if info.get('test_port_type') == 'vlan' and ip:
+                vlan_ip_groups.setdefault(ip, []).append(port)
+            else:
+                standalone_ports.append(port)
+
+        # Only adjust when VLAN ports actually share an IP (the non-dualtor case).
+        if any(len(ports) > 1 for ports in vlan_ip_groups.values()):
+            effective_total = len(vlan_ip_groups) + len(standalone_ports)
+            effective_success = 0
+            for ip, ports in vlan_ip_groups.items():
+                if any(port_results.get(p, False) for p in ports):
+                    effective_success += 1
+            for port in standalone_ports:
+                if port_results.get(port, False):
+                    effective_success += 1
+            logger.info(
+                "Adjusting for duplicate VLAN neighbor IPs: ports_in_expected_state %d->%d, "
+                "total_ports %d->%d",
+                ports_in_expected_state, effective_success, total_ports, effective_total)
+            ports_in_expected_state = effective_success
+            total_ports = effective_total
+
+    success_percentage = (ports_in_expected_state / total_ports) * 100
+    logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
+                f"in '{expected_state}' state (threshold: {threshold_percentage}%)")
+
+    return success_percentage >= threshold_percentage
+
+
+def get_pfc_storm_baseline_counters(dut, storm_hndle):
+    """Capture baseline storm detect counters to avoid false positives from stale counters."""
+    baseline = {}
+    if dut.facts['asic_type'] == 'vs':
+        return baseline
+
+    stats_dict = _parse_pfcwd_stats(dut)
+    ports_to_check = _get_storm_test_ports(storm_hndle)
+
+    for test_port, queue_idx in ports_to_check:
+        port_stats = stats_dict.get((test_port, queue_idx))
+        baseline[test_port] = port_stats['storm_detect_count'] if port_stats else 0
+        logger.debug(f"Baseline {test_port}:{queue_idx} = {baseline[test_port]}")
+
+    return baseline
 
 
 def parser_show_pfcwd_stat(dut, select_port, select_queue):
@@ -616,7 +864,7 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
     admin@bjw-can-7060-1:~$
     """
     logger.info("port {} queue {}".format(select_port, select_queue))
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
 
     pfcwd_stat = []
     for item in pfcwd_stat_output:
@@ -679,3 +927,140 @@ def pfcwd_show_status(duthost, output_string):
     logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
 
     return
+
+
+def send_tx_egress(traffic_inst, action, verify, async_mode=False, pkt_count=None):
+    """Send traffic from the Rx port toward the Tx (egress) port and optionally verify
+    that the expected PFC watchdog action (forward/drop) is observed on egress."""
+    logger.info("Check for egress {} on Tx port {} (verify={})".format(action, traffic_inst.pfc_wd_test_port, verify))
+    dst_port = "[" + str(traffic_inst.pfc_wd_test_port_id) + "]"
+    if action == "forward" and isinstance(traffic_inst.pfc_wd_test_port_ids, list):
+        dst_port = "".join(str(traffic_inst.pfc_wd_test_port_ids)).replace(',', '')
+    ptf_params = {'router_mac': traffic_inst.router_mac,
+                  'vlan_mac': traffic_inst.vlan_mac,
+                  'queue_index': traffic_inst.pfc_queue_index,
+                  'pkt_count': pkt_count or traffic_inst.pfc_wd_test_pkt_count,
+                  'port_src': traffic_inst.pfc_wd_rx_port_id[0],
+                  'port_dst': dst_port,
+                  'ip_dst': traffic_inst.pfc_wd_test_neighbor_addr,
+                  'port_type': traffic_inst.port_id_to_type_map[traffic_inst.pfc_wd_rx_port_id[0]],
+                  'wd_action': action if verify else "dontcare",
+                  'ip_version': traffic_inst.ip_version}
+    if traffic_inst.pfc_wd_rx_port_vlan_id is not None:
+        ptf_params['port_src_vlan_id'] = traffic_inst.pfc_wd_rx_port_vlan_id
+    if traffic_inst.pfc_wd_test_port_vlan_id is not None:
+        ptf_params['port_dst_vlan_id'] = traffic_inst.pfc_wd_test_port_vlan_id
+    log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
+    ptf_runner(traffic_inst.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
+               log_file=log_file, is_python3=True, async_mode=async_mode)
+
+
+def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
+    """Shut down all LAG members except the selected port so that PFC watchdog
+    testing runs over a single link while keeping the port-channel up
+    (min-links=1).
+
+    Multi-asic-aware: uses minigraph_portchannels (frontend port names on both
+    single-asic and multi-asic) instead of config_facts['PORTCHANNEL_MEMBER']
+    (which on multi-asic is keyed by asic-internal names like Ethernet1/1
+    that don't match the frontend names in test_ports/vm_neighbors). All DUT
+    config edits go through namespace-aware CLI/sonic-db-cli; no on-disk
+    config_db.json edits, so restore can revert via config_reload.
+    """
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return None, None, None
+
+    dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
+    portChannel = None
+    portChannelMembers = []
+    for pc_name, pc_meta in dst_mgfacts['minigraph_portchannels'].items():
+        if selected_port in pc_meta.get('members', []):
+            portChannel = pc_name
+            portChannelMembers = list(pc_meta['members'])
+            break
+    if portChannel is None:
+        return None, None, None
+
+    vm_neighbors = dst_mgfacts['minigraph_neighbors']
+    peer_device = vm_neighbors[portChannelMembers[0]]['name']
+    peer_port = vm_neighbors[portChannelMembers[0]]['port']
+    vm_host = nbrhosts[peer_device]['host']
+
+    neigh_port_channel = None
+    min_links = None
+    if isinstance(vm_host, EosHost):
+        neigh_port_channels = vm_host.eos_command(
+            commands=['show port-channel | json'])['stdout'][0]["portChannels"]
+        for po_name, po_config in neigh_port_channels.items():
+            for member in po_config['activePorts']:
+                if member == peer_port:
+                    neigh_port_channel = po_name
+                    min_links = len(po_config['activePorts'])
+                    break
+        vm_host.eos_config(lines=['port-channel min-links 1'],
+                           parents=[f'int {neigh_port_channel}'])
+
+    # Namespace-aware CLI option: '' on single-asic, '-n asicN' on multi-asic.
+    ns = duthost.get_port_asic_instance(selected_port).cli_ns_option
+    # Drop min-links to 1 so the LAG stays up while N-1 members are shut.
+    duthost.shell(
+        f"sonic-db-cli {ns} CONFIG_DB hset 'PORTCHANNEL|{portChannel}' min_links 1")
+    for port in portChannelMembers:
+        if port == selected_port:
+            continue
+        duthost.shell(f"sudo config interface {ns} shutdown {port}")
+
+    return vm_host, neigh_port_channel, min_links
+
+
+def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports):
+    """Revert LAG/min-links edits made by shutdown_lag_members.
+
+    Since shutdown_lag_members modifies running CONFIG_DB only (no on-disk
+    edits), config_reload from the on-disk config_db is sufficient to bring
+    members back up and restore the original min_links.
+    """
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return
+
+    if isinstance(vm_host, EosHost):
+        vm_host.eos_config(lines=[f'port-channel min-links {min_links}'],
+                           parents=[f'int {neigh_port_channel}'])
+
+    config_reload(duthost, config_source='config_db', safe_reload=True,
+                  check_intf_up_ports=True, wait_for_bgp=True)
+
+
+def _is_multi_member_lag(duthost, port, ports):
+    if ports[port]['test_port_type'] != 'portchannel':
+        return False
+    pc_members = duthost.config_facts(
+        host=duthost.hostname, source="persistent"
+    )['ansible_facts'].get('PORTCHANNEL_MEMBER', {})
+    return any(port in members and len(members) > 1 for members in pc_members.values())
+
+
+@pytest.fixture(scope='module')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """LAG config resource manager for PFCwd tests.
+
+    Setup: shuts down extra LAG members so only the selected port remains active.
+    Teardown: restores the original config_db; runs even on test failure.
+    Yields (vm_host, neigh_port_channel, min_links). Skips setup/teardown when
+    the selected port is not in a multi-member portchannel.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+
+    if not _is_multi_member_lag(duthost, port, ports):
+        yield None, None, None
+        return
+
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
+    try:
+        yield vm_host, neigh_port_channel, min_links
+    finally:
+        restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)

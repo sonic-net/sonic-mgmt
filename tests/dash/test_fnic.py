@@ -1,15 +1,14 @@
-import logging
-
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
+import ptf.packet as scapy
 import pytest
+import logging
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
-from gnmi_utils import apply_messages
 from packets import rand_udp_port_packets
 from tests.common.helpers.assertions import pytest_assert
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
-from tests.dash.dash_utils import verify_tunnel_packets
+from tests.common.dash_utils import apply_dash_configs, verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ Note: It's also necessary for the DPU to learn the neighbor info of the dataplan
 DASH configs are programmed. This should be handled automatically by fixture ordering and does not require
 manual steps.
 
-The neighbor info is learned when appling the default route as orchagent will attempt to resolve the next hop IP.
+The neighbor info is learned when applying the default route as orchagent will attempt to resolve the next hop IP.
 """
 
 
@@ -48,75 +47,57 @@ def common_setup_teardown(
         yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
 
     if single_endpoint:
         tunnel_config = pl.TUNNEL1_CONFIG
-    else:
-        tunnel_config = pl.TUNNEL2_CONFIG
-
-    base_config_messages = {
-        **pl.APPLIANCE_FNIC_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.ROUTING_TYPE_VNET_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-        **tunnel_config,
-    }
-    logger.info(base_config_messages)
-
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-    if single_endpoint:
         vm_subnet_route_config = pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT
     else:
+        tunnel_config = pl.TUNNEL2_CONFIG
         vm_subnet_route_config = pl.VM_SUBNET_ROUTE_WITH_TUNNEL_MULTI_ENDPOINT
-    route_and_mapping_messages = {
-        **pl.PE_VNET_MAPPING_CONFIG,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **vm_subnet_route_config
-    }
-    logger.info(route_and_mapping_messages)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
 
     # inbound routing not implemented in Pensando SAI yet, so skip route rule programming
+    route_rule_configs = []
     if 'pensando' not in dpuhost.facts['asic_type']:
-        route_rule_messages = {
-            **pl.VM_VNI_ROUTE_RULE_CONFIG,
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-            **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
-        }
-        logger.info(route_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
+        route_rule_configs = [
+            pl.VM_VNI_ROUTE_RULE_CONFIG,
+            pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+            pl.TRUSTED_VNI_ROUTE_RULE_CONFIG,
+        ]
 
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-    logger.info(meter_rule_messages)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_FNIC_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    # ``apply_dash_configs`` buckets entries by DASH table name and applies
+    # them in dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
+    # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/OUTBOUND_PORT_MAP/VNET) ->
+    # GROUP_3 (METER_RULE) -> GROUP_4 (TUNNEL/OUTBOUND_PORT_MAP_RANGE/ENI/ROUTE_GROUP) ->
+    # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+    apply_dash_configs(
+        localhost, duthost, ptfhost, dpuhost.dpu_index,
+        pl.APPLIANCE_FNIC_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.ROUTING_TYPE_VNET_CONFIG,
+        pl.VNET_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        tunnel_config,
+        pl.PE_VNET_MAPPING_CONFIG,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_VNET_MAPPING_CONFIG,
+        vm_subnet_route_config,
+        *route_rule_configs,
+        pl.METER_RULE1_V4_CONFIG,
+        pl.METER_RULE2_V4_CONFIG,
+        pl.ENI_FNIC_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG,
+    )
 
     yield
 
     # Route rule removal is broken so config reload to cleanup for now
     # https://github.com/sonic-net/sonic-buildimage/issues/23590
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
-def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
+@pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
+def test_fnic(ptfadapter, dash_pl_config, single_endpoint, encap_proto):
     pkt_sets = list()
 
     if single_endpoint:
@@ -127,9 +108,10 @@ def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
 
     for _ in range(num_packets):
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
-            dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI
+            dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI, outbound_encap=encap_proto
         )
-        # Usually `testutils.send` automatically updates the packet payload to include the test nome
+        exp_dpu_to_vm_pkt.set_do_not_care_packet(scapy.IP, "dst")
+        # Usually `testutils.send` automatically updates the packet payload to include the test name
         # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling
         # the dataplane directly for the DPU to VM packet, we need to manually update the payload
         exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)

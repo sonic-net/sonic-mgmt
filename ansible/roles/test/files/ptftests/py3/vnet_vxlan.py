@@ -23,12 +23,13 @@ import logging
 import time
 import six
 import subprocess
+import base64
 
 import ptf
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
-from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet,\
+from ptf.testutils import simple_tcp_packet, simple_vxlan_packet, simple_vxlanv6_packet, \
     send_packet, verify_packet, verify_no_packet, verify_packet_any_port, verify_no_packet_any
 from ptf.mask import Mask
 
@@ -326,12 +327,12 @@ class VNET(BaseTest):
         """
         for i in range(5):
             output = self.cmd(["supervisorctl", "status", "arp_responder"])
-            if 'RUNNING' in output[0]:
+            if 'RUNNING' in output[0].decode():
                 break
             time.sleep(1)
         else:
             raise Exception(
-                "arp_responder state is not RUNNING! Output: %s" % output)
+                "arp_responder state is not RUNNING! Output: %s" % output[0].decode())
 
     def tearDown(self):
         if self.vxlan_enabled:
@@ -413,7 +414,7 @@ class VNET(BaseTest):
                 ip_ttl=63,
                 tcp_sport=1234,
                 tcp_dport=5000)
-            send_packet(self, net_port, str(vxlan_pkt))
+            send_packet(self, net_port, vxlan_pkt)
 
             log_str = "Sending packet from port " + \
                 str(net_port) + " to " + test['src']
@@ -423,13 +424,15 @@ class VNET(BaseTest):
                 str("eth%d" % test['port']) + " from " + test['dst']
             logging.info(log_str)
 
+            masked_exp_pkt = Mask(exp_pkt)
+            masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
             if not self.routes_removed:
-                verify_packet(self, exp_pkt, test['port'])
+                verify_packet(self, masked_exp_pkt, test['port'])
             else:
-                verify_no_packet(self, exp_pkt, test['port'])
+                verify_no_packet(self, masked_exp_pkt, test['port'])
 
             vxlan_pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((net_port, str(vxlan_pkt).encode("base64")))
+            self.packets.append((net_port, base64.b64encode(bytes(vxlan_pkt)).decode()))
 
     def FromServer(self, test):
         try:
@@ -494,7 +497,7 @@ class VNET(BaseTest):
                     inner_frame=exp_pkt)
             else:
                 raise Exception("Found invalid IP address in test")
-            send_packet(self, test['port'], str(pkt))
+            send_packet(self, test['port'], pkt)
 
             masked_exp_pkt = Mask(encap_pkt)
             masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -517,14 +520,14 @@ class VNET(BaseTest):
                     scapy_pkt = scapy.Ether(received_pkt)
                     upper_bound = self.vxlan_srcport | (
                         0xff >> (8 - self.vxlan_srcport_mask))
-                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport),\
+                    assert (self.vxlan_srcport <= scapy_pkt.sport) and (upper_bound >= scapy_pkt.sport), \
                         ("Received packet has UDP src port {} that is not in expected range {} - {}"
                          .format(scapy_pkt.sport, self.vxlan_srcport, upper_bound))
             else:
                 verify_no_packet_any(self, masked_exp_pkt, self.net_ports)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((test['port'], str(pkt).encode("base64")))
+            self.packets.append((test['port'], base64.b64encode(bytes(pkt)).decode()))
 
         finally:
             print()
@@ -570,7 +573,7 @@ class VNET(BaseTest):
                     tcp_sport=1234,
                     tcp_dport=5000)
 
-                send_packet(self, test['port'], str(pkt))
+                send_packet(self, test['port'], pkt)
 
                 log_str = "Sending packet from port " + \
                     str('eth%d' % test['port']) + " to " + serv['src']
@@ -580,13 +583,15 @@ class VNET(BaseTest):
                     str("eth%d" % serv['port']) + " from " + test['src']
                 logging.info(log_str)
 
+                masked_exp_pkt = Mask(exp_pkt)
+                masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
                 if not self.routes_removed:
                     verify_packet(self, exp_pkt, serv['port'])
                 else:
                     verify_no_packet(self, exp_pkt, serv['port'])
 
                 pkt.load = '0' * 60 + str(len(self.packets))
-                self.packets.append((test['port'], str(pkt).encode("base64")))
+                self.packets.append((test['port'], base64.b64encode(bytes(pkt)).decode()))
 
         finally:
             print()

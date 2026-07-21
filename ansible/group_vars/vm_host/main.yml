@@ -1,4 +1,4 @@
-supported_vm_types: [ "veos", "ceos", "vsonic", "vcisco" ]
+supported_vm_types: [ "veos", "ceos", "vsonic", "vcisco", "csonic" ]
 root_path: veos-vm
 
 vm_console_base: 7000

@@ -7,6 +7,7 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 import six
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.devices.eos import EosHost
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa: F401
 from tests.vlan.test_vlan import populate_mac_table   # noqa: F401
@@ -35,8 +36,8 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
             if oper == "add":
                 logger.debug("adding ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell(
-                    "sudo ip -6 neigh add {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
-                                                                             member['Vlanid']))
+                    "sudo ip -6 neigh replace {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
+                                                                                 member['Vlanid']))
             elif oper == "del":
                 logger.debug("deleting ipv6 static arp entry for ip %s on DUT" % (member['ipv6']))
                 duthost.shell("sudo ip -6 neigh del {0} lladdr {1} dev Vlan{2}".format(member['ipv6'], member['mac'],
@@ -45,6 +46,19 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
                 logger.debug("unknown operation")
         else:
             logger.debug("unknown IP version")
+
+
+def _portchannel_netdev_name(nbr_host, index):
+    """Return the neighbor's PortChannel kernel netdev name for a given index.
+
+    EOS names the LAG netdev ``po<N>`` (e.g. ``po1``); SONiC/cSONiC teamd names
+    it ``PortChannel<N>`` (e.g. ``PortChannel1``). The topology config interface
+    is always ``Port-Channel<N>``; this maps it to the right netdev so commands
+    like ``ip addr show dev <name>`` work on the neighbor regardless of type.
+    """
+    if isinstance(nbr_host, EosHost):
+        return 'po{}'.format(index)
+    return 'PortChannel{}'.format(index)
 
 
 @pytest.fixture(scope='module')
@@ -72,14 +86,14 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     else:
         if 'Port-Channel1' in vm_info['conf']['interfaces']:
             interface_name = 'Port-Channel1'
-            dev_name = 'po1'
+            dev_name = _portchannel_netdev_name(vm_info['host'], 1)
         else:
             interface_name = 'Ethernet1'
             dev_name = 'eth1'
         # in case of lower tor host we need to use the next portchannel
         if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
-            dev_name = 'po2'
+            dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 
     # Get IPv4 and IPv6 addresses if available
     vm_interface = vm_info['conf']['interfaces'][interface_name]
@@ -182,7 +196,25 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         exclude_ip = [vlan_ip_network_v4.network_address, vlan_ip_network_v4.broadcast_address, vlan_ip_address_v4]
         ips_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip]
 
+    # Prepare IPv6 address pool if VLAN has IPv6, mirroring the IPv4 approach
+    # to guarantee distinct addresses for each PTF member.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/22461
+    ips_in_vlan_v6 = []
+    if ip6:
+        ipv6_iface = ipaddress.IPv6Interface(ip6)
+        ipv6_network = ipv6_iface.network
+        vlan_ipv6_addr = ipv6_iface.ip
+        # Use a compact pool: first N+1 host addresses excluding the VLAN IP itself.
+        # network[0] is the network address, so start from network[1].
+        for i in range(1, len(rand_vlan_member_list) + 2):
+            addr = ipv6_network[i]
+            if addr != vlan_ipv6_addr:
+                ips_in_vlan_v6.append(addr)
+            if len(ips_in_vlan_v6) >= len(rand_vlan_member_list):
+                break
+
     # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
+    ipv6_assign_idx = 0
     for member in rand_vlan_member_list:
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
@@ -198,8 +230,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
 
         # Assign IPv6 address if VLAN has IPv6
         if ip6:
-            ptfhost_info[member]["ipv6"] = str(
-                ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index_list"][0]])
+            ptfhost_info[member]["ipv6"] = str(ips_in_vlan_v6[ipv6_assign_idx])
+            ipv6_assign_idx += 1
 
     yield vm_host_info, ptfhost_info
 

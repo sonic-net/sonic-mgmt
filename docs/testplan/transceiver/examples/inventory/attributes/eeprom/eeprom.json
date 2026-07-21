@@ -1,0 +1,15 @@
+{
+    "mandatory": ["sff8024_identifier"],
+    "defaults": {
+        "vdm_supported": false,
+        "cmis_active_optical": false,
+        "eeprom_dump_timeout_sec": 5
+    },
+    "transceivers": {
+        "deployment_configurations": {
+            "8x100G_DR8": {
+                "vdm_supported": true
+            }
+        }
+    }
+}

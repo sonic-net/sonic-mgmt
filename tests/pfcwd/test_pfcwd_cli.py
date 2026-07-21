@@ -6,7 +6,8 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
+    shutdown_lag_members, restore_original_config
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -15,8 +16,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat  # noqa: E501
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
-from tests.common import config_reload
-from tests.common.devices.eos import EosHost
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "lt2", "ft2")
@@ -31,10 +30,36 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     KVMIgnoreRegex = [
         ".*queryStatsCapability: failed to find switch.*",
     ]
+    # Transient TACACS+ noise unrelated to PFCWD. On testbeds where the configured
+    # TACACS+ server is temporarily unreachable, NSS-TACACS+ lookups invoked by
+    # background processes (e.g. iptables) emit ERR-level syslog lines that get
+    # picked up by loganalyzer during teardown. Other tests (srv6, metadata-scripts)
+    # already ignore these same patterns for the same reason.
+    TacacsIgnoreRegex = [
+        r".*tac_connect_single: .*",
+        r".*nss_tacplus: .*",
+    ]
+    # On cisco-8000 platforms (e.g. Cisco-8101), the test teardown path that restores
+    # LAG / port-channel members re-binds cached QoS TC->Queue map and PFC settings
+    # on the affected ports. The underlying SAI objects can be recreated during the
+    # test, leaving orchagent with stale OIDs. The re-bind then fails in syncd with
+    # SAI_STATUS_ITEM_NOT_FOUND and orchagent logs ERR for handlePortQosMapTable /
+    # setPortPfc. The test itself passes; only loganalyzer flags these as failures.
+    Cisco8000IgnoreRegex = [
+        r".*sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_ITEM_NOT_FOUND.*",
+        r".*processQuadEvent: VID: oid:0x[0-9a-f]+ RID: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_QOS_TC_TO_QUEUE_MAP: oid:0x[0-9a-f]+.*",
+        r".*processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL: \d+.*",
+        r".*handlePortQosMapTable: Failed to apply \S+ to port Ethernet\d+, rv:-7.*",
+        r".*setPortPfc: Failed to set PFC 0x[0-9a-f]+ to port id 0x[0-9a-f]+ \(rc:-7\).*",
+    ]
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
+        loganalyzer[duthost.hostname].ignore_regex.extend(TacacsIgnoreRegex)
         if duthost.facts["asic_type"] == "vs":
             loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        if duthost.facts["asic_type"] == "cisco-8000":
+            loganalyzer[duthost.hostname].ignore_regex.extend(Cisco8000IgnoreRegex)
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -139,6 +164,12 @@ class SetupPfcwdFunc(object):
             self.ptf.command("ip -6 neigh flush all")
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
+            # Prevent ARP replies from PTF interfaces that don't own the target IP.
+            # All vlan member ports share the same neighbor IP (e.g. 192.168.0.2).
+            # Without arp_ignore=1, the PTF kernel responds to ARP on every interface
+            # (default arp_ignore=0), causing the DUT to associate the IP with whichever
+            # port's reply arrives last -- typically the wrong port.
+            self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
             if ip_version == "IPv4":
                 self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
                 self.ptf.command("ping {} -c 10".format(vlan['addr']))
@@ -236,41 +267,10 @@ class SendVerifyTraffic():
         on the number of ports. Send extra in case of imperfect hashing.
         """
         factor = 1
-        num_dst_ports = 1 if type(self.pfc_wd_test_port_ids) != list else len(self.pfc_wd_test_port_ids)
+        num_dst_ports = 1 if not isinstance(self.pfc_wd_test_port_ids, list) else len(self.pfc_wd_test_port_ids)
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
-
-    def send_tx_egress(self, action, verify):
-        """
-        Send traffic with test port as the egress and verify if the packets get forwarded
-        or dropped based on the action
-
-        Args:
-            action(string) : PTF test action
-        """
-        logger.info("Check for egress {} on Tx port {}".format(action, self.pfc_wd_test_port))
-        dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
-            dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
-                      'queue_index': self.pfc_queue_index,
-                      'pkt_count': int(self.pfc_wd_test_pkt_count * self.get_lag_pkt_scale_factor()),
-                      'port_src': self.pfc_wd_rx_port_id[0],
-                      'port_dst': dst_port,
-                      'ip_dst': self.pfc_wd_test_neighbor_addr,
-                      'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
-                      'wd_action': action if verify else "dontcare",
-                      'ip_version': self.ip_version}
-        if self.pfc_wd_rx_port_vlan_id is not None:
-            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
-        if self.pfc_wd_test_port_vlan_id is not None:
-            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
-        log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-        log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
-        ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file, is_python3=True)
 
     def send_rx_ingress(self, action, verify):
         """
@@ -281,7 +281,7 @@ class SendVerifyTraffic():
             action(string) : PTF test action
         """
         logger.info("Check for ingress {} on Rx port {}".format(action, self.pfc_wd_test_port))
-        if type(self.pfc_wd_rx_port_id) == list:
+        if isinstance(self.pfc_wd_rx_port_id, list):
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
@@ -305,68 +305,28 @@ class SendVerifyTraffic():
                    log_file=log_file, is_python3=True)
 
 
+@pytest.fixture(scope='function')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """Complete LAG config resource manager.
+
+    Setup (before test): backs up config_db and shuts down extra LAG members so
+    only the selected port remains active.
+    Teardown (after test): restores the original config_db, always runs even on failure.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+
+    vm_host, neigh_port_channel, min_links = shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, ports)
+
+    yield
+
+    restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, ports)
+
+
 class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
-    def __shutdown_lag_members(self, duthost, selected_port, tbinfo, nbrhosts):
-
-        if self.ports[selected_port]['test_port_type'] != 'portchannel':
-            return None, None, None
-
-        config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        portChannels = config_facts['PORTCHANNEL_MEMBER']
-        portChannel = None
-        portChannelMembers = None
-        for intf in portChannels:
-            if selected_port in portChannels[intf]:
-                portChannel = intf
-                portChannelMembers = portChannels[intf]
-                break
-
-        dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
-        vm_neighbors = dst_mgfacts['minigraph_neighbors']
-        peer_device = vm_neighbors[list(portChannelMembers.keys())[0]]['name']
-        peer_port = vm_neighbors[list(portChannelMembers.keys())[0]]['port']
-        vm_host = nbrhosts[peer_device]['host']
-        neigh_port_channel = None
-        min_links = None
-        if isinstance(vm_host, EosHost):
-            neigh_port_channels = vm_host.eos_command(
-                commands=['show port-channel | json'])['stdout'][0]["portChannels"]
-            for po_name, po_config in neigh_port_channels.items():
-                for member in po_config['activePorts']:
-                    if member == peer_port:
-                        neigh_port_channel = po_name
-                        min_links = len(po_config['activePorts'])
-                        break
-
-            vm_host.eos_config(lines=['port-channel min-links 1'], parents=[f'int {neigh_port_channel}'])
-
-        cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
-
-        for port in portChannelMembers:
-            if port == selected_port:
-                continue
-            cmd_data += f' | .PORT.{port}.admin_status="down"'
-
-        cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
-
-        duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
-        duthost.command(cmd, _uses_shell=True)
-        duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
-        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        return vm_host, neigh_port_channel, min_links
-
-    def __restore_original_config(self, duthost, selected_port, vm_host, neigh_port_channel, min_links):
-
-        if self.ports[selected_port]['test_port_type'] != 'portchannel':
-            return
-
-        if isinstance(vm_host, EosHost):
-            vm_host.eos_config(lines=[f'port-channel min-links {min_links}'], parents=[f'int {neigh_port_channel}'])
-
-        duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
-        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
     def storm_detect_path(self, dut, port, action):
         """
         Storm detection action and associated verifications
@@ -392,11 +352,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
             self.storm_hndle.start_storm()
 
-        logger.info("Verify if PFC storm is detected on port {}".format(port))
-        pytest_assert(
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
-            "PFC storm state did not change as expected"
-        )
+            # For devices that require traffic, the detection loop must be within the
+            # send_background_traffic context to continue sending traffic.
+            logger.info("Verify if PFC storm is detected on port {}".format(port))
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
+                "PFC storm state did not change as expected"
+            )
 
     def storm_restore_path(self, dut, port):
         """
@@ -445,10 +407,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             )
 
         # send traffic to egress port
-        self.traffic_inst.send_tx_egress(self.tx_action, False)
+        send_tx_egress(self.traffic_inst, self.tx_action, False,
+                       pkt_count=int(self.traffic_inst.pfc_wd_test_pkt_count *
+                                     self.traffic_inst.get_lag_pkt_scale_factor()))
         time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
+
         if asic_type != 'vs':
             # check count, drop: tx_drop_count; forward: tx_ok_count
             if self.tx_action == "drop":
@@ -509,7 +474,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                              setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
-                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):  # noqa: F811
+                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+                             manage_lag_config):
         """
         PFCwd CLI show pfcwd stats test
 
@@ -551,8 +517,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
 
-        vm_host, neigh_port_channel, min_links = self.__shutdown_lag_members(duthost, port, tbinfo, nbrhosts)
-
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
@@ -584,4 +548,3 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
-                self.__restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links)
