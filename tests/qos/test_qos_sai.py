@@ -2177,10 +2177,11 @@ class TestQosSai(QosSaiBase):
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
         duthost = get_src_dst_asic_and_duts['dst_dut']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_name = dutConfig["dutInterfaces"][dst_port_id]
         queue = qosConfig[queueProfile]["queue"]
-        quant_thresholds = get_voq_quant_thresholds_cisco(duthost, dst_port_name, queue)
+        quant_thresholds = get_voq_quant_thresholds_cisco(duthost, dst_port_name, queue, dst_asic_index)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
