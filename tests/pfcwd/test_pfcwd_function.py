@@ -21,7 +21,8 @@ from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports  # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa: F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic, check_pfc_storm_state, \
-    verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled
+    verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat, is_pfcwd_hw_recovery_enabled, \
+    is_acl_table_active, get_process_cores
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
@@ -1487,3 +1488,115 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+
+    def test_pfcwd_config_fail_with_egress_acl(
+            self,
+            request,
+            setup_pfc_test,
+            manage_lag_config,  # noqa: F811
+            setup_dut_test_params,
+            enum_fanout_graph_facts,  # noqa: F811
+            ptfhost,
+            duthosts,
+            enum_rand_one_per_hwsku_frontend_hostname,
+            fanouthosts,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,  # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+            set_pfc_time_cisco_8000  # noqa: F811
+            ):
+        """
+        Fill the egress ACL banks, then storm a queue so PFCWD tries to create its egress
+        ACL table against full banks. orchagent must log the failure and stay up, not abort
+        swss. Software recovery only; on hardware/DLR recovery no ACL table is
+        created (no-op skip).
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        setup_info = setup_pfc_test
+        setup_dut_info = setup_dut_test_params
+        ip_version = setup_info["ip_version"]
+        self.fanout_info = enum_fanout_graph_facts
+        self.ptf = ptfhost
+        self.dut = duthost
+        self.fanout = fanouthosts
+        self.timers = setup_info['pfc_timers']
+        self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
+        if self.dut.topo_type == 't2':
+            key, value = list(self.ports.items())[0]
+            self.ports = {key: value}
+        self.neighbors = setup_info['neighbors']
+        self.peer_dev_list = dict()
+        self.storm_hndle = None
+        self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+        # Real PFC storm - the fake DEBUG_STORM cannot exercise the egress-ACL contention.
+        self.fake_storm = False
+
+        pytest_require(has_neighbor_device(setup_pfc_test),
+                       "No neighbors detected ('rx_port' is None) - required for PFC storm setup")
+        pytest_require(self.ports, "No pfcwd test ports selected")
+
+        port = list(self.ports)[0]
+        queue = 4
+        # init builds the real-storm (PFCStorm) handle.
+        self.setup_test_params(port, setup_info['vlan'], init=(not self.fake_storm), ip_version=ip_version)
+        fill_tables = []
+        try:
+            # Add egress L3 ACL tables until one fails to go Active (banks full) - that per-table
+            # STATE_DB failure is the exhaustion signal. fill_safety_cap only prevents a hung test
+            # on a platform with no egress-ACL/PFCWD contention (skip if hit); it is not a per-chip
+            # table count.
+            exhausted = False
+            fill_safety_cap = 256
+            for idx in range(fill_safety_cap):
+                table = "PFCWD_ACL_FILL_{}".format(idx)
+                duthost.shell("config acl add table {} L3 -s egress -p {}".format(table, port))
+                fill_tables.append(table)
+                if not wait_until(45, 5, 0, is_acl_table_active, duthost, table):
+                    exhausted = True
+                    logger.info("Egress ACL banks exhausted after %d L3 ACL table(s)", idx + 1)
+                    break
+            pytest_require(exhausted,
+                           "Egress ACL banks not exhausted after {} L3 ACL tables on {} - "
+                           "no PFCWD/egress-ACL bank contention on this platform".format(
+                               fill_safety_cap, duthost.facts.get("hwsku")))
+
+            # Storm inline, not run_test()/storm_detect_path(): those verify_wd_func() the drop
+            # action, which this test intentionally fails (egress-ACL create fails, ingress rolls back).
+            restore_time = self.timers['pfc_wd_restore_time_large']
+            detect_time = self.timers['pfc_wd_detect_time']
+            queues = [self.pfc_wd['queue_index']]
+            selected_test_ports = [self.pfc_wd['rx_port'][0]]
+            test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
+            cores_before = get_process_cores(duthost, "orchagent")
+            with send_background_traffic(duthost, self.ptf, queues, selected_test_ports, test_ports_info):
+                start_wd_on_ports(duthost, port, restore_time, detect_time, "drop")
+                if not self.pfc_wd['fake_storm']:
+                    self.storm_hndle.start_storm()
+                else:
+                    PfcCmd.set_storm_status(duthost, self.queue_oid, "enabled")
+                # Give pfcwd time to detect the storm and attempt the ACL create.
+                wait_until(60, 5, 0, verify_pfc_storm_in_expected_state, duthost, port, queue, "storm")
+
+            # The failed create must not abort orchagent (a crash leaves a core).
+            new_cores = get_process_cores(duthost, "orchagent") - cores_before
+            pytest_assert(not new_cores,
+                          "orchagent crashed during the PFCWD egress-ACL storm; "
+                          "new core(s): {}".format(sorted(new_cores)))
+
+            # PFC_WD_SW_STATE_TABLE=='failed' proves the egress-ACL create failed AND the ingress
+            # rule rolled back (handler isValid()==false); anything else => not exercised, skip.
+            sw_status = duthost.shell(
+                "sonic-db-cli STATE_DB hget 'PFC_WD_SW_STATE_TABLE|{}:{}' status".format(port, queue),
+                module_ignore_errors=True)["stdout"].strip()
+            pytest_require(sw_status == "failed",
+                           "PFCWD egress-ACL create did not fail (status='{}') - no egress-ACL/"
+                           "PFCWD bank contention or HW/DLR recovery on this platform".format(
+                               sw_status or "<absent>"))
+        finally:
+            if self.storm_hndle:
+                self.storm_hndle.stop_storm()
+            else:
+                PfcCmd.set_storm_status(duthost, self.queue_oid, "disabled")
+            for table in fill_tables:
+                duthost.shell("config acl remove table {}".format(table), module_ignore_errors=True)
+            duthost.command("pfcwd stop")

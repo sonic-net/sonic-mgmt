@@ -4151,6 +4151,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
     conditions:
       - "'dualtor-aa' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/15387"
 
+pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_config_fail_with_egress_acl:
+   skip:
+     reason: "Egress-ACL/PFCWD bank contention is a hardware behavior; not supported on VS platform."
+     conditions:
+        - "asic_type in ['vs']"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
    skip:
      reason: "This test is applicable only for cisco-8000 / Pfcwd tests skipped on M* testbed."
