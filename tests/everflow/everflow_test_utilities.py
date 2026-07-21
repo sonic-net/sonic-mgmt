@@ -1015,6 +1015,37 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
+    def _build_v6_erspan_asic_command(session_info, asic_index=None, queue_num=None, policer=None):
+        """Build the ASIC command string for adding an ERSPAN mirror session
+
+        This is required as the CLI does not yet support adding IPv6 ERSPAN sessions.
+
+        Args:
+            session_info: Mirror session parameters dict.
+            asic_index: Optional ASIC index number.
+            queue_num: Optional queue number.
+            policer: Optional policer name.
+
+        Returns:
+            str: The ASIC command string.
+        """
+        per_asic_index = f"-n asic{asic_index} " if asic_index is not None else ""
+        command = (f"sonic-db-cli {per_asic_index}CONFIG_DB HSET "
+                   f"'MIRROR_SESSION|{session_info['session_name']}' "
+                   f"'dscp' '{session_info['session_dscp']}' "
+                   f"'dst_ip' '{session_info['session_dst_ipv6']}' "
+                   f"'gre_type' '{session_info['session_gre']}' "
+                   f"'type' '{session_info['session_type']}' "
+                   f"'src_ip' '{session_info['session_src_ipv6']}' "
+                   f"'ttl' '{session_info['session_ttl']}'")
+        if queue_num is not None:
+            command += f" 'queue' '{queue_num}'"
+        if policer is not None:
+            command += f" 'policer' '{policer}'"
+
+        return command
+
+    @staticmethod
     def _build_erspan_cli_command(session_info, queue_num=None,
                                   direction=None, policer=None,
                                   use_erspan_subcmd=False,
@@ -1122,12 +1153,23 @@ class BaseEverflowTest(object):
                             )
                         )
             else:
-                command = BaseEverflowTest._build_erspan_cli_command(
-                    session_info, queue_num=queue_num,
-                    policer=policer, use_erspan_subcmd=False,
-                    erspan_ip_ver=erspan_ip_ver
-                )
-                duthost.command(command)
+                if erspan_ip_ver == 4:
+                    command = BaseEverflowTest._build_erspan_cli_command(
+                        session_info, queue_num=queue_num,
+                        policer=policer, use_erspan_subcmd=False,
+                        erspan_ip_ver=erspan_ip_ver
+                    )
+                    duthost.command(command)
+                else:
+                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
+                    commands_list = [
+                            BaseEverflowTest._build_v6_erspan_asic_command(session_info, asic_index=asic_index,
+                                                                           queue_num=queue_num, policer=policer)
+                            for asic_index in duthost.get_frontend_asic_ids()
+                    ]
+
+                    for cmd in commands_list:
+                        duthost.command(cmd)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
