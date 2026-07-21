@@ -43,14 +43,6 @@ from tests.transceiver.common import db_helpers, health_checks
 
 logger = logging.getLogger(__name__)
 
-# Minimum continuous uptime (seconds) the health check requires of every
-# critical service (pmon, swss, syncd containers and the xcvrd process).
-# Per system_test_plan.md "Docker and Process Health Check": services must be
-# running for at least 3 minutes. Disruptive tests that deliberately restart a
-# service (e.g. xcvrd restart) must dwell long enough for the restarted service
-# to clear this floor before calling the health check.
-MIN_CRITICAL_SERVICE_UPTIME_SEC = 180
-
 # Post-recovery observation window (seconds) for the mandatory Link
 # Flap/Stability "Stability (always)" sub-check in system_test_plan.md, which
 # does not pin an exact duration ("a short post-recovery observation window").
@@ -404,7 +396,7 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 
 def standard_port_recovery_and_verification(
     duthost, ports, port_attributes_dict, link_up_timeout_sec, shared_state=None,
-    min_uptime_sec=MIN_CRITICAL_SERVICE_UPTIME_SEC,
+    min_uptime_sec=None,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
     expect_pid_change=None,
 ):
@@ -437,11 +429,11 @@ def standard_port_recovery_and_verification(
                                the single owner of the xcvrd/syncd/orchagent
                                process + ``/var/core`` check (also run once per
                                test by the autouse ``_per_test_health_check``
-                               fixture), plus the >= 180 s uptime floor from
-                               the test plan that fixture does not enforce.
-                               Host-wide and port-count-independent: runs
-                               exactly once per call regardless of ``len(ports)``,
-                               and unconditionally - independent of any port's
+                               fixture); optionally also asserts ``min_uptime_sec``,
+                               which that fixture does not check. Host-wide and
+                               port-count-independent: runs exactly once per
+                               call regardless of ``len(ports)``, and
+                               unconditionally - independent of any port's
                                link state.
 
     Remote-Side Link Verification (test-plan step 4, optional/opt-in) and the
@@ -470,10 +462,20 @@ def standard_port_recovery_and_verification(
         min_uptime_sec: minimum continuous uptime (seconds) required of each
             monitored process (each a representative for its container - see
             ``health_checks.DEFAULT_MONITORED_PROCESSES``) in the step-5
-            health check. Defaults to :data:`MIN_CRITICAL_SERVICE_UPTIME_SEC`
-            (180, i.e. the test plan's 3-minute floor). Callers that
-            deliberately restart a service must dwell long enough for it to
-            clear this floor before calling.
+            health check. ``None`` (default) skips the uptime assertion
+            entirely - the right choice for non-disruptive-to-that-service
+            calls, where step 5 stays a pure "nothing restarted under me"
+            guard. There is no fixed floor here: callers whose disruptive
+            action deliberately restarts a monitored service should pass the
+            settle time they already waited for that operation (the
+            ``<op>_settle_sec`` attribute driving their own wait, e.g.
+            ``pmon_restart_settle_sec``) rather than a hardcoded number -
+            the assertion then reads as "the service I just waited N s for
+            has really been up N s", with no collision between an arbitrary
+            floor and a shorter/longer settle time. Always pair a non-``None``
+            value here with ``expect_pid_change`` naming the process that
+            was restarted, or the PID-changed check below fails it as an
+            unexpected restart regardless of uptime.
         stability_window_sec: shared post-recovery observation window
             (seconds) for the step-2 stability sub-check, applied once across
             every port that came up. Defaults to
@@ -558,12 +560,13 @@ def standard_port_recovery_and_verification(
     #    to health_checks.verify_health - the single owner of the
     #    xcvrd/syncd/orchagent process check and the /var/core diff (also run
     #    automatically once per test by the autouse _per_test_health_check
-    #    fixture in tests/transceiver/conftest.py) - passing min_uptime_sec so
-    #    it additionally enforces the test plan's >= 3-minute uptime floor,
-    #    which that per-test fixture does not check. expect_pid_change is
-    #    forwarded as-is so callers whose disruptive action deliberately
-    #    restarts a monitored process (e.g. xcvrd/pmon restart) can declare it
-    #    and avoid a false "unexpected restart" failure against the baseline.
+    #    fixture in tests/transceiver/conftest.py). min_uptime_sec is passed
+    #    straight through with no hardcoded floor of our own - callers of a
+    #    restart-based recovery pass the settle time they already waited
+    #    (<op>_settle_sec) paired with expect_pid_change naming the restarted
+    #    process, so the PID-changed check doesn't fight the uptime check;
+    #    non-restart callers pass neither and step 5 stays a pure
+    #    "nothing restarted under me" guard.
     #    Host-wide: runs exactly once for the whole batch, unconditionally -
     #    if a port's link didn't come back, knowing whether a critical
     #    service died on the way is exactly the diagnostic we want, for every
