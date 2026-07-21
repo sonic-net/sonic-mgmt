@@ -135,8 +135,8 @@
       pull: yes
       state: started
       restart: yes
-      network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
-      networks: "{{ [{'name': mgmt_bridge, 'ipv4_address': ptf_ip | regex_replace('/.*', '')}] if ptf_use_docker_network | default(false) else omit }}"
+      network_mode: "{{ mgmt_bridge if ((ptf_use_docker_network | default(false)) or ('bmc' in topo)) else 'none' }}"
+      networks: "{{ [{'name': mgmt_bridge, 'ipv4_address': ptf_ip | regex_replace('/.*', '')}] if ((ptf_use_docker_network | default(false)) or ('bmc' in topo)) else omit }}"
       detach: True
       capabilities:
         - net_admin
