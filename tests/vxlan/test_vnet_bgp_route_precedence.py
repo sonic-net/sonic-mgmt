@@ -128,10 +128,16 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
             ".*_M_construct null not valid.*",
             ".*construction from null is not valid.*",
             ".*meta_sai_validate_route_entry.*",
-            ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
-            ".*ERR.* start: Encountered failure in create operation.*",
-            ".*ERR.* addRoutePost: Failed to create route.*",
-
+            # The test intentionally programs an overlapping BGP/VNET route for
+            # the same prefix, so orchagent's bulk route create hits
+            # SAI_STATUS_ITEM_ALREADY_EXISTS and the rest of the bulk returns
+            # SAI_STATUS_NOT_EXECUTED. Scope each ignore to the specific SAI
+            # status / route context so it cannot mask unrelated route failures.
+            ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*"
+            "status: SAI_STATUS_ITEM_ALREADY_EXISTS.*",
+            ".*ERR.* Encountered failure in create operation, SAI API: SAI_API_ROUTE,"
+            " status: SAI_STATUS_NOT_EXECUTED.*",
+            ".*ERR.* addRoutePost: Failed to create route .* with next hop.*",
         ]
         # Ignore in KVM test
         KVMIgnoreRegex = [
