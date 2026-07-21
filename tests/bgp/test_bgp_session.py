@@ -36,33 +36,17 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
-def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels=None):
+def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
     """Map a BGP neighbor device name to local DUT member interfaces.
 
-    DEVICE_NEIGHBOR keys are physical ports (Ethernet*) or LAG interfaces
-    (PortChannel*). LAG-backed neighbors are expanded to member ports via
-    PORTCHANNEL_MEMBER; members that also appear directly are included once.
+    DEVICE_NEIGHBOR keys are physical ports (Ethernet*). LAG members appear
+    as their own entries, so no PortChannel-name lookup is needed here.
     """
     interfaces = {}
-    portchannels = portchannels or {}
     for ifname, nbr_info in dev_nbrs.items():
-        if nbr_info.get('name') != neighbor_name:
-            continue
-        if ifname in portchannels:
-            for member in portchannels[ifname]:
-                if member in dev_nbrs:
-                    interfaces[member] = dev_nbrs[member]
-        else:
+        if nbr_info.get('name') == neighbor_name:
             interfaces[ifname] = nbr_info
     return interfaces
-
-
-def _log_bgp_summary(duthost, asic_index):
-    """Log per-ASIC BGP summary after failure injection; never fail the test."""
-    asichost = duthost.asic_instance(asic_index)
-    ns_opt = asichost.cli_ns_option
-    for cmd in ('show ip bgp summary', 'show ipv6 bgp summary'):
-        duthost.shell('{} {}'.format(cmd, ns_opt).strip(), module_ignore_errors=True)
 
 
 @pytest.fixture(scope='module')
@@ -73,12 +57,9 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
     asichost = duthost.asic_instance(asic_index)
     config_facts = get_asic_config_facts(duthost, asic_index)
-    # DEVICE_METADATA lives in host CONFIG_DB; use duthost helper, not per-ASIC namespace.
+    all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     if duthost.get_frr_mgmt_framework_config():
-        all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-        all_bgp_neighbors = all_bgp_neighbors[vrfname]
-    else:
-        all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+        all_bgp_neighbors = all_bgp_neighbors.get(vrfname, {})
     bgp_neighbors = {
         ip: details for ip, details in all_bgp_neighbors.items()
         if details.get('name') in nbrhosts
@@ -88,14 +69,12 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
             "No external BGP neighbors on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
         )
 
-    portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
 
     logger.debug("setup config_facts {}".format(config_facts))
     logger.debug("setup nbrhosts {}".format(nbrhosts))
     logger.debug("setup bgp_neighbors {}".format(bgp_neighbors))
     logger.debug("setup dev_nbrs {}".format(dev_nbrs))
-    logger.debug("setup portchannels {}".format(portchannels))
 
     # verify sessions are established on the selected ASIC
     neigh_ips = list(bgp_neighbors.keys())
@@ -103,7 +82,7 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
                   "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
     for ip, details in bgp_neighbors.items():
-        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs, portchannels)
+        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
         if interfaces:
             details['interface'] = interfaces
 
@@ -238,7 +217,9 @@ def failure_injection(duthosts, enum_frontend_dut_hostname, fanouthosts, nbrhost
             else:
                 raise ValueError("Unsupported failure_type: {}".format(failure_type))
 
-            _log_bgp_summary(duthost, setup['asic_index'])
+            ns_opt = duthost.asic_instance(setup['asic_index']).cli_ns_option
+            for cmd in ('show ip bgp summary', 'show ipv6 bgp summary'):
+                duthost.shell('{} {}'.format(cmd, ns_opt).strip(), module_ignore_errors=True)
 
         def restore(self):
             """Explicitly restore injected failures so the test can verify recovery.
@@ -294,10 +275,11 @@ def test_bgp_session_interface_down(duthosts, enum_frontend_dut_hostname, fanout
     if failure_type == "interface" and not fanouthosts:
         pytest.skip("Fanout hosts not available; interface failure test requires fanout switches")
 
-    # Skip VS cases that need fanout or reboot support
-    if duthost.facts.get("asic_type") in ("vs", "vpp"):
-        if failure_type == "interface" or test_type == "reboot":
-            pytest.skip("BGP session test is not supported on Virtual Switch for interface failure or reboot")
+    # Skip VS/VPP cases that need fanout or reboot support
+    if duthost.facts.get("asic_type") in ("vs", "vpp") and (
+        failure_type == "interface" or test_type == "reboot"
+    ):
+        pytest.skip("BGP session test is not supported on Virtual Switch for interface failure or reboot")
 
     # Skip the test if BGP or SWSS autorestart is disabled
     autorestart_states = duthost.get_container_autorestart_states()
