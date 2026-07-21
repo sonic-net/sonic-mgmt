@@ -65,6 +65,10 @@ SHORT_CMD_TIMEOUT = 120
 REBOOT_TIMEOUT = 600
 # Poll interval while waiting for DPU reboot
 REBOOT_POLL_INTERVAL = 30
+# Extra /host headroom (MB) required beyond the image size before a DPU install
+DPU_INSTALL_MARGIN_MB = 500
+# Minimum plausible initrd size (bytes); anything smaller means a corrupt image
+DPU_MIN_INITRD_BYTES = 1024 * 1024
 
 
 class UpgradeDpuSonicImageModule(object):
@@ -163,7 +167,7 @@ class UpgradeDpuSonicImageModule(object):
             return False, "", str(e)
 
     def reduce_installed_images(self, ssh, dpu_ip):
-        """Clean up old SONiC images on the DPU, keeping only the current image."""
+        """Free disk space by cleaning up old DPU images, always attempting cleanup even if listing fails."""
         self.log("[DPU {}] Step: Reducing installed images".format(dpu_ip))
 
         ok = False
@@ -176,31 +180,38 @@ class UpgradeDpuSonicImageModule(object):
                 dpu_ip, attempt + 1))
             time.sleep(20)
 
-        if not ok:
-            self.log("WARNING: [DPU {}] Failed to list images after 3 attempts. Continuing anyway.".format(dpu_ip))
-            return
+        if ok:
+            curr_image = ""
+            next_image = ""
+            for line in out.split('\n'):
+                if 'Current:' in line:
+                    curr_image = line.split(':')[1].strip()
+                elif 'Next:' in line:
+                    next_image = line.split(':')[1].strip()
 
-        curr_image = ""
-        next_image = ""
-        for line in out.split('\n'):
-            if 'Current:' in line:
-                curr_image = line.split(':')[1].strip()
-            elif 'Next:' in line:
-                next_image = line.split(':')[1].strip()
+            self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
+                dpu_ip, curr_image, next_image))
 
-        self.log("[DPU {}] Current image: '{}', Next image: '{}'".format(
-            dpu_ip, curr_image, next_image))
+            if curr_image and next_image and curr_image != next_image:
+                self.log("[DPU {}] Setting next-boot to current image".format(dpu_ip))
+                self.execute_command(ssh, dpu_ip,
+                                     "sudo sonic-installer set-next-boot {}".format(curr_image))
+        else:
+            self.log("WARNING: [DPU {}] Could not list images after 3 attempts; "
+                     "attempting cleanup anyway".format(dpu_ip))
 
-        if not curr_image:
-            self.log("WARNING: [DPU {}] Could not determine current image".format(dpu_ip))
-            return
+        # Always attempt cleanup (safe: keeps Current and Next), retrying transient failures
+        cleaned = False
+        for attempt in range(3):
+            cleaned, _, err = self.execute_command(ssh, dpu_ip, "sudo sonic-installer cleanup -y")
+            if cleaned:
+                break
+            self.log("[DPU {}] sonic-installer cleanup failed (attempt {}/3), retrying in 20s: {}".format(
+                dpu_ip, attempt + 1, err.strip()))
+            time.sleep(20)
 
-        if curr_image != next_image and next_image:
-            self.log("[DPU {}] Setting next-boot to current image".format(dpu_ip))
-            self.execute_command(ssh, dpu_ip,
-                                 "sudo sonic-installer set-next-boot {}".format(curr_image))
-
-        self.execute_command(ssh, dpu_ip, "sudo sonic-installer cleanup -y")
+        if not cleaned:
+            self.log("WARNING: [DPU {}] sonic-installer cleanup did not succeed after 3 attempts".format(dpu_ip))
         self.log("[DPU {}] Done reducing images".format(dpu_ip))
 
     def free_up_disk_space(self, ssh, dpu_ip):
@@ -294,6 +305,29 @@ class UpgradeDpuSonicImageModule(object):
         if not self.scp_image_to_dpu(dpu_ip):
             return False
 
+        # Skip install if /host lacks room to extract, failing cleanly instead of bricking the DPU
+        img_mb = 0
+        sz_ok, sz_out, _ = self.execute_command(ssh, dpu_ip, "stat -c %s {}".format(DPU_IMAGE_PATH))
+        if sz_ok:
+            try:
+                img_mb = int(sz_out.strip()) // (1024 * 1024)
+            except ValueError:
+                img_mb = 0
+        if img_mb:
+            required_mb = img_mb + DPU_INSTALL_MARGIN_MB
+            avail_ok, avail_out, _ = self.execute_command(ssh, dpu_ip, "df -BM --output=avail /host")
+            try:
+                avail_mb = int(avail_out.splitlines()[-1].strip().rstrip('M')) if avail_ok else required_mb
+            except (ValueError, IndexError):
+                avail_mb = required_mb
+            if avail_mb < required_mb:
+                self.log("WARNING: [DPU {}] Insufficient /host space: {}M free < {}M required "
+                         "({}M image + {}M margin); skipping install to avoid a corrupt image".format(
+                             dpu_ip, avail_mb, required_mb, img_mb, DPU_INSTALL_MARGIN_MB))
+                self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DPU_IMAGE_PATH))
+                return False
+            self.log("[DPU {}] /host free {}M >= required {}M".format(dpu_ip, avail_mb, required_mb))
+
         # Check for --skip-package-migration support
         skip_param = ""
         ok, help_out, _ = self.execute_command(ssh, dpu_ip, "sudo sonic-installer install --help")
@@ -317,6 +351,39 @@ class UpgradeDpuSonicImageModule(object):
         if not ok:
             self.log("WARNING: [DPU {}] Image installation FAILED: {}".format(dpu_ip, err.strip()))
             return False
+
+        # Flush to eMMC and verify the new image's initrd is intact before allowing a reboot
+        self.execute_command(ssh, dpu_ip, "sudo sync")
+        list_ok, list_out, _ = self.execute_command(ssh, dpu_ip, "sudo sonic-installer list")
+        curr_image = ""
+        next_image = ""
+        if list_ok:
+            for line in list_out.split('\n'):
+                if 'Current:' in line:
+                    curr_image = line.split(':')[1].strip()
+                elif 'Next:' in line:
+                    next_image = line.split(':')[1].strip()
+        if next_image:
+            img_dir = "/host/image-{}".format(next_image.replace("SONiC-OS-", ""))
+            _, initrd_out, _ = self.execute_command(
+                ssh, dpu_ip,
+                "sudo sh -c 'stat -c %s {}/boot/initrd.img-* 2>/dev/null | sort -n | tail -1'".format(img_dir))
+            try:
+                initrd_bytes = int(initrd_out.strip() or "0")
+            except ValueError:
+                initrd_bytes = 0
+            if initrd_bytes < DPU_MIN_INITRD_BYTES:
+                self.log("WARNING: [DPU {}] Post-install check FAILED for '{}': initrd missing/truncated "
+                         "({} bytes); not rebooting into a corrupt image".format(dpu_ip, next_image, initrd_bytes))
+                if curr_image and curr_image != next_image:
+                    self.execute_command(ssh, dpu_ip,
+                                         "sudo sonic-installer set-next-boot {}".format(curr_image))
+                return False
+            self.log("[DPU {}] Post-install check OK for '{}': initrd {} bytes".format(
+                dpu_ip, next_image, initrd_bytes))
+        else:
+            self.log("WARNING: [DPU {}] Could not read image list after install; skipping integrity check".format(
+                dpu_ip))
 
         self.log("[DPU {}] Image installed successfully".format(dpu_ip))
         return True
