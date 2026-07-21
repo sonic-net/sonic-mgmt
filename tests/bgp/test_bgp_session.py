@@ -6,7 +6,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.bgp import get_asic_config_facts
+from tests.common.helpers.bgp import get_asic_config_facts, map_bgp_neighbor_to_interfaces
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
@@ -34,19 +34,6 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
         # Disable container autorestart back if it was initially disabled.
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
-
-
-def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs):
-    """Map a BGP neighbor device name to local DUT member interfaces.
-
-    DEVICE_NEIGHBOR keys are physical ports (Ethernet*). LAG members appear
-    as their own entries, so no PortChannel-name lookup is needed here.
-    """
-    interfaces = {}
-    for ifname, nbr_info in dev_nbrs.items():
-        if nbr_info.get('name') == neighbor_name:
-            interfaces[ifname] = nbr_info
-    return interfaces
 
 
 @pytest.fixture(scope='module')
@@ -82,7 +69,7 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
                   "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
     for ip, details in bgp_neighbors.items():
-        interfaces = _map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
+        interfaces = map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
         if interfaces:
             details['interface'] = interfaces
 
