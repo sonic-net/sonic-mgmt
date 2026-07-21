@@ -12,6 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native, FRR_LEGACY_BGP_MONITORS_REASON
 
 pytestmark = [
     pytest.mark.topology('t2', 'lrh', 'urh'),
@@ -23,6 +24,15 @@ MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
+
+
+# BGP monitors (bgpmon) is a legacy feature superseded by BMP; frrcfgd intentionally does not
+# implement it, so this module is not parametrized over frr_config_mode. It runs in traditional
+# (bgpcfgd) mode and skips outright on a native-frrcfgd DUT. See FRR_LEGACY_BGP_MONITORS_REASON
+# and sonic-buildimage#28482 ("Explicitly out of scope").
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgpmon_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_LEGACY_BGP_MONITORS_REASON)
 
 
 # This API gets the ptf indices list and the local interfaces list for uplink LC
@@ -136,7 +146,7 @@ def bgpmon_peer_connected(asichost, bgpmon_peer):
         return False
 
 
-def test_bgpmon_v6(frr_config_mode, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                    enum_rand_one_frontend_asic_index, common_v6_setup_teardown,
                    set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
@@ -184,7 +194,7 @@ def test_bgpmon_v6(frr_config_mode, duthosts, localhost, enum_rand_one_per_hwsku
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(frr_config_mode, duthosts, localhost,
+def test_bgpmon_no_ipv6_resolve_via_default(duthosts, localhost,
                                             enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                             enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
     """

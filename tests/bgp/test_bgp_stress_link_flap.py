@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework, FRR_LEGACY_BGP_MONITORS_REASON
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_MONITOR_PORT
@@ -734,6 +735,10 @@ def test_bgp_stress_link_flap_with_monitor(frr_config_mode, duthosts, rand_one_d
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
+    # BGP monitors (bgpmon) is a legacy feature superseded by BMP and is intentionally
+    # unsupported in frr_mgmt_framework mode -- a permanent, by-design skip, deliberately
+    # NOT gated on an auto-lifting tracking issue. See sonic-buildimage#28482.
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LEGACY_BGP_MONITORS_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level
@@ -821,6 +826,11 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(frr_config_mode, duthost
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
+    # This test exercises BGP monitors (bgpmon), a legacy feature superseded by BMP and
+    # intentionally unsupported in frr_mgmt_framework mode -- so it is permanently skipped in
+    # frr mode regardless of the (separately tracked) BGP-sentinel gap. By-design skip, NOT
+    # gated on an auto-lifting tracking issue. See sonic-buildimage#28482.
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LEGACY_BGP_MONITORS_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level

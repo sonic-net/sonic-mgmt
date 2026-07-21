@@ -14,6 +14,7 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native, FRR_LEGACY_BGP_MONITORS_REASON
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -25,6 +26,15 @@ MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_ADDR_V6 = r'::/0'
 logger = logging.getLogger(__name__)
+
+
+# BGP monitors (bgpmon) is a legacy feature superseded by BMP; frrcfgd intentionally does not
+# implement it, so this module is not parametrized over frr_config_mode. It runs in traditional
+# (bgpcfgd) mode and skips outright on a native-frrcfgd DUT. See FRR_LEGACY_BGP_MONITORS_REASON
+# and sonic-buildimage#28482 ("Explicitly out of scope").
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgpmon_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_LEGACY_BGP_MONITORS_REASON)
 
 
 def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False):
@@ -159,7 +169,7 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
     return exp_packet
 
 
-def test_resolve_via_default_exist(frr_config_mode, duthost):
+def test_resolve_via_default_exist(duthost):
     """
     Test to verify if 'ip nht resolve-via-default' and 'ipv6 nht resolve-via-default' are present in global FRR config.
     """
@@ -177,7 +187,7 @@ def configure_ipv6_bgpmon_update_source(duthost, asn, local_addr):
     )
 
 
-def test_bgpmon(frr_config_mode, dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
+def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
                 common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
@@ -266,7 +276,7 @@ def test_bgpmon(frr_config_mode, dut_with_default_route, localhost, enum_rand_on
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
-def test_bgpmon_no_resolve_via_default(frr_config_mode, dut_with_default_route, enum_rand_one_frontend_asic_index,
+def test_bgpmon_no_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
                                        common_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' or 'ipv6 nht resolve-via-default' is disabled.

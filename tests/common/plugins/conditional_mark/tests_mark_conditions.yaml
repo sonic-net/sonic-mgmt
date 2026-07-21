@@ -664,21 +664,11 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_monitor\[.*frr_mgmt_framework:
-  regex: true
-  skip:
-    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/28482
-
-
-bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap_with_sentinel_and_monitor\[.*frr_mgmt_framework:
-  regex: true
-  skip:
-    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/28482
-
+# NOTE: the frr_mgmt_framework variants of test_bgp_stress_link_flap_with_monitor and
+# test_bgp_stress_link_flap_with_sentinel_and_monitor are NOT gated here. BGP monitors is a
+# legacy feature superseded by BMP and intentionally unsupported in frr mode; those tests skip
+# permanently in frr mode via an in-test skip_if_frr_mgmt_framework() call (a by-design skip,
+# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -773,21 +763,11 @@ bgp/test_bgpmon.py::test_bgpmon:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
-bgp/test_bgpmon.py::test_bgpmon\[.*frr_mgmt_framework:
-  regex: true
-  skip:
-    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/28482
-
-
-bgp/test_bgpmon.py::test_bgpmon_no_resolve_via_default\[.*frr_mgmt_framework:
-  regex: true
-  skip:
-    reason: "frrcfgd does not implement BGP monitors (sonic-buildimage#28482)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/28482
-
+# NOTE: test_bgpmon / test_bgpmon_v6 are NOT parametrized over frr_config_mode and are NOT
+# gated here. BGP monitors is a legacy feature superseded by BMP and intentionally unsupported
+# in frr mode; those modules run in traditional (bgpcfgd) mode and skip on a native-frrcfgd DUT
+# via an autouse skip_module_if_frr_native() fixture (a by-design skip, not an auto-lifting
+# tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:

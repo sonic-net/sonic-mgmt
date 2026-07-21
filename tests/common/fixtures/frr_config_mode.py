@@ -72,16 +72,28 @@ def skip_if_frr_mgmt_framework(mode, reason):
 
 FRR_BGP_DEVICE_GLOBAL_GAP_REASON = "frrcfgd does not consume BGP_DEVICE_GLOBAL (TSA/IDF/W-ECMP)"
 
+# BGP monitors (BGP_MONITORS / bgpmon) is a legacy feature, superseded by BMP (BGP Monitoring
+# Protocol, RFC 7854) which FRR now supports natively and which the tests/bmp suite covers.
+# bgpmon predates BMP and was only added because FRR lacked BMP support at the time. frrcfgd
+# intentionally does not implement it -- it is NOT a parity gap to close (see sonic-buildimage
+# issue #28482, "Explicitly out of scope") -- so the bgpmon modules/tests are not parametrized
+# over frr_config_mode: they run in traditional (bgpcfgd) mode and skip outright on a
+# native-frrcfgd DUT. This is a permanent, by-design skip, deliberately NOT gated on an
+# auto-lifting tracking issue.
+FRR_LEGACY_BGP_MONITORS_REASON = (
+    "BGP monitors (BGP_MONITORS) is a legacy feature superseded by BMP and is intentionally "
+    "unsupported in frr_mgmt_framework mode; use BMP (see tests/bmp) instead")
 
-def skip_module_if_frr_native(duthost):
-    """Skip a BGP_DEVICE_GLOBAL module (TSA/TSB, IDF isolation, W-ECMP) when the DUT
-    natively runs frrcfgd. Those features are driven by the BGP_DEVICE_GLOBAL table, which
-    frrcfgd does not consume by design, so the modules are not parametrized over
-    frr_config_mode -- they just skip outright in native frr mode. Shared by the five such
-    modules (test_traffic_shift{,_lc,_sup}, test_seq_idf_isolation, test_startup_tsa_tsb_service)
-    to avoid copy-pasting the skip fixture."""
+
+def skip_module_if_frr_native(duthost, reason=FRR_BGP_DEVICE_GLOBAL_GAP_REASON):
+    """Skip a module that is by-design unsupported under frrcfgd when the DUT natively runs
+    frrcfgd. Such modules are not parametrized over frr_config_mode -- they just skip outright
+    in native frr mode. ``reason`` names the specific cause (defaults to the BGP_DEVICE_GLOBAL
+    gap). Shared by the BGP_DEVICE_GLOBAL modules (test_traffic_shift{,_lc,_sup},
+    test_seq_idf_isolation, test_startup_tsa_tsb_service) and the legacy bgpmon modules
+    (test_bgpmon, test_bgpmon_v6) to avoid copy-pasting the skip fixture."""
     if duthost.get_frr_mgmt_framework_config():
-        pytest.skip(FRR_BGP_DEVICE_GLOBAL_GAP_REASON)
+        pytest.skip(reason)
 
 
 def _core_dumps(duthost):
