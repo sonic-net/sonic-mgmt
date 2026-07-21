@@ -566,12 +566,11 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
     conditions:
       - "'t0-isolated-v6-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-bgp/test_bgp_sentinel.py::.*\[.*frr_mgmt_framework:
-  regex: true
-  skip:
-    reason: "frrcfgd does not implement BGP sentinels (sonic-buildimage#28482)"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/28482
+# NOTE: test_bgp_sentinel is NOT parametrized over frr_config_mode and is NOT gated here. BGP
+# sentinels is a bgpcfgd-only macro (expressible via generic peer-group/route-map tables) and is
+# intentionally unsupported in frr mode; the module runs in traditional (bgpcfgd) mode and skips
+# on a native-frrcfgd DUT via an autouse skip_module_if_frr_native() fixture (a by-design skip,
+# not an auto-lifting tracking issue). See sonic-buildimage#28482 ("Explicitly out of scope").
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:

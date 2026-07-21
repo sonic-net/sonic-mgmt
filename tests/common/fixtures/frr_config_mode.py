@@ -84,14 +84,27 @@ FRR_LEGACY_BGP_MONITORS_REASON = (
     "BGP monitors (BGP_MONITORS) is a legacy feature superseded by BMP and is intentionally "
     "unsupported in frr_mgmt_framework mode; use BMP (see tests/bmp) instead")
 
+# BGP sentinels (BGP_SENTINELS) is an opinionated bgpcfgd macro, not a routing primitive -- it
+# expands to a listen-range peer-group + fixed FROM_/TO_BGP_SENTINEL route-maps + a
+# sentinel_community community-list (from constants.yml), all of which are already expressible
+# via the generic CONFIG_DB tables frrcfgd renders. Teaching frrcfgd a bespoke sentinel expander
+# conflicts with its "render only generic primitives" design, so it stays bgpcfgd-only (see
+# sonic-buildimage#28482, "Explicitly out of scope") -- a permanent, by-design skip, NOT gated on
+# an auto-lifting tracking issue.
+FRR_BGPCFGD_ONLY_SENTINEL_REASON = (
+    "BGP sentinels (BGP_SENTINELS) is a bgpcfgd-only macro, intentionally unsupported in "
+    "frr_mgmt_framework mode (the equivalent is expressible via generic peer-group/route-map "
+    "tables)")
+
 
 def skip_module_if_frr_native(duthost, reason=FRR_BGP_DEVICE_GLOBAL_GAP_REASON):
     """Skip a module that is by-design unsupported under frrcfgd when the DUT natively runs
     frrcfgd. Such modules are not parametrized over frr_config_mode -- they just skip outright
     in native frr mode. ``reason`` names the specific cause (defaults to the BGP_DEVICE_GLOBAL
     gap). Shared by the BGP_DEVICE_GLOBAL modules (test_traffic_shift{,_lc,_sup},
-    test_seq_idf_isolation, test_startup_tsa_tsb_service) and the legacy bgpmon modules
-    (test_bgpmon, test_bgpmon_v6) to avoid copy-pasting the skip fixture."""
+    test_seq_idf_isolation, test_startup_tsa_tsb_service), the legacy bgpmon modules
+    (test_bgpmon, test_bgpmon_v6), and the bgpcfgd-only sentinel module (test_bgp_sentinel)
+    to avoid copy-pasting the skip fixture."""
     if duthost.get_frr_mgmt_framework_config():
         pytest.skip(reason)
 
