@@ -6,7 +6,6 @@ for ACL rules that can rewrite the inner source MAC address of VXLAN-encapsulate
 """
 
 import os
-import time
 import logging
 import pytest
 import json
@@ -64,12 +63,12 @@ def _check_acl_rule_absent(duthost, table_name, rule_name):
 
 def _check_acl_table_present(duthost, table_name):
     result = duthost.show_and_parse(f'show acl table {table_name}')
-    return len(result) > 0
+    return any(entry.get('name') == table_name and entry.get('status', '').lower() == 'active' for entry in result)
 
 
 def _check_acl_table_absent(duthost, table_name):
     result = duthost.show_and_parse(f'show acl table {table_name}')
-    return len(result) == 0
+    return not any(entry.get('name') == table_name for entry in result)
 
 
 def _check_acl_table_type_in_config_db(duthost, type_name):
@@ -488,8 +487,10 @@ def apply_config_chunk(duthost, payload, config_name):
     content = json.dumps(payload, indent=2)
     file_dest = f"/tmp/{config_name}_chunk.json"
     duthost.copy(content=content, dest=file_dest)
-    duthost.shell(f"config load -y {file_dest}")
-    duthost.shell(f"rm -f {file_dest}")
+    result = duthost.shell(f"config load -y {file_dest}", module_ignore_errors=True)
+    duthost.shell(f"rm -f {file_dest}", module_ignore_errors=True)
+    pytest_assert(result.get("rc", 1) == 0,
+                  f"config load failed for {file_dest}: {result.get('stderr', result.get('stdout', ''))}")
 
 
 def create_additional_vnets(duthost, tunnel_name):
@@ -667,6 +668,10 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     # Poll for the encapsulated packet and explicitly verify the inner src MAC
     # was NOT changed to rewrite_mac
     result = testutils.dp_poll(ptfadapter, device_number=0, timeout=5, exp_pkt=masked_pkt)
+    pytest_assert(isinstance(result, ptfadapter.dataplane.PollSuccess),
+                  f"Expected VXLAN packet was not received ({test_description}): {result}")
+    pytest_assert(result.port in ptf_ports,
+                  f"Unexpected receive port {result.port} (expected one of {ptf_ports})")
     # Inner src MAC is at byte offset 56: outer Eth(14) + IP(20) + UDP(8) + VXLAN(8) + inner dst MAC(6)
     rcv_pkt_bytes = bytes(result.packet)
     inner_src_mac = ':'.join('%02x' % b for b in rcv_pkt_bytes[56:62])
@@ -954,7 +959,7 @@ def test_multiple_acl_rules(setUp):
 
         # Test Rule 1: Send packet matching first source IP
         logger.info(f"=== Testing Rule 1: {rule_name_1} with source IP {test_src_ip_1} ===")
-        
+
         # Get initial counter for rule 1
         counter_1_before = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_1, timeout=0)
         counter_2_before = get_acl_counter(duthost, ACL_TABLE_NAME, rule_name_2, timeout=0)
@@ -981,7 +986,7 @@ def test_multiple_acl_rules(setUp):
 
         # Test Rule 2: Send packet matching second source IP
         logger.info(f"=== Testing Rule 2: {rule_name_2} with source IP {test_src_ip_2} ===")
-        
+
         # Update counters baseline
         counter_1_baseline = counter_1_after
         counter_2_baseline = counter_2_after
@@ -1046,10 +1051,9 @@ def setup_multi_vni_acl_rule(duthost, inner_src_ip, vni, new_src_mac, rule_name,
 
 
 def remove_specific_acl_rule(duthost, rule_name):
-    """Remove specific ACL rule for cleanup"""
+    """Remove specific ACL rule for cleanup using the supported acl-loader tool"""
     try:
-        rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|{rule_name}"
-        duthost.shell(f'redis-cli -n 4 DEL "{rule_key}"', module_ignore_errors=True)
+        duthost.shell(f"acl-loader delete {ACL_TABLE_NAME} {rule_name}", module_ignore_errors=True)
         logger.info(f"Removed ACL rule: {rule_name}")
     except Exception as e:
         logger.warning(f"Failed to remove ACL rule {rule_name}: {e}")
