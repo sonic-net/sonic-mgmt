@@ -439,9 +439,16 @@ def bucket_tier(score: float, thresholds: List[float]) -> int:
 def compute_module_score(task: ModuleTask) -> float:
     """Weighted effort score. Higher == more work / higher risk.
 
-    Combines volume (LOC, symbol count), blast radius (impacted tests),
-    coupling (internal common deps), and remaining quality gap (missing type
-    hints, docs, unit tests) required to satisfy common2 standards.
+    Module score formula:
+      score = volume + blast + coupling + quality_gap + unit_gap
+
+      volume = LOC / 40 + (functions + classes) * 1.5
+      blast = direct_impacted_tests * 1.2
+      coupling = direct_common_deps * 2.0 + transitive_common_deps * 0.3
+      quality_gap = (1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0
+      unit_gap = 0.0 if common2 unit tests exist else 4.0
+
+    The result is rounded to two decimals.
     """
     volume = task.loc / 40.0 + (task.num_functions + task.num_classes) * 1.5
     blast = len(task.impacted_tests) * 1.2
@@ -452,7 +459,17 @@ def compute_module_score(task: ModuleTask) -> float:
 
 
 def compute_symbol_score(symbol: Symbol) -> float:
-    """Per-function/class effort score for granular tasks."""
+    """Per-function/class effort score for granular tasks.
+
+    Symbol score formula:
+      score = volume + blast + quality_gap
+
+      volume = LOC / 25 + 1.0
+      blast = direct_impacted_tests * 1.2
+      quality_gap = (1 - typed_ratio) * 3.0 + (0 if docstring else 1.5)
+
+    The result is rounded to two decimals.
+    """
     volume = symbol.loc / 25.0 + 1.0
     blast = len(symbol.impacted_tests) * 1.2
     quality_gap = (1.0 - symbol.typed_ratio) * 3.0 + (0.0 if symbol.has_docstring else 1.5)
@@ -900,6 +917,20 @@ def build_markdown_lines(
 
     lines.append("## Summary")
     lines.append("")
+    lines.append("### Score formula")
+    lines.append("")
+    lines.append(
+        "Module score = volume + blast + coupling + quality_gap + unit_gap, where "
+        "volume = LOC/40 + (functions+classes)*1.5, blast = direct impacted tests * 1.2, "
+        "coupling = direct deps * 2.0 + transitive deps * 0.3, quality_gap = "
+        "(1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0, and unit_gap = 0 if "
+        "common2 unit tests exist else 4.0."
+    )
+    lines.append("")
+    lines.append("Symbol score = volume + blast + quality_gap, where volume = LOC/25 + 1.0, "
+                 "blast = direct impacted tests * 1.2, and quality_gap = "
+                 "(1 - typed_ratio) * 3.0 + (0 if docstring else 1.5).")
+    lines.append("")
     lines.append(f"- Modules available to migrate: **{len(tasks)}**")
     lines.append(f"- Modules already migrated: **{len(done_tasks)}**")
     lines.append(f"- Distinct tests impacted (direct): **{distinct_direct}**")
@@ -1046,6 +1077,28 @@ def build_yaml_lines(
         "# ============================================================================"
     )
     lines.append("# common -> common2 Migration Dashboard")
+    lines.append("#")
+    lines.append("# Score formula")
+    lines.append("#   Module score = volume + blast + coupling + quality_gap + unit_gap")
+    lines.append("#   volume = LOC/40 + (functions+classes)*1.5")
+    lines.append("#   blast = direct impacted tests * 1.2")
+    lines.append("#   coupling = direct deps * 2.0 + transitive deps * 0.3")
+    lines.append("#   quality_gap = (1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0")
+    lines.append("#   unit_gap = 0 if common2 unit tests exist else 4.0")
+    lines.append("#")
+    lines.append("#   Symbol score = volume + blast + quality_gap")
+    lines.append("#   volume = LOC/25 + 1.0")
+    lines.append("#   blast = direct impacted tests * 1.2")
+    lines.append("#   quality_gap = (1 - typed_ratio) * 3.0 + (0 if docstring else 1.5)")
+    lines.append("#")
+    lines.append("# Field meanings")
+    lines.append("#   rank: global ordering; lower is easier")
+    lines.append("#   tier: difficulty band; lower is easier")
+    lines.append("#   score: weighted effort estimate; higher is more work")
+    lines.append("#   depends_on_direct: other tests/common modules this module imports")
+    lines.append("#   depends_on_transitive: full import closure reached from here")
+    lines.append("#   impacted_tests: tests importing this module directly")
+    lines.append("#   impacted_tests_transitive: tests reaching it directly or through the import graph")
     lines.append(
         "# ============================================================================"
     )
@@ -1177,7 +1230,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--json-out", default="",
                         help="Optional path to write the machine-readable JSON artifact.")
     parser.add_argument("--yaml-out", default="",
-                        help="Optional path to write the commented-YAML dashboard artifact.")
+                        help="Optional path to write the commented-YAML dashboard artifact "
+                             "(default primary artifact for workflow consumption).")
     parser.add_argument("--markdown-out", default="",
                         help="Optional path to write the Markdown report (GitHub run summary).")
     return parser.parse_args(argv)
