@@ -146,7 +146,7 @@ This procedure is **composable**. Each numbered sub-check below (Link Status, St
 - **Operates on a set of ports.** Callers pass the list of ports to validate; single-port callers pass a one-element list. The procedure must scale efficiently with port count: host-wide work (process / health verification) and per-physical-port work (breakout-group resolution, transceiver state) are performed **once per invocation** rather than repeated per logical port, and the fixed-duration waits (stability observation, oper-state settling, LLDP convergence) are **shared across the set** so total wall-clock is bounded by the slowest port, not the sum across ports. How this deduplication is realized is an implementation concern, not part of the contract.
 - **Read-only.** This procedure performs no configuration changes and is safe to invoke repeatedly (it is called from State Restoration, Common Teardown, and directly within test cases).
 - **Accumulate-all.** Every applicable sub-check runs; failures are collected and reported together so one invocation surfaces every problem on every port, rather than stopping at the first failure.
-- **Gating.** Sub-checks 2, 3, and 5 run for a port only if that port's sub-check 1 (Link Status) passed — stability, LLDP, and CMIS state are meaningless on a port that never came up. Sub-check 7 (Docker and Process Health) runs **unconditionally**: if a link failed to recover, knowing whether a critical service died on the way is exactly the diagnostic wanted.
+- **Gating.** Sub-checks 2, 3, 5, and 6 run for a port only if that port's sub-check 1 (Link Status) passed — stability, LLDP, CMIS state, and SI settings are meaningless on a port that never came up. Sub-check 7 (Docker and Process Health) runs **unconditionally**: if a link failed to recover, knowing whether a critical service died on the way is exactly the diagnostic wanted.
 
 1. **Link Status Verification**
    - Verify each port is operationally up within a caller-supplied link-up wait budget. This budget is operation-specific — the caller sizes it to match the invoking operation (e.g. `port_startup_wait_sec` for a port startup, `<op>_settle_sec` for a reboot / config reload / power cycle) rather than a fixed value defined here.
@@ -168,7 +168,7 @@ This procedure is **composable**. Each numbered sub-check below (Link Status, St
 5. **CMIS State Verification** (per port, only if the port linked up and the port is a CMIS active optical transceiver — check via `cmis_active_optical`)
    - For every host lane the port exposes, verify the transceiver datapath has reached the **activated** state and its datapath configuration completed **successfully**. (These are the standard CMIS datapath/configuration states defined in the [transceiver test plan](test_plan.md); the concrete DB fields that surface them are an implementation detail.)
 
-6. **SI Settings Verification** (if applicable)
+6. **SI Settings Verification** (per port, only if the port linked up)
    - **Optics SI Settings**: If `optics_si_settings` is defined, verify the transceiver's applied signal-integrity settings match the configured intent.
    - **Media SI Settings**: If `media_si_settings` is defined, verify the port's applied media-side signal-integrity settings match the configured intent and that the SI settings sync to the NPU has completed successfully.
    - Log any discrepancies for analysis.
