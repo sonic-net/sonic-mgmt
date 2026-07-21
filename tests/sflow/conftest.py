@@ -57,12 +57,6 @@ class RestconfClient:
 
 
 @pytest.fixture(scope="module")
-def duthost(duthosts, rand_one_dut_hostname):
-    """Single DUT under test (standard sonic-mgmt selection)."""
-    return duthosts[rand_one_dut_hostname]
-
-
-@pytest.fixture(scope="module")
 def rest_client(duthost, creds):
     """
     RESTCONF client bound to the DUT management IP.
