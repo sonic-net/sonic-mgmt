@@ -51,7 +51,7 @@ def mellanox_dpu_shutdown_check(duthost, dpu_on_list):
     yield
 
     dpu_down_log_pattern = r"dpuctl_plat.*(dpu\d).*Total time taken = (\d+\.\d+) for going down"
-    syslog = duthost.shell(f"grep -E '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
+    syslog = duthost.shell(f"grep -P '{dpu_down_log_pattern}' /var/log/syslog")['stdout']
     matches = re.findall(dpu_down_log_pattern, syslog)
     logging.info(f"Found {len(matches)} DPU down logs")
     logging.info(f"Time taken for DPUs to shutdown: {matches}")
