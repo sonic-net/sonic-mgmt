@@ -30,6 +30,7 @@ CONTAINER_CHECK_INTERVAL_SECS = 5     # Monit daemon runs every 10s in test; pol
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 MONIT_START_THRESHOLD_SECS = 360      # Max wait for Monit to become ready
+HOST_CHECKER_KUBE_OWNER_EXCLUSIONS = {"gnmi"}
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -229,6 +230,10 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_containers = disabled_containers[:]
+    if service_name in HOST_CHECKER_KUBE_OWNER_EXCLUSIONS:
+        feature_table = duthost.get_running_config_facts().get("FEATURE", {})
+        if feature_table.get(service_name, {}).get("set_owner") == "kube":
+            skip_containers.append(service_name)
 
     # Skip 'radv' container on devices whose role is not T0/M0.
     # Skip 'radv' container on dualtor-aa as radv is forcefully killed on dualtor-aa (#13408 in sonic-buildimage)
