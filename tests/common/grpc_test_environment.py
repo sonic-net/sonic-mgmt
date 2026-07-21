@@ -81,21 +81,45 @@ class GrpcTestEnvironment:
             self._release_lock()
             return
 
-        output = rollback(self.duthost, self._checkpoint)
-        stdout = output.get("stdout", "")
-        if output.get("rc") or "Config rolled back successfully" not in stdout:
-            raise RuntimeError(
-                "gRPC test environment rollback failed; preserving checkpoint, "
-                "credentials, and lock for recovery: {}".format(output)
-            )
+        errors = []
+        restored = False
+        try:
+            output = rollback(self.duthost, self._checkpoint)
+            stdout = output.get("stdout", "")
+            if output.get("rc") or "Config rolled back successfully" not in stdout:
+                errors.append("rollback failed: {}".format(output))
+            else:
+                try:
+                    self._restart_server()
+                    wait_critical_processes(self.duthost)
+                    restored = True
+                except Exception as exc:
+                    errors.append("restored configuration is not healthy: {}".format(exc))
 
-        self._restart_server()
-        wait_critical_processes(self.duthost)
-        delete_checkpoint(self.duthost, self._checkpoint)
-        self._checkpoint_created = False
-        self.duthost.shell("rm -rf {}".format(self._dut_cert_dir))
-        shutil.rmtree(self._cert_dir, ignore_errors=True)
-        self._release_lock()
+            if restored:
+                for description, cleanup in (
+                    ("delete checkpoint", lambda: delete_checkpoint(self.duthost, self._checkpoint)),
+                    ("delete DUT credentials",
+                     lambda: self.duthost.shell("rm -rf {}".format(self._dut_cert_dir))),
+                    ("delete local credentials",
+                     lambda: shutil.rmtree(self._cert_dir, ignore_errors=True)),
+                ):
+                    try:
+                        cleanup()
+                    except Exception as exc:
+                        errors.append("{} failed: {}".format(description, exc))
+                self._checkpoint_created = False
+        finally:
+            try:
+                self._release_lock()
+            except Exception as exc:
+                errors.append("release lock failed: {}".format(exc))
+
+        if errors:
+            raise RuntimeError(
+                "gRPC test environment cleanup failed; checkpoint and credentials "
+                "were preserved unless restoration completed: {}".format("; ".join(errors))
+            )
 
     def gnmi_client(self):
         """Return a target- and credential-bound native gNMI client."""
@@ -120,7 +144,7 @@ class GrpcTestEnvironment:
 
     def _release_lock(self):
         if self._lock_acquired:
-            self.duthost.shell("rmdir {}".format(self._lock_dir))
+            self.duthost.shell("rm -rf {}".format(self._lock_dir))
             self._lock_acquired = False
 
     def _native_ready(self):

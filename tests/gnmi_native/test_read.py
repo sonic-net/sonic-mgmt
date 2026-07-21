@@ -2,7 +2,12 @@
 
 import pytest
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("any"),
+    # pygnmi creates gRPC C-core threads; the memory plugin forks Ansible
+    # workers around each test and aborts on multi-ASIC Python 3.12 runners.
+    pytest.mark.disable_memory_utilization,
+]
 
 
 def _updates(result):
