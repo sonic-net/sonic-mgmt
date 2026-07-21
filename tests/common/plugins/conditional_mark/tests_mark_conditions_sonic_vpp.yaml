@@ -388,19 +388,6 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
-#####           IP                #####
-#######################################
-ip/test_mgmt_ipv6_only.py::test_bgp_facts_ipv6_only:
-  enable_monit_refresh:
-    reason: >
-            The module-scoped IPv6 management setup performs config_reload. On low-RAM
-            sonic-vpp VMs, the first test can otherwise compare a stale pre-reload monit
-            baseline with fresh post-reload usage and raise a false memory alarm.
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####         Memory Checker      #####
 #######################################
 memory_checker/test_memory_checker.py::test_memory_checker:
