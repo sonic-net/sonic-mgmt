@@ -304,8 +304,8 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     # Verify ecnconfig status on lossless queue
     test_prio_list = lossless_prio_list
-    if not test_prio_list:
-        pytest.skip("Skipping ECN queue toggle test: no lossless priorities found "
+    if test_prio_list is None:
+        pytest.skip("Skipping ECN queue toggle test: no lossless priorities found, "
                     "pfc_enable not set on device. ")
     for prio in test_prio_list:
         cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
