@@ -80,8 +80,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
 
 @pytest.fixture(name="setUp", scope="module")
-def fixture_setUp_vxlan_vnet_routes(duthosts,
-                                    rand_one_dut_hostname,
+def fixture_setUp_vxlan_vnet_routes(rand_selected_dut,
                                     tbinfo,
                                     ptfadapter,
                                     prepare_test_port,
@@ -103,7 +102,7 @@ def fixture_setUp_vxlan_vnet_routes(duthosts,
     data['ptf_dst_ports'] = ptf_dst_ports
     data['dut_port'] = dut_port
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = rand_selected_dut
     minigraph_data = duthost.get_extended_minigraph_facts(tbinfo)
     data['minigraph_facts'] = minigraph_data
     data['tbinfo'] = tbinfo
@@ -367,19 +366,18 @@ def del_acl_tables(duthost):
 
 
 @pytest.fixture(scope='function')
-def acl_table_setup_and_cleanup(setUp, duthost, encap_type):
+def acl_table_setup_and_cleanup(setUp, rand_selected_dut, encap_type):
     """
     Fixture to setup ACL tables and ensure cleanup always happens.
     Yields the table name (TABLE_V4 or TABLE_V6) based on encap_type.
     """
     setUp_vnet = setUp
     # Save current ACL counterpoll interval for teardown restore
-    original_interval = duthost.get_counter_poll_status()['ACL']['interval']
+    original_interval = rand_selected_dut.get_counter_poll_status()['ACL']['interval']
 
     # Enable acl counter and reduce interval to 1s
-    duthost.shell('counterpoll acl interval 1000')
-    
-    setup_acl_tables(duthost, setUp_vnet)
+    rand_selected_dut.shell('counterpoll acl interval 1000')
+    setup_acl_tables(rand_selected_dut, setUp_vnet)
 
     if 'v4_in' in encap_type:
         table = TABLE_V4
@@ -389,10 +387,11 @@ def acl_table_setup_and_cleanup(setUp, duthost, encap_type):
     yield table
 
     # Restore ACL counterpoll interval to pre-test value
-    duthost.set_counter_poll_interval('ACL', original_interval, wait_for_new_interval=False)
+    rand_selected_dut.set_counter_poll_interval(
+        'ACL', original_interval, wait_for_new_interval=False)
 
     Logger.info("Cleaning up ACL tables")
-    del_acl_tables(duthost)
+    del_acl_tables(rand_selected_dut)
 
 
 def parse_matchfields(match_fields=None, separator=':'):
@@ -580,18 +579,18 @@ def verify_acl_rules(setup_vnet, duthost, encap_type, expectedDscp, match_fields
     testutils.verify_packet_any_port(test=setup_vnet['ptfadapter'], pkt=exp_pkt, ports=setup_vnet['ptf_dst_ports'])
 
 
-def test_acl_create_delete_tables(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_create_delete_tables(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
     dstip = list(setUp_vnet[encap_type]['dest_to_nh_map'][vnet].keys())[0]
     mask = ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]
     dstPrefix = dstip + '/' + str(mask)
-    create_acl_rule(duthost, TABLE, '1', '9999', str(40), dstPrefix)
-    verify_acl_rules(setUp_vnet, duthost, encap_type, 40)
+    create_acl_rule(rand_selected_dut, TABLE, '1', '9999', str(40), dstPrefix)
+    verify_acl_rules(setUp_vnet, rand_selected_dut, encap_type, 40)
 
 
-def test_acl_rules_with_different_dscp(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_rules_with_different_dscp(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
@@ -623,7 +622,7 @@ def test_acl_rules_with_different_dscp(setUp, duthost, encap_type, acl_table_set
         ]
 
     for rule in rules:
-        create_acl_rule(duthost,
+        create_acl_rule(rand_selected_dut,
                         TABLE,
                         rule['rule_id'],
                         rule['priority'],
@@ -631,13 +630,13 @@ def test_acl_rules_with_different_dscp(setUp, duthost, encap_type, acl_table_set
                         dstPrefix, rule['match'])
     for rule in rules:
         verify_acl_rules(setUp_vnet,
-                         duthost,
+                         rand_selected_dut,
                          encap_type,
                          int(rule['dscp_action']),
                          rule['match'])
 
 
-def test_acl_rule_with_different_match_fields(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_rule_with_different_match_fields(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
@@ -664,11 +663,11 @@ def test_acl_rule_with_different_match_fields(setUp, duthost, encap_type, acl_ta
         rule_id = str(idx)
         priority = str(100 * idx)
         dscp_action = str(5 * idx)
-        create_acl_rule(duthost, TABLE, rule_id, priority, dscp_action, dstPrefix, match_fields)
-        verify_acl_rules(setUp_vnet, duthost, encap_type, int(dscp_action), match_fields)
+        create_acl_rule(rand_selected_dut, TABLE, rule_id, priority, dscp_action, dstPrefix, match_fields)
+        verify_acl_rules(setUp_vnet, rand_selected_dut, encap_type, int(dscp_action), match_fields)
 
 
-def test_acl_rules_with_same_dscp(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_rules_with_same_dscp(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
@@ -694,7 +693,7 @@ def test_acl_rules_with_same_dscp(setUp, duthost, encap_type, acl_table_setup_an
         ]
 
     for rule in rules:
-        create_acl_rule(duthost,
+        create_acl_rule(rand_selected_dut,
                         TABLE,
                         rule['rule_id'],
                         rule['priority'],
@@ -703,13 +702,13 @@ def test_acl_rules_with_same_dscp(setUp, duthost, encap_type, acl_table_setup_an
                         rule['match'])
     for rule in rules:
         verify_acl_rules(setUp_vnet,
-                         duthost,
+                         rand_selected_dut,
                          encap_type,
                          int(rule['dscp_action']),
                          rule['match'])
 
 
-def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_rule_deletion(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
@@ -740,7 +739,7 @@ def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_clean
     # Configure all 4 rules
     Logger.info("Configuring 4 ACL rules")
     for rule in rules:
-        create_acl_rule(duthost,
+        create_acl_rule(rand_selected_dut,
                         TABLE,
                         rule['rule_id'],
                         rule['priority'],
@@ -752,21 +751,21 @@ def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_clean
     Logger.info("Verifying all 4 rules apply DSCP rewrite correctly")
     for rule in rules:
         verify_acl_rules(setUp_vnet,
-                         duthost,
+                         rand_selected_dut,
                          encap_type,
                          int(rule['dscp_action']),
                          rule['match'])
 
     # Delete rule 2
     Logger.info("Deleting rule 2 (DSCP action 25)")
-    del_acl_rule(duthost, TABLE, '2')
+    del_acl_rule(rand_selected_dut, TABLE, '2')
 
     # Verify rule 2 no longer applies DSCP rewrite (should have default DSCP 33)
     Logger.info("Verifying deleted rule 2 no longer applies DSCP rewrite (expecting default DSCP 33)")
     deleted_rule = rules[1]
     rules.pop(1)
     verify_acl_rules(setUp_vnet,
-                     duthost,
+                     rand_selected_dut,
                      encap_type,
                      33,
                      deleted_rule['match'])
@@ -774,14 +773,14 @@ def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_clean
     # Verify remaining 3 rules still work
     for rule in rules:
         verify_acl_rules(setUp_vnet,
-                         duthost,
+                         rand_selected_dut,
                          encap_type,
                          int(rule['dscp_action']),
                          rule['match'])
 
     # Re-add rule 2 and verify DSCP rewrite applies again
     Logger.info("Re-adding deleted rule 2 (DSCP action 25)")
-    create_acl_rule(duthost,
+    create_acl_rule(rand_selected_dut,
                     TABLE,
                     deleted_rule['rule_id'],
                     deleted_rule['priority'],
@@ -790,13 +789,13 @@ def test_acl_rule_deletion(setUp, duthost, encap_type, acl_table_setup_and_clean
                     deleted_rule['match'])
     Logger.info("Verifying re-added rule 2 applies DSCP rewrite correctly")
     verify_acl_rules(setUp_vnet,
-                     duthost,
+                     rand_selected_dut,
                      encap_type,
                      int(deleted_rule['dscp_action']),
                      deleted_rule['match'])
 
 
-def test_acl_rule_no_match_default_dscp(setUp, duthost, encap_type, acl_table_setup_and_cleanup):
+def test_acl_rule_no_match_default_dscp(setUp, rand_selected_dut, encap_type, acl_table_setup_and_cleanup):
     setUp_vnet = setUp
     TABLE = acl_table_setup_and_cleanup
     vnet = list(setUp_vnet[encap_type]['vnet_vni_map'].keys())[0]
@@ -818,9 +817,9 @@ def test_acl_rule_no_match_default_dscp(setUp, duthost, encap_type, acl_table_se
 
     Logger.info("Creating ACL rules")
     for rule in rules:
-        create_acl_rule(duthost, TABLE, rule['rule_id'], rule['priority'],
+        create_acl_rule(rand_selected_dut, TABLE, rule['rule_id'], rule['priority'],
                         rule['dscp_action'], dstPrefix, rule['match'])
 
     # Verify traffic that doesn't match any rule gets default DSCP 33
     Logger.info("Verifying non-matching traffic uses default DSCP 33")
-    verify_acl_rules(setUp_vnet, duthost, encap_type, 33)
+    verify_acl_rules(setUp_vnet, rand_selected_dut, encap_type, 33)
