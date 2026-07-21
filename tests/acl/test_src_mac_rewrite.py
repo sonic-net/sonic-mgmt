@@ -87,9 +87,13 @@ def _check_acl_counter_updated(dut, tbl, rule, prev):
     return False
 
 
+def _vnet_route_state_db_key(vnet, prefix):
+    return "VNET_ROUTE_TUNNEL_TABLE|{}|{}".format(vnet, prefix)
+
+
 def _check_vnet_route(duthost, vnet=VNET_PRIMARY_NAME, prefix=VNET_PRIMARY_ROUTE_PREFIX):
     result = duthost.shell(
-        "redis-cli -n 6 HGET 'VNET_ROUTE_TUNNEL_TABLE|{}|{}' 'state'".format(vnet, prefix),
+        "redis-cli -n 6 HGET '{}' 'state'".format(_vnet_route_state_db_key(vnet, prefix)),
         module_ignore_errors=True
     )["stdout"]
     return result.strip().lower() == "active"
@@ -98,6 +102,15 @@ def _check_vnet_route(duthost, vnet=VNET_PRIMARY_NAME, prefix=VNET_PRIMARY_ROUTE
 def _check_vxlan_tunnel_config(duthost, tunnel_name):
     result = duthost.show_and_parse('show vxlan tunnel')
     return any(entry.get('vxlan tunnel name') == tunnel_name for entry in result)
+
+
+def _get_vxlan_tunnel_src_ip(duthost, tunnel_name):
+    """Fetch the VXLAN tunnel's source IP via CLI ('show vxlan tunnel' has a 'source ip' column)."""
+    result = duthost.show_and_parse('show vxlan tunnel')
+    for entry in result:
+        if entry.get('vxlan tunnel name') == tunnel_name:
+            return entry.get('source ip', '').strip()
+    return None
 
 
 def _check_vxlan_switch_config(duthost):
@@ -259,7 +272,9 @@ def fixture_setUp(request, rand_selected_dut, tbinfo, ptfadapter):
     # Wait for VNET route to be active in STATE_DB (confirms orchagent programmed it)
     if not wait_until(60, 5, 5, _check_vnet_route, rand_selected_dut):
         vnet_route_state = rand_selected_dut.shell(
-            f"redis-cli -n 6 HGETALL 'VNET_ROUTE_TUNNEL_TABLE|{VNET_PRIMARY_NAME}|{VNET_PRIMARY_ROUTE_PREFIX}'",
+            "redis-cli -n 6 HGETALL '{}'".format(
+                _vnet_route_state_db_key(VNET_PRIMARY_NAME, VNET_PRIMARY_ROUTE_PREFIX)
+            ),
             module_ignore_errors=True
         )["stdout"]
         logger.error("STATE_DB VNET route entry:\n%s", vnet_route_state)
@@ -285,7 +300,9 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
             try:
                 return int(pkt_count)
             except ValueError:
-                logger.warning(f"ACL counter for {table_name}|{rule_name} has unexpected value: '{pkt_count}', returning 0")
+                logger.warning(
+                    f"ACL counter for {table_name}|{rule_name} has unexpected value: '{pkt_count}', returning 0"
+                )
                 return 0
 
     pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
@@ -405,7 +422,7 @@ def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     # Verify the rule is still active in STATE_DB (confirms orchagent re-programmed it)
     logger.info("Verifying ACL rule is still active in STATE_DB after modification...")
     pytest_assert(wait_until(30, 5, 2, _check_acl_rule_active, duthost, ACL_TABLE_NAME, "rule_1"),
-                  f"ACL rule rule_1 is not active in STATE_DB after modification")
+                  "ACL rule rule_1 is not active in STATE_DB after modification")
 
     logger.info("ACL rule successfully modified to use MAC: %s", new_src_mac)
 
@@ -604,11 +621,11 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     assert that the inner src MAC is not equal to rewrite_mac.
     """
     router_mac = duthost.facts["router_mac"]
-    dut_vtep_ip = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'VXLAN_TUNNEL|tunnel_v4' src_ip"
-    )["stdout"].strip()
-    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in CONFIG_DB")
-    # vxlan_router_mac is the MAC the ASIC uses as inner eth_src/dst before any ACL rewrite
+    dut_vtep_ip = _get_vxlan_tunnel_src_ip(duthost, "tunnel_v4")
+    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in 'show vxlan tunnel' output")
+    # vxlan_router_mac is the MAC the ASIC uses as inner eth_src/dst before any ACL rewrite.
+    # No CLI equivalent exists for this field ('show vxlan --help' subcommands don't expose
+    # it); confirmed distinct from router_mac on Cisco-8000. Verified on DUT.
     vxlan_router_mac = duthost.shell(
         "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
     )["stdout"].strip()
@@ -645,7 +662,8 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     masked_pkt.set_do_not_care_scapy(IP, 'chksum')
     masked_pkt.set_do_not_care_scapy(UDP, 'sport')
     masked_pkt.set_do_not_care_scapy(UDP, 'chksum')
-    masked_pkt.set_do_not_care(448, 48)               # inner eth src — masked for dp_poll matching, checked explicitly below
+    # inner eth src — masked for dp_poll matching, checked explicitly below
+    masked_pkt.set_do_not_care(448, 48)
     masked_pkt.set_do_not_care(800, 16)               # inner TCP checksum
     masked_pkt.set_do_not_care(832, 368)              # inner TCP payload
     masked_pkt.set_ignore_extra_bytes()
@@ -694,12 +712,11 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
                                  src_ip, dst_ip, orig_src_mac, expected_inner_src_mac,
                                  table_name, rule_name, vni=VXLAN_VNI):
     router_mac = duthost.facts["router_mac"]
-    dut_vtep_ip = duthost.shell(
-        "sonic-db-cli CONFIG_DB HGET 'VXLAN_TUNNEL|tunnel_v4' src_ip"
-    )["stdout"].strip()
-    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in CONFIG_DB")
+    dut_vtep_ip = _get_vxlan_tunnel_src_ip(duthost, "tunnel_v4")
+    pytest_assert(dut_vtep_ip, "VXLAN tunnel src_ip is empty in 'show vxlan tunnel' output")
     # vxlan_router_mac is the MAC the ASIC uses as inner eth_dst (and default inner eth_src
-    # before ACL rewrite) — distinct from router_mac on Cisco-8000
+    # before ACL rewrite) — distinct from router_mac on Cisco-8000. No CLI equivalent exists
+    # for this field ('show vxlan --help' subcommands don't expose it). Verified on DUT.
     vxlan_router_mac = duthost.shell(
         "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
     )["stdout"].strip()
@@ -918,6 +935,7 @@ def test_partial_match(setUp):
         except Exception as e:
             logger.warning(f"Cleanup failed: {e}")
 
+
 def test_multiple_acl_rules(setUp):
     """
     Test two ACL rules with different source IPs, same VNI, and unique priorities.
@@ -1014,8 +1032,14 @@ def test_multiple_acl_rules(setUp):
 
         # Summary
         logger.info("=== Test Summary ===")
-        logger.info(f"Rule 1 ({test_src_ip_1}): {counter_1_before} -> {counter_1_final} (increment: {counter_1_final - counter_1_before})")
-        logger.info(f"Rule 2 ({test_src_ip_2}): {counter_2_before} -> {counter_2_final} (increment: {counter_2_final - counter_2_before})")
+        logger.info(
+            f"Rule 1 ({test_src_ip_1}): {counter_1_before} -> {counter_1_final} "
+            f"(increment: {counter_1_final - counter_1_before})"
+        )
+        logger.info(
+            f"Rule 2 ({test_src_ip_2}): {counter_2_before} -> {counter_2_final} "
+            f"(increment: {counter_2_final - counter_2_before})"
+        )
 
         logger.info("=== Multiple ACL rules test completed successfully ===")
 
