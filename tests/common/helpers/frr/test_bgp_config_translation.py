@@ -85,6 +85,22 @@ def test_globals_and_router_id():
     assert "default|ipv6_unicast|fc00:1::32/128" in out["BGP_GLOBALS_AF_NETWORK"]
 
 
+def test_ebgp_requires_policy_translated_from_running_config():
+    # 'no bgp ebgp-requires-policy' in the running config -> BGP_GLOBALS ebgp_requires_policy=false
+    running = "\n".join([
+        "router bgp 65100",
+        " no bgp ebgp-requires-policy",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["BGP_GLOBALS"]["default"]["ebgp_requires_policy"] == "false"
+
+
+def test_ebgp_requires_policy_absent_when_not_in_running_config():
+    # Not present in running config -> field is not set (frrcfgd leaves FRR's default).
+    out = translate_config_db(_base_config_db(), "", _peer_group_json())
+    assert "ebgp_requires_policy" not in out["BGP_GLOBALS"]["default"]
+
+
 def test_peer_groups_built():
     out = translate_config_db(_base_config_db(), "", _peer_group_json())
     assert out["BGP_PEER_GROUP"]["default|PEER_V4"]["local_asn"] == "65100"
@@ -319,14 +335,14 @@ def test_raises_on_unexpected_wcmp_value():
 
 
 # --------------------------------------------------------------------------- #
-# route-map 'on-match next' (continue-flow) — tolerate the allow-list idiom,
-# fail loud otherwise (frrcfgd has no representation for it).
+# route-map 'on-match next' / 'on-match goto <seq>' (continue-flow) — translated to
+# frrcfgd's set_on_match_action enum (+ set_on_match_goto). See sonic-buildimage#28482.
 # --------------------------------------------------------------------------- #
 
-def test_on_match_next_tolerated_in_from_bgp_framework():
+def test_on_match_next_translated():
     # bgpcfgd FROM_BGP_* inbound maps use 'on-match next' both with a 'call' (allow-list
-    # framework) and standalone (set ipv6 next-hop prefer-global). Dropping it is benign
-    # on the baseline permit path, so translation must NOT raise for FROM_BGP_* maps.
+    # framework) and standalone (set ipv6 next-hop prefer-global). Both translate to
+    # set_on_match_action ON_MATCH_NEXT.
     running = "\n".join([
         "route-map FROM_BGP_PEER_V6 permit 1",
         " on-match next",
@@ -337,27 +353,41 @@ def test_on_match_next_tolerated_in_from_bgp_framework():
         "route-map FROM_BGP_PEER_V6 permit 100",
     ])
     out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    rm1 = out["ROUTE_MAP"]["FROM_BGP_PEER_V6|1"]
+    assert rm1["set_ipv6_next_hop_prefer_global"] == "true"
+    assert rm1["set_on_match_action"] == "ON_MATCH_NEXT"
     rm10 = out["ROUTE_MAP"]["FROM_BGP_PEER_V6|10"]
     assert rm10["call_route_map"] == "ALLOW_LIST_DEPLOYMENT_ID_0_V6"
-    assert "on_match" not in rm10 and "on-match" not in rm10   # not emitted (unrepresentable)
+    assert rm10["set_on_match_action"] == "ON_MATCH_NEXT"
 
 
-def test_on_match_next_outside_framework_raises():
-    # 'on-match next' anywhere other than the FROM_BGP_* framework maps fails loud.
+def test_on_match_next_translated_outside_framework():
+    # 'on-match next' anywhere (not just FROM_BGP_* maps) is now faithfully translated.
     running = "\n".join([
         "route-map RM_X permit 10",
         " match community CL1",
         " on-match next",
     ])
-    with pytest.raises(FrrTranslationError):
-        translate_config_db(_base_config_db(), running, _peer_group_json())
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["ROUTE_MAP"]["RM_X|10"]["set_on_match_action"] == "ON_MATCH_NEXT"
 
 
-def test_on_match_goto_raises():
+def test_on_match_goto_translated():
     running = "\n".join([
         "route-map RM_X permit 10",
         " call SOMETHING",
         " on-match goto 30",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    rm = out["ROUTE_MAP"]["RM_X|10"]
+    assert rm["set_on_match_action"] == "ON_MATCH_GOTO"
+    assert rm["set_on_match_goto"] == "30"
+
+
+def test_on_match_unrecognized_raises():
+    running = "\n".join([
+        "route-map RM_X permit 10",
+        " on-match bogus",
     ])
     with pytest.raises(FrrTranslationError):
         translate_config_db(_base_config_db(), running, _peer_group_json())

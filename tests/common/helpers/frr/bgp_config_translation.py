@@ -291,23 +291,16 @@ def _extract_route_maps(running_config, tables):
         elif line == "set ipv6 next-hop prefer-global":
             entry["set_ipv6_next_hop_prefer_global"] = "true"
         elif line == "on-match next":
-            # frrcfgd's route-map model has no representation for continue-flow
-            # ('on-match next'/'goto'). It appears throughout the bgpcfgd-generated
-            # FROM_BGP_* inbound maps (the allow-list framework's 'call ...; on-match
-            # next', and the 'set ipv6 next-hop prefer-global; on-match next' entry),
-            # where dropping it is benign for the baseline permit path (the allow-list
-            # test itself is skipped in frr mode). Tolerate it in those framework maps;
-            # fail loud anywhere else so a policy that genuinely depends on continue-flow
-            # is never silently mistranslated.
-            if not current[0].startswith("FROM_BGP"):
-                raise FrrTranslationError(
-                    "route-map {} seq {}: 'on-match next' has no frr_mgmt_framework "
-                    "representation (only tolerated in the bgpcfgd FROM_BGP_* framework "
-                    "maps)".format(*current))
+            # frrcfgd models route-map continue-flow via the set_on_match_action enum
+            # (rendered as 'on-match next' / 'on-match goto <seq>'). See sonic-buildimage#28482.
+            entry["set_on_match_action"] = "ON_MATCH_NEXT"
+        elif line.startswith("on-match goto "):
+            entry["set_on_match_action"] = "ON_MATCH_GOTO"
+            entry["set_on_match_goto"] = line.split()[2]
         elif line.startswith("on-match "):
             raise FrrTranslationError(
-                "route-map {} seq {}: {!r} (route-map continue-flow) has no "
-                "frr_mgmt_framework representation".format(current[0], current[1], line))
+                "route-map {} seq {}: {!r} (unrecognized route-map continue-flow form) "
+                "has no frr_mgmt_framework representation".format(current[0], current[1], line))
         # Other match/set clauses are not modeled here; the route-map name is still
         # preserved above, and the fixture asserts name-level preservation.
 
@@ -646,6 +639,12 @@ def translate_config_db(config_db, running_config, peer_group_json):
     route_map_names = set(policy["ROUTE_MAP_SET"].keys())
 
     globals_tbl, af_network = _build_globals(result, bgp_asn, router_id)
+    # bgpcfgd disables ebgp-requires-policy in traditional mode ('no bgp ebgp-requires-policy').
+    # frrcfgd has no unconditional default for this -- it is field-driven -- so carry the setting
+    # into the BGP_GLOBALS row from the actual running config, and frrcfgd renders the same line.
+    # See sonic-buildimage#28482.
+    if any(ln.strip() == "no bgp ebgp-requires-policy" for ln in running_config.splitlines()):
+        globals_tbl[DEFAULT_VRF]["ebgp_requires_policy"] = "false"
     peer_group = _build_peer_groups(bgp_asn, all_pg_names)
     peer_group_af = _build_peer_group_af(ipv4_pg, ipv6_pg, route_map_names)
     _apply_bbr(result, peer_group_af)
