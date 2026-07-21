@@ -141,18 +141,18 @@ class PygnmiClient:
             PygnmiClientConnectionError: If connect is True and the initial
                 connection or mTLS handshake fails.
         """
-        self.host = host
-        self.port = port
-        self.plaintext = plaintext
-        self.ca_cert = ca_cert
-        self.client_cert = client_cert
-        self.client_key = client_key
+        self._host = host
+        self._port = port
+        self._plaintext = plaintext
+        self._ca_cert = ca_cert
+        self._client_cert = client_cert
+        self._client_key = client_key
         self.timeout = timeout
         self._client = None
-        if not self.plaintext:
+        if not self._plaintext:
             self._validate_cert_paths()
         logger.info("Initialized PygnmiClient: host=%s, port=%s, plaintext=%s",
-                    self.host, self.port, self.plaintext)
+                    self._host, self._port, self._plaintext)
         if connect:
             self._ensure_client()
             self.close()
@@ -164,8 +164,8 @@ class PygnmiClient:
         Raises:
             PygnmiClientCallError: If any cert path is missing or not a file.
         """
-        certs = (("ca_cert", self.ca_cert), ("client_cert", self.client_cert),
-                 ("client_key", self.client_key))
+        certs = (("ca_cert", self._ca_cert), ("client_cert", self._client_cert),
+                 ("client_key", self._client_key))
         missing = [name for name, path in certs if not path]
         if missing:
             raise PygnmiClientCallError(
@@ -182,13 +182,13 @@ class PygnmiClient:
             An unconnected ``gNMIclient`` configured for either an insecure
             (plaintext) channel or mutual TLS using the configured cert paths.
         """
-        kwargs = {"target": (self.host, self.port), "gnmi_timeout": self.timeout}
-        if self.plaintext:
+        kwargs = {"target": (self._host, self._port), "gnmi_timeout": self.timeout}
+        if self._plaintext:
             kwargs["insecure"] = True
         else:
-            kwargs["path_root"] = self.ca_cert
-            kwargs["path_cert"] = self.client_cert
-            kwargs["path_key"] = self.client_key
+            kwargs["path_root"] = self._ca_cert
+            kwargs["path_cert"] = self._client_cert
+            kwargs["path_key"] = self._client_key
         return gNMIclient(**kwargs)
 
     def _ensure_client(self) -> gNMIclient:
@@ -680,9 +680,8 @@ class PygnmiClient:
                 break
 
     def __str__(self) -> str:
-        """Return a concise, human-readable summary of the client."""
-        return (f"PygnmiClient(host={self.host}, port={self.port}, "
-                f"plaintext={self.plaintext})")
+        """Return a summary without exposing connection configuration."""
+        return "PygnmiClient()"
 
     def __repr__(self) -> str:
         """Return the same representation as ``__str__``."""
