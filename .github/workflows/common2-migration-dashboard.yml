@@ -73,6 +73,18 @@ jobs:
             --markdown-out dashboard-out/migration_dashboard.md \
             --json-out dashboard-out/migration_dashboard.json
 
+      - name: Upload dashboard artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-dashboard-artifacts
+          path: |
+            dashboard-out/migration_dashboard.md
+            dashboard-out/migration_dashboard.json
+            dashboard-out/migration_dashboard.yaml
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Publish report to run summary
         if: always()
         run: |
@@ -81,6 +93,11 @@ jobs:
           else
             echo "Dashboard report was not generated." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Downloadable artifacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Artifact: migration-dashboard-artifacts (contains migration_dashboard.md, migration_dashboard.json, and migration_dashboard.yaml)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Get GitHub App token
         id: app-token

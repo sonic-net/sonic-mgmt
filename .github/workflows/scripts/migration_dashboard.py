@@ -810,6 +810,24 @@ def build_markdown_lines(
         "by `.github/workflows/scripts/migration_dashboard.py`._"
     )
     lines.append("")
+
+    server = os.getenv("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    repository = os.getenv("GITHUB_REPOSITORY", "").strip()
+    run_id = os.getenv("GITHUB_RUN_ID", "").strip()
+    run_attempt = os.getenv("GITHUB_RUN_ATTEMPT", "").strip()
+    if repository and run_id:
+        run_url = f"{server}/{repository}/actions/runs/{run_id}"
+        if run_attempt:
+            run_url += f"/attempts/{run_attempt}"
+        lines.append("## Run details")
+        lines.append("")
+        lines.append(f"- Workflow run: [{run_url}]({run_url})")
+        lines.append(
+            "- Downloadable artifacts: the workflow uploads a bundled artifact named "
+            "**migration-dashboard-artifacts** with the Markdown, JSON, and YAML reports."
+        )
+        lines.append("")
+
     lines.append("## Summary")
     lines.append("")
     lines.append(f"- Modules available to migrate: **{len(tasks)}**")

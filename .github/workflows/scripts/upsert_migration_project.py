@@ -39,7 +39,29 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 # built-in card **Title** (which holds the module path), so no dedicated
 # "Module" column is needed.
 
-DASHBOARD_PATH = "https://github.com/opcoder023/sonic-mgmt/blob/common-to-common2-migration-plan/.github/workflows/scripts/migration_dashboard.md"  # noqa: E501
+DEFAULT_DASHBOARD_PATH = (
+    "https://github.com/opcoder023/sonic-mgmt/blob/"
+    "common-to-common2-migration-plan/.github/workflows/scripts/"
+    "migration_dashboard.md"
+)
+
+
+def build_dashboard_path() -> str:
+    """Return the workflow run URL when available, else fall back to the repo blob."""
+    server = os.getenv("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+    repository = os.getenv("GITHUB_REPOSITORY", "").strip()
+    run_id = os.getenv("GITHUB_RUN_ID", "").strip()
+    run_attempt = os.getenv("GITHUB_RUN_ATTEMPT", "").strip()
+
+    if repository and run_id:
+        url = f"{server}/{repository}/actions/runs/{run_id}"
+        if run_attempt:
+            url += f"/attempts/{run_attempt}"
+        return url
+    return DEFAULT_DASHBOARD_PATH
+
+
+DASHBOARD_PATH = build_dashboard_path()
 
 TEXT_FIELDS = {
     # column name -> function producing the string from a task dict
