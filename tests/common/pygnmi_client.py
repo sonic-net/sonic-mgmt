@@ -12,6 +12,7 @@ request surface.
 """
 import logging
 import os
+import sys
 import time
 from collections.abc import Iterable, Iterator
 from enum import StrEnum
@@ -510,24 +511,78 @@ class PygnmiClient:
             PygnmiClientTimeoutError: If a per-call deadline fires or ONCE never
                 sends sync_response.
         """
+        subscriber = None
+        close_subscriber = None
         try:
             gc = self._ensure_client()
             subscriber = gc.subscribe2(subscribe=request, target=target,
                                        extension=extension)
-            try:
-                if mode == SubscribeMode.ONCE:
-                    yield from self._iter_once(subscriber)
-                elif mode == SubscribeMode.POLL:
-                    yield from self._iter_poll(subscriber, poll_count, poll_interval)
-                else:
-                    yield from self._iter_stream(subscriber, collect_seconds, count)
-            finally:
-                subscriber.close()
+            close_subscriber = self._prepare_subscription_shutdown(subscriber)
+            if mode == SubscribeMode.ONCE:
+                yield from self._iter_once(subscriber)
+            elif mode == SubscribeMode.POLL:
+                yield from self._iter_poll(subscriber, poll_count, poll_interval)
+            else:
+                yield from self._iter_stream(subscriber, collect_seconds, count)
         except (grpc.RpcError, grpc.FutureTimeoutError, gNMIException,
                 TimeoutError, PygnmiClientError) as exc:
             raise self._map_error(exc, "subscribe") from exc
         finally:
-            self.close()
+            if close_subscriber is not None:
+                close_subscriber()
+            else:
+                self.close()
+
+    def _prepare_subscription_shutdown(self, subscriber):
+        """Return a closer that drains pygnmi's receiver thread without noise.
+
+        pygnmi 0.8.15 cannot cancel its internal Subscribe call directly. Its
+        subscriber closes only the request iterator, leaving the receive thread
+        blocked until the channel closes. Marking that wrapper-owned shutdown
+        lets us ignore only its expected terminal RPC error and join the thread
+        before returning to the test.
+        """
+        thread = getattr(subscriber, "_subscribe_thread", None)
+        closing = [False]
+
+        if thread is not None and hasattr(thread, "_invoke_excepthook"):
+            invoke_excepthook = thread._invoke_excepthook
+
+            def invoke_subscription_excepthook(thread):
+                error = sys.exc_info()[1]
+                if closing[0] and self._is_expected_subscription_shutdown(error):
+                    logger.debug("Ignoring expected gNMI subscription shutdown: %s", error)
+                    return
+                invoke_excepthook(thread)
+
+            thread._invoke_excepthook = invoke_subscription_excepthook
+
+        def close_subscriber():
+            closing[0] = True
+            try:
+                subscriber.close()
+            finally:
+                self.close()
+                if thread is not None:
+                    thread.join(self.timeout)
+                    if thread.is_alive():
+                        raise PygnmiClientTimeoutError(
+                            "gNMI subscription receiver did not stop after channel close")
+
+        return close_subscriber
+
+    @staticmethod
+    def _is_expected_subscription_shutdown(error):
+        """Return whether an RPC error is caused by wrapper-owned shutdown."""
+        if not isinstance(error, grpc.RpcError):
+            return False
+        code = error.code()
+        details = (error.details() or "").lower()
+        channel_closed = (code == grpc.StatusCode.CANCELLED
+                          and details == "channel closed!")
+        queue_disposed = (code == grpc.StatusCode.INVALID_ARGUMENT
+                          and details == "queue: disposed")
+        return channel_closed or queue_disposed
 
     def _iter_stream(self, subscriber, collect_seconds, count=None):
         """

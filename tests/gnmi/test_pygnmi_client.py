@@ -1,5 +1,8 @@
 """Integration tests for the PygnmiClient gNMI client via the gnmi_tls fixture."""
 import logging
+import threading
+
+import grpc
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
@@ -329,3 +332,116 @@ def test_get_requires_paths():
     """Test get() rejects an empty path list before connecting."""
     with pytest.raises(PygnmiClientCallError, match="at least one path"):
         _offline_client().get([])
+
+
+@pytest.mark.parametrize(
+    "status, details",
+    [
+        (grpc.StatusCode.CANCELLED, "Channel closed!"),
+        (grpc.StatusCode.INVALID_ARGUMENT, "queue: disposed"),
+    ],
+)
+def test_subscribe_closes_receiver_without_unhandled_exception(monkeypatch, status, details):
+    """Test wrapper-owned shutdown absorbs pygnmi's terminal RPC errors."""
+    channel_closed = threading.Event()
+    unhandled = []
+
+    class ExpectedShutdownError(grpc.RpcError):
+        def code(self):
+            return status
+
+        def details(self):
+            return details
+
+    class FakeSubscriber:
+        def __init__(self):
+            self._subscribe_thread = threading.Thread(target=self._receive)
+            self._subscribe_thread.start()
+
+        def _receive(self):
+            channel_closed.wait(timeout=1)
+            raise ExpectedShutdownError()
+
+        def get_update(self, timeout):
+            return {"update": {}}
+
+        def close(self):
+            self._subscribe_thread.join(0.01)
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            self.subscriber = FakeSubscriber()
+            return self.subscriber
+
+        def close(self):
+            channel_closed.set()
+
+    fake_client = FakeGnmiClient()
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: fake_client)
+    monkeypatch.setattr(threading, "excepthook", lambda args: unhandled.append(args.exc_value))
+
+    subscription = _offline_client().subscribe("path", collect_seconds=30)
+    result = next(subscription)
+    subscription.close()
+
+    assert result == {"update": {}}
+    assert not fake_client.subscriber._subscribe_thread.is_alive()
+    assert unhandled == []
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("unexpected receiver failure"),
+        type(
+            "UnexpectedCancellation",
+            (grpc.RpcError,),
+            {
+                "code": lambda self: grpc.StatusCode.CANCELLED,
+                "details": lambda self: "server cancelled request",
+            },
+        )(),
+    ],
+)
+def test_subscribe_reports_unexpected_receiver_exception(monkeypatch, error):
+    """Test wrapper-owned shutdown does not hide unrelated receiver errors."""
+    channel_closed = threading.Event()
+    unhandled = []
+
+    class FakeSubscriber:
+        def __init__(self):
+            self._subscribe_thread = threading.Thread(target=self._receive)
+            self._subscribe_thread.start()
+
+        def _receive(self):
+            channel_closed.wait(timeout=1)
+            raise error
+
+        def get_update(self, timeout):
+            return {"update": {}}
+
+        def close(self):
+            self._subscribe_thread.join(0.01)
+
+    class FakeGnmiClient:
+        def connect(self):
+            pass
+
+        def subscribe2(self, **kwargs):
+            self.subscriber = FakeSubscriber()
+            return self.subscriber
+
+        def close(self):
+            channel_closed.set()
+
+    fake_client = FakeGnmiClient()
+    monkeypatch.setattr("tests.common.pygnmi_client.gNMIclient", lambda **kwargs: fake_client)
+    monkeypatch.setattr(threading, "excepthook", lambda args: unhandled.append(args.exc_value))
+
+    list(_offline_client().subscribe("path", count=1, collect_seconds=1))
+
+    assert len(unhandled) == 1
+    assert unhandled[0] is error
