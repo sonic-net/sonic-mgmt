@@ -64,8 +64,6 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
-# No explicit "sudo" prefix: duthost.command() runs with Ansible become=True (root) on the DUT.
-CONFIG_INTERFACE = "config interface"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -92,12 +90,6 @@ CLI_ERROR_DETAIL_MAX_CHARS = 200
 # hardware from the port name alone, so no ASIC scoping is needed.  (Note
 # ``sfputil read-eeprom``/``eeprom-hexdump`` do use ``-n``, but it is the
 # ``--page`` option, unrelated to namespaces.)
-#
-# ``config interface`` places its ``-n <namespace>`` BEFORE the startup/shutdown
-# subcommand (``config interface -n asic0 shutdown Ethernet0``), unlike the
-# ``show``/``sfputil`` families above which append ``-n`` at the end — so callers
-# must insert the namespace flag in the correct position (but can still reuse
-# ``_ns_flag`` for the string itself).
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -187,39 +179,9 @@ def show_interfaces_transceiver_presence_cmd(port=None, namespace=None):
     return cmd
 
 
-def config_interface_shutdown_cmd(port, namespace=None):
-    """Return ``config interface [-n <namespace>] shutdown <port>``."""
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {port}"
-
-
-def config_interface_startup_cmd(port, namespace=None):
-    """Return ``config interface [-n <namespace>] startup <port>``."""
-    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {port}"
-
-
 # ──────────────────────────────────────────────────────────────────────
 # Parsed wrappers (run + rc check + empty check + parse → (parsed, err))
 # ──────────────────────────────────────────────────────────────────────
-
-
-def _cli_failure_detail(cmd, result):
-    """Format a short single-line failure string for a non-zero-rc CLI result.
-
-    sfputil writes its error text to STDOUT (not stderr) on a non-zero exit —
-    verified on hardware: ``Error: invalid port ...`` and ``Root privileges are
-    required`` both land on stdout with an empty stderr.  The message therefore
-    surfaces stdout (and stderr too, for any command that does use it); both
-    are truncated because some sfputil errors dump the full 500+ port list.
-    """
-    stdout = " ".join(result.get("stdout_lines") or []).strip()
-    stderr = " ".join((result.get("stderr") or "").splitlines()).strip()
-    parts = []
-    if stdout:
-        parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
-    if stderr:
-        parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
-    detail = "; ".join(parts) if parts else "no stdout/stderr"
-    return f"{cmd} failed with rc={result.get('rc')} ({detail})"
 
 
 def _run_and_parse(duthost, cmd, parser=None):
@@ -234,40 +196,41 @@ def _run_and_parse(duthost, cmd, parser=None):
     ``cmd`` is echoed verbatim into the error message, so it doubles as the
     human-readable label (e.g. ``sfputil show eeprom -p Ethernet0``).
 
+    sfputil writes its error text to STDOUT (not stderr) on a non-zero exit —
+    verified on hardware: ``Error: invalid port ...`` and ``Root privileges are
+    required`` both land on stdout with an empty stderr.  The failure message
+    therefore surfaces stdout (and stderr too, for any command that does use
+    it); both are truncated because some sfputil errors dump the full 500+ port
+    list.
+
     Contract note: on rc 0 this intentionally does NOT gate on the parser
     recognizing any rows — non-zero rc and empty stdout are the only failure
-    signals here. A command that exits 0 while printing an unparseable error
+    signals here.  A command that exits 0 while printing an unparseable error
     banner returns ``(parser(stdout_lines), None)`` (typically an empty / rowless
     result); catching that is the caller's responsibility via the suite-wide
     per-port aggregation — the per-port tests treat a missing ``parsed[port]`` /
     field as a failure, and TC8 (``test_error_handling.py``) compares the parsed
     status against the exact ``"Not present"`` / ``"SFP EEPROM not detected"``
-    tokens. Keeping the "recognized row" check in the callers lets this pipeline
+    tokens.  Keeping the "recognized row" check in the callers lets this pipeline
     stay generic across the CLIs' differing output shapes.
     """
     result = duthost.command(cmd, module_ignore_errors=True)
     if result.get("rc", RC_FAILURE) != 0:
-        return None, _cli_failure_detail(cmd, result)
+        stdout = " ".join(result.get("stdout_lines") or []).strip()
+        stderr = (result.get("stderr") or "").strip()
+        parts = []
+        if stdout:
+            parts.append(f"stdout: {stdout[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+        if stderr:
+            parts.append(f"stderr: {stderr[:CLI_ERROR_DETAIL_MAX_CHARS]}")
+        detail = "; ".join(parts) if parts else "no stdout/stderr"
+        return None, f"{cmd} failed with rc={result.get('rc')} ({detail})"
     stdout_lines = result.get("stdout_lines", [])
     if not stdout_lines:
         return None, f"{cmd} returned empty output"
     if parser is None:
         return stdout_lines, None
     return parser(stdout_lines), None
-
-
-def _run_config_cmd(duthost, cmd):
-    """Run a ``config`` CLI command that produces no stdout on success.
-
-    Returns ``None`` on rc 0, else a short single-line failure string (see
-    ``_cli_failure_detail``). Unlike ``_run_and_parse``, empty stdout is NOT
-    treated as a failure here: a successful ``config interface shutdown`` /
-    ``startup`` intentionally produces no output.
-    """
-    result = duthost.command(cmd, module_ignore_errors=True)
-    if result.get("rc", RC_FAILURE) != 0:
-        return _cli_failure_detail(cmd, result)
-    return None
 
 
 def sfputil_show_eeprom(duthost, port=None):
@@ -324,22 +287,89 @@ def show_interfaces_transceiver_info(duthost, port=None, namespace=None):
     return _run_and_parse(duthost, cmd, parse_eeprom)
 
 
-def config_interface_shutdown(duthost, port, namespace=None):
-    """Run ``config interface [-n <namespace>] shutdown <port>`` → ``err``.
+# ──────────────────────────────────────────────────────────────────────
+# config interface shutdown/startup wrappers (state-mutating; no parse)
+#
+# ``config interface shutdown``/``startup`` accept a comma-separated interface
+# list and emit ``-n <ns>`` only when the namespace is truthy (single-ASIC ->
+# no flag).  They produce NO stdout on success, so they return only ``err``
+# (``None`` on success) rather than a parsed tuple.
+# ──────────────────────────────────────────────────────────────────────
 
-    Returns ``None`` on success, else a short single-line failure string —
-    matching the per-port aggregation pattern used across the transceiver
-    test suite (e.g. ``err = config_interface_shutdown(...); if err: ...``).
+CONFIG_INTERFACE = "config interface"
+
+
+def _join_ports(ports):
+    """Render the interface argument for ``config interface shutdown``/``startup``.
+
+    ``config interface shutdown``/``startup`` accept a comma-separated interface
+    list, so a list/tuple is joined with commas (order preserved) to shut/start
+    many ports in a single command (e.g. ``Ethernet0,Ethernet64,Ethernet128``);
+    a plain string passes through unchanged.
     """
-    cmd = config_interface_shutdown_cmd(port, namespace=namespace)
-    return _run_config_cmd(duthost, cmd)
+    if isinstance(ports, (list, tuple)):
+        return ",".join(ports)
+    return ports
+
+
+def config_interface_shutdown_cmd(port, namespace=None):
+    """Return ``config interface [-n <ns>] shutdown <port>``.
+
+    ``port`` is a single name or a list/tuple of names (joined with commas to
+    shut many ports in one command — see :func:`_join_ports`).
+    """
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} shutdown {_join_ports(port)}"
+
+
+def config_interface_startup_cmd(port, namespace=None):
+    """Return ``config interface [-n <ns>] startup <port>``.
+
+    ``port`` is a single name or a list/tuple of names (joined with commas to
+    start many ports in one command — see :func:`_join_ports`).
+    """
+    return f"{CONFIG_INTERFACE}{_ns_flag(namespace)} startup {_join_ports(port)}"
+
+
+def _run_config_mutation(duthost, cmd):
+    """Run a state-mutating config command → ``err`` (``None`` on success).
+
+    Only the rc is inspected: a successful ``config interface`` invocation prints
+    nothing, so an empty stdout is the SUCCESS case here (the opposite of
+    ``_run_and_parse``).  On a non-zero rc the returned string echoes ``cmd`` plus
+    truncated stdout/stderr, matching the failure-message shape the other
+    wrappers use so callers can aggregate per-port failures uniformly.
+    """
+    result = duthost.command(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        stdout = " ".join(result.get("stdout_lines") or []).strip()
+        stderr = (result.get("stderr") or "").strip()
+        parts = []
+        if stdout:
+            parts.append(f"stdout: {stdout[:200]}")
+        if stderr:
+            parts.append(f"stderr: {stderr[:200]}")
+        detail = "; ".join(parts) if parts else "no stdout/stderr"
+        return f"{cmd} failed with rc={result.get('rc')} ({detail})"
+    return None
+
+
+def config_interface_shutdown(duthost, port, namespace=None):
+    """Run ``config interface [-n <ns>] shutdown <port>`` → ``err`` (``None`` on success).
+
+    ``port`` may be a single name or a list/tuple of names to shut a whole batch
+    in one command.
+    """
+    return _run_config_mutation(
+        duthost, config_interface_shutdown_cmd(port, namespace=namespace)
+    )
 
 
 def config_interface_startup(duthost, port, namespace=None):
-    """Run ``config interface [-n <namespace>] startup <port>`` → ``err``.
+    """Run ``config interface [-n <ns>] startup <port>`` → ``err`` (``None`` on success).
 
-    Returns ``None`` on success, else a short single-line failure string; see
-    ``config_interface_shutdown`` for the return-shape rationale.
+    ``port`` may be a single name or a list/tuple of names to start a whole batch
+    in one command.
     """
-    cmd = config_interface_startup_cmd(port, namespace=namespace)
-    return _run_config_cmd(duthost, cmd)
+    return _run_config_mutation(
+        duthost, config_interface_startup_cmd(port, namespace=namespace)
+    )
