@@ -18,6 +18,7 @@ from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.fixtures.advanced_reboot import ErrorType, set_upgrade_path_error_result_custom_msg
 from pytest_ansible.errors import AnsibleConnectionFailure
 
 
@@ -62,7 +63,7 @@ def copy_acstests_directory(ptfhost):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def copy_ptftests_directory(ptfhost):
+def copy_ptftests_directory(ptfhost, request):
     """
         Copys PTF tests directory to PTF host.
 
@@ -73,7 +74,11 @@ def copy_ptftests_directory(ptfhost):
             None
     """
     logger.info("Copy PTF test files to PTF host '{0}'".format(ptfhost.hostname))
-    ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
+    try:
+        ptfhost.copy(src=PTF_TESTS, dest=ROOT_DIR)
+    except AnsibleConnectionFailure:
+        set_upgrade_path_error_result_custom_msg(request, ErrorType.PTFHOST_SETUP_FAILED)
+        raise
 
     yield
 
