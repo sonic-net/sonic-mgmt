@@ -66,7 +66,7 @@ jobs:
           set -e
           mkdir -p dashboard-out
           # The analyzer uses only the Python standard library (no pip install).
-          python .github/workflows/scripts/migration_dashboard.py \
+          python tools/common2_migration/migration_dashboard.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --max-tier "$MAX_TIER" \
             --top "$TOP" \
@@ -118,7 +118,7 @@ jobs:
           PROJECT_ID: ${{ env.GH_CTOC2_PROJECT_ID }}
         run: |
           set -e
-          python .github/workflows/scripts/upsert_migration_project.py \
+          python tools/common2_migration/upsert_migration_project.py \
             --json dashboard-out/migration_dashboard.json \
             --project-id "$PROJECT_ID" \
             $DRY_RUN

@@ -41,7 +41,7 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
 DEFAULT_DASHBOARD_PATH = (
     "https://github.com/opcoder023/sonic-mgmt/blob/"
-    "common-to-common2-migration-plan/.github/workflows/scripts/"
+    "common-to-common2-migration-plan/tools/common2_migration/"
     "migration_dashboard.md"
 )
 
@@ -87,10 +87,15 @@ def resolve_auth_token() -> str:
     """Resolve the token used for GraphQL mutations.
 
     This mirrors the skip-expiry workflow: prefer the GitHub App token from
-    GITHUB_APP_TOKEN or GH_APP_TOKEN and fall back to the standard
-    GITHUB_TOKEN environment variable.
+    GITHUB_APP_TOKEN or GH_APP_TOKEN, then use the legacy PROJECT_TOKEN if
+    present, and finally fall back to the standard GITHUB_TOKEN environment
+    variable.
     """
     for env_var in ("GITHUB_APP_TOKEN", "GH_APP_TOKEN"):
+        token = os.getenv(env_var, "").strip()
+        if token:
+            return token
+    for env_var in ("PROJECT_TOKEN",):
         token = os.getenv(env_var, "").strip()
         if token:
             return token
