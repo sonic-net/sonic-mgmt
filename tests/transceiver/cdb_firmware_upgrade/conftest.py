@@ -9,13 +9,28 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     get_dut_firmware_base_url,
     prepare_firmware_base_directory_on_dut,
     download_and_validate_firmware_binaries,
+    stage_prestaged_firmware_binaries,
     cleanup_firmware_files,
 )
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
+CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
 
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _cdb_firmware_session_prerequisites(presence_verified, links_verified):
+    """Autouse wrapper that pulls in the session-scoped prerequisite gates
+    consumed by CDB firmware-upgrade tests.
+
+    Requesting ``presence_verified`` and ``links_verified`` ensures both gates
+    run once per session before any CDB firmware test executes; on failure a
+    gate calls ``pytest.skip(...)`` and every CDB firmware test is skipped with
+    a clear reason.
+    """
+    return
 
 
 @pytest.fixture(scope="session")
@@ -25,9 +40,6 @@ def transceiver_firmware_info_parser():
 
     if not firmware_info_parser.transceiver_firmware_info:
         pytest.skip("No transceiver firmware information found, skipping test.")
-
-    if not firmware_info_parser.firmware_base_url_dict:
-        pytest.skip("No firmware base URL found, skipping test.")
 
     return firmware_info_parser
 
@@ -46,30 +58,42 @@ def required_firmware_metadata_for_all_transceivers(
 
 
 @pytest.fixture(scope="module", autouse=True)
-def download_latest_firmware_binaries_on_dut(
+def stage_latest_firmware_binaries_on_dut(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     transceiver_firmware_info_parser,
     required_firmware_metadata_for_all_transceivers
 ):
-    logger.info("Downloading latest CMIS CDB firmware binaries on DUT")
+    logger.info("Staging latest CMIS CDB firmware binaries on DUT")
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    dut_firmware_base_url = get_dut_firmware_base_url(
-        duthost, transceiver_firmware_info_parser.firmware_base_url_dict
-    )
-
-    if not required_firmware_metadata_for_all_transceivers:
+    firmware_metadata = required_firmware_metadata_for_all_transceivers
+    if not firmware_metadata:
         pytest.skip("No transceiver firmware information found, skipping test.")
 
     prepare_firmware_base_directory_on_dut(duthost, CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT)
-    download_and_validate_firmware_binaries(
-        duthost,
-        dut_firmware_base_url,
-        required_firmware_metadata_for_all_transceivers,
-        CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT
-    )
-    logger.info("All latest firmware downloaded to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
+
+    # Mode is chosen by whether a firmware base URL is configured for this inventory:
+    # download mode when present, otherwise pre-staged mode (binaries already on the DUT).
+    firmware_base_url_dict = transceiver_firmware_info_parser.firmware_base_url_dict
+    if firmware_base_url_dict:
+        dut_firmware_base_url = get_dut_firmware_base_url(duthost, firmware_base_url_dict)
+        logger.info("Download mode: staging firmware from %s", dut_firmware_base_url)
+        download_and_validate_firmware_binaries(
+            duthost,
+            dut_firmware_base_url,
+            firmware_metadata,
+            CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT
+        )
+    else:
+        logger.info("Pre-staged mode: staging firmware from %s", CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT)
+        stage_prestaged_firmware_binaries(
+            duthost,
+            CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT,
+            firmware_metadata,
+            CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT
+        )
+    logger.info("All latest firmware staged to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
 
 
 @pytest.fixture(scope="module", autouse=True)
