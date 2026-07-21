@@ -19,7 +19,7 @@ pytestmark = [
 
 @pytest.fixture
 def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
-    # Enable autorestart for all features
+    # Enable autorestart for all features.
     duthost = duthosts[enum_frontend_dut_hostname]
     feature_list, _ = duthost.get_feature_status()
     feature_list.pop('frr_bmp', None)
