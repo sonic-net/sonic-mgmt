@@ -265,6 +265,26 @@ def is_pytest_fixture(node: ast.FunctionDef) -> bool:
     return False
 
 
+def function_uses_symbol(node: ast.AST, symbol_name: str) -> bool:
+    """Return True when a pytest test function uses ``symbol_name`` as an argument."""
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+
+    arg_names = {arg.arg for arg in node.args.posonlyargs}
+    arg_names.update(arg.arg for arg in node.args.args)
+    arg_names.update(arg.arg for arg in node.args.kwonlyargs)
+    if symbol_name in arg_names:
+        return True
+
+    for decorator in node.decorator_list:
+        if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
+            if decorator.func.attr == "usefixtures":
+                for arg in decorator.args:
+                    if isinstance(arg, ast.Constant) and arg.value == symbol_name:
+                        return True
+    return False
+
+
 def resolve_domain(rel_path: str) -> str:
     """Map a source path to a proposed common2 domain directory."""
     lowered = rel_path.lower()
@@ -578,6 +598,7 @@ def analyze_module(
 
     # Attribute impacted tests to individual symbols by name usage.
     consumer_text_cache: Dict[str, str] = {}
+    consumer_ast_cache: Dict[Optional[str], Optional[ast.Module]] = {}
     for sym in symbols:
         if sym.migrated:
             continue
@@ -592,8 +613,27 @@ def analyze_module(
                 except OSError:
                     text = ""
                 consumer_text_cache[consumer_rel] = text
+
             if sym.name in text:
                 sym_tests.append(consumer_rel)
+                continue
+
+            tree = consumer_ast_cache.get(consumer_rel)
+            if tree is None:
+                consumer_abs = os.path.join(repo_root, consumer_rel)
+                tree = safe_parse(consumer_abs)
+                consumer_ast_cache[consumer_rel] = tree
+
+            if tree is None:
+                continue
+
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if not node.name.startswith("test_"):
+                        continue
+                    if function_uses_symbol(node, sym.name):
+                        sym_tests.append(consumer_rel)
+                        break
         sym.impacted_tests = sym_tests
 
     fully_migrated = all(s.migrated for s in symbols)
