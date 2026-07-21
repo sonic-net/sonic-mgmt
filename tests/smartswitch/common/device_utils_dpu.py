@@ -38,9 +38,12 @@ PING_TIME_INT = 10
 # Max time to wait for a DPU to return to ready after recovery/power-cycle.
 DPU_READY_AFTER_RECOVERY_TIMEOUT = 1200
 
-# chassisd reads DPU auto-recovery from CONFIG_DB FEATURE|dpu-auto-recovery
-DPU_AUTO_RECOVERY_FEATURE = "dpu-auto-recovery"
-DPU_AUTO_RECOVERY_STATE_FIELD = "state"
+# chassisd reads DPU auto-recovery from CONFIG_DB DEVICE_METADATA|localhost
+# field 'dpu_auto_recovery'; recovery is enabled only when it equals 'enable'
+# (any other value, or an absent field, is treated as disabled).
+DPU_AUTO_RECOVERY_TABLE = "DEVICE_METADATA"
+DPU_AUTO_RECOVERY_KEY = "localhost"
+DPU_AUTO_RECOVERY_FIELD = "dpu_auto_recovery"
 DPU_AUTO_RECOVERY_ENABLE = "enable"
 DPU_AUTO_RECOVERY_DISABLE = "disable"
 
@@ -900,30 +903,32 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
 
 
 def get_dpu_auto_recovery(duthost):
-    """Return the DPU auto-recovery 'state' from CONFIG_DB FEATURE|dpu-auto-recovery ('' if unset)."""
+    """Return DPU auto-recovery from CONFIG_DB DEVICE_METADATA|localhost ('' if unset)."""
     result = duthost.shell(
-        f"sonic-db-cli CONFIG_DB hget 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
-        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}'",
+        f"sonic-db-cli CONFIG_DB hget '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"'{DPU_AUTO_RECOVERY_FIELD}'",
         module_ignore_errors=True)
     return result.get("stdout", "").strip()
 
 
 def set_dpu_auto_recovery(duthost, state):
-    """Set the DPU auto-recovery 'state' in CONFIG_DB FEATURE|dpu-auto-recovery (runtime only)."""
+    """Set DPU auto-recovery in CONFIG_DB DEVICE_METADATA|localhost (runtime only)."""
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB hset 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
-        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}' '{state}'")
-    logging.info("Set FEATURE|%s %s to '%s'",
-                 DPU_AUTO_RECOVERY_FEATURE, DPU_AUTO_RECOVERY_STATE_FIELD, state)
+        f"sonic-db-cli CONFIG_DB hset '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"'{DPU_AUTO_RECOVERY_FIELD}' '{state}'")
+    logging.info("Set %s|%s %s to '%s'",
+                 DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,
+                 DPU_AUTO_RECOVERY_FIELD, state)
 
 
 def unset_dpu_auto_recovery(duthost):
-    """Delete the auto-recovery 'state' field from CONFIG_DB FEATURE|dpu-auto-recovery."""
+    """Delete the auto-recovery field from CONFIG_DB DEVICE_METADATA|localhost."""
     duthost.shell(
-        f"sonic-db-cli CONFIG_DB hdel 'FEATURE|{DPU_AUTO_RECOVERY_FEATURE}' "
-        f"'{DPU_AUTO_RECOVERY_STATE_FIELD}'", module_ignore_errors=True)
-    logging.info("Deleted FEATURE|%s %s",
-                 DPU_AUTO_RECOVERY_FEATURE, DPU_AUTO_RECOVERY_STATE_FIELD)
+        f"sonic-db-cli CONFIG_DB hdel '{DPU_AUTO_RECOVERY_TABLE}|{DPU_AUTO_RECOVERY_KEY}' "
+        f"'{DPU_AUTO_RECOVERY_FIELD}'", module_ignore_errors=True)
+    logging.info("Deleted %s|%s %s",
+                 DPU_AUTO_RECOVERY_TABLE, DPU_AUTO_RECOVERY_KEY,
+                 DPU_AUTO_RECOVERY_FIELD)
 
 
 def sonic_db_hgetall(duthost, db_name, key):
