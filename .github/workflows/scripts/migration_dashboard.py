@@ -927,6 +927,12 @@ def build_markdown_lines(
         "common2 unit tests exist else 4.0."
     )
     lines.append("")
+    lines.append(
+        "The score is meant to reflect migration effort and quality debt, including "
+        "fixtures, typing gaps, missing docs, dependency complexity, and the need for "
+        "refactoring or new unit tests."
+    )
+    lines.append("")
     lines.append("Symbol score = volume + blast + quality_gap, where volume = LOC/25 + 1.0, "
                  "blast = direct impacted tests * 1.2, and quality_gap = "
                  "(1 - typed_ratio) * 3.0 + (0 if docstring else 1.5).")
