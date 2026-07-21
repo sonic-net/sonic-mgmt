@@ -215,7 +215,7 @@ def _extract_policy_tables(running_config):
     tables = {
         "PREFIX_SET": {}, "PREFIX": {},
         "COMMUNITY_SET": {}, "EXTENDED_COMMUNITY_SET": {}, "LARGE_COMMUNITY_SET": {},
-        "ROUTE_MAP": {}, "ROUTE_MAP_SET": {},
+        "ROUTE_MAP": {}, "ROUTE_MAP_SET": {}, "PROTOCOL_ROUTE_MAP": {},
     }
     community_targets = {
         "bgp community-list ": "COMMUNITY_SET",
@@ -237,6 +237,13 @@ def _extract_policy_tables(running_config):
             key = "{}|{}|{}|{}".format(name, entry["sequence_number"], entry["ip_prefix"],
                                        entry["masklength_range"])
             tables["PREFIX"][key] = entry
+        elif line.startswith("ip protocol ") and " route-map " in line:
+            # zebra 'ip protocol <proto> route-map <name>' -> PROTOCOL_ROUTE_MAP (ipv4).
+            parts = line.split()
+            tables["PROTOCOL_ROUTE_MAP"]["ipv4|{}".format(parts[2])] = {"route_map": parts[4]}
+        elif line.startswith("ipv6 protocol ") and " route-map " in line:
+            parts = line.split()
+            tables["PROTOCOL_ROUTE_MAP"]["ipv6|{}".format(parts[2])] = {"route_map": parts[4]}
         else:
             for prefix, table in community_targets.items():
                 if line.startswith(prefix):
@@ -288,6 +295,8 @@ def _extract_route_maps(running_config, tables):
             # and has no separate 'additive' companion field, so keep every community plus the
             # trailing 'additive' token in the list (-> 'set community <c1> <c2> additive').
             entry["set_community_inline"] = line.split()[2:]
+        elif line.startswith("set src "):
+            entry["set_src"] = line.split()[2]
         elif line == "set ipv6 next-hop prefer-global":
             entry["set_ipv6_next_hop_prefer_global"] = "true"
         elif line == "on-match next":

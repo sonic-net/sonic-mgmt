@@ -393,6 +393,24 @@ def test_on_match_unrecognized_raises():
         translate_config_db(_base_config_db(), running, _peer_group_json())
 
 
+def test_set_src_and_protocol_route_map_translated():
+    # The RM_SET_SRC loopback-source setup: route-maps with 'set src' + zebra
+    # 'ip[v6] protocol bgp route-map' binds -> ROUTE_MAP set_src + PROTOCOL_ROUTE_MAP.
+    running = "\n".join([
+        "route-map RM_SET_SRC permit 10",
+        " set src 10.1.0.32",
+        "route-map RM_SET_SRC6 permit 10",
+        " set src fc00:1::32",
+        "ip protocol bgp route-map RM_SET_SRC",
+        "ipv6 protocol bgp route-map RM_SET_SRC6",
+    ])
+    out = translate_config_db(_base_config_db(), running, _peer_group_json())
+    assert out["ROUTE_MAP"]["RM_SET_SRC|10"]["set_src"] == "10.1.0.32"
+    assert out["ROUTE_MAP"]["RM_SET_SRC6|10"]["set_src"] == "fc00:1::32"
+    assert out["PROTOCOL_ROUTE_MAP"]["ipv4|bgp"]["route_map"] == "RM_SET_SRC"
+    assert out["PROTOCOL_ROUTE_MAP"]["ipv6|bgp"]["route_map"] == "RM_SET_SRC6"
+
+
 # --------------------------------------------------------------------------- #
 # Listen-range / non-standard peer-groups (BGPSLBPassive / BGPVac). These ship in
 # the t0 baseline: bgpcfgd renders them from templates so their attributes live only
