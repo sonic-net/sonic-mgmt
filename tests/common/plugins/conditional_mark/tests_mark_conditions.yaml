@@ -3031,7 +3031,6 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'isolated' in topo_name"
       - "release in ['202412']"
       - "'f2' in topo_name"
-      - "'x86_64-nexthop_' in platform and not platform.startswith('x86_64-nexthop_4010')"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_capabilities:
   skip:
@@ -3047,45 +3046,66 @@ gnmi/test_pygnmi_client.py::test_pygnmi_get_empty_paths_raises:
 
 gnmi/test_pygnmi_client.py::test_pygnmi_get_interface_counters:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native DB-path coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_get_interface_mtu:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native OpenConfig port coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_early_break:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_once:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_poll:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_sample_queue_counters:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/test_pygnmi_client.py::test_pygnmi_subscribe_stream_count:
   skip:
-    reason: "not applicable on BMC (no front-panel ports or COUNTERS_DB)"
+    reason: "native subscription coverage is not namespace-aware on multi-ASIC/T2/BMC"
+    conditions_logical_operator: or
     conditions:
       - "'bmc' in topo_type"
+      - "is_multi_asic==True"
+      - "'t2' in topo_name"
 
 gnmi/vrf_aware_tests/test_gnmi_configdb.py:
   skip:

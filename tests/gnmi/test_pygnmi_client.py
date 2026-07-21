@@ -328,6 +328,18 @@ def test_subscribe_requires_paths():
         _offline_client().subscribe([])
 
 
+def test_subscribe_poll_rejects_negative_interval():
+    """Test POLL rejects a negative trigger interval before sleeping."""
+    client = _offline_client()
+
+    class Subscriber:
+        def get_update(self, timeout):
+            return {"update": {}}
+
+    with pytest.raises(PygnmiClientCallError, match="poll_interval must be >= 0"):
+        list(client._iter_poll(Subscriber(), poll_count=2, poll_interval=-1))
+
+
 def test_get_requires_paths():
     """Test get() rejects an empty path list before connecting."""
     with pytest.raises(PygnmiClientCallError, match="at least one path"):

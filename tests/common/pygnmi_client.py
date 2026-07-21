@@ -640,6 +640,8 @@ class PygnmiClient:
         """
         if poll_count <= 0:
             raise PygnmiClientCallError("poll_count must be > 0")
+        if poll_interval < 0:
+            raise PygnmiClientCallError("poll_interval must be >= 0")
         for i in range(poll_count):
             yield subscriber.get_update(timeout=self.timeout)
             if poll_interval and i < poll_count - 1:
