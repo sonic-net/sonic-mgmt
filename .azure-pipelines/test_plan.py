@@ -331,6 +331,9 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
+        # kvm_image_build_id and kvm_image_branch are mutually exclusive; build id takes precedence
+        if kvm_image_build_id:
+            kvm_image_branch = ""
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
@@ -367,6 +370,7 @@ class TestPlanManager(object):
                 "ptf_modified": ptf_modified,
                 "image": {
                     "url": image_url,
+                    "dpu_url": kwargs.get("dpu_image_url", None),
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
@@ -447,6 +451,31 @@ class TestPlanManager(object):
         print(f"Result of cancelling test plan at {tp_url}:")
         print(str(resp["data"]))
 
+    def cancel_pr(self, pr_id):
+        tp_url = f"{self.scheduler_url}/test_plan/pr/{pr_id}"
+        cancel_url = f"{tp_url}/cancel"
+
+        print(f"Cancelling old PR testplans at {cancel_url}")
+
+        payload = json.dumps({})
+        headers = {
+            "Authorization": f"Bearer {self.get_token()}",
+            "Content-Type": "application/json"
+        }
+
+        raw_resp = {}
+        try:
+            raw_resp = requests.post(cancel_url, headers=headers, data=payload, timeout=10)
+            resp = raw_resp.json()
+        except Exception as exception:
+            raise Exception(f"HTTP execute failure, url: {cancel_url}, raw_resp: {str(raw_resp)}, "
+                            f"exception: {str(exception)}")
+        if not resp["success"]:
+            raise Exception(f"Cancel test PR failed with error: {resp['errmsg']}")
+
+        print(f"Result of cancelling PR testplans at {tp_url}:")
+        print(str(resp["data"]))
+
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
         print(f"Polling progress and status of test plan at {self.frontend_url}/scheduler/testplan/{test_plan_id}")
         print(f"Polling interval: {interval} seconds")
@@ -461,6 +490,7 @@ class TestPlanManager(object):
         start_time = time.time()
         poll_retry_times = 0
         while timeout < 0 or (time.time() - start_time) < timeout:
+
             resp = None
             try:
                 resp = requests.get(poll_url, headers=headers, timeout=10).json()
@@ -841,6 +871,16 @@ if __name__ == "__main__":
         help="Image url"
     )
     parser_create.add_argument(
+        "--dpu_image_url",
+        type=str,
+        dest="dpu_image_url",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="SONiC image url for DPU upgrade on SmartSwitch testbeds"
+    )
+    parser_create.add_argument(
         "--upgrade-image-param",
         type=str,
         dest="upgrade_image_param",
@@ -1038,6 +1078,7 @@ if __name__ == "__main__":
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
+    parser_cancel_pr = subparsers.add_parser("cancel_pr", help="Cancel test plans for a PR.")
 
     for p in [parser_cancel, parser_poll]:
         p.add_argument(
@@ -1118,9 +1159,10 @@ if __name__ == "__main__":
             env["SONIC_AUTOMATION_UMI"]
         )
 
+        pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
+            "SYSTEM_PULLREQUEST_PULLREQUESTID")
+
         if args.action == "create":
-            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
-                "SYSTEM_PULLREQUEST_PULLREQUESTID")
             build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
             build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
@@ -1189,6 +1231,7 @@ if __name__ == "__main__":
                     ptf_image_tag=args.ptf_image_tag,
                     ptf_modified=args.ptf_modified,
                     image_url=args.image_url,
+                    dpu_image_url=args.dpu_image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
                     test_plan_type=args.test_plan_type,
@@ -1208,6 +1251,8 @@ if __name__ == "__main__":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
+        elif args.action == "cancel_pr":
+            tp.cancel_pr(pr_id=pr_id)
         sys.exit(0)
     except PollTimeoutException as e:
         print(f"Polling test plan failed with exception: {repr(e)}")

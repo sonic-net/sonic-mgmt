@@ -4,7 +4,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
-from tests.common.platform.interface_utils import get_fec_eligible_interfaces
+from tests.common.platform.interface_utils import clear_interface_counters_and_wait, get_fec_eligible_interfaces
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -18,7 +18,7 @@ SUPPORTED_PLATFORMS = [
     "arista",
     "x86_64-nvidia",
     "x86_64-88_lc0_36fh_m-r0",
-    "x86_64-nexthop_4010-r0",
+    "nexthop",
     "marvell"
 ]
 
@@ -136,6 +136,8 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     if not interfaces:
         pytest.skip("Skipping this test as there is no fec eligible interface")
 
+    clear_interface_counters_and_wait(duthost)
+
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
@@ -219,10 +221,13 @@ def get_fec_histogram(duthost, intf_name):
     return fec_hist
 
 
-def validate_fec_histogram(duthost, intf_name):
+def validate_fec_histogram(duthost, intf_name, init, prev=None):
     """
     @Summary: Validate FEC histogram critical bins for any errors. Fail the test if bin value > 0
+    for a stable link over last two snapshots.
     """
+    if not init and not prev:
+        pytest.fail("FEC histogram from previous snapshot is not provided")
 
     fec_hist = get_fec_histogram(duthost, intf_name)
     if not fec_hist:
@@ -232,16 +237,25 @@ def validate_fec_histogram(duthost, intf_name):
     error_bins = []
     for bin_index in critical_bins:
         bin_value = int(fec_hist[bin_index].get('codewords', 0))
-        if bin_value > 0:
-            error_bins.append((bin_index, bin_value))
+        if init:
+            if bin_value > 0:
+                error_bins.append((bin_index, bin_value))
+        else:
+            prev_bin_value = int(prev[bin_index].get('codewords', 0))
+            if bin_value - prev_bin_value > 0:
+                error_bins.append((bin_index, bin_value))
 
     if error_bins:
-        error_messages = ["FEC histogram bin {} has errors for interface {}: {}".format(bin_index, intf_name, bin_value)
+        error_messages = ["FEC histogram bin {} has errors for interface {}: {} (init: {})".format(
+                              bin_index, intf_name, bin_value, init)
                           for bin_index, bin_value in error_bins]
-        logging.error("\n".join(error_messages))
-        return False
+        if init:
+            logging.info("\n".join(error_messages))
+        else:
+            logging.error("\n".join(error_messages))
+        return False, fec_hist
 
-    return True
+    return True, fec_hist
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -260,8 +274,26 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     if not interfaces:
         pytest.skip("Skipping this test as there is no fec eligible interface")
 
+    # It's possible there are some transient FEC symbol errors on interface
+    # state transition. Hence, this test uses the first check to read the current
+    # FEC histogram counters to see whether there are stale errors. If so,
+    # it will increase the waiting time for the next read and compare any
+    # changes in the critical bins between 2 snapshots. For a stable link, no
+    # increments in these critical bins are expected.
+    snapshots = {}
+    sleep_time = 10
     for intf_name in interfaces:
-        for _ in range(3):
-            if not validate_fec_histogram(duthost, intf_name):
+        valid, fec_hist = validate_fec_histogram(duthost, intf_name, True)
+        if not valid:
+            logging.info("Update test sleep time to 10 min due to bin errors in the initial snapshot")
+            sleep_time = 10 * 60
+        snapshots[intf_name] = fec_hist
+
+    for _ in range(2):
+        time.sleep(sleep_time)
+        for intf_name in interfaces:
+            prev_fec_hist = snapshots[intf_name]
+            valid, fec_hist = validate_fec_histogram(duthost, intf_name, False, prev_fec_hist)
+            if not valid:
                 pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))
-            time.sleep(10)
+            snapshots[intf_name] = fec_hist

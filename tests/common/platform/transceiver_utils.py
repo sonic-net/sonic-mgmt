@@ -124,7 +124,7 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor,\
+            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor, \
                 "TRANSCEIVER_DOM_SENSOR of subport %s of %s port is not found in DB" \
                 % (lport_to_first_subport_mapping[intf], intf)
 
@@ -205,19 +205,6 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
     logging.info(f"sfp_eeprom_map_per_port :{sfp_eeprom_map_per_port}")
 
     return sfp_eeprom_map_per_port
-
-
-def get_ports_with_flat_memory(dut):
-    ports_with_flat_memory = []
-    cmd_show_eeprom = "sudo sfputil show eeprom -d"
-
-    eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
-    sfp_eerpom_map_per_port = get_sfp_eeprom_map_per_port(eeprom_infos)
-    for port_name, sfp_eeprom in sfp_eerpom_map_per_port.items():
-        if "DOM values not supported for flat memory module" in " ".join(sfp_eeprom):
-            ports_with_flat_memory.append(port_name)
-    logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
-    return ports_with_flat_memory
 
 
 def parse_one_sfp_eeprom_info(sfp_eeprom_info):

@@ -6,6 +6,7 @@
 '''
 
 from sys import getsizeof
+import json
 import re
 import time
 import logging
@@ -54,7 +55,8 @@ class Ecmp_Utils(object):
                             minigraph_data,
                             af,
                             tunnel_name=None,
-                            src_ip=None):
+                            src_ip=None,
+                            ttl_mode=None):
         '''
             Function to create a vxlan tunnel. The arguments:
                 duthost       : The DUT ansible host object.
@@ -64,6 +66,7 @@ class Ecmp_Utils(object):
                                 local ip address in the DUT. Default: Loopback
                                 ip address.
                 af : Address family : v4 or v6.
+                ttl_mode      : Decap TTL mode. Can be set to "pipe" or "uniform".
         '''
         if tunnel_name is None:
             tunnel_name = "tunnel_{}".format(af)
@@ -71,13 +74,17 @@ class Ecmp_Utils(object):
         if src_ip is None:
             src_ip = self.get_dut_loopback_address(duthost, minigraph_data, af)
 
+        ttl_entry = ""
+        if ttl_mode:
+            ttl_entry = f',\n"ttl_mode": "{ttl_mode}"\n'
+
         config = '''{{
             "VXLAN_TUNNEL": {{
                 "{}": {{
-                    "src_ip": "{}"
+                    "src_ip": "{}"{}
                 }}
             }}
-        }}'''.format(tunnel_name, src_ip)
+        }}'''.format(tunnel_name, src_ip, ttl_entry)
 
         self.apply_config_in_dut(duthost, config, name="vxlan_tunnel_" + af)
         return tunnel_name
@@ -115,17 +122,18 @@ class Ecmp_Utils(object):
             "for the DUT:{} from minigraph.".format(af, duthost.hostname))
 
     def select_required_interfaces(
-            self, duthost, number_of_required_interfaces, minigraph_data, af):
+            self, duthost, number_of_required_interfaces, minigraph_data, af, topo="T1"):
         '''
         Pick the required number of interfaces to use for tests.
         These interfaces will be selected based on if they are currently
-        running a established BGP.  The interfaces will be picked from the T0
-        facing side.
+        running a established BGP.  The interfaces will be picked from those that face
+        the neighbors of the specified topology (i.e., T0 if topo == "T1" or T1 if topo == "T0").
         '''
+        neigh_topo = "T1" if topo == "T0" else "T0"
         bgp_interfaces = self.get_all_interfaces_running_bgp(
             duthost,
             minigraph_data,
-            "T0")
+            neigh_topo)
 
         # Randomly pick the interface from the above list
         list_of_bgp_ips = []
@@ -366,29 +374,31 @@ class Ecmp_Utils(object):
 
         return ret_list
 
-    def configure_vxlan_switch(self, duthost, vxlan_port=4789, dutmac=None):
+    def configure_vxlan_switch(self, duthost, vxlan_port=4789, dutmac=None,
+                               vxlan_sport=None, vxlan_mask=None):
         '''
            Configure the VxLAN parameters for the DUT.
            This step is completely optional.
 
-           duthost: AnsibleHost structure of the DUT.
+           duthost    : AnsibleHost structure of the DUT.
            vxlan_port : The UDP port to be used for VxLAN traffic.
            dutmac     : The mac address to be configured in the DUT.
+           vxlan_sport: The base UDP source port for VxLAN sport entropy.
+           vxlan_mask : The number of bits to vary in the source port range.
         '''
         if dutmac is None:
             dutmac = "aa:bb:cc:dd:ee:ff"
 
-        switch_config = '''
-    [
-            {{
-                    "SWITCH_TABLE:switch": {{
-                            "vxlan_port": "{}",
-                            "vxlan_router_mac": "{}"
-                    }},
-                    "OP": "SET"
-            }}
-    ]
-    '''.format(vxlan_port, dutmac)
+        switch_fields = {
+            "vxlan_port": str(vxlan_port),
+            "vxlan_router_mac": str(dutmac)
+        }
+        if vxlan_sport is not None:
+            switch_fields["vxlan_sport"] = str(vxlan_sport)
+        if vxlan_mask is not None:
+            switch_fields["vxlan_mask"] = str(vxlan_mask)
+
+        switch_config = json.dumps([{"SWITCH_TABLE:switch": switch_fields, "OP": "SET"}], indent=4)
         self.apply_config_in_swss(duthost, switch_config, "vnet_switch")
 
     def apply_config_in_swss(self, duthost, config, name="swss_"):

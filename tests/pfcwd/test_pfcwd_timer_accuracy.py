@@ -7,6 +7,7 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
+from tests.common.helpers.pfcwd_helper import calculate_pfcwd_default_timers
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
@@ -68,10 +69,21 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.facts['asic_type']
     logger.info("--- Pfcwd timer test setup ---")
+    # Set syncd log level to INFO on each ASIC.
+    # On multi-ASIC platforms, the host-level swssloglevel wrapper requires
+    # '-n <asic_id>' to target the correct swss container.
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            duthost.shell(f"swssloglevel -n {asic.asic_index} -l INFO -c syncd")
+    else:
+        duthost.command("swssloglevel -l INFO -c syncd")
     setup_info = setup_pfc_test
     test_ports = setup_info['test_ports']
     timers = setup_info['pfc_timers']
     eth0_ip = setup_info['eth0_ip']
+    dynamic_timers = calculate_pfcwd_default_timers(duthost)
+    logger.info(f"Updating timers: original={timers}, dynamic={dynamic_timers}")
+    timers.update(dynamic_timers)
     # In Python2, dict.keys() returns list object, but in Python3 returns an iterable but not indexable object.
     # So that convert to list explicitly.
     pfc_wd_test_port = list(test_ports.keys())[0]
@@ -81,7 +93,7 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     fanout = fanouthosts
     peer_params = populate_peer_info(asic_type, neighbors, fanout_info, pfc_wd_test_port)
     storm_handle = set_storm_params(dut, fanout_info, fanout, peer_params)
-    timers['pfc_wd_restore_time'] = 400
+    dut.command("pfcwd interval {}".format(timers['pfc_wd_poll_time']))
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
     # enable routing from mgmt interface to localhost
@@ -270,6 +282,22 @@ class TestPfcwdAllTimer(object):
                         (self.timers['pfc_wd_poll_time'] // 2)
                     )
                     break
+
+        # Validate that we have enough samples before accessing list by index
+        # If more than half of iterations failed to collect timestamps, fail with a clear message
+        required_samples = check_point + 1
+        detect_count = len(self.all_detect_time)
+        restore_count = len(self.all_restore_time)
+        if detect_count < required_samples or restore_count < required_samples:
+            detect_failures = ITERATION_NUM - detect_count
+            restore_failures = ITERATION_NUM - restore_count
+            pytest.fail(
+                "Too many iterations failed to collect PFCWD timestamps. "
+                "Detect time samples: {}/{} (failures: {}), Restore time samples: {}/{} (failures: {}). "
+                "Required at least {} samples. This may indicate environment or timing issues.".format(
+                    detect_count, ITERATION_NUM, detect_failures,
+                    restore_count, ITERATION_NUM, restore_failures,
+                    required_samples))
 
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],

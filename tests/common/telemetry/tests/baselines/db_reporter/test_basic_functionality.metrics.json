@@ -1,0 +1,42 @@
+{
+  "metadata": {
+    "record_count": 2,
+    "reporter_type": "db",
+    "test_context": {
+      "test.file": "test_basic_functionality.py",
+      "test.job.id": "unknown",
+      "test.os.version": "unknown",
+      "test.testbed": "vlab-testbed-01",
+      "test.testcase": "test_db_reporter"
+    },
+    "timestamp": "2009-02-13T23:31:30"
+  },
+  "records": [
+    {
+      "data": 75.5,
+      "description": "First test metric",
+      "labels": {
+        "device.id": "dut-01",
+        "iteration": "1"
+      },
+      "metric_name": "test.basic.metric1",
+      "metric_type": "gauge",
+      "timestamp": 1234567890000000000,
+      "timestamp_iso": "2009-02-13T23:31:30",
+      "unit": "percent"
+    },
+    {
+      "data": 82.3,
+      "description": "First test metric",
+      "labels": {
+        "device.id": "dut-01",
+        "iteration": "2"
+      },
+      "metric_name": "test.basic.metric1",
+      "metric_type": "gauge",
+      "timestamp": 1234567890000000000,
+      "timestamp_iso": "2009-02-13T23:31:30",
+      "unit": "percent"
+    }
+  ]
+}

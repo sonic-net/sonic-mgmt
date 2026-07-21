@@ -2,7 +2,7 @@ import pytest
 
 
 def build_required_container_upgrade_params(containers, os_versions, image_url_template,
-                                            parameters_file, testcase_file):
+                                            parameters_file, testcase_file, optional_parameters):
     if any(var == "" or var is None for var in [containers, os_versions, image_url_template,
                                                 parameters_file, testcase_file]):
         return None
@@ -12,6 +12,7 @@ def build_required_container_upgrade_params(containers, os_versions, image_url_t
     params["image_url_template"] = image_url_template
     params["parameters_file"] = parameters_file
     params["testcase_file"] = testcase_file
+    params["optional_parameters"] = optional_parameters or ""
     return params
 
 
@@ -21,11 +22,13 @@ def pytest_generate_tests(metafunc):
     image_url_template = metafunc.config.getoption("image_url_template")
     parameters_file = metafunc.config.getoption("parameters_file")
     testcase_file = metafunc.config.getoption("testcase_file")
+    optional_parameters = metafunc.config.getoption("optional_parameters")
     if "required_container_upgrade_params" in metafunc.fixturenames:
         params = build_required_container_upgrade_params(containers, os_versions,
                                                          image_url_template,
                                                          parameters_file,
-                                                         testcase_file)
+                                                         testcase_file,
+                                                         optional_parameters)
 
         skip_condition = False
         if params is None:

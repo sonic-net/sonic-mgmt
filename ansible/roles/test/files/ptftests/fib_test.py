@@ -79,6 +79,7 @@ class FibTest(BaseTest):
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
     DEFAULT_SWITCH_TYPE = 'voq'
+    PTF_TIMEOUT = 30
 
     _required_params = [
         'fib_info_files',
@@ -121,7 +122,7 @@ class FibTest(BaseTest):
         # if test_params has skip_src_ports then set it otherwise empty
         self.skip_src_ports = self.test_params.get('skip_src_ports', [])
 
-        if self.asic_type in ["marvell-prestera", "marvell"]:
+        if self.asic_type in ["marvell-prestera", "marvell", "vpp"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
@@ -395,7 +396,7 @@ class FibTest(BaseTest):
         if self.pkt_action == self.ACTION_FWD:
             try:
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             except AssertionError:
                 logging.warning("Traffic wasn't sent successfully, trying again")
                 send_packet(self, src_port, pkt, count=5)
@@ -406,7 +407,7 @@ class FibTest(BaseTest):
                              .format('any', 'any', ip_src, ip_dst, sport, dport))
 
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -425,7 +426,7 @@ class FibTest(BaseTest):
                 exp_src_mac = self.ptf_test_port_map[str(
                     rcvd_port)]["target_src_mac"][0]
             actual_src_mac = scapy.Ether(rcvd_pkt).src
-            if exp_src_mac != actual_src_mac:
+            if str(exp_src_mac).lower() != str(actual_src_mac).lower():
                 raise Exception(
                     "Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                     "but the src mac doesn't match, expected {}, got {}".
@@ -502,7 +503,7 @@ class FibTest(BaseTest):
         if self.pkt_action == self.ACTION_FWD:
             try:
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             except AssertionError:
                 logging.warning("Traffic wasn't sent successfully, trying again")
                 send_packet(self, src_port, pkt, count=5)
@@ -513,7 +514,7 @@ class FibTest(BaseTest):
                              .format('any', 'any', ip_src, ip_dst, sport, dport))
 
                 rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                    self, masked_exp_pkt, dst_ports, timeout=1)
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
 
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
@@ -533,7 +534,7 @@ class FibTest(BaseTest):
                 exp_src_mac = self.ptf_test_port_map[str(
                     rcvd_port)]["target_src_mac"][0]
             actual_src_mac = scapy.Ether(rcvd_pkt).src
-            if exp_src_mac != actual_src_mac:
+            if str(exp_src_mac).lower() != str(actual_src_mac).lower():
                 raise Exception(
                     "Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                     "but the src mac doesn't match, expected {}, got {}".
@@ -556,7 +557,7 @@ class FibTest(BaseTest):
     def check_same_asic(self, src_port, exp_port_list):
         updated_exp_port_list = list()
         for port in exp_port_list:
-            if type(port) == list:
+            if isinstance(port, list):
                 per_port_list = list()
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
@@ -599,7 +600,7 @@ class FibTest(BaseTest):
             asic_list['voq'] = dest_port_list
         else:
             for port in dest_port_list:
-                if type(port) == list:
+                if isinstance(port, list):
                     port_map = self.ptf_test_port_map[str(port[0])]
                     asic_id = port_map.get('asic_idx', 0)
                     member = asic_list.get(asic_id)

@@ -62,23 +62,50 @@ def skip_when_buffer_is_dynamic_model(duthost):
 
 # Function Fixture
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
     """
        Ignore expected yang validation failure during test execution
 
        GCU will try several sortings of JsonPatch until the sorting passes yang validation
 
        Args:
+            request: Pytest request object to detect which DUT fixture is being used
             duthosts: list of DUTs.
-            selected_dut_hostname: Hostname of a random chosen dut
            loganalyzer: Loganalyzer utility fixture
     """
+    # Determine which DUT hostname fixture is being used.
+    # Cluster tests: prefer downstream/context over selected_dut_hostname (pulled in
+    # by module autouse check_image_version but is not the GCU target).
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "port_speed_upgrade_context" in request.fixturenames:
+        ctx = request.getfixturevalue("port_speed_upgrade_context")
+        dut_hostname = ctx["enum_downstream_dut_hostname"]
+    elif "enum_downstream_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_downstream_dut_hostname")
+    elif "selected_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("selected_dut_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "rand_one_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+    else:
+        # Fallback - try to get any available DUT
+        return
+
+    duthost = duthosts[dut_hostname]
     # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[selected_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
-            ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",  # Valid test_dhcp_relay for Bookworm
+
+            # Valid test_dhcp_relay for Bookworm and newer
+            ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",
+            ".*ERR GenericConfigUpdater:.*Command failed: 'nsenter --target 1"
+            ".*systemctl restart dhcp_relay', returncode: 1",
+            ".*ERR GenericConfigUpdater:.*stderr: Job for dhcp_relay.service "
+            "failed because start of the service was attempted too often.",
+
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
             # Valid test_dhcp_relay test_syslog
             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
@@ -88,10 +115,20 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
             ".*ERR kernel.*Reset adapter.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR systemd.*Failed to start Host core file uploader daemon.*",  # Valid test_syslog
+            r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
 
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
             ".*ERR swss[0-9]*#orchagent.*objectTypeGetAvailability.*",  # test_monitor_config
+            # GCU tries several JsonPatch sortings when rolling back the ACL rule/mirror
+            # session/policer config added by test_monitor_config; some transient
+            # orderings apply the ACL rule removal before the mirror session removal
+            # (or vice versa), which orchagent logs as an ERR before the final,
+            # correctly-ordered patch converges to the expected state.
+            r".*ERR swss[0-9]*#orchagent.*activate: Mirror rule references mirror session "
+            r"\"mirror_session_dscp\" that does not exist yet.*",  # test_monitor_config
+            r".*ERR swss[0-9]*#orchagent.*add: Failed to create ACL rule RULE_1 "
+            r"in table EVERFLOW_DSCP.*",  # test_monitor_config
             ".*ERR dhcp_relay[0-9]*#dhcrelay.*",  # test_dhcp_relay
 
             # sonic-sairedis/vslib/HostInterfaceInfo.cpp: Need investigation

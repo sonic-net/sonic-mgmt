@@ -24,6 +24,7 @@ from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
 from paramiko.ssh_exception import AuthenticationException
+from datetime import datetime
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -49,6 +50,8 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # Wait 300 seconds because sometime 'interfaces-config' service take 45 seconds to response
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
+DEFAULT_VRF_NAME = "default"
+MGMT_VRF_NAME = "mgmt"
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
@@ -147,7 +150,7 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
 
         try:
             check_result = condition(*args, **kwargs)
-        except Exception as e:
+        except (Exception, pytest.fail.Exception) as e:
             exc_info = sys.exc_info()
             details = traceback.format_exception(*exc_info)
             logger.error(
@@ -168,6 +171,38 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
     if elapsed_time >= timeout:
         logger.debug("%s is still False after %d seconds, exit with False" % (condition.__name__, timeout))
         return False
+
+
+def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
+    """Ping an IP address from a host with an optional command prefix.
+
+    The *host* is expected to be an AnsibleHost-like object exposing a
+    ``command`` method (for example, ``duthost``, ``ptfhost`` or a localhost
+    wrapper).
+
+    This helper is designed to be used with wait_until: it returns True on
+    success and False on failure so callers can retry.
+
+    The cmd_prefix parameter can be used to run ping inside a namespace or
+    other wrapper context (for example, "sudo ip netns exec <ns>").
+    """
+    base_cmd = "ping -c {} {}".format(count, dst_ip)
+    cmd = "{} {}".format(cmd_prefix, base_cmd) if cmd_prefix else base_cmd
+    host_name = getattr(host, "hostname", repr(host))
+    logger.info("Pinging %s from host %s with command: %s", dst_ip, host_name, cmd)
+    result = host.command(cmd, module_ignore_errors=True)
+
+    if result.get("failed", False):
+        logger.info(
+            "Ping to %s from host %s failed: rc=%s, stderr=%s",
+            dst_ip,
+            host_name,
+            result.get("rc"),
+            result.get("stderr"),
+        )
+        return False
+
+    return True
 
 
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
@@ -650,7 +685,7 @@ def get_intf_by_sub_intf(sub_intf, vlan_id=None):
     Returns:
         str: interface name, e.g. Ethernet100
     """
-    if type(sub_intf) != str:
+    if not isinstance(sub_intf, str):
         sub_intf = str(sub_intf)
 
     if not vlan_id:
@@ -687,6 +722,16 @@ def str2bool(str):
     return str.lower() not in ["0", "false", "no"]
 
 
+def get_ptf_eth_ports_from_minigraph_interfaces(minigraph_interfaces, port_indices):
+    """Map minigraph L3 interfaces to PTF eth names when no portchannels exist."""
+    net_ports = []
+    for intf in minigraph_interfaces or []:
+        attachto = intf['attachto']
+        if attachto in port_indices:
+            net_ports.append('eth%d' % port_indices[attachto])
+    return net_ports
+
+
 def setup_ferret(duthost, ptfhost, tbinfo):
     '''
         Sets Ferret service on PTF host.
@@ -709,11 +754,16 @@ def setup_ferret(duthost, ptfhost, tbinfo):
             'minigraph_port_indices': mgFacts['minigraph_ptf_indices'],
             'minigraph_portchannel_interfaces': mgFacts['minigraph_portchannel_interfaces'],
             'minigraph_portchannels': mgFacts['minigraph_portchannels'],
+            'minigraph_interfaces': mgFacts['minigraph_interfaces'],
             'minigraph_lo_interfaces': mgFacts['minigraph_lo_interfaces'],
             'minigraph_vlans': mgFacts['minigraph_vlans'],
             'minigraph_vlan_interfaces': mgFacts['minigraph_vlan_interfaces'],
             'dut_mac': duthost.facts['router_mac']
         }
+        if not vxlanConfigData.get('minigraph_portchannels'):
+            vxlanConfigData['net_ports'] = get_ptf_eth_ports_from_minigraph_interfaces(
+                vxlanConfigData['minigraph_interfaces'],
+                vxlanConfigData['minigraph_port_indices'])
         with open(VXLAN_CONFIG_FILE, 'w') as file:
             file.write(json.dumps(vxlanConfigData, indent=4))
 
@@ -841,6 +891,35 @@ def get_plt_reboot_ctrl(duthost, tc_name, reboot_type):
     return reboot_dict
 
 
+def get_plt_wait_time(duthost, tc_name):
+    """
+    @summary: utility function returns platform specific wait dict for each
+    test case that contains tc_name in it
+    @return a dict containing wait time and timeout for each test case
+
+        plt_wait_time:
+          acl/test_acl.py:
+            timeout: 300
+            wait: 300
+          everflow:
+            timeout: 300
+            wait: 60
+    """
+
+    wait_dict = dict()
+    im = duthost.sonichost.host.options['inventory_manager']
+    inv_files = im._sources
+    dut_vars = get_host_visible_vars(inv_files, duthost.hostname)
+
+    if 'plt_wait_time' in dut_vars:
+        for key in list(dut_vars['plt_wait_time'].keys()):
+            if key in tc_name:
+                for mod_id in list(dut_vars['plt_wait_time'][key].keys()):
+                    wait_dict[mod_id] = dut_vars['plt_wait_time'][key][mod_id]
+
+    return wait_dict
+
+
 def pdu_reboot(pdu_controller):
     """Power-cycle the DUT by turning off and on the PDU outlets.
 
@@ -963,16 +1042,21 @@ def get_all_upstream_neigh_type(topo_type, is_upper=True):
     return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_downstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in DOWNSTREAM_NEIGHBOR_MAP:
+            return DOWNSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -1274,7 +1358,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=131072
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1304,6 +1388,7 @@ def capture_and_check_packet_on_dut(
             duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             pkts_validator(scapy_sniff(offline=temp_pcap.name), *pkts_validator_args, **pkts_validator_kwargs)
     finally:
+        duthost.shell("kill -9 %s || true" % tcpdump_pid, module_ignore_errors=True)
         duthost.file(path=pcap_save_path, state="absent")
 
 
@@ -1354,6 +1439,17 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def update_console_creds(creds, console_auth_type):
+    # Load creds for console based on auth type (e.g. tacacs, xpme)
+    if console_auth_type and console_auth_type in creds.get("console_login_options", {}):
+        console_login_creds = creds["console_login_options"][console_auth_type]
+        creds["console_user"] = {}
+        creds["console_password"] = {}
+        for k, v in list(console_login_creds.items()):
+            creds["console_user"][k] = v["user"]
+            creds["console_password"][k] = v["passwd"]
 
 
 def check_msg_in_syslog(duthost, log_msg):
@@ -1446,9 +1542,10 @@ def restore_config(duthost, config, config_backup):
     duthost.shell("mv {} {}".format(config_backup, config))
 
 
-def get_running_config(duthost, asic=None):
+def get_running_config(duthost, asic=None, filter=None):
     ns = "-n " + asic if asic else ""
-    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+    fil = f"| jq {filter}" if filter else ""
+    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
@@ -1459,7 +1556,8 @@ def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
     golden_config = "/etc/sonic/golden_config_db.json"
     duthost.copy(content=json.dumps(json_data, indent=4), dest=golden_config)
     try:
-        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True)
+        config_reload(duthost, config_source="minigraph", safe_reload=safe_reload, override_config=True,
+                      wait_for_bgp=True)
     finally:
         # Cleanup golden config because some other test or device recover may reload config with golden config
         duthost.command('mv {} {}_backup'.format(golden_config, golden_config))
@@ -1639,3 +1737,93 @@ def parse_rif_counters(output_lines):
             results[intf][headers[idx]] = portstats[idx].replace(',', '')
 
     return results
+
+
+def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int) -> list:
+    """
+    Select ports randomly using buckets and Day of Week (DoW) based selection.
+    Args:
+        ports (list): List of ports to select from.
+        num_buckets (int): Number of buckets to divide the ports into.
+    Returns:
+        list: Selected ports based on DoW from each bucket.
+    """
+    if len(ports) == 0:
+        return []
+    if len(ports) <= num_buckets:
+        return ports
+    # Get DoW
+    day_of_week = datetime.now().weekday()
+    logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+    day_index = datetime.now().toordinal()
+    rng = random.Random(day_index)  # Local RNG: reproducible per day, no global side effects
+
+    bucket_size = len(ports) // num_buckets
+    remainder = len(ports) % num_buckets
+    selected_ports = []
+    start_idx = 0
+
+    for i in range(num_buckets):
+        # Distribute remainder across first available buckets
+        current_bucket_size = bucket_size + (1 if i < remainder else 0)
+        if current_bucket_size == 0:
+            break
+        end_idx = start_idx + current_bucket_size
+        bucket_ports = ports[start_idx:end_idx]
+        rng.shuffle(bucket_ports)
+        # Select port based on DoW index (wrapping if bucket is smaller than 7)
+        port_index = day_of_week % len(bucket_ports)
+        selected_ports.append(bucket_ports[port_index])
+        start_idx = end_idx
+
+    logger.info("Selected {} ports from {} buckets using DoW-based selection: {}".format(
+        len(selected_ports), num_buckets, selected_ports))
+    return selected_ports
+
+
+def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
+    """
+    Group interfaces by their ASIC namespace.
+    Args:
+        duthost: DUT host object
+        interfaces: List of interface names
+    Returns:
+        dict: Mapping of ASIC namespace string to list of interfaces
+              e.g., {"": ["Eth1", "Eth2"], "-n asic0": ["Eth3"]}
+    """
+    if not duthost.is_multi_asic:
+        return {"": list(interfaces)}
+    asic_interface_map = collections.defaultdict(list)
+    for interface in interfaces:
+        namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
+        asic_interface_map["-n {}".format(namespace)].append(interface)
+    return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower() == 'true'
+    return False
+
+
+def get_neighbor_exabgp_vm_offset(nbrhosts, tbinfo, neighbor_name):
+    """Return the vm_offset used to derive a neighbor's exabgp API port.
+
+    The per-neighbor exabgp instances are created from the ORIGINAL topology
+    offsets. On a converged (multi-VRF) topology those original offsets are
+    preserved per logical neighbor in ``multi_vrf_data['vm_offset_mapping']``
+    (sourced from ``convergence_data['vm_offset_mapping']``), while
+    ``tbinfo['topo']['properties']['topology']['VMs']`` only carries the
+    collapsed *prime* offsets. Route-injection helpers that compute
+    ``EXABGP_BASE_PORT + offset`` must therefore use the per-neighbor original
+    offset, otherwise they post the announce to the wrong exabgp instance (a
+    different VRF) and the route never reaches the intended neighbor.
+
+    On stock topologies the neighbor is its own VM and this simply returns the
+    VM's ``vm_offset``, so behavior is unchanged there.
+    """
+    neighbor = nbrhosts.get(neighbor_name, {})
+    if neighbor.get('is_multi_vrf_peer', False):
+        return neighbor['multi_vrf_data']['vm_offset_mapping']
+    return tbinfo['topo']['properties']['topology']['VMs'][neighbor_name]['vm_offset']

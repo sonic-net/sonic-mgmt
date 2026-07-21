@@ -31,6 +31,8 @@ function show_help_and_exit()
     echo "    -u             : bypass util group"
     echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
+    echo "    -6             : IPv6-only management mode (use IPv6 for DUT mgmt connectivity)"
+    echo "    -M             : run all 4 prober_type x neighbor_mode MUX_CABLE combos (dualtor/dualtor_io only)"
 
     exit $1
 }
@@ -124,6 +126,8 @@ function setup_environment()
     TEST_MAX_FAIL=0
     DPU_NAME="None"
     NO_CLEAR_CACHE="False"
+    IPV6_ONLY_MGMT="False"
+    MUX_COMBO_MODE="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -205,6 +209,10 @@ function setup_test_options()
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
     fi
 
+    if [[ x"${IPV6_ONLY_MGMT}" == x"True" ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ipv6_only_mgmt"
+    fi
+
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
         if [[ $skip == *"::"* ]]; then
             PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --deselect=${skip}"
@@ -282,6 +290,7 @@ function run_debug_tests()
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
     echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
+    echo "MUX_COMBO_MODE:        ${MUX_COMBO_MODE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
 }
@@ -314,15 +323,15 @@ function pre_post_extra_params()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
@@ -396,8 +405,55 @@ function run_individual_tests()
 function run_bsl_tests()
 {
     echo "=== Running BSL tests ==="
-    echo Running: python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
-    python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    echo Running: python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+}
+
+function run_mux_combo_tests()
+{
+    # Run dualtor/dualtor_io suites for all 4 prober_type x neighbor_mode combos.
+    # Each combination gets its own full pytest invocation so the session-scoped
+    # fixture apply_mux_cable_combo in tests/common/dualtor/mux_cable_config.py
+    # picks up --prober_type and --neighbor_mode and applies them before tests.
+
+    MUX_COMBOS=(
+        "hardware,host-route"
+        "hardware,prefix-route"
+        "software,host-route"
+        "software,prefix-route"
+    )
+
+    COMBO_RC=0
+
+    for combo in "${MUX_COMBOS[@]}"; do
+        IFS=',' read -r PROBER_TYPE NEIGHBOR_MODE <<< "$combo"
+        echo "============================================================"
+        echo "=== MUX COMBO: prober_type=${PROBER_TYPE}, neighbor_mode=${NEIGHBOR_MODE} ==="
+        echo "============================================================"
+
+        COMBO_EXTRA="${EXTRA_PARAMETERS} --prober_type ${PROBER_TYPE} --neighbor_mode ${NEIGHBOR_MODE}"
+
+        if [[ x"${OMIT_FILE_LOG}" != x"True" ]]; then
+            COMBO_LOG_DIR="${LOG_PATH}/mux_combo_${PROBER_TYPE}_${NEIGHBOR_MODE}"
+            mkdir -p ${COMBO_LOG_DIR}
+            COMBO_LOGGING="--junit-xml=${COMBO_LOG_DIR}/tr.xml --log-file=${COMBO_LOG_DIR}/test.log"
+        else
+            COMBO_LOGGING=""
+        fi
+
+        echo Running: ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ${PYTEST_EXEC} ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${COMBO_LOGGING} ${TEST_TOPOLOGY_OPTIONS} ${COMBO_EXTRA} --cache-clear
+        ret_code=$?
+
+        if [ ${ret_code} -ne 0 ]; then
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} failed with rc=${ret_code} ==="
+            COMBO_RC=1
+        else
+            echo "=== MUX COMBO ${PROBER_TYPE}/${NEIGHBOR_MODE} passed ==="
+        fi
+    done
+
+    return ${COMBO_RC}
 }
 
 setup_environment
@@ -423,7 +479,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:Mn:oOp:q:rs:S:t:uxw6" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -477,6 +533,9 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
         m )
             TEST_METHOD=${OPTARG}
             ;;
+        M )
+            MUX_COMBO_MODE="True"
+            ;;
         n )
             TESTBED_NAME=${OPTARG}
             ;;
@@ -513,6 +572,9 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
         x )
             set -x
             ;;
+        6 )
+            IPV6_ONLY_MGMT="True"
+            ;;
     esac
 done
 
@@ -542,6 +604,8 @@ RC=0
 
 if [[ x"${BSL}" == x"True" ]]; then
     run_bsl_tests || RC=$?
+elif [[ x"${MUX_COMBO_MODE}" == x"True" ]]; then
+    run_mux_combo_tests || RC=$?
 else
     run_${TEST_METHOD}_tests || RC=$?
 fi

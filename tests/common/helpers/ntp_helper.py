@@ -28,6 +28,18 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
 
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+        # Limit listening to the mgmt interface, to prevent socket allocation
+        # exhaustion
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+        # ntpsec (Debian trixie+ ptf) resolves the "mgmt" interface name to its
+        # IPv4 address only, so it never binds the mgmt IPv6 address. Add an
+        # explicit listen directive for the IPv6 case so the DUT can sync over
+        # IPv6. Classic ntpd bound both families via the interface name.
+        if ptf_use_ipv6 and ptfhost.mgmt_ipv6:
+            ptfhost.lineinfile(path=ntp_conf_path, line="interface listen %s" % ptfhost.mgmt_ipv6)
+
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # Comment out the default pool configuration
@@ -93,6 +105,12 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
 
     ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
+
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
+        if ptf_use_ipv6 and ptfhost.mgmt_ipv6:
+            ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface listen %s" % ptfhost.mgmt_ipv6)
 
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))

@@ -3,7 +3,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
     utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa: F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
@@ -117,7 +117,7 @@ def default_setup(duthost, vlan_intfs_list):
 
     duthost.shell_cmds(cmds=cmds)
 
-    restart_dhcp_service(duthost)
+    restart_dhcp_service(duthost, ['isc'])
 
     logger.info("default setup expected_content_dict {}".format(expected_content_dict))
     for vlanid in expected_content_dict:

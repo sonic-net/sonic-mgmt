@@ -10,9 +10,8 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK,
 )
-from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, plnsg_packets
-from test_fnic import verify_tunnel_packets
+from tests.common.dash_utils import apply_dash_configs, verify_tunnel_packets
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 import ptf.packet as scapy
 
@@ -42,59 +41,44 @@ def config_setup_teardown(
         yield
         return
     dpuhost = dpuhosts[dpu_index]
-    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
 
     if single_endpoint:
         tunnel_config = pl.TUNNEL3_CONFIG
-    else:
-        tunnel_config = pl.TUNNEL4_CONFIG
-
-    base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
-        **pl.ROUTING_TYPE_PL_CONFIG,
-        **pl.ROUTING_TYPE_VNET_CONFIG,
-        **pl.VNET_CONFIG,
-        **pl.VNET2_CONFIG,
-        **pl.ROUTE_GROUP1_CONFIG,
-        **pl.METER_POLICY_V4_CONFIG,
-        **tunnel_config,
-    }
-    logger.info(base_config_messages)
-
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
-
-    if single_endpoint:
         vnet_mapping_config = pl.PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG
     else:
+        tunnel_config = pl.TUNNEL4_CONFIG
         vnet_mapping_config = pl.PE_PLNSG_MULTI_ENDPOINT_VNET_MAPPING_CONFIG
-    route_and_mapping_messages = {
-        **vnet_mapping_config,
-        **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_CONFIG,
-    }
-    logger.info(route_and_mapping_messages)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
 
+    route_rule_configs = []
     if 'pensando' not in dpuhost.facts['asic_type']:
-        route_rule_messages = {
-            **pl.VM_VNI_ROUTE_RULE_CONFIG,
-            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-        }
-        logger.info(route_rule_messages)
-        apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
+        route_rule_configs = [
+            pl.VM_VNI_ROUTE_RULE_CONFIG,
+            pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+        ]
 
-    meter_rule_messages = {
-        **pl.METER_RULE1_V4_CONFIG,
-        **pl.METER_RULE2_V4_CONFIG,
-    }
-    logger.info(meter_rule_messages)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
-
-    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+    # ``apply_dash_configs`` buckets entries by DASH table name and applies
+    # them in dependency order (see ``DashPhase`` in ``tests/common/dash_utils.py``):
+    # GROUP_1 (APPLIANCE) -> GROUP_2 (ROUTING_TYPE/METER_POLICY/OUTBOUND_PORT_MAP/VNET) ->
+    # GROUP_3 (METER_RULE) -> GROUP_4 (TUNNEL/OUTBOUND_PORT_MAP_RANGE/ENI/ROUTE_GROUP) ->
+    # GROUP_5 (ROUTE_RULE/ROUTE/VNET_MAPPING) -> GROUP_6 (ENI_ROUTE).
+    apply_dash_configs(
+        localhost, duthost, ptfhost, dpuhost.dpu_index,
+        pl.APPLIANCE_CONFIG,
+        pl.ROUTING_TYPE_PL_CONFIG,
+        pl.ROUTING_TYPE_VNET_CONFIG,
+        pl.VNET_CONFIG,
+        pl.ROUTE_GROUP1_CONFIG,
+        pl.METER_POLICY_V4_CONFIG,
+        tunnel_config,
+        vnet_mapping_config,
+        pl.PE_SUBNET_ROUTE_CONFIG,
+        pl.VM_SUBNET_ROUTE_CONFIG,
+        *route_rule_configs,
+        pl.METER_RULE1_V4_CONFIG,
+        pl.METER_RULE2_V4_CONFIG,
+        pl.ENI_CONFIG,
+        pl.ENI_ROUTE_GROUP1_CONFIG,
+    )
 
     yield
 

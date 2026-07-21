@@ -23,3 +23,8 @@ def common_setup_teardown(request, tbinfo):
 
     if 'dualtor' in tbinfo['topo']['name']:
         request.getfixturevalue('run_garp_service')
+
+
+@pytest.fixture(scope='module')
+def get_function_completeness_level(pytestconfig):
+    return pytestconfig.getoption("--completeness_level")
