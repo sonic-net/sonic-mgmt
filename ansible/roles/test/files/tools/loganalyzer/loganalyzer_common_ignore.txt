@@ -520,3 +520,8 @@ r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped 
 # ctrmgrd k8s join warnings (old k8s version incompatibility with Docker 28.x)
 r, ".* ERR ctrmgrd\.py: Refer file .* for troubleshooting tips.*"
 r, ".* ERR ctrmgrd\.py:.*\[WARNING SystemVerification\]:.*Docker version is not on the list of validated versions.*"
+
+# ignore journalctl tac_connect_single and nss_tacplus errors during config reload
+# TACACS+ is temporarily unreachable while the SONiC network stack restarts
+r, ".* ERR journalctl: tac_connect_single: connection failed with .*Transport endpoint is not connected"
+r, ".* ERR journalctl: nss_tacplus: failed to connect TACACS\+ server .*Transport endpoint is not connected"
