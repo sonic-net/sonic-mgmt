@@ -156,14 +156,24 @@ class SSHConsoleConn(BaseConsoleConn):
         delay_factor = max(self.select_delay_factor(delay_factor), 1)
         for _ in range(max_attempts):
             try:
-                # Probe the current console state with a bare CR only -- never a
-                # Ctrl-C yet, so we cannot interrupt a bootloader autoboot window.
-                self.write_channel(self.RETURN)
-                # Accumulate output so a lagging prompt is reliably observed.
+                # Passively read the console FIRST -- do not send anything yet. If
+                # the DUT is sitting in a bootloader "hit any key to stop autoboot"
+                # window, ANY keypress (including a bare CR) aborts autoboot and
+                # traps the DUT in the bootloader, so we must observe before nudging.
                 output = ""
                 for _ in range(4):
                     time.sleep(0.5 * delay_factor)
                     output += self.read_channel()
+                # Only if the console stayed silent do we nudge it with a bare CR
+                # (never Ctrl-C) to coax a login prompt to echo. A silent console is
+                # not an active autoboot window -- those continuously print a
+                # countdown -- so a single CR here is safe and cannot interrupt
+                # autoboot.
+                if not output.strip():
+                    self.write_channel(self.RETURN)
+                    for _ in range(4):
+                        time.sleep(0.5 * delay_factor)
+                        output += self.read_channel()
             except Exception as e:
                 self.logger.warning(f"Error probing console state: {e}")
                 return
