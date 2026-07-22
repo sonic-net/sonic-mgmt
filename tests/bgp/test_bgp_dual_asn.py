@@ -515,9 +515,9 @@ def bgp_peer_range_delete_config(
         _frr_peer_range_del(duthost, ipv6_range_name, ipv6_range, "ipv6_unicast")
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
         pytest_assert(
-            not re.search(BGP_IP_RANGE_RE.format(ip_range_name, ip_range), bgp_config)
+            not re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
             and not re.search(
-                BGP_IP_RANGE_RE.format(ipv6_range_name, ipv6_range), bgp_config
+                BGP_IP_RANGE_RE.format(ipv6_range, ipv6_range_name), bgp_config
             ),
             "Failed to remove bgp speaker dummy ip range.",
         )
@@ -538,9 +538,9 @@ def bgp_peer_range_delete_config(
 
         bgp_config = duthost.shell("show runningconfiguration bgp")["stdout"]
         pytest_assert(
-            not re.search(BGP_IP_RANGE_RE.format(ip_range_name, ip_range), bgp_config)
+            not re.search(BGP_IP_RANGE_RE.format(ip_range, ip_range_name), bgp_config)
             and not re.search(
-                BGP_IP_RANGE_RE.format(ipv6_range_name, ipv6_range), bgp_config
+                BGP_IP_RANGE_RE.format(ipv6_range, ipv6_range_name), bgp_config
             ),
             "Failed to remove bgp speaker dummy ip range.",
         )
