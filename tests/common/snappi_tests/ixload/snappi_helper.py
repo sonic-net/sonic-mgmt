@@ -526,9 +526,9 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                     output = duthost.command(f'sudo config route del prefix {loopback0_prefix} '
                                              f'nexthop {dpu_pa_ip}', module_ignore_errors=True)
                     logger.info(f'Adding correct route on {duthost.hostname}: '
-                                f'sudo config route add prefix {loopback0_prefix} nexthop 220.0.4.1')
+                                f'sudo config route add prefix {loopback0_prefix} nexthop {active_ethpass_ip}')
                     output = duthost.command(f'sudo config route add prefix {loopback0_prefix} '
-                                             f'nexthop 220.0.4.1', module_ignore_errors=True)
+                                             f'nexthop {active_ethpass_ip}', module_ignore_errors=True)
 
                 else:
                     # DPU0 initial active side
