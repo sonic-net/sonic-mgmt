@@ -124,7 +124,7 @@ def verify_aggregate_inactive(duthost, cfg, timeout=60):
 # ===========================================================================
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthosts, rand_one_dut_hostname):
+def setup_teardown(frr_config_mode, duthosts, rand_one_dut_hostname):
     """Checkpoint config, verify BGP_AGGREGATE_ADDRESS support, and rollback after tests."""
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)

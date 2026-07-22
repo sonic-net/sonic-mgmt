@@ -59,7 +59,7 @@ EXABGP_BASE_PORT_V6 = 6000
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
+def setup_teardown(frr_config_mode, duthost):
     """Create checkpoint before tests, rollback after."""
     create_checkpoint(duthost)
     default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)

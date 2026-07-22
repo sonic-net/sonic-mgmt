@@ -73,7 +73,7 @@ def get_bgp_v4_neighbors_from_minigraph(duthost, tbinfo):
     return bgp_v4nei
 
 
-def test_bgp_multipath_relax(tbinfo, duthosts, rand_one_dut_hostname):
+def test_bgp_multipath_relax(frr_config_mode, tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     logger.info("Starting test_bgp_multipath_relax on topology {}".format(tbinfo['topo']['name']))

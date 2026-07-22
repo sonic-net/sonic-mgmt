@@ -7,5 +7,5 @@ pytestmark = [
 ]
 
 
-def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
+def test_bgp_facts(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_asic_index):
     run_bgp_facts(duthosts[enum_frontend_dut_hostname], enum_asic_index)
