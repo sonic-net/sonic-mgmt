@@ -285,6 +285,106 @@ class TlsCertificateGenerator:
             self._ca_key, self._ca_cert
         )
 
+    def generate_revoked_cert_with_crl(
+        self,
+        crl_distribution_url: str,
+        output_dir: str,
+        revoked_cn: str = "test.client.revoked.gnmi.sonic",
+    ) -> None:
+        """Generate a revoked client certificate and its same-CA CRL."""
+        if self._ca_key is None or self._ca_cert is None:
+            self.generate_all()
+
+        key = self._generate_key()
+        not_valid_before, not_valid_after = self._get_validity_period()
+        subject = x509.Name([
+            x509.NameAttribute(NameOID.COMMON_NAME, revoked_cn),
+        ])
+        authority_key_identifier = (
+            x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(
+                self._ca_cert.extensions.get_extension_for_class(
+                    x509.SubjectKeyIdentifier
+                ).value
+            )
+        )
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(self._ca_cert.subject)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(not_valid_before)
+            .not_valid_after(not_valid_after)
+            .add_extension(
+                x509.SubjectAlternativeName([x509.DNSName(revoked_cn)]),
+                critical=False,
+            )
+            .add_extension(authority_key_identifier, critical=False)
+            .add_extension(
+                x509.CRLDistributionPoints([
+                    x509.DistributionPoint(
+                        full_name=[
+                            x509.UniformResourceIdentifier(crl_distribution_url)
+                        ],
+                        relative_name=None,
+                        reasons=None,
+                        crl_issuer=None,
+                    )
+                ]),
+                critical=False,
+            )
+            .add_extension(
+                x509.BasicConstraints(ca=False, path_length=None),
+                critical=True,
+            )
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    key_encipherment=True,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    content_commitment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            .add_extension(
+                x509.ExtendedKeyUsage([
+                    x509.oid.ExtendedKeyUsageOID.CLIENT_AUTH
+                ]),
+                critical=False,
+            )
+            .sign(self._ca_key, hashes.SHA256())
+        )
+
+        now = datetime.now(timezone.utc)
+        revoked_cert = (
+            x509.RevokedCertificateBuilder()
+            .serial_number(cert.serial_number)
+            .revocation_date(now)
+            .build()
+        )
+        crl = (
+            x509.CertificateRevocationListBuilder()
+            .issuer_name(self._ca_cert.subject)
+            .last_update(now - timedelta(minutes=1))
+            .next_update(now + timedelta(days=self.validity_days))
+            .add_extension(authority_key_identifier, critical=False)
+            .add_revoked_certificate(revoked_cert)
+            .sign(self._ca_key, hashes.SHA256())
+        )
+
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, "gnmiclient.revoked.cer"), "wb") as f:
+            f.write(self._serialize_cert(cert))
+        with open(os.path.join(output_dir, "gnmiclient.revoked.key"), "wb") as f:
+            f.write(self._serialize_key(key))
+        with open(os.path.join(output_dir, "sonic.crl.pem"), "wb") as f:
+            f.write(crl.public_bytes(serialization.Encoding.PEM))
+
     def _serialize_cert(self, cert: x509.Certificate) -> bytes:
         """Serialize certificate to PEM format."""
         return cert.public_bytes(serialization.Encoding.PEM)
