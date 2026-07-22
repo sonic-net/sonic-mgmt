@@ -670,8 +670,18 @@ def rank_and_score(tasks: List[ModuleTask], max_tier: int) -> None:
 
     scores = sorted(t.score for t in tasks)
     # Even quantile thresholds for tiering.
-    step = len(scores) / max_tier if max_tier else len(scores)
-    thresholds = [scores[min(len(scores) - 1, int(step * i) - 1)] for i in range(1, max_tier)]
+    if max_tier <= 1:
+        thresholds: List[float] = []
+    else:
+        step = len(scores) / max_tier if max_tier else len(scores)
+        thresholds = []
+        for i in range(1, max_tier):
+            index = int(step * i) - 1
+            if index < 0:
+                index = 0
+            elif index >= len(scores):
+                index = len(scores) - 1
+            thresholds.append(scores[index])
 
     for task in tasks:
         task.tier = bucket_tier(task.score, thresholds)
