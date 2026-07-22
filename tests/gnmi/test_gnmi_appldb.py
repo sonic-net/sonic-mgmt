@@ -1,10 +1,33 @@
 import logging
 import pytest
 import re
+import threading
 
 from .helper import gnmi_set, gnmi_get, gnmi_subscribe_polling_py, get_namespace
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
+
+
+def _gnmi_client_connected(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    res = ptfhost.shell('netstat -tn | grep ":{} .*ESTABLISHED"'.format(env.gnmi_port),
+                        module_ignore_errors=True)
+    return res["rc"] == 0
+
+
+def _modify_fake_appdb_table(duthost, namespace, add=True, entries=1):
+    cmd_prefix = "sonic-db-cli"
+    if duthost.is_multi_asic:
+        cmd_prefix = "sonic-db-cli -n {}".format(namespace)
+    for entry in range(entries):
+        if add:
+            cmd = cmd_prefix + " APPL_DB hset FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0} val".format(entry)
+        else:
+            cmd = cmd_prefix + " APPL_DB hdel FAKE_APPL_DB_TABLE_{0}:fake_key{0} dummy{0}".format(entry)
+        assert duthost.shell(cmd)['rc'] == 0, "Unable to modify FAKE_APPL_DB_TABLE_{}".format(entry)
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -82,3 +105,41 @@ def test_poll_mode_no_table_or_key(duthosts, rand_one_dut_hostname, ptfhost):
     sync_responses = re.findall("sync_response: true", out)
     assert len(sync_responses) == 5, (
         "Expected 5 sync responses, got {}: {}".format(len(sync_responses), out))
+
+
+def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+    '''
+    POLL an existing APPL_DB table returns data with no error; then re-poll while
+    inserting a key mid-stream and confirm the new data appears. Ported from
+    tests/telemetry test_poll_mode_present_table_delayed_key.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
+    path_ns = namespace if namespace else "localhost"
+    path_list = ["/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_0".format(path_ns),
+                 "/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_1/fake_key1".format(path_ns)]
+
+    _modify_fake_appdb_table(duthost, namespace)  # add first table data
+    result = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=2,
+                                       update_count=5, max_sync_count=-1, timeout=30)
+    assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
+    updates = re.findall("json_ietf_val", str(result['stdout']))
+    assert len(updates) == 5, "Expected 5 update responses, got {}".format(len(updates))
+
+    holder = {}
+
+    def poll_worker():
+        holder['result'] = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=2,
+                                                     update_count=20, max_sync_count=-1, timeout=60)
+
+    client_thread = threading.Thread(target=poll_worker)
+    client_thread.start()
+    try:
+        wait_until(5, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+        _modify_fake_appdb_table(duthost, namespace, add=True, entries=2)  # add second table data
+        client_thread.join(60)
+    finally:
+        _modify_fake_appdb_table(duthost, namespace, add=False, entries=2)  # remove added tables
+
+    out = str(holder.get('result', {}).get('stdout', ''))
+    assert re.findall("dummy1", out), "Missing update response for delayed key: {}".format(out)
