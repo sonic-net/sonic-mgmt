@@ -888,32 +888,12 @@ def build_markdown_lines(
         lines.append("")
         lines.append(f"- Workflow run: [{run_url}]({run_url})")
         lines.append(
-            "- Downloadable artifacts: the workflow uploads a bundled artifact named "
-            "**migration-dashboard-artifacts** with the Markdown, JSON, and YAML reports."
+            "- Downloadable artifact: the workflow uploads a bundled artifact named "
+            "**migration-dashboard-artifacts** containing the YAML report."
         )
         lines.append("")
 
     lines.append("## Summary")
-    lines.append("")
-    lines.append("### Score formula")
-    lines.append("")
-    lines.append(
-        "Module score = volume + blast + coupling + quality_gap + unit_gap, where "
-        "volume = LOC/40 + (functions+classes)*1.5, blast = direct impacted tests * 1.2, "
-        "coupling = direct deps * 2.0 + transitive deps * 0.3, quality_gap = "
-        "(1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0, and unit_gap = 0 if "
-        "common2 unit tests exist else 4.0."
-    )
-    lines.append("")
-    lines.append(
-        "The score is meant to reflect migration effort and quality debt, including "
-        "fixtures, typing gaps, missing docs, dependency complexity, and the need for "
-        "refactoring or new unit tests."
-    )
-    lines.append("")
-    lines.append("Symbol score = volume + blast + quality_gap, where volume = LOC/25 + 1.0, "
-                 "blast = direct impacted tests * 1.2, and quality_gap = "
-                 "(1 - typed_ratio) * 3.0 + (0 if docstring else 1.5).")
     lines.append("")
     lines.append(f"- Modules available to migrate: **{len(tasks)}**")
     lines.append(f"- Modules already migrated: **{len(done_tasks)}**")
