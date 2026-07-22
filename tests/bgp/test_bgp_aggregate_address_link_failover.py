@@ -28,6 +28,7 @@ from bgp_aggregate_helpers import (
 
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.utilities import wait_until
@@ -56,7 +57,7 @@ INTF_STATE_WAIT_TIMEOUT = 90
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
+def setup_teardown(frr_config_mode, duthost):
     """Checkpoint before tests, rollback after.
 
     Link-failover tests shut down and restore DUT interfaces, which can leave
@@ -169,7 +170,7 @@ def link_failover_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
                     return False
             return True
 
-        bgp_neighbors = cfg_facts.get("BGP_NEIGHBOR", {})
+        bgp_neighbors = flatten_bgp_neighbors(cfg_facts.get("BGP_NEIGHBOR", {}))
         if bgp_neighbors:
             wait_until(BGP_SESSION_WAIT_TIMEOUT, BGP_SESSION_POLL_INTERVAL, 0, _all_bgp_up)
 
@@ -234,7 +235,7 @@ def wait_for_bgp_to_neighbor(duthost, m0_name, setup, timeout=BGP_SESSION_WAIT_T
     ``check_bgp_session_state`` to avoid the neigh_desc mismatch issue.
     """
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    bgp_neighbors = cfg_facts.get("BGP_NEIGHBOR", {})
+    bgp_neighbors = flatten_bgp_neighbors(cfg_facts.get("BGP_NEIGHBOR", {}))
     m0_ips = [ip for ip, info in bgp_neighbors.items() if info.get("name") == m0_name]
     pytest_assert(m0_ips, f"No BGP neighbor IPs found for {m0_name}")
     logger.info("Waiting for BGP sessions to %s (IPs: %s)", m0_name, m0_ips)

@@ -45,7 +45,10 @@ def remove_password_on_neighbor(setup):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
+def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, frr_config_mode, request):
+    # frr_config_mode parametrizes this module over both the traditional (bgpcfgd)
+    # and frr_mgmt_framework config modes; the passive/password config below is
+    # pushed via vtysh, which programs FRR directly in either mode.
     # verify neighbors are type sonic
     is_sonic = False
     if request.config.getoption("neighbor_type") == "sonic":

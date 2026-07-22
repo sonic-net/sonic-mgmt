@@ -30,7 +30,8 @@ pytestmark = [
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname,
+          enum_rand_one_frontend_asic_index, request):
     # verify neighbors are type sonic
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")

@@ -38,6 +38,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -57,7 +58,7 @@ BGP_SESSION_POLL_INTERVAL = 10
 
 # ---- Module-scoped setup/teardown ----
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
+def setup_teardown(frr_config_mode, duthost):
     """Checkpoint before tests, rollback + re-save config after.
 
     TC5.2/TC5.3/TC5.5 run 'config save -y' before a disruption.  If the test
@@ -107,7 +108,7 @@ def bgp_neighbors(duthosts, rand_one_dut_hostname):
     """Return list of BGP neighbor IPs for session-state polling after disruptions."""
     duthost = duthosts[rand_one_dut_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    return list(config_facts.get("BGP_NEIGHBOR", {}).keys())
+    return list(flatten_bgp_neighbors(config_facts.get("BGP_NEIGHBOR", {})).keys())
 
 
 # ---- Helpers ----

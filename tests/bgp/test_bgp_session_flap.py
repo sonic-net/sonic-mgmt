@@ -237,6 +237,7 @@ def wait_for_peer_memory_recovery(dut, asic_index, neighbor_ips, baseline):
 
 @pytest.fixture(scope='module')
 def setup(
+    frr_config_mode,
     tbinfo,
     nbrhosts,
     duthosts,

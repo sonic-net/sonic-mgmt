@@ -96,7 +96,7 @@ def get_exabgp_endpoints(tbinfo, default_nexthop):
     return endpoints
 
 
-def test_route_bgp_ecmp(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
+def test_route_bgp_ecmp(frr_config_mode, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
                         loganalyzer, setup_and_teardown):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(

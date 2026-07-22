@@ -5,6 +5,7 @@ import random
 import json
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import is_ipv6_only_topology
@@ -19,7 +20,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhosts,
+def test_bgp_gr_helper_routes_perserved(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts,
                                         setup_bgp_graceful_restart, tbinfo, cct=8):
     """Verify that routes received from one neighbor are all preserved during peer graceful restart."""
 
@@ -106,7 +107,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     configurations = tbinfo['topo']['properties']['configuration_properties']

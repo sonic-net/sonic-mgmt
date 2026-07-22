@@ -295,6 +295,7 @@ def _check_pfx_withdrawn(duthost, is_ipv6, injector_ip):
 
 
 def test_bgp_update_replication(
+    frr_config_mode,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,

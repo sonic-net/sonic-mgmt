@@ -135,7 +135,7 @@ def _run_weight_check(duthost, asic, address_family):
     return result
 
 
-def test_bgp_route_weight_ipv4(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_bgp_route_weight_ipv4(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                enum_frontend_asic_index):
     """Verify that IPv4 BGP-learned routes have the 'weight' attribute set
     in APPL_DB ROUTE_TABLE.
@@ -165,7 +165,7 @@ def test_bgp_route_weight_ipv4(duthosts, enum_rand_one_per_hwsku_frontend_hostna
                 result['checked'])
 
 
-def test_bgp_route_weight_ipv6(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+def test_bgp_route_weight_ipv6(frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                enum_frontend_asic_index):
     """Verify that IPv6 BGP-learned routes have the 'weight' attribute set
     in APPL_DB ROUTE_TABLE.
