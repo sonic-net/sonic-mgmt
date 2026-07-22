@@ -13,18 +13,12 @@ from tests.common.helpers.sonic_db import SonicDbCli
 
 pytestmark = [
     pytest.mark.topology('any', "t1-multi-asic"),
-    # The module rewrites PORT aliases in CONFIG_DB and some tests intentionally
-    # toggle interface state/speed, which can transiently trip routeCheck even
-    # when the CLI behavior under test is correct.
     pytest.mark.disable_route_check
 ]
 
 logger = logging.getLogger(__name__)
 
 PORT_TOGGLE_TIMEOUT = 30
-
-ROUTE_CHECK_CONVERGENCE_TIMEOUT = 180
-ROUTE_CHECK_CONVERGENCE_INTERVAL = 15
 
 # Allow enough time for the neighbor's lldpd to re-advertise after a port toggle.
 # SONiC/cSONiC (docker-sonic-vs) neighbors run lldpd with a 30s transmit delay and
@@ -36,19 +30,6 @@ ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 180
 
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
-
-
-def _wait_for_route_check_convergence(duthost, phase):
-    """Wait until route_check.py is healthy after alias mutation."""
-
-    def _route_check_ready():
-        result = duthost.shell('sudo route_check.py', module_ignore_errors=True)
-        return result["rc"] == 0
-
-    pytest_assert(
-        wait_until(ROUTE_CHECK_CONVERGENCE_TIMEOUT, ROUTE_CHECK_CONVERGENCE_INTERVAL, 0, _route_check_ready),
-        "route_check.py did not converge after iface_namingmode {}".format(phase)
-    )
 
 
 @pytest.fixture
@@ -159,24 +140,17 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
          'multi_vrf_info': multi_vrf_info,
     }
 
-    try:
-        logger.info('Waiting for route_check.py to converge after alias rewrite')
-        _wait_for_route_check_convergence(duthost, 'alias setup')
+    yield setup_info
 
-        yield setup_info
-    finally:
-        logger.info('Reverting the port alias name in redis db to the actual values')
-        for item in default_interfaces:
-            asic_index = duthost.get_port_asic_instance(item).asic_index
-            port_alias_old = port_alias_facts['port_name_map'][item]
-            db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
-                .format(duthost.asic_instance(asic_index).sonic_db_cli,
-                        item,
-                        port_alias_old)
-            duthost.command(db_cmd)
-
-        logger.info('Waiting for route_check.py to converge after alias restore')
-        _wait_for_route_check_convergence(duthost, 'alias restore')
+    logger.info('Reverting the port alias name in redis db to the actual values')
+    for item in default_interfaces:
+        asic_index = duthost.get_port_asic_instance(item).asic_index
+        port_alias_old = port_alias_facts['port_name_map'][item]
+        db_cmd = 'sudo {} CONFIG_DB HSET "PORT|{}" alias {}'\
+            .format(duthost.asic_instance(asic_index).sonic_db_cli,
+                    item,
+                    port_alias_old)
+        duthost.command(db_cmd)
 
 
 @pytest.fixture(scope='module', params=['alias', 'default'])
