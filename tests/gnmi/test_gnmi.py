@@ -3,16 +3,28 @@ import logging
 import re
 import random
 import threading
+import json
+import os
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, GNMIEnvironment
 from .helper import gnmi_set, dump_gnmi_log, gnmi_subscribe_streaming_sample, gnmi_get, \
                     gnmi_subscribe_streaming_onchange
+from . import cli_helpers as helper
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
+
+SHOW_PATHS_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "cli_paths.json")
+
+
+@pytest.fixture
+def skip_non_container_test(request):
+    if not request.config.getoption("--container_test", default=""):
+        pytest.skip("Testcase skipped for non container test")
+
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -251,3 +263,38 @@ def test_on_change_updates(duthosts, rand_one_dut_hostname, ptfhost):
     assert msg != "", "Did not get output from PTF on-change client"
     assert bgp_neighbor in msg, (
         "Did not find neighbor {} in on-change update: {}".format(bgp_neighbor, msg))
+
+
+def test_telemetry_show_non_get(duthosts, rand_one_dut_hostname, ptfhost, skip_non_container_test):
+    '''
+    The SHOW target only supports GET; a SUBSCRIBE must fail.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, ["reboot-cause"], 0, 1,
+                                             origin=None, target="SHOW")
+    assert "error" in msg.lower(), (
+        "SHOW subscribe should fail, but got: {}".format(msg))
+
+
+def test_telemetry_show_get(duthosts, localhost, rand_one_dut_hostname, ptfhost, request,
+                            skip_non_container_test):
+    '''
+    Test all SHOW GET paths from cli_paths.json: run each path's setup, gnmi GET
+    against the SHOW target, and verify.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
+        show_paths_data = json.load(show_paths_file)
+
+    for path, test_config in show_paths_data.items():
+        if test_config["setup"]:
+            setup_fixtures = [request.getfixturevalue(fx) for fx in test_config["setup_fixtures"]]
+            getattr(helper, test_config["setup"])(*setup_fixtures, *test_config["setup_args"])
+
+        show_gnmi_out = gnmi_get(duthost, ptfhost, [path], target="SHOW", origin=None, raw=True)
+
+        if test_config["verify"]:
+            output = helper.get_json_from_gnmi_output(show_gnmi_out)
+            verify_fixtures = [request.getfixturevalue(fx) for fx in test_config["verify_fixtures"]]
+            getattr(helper, test_config["verify"])(*verify_fixtures, *test_config["verify_args"], output)
