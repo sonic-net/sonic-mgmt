@@ -1222,7 +1222,7 @@ def setup_env(duthosts, enum_downstream_dut_hostname):
         delete_checkpoint(duthost)
 
 
-def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname, loganalyzer):
+def test_addcluster_workflow(frr_config_mode, duthosts, enum_downstream_dut_hostname, loganalyzer):
     """Test adding a downstream T1 neighbor cluster via GCU.
 
     This test validates that a T1 neighbor can be added to a multi-ASIC
