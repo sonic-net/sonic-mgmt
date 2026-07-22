@@ -287,7 +287,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise Exception("py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
 
 
-def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db"):
+def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db", raw=False):
     """
     Send GNMI get request with GNMI client
 
@@ -297,9 +297,11 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
         path_list: list for get path
         target: gNMI target (-xt), e.g. "OTHERS" for non-DB paths; omitted when None
         origin: gNMI origin (-xo); defaults to "sonic-db", pass None to omit
+        raw: when True, return the raw client stdout instead of the parsed result
+            list (used by callers that parse the GetResponse themselves)
 
     Returns:
-        msg_list: list for get result
+        msg_list: list for get result (or the raw stdout string when raw=True)
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = ip or duthost.mgmt_ip
@@ -328,6 +330,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db
         dump_system_status(duthost)
         result = msg.split(error, 1)
         raise Exception("GRPC error:" + result[1])
+    if raw:
+        return msg
     mark = 'The GetResponse is below\n' + '-'*25 + '\n'
     if mark in msg:
         result = msg.split(mark, 1)
