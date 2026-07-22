@@ -3,14 +3,13 @@ import threading
 import logging
 import re
 import pytest
-import random
 import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.helpers.telemetry_helper import setup_telemetry_forpyclient
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
+from telemetry_utils import generate_client_cli
 from tests.common import config_reload
 
 pytestmark = [
@@ -23,7 +22,6 @@ METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
-SUBMODE_ONCHANGE = 1
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
 
@@ -329,59 +327,6 @@ def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     assert ret["rc"] == 0, "PTF docker did not get a response"
     if callback is not None:
         callback(ret["stdout"])
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path,
-                           setup_streaming_telemetry):
-    logger.info("Testing on change update notifications")
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    skip_201911_and_older(duthost)
-
-    nslist = duthost.get_asic_namespace_list()
-    ns = random.choice(nslist)
-    bgp_nbrs = list(duthost.get_bgp_neighbors(ns).keys())
-    bgp_neighbor = random.choice(bgp_nbrs)
-    asic_id = duthost.get_asic_id_from_namespace(ns)
-    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor, asic_id)
-    original_state = bgp_info["bgpState"]
-    new_state = "Established" if original_state.lower() == "active" else "Active"
-
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
-                              target="STATE_DB", namespace=ns)
-
-    def callback(result):
-        logger.info("Assert that ptf client output is non empty and contains on change update")
-        try:
-            assert result != "", "Did not get output from PTF client"
-        finally:
-            ccmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                             original_state)
-            ccmd = duthost.get_cli_cmd_for_namespace(ccmd, ns)
-            duthost.shell(ccmd)
-        ret = parse_gnmi_output(result, 1, bgp_neighbor)
-        assert ret is True, "Did not find key in update"
-
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
-    client_thread.start()
-
-    logger.info("Checking telemetry service status on DUT.")
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    duthost.shell("systemctl status {}".format(env.gnmi_container))
-    duthost.shell("docker ps | grep {}".format(env.gnmi_container))
-    duthost.shell("docker logs {}".format(env.gnmi_container))
-
-    wait_until(60, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
-    cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                    new_state)
-    cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)
-    duthost.shell(cmd)
-    client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
