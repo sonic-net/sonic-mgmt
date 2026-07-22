@@ -205,7 +205,7 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our remote_id string simply consists of the MAC address of the port that received the request
+        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
         remote_id_string = (
             self.uplink_mac
             if self.dual_tor and self.relay_agent == "sonic-relay-agent"
