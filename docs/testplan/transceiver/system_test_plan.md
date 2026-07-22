@@ -48,6 +48,7 @@ The following table summarizes the key attributes used in system testing. This t
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
 | verify_lldp_on_link_up | boolean | True | O | dut | Whether to verify LLDP functionality when link comes up |
+| lldp_neighbor_wait_sec | integer | 60 | O | dut | Max time to wait for the LLDP neighbor to appear after the link comes up, in the Standard Port Recovery LLDP sub-check |
 | port_shutdown_wait_sec | integer | 5 | O | transceivers or platform_hwsku_overrides | Wait time after port shutdown before verification |
 | port_startup_wait_sec | integer | 60 | O | transceivers or platform_hwsku_overrides | Wait time after port startup before link verification |
 | port_toggle_iterations | integer | 100 | O | transceivers or platform_hwsku_overrides | Number of iterations for port toggle stress test |
@@ -136,39 +137,51 @@ The following procedures are referenced throughout the test cases to ensure cons
 
 ### Standard Port Recovery and Verification Procedure
 
-This procedure is used after any test that modifies transceiver state or after system disruptions:
+This procedure runs after any test that modifies transceiver state or after system disruptions.
+
+This procedure is **composable**. Each numbered sub-check below (Link Status, Stability, LLDP, CMIS State, SI Settings, Docker and Process Health) is an independently callable verification building block. The Standard Procedure is a thin **orchestrator** that runs the common full-recovery sequence over those building blocks with sensible defaults; callers that need a different subset compose the individual building blocks directly rather than forcing every check through one entry point. Which sub-checks apply to a given port is driven primarily by that port's attributes (e.g. `cmis_active_optical`, `verify_lldp_on_link_up`) plus a small set of caller-supplied knobs (link-up wait budget, post-recovery stability window, expected PID changes) — so callers tune behavior through data and a few parameters, not a wide matrix of enable/disable flags. New calling operations reuse the same building blocks; they do not re-implement link, stability, LLDP, CMIS, SI, or health logic.
+
+**Contract**
+
+- **Operates on a set of ports.** Callers pass the list of ports to validate; single-port callers pass a one-element list. The procedure must scale efficiently with port count: host-wide work (process / health verification) and per-physical-port work (breakout-group resolution, transceiver state) are performed **once per invocation** rather than repeated per logical port, and the fixed-duration waits (stability observation, oper-state settling, LLDP convergence) are **shared across the set** so total wall-clock is bounded by the slowest port, not the sum across ports. How this deduplication is realized is an implementation concern, not part of the contract.
+- **Read-only.** This procedure performs no configuration changes and is safe to invoke repeatedly (it is called from State Restoration, Common Teardown, and directly within test cases).
+- **Accumulate-all.** Every applicable sub-check runs; failures are collected and reported together so one invocation surfaces every problem on every port, rather than stopping at the first failure.
+- **Gating.** Sub-checks 2, 3, 5, and 6 run for a port only if that port's sub-check 1 (Link Status) passed — stability, LLDP, CMIS state, and SI settings are meaningless on a port that never came up. Sub-check 7 (Docker and Process Health) runs **unconditionally**: if a link failed to recover, knowing whether a critical service died on the way is exactly the diagnostic wanted.
 
 1. **Link Status Verification**
-   - Verify port is operationally up
-   - Wait for configured timeout period before declaring failure
+   - Verify each port is operationally up within a caller-supplied link-up wait budget. This budget is operation-specific — the caller sizes it to match the invoking operation (e.g. `port_startup_wait_sec` for a port startup, `<op>_settle_sec` for a reboot / config reload / power cycle) rather than a fixed value defined here.
 
-2. **Link Flap / Stability Verification**
-   - **Stability (always):** over a short post-recovery observation window, confirm the port does not flap — no new flap events and `last_up_time` stays steady. This sub-check is **forward-looking only** — it observes from recovery onward and does not use the pre-operation flap count — so it holds even for operations whose counters reset when the port DB is rebuilt.
+2. **Link Flap / Stability Verification** (per port, only if the port linked up)
+   - **Stability (always):** over a short, caller-supplied post-recovery observation window (a helper parameter with a small default — not an inventory attribute — since the exact duration is not pinned here), confirm the port does not flap — no new flap events and `last_up_time` stays steady. This sub-check is **forward-looking only** — it observes from recovery onward and does not use the pre-operation flap count — so it holds even for operations whose counters reset when the port DB is rebuilt.
    - **No flap across the operation (only where the counter survives):** additionally, for operations where the link is expected to stay up *and* APPL_DB is **not** rebuilt — i.e. `xcvrd` / `pmon` restart — assert the port did not flap during the operation by comparing the current flap count against the baseline recorded in [Common Setup](#common-test-setup-and-teardown) (boolean: count unchanged / no new flap).
    - This baseline comparison is **not** applied to operations that rebuild/clear the port DB — `swss` / `syncd` restart, `config reload`, cold/warm/fast reboot, and power cycle — because the flap count resets to `0`; for those, the stability sub-check above is the only flap check.
 
-3. **LLDP Verification** (if `verify_lldp_on_link_up` is True)
-   - Verify port appears in LLDP neighbor table
-   - Confirm LLDP neighbor information is correctly populated (remote device ID, port ID, etc. if applicable)
+3. **LLDP Verification** (per port, only if the port linked up and `verify_lldp_on_link_up` is True)
+   - **Mandatory:** verify the port appears in the LLDP neighbor table within `lldp_neighbor_wait_sec` (see the attribute table).
+   - **Optional (where the neighbor is a known device):** confirm the LLDP neighbor fields are correctly populated (remote device ID, port ID). Presence is the minimum bar; field-level validation is opt-in for callers with a known peer.
 
 4. **Remote-Side Link Verification** (optional — enabled by callers that opt in, e.g. the disruptive Event Handling and System Recovery test cases)
    - Resolve the peer port via the shared [Remote-Side Port Resolution](test_plan.md#remote-side-port-resolution) and verify the remote-side port is operationally up.
    - Skipped when the caller does not request it (e.g. read-only diagnostic checks). A port under test with no peer entry in the connection graph is a configuration error, per the shared resolution contract.
    - Per-operation peer link-flap expectations (e.g. the peer bounces once on reseat/reboot) are asserted in the individual test cases, not here.
 
-5. **CMIS State Verification** (for CMIS active optical transceivers (can be checked via `cmis_active_optical` attribute))
-   - Verify DataPathState is `DataPathActivated` for operational ports
-   - Verify ConfigState is `ConfigSuccess`
+5. **CMIS State Verification** (per port, only if the port linked up and the port is a CMIS active optical transceiver — check via `cmis_active_optical`)
+   - For every host lane the port exposes, verify the transceiver datapath has reached the **activated** state and its datapath configuration completed **successfully**. (These are the standard CMIS datapath/configuration states defined in the [transceiver test plan](test_plan.md); the concrete DB fields that surface them are an implementation detail.)
 
-6. **SI Settings Verification** (if applicable)
-   - **Optics SI Settings**: If `optics_si_settings` is defined, verify current EEPROM values match configured attributes
-   - **Media SI Settings**: If `media_si_settings` is defined, verify PORT_TABLE APPL_DB values match configured attributes. Also, ensure `NPU_SI_SETTINGS_SYNC_STATUS_KEY` is set to `NPU_SI_SETTINGS_DONE` in `PORT_TABLE` of `APPL_DB`
-   - Log any discrepancies for analysis
+6. **SI Settings Verification** (per port, only if the port linked up)
+   - **Optics SI Settings**: If `optics_si_settings` is defined, verify the transceiver's applied signal-integrity settings match the configured intent.
+   - **Media SI Settings**: If `media_si_settings` is defined, verify the port's applied media-side signal-integrity settings match the configured intent and that the SI settings sync to the NPU has completed successfully.
+   - Log any discrepancies for analysis.
 
 7. **Docker and Process Health Check**
-   - Verify all critical services (`xcvrd, pmon, swss, syncd`) are running for at least 3 minutes
-   - Ensure no core files are present in `/var/core`
-   - Log any service failures for analysis
+   - Run the [Common Per-Test Health Checks](test_plan.md#common-per-test-health-checks) at recovery time — every framework-monitored process is `RUNNING` with an unchanged PID since the pre-test baseline (except processes the caller has declared expected via the `expected_pid_changes` fixture, whose restart is treated as intended rather than a regression), and no new core dumps appeared — so any process regression is reported alongside this operation's other checks.
+
+**Composition by calling operation** (illustrative — each operation supplies only the knobs it needs and reuses the building blocks above):
+
+- **Transceiver OIR / reseat** — full orchestrator run (Link Status → Stability → LLDP → CMIS → SI Settings → Health) with defaults.
+- **Firmware upgrade** — full orchestrator run, but declare the expected PID change for the process the upgrade restarts (e.g. `xcvrd`). The link is expected to stay up, so the across-operation no-flap assertion in the Stability sub-check applies.
+- **Signal-integrity verification** — compose Link Status + SI Settings + Docker and Process Health directly, skipping LLDP and CMIS when they are not relevant to the operation.
+- **Reboot / config reload / power cycle** — full orchestrator run sized with `<op>_settle_sec`; the across-operation no-flap assertion is **not** applied because the port DB is rebuilt (the forward-looking Stability check is the only flap check for these).
 
 ### State Preservation and Restoration
 
@@ -180,7 +193,7 @@ This procedure ensures tests don't interfere with each other:
 2. **State Restoration** (after test completion, regardless of pass/fail)
    - Restore all modified transceiver settings to original values
    - Verify all ports return to their original operational states
-   - Execute **Standard Port Recovery and Verification Procedure** for affected ports
+   - Execute **Standard Port Recovery and Verification Procedure** for the affected ports (passed as a set — see the procedure's contract).
 
 ### Common Test Setup and Teardown
 
@@ -207,13 +220,13 @@ The following tests aim to validate the link status and stability of transceiver
 
 ### Process and Service Restart Test Cases
 
-**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Note: because the per-test PID check evaluates only the monitored processes listed in `DEFAULT_MONITORED_PROCESSES` (`tests/transceiver/common/health_checks.py`, currently only `xcvrd`), this subcategory adds the name of the *monitored* process whose restart is expected (today only `"xcvrd"`) — not the name of the restarted service — to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest. The framework's per-test PID check then treats the PID change as expected rather than a regression; the parent health check still verifies the monitored process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
+**Subcategory setup/teardown**: Disruptive — intentionally restarts services or daemons. Because the per-test PID check evaluates only the framework-monitored processes, this subcategory adds the *monitored* process whose restart is expected — e.g. `xcvrd` for a pmon restart, `syncd` for a syncd restart, `orchagent` for a swss restart — not the name of the restarted service, to the `expected_pid_changes` fixture, typically via an autouse fixture in the subcategory's conftest. The framework's per-test PID check then treats that PID change as expected rather than a regression; the parent health check still verifies the monitored process comes back `RUNNING`. Additional teardown: if a service fails to restart or remains down after the test, manually restart it (e.g., `sudo systemctl restart pmon`) before proceeding to the next test case.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | xcvrd daemon restart impact | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Restart xcvrd daemon.<br>3. Wait for `xcvrd_restart_settle_sec` before verification.<br>4. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass. Also ensure that xcvrd is up for at least `xcvrd_restart_settle_sec` seconds. |
+| 1 | xcvrd daemon restart impact | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Restart xcvrd daemon.<br>3. Wait for `xcvrd_restart_settle_sec` before verification.<br>4. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass. |
 | 2 | xcvrd restart with I2C errors | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Induce I2C errors in the system.<br>3. Restart xcvrd daemon.<br>4. Monitor link behavior and system stability.<br>5. Wait for `xcvrd_restart_settle_sec` before verification.<br>6. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass even with I2C errors present. |
-| 3 | xcvrd crash recovery test | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Modify xcvrd.py to raise an Exception and induce a crash.<br>3. Monitor automatic restart behavior.<br>4. Wait for `xcvrd_restart_settle_sec` before verification.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass. Also ensure that xcvrd is up for at least `xcvrd_restart_settle_sec` seconds. |
+| 3 | xcvrd crash recovery test | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Modify xcvrd.py to raise an Exception and induce a crash.<br>3. Monitor automatic restart behavior.<br>4. Wait for `xcvrd_restart_settle_sec` before verification.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass. |
 | 4 | pmon docker restart impact | 1. Verify current link states to be up for all transceivers and record the link up time.<br>2. Restart pmon container.<br>3. Monitor transceiver monitoring and link behavior.<br>4. Wait for `pmon_restart_settle_sec` before verification.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and all verification checks pass. |
 | 5 | swss docker restart impact | 1. Verify current link states to be up for all transceivers.<br>2. Restart swss container.<br>3. Monitor link state transitions and recovery.<br>4. Wait for `swss_restart_settle_sec` before verification.<br>5. Check if `expect_pmon_restart_with_swss_or_syncd` is True and verify pmon restart accordingly.<br>6. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure `xcvrd` restarts (based on `expect_pmon_restart_with_swss_or_syncd`) and all ports pass verification checks. |
 | 6 | syncd process restart impact | 1. Verify current link states to be up for all transceivers.<br>2. Restart syncd.<br>3. Monitor system recovery and link restoration.<br>4. Wait for `syncd_restart_settle_sec` before verification.<br>5. Check if `expect_pmon_restart_with_swss_or_syncd` is True and verify pmon restart accordingly.<br>6. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure `xcvrd` restarts (based on `expect_pmon_restart_with_swss_or_syncd`) and all ports pass verification checks. |
