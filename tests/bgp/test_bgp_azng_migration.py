@@ -6,13 +6,14 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common import config_reload
 from tests.common.utilities import get_image_type
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
 
-def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
+def test_bgp_azng_migration(frr_config_mode, duthosts, enum_upstream_dut_hostname):
 
     duthost = duthosts[enum_upstream_dut_hostname]
 
@@ -26,7 +27,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
 
     for peer_device, peer_device_info in config_facts['DEVICE_NEIGHBOR_METADATA'].items():
         if peer_device_info['type'] == "AZNGHub":
-            for peer_device_ip, peer_device_bgp_data in config_facts['BGP_NEIGHBOR'].items():
+            for peer_device_ip, peer_device_bgp_data in flatten_bgp_neighbors(config_facts['BGP_NEIGHBOR']).items():
                 if peer_device_bgp_data["name"] == peer_device:
                     peer_device_ip_set.add(peer_device_ip)
             break
