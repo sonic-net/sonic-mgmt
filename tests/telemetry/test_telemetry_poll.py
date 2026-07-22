@@ -44,30 +44,6 @@ def modify_fake_appdb_table(duthost, add=True, entries=1, namespace=""):
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_poll_mode_no_table_or_key(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                                   setup_streaming_telemetry, gnxi_path,
-                                   enum_rand_one_asic_index):
-    """
-    Test poll mode from APPL_DB and query a non existing table and key, ensure no errors
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    logger.info('Start telemetry poll mode testing')
-    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=5,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=5, update_count=0, timeout=30, namespace=namespace)
-    ptf_result = ptfhost.shell(cmd)
-    pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
-    show_gnmi_out = ptf_result['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    sync_responses_match = re.findall("sync_response: true", result)
-    pytest_assert(len(sync_responses_match) == 5, "Missing sync responses")
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                                              setup_streaming_telemetry, gnxi_path,
                                              enum_rand_one_asic_index):

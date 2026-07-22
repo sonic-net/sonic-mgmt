@@ -1,7 +1,8 @@
 import logging
 import pytest
+import re
 
-from .helper import gnmi_set, gnmi_get
+from .helper import gnmi_set, gnmi_get, gnmi_subscribe_polling_py, get_namespace
 
 logger = logging.getLogger(__name__)
 
@@ -63,3 +64,21 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
         logger.info("Failed to read path2: " + str(e))
     else:
         pytest.fail("Remove DASH_VNET_TABLE failed: " + msg_list2[0])
+
+
+def test_poll_mode_no_table_or_key(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    POLL mode from APPL_DB querying a non-existent table and key returns sync
+    responses and no error. Ported from tests/telemetry test_poll_mode_no_table_or_key.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    namespace_name = get_namespace(duthost)
+    path_list = ["/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_0".format(namespace_name),
+                 "/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_1/fake_key1".format(namespace_name)]
+    result = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=5,
+                                       update_count=0, max_sync_count=5, timeout=30)
+    assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
+    out = str(result['stdout'])
+    sync_responses = re.findall("sync_response: true", out)
+    assert len(sync_responses) == 5, (
+        "Expected 5 sync responses, got {}: {}".format(len(sync_responses), out))
