@@ -927,6 +927,7 @@
           prober_type: "{{ prober_type | default(omit) }}"
           neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
