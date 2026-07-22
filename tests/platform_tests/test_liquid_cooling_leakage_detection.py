@@ -47,6 +47,7 @@ def test_mock_liquid_leak_event(
     2. Mock liquid leak event is fixed and verify the dut has the correct response.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    gnmi_port = setup_gnmi_server
 
     logging.info("Start to mock liquid leak event.")
     mocker = mocker_factory(duthost, 'LiquidLeakageMocker')
@@ -61,7 +62,7 @@ def test_mock_liquid_leak_event(
     loganalyzer.match_regex = []
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(startmonitor_gnmi_event, duthost, ptfhost)
+        future = executor.submit(startmonitor_gnmi_event, duthost, ptfhost, gnmi_port)
 
         logging.info('Mock liquid leakage event.')
         mocker.mock_leakage()
@@ -89,7 +90,7 @@ def test_mock_liquid_leak_event(
     loganalyzer.match_regex = []
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(startmonitor_gnmi_event, duthost, ptfhost)
+        future = executor.submit(startmonitor_gnmi_event, duthost, ptfhost, gnmi_port)
 
         logging.info('Mock liquid leak event is fixed.')
         mocker.mock_no_leakage()

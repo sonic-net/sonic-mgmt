@@ -7,13 +7,16 @@ import ast
 from tests.common.helpers.sensor_control_test_helper import BaseMocker
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.common.helpers.gnmi_utils import gnmi_container
-from tests.common import config_reload
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_container, \
+    create_gnmi_certs, delete_gnmi_certs
+from tests.common.utilities import wait_until
 # The interval of EVENT_PUBLISHED is 60 seconds by default.
 # To left some buffer, the timeout for gnmi LD event is set to 90 seconds
 WAIT_GNMI_LD_EVENT_TIMEOUT = 90
 # To left some buffer for the thread timeout,the timeout for gnmi event is set to 120 seconds
 WAIT_GNMI_EVENT_TIMEOUT = WAIT_GNMI_LD_EVENT_TIMEOUT + 30
+# Max seconds to wait for the gnmi server to start listening after a restart.
+GNMI_SERVER_READY_TIMEOUT = 60
 
 DUT_CONFIG_FILE = '/usr/share/sonic/device/{}/system_health_monitoring_config.json'
 DUT_CONFIG_BACKUP_FILE = '/usr/share/sonic/device/{}/system_health_monitoring_config.json.bak'
@@ -181,23 +184,29 @@ def verify_gnmi_msg_is_sent(leakage_index_list, gnmi_result, msg_type):
     return True
 
 
-def startmonitor_gnmi_event(duthost, ptfhost):
+def startmonitor_gnmi_event(duthost, ptfhost, gnmi_port):
     """
     Monitor the gnmi event of the DUT.
-    :param dut: DUT object representing a SONiC switch under test.
+    :param duthost: DUT object representing a SONiC switch under test.
     :param ptfhost: PTF object representing a PTF switch under test.
-    :param result_queue: Queue object to store the result.
-    :return:
+    :param gnmi_port: TCP port the gnmi server listens on.
+    :return: gnmi client stdout.
     """
     dut_mgmt_ip = duthost.mgmt_ip
+    port = gnmi_port
     timeout = WAIT_GNMI_LD_EVENT_TIMEOUT
     gnmi_subscribe_cmd = (
-        f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {dut_mgmt_ip} -p 50052 -m subscribe "
-        "-x all[heartbeat=2] -xt EVENTS -o ndastreamingservertest --subscribe_mode 0 --submode 1 --interval 0 "
-        f"--update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout} -n")
+        "/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py "
+        f"-t {dut_mgmt_ip} -p {port} -m subscribe "
+        f"-x all[heartbeat=2] -xt EVENTS "
+        "-rcert /root/gnmiCA.pem -pkey /root/gnmiclient.key -cchain /root/gnmiclient.crt "
+        "--subscribe_mode 0 --submode 1 --interval 0 "
+        "--update_count 0 --create_connections 1 --filter_event_regex sonic-events-host "
+        f"--timeout {timeout}"
+    )
     result = ptfhost.shell(gnmi_subscribe_cmd, module_ignore_errors=True)['stdout']
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
-    return result
+    return resultq
 
 
 def get_pmon_daemon_thermalctld_control_dict(dut):
@@ -239,26 +248,52 @@ def get_liquid_cooling_update_interval(dut):
     return pmon_daemon_control_dict.get("liquid_cooling_update_interval")
 
 
+def _is_gnmi_server_listening(duthost, port):
+    """Return True if the gnmi server is listening on the given TCP port."""
+    res = duthost.shell(
+        "ss -ltn '( sport = :{} )' | grep -w LISTEN".format(port),
+        module_ignore_errors=True)
+    return res["rc"] == 0 and str(port) in res["stdout"]
+
+
+def wait_for_gnmi_server_ready(duthost, port, timeout=GNMI_SERVER_READY_TIMEOUT):
+    """
+    Wait until the gnmi server is listening on the given port after a restart.
+    """
+    logging.info("Waiting for gnmi server to listen on port %s", port)
+    assert wait_until(timeout, 3, 0, _is_gnmi_server_listening, duthost, port), \
+        "gnmi server did not start listening on port {} within {}s".format(port, timeout)
+    logging.info("gnmi server is listening on port %s", port)
+
+
 @pytest.fixture(scope="function")
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
-    Setup GNMI server with client without authentication
+    Setup GNMI server with mutual-TLS client certificate authentication.
     '''
+    # Imported lazily to avoid a module-level tests.common -> tests.gnmi dependency.
+    from tests.gnmi.helper import apply_cert_config, recover_cert_config
+
     duthost = duthosts[rand_one_dut_hostname]
 
     # Check if GNMI is enabled on the device
     pyrequire(
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
-    duthost.shell('sonic-db-cli CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
-    duthost.shell('sudo systemctl reset-failed gnmi')
-    duthost.shell('sudo service gnmi restart')
 
-    yield
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    # Generate CA/server/client certs and push them to the DUT and PTF.
+    create_gnmi_certs(duthost, localhost, ptfhost)
+
+    stopped_programs = apply_cert_config(duthost)
+    wait_for_gnmi_server_ready(duthost, env.gnmi_port)
+
+    yield env.gnmi_port
 
     logging.info("Recover gnmi config")
-    config_reload(duthost, safe_reload=True)
+    delete_gnmi_certs(localhost)
+    recover_cert_config(duthost, stopped_programs)
 
 
 @pytest.fixture(scope="module", autouse=True)
