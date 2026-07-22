@@ -19,7 +19,6 @@ from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestCon
     is_route_flow_counter_supported  # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
-
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
@@ -73,7 +72,7 @@ def skip_dualtor(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
+def common_setup_teardown(frr_config_mode, duthosts, rand_one_dut_hostname, ptfhost, localhost, tbinfo):
 
     logger.info("########### Setup for bgp speaker testing ###########")
 
@@ -133,7 +132,11 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     logger.info("Generated nexthops_ipv6: %s" % str(nexthops_ipv6))
     logger.info("setup ip/routes in ptf")
     for i in [0, 1, 2]:
-        ptfhost.shell("ip -6 addr add %s dev %s:%d" % (nexthops_ipv6[i], ptf_ports[0], i))
+        # Use 'replace' (idempotent) rather than 'add': this module-scoped fixture runs once
+        # per frr_config_mode param (traditional, then frr_mgmt_framework) and its teardown does
+        # not remove these PTF addresses, so a plain 'add' on the second run fails with
+        # "address already assigned".
+        ptfhost.shell("ip -6 addr replace %s dev %s:%d" % (nexthops_ipv6[i], ptf_ports[0], i))
 
     # Issue a ping command to populate entry for next_hop
     for nh in nexthops_ipv6:

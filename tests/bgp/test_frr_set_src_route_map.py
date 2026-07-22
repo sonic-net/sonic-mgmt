@@ -27,6 +27,8 @@ ITERATION_LEVEL_MAP = {
 logger = logging.getLogger(__name__)
 
 
+# The frr_mgmt_framework variant is skipped via conditional_mark (see
+# tests_mark_conditions.yaml): frrcfgd's route-map model has no zebra 'set src' clause.
 def _get_frontend_bgp_docker_names(duthost):
     """Return bgp container names for frontend ASICs only."""
     if not duthost.is_multi_asic:
@@ -239,8 +241,7 @@ def _race_loop_alive(duthost, pid):
 
 
 def test_mgmtd_preserves_default_route_set_src(
-        dut_with_default_route,
-        get_function_completeness_level):
+        frr_config_mode, dut_with_default_route, get_function_completeness_level):
     """
     Regress the mgmtd replay bug by forcing a config reload and ensuring FRR keeps the set src route-maps.
     """
@@ -280,7 +281,7 @@ def test_mgmtd_preserves_default_route_set_src(
 
 
 def test_mgmtd_preserves_default_route_set_src_with_large_config(
-        dut_with_default_route):
+        frr_config_mode, dut_with_default_route):
     """
     Inject extra FRR config (prefix-lists) before reload to validate that
     route-maps remain correct under additional FRR state.  The bloat is
