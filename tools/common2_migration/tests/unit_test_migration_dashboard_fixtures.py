@@ -36,6 +36,25 @@ def test_something(conn_graph_facts):
     assert MODULE.function_uses_symbol(test_node, "conn_graph_facts")
 
 
+def test_is_pytest_fixture_does_not_match_pytest_mark_decorators():
+    source = """
+import pytest
+
+@pytest.mark.parametrize("x", [1, 2])
+def sample_function(x):
+    return x
+"""
+    tree = ast.parse(source)
+    func_node = None
+    for node in MODULE.ast.walk(tree):
+        if isinstance(node, MODULE.ast.FunctionDef) and node.name == "sample_function":
+            func_node = node
+            break
+
+    assert func_node is not None
+    assert not MODULE.is_pytest_fixture(func_node)
+
+
 def test_module_has_common2_unit_tests_matches_dotted_form():
     assert MODULE.module_has_common2_unit_tests(
         "tests.common.helpers.bgp",

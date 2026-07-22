@@ -216,24 +216,19 @@ def typed_ratio_for_function(node: ast.FunctionDef) -> float:
 
 
 def is_pytest_fixture(node: ast.FunctionDef) -> bool:
-    """Return True when a top-level function appears to be a pytest fixture."""
+    """Return True when a top-level function is decorated as a pytest fixture."""
     if node.name.startswith("_"):
         return False
     for decorator in node.decorator_list:
         if isinstance(decorator, ast.Call):
             func = decorator.func
-            names: List[str] = []
             if isinstance(func, ast.Name):
-                names.append(func.id)
+                if func.id == "fixture":
+                    return True
             elif isinstance(func, ast.Attribute):
-                names.append(func.attr)
-                if isinstance(func.value, ast.Name):
-                    names.append(func.value.id)
-            if any(name == "fixture" for name in names) or any(
-                name == "pytest" for name in names
-            ):
-                return True
-        if isinstance(decorator, ast.Name):
+                if func.attr == "fixture" and isinstance(func.value, ast.Name):
+                    return True
+        elif isinstance(decorator, ast.Name):
             if decorator.id == "fixture":
                 return True
         elif isinstance(decorator, ast.Attribute):
