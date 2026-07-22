@@ -1,0 +1,690 @@
+# Overview
+
+This document describes the test plan for exercising 42 gNMI port management related paths.
+
+# Test Types
+
+### Get (G)
+
+A *get* test performs a gNMI get (read) operation for a particular gNMI path.  Generally, a get-only test will exercise gNMI *state* paths.  These paths are read-only and cannot be modified directly by a gNMI operation.  A *state* path can, however, be modified indirectly by a gNMI write operation to a corresponding gNMI *config* path or by a system command (e.g. a new network stack installation operation).
+
+### Set / Get (SG)
+
+A *set-get* test performs a sequence of gNMI get, set (write), and get operations.  Generally, a *set-get* test exercises that a write to a gNMI *config* path is accepted and updates the corresponding gNMI *state* path.  These tests will perform gNMI set operations on the gNMI *config* path and gNMI get operations on both the *state* and *config* paths.
+
+### Set Invalid / Get (Negative) (SI)
+
+A *set-invalid* test is a negative test whose intent is to verify that invalid configuration information results in a gNMI set error or, at the very least, that the invalid configuration does not result in an update to the corresponding gNMI *state* path and that no unexpected exceptions or crashes result.
+
+### Traffic Validation (TV)
+
+A *traffic validation* test injects packets from either the control switch or SUT and observes the appropriate counters on the peer switch. Additionally, these tests might involve injecting packets using traffic generators, verifying counters on the SUT and verifying traffic generator statistics. These tests might require flow configuration on the SUT or control switch.
+
+# Front panel port paths
+
+## Test Summary
+
+<table>
+  <thead>
+    <tr>
+      <th><strong>gNMI path</strong></th>
+      <th><strong>Test Type(s)</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/enabled</td>
+      <td>SG, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/enabled</td>
+      <td>SG, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/oper-status</td>
+      <td>SG, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/admin-status</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/last-change</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/config/port-speed</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/state/port-speed</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/mtu</td>
+      <td>SG, SI, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/mtu</td>
+      <td>SG, SI, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/loopback-mode</td>
+      <td>SG, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/loopback-mode</td>
+      <td>SG, TV</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/id</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/id</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/name</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/name</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/description</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/description</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/fully-qualified-interface-name</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/fully-qualified-interface-name</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/type</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/type</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/management</td>
+      <td>G</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/cpu</td>
+      <td>G</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/hardware-port</td>
+      <td>G</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/state/mac-address</td>
+      <td>G</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/config/health-indicator</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/health-indicator</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/config/link-training</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/state/link-training</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/hold-time/config/up</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/hold-time/config/down</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/hold-time/state/up</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/hold-time/state/down</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/counters/carrier-transitions</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/subcomponents/subcomponent[name=    <transceiver-id>]/config/name</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/subcomponents/subcomponent[name=transceiver-id]/state/name</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/state/transceiver</td>
+      <td>SG</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/config/name</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/state/name</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/components/component[[name=<physical_port>]/state/parent</td>
+      <td>G</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/port/config/port-id</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/components/component[name=<physical_port>]/port/state/port-id</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/config/fec-mode</td>
+      <td>SG, SI</td>
+    </tr>
+    <tr>
+      <td>/interfaces/interface[name=<port>]/ethernet/state/fec-mode</td>
+      <td>SG, SI</td>
+    </tr>
+  </tbody>
+</table>
+
+## Port admin status tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/config/enabled
+-   /interfaces/interface[name=<port>]/state/enabled
+-   /interfaces/interface[name=<port>]/state/oper-status
+-   /interfaces/interface[name=<port>]/state/admin-status
+-   /interfaces/interface[name=<port>]/state/last-change
+-   /interfaces/interface[name=<port>]/state/counters/carrier-transitions
+
+### Test 1: Disable/Enable port
+
+The following steps will be performed:
+
+1.  Use gNMI get operations to fetch the state values for `last-change` and `carrier-transitions` on SUT.
+2.  Use gNMI set operation to disable the port on SUT.
+    1.  `enabled` is `false` on SUT.
+3.  Use gNMI get operations to fetch the state values for `enabled, oper-status, admin-status, last-change` and `carrier-transitions` on SUT.
+4.  Expect the following state values, indicating write operations have taken effect on SUT.
+    1.  `enabled` is `false`
+    2.  `oper-status` is "`DOWN`"
+    3.  `admin-status` is "`DOWN`"
+    4.  `last-change` is greater than `last-change` timestamp in step 1.
+    5.  `carrier-transitions` is `1 `more than` carrier-transitions` in step 1.
+5.  Use gNMI get operations to fetch the state values for `oper-status` on control switch.
+6.  Expect that `oper-status` is "`DOWN`" on the control switch.
+7.  Perform traffic validation test with control switch being the source and SUT being the destination using the interface under test.
+    1.  Ensure that no container is sending control traffic between SUT and control switch.
+        1.  If required, stop LLDP, Teamd and BGP containers.
+    2.  Using gNMI get operations, fetch the state value of `out-pkts` on the control switch and `in-pkts` on SUT.
+    3.  Using P4RT packet I/O, send `N` IP packets from the control switch to the SUT via the port under test.
+    4.  Using gNMI get operations, fetch the state value of `out-pkts` on the control switch and `in-pkts` on SUT.
+    5.  Expect that `out-pkts` on the control switch and `in-pkts` on SUT are the same as the previous value in step 7(2). This indicates that packets have not egressed the control switch due to the port being operationally down.
+8.  Use gNMI set operation to enable the port on SUT.
+    1.  `enabled` is `true` on SUT.
+9.  Use gNMI get operations to fetch the state values for `enabled, oper-status, admin-status, last-change `and` carrier-transitions` on SUT.
+10.  Expect the following state values, indicating write operations have taken effect on SUT.
+     1.  `enabled` is `true`
+     2.  `oper-status` is "`UP`"
+     3.  `admin-status` is "`UP`"
+     4.  `last-change` is greater than `last-change` timestamp in step 3.
+     5.  `carrier-transitions` is `1 `more than` carrier-transitions` in step 3.
+11.  Use gNMI get operation to fetch the state value for `oper-status` on control switch.
+12.  Expect that `oper-status` is "`UP`" on the control switch.
+13.  Perform traffic validation test with control switch being the source and SUT being the destination using the interface under test.
+     1.  Using P4RT packet I/O, send N IP packets from the control switch to the SUT.
+     2.  Using gNMI get operations, fetch the state value of `out-pkts` on the control switch and `in-pkts` on SUT.
+     3.  Expect that `out-pkts` on the control switch and the `in-pkts` on the SUT are both incremented by N from the previous values in 7(2). This indicates that the port under test has been successfully enabled on SUT.
+
+### Test 2: ON_CHANGE Test
+
+The following steps will be performed:
+
+1.  Use gNMI get operation to fetch the state values for `oper-status` and `admin-status`.
+2.  Expect that:
+    1.  `oper-status` is "`UP`".
+    2.  `admin-status` is "`UP`".
+3.  Use gNMI subscribe (ON_CHANGE) operation to subscribe to `oper-status` and `admin-status `paths.
+4.  Use gNMI set operation to disable the port.
+    1.  `enabled` is `false`.
+5.  Expect that the test receives `oper-status` and `admin-status` change notifications from the switch (or a single notification).
+6.  Expect the following values in the notification(s):
+    1.  `oper-status` is "`DOWN`".
+    2.  `admin-status` is "`DOWN`".
+7.  Use gNMI set operation to enable the port.
+    1.  `enabled` is `true`.
+8.  Expect that the test receives `oper-status` and `admin-status` change notifications from the switch (or a single aggregated notification).
+9.  Expect the following values in the notification(s):
+    1.  `oper-status` is "`UP`".
+    2.  `admin-status` is "`UP`".
+
+## Port speed tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/ethernet/config/port-speed
+-   /interfaces/interface[name=<port>]/ethernet/state/port-speed
+-   /interfaces/interface[name=<port>]/state/oper-status
+
+### Test 1: Set supported speed
+
+The following steps will be performed:
+
+1.  Use gNMI get operations to fetch the state value of `autoneg` and `port-speed` for port under test, and `oper-status` and `carrier-transitions` for all front panel ports on SUT.
+2.  Expect that `autoneg` is `false` and `oper-status` is "`UP`" for port under test on SUT.
+3.  Use gNMI set operation to configure a supported speed (different than current speed) on a port on SUT.
+    1.  `port-speed` is `<supported_speed>`
+4.  Use gNMI get operations to fetch the state values for `port-speed` and `oper-status` of port under test on SUT.
+5.  Expect the following state values for port under test, indicating write operations have taken effect on SUT.
+    1.  `port-speed` is `<supported_speed>`
+    2.  `oper-status` is "`DOWN`"
+6.  Use gNMI get operation to fetch `oper-status` of port under test on the control switch.
+7.  Expect that `oper-status` is "`DOWN`".
+8.  Use gNMI set operation to configure the same speed as configured in step 3 for the port under test on the control switch.
+    1.  `port-speed` is `<supported_speed>`
+9.  Use gNMI get operations to fetch the state values for `port-speed` and `oper-status` for port under test on control switch.
+10.  Expect the following state values, indicating write operations have taken effect on the control switch.
+     1.  `port-speed` is `<supported_speed>`
+     2.  `oper-status` is "`UP`"
+11.  Use gNMI get operation to fetch `oper-status` for all front panel ports on SUT.
+12.  Expect that `oper-status` is "`UP`" for port under test and same as previous value in step 1 for all other front panel ports on SUT.
+13.  Restore original port speed on SUT and control switch and verify that port under test is operationally up, and `oper-status` and `carrier-transitions` of all other front panel ports has not changed.
+
+### Test 2: Set unsupported speed
+
+The following steps will be performed:
+
+1.  Use gNMI get operation to fetch the state path value for `port-speed `for port under test and `oper-status` for all front panel ports`.`
+2.  Use gNMI set operation to configure an unsupported speed on a port.
+    1.  `port-speed` is "`<unsupported_speed>`"
+3.  Expect gNMI set operation to fail as the speed is not a supported port speed.
+4.  Use gNMI get operations to fetch the state values for `port-speed`  for port under test and `oper-status `for all front panel ports.
+5.  Expect the following state values:
+    1.  `port-speed` is `<same as original port-speed>` in step 1 for port under test
+    2.  `oper-status` is "`UP`" for port under test and same as previous value in step 1 for all other front panel ports.
+
+### Test 3: ON_CHANGE Test
+
+The following steps will be performed for the port under test:
+
+1.  Use gNMI get operation to fetch the state path value for `port-speed `and` oper-status.` Expect that:
+    1.  `oper-status` is "`UP`".
+2.  Use gNMI subscribe (ON_CHANGE) operation to subscribe to `port-speed` and `oper-status` paths.
+3.  Use gNMI set operation to configure a supported speed on the port which is different from the current `port-speed` fetched in step 1.
+    1.  `port-speed` is "`<supported_speed>`".
+4.  Expect that the test receives  `port-speed` and `oper-status` change notifications from the switch (or a single aggregated notification) with:
+    1.  `port-speed = <supported_speed>` configured in step 3.
+    2.  `oper-status` is "`DOWN`".
+5.  Use gNMI set operation to restore original speed on the port.
+    1.  `port-speed` is "`<original_speed>`".
+6.  Expect that the test receives  `port-speed` and `oper-status` change notifications from the switch (or a single aggregated notification) with:
+    1.  `port-speed = <original_speed>` fetched in step 1.
+    2.  `oper-status` is "`UP`".
+
+## Port MTU tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/config/mtu
+-   /interfaces/interface[name=<port>]/state/mtu
+
+### Test 1: Set supported MTU
+The following steps will be performed:
+
+1. Use P4RT interface to configure L3 forwarding rule that forwards `dest-ip` traffic via port under test. 
+2. Use gNMI get operation to fetch the state value for `mtu` on SUT ports.
+3.  Use gNMI set operations to modify the MTU on SUT on port under test. Ensure that MTU on SUT < MTU on control switch.
+    1.  `mtu` is `1500`
+4.  Use gNMI get operation to fetch the state value for `mtu` on SUT.
+5.  Expect the following state values, indicating write operations have taken effect on SUT.
+    1.  `mtu` is `1500`
+6.  Enable collecting packets on the control switch using P4.
+7.  Using P4RT packet I/O, send N packets of size > SUT mtu from control switch to SUT to be routed out of port under test on SUT. Expect no packets to be routed back to control switch.
+8.  Using P4RT packet I/O, send N packets of size < SUT mtu from control switch to SUT to be routed out of port under test on SUT. Expect all packets to be routed back to control switch.
+9.  Repeat steps 1-8 for MTU values of `5120 `and` 9216`.
+10.  Restore original MTU in step 1 on the SUT.
+
+### Test 2: Set invalid MTU
+
+The following steps will be performed:
+
+1.  Use gNMI get operations to fetch the state values for `mtu`.
+2.  Use gNMI set operations to modify the config paths.
+    1.  `mtu` is `20000`
+3.  Expect the above set operation to fail.
+4.  Use gNMI get operations to fetch the state values for `mtu`.
+5.  Expect the following state values.
+    1.  `mtu` is `<same as previous mtu>`
+    2.  `oper-status` is "`UP`"
+6.  Repeat steps 2 through 5 with each of the following invalid MTU values.
+    1.  `mtu` is `0`
+    2.  `mtu` is `65536`
+
+### Test 3: Verify traffic during MTU change
+
+The following steps will be performed:
+
+1.  Use P4RT interface to configure L3 forwarding rule that forwards `dest-ip` traffic via port under test (say `Ethernet0`).
+2.  Use gNMI set operation to configure MTU of `Ethernet0` to 4K:
+    1.  `mtu` is `4500`.
+3.  Use gNMI get operation to fetch the state value of `out-pkts` on `Ethernet0`.
+4.  Enable collecting packets on the control switch using P4. Send 4K size packets from control switch to SUT via any port except `Ethernet0 `continuously.
+5.  Verify that the packets are being forwarded from SUT to the control switch:
+    1.  Use gNMI get operation to fetch the state value of `out-pkts` on `Ethernet0`.
+        1.  Verify that `out-pkts` > `out-pkts `in step 3.
+    2. Verify that all 4K traffic is being received back by the control switch.
+6.  Use gNMI set operation to change the MTU of `Ethernet0` to 9K:
+    1.  `mtu` is `9198`.
+7.  Verify that no packet has been dropped by the switch after changing the MTU:
+    1.  Verify that all 4K traffic is being received back by the control switch.
+8.  Stop sending packets from the control switch.
+9.  Restore original MTU on the SUT.
+
+## Port loopback mode tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/config/loopback-mode
+-   /interfaces/interface[name=<port>]/state/loopback-mode
+
+### Test 1: Enable/Disable loopback mode
+
+The following steps will be performed:
+
+1.  Use gNMI set operation to enable `loopback-mode` on SUT.
+    1.  `loopback-mode` is `ASIC_MAC_LOCAL`
+2.  Use gNMI get operation to fetch the state value for `loopback-mode` on SUT.
+3.  Expect that `loopback-mode` is `ASIC_MAC_LOCAL`.
+4.  The above configuration will cause a link flap so wait for the port to come back up.
+    1.  Use gNMI get operation to fetch the state value for oper-status on SUT:
+        1.  Expect that `oper-status` is `UP`.
+5.  Perform traffic validation to verify that packets are being looped back from the SUT:
+    1.  Using gNMI get operations, fetch the state value of `in-pkts` and `out-pkts` on SUT, and `in-pkts` on control switch.
+    2.  Using P4RT packet I/O interface, send `N` IP packets from SUT to the control switch via port under test.
+    3.  Using gNMI get operation, fetch the state value  of `in-pkts` on control switch.
+        1.  Expect that `in-pkts` is same as `in-pkts` in step 5(1).
+    4.  Using gNMI get operations, fetch the state value of `in-pkts` and `out-pkts` on SUT.
+        1.  Expect that `in-pkts` and `out-pkts` on SUT are incremented by `N`. This indicates that packets egressing from the SUT are looped back from SUT and received on the same port.
+6.  Use gNMI set operation, disable `loopback-mode` on SUT.
+    1.  `loopback-mode` is `NONE`
+7.  Use gNMI get operation to fetch the state value for `loopback-mode` on SUT.
+    1.  `loopback-mode` is `NONE`
+8.  The above configuration will cause a link flap so wait for the port to come back up.
+    1.  Use gNMI get operation to fetch the state value for oper-status on SUT:
+        1.  Expect that `oper-status` is `UP`.
+9.  Perform traffic validation to verify that packets are not being looped back from the SUT to the control switch:
+    1.  Using gNMI get operations, fetch the state value of `in-pkts` and `out-pkts` on SUT, and `in-pkts` on control switch.
+    2.  Using P4RT packet I/O interface, send `N` IP packets from SUT to the control switch via port under test.
+    3.  Using gNMI get operation, fetch the state value  of `in-pkts` on control switch.
+        1.  Expect that `in-pkts = N + in-pkts` in step 9(1).
+    4.  Using gNMI get operations, fetch the state value of `in-pkts` and `out-pkts` on SUT.
+        1.  Expect that `out-pkts = N + out-pkts` in step 9(1).
+        2.  Expect that `in-pkts` is same as `in-pkts` in step 9(1). This indicates that packets egressing from the SUT are not looped back to the SUT.
+
+## Port bookkeeping attributes tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/config/id
+-   /interfaces/interface[name=<port>]/state/id
+-   /interfaces/interface[name=<port>]/config/name
+-   /interfaces/interface[name=<port>]/state/name
+-   /interfaces/interface[name=<port>]/config/description
+-   /interfaces/interface[name=<port>]/state/description
+-   /interfaces/interface[name=<port>]/config/fully-qualified-interface-name
+-   /interfaces/interface[name=<port>]/state/fully-qualified-interface-name
+-   /interfaces/interface[name=<port>]/config/type
+-   /interfaces/interface[name=<port>]/state/type
+
+### Test 1: Set all bookkeeping attributes
+The following steps will be performed:
+
+1.  Use gNMI set operations to modify the config paths on a front panel port.
+    1.  `id` is `1`
+    2.  `name` is "`Ethernet0`"
+    3.  `description` is "`test_description`"
+    4.  `fully-qualified-interface-name` is "`ju1u1m1.ibs40.net.google.com:eth-1/2/1`"
+    5.  `type` is "`ethernetCsmacd`"
+2.  Use gNMI get operations to fetch the state values for all bookkeeping attributes.
+3.  Expect that they are the same as configured.
+
+
+### Test 2: Set invalid type
+
+The following steps will be performed:
+
+1.  Use gNMI get operations to fetch the state value for `type` on a front panel port.
+2.  Use gNMI set operations to modify the config paths on the front panel port.
+    1.  `type` is `"ieee8023adLag"`
+3.  Expect gNMI set operation to fail since type value is not supported for a front panel port. 
+4.  Use gNMI get operations to fetch the state value for `type`.
+5.  Expect that the state value is the same as the original indicating that no change has occurred.
+
+
+## Port Information tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/ethernet/state/mac-address
+-   /interfaces/interface[name=<port>]/state/hardware-port
+-   /interfaces/interface[name=<port>]/state/management
+-   /interfaces/interface[name=<port>]/state/cpu
+
+### Test 1: Get port MAC address
+
+The following steps will be performed:
+
+1.  Use gNMI get operation to fetch the state value for `mac-address `for each front panel port.
+2.  Expect the following values:
+    1.  `mac-address` is in a valid format `xx::xx::xx::xx::xx::xx`
+
+### Test 2: Get port flags
+
+The following steps will be performed:
+
+1.  Use gNMI get operation to fetch the state value for `management` and `cpu `for each front panel port.
+2.  Expect that both the state values are `false`.
+
+### Test 3: Get hardware-port
+
+The following steps will be performed:
+
+1.  Fetch the expected port name to front panel port number mapping. This will be a static mapping maintained by the test.
+2.  Use gNMI get operation to fetch the state value for `hardware-port `for each front panel port.
+3.  Expect that the state value of `hardware-port` is in the form of "`1/<front_panel_port_number>`" where `<front_panel_port_number>` matches the port name to front panel port number mapping fetched in step 1.
+
+
+## Port component tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /components/component[name=<physical_port>]/config/name
+-   /components/component[name=<physical_port>]/state/name
+-   /components/component[name=<physical-port>]/state/parent
+-   /components/component[name=<physical_port>]/port/config/port-id
+-   /components/component[name=<physical_port>]/port/state/port-id
+
+
+### Test 1: Set port component information
+
+The following steps will be performed:
+
+1.  Use gNMI set operations to configure the name and `port-id` of physical port "`1/1`".
+    1.  `name` is "`1/1`"
+    2.  `port-id` is `1`
+2.  Use gNMI get operation to fetch the state values for `name, port-id `and `parent` of physical port "`1/1`".
+3.  Expect the following values:
+    1.  `name` is "`1/1`"
+    2.  `port-id` is `1`
+    3.  `parent` is "`integrated_circuit0`"
+  
+### Test 2: Set invalid name
+
+The following steps will be performed:
+
+1.  Use gNMI get operation to fetch the state value for `name` of physical port "`1/1`".
+2.  Use gNMI set operations to configure invalid `name` of physical port "`1/1`". 
+    1.  `name` is "`1/XYZ`"
+3.  Expect that the above gNMI set operation fails.
+4.  Use gNMI get operation to fetch the state value for `name` of physical port "`1/1`".
+5.  Expect that the state value for `name` is unchanged i.e. `name` in step 4 is same as that in step 1.
+
+
+## Port link training tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/ethernet/config/link-training
+-   /interfaces/interface[name=<port>]/ethernet/state/link-training
+
+These tests require the test to know the port connection type (copper or optical) between the SUT and control switch.
+
+### Test 1: Set link training for copper port
+
+The following steps will be performed:
+
+1.  Use gNMI set operations to disable copper port under test on SUT and control switch.
+2.  Use gNMI set operations to disable `link-training` on SUT and  enable `link-training`  on control switch.
+3.  Use gNMI set operations to enable the ports on SUT and control switch.(Disabling and re-enabling port will retrigger link-training to be applied on the port.)
+4.  Use gNMI get operation to fetch the state value of `link-training` and `oper-status` on SUT.
+5.  Expect that `oper-status` is "`DOWN`" since link-training is only applied on one side and `link-training` is` "false"`
+6.  Use gNMI set operations to enable `link-training` on SUT.
+7.  Use gNMI get operations to fetch the state values for `link-training` and `oper-status` on SUT and control switch.
+8.  Expect that `oper-status` is "`UP`" since link-training is now applied on both sides and `link-training` is `"true"`.
+
+## Port hold-time tests
+
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/hold-time/config/up
+-   /interfaces/interface[name=<port>]/hold-time/state/up
+-   /interfaces/interface[name=<port>]/state/counters/carrier-transitions
+
+These set of tests require port flapping. This will be done by disabling and enabling the port under test on the SUT.
+
+
+### Test 1: Disable link event damping
+
+The following steps will be performed:
+
+1. Use gNMI get operation to fetch the state value for `up` hold-time on SUT and control switch. 
+2. Use gNMI set operations to disable link event damping by configuring hold-time `up` on SUT and control switch.
+    1.  `up` is `0`
+3.  Use gNMI get operation to fetch the state values for hold-time `up` on SUT and control switch. Expect that:
+    1.  `up` is `0`
+4.  Use gNMI get operation to fetch the state value for `carrier-transitions` on SUT.
+5.  Use gNMI subscribe (ON_CHANGE) operation to subscribe to `oper-status` path on SUT.
+6.  Flap the port `N` times continuously.
+7.  Expect that the test receives `2 x N` `oper-status` change notifications from the SUT.
+8.  Use gNMI get operation to fetch the state values for `oper-status` and `carrier-transitions`.
+9.  Expect that:
+    1.  `oper-status` is "`UP`".
+    2.  `carrier-transitions` is `2 x N` times more than the value fetched in step 4.
+10. Restore original hold-time `up` on SUT and control switch.
+
+### Test 2: Enable link event damping
+
+The following steps will be performed:
+
+1. Use gNMI get operation to fetch the state value for `up` hold-time on SUT and control switch. 
+2. Use gNMI set operation to disable link event damping by configuring hold-time `up` on SUT and control switch. This will clear any damped state if present on the SUT and control switch.
+3. Use gNMI set operations to enable link event damping by configuring hold-time `up` on SUT.
+    1. `up` is 1000.
+4. Use  gNMI get operation to fetch the state value of hold-time `up` on SUT.
+    1. `up` is 1000.
+5. Use gNMI get operation to fetch the state value for `carrier-transitions` on SUT.
+6.  Use gNMI subscribe (ON_CHANGE) operation to subscribe to `oper-status` path on SUT.
+7.  Flap the port only once.
+8.  Expect that the test receives `2` `oper-status` change notifications from the SUT.
+9.  Use gNMI get operation to fetch the state values for `oper-status` and `carrier-transitions`.
+10.  Expect that:
+     1.  `oper-status` is "`UP`".
+     2.  `carrier-transitions` is `2` more than the value fetched in step 5.
+11. Flap the port again only once.
+12. Link down event of this flap should start the damping operation. Therefore, expect that the test receives only `1 oper-status` change notification.
+13. Use gNMI get operation to fetch the state values for `oper-status` and `carrier-transitions`. Expect that:
+     1. `oper-status` is "`DOWN`".
+     2. `carrier-transitions` is `1` more than the value fetched in step 9(2) i.e. `3` more than step 5.
+14. Flap the port 10 times.
+15. These link flap events should be damped. Therefore, expect that the test doesn't receive any `oper-status` change notification.
+16. Use gNMI get operation to fetch the state values for `oper-status` and `carrier-transitions`. Expect that:
+     1. `oper-status` is "`DOWN`".
+     2. `carrier-transitions` is same as the value fetched in step 12(2) i.e. `3` more than step 5.
+17. Use gNMI set operation to disable link event damping by configuring hold-time `up` on SUT and control switch. This will clear any damped state if present on the SUT and control switch.
+18. Use gNMI get operation to fetch the state values for `oper-status` and `carrier-transitions`. Expect that:
+     1. `oper-status` is "`UP`".
+     2. `carrier-transitions` is `1` more than the value fetched in step 16(2) i.e. `4` more than step 5.
+19. Restore original hold-time `up` on SUT and control switch.
+
+## FEC Configuration Tests
+The tests in this section cover the following gNMI paths.
+
+-   /interfaces/interface[name=<port>]/ethernet/config/fec-mode
+-   /interfaces/interface[name=<port>]/ethernet/state/fec-mode
+
+### Test 1: Set valid FEC mode
+
+The following steps will be performed:
+
+1.  Save the current system configuration
+2.  Use gNMI get operations to get the list of all interfaces in the system
+3.  For each interface
+    1.  Use gNMI get operation to fetch the current speed, number of lanes of the interface
+        1.  speed is /interfaces/interface[name=<port>]/ethernet/state/port-speed
+        2.  lanes are /interfaces/interface[name=<port>]/state/physical-channel
+    2.  Based on the current interface speed and number of lanes, get the supported FEC modes. An example of a map of valid values:
+        1.  400G (4 or 8 lane) - RS544-2xN
+        2.  200G (2 or 4 lanes) - RS544-2xN, RS544
+        3.  100G (1 lane) - RS544-2xN, RS544
+        4.  100G (2 lane) - RS544, RS528
+        5.  100G (4 lane) - RS528, None
+        6.  40G - None
+        7.  10G - None
+    3.  For each valid FEC mode, use gNMI set operation to configure the FEC setting on both the SUT and control switch.
+    4.  Use gNMI get operation to read back the FEC configuration for the port and verify that it matches the configured value in the above step.
+    5.  Verify that the port is operationally up.
+4.  Restore the original system configuration
+
+### Test 2: Set invalid FEC mode
+
+1.  Save the current system configuration
+2.  Use gNMI get operations to get the list of all interfaces in the system
+3.  For each interface
+    1.  Use gNMI get operation to fetch the current speed, number of lanes of the interface
+    2.  Based on the current interface speed and number of lanes, get an unsupported FEC mode. A map of valid invalid is (note: just picking a different value from the map above may not work as different ASICs have different capabilities):
+        1.  400G (4 or 8 lane) - None/FC/RS528
+        2.  200G (2 or 4 lanes) - None/FC/RS528
+        3.  100G (1 lane) - None/FC/RS528
+        4.  100G (2 lane) - RS544-2xN/FC
+        5.  100G (4 lane) - FC/RS544/RS544-2xN
+        6.  40G - RS528/RS544/RS544-2xN
+        7.  10G - RS528/RS544/RS544-2xN
+    3. Use gNMI set operation to configure the unsupported FEC mode on the SUT.
+    4. Use gNMI get operation to read back the FEC configuration for the port, verify it remains unchanged (note: may be unset).
+    5. Verify that the port is operationally up.
+4.  Restore the original system configuration
