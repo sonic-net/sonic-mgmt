@@ -473,6 +473,7 @@ class TestShowInterfaces():
             "Parsed interfaces: {}"
         ).format(interfaces)
 
+        expected_interfaces = None
         if mode == 'alias':
             expected_interfaces = setup['port_alias']
         elif mode == 'default':
@@ -481,6 +482,10 @@ class TestShowInterfaces():
             pytest.fail(
                 "Unsupported interface naming mode: '{}'".format(mode)
             )
+
+        assert expected_interfaces is not None, (
+            "Failed to resolve expected interfaces for naming mode '{}'"
+        ).format(mode)
 
         matched_interfaces = set(interfaces) & set(expected_interfaces)
 
