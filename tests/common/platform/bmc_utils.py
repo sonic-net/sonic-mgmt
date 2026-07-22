@@ -1,9 +1,12 @@
 """Shared helpers for BMC platform tests (syslog, event.log, Switch-Host)."""
 
 import logging
+import shlex
+
 from contextlib import contextmanager
 
 import pytest
+
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import STATE_DB, redis_hget, redis_hset
@@ -128,10 +131,12 @@ class BmcLogAnalyzer:
         marker = "{}.{}".format(self.marker_prefix,
                                 time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime()))
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         self.duthost.shell(
             "echo '{}' >> {}".format(start_line, BMC_EVENT_LOG),
             module_ignore_errors=True,
         )
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         logger.debug("BmcLogAnalyzer: wrote marker '%s' to %s", start_line, BMC_EVENT_LOG)
         return marker
 
@@ -150,10 +155,13 @@ class BmcLogAnalyzer:
             return self._get_syslog_analyzer().analyze(marker, fail=fail)
 
         start_line = "start-LogAnalyzer-{}".format(marker)
+        self.duthost.shell("sync {}".format(shlex.quote(BMC_EVENT_LOG)))
         result = self.duthost.shell(
-            "awk '/{}/ {{found=1; next}} found' {} 2>/dev/null".format(
-                start_line.replace("'", r"'\''"), BMC_EVENT_LOG),
-            module_ignore_errors=True,
+            "sed -n {} {}".format(
+                shlex.quote(r"/{}/,$p".format(start_line)),
+                shlex.quote(BMC_EVENT_LOG)
+            ),
+            module_ignore_errors=True
         )
         content = (result.get('stdout', '') or '').strip()
 

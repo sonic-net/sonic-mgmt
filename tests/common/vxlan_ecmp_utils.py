@@ -6,6 +6,7 @@
 '''
 
 from sys import getsizeof
+import json
 import re
 import time
 import logging
@@ -373,29 +374,31 @@ class Ecmp_Utils(object):
 
         return ret_list
 
-    def configure_vxlan_switch(self, duthost, vxlan_port=4789, dutmac=None):
+    def configure_vxlan_switch(self, duthost, vxlan_port=4789, dutmac=None,
+                               vxlan_sport=None, vxlan_mask=None):
         '''
            Configure the VxLAN parameters for the DUT.
            This step is completely optional.
 
-           duthost: AnsibleHost structure of the DUT.
+           duthost    : AnsibleHost structure of the DUT.
            vxlan_port : The UDP port to be used for VxLAN traffic.
            dutmac     : The mac address to be configured in the DUT.
+           vxlan_sport: The base UDP source port for VxLAN sport entropy.
+           vxlan_mask : The number of bits to vary in the source port range.
         '''
         if dutmac is None:
             dutmac = "aa:bb:cc:dd:ee:ff"
 
-        switch_config = '''
-    [
-            {{
-                    "SWITCH_TABLE:switch": {{
-                            "vxlan_port": "{}",
-                            "vxlan_router_mac": "{}"
-                    }},
-                    "OP": "SET"
-            }}
-    ]
-    '''.format(vxlan_port, dutmac)
+        switch_fields = {
+            "vxlan_port": str(vxlan_port),
+            "vxlan_router_mac": str(dutmac)
+        }
+        if vxlan_sport is not None:
+            switch_fields["vxlan_sport"] = str(vxlan_sport)
+        if vxlan_mask is not None:
+            switch_fields["vxlan_mask"] = str(vxlan_mask)
+
+        switch_config = json.dumps([{"SWITCH_TABLE:switch": switch_fields, "OP": "SET"}], indent=4)
         self.apply_config_in_swss(duthost, switch_config, "vnet_switch")
 
     def apply_config_in_swss(self, duthost, config, name="swss_"):
