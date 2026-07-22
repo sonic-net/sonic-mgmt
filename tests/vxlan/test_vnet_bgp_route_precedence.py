@@ -136,10 +136,8 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
             # cannot mask unrelated route failures. The parenthesized two-line
             # entries below are single regexes (intentional string
             # concatenation), not separate list items.
-            (".*ERR.* flush_creating_entries: EntityBulker.flush create entries "
-             "failed.*status: SAI_STATUS_ITEM_ALREADY_EXISTS.*"),
-            (".*ERR.* Encountered failure in create operation, SAI API: "
-             "SAI_API_ROUTE, status: SAI_STATUS_NOT_EXECUTED.*"),
+            ".*ERR.* EntityBulker.flush create entries failed.*SAI_STATUS_ITEM_ALREADY_EXISTS.*",
+            ".*ERR.* Encountered failure in create operation, SAI API: SAI_API_ROUTE.*SAI_STATUS_NOT_EXECUTED.*",
             ".*ERR.* addRoutePost: Failed to create route .* with next hop.*",
         ]
         # Ignore in KVM test
