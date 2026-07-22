@@ -503,6 +503,9 @@ def analyze_module(
     dotted = to_dotted(rel)
     domain = resolve_domain(rel)
     target_path = "tests/common2/" + domain + "/" + os.path.basename(rel)
+    common2_dotted = "tests.common2." + domain.replace("/", ".")
+    if common2_dotted.endswith("."):
+        common2_dotted = common2_dotted.rstrip(".")
 
     registry_migrated = registry_symbols_lookup(rel)
 
@@ -639,7 +642,7 @@ def analyze_module(
         typed_ratio=typed_ratio,
         documented_ratio=documented_ratio,
         has_common2_unit_tests=module_has_common2_unit_tests(
-            dotted, common2_unit_test_modules
+            common2_dotted, common2_unit_test_modules
         ),
         fully_migrated=fully_migrated,
         depends_on_direct=depends_on_direct,
