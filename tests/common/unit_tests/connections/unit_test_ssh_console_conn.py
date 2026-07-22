@@ -46,6 +46,7 @@ POSITIVE_CASES = [
     "Booting flash:sonic and installing image",
     "Loading Linux 6.1.0 ...",
     "Loading initial ramdisk ...",
+    "Loading vmlinuz-6.1.0-22-2-amd64",
     "GNU GRUB  version 2.06",
     "grub> ",
     "grub rescue> ",
@@ -65,6 +66,15 @@ NEGATIVE_CASES = [
     "root@sonic:~# apt-get: Downloading firmware",
     "sonic login: ",
     "admin@sonic:~$ sudo config reload -y",
+    # Image filenames contain "aboot" with hyphen word boundaries -- must NOT match
+    # (this is the false-positive class Copilot flagged; a bare \bAboot\b would hit).
+    "  Current: sonic-aboot-broadcom.swi",
+    "Next: sonic-aboot-broadcom-legacy-th.swi",
+    "admin@sonic:~$ sudo sonic-installer list",
+    "admin@sonic:~$ ls /host/image-aboot-20240101/",
+    # Generic progress text that is not a kernel/ramdisk load must NOT match.
+    "Loading configuration",
+    "admin@sonic:~$ app: Loading modules ...",
 ]
 
 

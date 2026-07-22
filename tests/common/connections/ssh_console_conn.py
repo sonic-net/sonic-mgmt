@@ -14,15 +14,25 @@ from paramiko.ssh_exception import SSHException
 # becomes permanently unreachable -- e.g. Arista Aboot's "Press Control-C now to enter
 # Aboot shell", plus GRUB, U-Boot and ONIE equivalents. The console must never write
 # control characters while in this state.
+#
+# The tokens are deliberately specific to avoid false positives on ordinary SONiC
+# shell output: the real Aboot states are the autoboot prompt ("Press Control-C ...")
+# and the shell prompt ("Aboot#") -- a bare "Aboot" word is NOT used because image
+# filenames like "sonic-aboot-broadcom.swi" would match it (the hyphens form word
+# boundaries) and wrongly suppress the leftover-shell Ctrl-C recovery. The generic
+# boot-in-progress verbs are line-anchored (re.M) and the "Loading" verb is scoped to
+# kernel/ramdisk loads so shell strings like "reloading"/"Loading configuration" do
+# not match.
 BOOTLOADER_BANNER_RE = re.compile(
-    r"Press\s+Control-?C|"                        # Arista Aboot autoboot window
-    r"\bAboot\b|Aboot#|"                          # Arista Aboot banner / shell
+    r"Press\s+Control[-\s]?C|"                    # Arista Aboot autoboot window
+    r"Aboot#|"                                    # Arista Aboot shell prompt
     r"GNU\s+GRUB|grub\s*>|grub\s+rescue\s*>|"     # GRUB menu / shell
     r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
     r"\bautoboot\b|"                              # generic autoboot countdown
     r"\bONIE\b|"                                  # ONIE installer / rescue
-    r"\bBooting\b|\bLoading\b",                   # generic boot-in-progress
-    flags=re.I,
+    r"^\s*Booting\b|"                             # boot-in-progress (line-anchored)
+    r"^\s*Loading\s+(?:Linux|initrd|initial\s+ramdisk|kernel|vmlinuz)",  # kernel/ramdisk load
+    flags=re.I | re.M,
 )
 
 
