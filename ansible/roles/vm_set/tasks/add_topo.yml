@@ -10,6 +10,11 @@
     ptf_imagetag: "latest"
   when: ptf_imagetag is not defined
 
+- name: Enable ptf_use_docker_network for BMC topology
+  set_fact:
+    ptf_use_docker_network: true
+  when: "'bmc' in topo"
+
 - name: set "PTF" container type, by default
   set_fact:
     container_type: "PTF"
