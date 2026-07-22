@@ -58,7 +58,7 @@ def pick_active_front_panel_port(config_facts):
     for port in active_ports:
         if port not in port_channel_members:
             port_role = config_facts['PORT'][port].get('role')
-            if port_role and port_role != 'Ext':    # ensure port is front-panel port
+            if port_role and port_role != 'Ext':  # ensure port is front-panel port
                 continue
             port_name = port
             break
@@ -165,6 +165,7 @@ def ignore_port_speed_loganalyzer_exceptions(duthosts, enum_downstream_dut_hostn
             ".*ERR swss[0-9]*#orchagent.*doPortTask: Unsupported port.*speed",
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
 
 # -----------------------------
 # Helper functions
@@ -372,7 +373,6 @@ def get_fec_for_speed(duthost, speed):
 
 
 def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, port):
-
     cmd = "sudo sonic-db-cli -n {} CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(enum_rand_one_asic_namespace,
                                                                                   acl_table)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
@@ -638,7 +638,7 @@ def apply_patch_change_port_cluster(config_facts,
     start_lane = int(current_lanes[0])
     target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
     pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
-    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))    
+    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
     if operation == "add":
         target_fec = config_facts["PORT"][selected_random_port].get("fec", None)
     elif operation == "remove":
@@ -678,7 +678,7 @@ def apply_patch_change_port_cluster(config_facts,
             json_patch.append({
                 "op": "remove",
                 "path": f"{json_namespace}/{key.replace('BUFFER_PG|', 'BUFFER_PG/')}"
-                })
+            })
         buffer_queue_keys = _get_buffer_queue_keys_for_port(
             duthost, config_facts, duthost.hostname, enum_rand_one_asic_namespace,
             cli_namespace_prefix, selected_random_port)
@@ -687,7 +687,7 @@ def apply_patch_change_port_cluster(config_facts,
             json_patch.append({
                 "op": "remove",
                 "path": f"{json_namespace}/{key.replace('BUFFER_QUEUE|', 'BUFFER_QUEUE/')}"
-                })
+            })
 
     # PORT_QOS_MAP
     if operation == "add":
@@ -695,19 +695,19 @@ def apply_patch_change_port_cluster(config_facts,
             "op": "add",
             "path": f"{json_namespace}/PORT_QOS_MAP/{selected_random_port}",
             "value": config_facts["PORT_QOS_MAP"][selected_random_port]
-            })
+        })
     elif operation == "remove":
         json_patch.append({
             "op": "remove",
             "path": f"{json_namespace}/PORT_QOS_MAP/{selected_random_port}"
-            })
+        })
     if operation == "add":
         json_patch = json_patch + json_patch_acl
         json_patch.append({
             "op": "add",
             "path": f"{json_namespace}/PORT/{selected_random_port}/admin_status",
             "value": "up"
-            })
+        })
     elif operation == "remove":
         json_patch = json_patch_acl + [admin_status_down_op] + json_patch
 
@@ -779,9 +779,9 @@ def setup_acl_config(duthost, ip_netns_namespace_prefix):
     remove_dataacl_table_single_dut("DATAACL", duthost)
     duthost.copy(src=ACL_RULE_FILE_PATH, dest=ACL_RULE_DST_FILE)
     cmds = [
-            "config acl add table {} {} -s {}".format(ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS),
-            "acl-loader update full --table_name {} {}".format(ACL_TABLE_NAME, ACL_RULE_DST_FILE)
-        ]
+        "config acl add table {} {} -s {}".format(ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS),
+        "acl-loader update full --table_name {} {}".format(ACL_TABLE_NAME, ACL_RULE_DST_FILE)
+    ]
     acl_asic_shell_wrappper(duthost, cmds)
     acl_tables = duthost.command("{} show acl table".format(ip_netns_namespace_prefix))["stdout_lines"]
     acl_rules = duthost.command("{} show acl rule".format(ip_netns_namespace_prefix))["stdout_lines"]
