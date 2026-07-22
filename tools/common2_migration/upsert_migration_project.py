@@ -160,6 +160,7 @@ class MigrationProjectUpserter:
         self.field_values: Dict[str, Dict[str, object]] = {}
         self.content_ids: Dict[str, str] = {}
         self.content_bodies: Dict[str, str] = {}
+        self.field_warnings: set[str] = set()
         self.created = 0
         self.updated_fields = 0
         self.updated_bodies = 0
@@ -269,16 +270,22 @@ class MigrationProjectUpserter:
     def _field(self, name: str, expected_data_type: Optional[str] = None) -> Optional[dict]:
         field = self.field_map.get(name.lower())
         if not field:
-            logger.warning("field '%s' missing; skipping", name)
+            warning_key = f"missing:{name.lower()}"
+            if warning_key not in self.field_warnings:
+                logger.warning("field '%s' missing; skipping", name)
+                self.field_warnings.add(warning_key)
             return None
         if expected_data_type:
             actual_data_type = (field.get("dataType") or "").upper()
             expected = expected_data_type.upper()
             if actual_data_type != expected:
-                logger.warning(
-                    "field '%s' has dataType '%s' but expected '%s'; skipping",
-                    name, field.get("dataType"), expected_data_type,
-                )
+                warning_key = f"type:{name.lower()}:{expected}"
+                if warning_key not in self.field_warnings:
+                    logger.warning(
+                        "field '%s' has dataType '%s' but expected '%s'; skipping",
+                        name, field.get("dataType"), expected_data_type,
+                    )
+                    self.field_warnings.add(warning_key)
                 return None
         return field
 
