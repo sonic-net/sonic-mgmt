@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shlex
 import time
 import paramiko
 from ansible.module_utils.basic import AnsibleModule
@@ -197,10 +198,12 @@ class UpgradeDpuSonicImageModule(object):
 
     def get_host_path_size_mb(self, ssh, dpu_ip, path):
         """Return du -sm size (MB) of a /host path, or None if it cannot be read/parsed."""
-        ok, out, _ = self.execute_command(ssh, dpu_ip, "sudo du -sm {} 2>/dev/null | cut -f1".format(path))
+        ok, out, _ = self.execute_command(ssh, dpu_ip, "sudo du -sm -- {}".format(shlex.quote(path)))
+        if not ok:
+            return None
         try:
-            return int(out.strip())
-        except ValueError:
+            return int(out.split()[0])
+        except (ValueError, IndexError):
             return None
 
     def reduce_installed_images(self, ssh, dpu_ip):
@@ -313,6 +316,14 @@ class UpgradeDpuSonicImageModule(object):
         finally:
             ssh.close()
 
+    def restore_boot_to_current(self, ssh, dpu_ip, curr_image, next_image):
+        """Point default and next-boot back at the current image so a reboot can't land on a bad image."""
+        if curr_image and curr_image != next_image:
+            self.log("[DPU {}] Restoring default and next boot to current image '{}'".format(
+                dpu_ip, curr_image))
+            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-default {}".format(curr_image))
+            self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-next-boot {}".format(curr_image))
+
     def install_image_on_dpu(self, ssh, dpu_ip):
         """Transfer the image from NPU to DPU via SCP and install it."""
         self.log("[DPU {}] Step: Install image".format(dpu_ip))
@@ -367,12 +378,17 @@ class UpgradeDpuSonicImageModule(object):
             self.log("WARNING: [DPU {}] Image installation FAILED: {}".format(dpu_ip, err.strip()))
             return False
 
-        # Persist writes and verify the new image's initrd is intact before allowing a reboot
-        self.execute_command(ssh, dpu_ip, "sudo sync")
+        # Persist writes before verifying/rebooting; a failed sync means writes may not be durable
+        sync_ok, _, sync_err = self.execute_command(ssh, dpu_ip, "sudo sync")
         list_ok, curr_image, next_image = self.get_installed_images(ssh, dpu_ip)
         if not (list_ok and next_image):
             self.log("WARNING: [DPU {}] Could not read image list after install; "
                      "failing safe (not rebooting into an unverified image)".format(dpu_ip))
+            return False
+        if not sync_ok:
+            self.log("WARNING: [DPU {}] Post-install sync FAILED: {}; writes may not be persisted, "
+                     "not rebooting into a potentially corrupt image".format(dpu_ip, sync_err.strip()))
+            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
             return False
         img_dir = "/host/image-{}".format(next_image.replace("SONiC-OS-", ""))
         _, initrd_out, _ = self.execute_command(
@@ -385,11 +401,7 @@ class UpgradeDpuSonicImageModule(object):
         if initrd_bytes < DPU_MIN_INITRD_BYTES:
             self.log("WARNING: [DPU {}] Post-install check FAILED for '{}': initrd missing/truncated "
                      "({} bytes); not rebooting into a corrupt image".format(dpu_ip, next_image, initrd_bytes))
-            if curr_image and curr_image != next_image:
-                self.log("[DPU {}] Restoring default and next boot to current image '{}'".format(
-                    dpu_ip, curr_image))
-                self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-default {}".format(curr_image))
-                self.execute_command(ssh, dpu_ip, "sudo sonic-installer set-next-boot {}".format(curr_image))
+            self.restore_boot_to_current(ssh, dpu_ip, curr_image, next_image)
             return False
         self.log("[DPU {}] Post-install check OK for '{}': initrd {} bytes".format(
             dpu_ip, next_image, initrd_bytes))
