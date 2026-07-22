@@ -65,6 +65,9 @@ PREFIX_LISTS = {
     'DISALLOWED_V6': ['2000:172:16:50::/64']
 }
 ALLOW_LIST_PREFIX_JSON_FILE = '/tmp/allow_list.json'
+# frr_mgmt_framework (frrcfgd) mode: file on the DUT used to stash the peer-group
+# AF inbound route-maps we override, so remove_allow_list can restore them.
+ALLOW_LIST_FRR_STATE_FILE = '/tmp/allow_list_frr_state.json'
 DROP_COMMUNITY = ''
 DEFAULT_ACTION = ''
 ANNOUNCE = 'announce'
@@ -420,13 +423,270 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
+# --------------------------------------------------------------------------- #
+# BGP allow-list -- traditional (bgpcfgd) vs frr_mgmt_framework (frrcfgd)
+#
+# In traditional mode bgpcfgd owns the BGP_ALLOWED_PREFIXES convenience table and
+# decomposes it into FRR prefix-lists, community-lists and a per-deployment
+# route-map (see sonic-bgpcfgd/bgpcfgd/managers_allow_list.py). frrcfgd does NOT
+# consume BGP_ALLOWED_PREFIXES, so in frr mode we reproduce exactly the FRR state
+# bgpcfgd would render, but through frrcfgd's own CONFIG_DB schema.
+#
+# For one BGP_ALLOWED_PREFIXES entry, e.g.::
+#
+#   "DEPLOYMENT_ID|0|1010:1010": {prefixes_v4: ["172.16.30.0/24"],
+#                                 prefixes_v6: ["2000:172:16:30::/64"],
+#                                 default_action: "permit"}
+#
+# we write (mirroring bgpcfgd's names/seqs):
+#
+#   PREFIX_SET|PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4  {mode: IPv4}
+#   PREFIX|PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010_V4|10|172.16.30.0/24|exact
+#                                                                   {action: permit}
+#   COMMUNITY_SET|COMMUNITY_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_1010:1010
+#           {set_type: standard, match_action: all, community_member: [1010:1010],
+#            action: permit}   -> "bgp community-list standard <name> permit 1010:1010"
+#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|10
+#           {route_operation: permit, match_prefix_set: <PL>, match_community: <CL>}
+#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|30000   (no-community deployment entry)
+#           {route_operation: permit, match_prefix_set: PL_..._empty_V4}
+#   ROUTE_MAP|ALLOW_LIST_DEPLOYMENT_ID_0_V4|65535   (default rule)
+#           {route_operation: permit,
+#            set_community_inline: [<drop_community|no-export>, additive]}
+#              -> "set community <c> additive"
+#
+# route_operation/seq -> "route-map <NAME> permit <seq>" (frrcfgd.py);
+# match_prefix_set -> "match ip[v6] address prefix-list" with the af resolved from
+# the referenced PREFIX_SET (frrcfgd.py); match_community -> "match community"; and
+# set_community_inline (a space-joined list, so a trailing 'additive' element renders
+# as "set community <c> additive") (frrcfgd.py).
+#
+# The route-map is attached inbound by overwriting route_map_in on every
+# BGP_PEER_GROUP_AF that already has an inbound route-map (nbr_af_key_map
+# route_map_in, frrcfgd.py) -- this replaces the peer-group's stock inbound
+# map with our allow-list map for the duration of the test; the originals are
+# stashed and restored by remove_allow_list. bgpcfgd instead wires the map in via
+# a `call` from the stock inbound map; overwriting route_map_in is the frr-schema
+# way to reach the same inbound filtering without editing the stock map's clauses.
+# Default seq 65535 tags every not-explicitly-allowed prefix: with
+# default_action=permit that is the drop_community (routes still forwarded but
+# marked); with default_action=deny it is no-export (routes not re-advertised to
+# eBGP neighbors) -- matching bgpcfgd's __get_default_action_community.
+# --------------------------------------------------------------------------- #
+def _allow_list_as_prefix_list(value):
+    """Return the prefixes as a list, accepting either a python list or a
+    comma-separated string (both shapes appear in BGP_ALLOWED_PREFIXES data)."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [p for p in value if p]
+    return [p for p in str(value).split(',') if p]
+
+
+def _get_allow_list_drop_community(duthost):
+    """Read the allow-list drop_community from constants.yml on the DUT."""
+    if DROP_COMMUNITY:
+        return DROP_COMMUNITY
+    constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
+    return constants['constants']['bgp']['allow_list']['drop_community']
+
+
+def _build_allow_list_frr_config(allow_list, drop_community):
+    """Translate the test's BGP_ALLOWED_PREFIXES dict into the frrcfgd-native
+    CONFIG_DB tables. Returns (tables, rm_by_af, created_keys).
+
+    * tables      -- {table: {key: value}} to feed to sonic-cfggen -w
+    * rm_by_af    -- {'ipv4_unicast': <rm_v4>, 'ipv6_unicast': <rm_v6>} route-map
+                     name to attach inbound (single deployment_id, per the test)
+    * created_keys -- [(table, key), ...] to delete on teardown
+    """
+    tables = {'PREFIX_SET': {}, 'PREFIX': {}, 'COMMUNITY_SET': {}, 'ROUTE_MAP': {}}
+    created_keys = []
+    rm_by_af = {}
+
+    def add(table, key, value):
+        tables[table][key] = value
+        created_keys.append((table, key))
+
+    # Group entries by deployment_id; each deployment_id -> one V4 + one V6 map.
+    deployments = {}
+    for raw_key, data in list(allow_list.get('BGP_ALLOWED_PREFIXES', {}).items()):
+        parts = raw_key.split('|')
+        deployment_id = parts[1]
+        community = parts[2] if len(parts) > 2 else None
+        deployments.setdefault(deployment_id, []).append((community, data))
+
+    for deployment_id, entries in list(deployments.items()):
+        # Community entries get seq 10.. (bgpcfgd 10..29990); no-community
+        # deployment entries get seq 30000.. (bgpcfgd 30000..65530).
+        seq_with_comm = 10
+        seq_without_comm = 30000
+        default_action = ''
+        for af, ver, plist_key in (('ipv4', '4', 'prefixes_v4'), ('ipv6', '6', 'prefixes_v6')):
+            rm_name = 'ALLOW_LIST_DEPLOYMENT_ID_{}_V{}'.format(deployment_id, ver)
+            rm_by_af['{}_unicast'.format(af)] = rm_name
+            cur_with = seq_with_comm
+            cur_without = seq_without_comm
+            for community, data in entries:
+                default_action = data.get('default_action', '') or default_action
+                prefixes = _allow_list_as_prefix_list(data.get(plist_key))
+                if not prefixes:
+                    continue
+                comm_token = community if community else 'empty'
+                pl_name = 'PL_ALLOW_LIST_DEPLOYMENT_ID_{}_COMMUNITY_{}_V{}'.format(
+                    deployment_id, comm_token, ver)
+                add('PREFIX_SET', pl_name, {'mode': 'IPv4' if af == 'ipv4' else 'IPv6'})
+                pl_seq = 10
+                for prefix in prefixes:
+                    add('PREFIX', '{}|{}|{}|exact'.format(pl_name, pl_seq, prefix),
+                        {'action': 'permit'})
+                    pl_seq += 10
+                rm_entry = {'route_operation': 'permit', 'match_prefix_set': pl_name}
+                if community:
+                    cl_name = 'COMMUNITY_ALLOW_LIST_DEPLOYMENT_ID_{}_COMMUNITY_{}'.format(
+                        deployment_id, community)
+                    add('COMMUNITY_SET', cl_name,
+                        {'set_type': 'standard', 'match_action': 'all',
+                         'community_member': [community], 'action': 'permit'})
+                    rm_entry['match_community'] = cl_name
+                    rm_seq = cur_with
+                    cur_with += 10
+                else:
+                    rm_seq = cur_without
+                    cur_without += 10
+                add('ROUTE_MAP', '{}|{}'.format(rm_name, rm_seq), rm_entry)
+            # Default rule (seq 65535): tag everything not explicitly allowed.
+            drop = 'no-export' if default_action == 'deny' else drop_community
+            add('ROUTE_MAP', '{}|65535'.format(rm_name),
+                {'route_operation': 'permit', 'set_community_inline': [drop, 'additive']})
+
+    return tables, rm_by_af, created_keys
+
+
+def _get_af_route_maps_in(duthost, db_cli, table):
+    """Return {AF_key: (afi_safi, member, [current route_map_in])} for every entry
+    of ``table`` (BGP_PEER_GROUP_AF or BGP_NEIGHBOR_AF) that has an inbound
+    route-map. ``member`` is the peer-group name / neighbor IP (key field 2), used
+    to target the ``clear bgp ... soft in`` re-evaluation."""
+    keys = [k for k in duthost.shell(
+        '{} CONFIG_DB KEYS "{}|*"'.format(db_cli, table),
+        module_ignore_errors=True)['stdout'].splitlines() if k.strip()]
+    result = {}
+    for key in keys:
+        fields = key.split('|')
+        if len(fields) < 4:
+            continue
+        member, afi_safi = fields[2], fields[3]
+        rin = duthost.shell(
+            '{} CONFIG_DB HGET "{}" "route_map_in@"'.format(db_cli, key),
+            module_ignore_errors=True)['stdout'].strip()
+        if not rin:
+            continue
+        result[key] = (afi_safi, member, [r for r in rin.split(',') if r])
+    return result
+
+
+def _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path):
+    """frr_mgmt_framework path for apply_allow_list (see comment block above)."""
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    drop_community = _get_allow_list_drop_community(duthost)
+    tables, rm_by_af, created_keys = _build_allow_list_frr_config(allow_list, drop_community)
+
+    # Attach the allow-list route-map inbound on every inbound-filtered peer-group
+    # AND neighbor AF (a neighbor-level route-map overrides the peer-group one in
+    # FRR, and the frr migrator sets route_map_in at both levels, so we must cover
+    # both), stashing the originals so remove_allow_list can restore them.
+    stash = {}
+    peer_groups = set()
+    neighbors = set()
+    for table, targets in (('BGP_PEER_GROUP_AF', peer_groups),
+                           ('BGP_NEIGHBOR_AF', neighbors)):
+        for key, (afi_safi, member, original_in) in list(
+                _get_af_route_maps_in(duthost, db_cli, table).items()):
+            rm_name = rm_by_af.get(afi_safi)
+            if not rm_name:
+                continue
+            stash[key] = original_in
+            tables.setdefault(table, {})[key] = {'route_map_in': [rm_name]}
+            targets.add(member)
+
+    # Write the decomposed frr tables (and the route_map_in overrides) in one shot.
+    duthost.copy(content=json.dumps(tables, indent=3), dest=allow_list_file_path)
+    duthost.shell('sonic-cfggen {} -j {} -w'.format(namespace_cli_arg(namespace), allow_list_file_path))
+    # Persist the teardown state (originals + the keys we created) on the DUT.
+    duthost.copy(content=json.dumps({'stash': stash, 'created_keys': created_keys}, indent=3),
+                 dest=ALLOW_LIST_FRR_STATE_FILE)
+    time.sleep(3)
+
+    # Re-evaluate already-received routes so the new inbound policy takes effect on
+    # live sessions (mirrors bgpcfgd's restart_peer_groups: clear ... soft in).
+    for pg in sorted(peer_groups):
+        duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
+                      module_ignore_errors=True)
+    for nbr in sorted(neighbors):
+        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(nbr),
+                      module_ignore_errors=True)
+    time.sleep(3)
+
+
+def _remove_allow_list_frr(duthost, namespace):
+    """frr_mgmt_framework path for remove_allow_list: restore the overridden
+    peer-group inbound route-maps and delete the frr tables we created."""
+    db_cli = get_db_cli_prefix_for_namespace(namespace)
+    state_raw = duthost.shell('cat {}'.format(ALLOW_LIST_FRR_STATE_FILE),
+                              module_ignore_errors=True)
+    if state_raw.get('rc', 1) != 0:
+        return
+    state = json.loads(state_raw['stdout'])
+    stash = state.get('stash', {})
+    created_keys = state.get('created_keys', [])
+
+    # Restore route_map_in first so peers no longer reference the allow-list map.
+    peer_groups = set()
+    neighbors = set()
+    for key, original_in in list(stash.items()):
+        table = key.split('|')[0]
+        member = key.split('|')[2]
+        (peer_groups if table == 'BGP_PEER_GROUP_AF' else neighbors).add(member)
+        if original_in:
+            duthost.shell("{} CONFIG_DB HSET \"{}\" \"route_map_in@\" \"{}\"".format(
+                db_cli, key, ','.join(original_in)))
+        else:
+            duthost.shell('{} CONFIG_DB HDEL "{}" "route_map_in@"'.format(db_cli, key),
+                          module_ignore_errors=True)
+
+    # Delete the created tables. Order: ROUTE_MAP entries first (they reference the
+    # prefix-/community-lists), then PREFIX/PREFIX_SET, then COMMUNITY_SET.
+    order = {'ROUTE_MAP': 0, 'PREFIX': 1, 'PREFIX_SET': 2, 'COMMUNITY_SET': 3}
+    for table, key in sorted(created_keys, key=lambda tk: order.get(tk[0], 9)):
+        duthost.shell('{} CONFIG_DB del "{}|{}"'.format(db_cli, table, key),
+                      module_ignore_errors=True)
+
+    duthost.shell('rm -rf {}'.format(ALLOW_LIST_FRR_STATE_FILE), module_ignore_errors=True)
+    time.sleep(3)
+    for pg in sorted(peer_groups):
+        duthost.shell('sudo vtysh -c "clear bgp peer-group {} soft in"'.format(pg),
+                      module_ignore_errors=True)
+    for nbr in sorted(neighbors):
+        duthost.shell('sudo vtysh -c "clear bgp {} soft in"'.format(nbr),
+                      module_ignore_errors=True)
+    time.sleep(3)
+
+
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
+    if duthost.get_frr_mgmt_framework_config():
+        _apply_allow_list_frr(duthost, namespace, allow_list, allow_list_file_path)
+        return
     duthost.copy(content=json.dumps(allow_list, indent=3), dest=allow_list_file_path)
     duthost.shell('sonic-cfggen {} -j {} -w'.format(namespace_cli_arg(namespace), allow_list_file_path))
     time.sleep(3)
 
 
 def remove_allow_list(duthost, namespace, allow_list_file_path):
+    if duthost.get_frr_mgmt_framework_config():
+        _remove_allow_list_frr(duthost, namespace)
+        duthost.shell('rm -rf {}'.format(allow_list_file_path), module_ignore_errors=True)
+        return
     db_cli = get_db_cli_prefix_for_namespace(namespace)
     allow_list_keys = duthost.shell(
         '{} CONFIG_DB keys "BGP_ALLOWED_PREFIXES*"'.format(db_cli)

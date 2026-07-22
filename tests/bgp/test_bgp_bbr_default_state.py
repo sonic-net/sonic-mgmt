@@ -14,7 +14,7 @@ from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.config_reload import config_reload
-from bgp_bbr_helpers import get_bbr_default_state
+from bgp_bbr_helpers import get_bbr_default_state, program_bbr_for_mode
 
 
 pytestmark = [
@@ -86,6 +86,10 @@ def config_bbr_by_gcu(duthost, status):
     finally:
         delete_tmpfile(duthost, tmpfile)
     time.sleep(3)
+    # frrcfgd does not consume BGP_BBR; realize the equivalent allowas-in on the
+    # peer-group AFs directly so the frr-mode allowas-in assertions reflect the BBR
+    # status (no-op in traditional mode). Mirrors enable_bbr/disable_bbr in test_bgp_bbr.
+    program_bbr_for_mode(duthost, enabled=(status == "enabled"))
 
 
 def disable_bbr(duthost, namespace):
@@ -133,7 +137,7 @@ def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
+def setup(frr_config_mode, duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
     constants_stat = duthost.stat(path=CONSTANTS_FILE)
     if not constants_stat['stat']['exists']:
