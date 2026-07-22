@@ -423,10 +423,15 @@ class MigrationProjectUpserter:
         for name, getter in NUMBER_FIELDS.items():
             self._apply_number(item_id, key, name, float(getter(task)))
 
-        status = "Done" if migrated else ("Todo" if newly_created else None)
-        if status and self._cached(key, "status") is None:
-            self._set_single_select(item_id, "Status", status)
-            self._remember(key, "status", status)
+        cached_status = self._cached(key, "status")
+        if migrated:
+            if cached_status != "Done":
+                self._set_single_select(item_id, "Status", "Done")
+                self._remember(key, "status", "Done")
+        elif newly_created:
+            if cached_status != "Todo":
+                self._set_single_select(item_id, "Status", "Todo")
+                self._remember(key, "status", "Todo")
 
 
 def build_card_body(task: dict, migrated: bool) -> str:
