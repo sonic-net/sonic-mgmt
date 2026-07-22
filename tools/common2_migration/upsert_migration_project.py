@@ -39,15 +39,11 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 # built-in card **Title** (which holds the module path), so no dedicated
 # "Module" column is needed.
 
-DEFAULT_DASHBOARD_PATH = (
-    "https://github.com/opcoder023/sonic-mgmt/blob/"
-    "common-to-common2-migration-plan/tools/common2_migration/"
-    "migration_dashboard.md"
-)
+DEFAULT_DASHBOARD_PATH = "https://github.com/OWNER/REPO/blob/DEFAULT_BRANCH/tools/common2_migration/migration_dashboard.md"  # noqa: E501
 
 
 def build_dashboard_path() -> str:
-    """Return the workflow run URL when available, else fall back to the repo blob."""
+    """Return the workflow run URL when available, else a repo-relative blob URL."""
     server = os.getenv("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
     repository = os.getenv("GITHUB_REPOSITORY", "").strip()
     run_id = os.getenv("GITHUB_RUN_ID", "").strip()
@@ -58,6 +54,14 @@ def build_dashboard_path() -> str:
         if run_attempt:
             url += f"/attempts/{run_attempt}"
         return url
+
+    if repository:
+        ref_name = os.getenv("GITHUB_REF_NAME", "").strip()
+        if not ref_name:
+            ref_name = os.getenv("GITHUB_REF", "").strip().replace("refs/heads/", "", 1)
+        if ref_name:
+            return f"{server}/{repository}/blob/{ref_name}/tools/common2_migration/migration_dashboard.md"
+
     return DEFAULT_DASHBOARD_PATH
 
 
