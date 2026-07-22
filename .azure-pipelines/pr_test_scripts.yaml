@@ -120,6 +120,7 @@ t0:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -298,7 +299,6 @@ t0:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -459,6 +459,7 @@ t1-lag:
   - gnmi/test_gnmi_appldb.py
   - gnmi/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
+  - gnmi/test_gnmi_poll.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
   - gnmi/test_gnoi_os.py
@@ -612,7 +613,6 @@ t1-lag:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -628,7 +628,6 @@ t1-lag:
   - vxlan/test_vxlan_ecmp_switchover.py
   - vxlan/test_vxlan_route_advertisement.py
   - zmq/test_gnmi_zmq.py
-
 
 t1-lag-vpp:
   - acl/test_acl.py
