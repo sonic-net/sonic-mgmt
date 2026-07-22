@@ -43,7 +43,7 @@ DEFAULT_DASHBOARD_PATH = "https://github.com/OWNER/REPO/blob/DEFAULT_BRANCH/tool
 
 
 def build_dashboard_path() -> str:
-    """Return the workflow run URL when available, else a repo-relative blob URL."""
+    """Return the workflow run URL when available, else a repo/blob URL or the default placeholder."""
     server = os.getenv("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
     repository = os.getenv("GITHUB_REPOSITORY", "").strip()
     run_id = os.getenv("GITHUB_RUN_ID", "").strip()
