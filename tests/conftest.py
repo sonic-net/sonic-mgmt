@@ -126,6 +126,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.plugins.proc_mem_cpu_monitor',
                   'tests.common.fixtures.duthost_utils',
+                  'tests.common.fixtures.frr_config_mode',
                   'tests.common.plugins.parallel_fixture',
                   'tests.common.plugins.erspan_mirror')
 
@@ -3687,6 +3688,45 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+    # Tests that opt into the frr_config_mode fixture switch BGP config mode mid-module
+    # via a `config reload`. On DUTs holding a large route table (e.g. t1-lag) that
+    # reload drops BGP and then re-learns the full table, and the reconvergence lands
+    # inside the test's memory before/after window -- steady-state footprint, not a
+    # leak. The memory_utilization monitor's percent-increase threshold cannot tell the
+    # two apart and false-fails at teardown, so disable it for these tests (same reason
+    # they already carry skip_check_dut_health for the config-diff / YANG checks).
+    for item in items:
+        if "frr_config_mode" in getattr(item, "fixturenames", ()):
+            item.add_marker("disable_memory_utilization")
+            # The mid-module mode switch does a `config reload` that legitimately perturbs
+            # the DUT (BGP re-render, telemetry/gnmi cert regen, swss restart), which the
+            # generic post-test DUT-health checks (config-diff, YANG validation, core-dump /
+            # recovery reload) flag as drift or fail on "SwSS not ready". frr_config_mode has
+            # its own targeted BGP fail-loud fingerprint, so suppress the generic checks here
+            # (the fixture's docstring requires this marker on opted-in modules).
+            item.add_marker("skip_check_dut_health")
+            # core_dump_and_config_check and yang_validation_check are module-scoped and
+            # gate on request.node.iter_markers(), where request.node is the *module* --
+            # a marker added to the function item above is not visible there. Mark the
+            # module node too so those fixtures actually honor skip_check_dut_health
+            # (otherwise yang_validation_check hard-fails on the benign post-reload
+            # gnmi-cert drift, and core_dump_and_config_check triggers a noisy recovery
+            # reload). The whole module is dual-mode, so this is correct for both params.
+            module = item.getparent(pytest.Module)
+            if module is not None:
+                if not any(m.name == "skip_check_dut_health" for m in module.own_markers):
+                    module.add_marker("skip_check_dut_health")
+                if not any(m.name == "disable_memory_utilization" for m in module.own_markers):
+                    module.add_marker("disable_memory_utilization")
+                # skip_check_dut_health also disables the generic core-dump (crash) detection,
+                # which we do NOT want to lose. Mark the module frr_dual_mode so the focused
+                # _frr_mode_core_dump_check fixture still runs -- it keeps crash detection
+                # without re-triggering the config-diff / recovery reload that the mode switch
+                # legitimately perturbs. Must be on the MODULE node: that fixture is
+                # module-scoped, so an item-level marker would be invisible to it.
+                if not any(m.name == "frr_dual_mode" for m in module.own_markers):
+                    module.add_marker("frr_dual_mode")
 
 
 def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
