@@ -10,17 +10,29 @@ the only things pygnmi does not: connection/cert binding and bounded collection
 option is forwarded to pygnmi verbatim, so the client never caps pygnmi's
 request surface.
 """
+from __future__ import annotations
+
 import logging
 import os
 import sys
 import time
 from collections.abc import Iterable, Iterator
-from enum import StrEnum
+from enum import Enum
 
 import grpc
 from pygnmi.client import gNMIclient, gNMIException
 
 logger = logging.getLogger(__name__)
+
+
+class StrEnum(str, Enum):
+    """
+    Backport of Python 3.11's StrEnum (same as snappi_helpers.StrEnum, which
+    is not imported to avoid its ixnetwork_restpy dependency).
+    Makes enum members also behave like strings.
+    """
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class SubscribeMode(StrEnum):
@@ -193,7 +205,12 @@ class PygnmiClient:
 
     def _ensure_client(self) -> gNMIclient:
         """
-        Lazily open and cache the gNMIclient channel, reusing it across calls.
+        Open (or re-open) the gNMIclient channel for the current call.
+
+        Every public RPC closes the channel in a ``finally`` block before
+        returning (see the class docstring on fork safety), so the cached
+        client never outlives a single call; this helper transparently opens
+        a fresh channel on the next one.
 
         Returns:
             The connected ``gNMIclient`` for this instance.
@@ -205,7 +222,7 @@ class PygnmiClient:
         return self._client
 
     def close(self) -> None:
-        """Close the reused gNMIclient channel if one is open."""
+        """Close the gNMIclient channel if one is open."""
         if self._client is not None:
             try:
                 self._client.close()
@@ -484,6 +501,11 @@ class PygnmiClient:
         paths = _normalize_paths(paths)
         if not paths:
             raise PygnmiClientCallError("subscribe requires at least one path")
+        if mode == SubscribeMode.POLL:
+            if poll_count <= 0:
+                raise PygnmiClientCallError("poll_count must be > 0")
+            if poll_interval < 0:
+                raise PygnmiClientCallError("poll_interval must be >= 0")
 
         request = self._build_subscribe_request(
             paths, mode, stream_mode, sample_interval, heartbeat_interval,
@@ -629,19 +651,14 @@ class PygnmiClient:
 
         Args:
             subscriber: The pygnmi subscriber yielded by ``subscribe2``.
-            poll_count: Number of Poll() triggers to send.
-            poll_interval: Delay between triggers, in seconds.
+            poll_count: Number of Poll() triggers to send. Validated eagerly
+                in ``subscribe()`` before the RPC is opened.
+            poll_interval: Delay between triggers, in seconds. Validated
+                eagerly in ``subscribe()`` before the RPC is opened.
 
         Yields:
             One pygnmi notification dict per Poll() trigger.
-
-        Raises:
-            PygnmiClientCallError: If poll_count is non-positive.
         """
-        if poll_count <= 0:
-            raise PygnmiClientCallError("poll_count must be > 0")
-        if poll_interval < 0:
-            raise PygnmiClientCallError("poll_interval must be >= 0")
         for i in range(poll_count):
             yield subscriber.get_update(timeout=self.timeout)
             if poll_interval and i < poll_count - 1:

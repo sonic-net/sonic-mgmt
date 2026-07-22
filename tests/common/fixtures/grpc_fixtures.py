@@ -167,8 +167,16 @@ class GnmiFixture:
     grpc: object        # PtfGrpc (TLS/plaintext) or DutGrpc (UDS)
     gnoi: object        # PtfGnoi or DutGnoi
     pygnmi_client: Optional[PygnmiClient]   # None for UDS transport
-    transport: str = 'tls'      # 'tls' or 'uds'
-    _duthost: object = None  # For post-reboot reconfiguration
+    transport: str = 'tls'      # 'tls', 'plaintext' or 'uds'
+    _duthost: object = None  # Fixture-selected DUT (post-reboot reconfig, DB cross-checks)
+
+    @property
+    def duthost(self):
+        """The DUT this fixture targets; use it for any cross-checks against
+        the device so multi-DUT runs cannot compare against a different DUT."""
+        if self._duthost is None:
+            raise RuntimeError("GnmiFixture was not initialized with duthost reference")
+        return self._duthost
 
     def reconfigure_after_reboot(self):
         """
@@ -358,24 +366,22 @@ def gnmi_plaintext(request, duthosts, ptfhost):
 
     client = PtfGrpc(ptfhost, target, plaintext=True)
     gnoi_client = PtfGnoi(client)
-    pygnmi_client = PygnmiClient(host, port, plaintext=True)
 
-    fixture = GnmiFixture(
-        host=host,
-        port=port,
-        tls=False,
-        cert_paths=None,
-        grpc=client,
-        gnoi=gnoi_client,
-        pygnmi_client=pygnmi_client,
-        transport='plaintext',
-    )
+    with PygnmiClient(host, port, plaintext=True) as pygnmi_client:
+        fixture = GnmiFixture(
+            host=host,
+            port=port,
+            tls=False,
+            cert_paths=None,
+            grpc=client,
+            gnoi=gnoi_client,
+            pygnmi_client=pygnmi_client,
+            transport='plaintext',
+            _duthost=duthost,
+        )
 
-    logger.info(f"Created plaintext GnmiFixture: {target}")
-    try:
+        logger.info(f"Created plaintext GnmiFixture: {target}")
         yield fixture
-    finally:
-        pygnmi_client.close()
 
 
 def _gnmi_uds_flow(duthost):
@@ -404,6 +410,7 @@ def _gnmi_uds_flow(duthost):
         gnoi=gnoi_client,
         pygnmi_client=None,
         transport="uds",
+        _duthost=duthost,
     )
 
     logger.info("UDS transport ready: %s", grpc_client)

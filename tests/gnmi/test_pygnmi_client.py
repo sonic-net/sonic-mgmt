@@ -111,12 +111,15 @@ def _find_leaf(obj, suffix):
     return None
 
 
-def test_pygnmi_get_interface_mtu(duthost, gnmi_tls):  # noqa: F811
+def test_pygnmi_get_interface_mtu(gnmi_tls):  # noqa: F811
     """Test get() returns the exact configured MTU leaf for Ethernet0."""
     path = "/openconfig-interfaces:interfaces/interface[name=Ethernet0]/config/mtu"
 
+    # Read the compared value from the same DUT the fixture targets, so
+    # multi-DUT runs cannot cross-compare against a different device.
     expected_mtu = int(
-        duthost.shell("sonic-db-cli CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip()
+        gnmi_tls.duthost.shell(
+            "sonic-db-cli CONFIG_DB hget 'PORT|Ethernet0' mtu")["stdout"].strip()
     )
 
     result = gnmi_tls.pygnmi_client.get(path)
@@ -329,15 +332,17 @@ def test_subscribe_requires_paths():
 
 
 def test_subscribe_poll_rejects_negative_interval():
-    """Test POLL rejects a negative trigger interval before sleeping."""
-    client = _offline_client()
-
-    class Subscriber:
-        def get_update(self, timeout):
-            return {"update": {}}
-
+    """Test POLL rejects a negative trigger interval before connecting."""
     with pytest.raises(PygnmiClientCallError, match="poll_interval must be >= 0"):
-        list(client._iter_poll(Subscriber(), poll_count=2, poll_interval=-1))
+        _offline_client().subscribe("path", mode=SubscribeMode.POLL,
+                                    poll_interval=-1)
+
+
+def test_subscribe_poll_rejects_non_positive_count():
+    """Test POLL rejects a non-positive trigger count before connecting."""
+    with pytest.raises(PygnmiClientCallError, match="poll_count must be > 0"):
+        _offline_client().subscribe("path", mode=SubscribeMode.POLL,
+                                    poll_count=0)
 
 
 def test_get_requires_paths():
