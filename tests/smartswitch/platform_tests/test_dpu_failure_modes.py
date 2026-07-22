@@ -83,35 +83,59 @@ class TestDatabaseDpuCrash:
     ):
         """
         Steps:
-        1. Pre-test: for each DPU in dpuhosts, bring admin-up if needed.
-        2. Kill the databasedpu container for each DPU.
-        3. Verify chassisd detects failure: ready_status transitions to false.
-        4. Wait for systemd to restart the database instance.
-        5. Verify chassisd recovers: ready_status transitions back to true.
+        1. Pre-test: verify the databasedpu instance is running on every DPU.
+        2. Kill the databasedpu container on all DPUs first, then run the checks,
+           so the per-DPU detection/recovery windows overlap in shared timeouts
+           instead of being serialized one DPU at a time.
+        3. Verify chassisd detects failure on every DPU: ready_status -> false.
+        4. Wait for systemd to restart every databasedpu instance.
+        5. Verify chassisd recovers every DPU: ready_status -> true.
         """
         duthost, testable_dpus, testable_ips = prepare_testable_dpus
 
-        for dpu_name in testable_dpus:
-            service_name = self._get_databasedpu_service(dpu_name)
+        services = {dpu_name: self._get_databasedpu_service(dpu_name)
+                    for dpu_name in testable_dpus}
 
+        # 1. Every databasedpu instance must be running before we inject faults.
+        for service_name in services.values():
             logging.info("Verifying %s is running before kill", service_name)
             pytest_assert(
                 self._is_databasedpu_running(duthost, service_name),
                 f"{service_name} is not running before test"
             )
 
+        # 2. Kill databasedpu on all DPUs first so their recovery windows overlap.
+        for service_name in services.values():
             logging.info("Killing %s to simulate databasedpu crash", service_name)
             duthost.shell(f"sudo systemctl kill -s KILL {service_name}")
 
-            logging.info("Verifying chassisd detects %s failure (ready_status=false)", dpu_name)
-            pytest_assert(
-                wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
-                           check_dpu_not_ready_state, duthost, dpu_name),
-                f"{dpu_name}: ready_status did not transition to false after "
-                f"databasedpu crash. State: "
-                f"{get_dpu_state_from_chassis_state_db(duthost, dpu_name)}"
-            )
+        # 3. chassisd must report ready_status=false for every DPU within a single
+        #    shared timeout window. A DPU can recover quickly once systemd restarts
+        #    its database, so accumulate not-ready observations across polls rather
+        #    than requiring every DPU to be not-ready at the same instant.
+        detected_not_ready = set()
 
+        def _all_dpus_detected_not_ready():
+            for dpu in testable_dpus:
+                if (dpu not in detected_not_ready
+                        and check_dpu_not_ready_state(duthost, dpu)):
+                    detected_not_ready.add(dpu)
+            return len(detected_not_ready) == len(testable_dpus)
+
+        logging.info("Verifying chassisd detects the databasedpu crash on all DPUs")
+        pytest_assert(
+            wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
+                       _all_dpus_detected_not_ready),
+            "ready_status did not transition to false for all DPUs after "
+            "databasedpu crash. Detected: {}; still ready: {}".format(
+                sorted(detected_not_ready),
+                sorted(set(testable_dpus) - detected_not_ready))
+        )
+
+        # 4. systemd must restart every databasedpu instance. All were killed
+        #    together, so once the first restart is confirmed the rest are
+        #    typically already back, keeping this within one recovery window.
+        for service_name in services.values():
             logging.info("Waiting for systemd to restart %s", service_name)
             pytest_assert(
                 wait_until(DATABASEDPU_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
@@ -119,6 +143,7 @@ class TestDatabaseDpuCrash:
                 f"{service_name} did not restart within {DATABASEDPU_RECOVERY_TIMEOUT}s"
             )
 
+        # 5. chassisd must recover every DPU to the ready state.
         logging.info("Verifying all tested DPUs recover to ready state")
         for dpu_name in testable_dpus:
             assert_dpu_db_state_ready(duthost, dpu_name,
