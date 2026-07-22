@@ -21,7 +21,7 @@ BOOTLOADER_BANNER_RE = re.compile(
     r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
     r"\bautoboot\b|"                              # generic autoboot countdown
     r"\bONIE\b|"                                  # ONIE installer / rescue
-    r"Booting\b|Loading\b",                       # generic boot-in-progress
+    r"\bBooting\b|\bLoading\b",                   # generic boot-in-progress
     flags=re.I,
 )
 
