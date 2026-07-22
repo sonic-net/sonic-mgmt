@@ -1,5 +1,6 @@
 import logging
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 import random
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -303,3 +304,8 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])
