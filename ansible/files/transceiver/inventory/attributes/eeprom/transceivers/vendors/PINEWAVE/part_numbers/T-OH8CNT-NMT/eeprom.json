@@ -2,6 +2,16 @@
     "sff8024_identifier": 25,
     "cmis_revision": "5.2",
     "cdb_background_mode_supported": false,
+    "active_apsel_hostlane": {
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1
+    },
     "platform_hwsku_overrides": {
         "x86_64-nvidia_sn5640-r0+Mellanox-SN5640-C512S2": {
             "eeprom_dump_timeout_sec": 2
