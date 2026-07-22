@@ -5985,6 +5985,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_scale_ecmp.py:
+  skip:
+    reason: "test_scale_ecmp is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
+
 vxlan/test_vnet_bgp_route_precedence.py:
   skip:
     reason: "test_vnet_bgp_route_precedence can only run on cisco, mnlx and VPP platforms. Also skip in 202411"
@@ -6260,6 +6266,12 @@ vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_sc
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_tunnel_route_scale.py:
+  skip:
+    reason: "test_vxlan_tunnel_route_scale is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
 
 vxlan/test_vxlan_underlay_ecmp.py:
   skip:
