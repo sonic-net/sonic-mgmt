@@ -362,22 +362,39 @@ def expected_pid_changes():
     return set()
 
 
-@pytest.fixture(autouse=True)
-def _per_test_health_check(request, duthost, expected_pid_changes):
-    """Capture health baseline before each test; verify before and after."""
+@pytest.fixture
+def health_baseline(request, duthost):
+    """Pre-test process/core-file baseline, captured once per test.
+
+    Exposed as its own (non-autouse) fixture, separate from
+    ``_per_test_health_check`` below, so a disruptive test can request it
+    directly and feed the *same* baseline into a mid-test call to
+    :func:`tests.transceiver.common.verification.standard_port_recovery_and_verification`
+    (its Docker/process health sub-check) - per
+    ``system_test_plan.md``'s Standard Port Recovery Procedure, that sub-check
+    compares against "the pre-test baseline", not a fresh one captured by
+    each disruptive test right before its own operation. Function-scoped, so
+    pytest caches it: whether ``_per_test_health_check`` or a test requests it
+    first, both see the one instance captured for that test.
+    """
     baseline = capture_baseline(duthost)
     logger.debug("Health baseline captured for %s", request.node.name)
+    return baseline
 
+
+@pytest.fixture(autouse=True)
+def _per_test_health_check(request, duthost, expected_pid_changes, health_baseline):
+    """Verify health before and after each test, against the shared ``health_baseline``."""
     pre_checks = [
         (f"process_{process}_running", status == "RUNNING",
          f"Process {process} is {status}, expected RUNNING")
-        for process, (status, _pid) in baseline["pid_baselines"].items()
+        for process, (status, _pid) in health_baseline["pid_baselines"].items()
     ]
     run_pre_check(request, pre_checks, health_check_events)
 
     yield
 
-    result = verify_health(duthost, baseline, expect_pid_change=expected_pid_changes)
+    result = verify_health(duthost, health_baseline, expect_pid_change=expected_pid_changes)
     post_checks = [
         ("system_health", result["passed"], "; ".join(result["failures"])),
     ]
