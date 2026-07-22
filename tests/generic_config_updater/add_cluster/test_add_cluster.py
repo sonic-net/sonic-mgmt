@@ -7,6 +7,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.gu_utils import apply_patch
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework
 from tests.generic_config_updater.add_cluster.helpers import add_static_route, \
     clear_static_route, get_active_interfaces, get_cfg_info_from_dut, \
     get_exabgp_port_for_neighbor, remove_dataacl_table_single_dut, remove_static_route, \
@@ -1585,7 +1586,8 @@ def initialize_facts(mg_facts,
 
 
 @pytest.fixture(scope="function")
-def setup_add_cluster(tbinfo,
+def setup_add_cluster(frr_config_mode,
+                      tbinfo,
                       duthosts,
                       localhost,
                       initialize_random_variables,
@@ -1620,6 +1622,14 @@ def setup_add_cluster(tbinfo,
     The only recovery needed during teardown is for the ACL configuration:
     1. Restore the ACL configuration to its initial values.
     """
+
+    # GCU add-cluster builds JSON patches / sonic-db-cli commands keyed on the CONFIG_DB
+    # BGP_NEIGHBOR entries. Those keys are VRF-scoped differently in frr_mgmt_framework mode
+    # (BGP_NEIGHBOR|default|<ip> and a VRF-nested config_facts view), so the patch paths this
+    # test constructs are not valid there; frr-mode GCU support needs separate vrf-aware paths.
+    skip_if_frr_mgmt_framework(frr_config_mode,
+                               "GCU add-cluster patches VRF-scoped BGP_NEIGHBOR keys; "
+                               "frr_mgmt_framework support needs separate vrf-aware patch paths")
 
     # initial test env
     enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
@@ -1774,7 +1784,8 @@ def setup_add_cluster(tbinfo,
 # Test Definitions
 # -----------------------------
 
-def test_add_cluster(tbinfo,
+def test_add_cluster(frr_config_mode,
+                     tbinfo,
                      duthosts,
                      initialize_random_variables,
                      ptfadapter,
