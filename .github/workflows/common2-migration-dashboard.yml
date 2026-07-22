@@ -71,7 +71,8 @@ jobs:
             --max-tier "$MAX_TIER" \
             --top "$TOP" \
             --markdown-out dashboard-out/migration_dashboard.md \
-            --json-out dashboard-out/migration_dashboard.json
+            --json-out dashboard-out/migration_dashboard.json \
+            --yaml-out dashboard-out/migration_dashboard.yaml
 
       - name: Upload dashboard artifacts
         if: always()
