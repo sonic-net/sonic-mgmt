@@ -26,6 +26,7 @@ from tests.common.helpers.frr.bgp_config_translation import (
     translate_config_db,
     FrrTranslationError,
 )
+from tests.common.helpers.frr.frr_28543_compat import strip_unsupported_by_image  # noqa: DELETE-WITH-28543
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ class FrrConfigModeMigrator(object):
         logger.info("Translating traditional BGP config to frr_mgmt_framework on %s",
                     self.duthost.hostname)
         new_config = translate_config_db(config_db, running_config, peer_group_json)
+        new_config = strip_unsupported_by_image(self.duthost, new_config)  # noqa: DELETE-WITH-28543
         self._set_mode_metadata(new_config, "unified", "true")
         self._write_json_file(CONFIG_DB_FILE, new_config)
 

@@ -10,7 +10,11 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework, FRR_LEGACY_BGP_MONITORS_REASON
+from tests.common.fixtures.frr_config_mode import (
+    skip_if_frr_mgmt_framework,
+    FRR_LEGACY_BGP_MONITORS_REASON,
+    FRR_BGPCFGD_ONLY_SENTINEL_REASON,
+)
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_MONITOR_PORT
@@ -665,15 +669,20 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
-                                            ptfhost, tbinfo, test_type, get_function_completeness_level,
-                                            backup_and_restore_config_db):
+def test_bgp_stress_link_flap_with_sentinel(frr_config_mode, duthosts, rand_one_dut_hostname, setup, nbrhosts,
+                                            fanouthosts, ptfhost, tbinfo, test_type,
+                                            get_function_completeness_level, backup_and_restore_config_db):
     """
     Test BGP stress link flap with BGP Sentinel enabled.
     BGP Sentinel is a dynamic BGP peering feature that allows passive BGP sessions.
     Only 'dut' flap type is tested since the goal is to verify BGP Sentinel stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
+    # In frr mode the BGP_SENTINELS this test writes is inert (frrcfgd has no sentinel
+    # expander -- see the standalone test_bgp_sentinel module), while the only assertion
+    # here is that BGP sessions stay established, which is mode-agnostic. The test would
+    # pass without ever exercising sentinel, so skip rather than claim false coverage.
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_BGPCFGD_ONLY_SENTINEL_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level
