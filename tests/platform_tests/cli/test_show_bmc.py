@@ -16,6 +16,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.bmc_utils import (
+    CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC,
+    CAUSE_POWER_DOWN_FROM_BMC,
     get_host_uptime,
     get_switch_host_or_skip_test,
     verify_bmc_initiated_reboot,
@@ -236,7 +238,7 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not reach Offline/off (or Offline/down) after shutdown"
             )
 
-            wait_host_off(host, timeout=300)
+            wait_host_off(self.duthost, host, timeout=300)
 
             startup_result = self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                                 module_ignore_errors=True)
@@ -259,7 +261,12 @@ class TestBmcCliCommands:
                 "SWITCH-HOST did not return to Online/on (or Online/up) after startup"
             )
 
-            verify_bmc_initiated_reboot(host, pre_boot)
+            # CLI config shutdown takes the graceful path, which always falls back to
+            # power_off() if GNOI times out/fails, so accept either the graceful or the
+            # hard power-down cause.
+            verify_bmc_initiated_reboot(
+                host, pre_boot,
+                (CAUSE_GRACEFUL_SHUTDOWN_FROM_BMC, CAUSE_POWER_DOWN_FROM_BMC))
         finally:
             self.duthost.shell("config chassis modules startup SWITCH-HOST",
                                module_ignore_errors=True)
@@ -446,14 +453,14 @@ def test_show_version_serial_numbers_bmc(duthosts, enum_rand_one_per_hwsku_hostn
     inv_files = get_inventory_files(request)
     bmc_inv_serial = get_host_visible_vars(inv_files, duthost.hostname).get('serial')
     if bmc_inv_serial:
-        pytest_assert(bmc_inv_serial == bmc_serial,
+        pytest_assert(str(bmc_inv_serial).strip() == bmc_serial,
                       "BMC `Serial Number` ({!r}) from `show version` does not match inventory `serial:` "
                       "for {} ({!r})".format(bmc_serial, duthost.hostname, bmc_inv_serial))
 
     switch_host = get_switch_host_or_skip_test(duthost)
     sw_inv_serial = get_host_visible_vars(inv_files, switch_host.hostname).get('serial')
     if sw_inv_serial:
-        pytest_assert(sw_inv_serial == sw_serial,
+        pytest_assert(str(sw_inv_serial).strip() == sw_serial,
                       "`Switch-Host Serial Number` ({!r}) from `show version` does not match inventory "
                       "`serial:` for paired switch {} ({!r})".format(sw_serial, switch_host.hostname, sw_inv_serial))
 

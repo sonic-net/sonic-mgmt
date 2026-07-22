@@ -34,7 +34,16 @@ ansible/files/transceiver/inventory/
 │   ├── system/                             # Same shape as eeprom/
 │   ├── physical_oir/
 │   ├── remote_reseat/
-│   ├── cdb_firmware_upgrade/
+│   ├── cdb_firmware_upgrade/               # Same shape as eeprom/; per-PN dirs also contain manifest
+│   │   ├── cdb_firmware_upgrade.json       # Category-level shard
+│   │   ├── cdb_firmware_upgrade_url.json   # Optional; presence selects download vs pre-staged mode
+│   │   └── transceivers/
+│   │       └── vendors/
+│   │           └── <NORMALIZED_VENDOR_NAME>/
+│   │               └── part_numbers/
+│   │                   └── <NORMALIZED_VENDOR_PN>/
+│   │                       ├── cdb_firmware_upgrade.json           # Per-PN attribute shard
+│   │                       └── cdb_firmware_upgrade_manifest.json  # Per-PN firmware binary metadata
 │   ├── dom/
 │   ├── vdm/
 │   ├── pm/
@@ -119,6 +128,9 @@ tests/transceiver/
 │   │                                        #   AND by the owning test category's reportable test cases
 │   ├── verification.py                      # Standard Port Recovery and Verification Procedure
 │   ├── state_management.py                  # State Preservation and Restoration helpers
+│   ├── scenario_ops.py                      # perform_<op> operation helpers (cold/warm/fast reboot, config_reload,
+│   │                                        #   daemon_restart, sfputil_reset, lpm_toggle) wrapping the existing
+│   │                                        #   repo helpers (tests/common/reboot.py, config_reload) — never inlined
 │   ├── db_helpers.py                        # CONFIG_DB, STATE_DB, APPL_DB query wrappers
 │   ├── dmesg_helpers.py                     # dmesg watermark + cumulative error scan (caller passes grep pattern)
 │   ├── cli_helpers.py                       # CLI command wrappers (sfputil, config interface)

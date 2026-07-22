@@ -927,6 +927,7 @@
           prober_type: "{{ prober_type | default(omit) }}"
           neighbor_mode: "{{ neighbor_mode | default(omit) }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
           bgp_confd_peers: "{{ bgp_confd_peers }}"
@@ -987,6 +988,20 @@
           pause:
             seconds: 5
           when: use_ipv6_mgmt|default(false)|bool
+
+        - name: Configure Mellanox-SN5640-C508O1X2 Ethernet508 subport after minigraph load
+          block:
+          - name: Set Ethernet508 subport for Mellanox-SN5640-C508O1X2 uneven port 64 breakout
+            become: true
+            shell: sonic-db-cli CONFIG_DB hset "PORT|Ethernet508" subport 2
+
+          - name: Save subport configuration
+            become: true
+            shell: config save -y
+          when:
+          - init_cfg_profile is not defined
+          - hwsku is defined
+          - hwsku == 'Mellanox-SN5640-C508O1X2'
 
         - name: execute cli "config load_minigraph -y" to apply new minigraph
           become: true

@@ -247,18 +247,26 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
     Returns:
         Returns True or False based on status of given DPU module
     """
+    # checking state_transition still  in progress for DPU, before checking DPU state
+    cmd = f'sonic-db-cli STATE_DB HGET \"CHASSIS_MODULE_TABLE|{dpu_name}\" transition_in_progress'
+    output_dpu_state = duthost.shell(cmd, module_ignore_errors=True)
+    logging.info("Chassis state for %s: %s", dpu_name, output_dpu_state['stdout'])
+
+    if output_dpu_state['stdout'].strip().lower() == "true":
+        logging.info("{} state transition still in progress".format(dpu_name))
+        return False
 
     output_dpu_status = duthost.shell(
-            'show chassis module status | grep %s' % (dpu_name))
+            'show chassis module status | grep %s' % (dpu_name), module_ignore_errors=True)
 
     if "offline" in output_dpu_status["stdout"].lower():
-        logging.info("'{}' is offline ...".format(dpu_name))
+        logging.info("'{}' state is offline".format(dpu_name))
         if power_status == "off":
             return True
         else:
             return False
     else:
-        logging.info("'{}' is online ...".format(dpu_name))
+        logging.info("'{}' state is online".format(dpu_name))
         if power_status == "on":
             return True
         else:
@@ -381,6 +389,31 @@ def parse_system_health_summary(output_health_summary):
     # Check if all statuses are "OK"
     result = all(status == "OK" for status in status_dict.values())
 
+    return result
+
+
+def check_dpu_system_health_summary(dpuhosts, dpu_id, dpu_name):
+    """
+    Check dpu system health summary
+    Args:
+        dpuhosts: Host handle
+        dpu_id  : DPU ID (numeric)
+        dpu_name: DPU name
+    Return:
+       True : Health summary is ok
+       False: Health summary is not ok
+    """
+    logging.info(f"Check DPU {dpu_name} system health summary")
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning("DPU%d not in dpuhosts (len=%d); skipping health summary check", dpu_id, len(dpuhosts))
+        return True
+    output_health_summary = dpuhost.command(
+                                "sudo show system-health summary")['stdout']
+
+    logging.info(output_health_summary)
+
+    result = parse_system_health_summary(output_health_summary)
     return result
 
 

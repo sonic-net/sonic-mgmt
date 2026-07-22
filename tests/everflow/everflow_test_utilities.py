@@ -324,7 +324,7 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 "vlan_mac": upstream_vlan_mac,
                 "src_port": downstream_ports[0],
                 # DUT whose downstream are servers doesn't have lag connect to server
-                "src_port_lag_name": "Not Applicable" \
+                "src_port_lag_name": "Not Applicable"
                 if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name[0],
                 "src_port_ptf_id": str(mg_facts_list[0]["minigraph_ptf_indices"][downstream_ports[0]]),
                 "dest_port": upstream_dest_ports,
@@ -936,7 +936,7 @@ class BaseEverflowTest(object):
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
             # Skip IPv6 mirror session due to issue #19096
-            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6:  # noqa E501
                 pytest.skip("Skip IPv6 mirror session on unsupported platforms")
 
             # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
@@ -1173,13 +1173,15 @@ class BaseEverflowTest(object):
             pass
 
     @staticmethod
-    def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
+    def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
             command = "config mirror_session remove {}".format(session_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
 
     def apply_policer_config(self, duthost, policer_name, config_method, rate_limit=100):
         if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
@@ -1231,6 +1233,7 @@ class BaseEverflowTest(object):
                     self.apply_acl_table_config(duthost, table_name, "MIRROR", config_method,
                                                 bind_namespace=getattr(inst, 'namespace', None))
 
+            BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method, module_ignore_errors=True)
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method)
 
         yield
@@ -1303,16 +1306,19 @@ class BaseEverflowTest(object):
         time.sleep(2)
 
     @staticmethod
-    def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI):
+    def remove_acl_rule_config(duthost, table_name, config_method=CONFIG_MODE_CLI, module_ignore_errors=False):
+        command = None
         if config_method == CONFIG_MODE_CLI:
+            duthost.shell("if [ -e {0} ] && [ ! -d {0} ]; then rm -f {0}; fi; mkdir -p {0}".format(DUT_RUN_DIR))
             duthost.copy(src=os.path.join(FILE_DIR, EVERFLOW_RULE_DELETE_FILE),
-                         dest=DUT_RUN_DIR)
+                         dest=os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE))
             command = "acl-loader update full {} --table_name {}" \
                 .format(os.path.join(DUT_RUN_DIR, EVERFLOW_RULE_DELETE_FILE), table_name)
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        if command is not None:
+            duthost.command(command, module_ignore_errors=module_ignore_errors)
         time.sleep(2)
 
     @abstractmethod
