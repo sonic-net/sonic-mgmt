@@ -79,3 +79,23 @@ class SampleClass:
     assert task.num_functions == 2
     assert task.num_classes == 1
     assert task.num_functions + task.num_classes == 3
+
+
+def test_compute_module_score_avoids_double_counting_direct_dependencies():
+    task = MODULE.ModuleTask(
+        rel_path="tests/common/helpers/bgp.py",
+        dotted="tests.common.helpers.bgp",
+        domain="utilities/helpers",
+        target_path="tests/common2/utilities/helpers/bgp.py",
+        loc=40,
+        num_functions=1,
+        num_classes=0,
+        typed_ratio=1.0,
+        documented_ratio=1.0,
+        has_common2_unit_tests=False,
+        fully_migrated=False,
+        depends_on_direct=["tests.common.helpers.alpha"],
+        depends_on_transitive=["tests.common.helpers.alpha", "tests.common.helpers.beta"],
+    )
+
+    assert MODULE.compute_module_score(task) == 8.8

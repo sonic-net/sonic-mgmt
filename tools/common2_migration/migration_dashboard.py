@@ -439,7 +439,9 @@ def compute_module_score(task: ModuleTask) -> float:
     """
     volume = task.loc / 40.0 + (task.num_functions + task.num_classes) * 1.5
     blast = len(task.impacted_tests) * 1.2
-    coupling = len(task.depends_on_direct) * 2.0 + len(task.depends_on_transitive) * 0.3
+    direct_dep_count = len(task.depends_on_direct)
+    transitive_dep_count = max(0, len(task.depends_on_transitive) - direct_dep_count)
+    coupling = direct_dep_count * 2.0 + transitive_dep_count * 0.3
     quality_gap = (1.0 - task.typed_ratio) * 6.0 + (1.0 - task.documented_ratio) * 3.0
     unit_gap = 0.0 if task.has_common2_unit_tests else 4.0
     return round(volume + blast + coupling + quality_gap + unit_gap, 2)
