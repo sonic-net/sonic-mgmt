@@ -7,6 +7,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import is_virtual_platform
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
@@ -37,16 +38,17 @@ def enable_container_autorestart(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
+def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, frr_config_mode):
+    # frr_config_mode parametrizes this module over both the traditional
+    # (bgpcfgd) and frr_mgmt_framework config modes and puts the DUT into the
+    # requested mode before we read config facts below, so the mode-specific
+    # branches (VRF-keyed BGP_NEIGHBOR) are exercised in both modes.
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
-    if check_frr_mgmt_framework_config(duthost):
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
-        bgp_neighbors = bgp_neighbors[vrfname]
-    else:
-        bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    # config_facts['BGP_NEIGHBOR'] is flat {ip: details} in traditional mode but VRF-keyed
+    # {'default': {ip: details}} in frr_mgmt_framework mode; flatten to {ip: details} for both.
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     bgp_neighbor = list(bgp_neighbors.keys())[0]
@@ -102,15 +104,15 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
             neighbor_ip_to_interfaces[neighbor_ip][interface_name] = dev_nbrs[interface_name]
 
     # Update bgp_neighbors with the new 'interface' key
-    # If frr_mgmt_framework_config is set to true, expect vrf name in the config facts
     for ip, details in bgp_neighbors.items():
         logger.debug(ip)
+        # In frr_mgmt_framework mode 'show ip interface' reports the neighbor ip as a
+        # "('<vrf>', '<ip>')" tuple-string, so the map is keyed that way; traditional mode
+        # keys it by the bare ip.
         if check_frr_mgmt_framework_config(duthost):
-            get_ip = f"({vrfname}, '{ip}')"
+            get_ip = "('{}', '{}')".format(vrfname, ip)
         else:
             get_ip = ip
-        logger.debug(neighbor_ip_to_interfaces)
-        logger.debug(neighbor_ip_to_interfaces[get_ip])
         if get_ip in neighbor_ip_to_interfaces:
             details['interface'] = neighbor_ip_to_interfaces[get_ip]
 
@@ -151,8 +153,7 @@ def check_frr_mgmt_framework_config(duthost):
     Returns:
         bool: True if frr_mgmt_framework_config is "true", False otherwise
     """
-    frr_config = duthost.shell('sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" "frr_mgmt_framework_config"')
-    return frr_config == "true"
+    return duthost.get_frr_mgmt_framework_config()
 
 
 def verify_bgp_session_down(duthost, bgp_neighbor):

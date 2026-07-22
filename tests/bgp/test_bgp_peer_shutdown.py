@@ -220,6 +220,7 @@ def get_bgp_down_timestamp(duthost, namespace, peer_ip, timestamp_before_teardow
 
 
 def test_bgp_peer_shutdown(
+    frr_config_mode,
     common_setup_teardown,
     constants,
     duthosts,
@@ -273,10 +274,13 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                if not use_vtysh:
+                if not use_vtysh and not duthost.get_frr_mgmt_framework_config():
                     bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)  # noqa: E501
                 else:
-                    # There is no syslog if use vtysh to manage BGP neigh
+                    # No "bgpcfgd: Peer ... admin state is set to 'down'" syslog when BGP is
+                    # managed via vtysh, or in frr_mgmt_framework mode (frrcfgd, not bgpcfgd,
+                    # owns BGP config). The NOTIFICATION packet is still validated below;
+                    # only the syslog-timestamp correlation is skipped.
                     bgp_session_down_time = None
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
                                               is_v6_topo):
