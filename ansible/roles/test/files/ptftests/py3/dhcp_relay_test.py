@@ -1057,9 +1057,8 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
-        # Single-ToR DHCP and BOOTP use the client VLAN IP as giaddr. Dual-ToR DHCP
-        # uses Loopback0 because Option 82 Link Selection identifies the client link.
-        # BOOTP has no Option 82, so dual-ToR BOOTP must also use the client VLAN IP.
+        # BOOTP has no Option 82 Link Selection, so giaddr must identify the receiving
+        # client VLAN in every topology.
         # ISC already does this; sonic-relay-agent requires the corresponding product fix.
         giaddr = self.relay_iface_ip
 
