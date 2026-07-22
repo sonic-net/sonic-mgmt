@@ -740,7 +740,33 @@ class SonicHost(AnsibleHostBase):
                 'exited_critical_process': [],
                 'running_critical_process': []
             }
-            if service not in group_process_results or service not in service_results:
+            if service not in group_process_results:
+                # Container may have started between the critical_processes
+                # file read and the supervisorctl status batch. Retry reading
+                # the critical_processes file for this specific service.
+                if (service in service_results
+                        and service_results[service].get('stdout_lines')):
+                    logging.info(
+                        "Service '%s' was not available during initial "
+                        "critical_processes batch read, retrying.", service
+                    )
+                    critical_group_list, critical_process_list, succeeded = \
+                        self.get_critical_group_and_process_lists(service)
+                    if succeeded:
+                        group_process_results[service] = {
+                            'groups': critical_group_list,
+                            'processes': critical_process_list
+                        }
+                    else:
+                        service_critical_process['status'] = False
+                        all_critical_process[service] = service_critical_process
+                        continue
+                else:
+                    service_critical_process['status'] = False
+                    all_critical_process[service] = service_critical_process
+                    continue
+
+            if service not in service_results:
                 service_critical_process['status'] = False
                 all_critical_process[service] = service_critical_process
                 continue
@@ -1370,22 +1396,47 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
     def check_default_route(self, ipv4=True, ipv6=True):
         """
-        @summary: return default route status
+        @summary: return default route status with namespace awareness for multi-ASIC
+
+        For multi-ASIC devices, checks default routes in all ASIC namespaces.
+        For single-ASIC devices, checks default routes in the global namespace.
 
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
+        @return: True if default route(s) exist in all required namespaces, False otherwise
         """
-        if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
-            if len(rtinfo_v4['nexthops']) == 0:
-                return False
+        if self.is_multi_asic:
+            # For multi-ASIC, check default routes in each ASIC namespace
+            for asic_index in range(self.facts['num_asic']):
+                # Construct namespace option like "-n asic0", "-n asic1", etc.
+                ns_option = "-n asic{}".format(asic_index)
 
-        if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
-            if len(rtinfo_v6['nexthops']) == 0:
-                return False
+                if ipv4:
+                    rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'), ns=ns_option)
+                    if len(rtinfo_v4['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv4 default route".format(asic_index))
+                        return False
 
-        return True
+                if ipv6:
+                    rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'), ns=ns_option)
+                    if len(rtinfo_v6['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv6 default route".format(asic_index))
+                        return False
+
+            return True
+        else:
+            # For single ASIC, check default routes in global namespace
+            if ipv4:
+                rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
+                if len(rtinfo_v4['nexthops']) == 0:
+                    return False
+
+            if ipv6:
+                rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
+                if len(rtinfo_v6['nexthops']) == 0:
+                    return False
+
+            return True
 
     def check_intf_link_state(self, interface_name):
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
@@ -1844,6 +1895,7 @@ Totals               6450                 6449
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "q3d": {"8870", "8872"},
         }
         for asic in search_sets.keys():
             for search_term in search_sets[asic]:
@@ -2375,7 +2427,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def ping_v6(self, ipv6, count=1, ns_arg=""):
         """
@@ -2401,7 +2453,7 @@ Totals               6450                 6449
             ))
         except RunAnsibleModuleFail:
             return False
-        return not rc['failed']
+        return not rc.get('failed', False)
 
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)

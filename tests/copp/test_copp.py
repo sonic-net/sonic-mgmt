@@ -124,6 +124,7 @@ class TestCOPP(object):
         if duthost.is_multi_asic:
             namespace = random.choice(duthost.asics)
 
+        has_trap = True
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
@@ -134,6 +135,7 @@ class TestCOPP(object):
             else:
                 feature_list, _ = duthost.get_feature_status()
                 trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
+                has_trap = trap_installed
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -141,11 +143,18 @@ class TestCOPP(object):
                     pytest_assert(not trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
 
+        is_smartswitch_light_mode = False
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            if "dhcp_server" in duthost.critical_services_status():
+                is_smartswitch_light_mode = True
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
                      copp_testbed,
-                     dut_type)
+                     dut_type,
+                     has_trap=has_trap,
+                     is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -316,7 +325,7 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
-                  f"Trap {trap} not found in show copp configuration output")
+                  f"Trap {trap} not found as part of show copp configuration output")
     pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
                   f"Trap group mismatch for trap {trap} (expected: \
                   {trap_group}, actual: {show_copp_config[trap]['trap_group']})")
@@ -413,13 +422,12 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa: F811
+                 ip_version="4", is_smartswitch_light_mode=False):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
 
     is_ipv4 = True if ip_version == "4" else False
-
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip if is_ipv4 else test_params.myip6,
@@ -430,6 +438,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
+              "is_smartswitch_light_mode": is_smartswitch_light_mode,
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version,

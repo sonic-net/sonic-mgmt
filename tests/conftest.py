@@ -322,6 +322,37 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
+    parser.addoption(
+        "--ss_target_index",
+        action="store",
+        default="",
+        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
+    )
+    parser.addoption(
+        "--ss_target_indices",
+        action="store",
+        default="",
+        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
+    )
+    parser.addoption(
+        "--ss-max-workers",
+        action="store",
+        type=int,
+        default=4,
+        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
+    parser.addoption(
+        "--ss_npu_target_image",
+        action="store",
+        default="",
+        help="SmartSwitch NPU image URL used in the full upgrade test (DPUs staged first, then NPU rebooted)",
+    )
+    parser.addoption(
+        "--ss_npu_target_version",
+        action="store",
+        default="",
+        help="SmartSwitch NPU version string used in the full upgrade test (e.g. SONiC-OS-internal-202511.xxx)",
+    )
 
     ##################################
     #   Container Upgrade options    #
@@ -746,6 +777,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut
@@ -1317,7 +1350,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             action='generate',
             path="../ansible/",
             log_path=log_path,
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
         )
         if 'topo_routes' not in res:
             logger.warning("No routes generated.")
@@ -2050,7 +2083,9 @@ _hosts_per_hwsku_per_module = {}
 _rand_one_asic_per_module = {}
 _rand_one_frontend_asic_per_module = {}
 _macsec_frontend_hosts_per_hwsku_per_module = {}
-def pytest_generate_tests(metafunc):        # noqa: E302
+
+
+def pytest_generate_tests(metafunc):
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
@@ -2880,7 +2915,7 @@ def restore_config_db_and_config_reload(duts_data, duthosts, request):
 
 
 def compare_running_config(pre_running_config, cur_running_config):
-    if type(pre_running_config) != type(cur_running_config):
+    if type(pre_running_config) is not type(cur_running_config):
         return False
     if pre_running_config == cur_running_config:
         return True

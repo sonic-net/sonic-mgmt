@@ -6,7 +6,9 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.common.helpers.gnmi_utils import create_gnmi_certs, delete_gnmi_certs
+from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, create_gnmi_certs, \
+    delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
+    copy_certificate_to_ptf
 from tests.common.helpers.ntp_helper import setup_ntp_context
 from tests.gnmi.helper import _init_cert_extension
 
@@ -56,7 +58,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     create_gnmi_certs(duthost, localhost, ptfhost)
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
+    stopped_programs = apply_cert_config(duthost)
 
     yield
 
@@ -67,7 +69,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     # Save the configuration
     cmd = "config save -y"
     duthost.shell(cmd, module_ignore_errors=True)
-    recover_cert_config(duthost)
+    recover_cert_config(duthost, stopped_programs)
 
 
 @pytest.fixture(scope="module")
@@ -158,6 +160,12 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     duthost.copy(src='gnmiclient.{}'.format(cert_extension), dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
     create_gnmi_certs(duthost, localhost, ptfhost)
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    copy_certificate_to_ptf(ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
 
 
 @pytest.fixture(scope="module")

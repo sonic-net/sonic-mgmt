@@ -25,7 +25,7 @@ from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -501,6 +501,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+        # Add upstream ports not covered by any PortChannel
+        pc_members = set()
+        for pc in port_channels.values():
+            pc_members.update(pc.get('members', []))
+        for namespace, port in list(upstream_ports.items()):
+            non_pc_ports = [p for p in port if p not in pc_members]
+            acl_table_ports[namespace] += non_pc_ports
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += non_pc_ports
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     elif topo == "lt2":
@@ -627,6 +637,10 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    # Remove the rendered arp_responder config we wrote above so it can't be
+    # picked up by a stale invocation in a later test and so /tmp doesn't
+    # accumulate state that mis-leads on-PTF debugging.
+    ptfhost.file(path="/tmp/from_t1.json", state="absent")
 
     for dut in duthosts:
         dut.command("sonic-clear fdb all")
@@ -1080,8 +1094,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info('Skip checking rule counters for vs platform')
             return True
 
-        logger.info('Wait all rule counters are ready')
-        return wait_until(300, 2, 0, self.check_rule_counters_internal, duthost)
+        plt_wait_dict = get_plt_wait_time(duthost, "acl/test_acl.py")
+        wait = plt_wait_dict.get("wait", 300)
+        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))
+        return wait_until(wait, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
@@ -1783,8 +1799,6 @@ class TestMultiBindingAcl(TestBasicAcl):
 
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
         """Setup ACL rules for multi-binding ACL testing."""
-        if 'dualtor' not in tbinfo['topo']['name']:
-            pytest.skip("Not a dual-tor testbed")
 
         dut.host.options["variable_manager"].extra_vars.update(
             {"dualtor": True})

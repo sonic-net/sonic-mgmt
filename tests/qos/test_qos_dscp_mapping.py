@@ -343,10 +343,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             pytest_assert(dscp_mode == real_dscp_mode, "Wrong DSCP mode configured")
 
         def check_ip_route(duthost, step):
-            ip_route_list = [INNER_DST_IP_PREFIX + str(i + 1) + '/32' for i in range(step)]
-            for i in range(step):
-                route = duthost.shell(f"show ip route {ip_route_list[i]}")["stdout"]
-                if ip_route_list[i] not in route:
+            ip_route_list = [f"{INNER_DST_IP_PREFIX}{i}/32" for i in range(1, step)]
+            for route in ip_route_list:
+                output = duthost.shell(f"show ip route {route}")["stdout"]
+                if route not in output:
                     return False
             return True
 

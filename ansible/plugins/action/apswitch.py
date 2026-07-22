@@ -34,7 +34,7 @@ class ActionModule(ActionBase):
         _timeout = self._task.args.get('timeout', None)
         _os_name = self._task.args.get('os_name', '')
 
-        if (type(_login) == unicode):
+        if isinstance(_login, unicode):
             _login = ast.literal_eval(_login)
 
         login = {'user': [], 'enable': _login['enable']}

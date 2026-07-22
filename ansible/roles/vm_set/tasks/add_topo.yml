@@ -160,8 +160,15 @@
   - name: Create ptf container ptf_{{ vm_set_name }}
     docker_container:
       name: ptf_{{ vm_set_name }}
-      image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      image: "{{ ptf_registry_host | default(docker_registry_host) }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
+      # Set pull to 'missing' when ptf_modified is True (PR test with preloaded image)
+      # to avoid pulling and overwriting the local image. For nightly tests where
+      # ptf_modified is False/undefined, use 'always' to always pull the latest image.
+      # The ptf_modified flag is passed from Azure Pipelines through Elastictest's
+      # add_topo_params as "-e ptf_modified=True" when testing PR built docker-ptf images.
+      # ptf_registry_host can be set independently (e.g. to 'localhost') to override just
+      # the PTF image registry without affecting other images that use docker_registry_host.
+      pull: "{{ 'missing' if (ptf_modified | default(false) | bool) else 'always' }}"
       state: started
       restart: no
       network_mode: none
@@ -334,6 +341,13 @@
       is_dpu: true
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
+
+  - name: Don't accept ipv6 router advertisements on PTF mgmt interface if it exists
+    command: >
+      docker exec -i ptf_{{ vm_set_name }}
+      sh -c 'test ! -e /proc/sys/net/ipv6/conf/mgmt/accept_ra ||
+             sysctl -w net.ipv6.conf.mgmt.accept_ra=0'
+    become: yes
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml

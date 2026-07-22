@@ -19,7 +19,7 @@ from scapy.packet import Raw
 from abc import abstractmethod
 from ptf.mask import Mask
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import wait_until, check_msg_in_syslog, get_plt_wait_time
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
@@ -321,7 +321,7 @@ def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, t
                 "vlan_mac": upstream_vlan_mac,
                 "src_port": downstream_ports[0],
                 # DUT whose downstream are servers doesn't have lag connect to server
-                "src_port_lag_name": "Not Applicable" \
+                "src_port_lag_name": "Not Applicable"
                 if topo_type in DOWNSTREAM_SERVER_TOPO else downstream_dest_lag_name[0],
                 "src_port_ptf_id": str(mg_facts_list[0]["minigraph_ptf_indices"][downstream_ports[0]]),
                 "dest_port": upstream_dest_ports,
@@ -561,6 +561,23 @@ def validate_acl_rules_in_asic_db(duthost):
     return validate_acl_rule_rids(duthost)
 
 
+def wait_for_acl_rules_in_asic_db(duthost):
+    """
+    Wait until the ACL rules in ASIC DB match CONFIG DB and RIDs are valid.
+
+    Uses the platform-specific wait time from get_plt_wait_time (key "everflow"),
+    defaulting to 120 seconds if not configured.
+
+    Args:
+        duthost: DUT host object
+    """
+    acl_rule_wait_time = get_plt_wait_time(duthost, "everflow").get("wait", 120)
+    pytest_assert(
+        wait_until(acl_rule_wait_time, 10, 0, validate_acl_rules_in_asic_db, duthost),
+        "ACL rules in ASIC DB did not match CONFIG DB within {} seconds".format(acl_rule_wait_time)
+    )
+
+
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
@@ -775,7 +792,7 @@ class BaseEverflowTest(object):
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
             # Skip IPv6 mirror session due to issue #19096
-            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6:  # noqa E501
                 pytest.skip("Skip IPv6 mirror session on unsupported platforms")
 
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
@@ -1059,8 +1076,15 @@ class BaseEverflowTest(object):
         for line in res[2:]:
             if len(line) < status_index:
                 continue
-            if line[status_index:] != 'Active':
-                return False
+            if duthost.is_multi_asic:
+                st = eval(line[status_index:])
+                namespace_list = duthost.get_asic_namespace_list()
+                for namespace in namespace_list:
+                    if st[namespace] != 'Active':
+                        return False
+            else:
+                if line[status_index:] != 'Active':
+                    return False
         return True
 
     def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
@@ -1077,7 +1101,12 @@ class BaseEverflowTest(object):
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.file(path=dest_path, state='absent')
         duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
-        duthost.shell("config load -y {}".format(dest_path))
+        dest_paths = dest_path
+        if duthost.is_multi_asic:
+            num_asics = duthost.facts['num_asic']
+            for num_asic in range(num_asics):
+                dest_paths = dest_paths + "," + dest_path
+        duthost.shell("config load -y {}".format(dest_paths))
 
         if duthost.facts['asic_type'] not in ['vs', 'broadcom']:
             pytest_assert(wait_until(150, 2, 0, self.check_rule_active, duthost, table_name),

@@ -188,7 +188,8 @@ function setup_test_options()
         show_help_and_exit 1
     fi
 
-    PYTEST_COMMON_OPTS="--inventory ${INVENTORY} \
+    PYTEST_COMMON_OPTS="-c pytest.ini \
+                      --inventory ${INVENTORY} \
                       --host-pattern ${DUT_NAME} \
                       --dpu-pattern ${DPU_NAME} \
                       --testbed ${TESTBED_NAME} \

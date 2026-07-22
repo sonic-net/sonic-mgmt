@@ -150,7 +150,11 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
         grouped.setdefault(entry['attachto'], []).append(entry)
 
     for intf, entries in grouped.items():
-        port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == intf]
+        # Added fix to select snappi-ports based on ports and duthost.
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+                    if ((snappi_port['peer_port'] == intf) and
+                        (snappi_port['peer_device'] == duthost.hostname))]
+
         if len(port_ids) != 1:
             continue
         port_id = port_ids[0]
@@ -333,7 +337,13 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         v4_entry = next((e for e in entries if __valid_ipv4_addr(e['addr'])), None)
         v6_entry = next((e for e in entries if not __valid_ipv4_addr(e['addr'])), None)
 
-        member_port_ids = [i for i, sp in enumerate(snappi_ports) for m in members if sp['peer_port'] == m]
+        # Added fix to select member_port_id based on peer_port and peer_dut
+        member_port_ids = [
+            int(sp['port_id'])
+            for sp in (snappi_ports)
+            for m in members
+            if ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
+
         if not member_port_ids:
             continue
 
@@ -343,7 +353,11 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         lag.protocol.lacp.actor_key = 1
 
         for phy in members:
-            port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == phy]
+            # Added fix to select snappi_ports based on peer-device and peer-hostname.
+            port_ids = [
+                i for i, sp in enumerate(snappi_ports)
+                if ((sp['peer_port'] == phy) and (sp['peer_device'] == duthost.hostname))]
+
             if len(port_ids) != 1:
                 continue
             port_id = port_ids[0]
@@ -1802,20 +1816,28 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 rx_port_count,
                 testbed
             )
-        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
+    else:
+        flatten_skeleton_parameter = request.param
+        speed, category = flatten_skeleton_parameter.split("-")
 
-    flatten_skeleton_parameter = request.param
-    speed, category = flatten_skeleton_parameter.split("-")
+        if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+        snappi_ports = snappi_port_selection[float(speed)][category]
 
-    snappi_ports = snappi_port_selection[float(speed)][category]
+        if not snappi_ports:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
-    if not snappi_ports:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
 
 
 def flatten_list(lst):

@@ -26,7 +26,10 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
                                              SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_METER_TYPE,
-                                             PACKET_SIZE_MARGIN, TRIMMING_COUNTER_INTERVAL)
+                                             PACKET_SIZE_MARGIN, TRIMMING_COUNTER_INTERVAL, MIRROR_SESSION_NAME,
+                                             MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
+                                             MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
+                                             SCHEDULER_CIR)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -290,6 +293,7 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
             - type: Scheduler type (e.g., "DWRR", "STRICT")
             - weight: Scheduling weight (e.g., 15)
             - pir: Peak Information Rate (e.g., 1)
+            - cir: Committed Information Rate (e.g., 1)
 
     Returns:
         str: OID of the matched scheduler, or None if not found
@@ -298,7 +302,8 @@ def get_scheduler_oid_by_attributes(duthost, **kwargs):
     param_to_sai_attr = {
         'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
         'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
-        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE'
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE',
+        'cir': 'SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE'
     }
 
     # Mapping for type values
@@ -394,7 +399,7 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "cir" {SCHEDULER_CIR}'
         )
         # meter_type is platform specific
         if duthost.get_asic_name() == 'th5':
@@ -466,19 +471,17 @@ def validate_scheduler_configuration(duthost, dut_port, queue, expected_schedule
         return False
 
 
-def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
+def get_scheduler_usage_count(duthost, scheduler_oid):
     """
-    Validate that the scheduler is applied to queue in ASIC_DB.
+    Get the count of scheduler groups using the specified scheduler in ASIC_DB.
 
     Args:
         duthost: DUT host object
         scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
 
     Returns:
-        bool: True if applied to queue in ASIC_DB, False otherwise
+        int: Number of scheduler groups using this scheduler
     """
-    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB")
-
     # Dump ASIC_DB to a temporary file for faster searching
     tmp_file = "/tmp/asic_db_scheduler_check.json"
     dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
@@ -486,19 +489,41 @@ def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
 
     # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
     cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
-    result = duthost.shell(cmd_grep_oid)
+    result = duthost.shell(cmd_grep_oid, module_ignore_errors=True)
 
     # Clean up temporary file
     duthost.shell(f"rm -f {tmp_file}")
 
-    # Check if scheduler OID is found in ASIC_DB
+    # Return the count
     count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
+    return count
 
-    if count > 0:
-        logger.debug(f"ASIC_DB scheduler validation successful: OID {scheduler_oid} found in {count} scheduler groups")
+
+def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expected_count=1):
+    """
+    Validate that the scheduler is applied to queue in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+        expected_count (int): Expected number of scheduler groups using this scheduler. Default is 1.
+
+    Returns:
+        bool: True if validation passes (count equals expected_count), False otherwise
+    """
+    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB (expected_count={expected_count})")
+
+    # Get current usage count
+    count = get_scheduler_usage_count(duthost, scheduler_oid)
+
+    # Validate count matches expected
+    if count == expected_count:
+        logger.debug(f"ASIC_DB scheduler validation successful: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (matches expected)")
         return True
     else:
-        logger.debug(f"ASIC_DB scheduler validation failed: OID {scheduler_oid} not found in any scheduler group")
+        logger.debug(f"ASIC_DB scheduler validation failed: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (expected {expected_count})")
         return False
 
 
@@ -525,6 +550,15 @@ def disable_egress_data_plane(duthost, dut_port, queue):
 
     original_scheduler = result["stdout"].strip()
 
+    # Get the blocking scheduler OID from ASIC_DB
+    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
+                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
+    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
+
+    # Get current scheduler usage count before applying scheduler to specific queue
+    current_count = get_scheduler_usage_count(duthost, scheduler_oid)
+    logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
+
     # Apply blocking scheduler to the specified queue
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
@@ -534,14 +568,13 @@ def disable_egress_data_plane(duthost, dut_port, queue):
                              duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
                   f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
 
-    # Get the blocking scheduler OID from ASIC_DB
-    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
-                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
-    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
-
     # Wait for the blocking scheduler configuration to take effect in ASIC_DB
-    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid),
-                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} queue {queue}")
+    # Expected count should increase by 1 after applying scheduler to specific queue
+    expected_count = current_count + 1
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
+                             expected_count),
+                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
+                  f"queue {queue} (expected count: {expected_count})")
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -916,7 +949,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     verify_ports = [egress_port['ptf_id']]
 
                 # Verify packet based on expectation
-                if expect_packets:
+                if expect_packets is True:
                     logger.info(
                         f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
                     _, matched = testutils.verify_packet_any_port(
@@ -929,7 +962,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
-                else:
+                elif expect_packets is False:
                     logger.info(f"Expecting NO packets on any of ports {verify_ports}")
                     testutils.verify_no_packet_any(
                         ptfadapter,
@@ -938,6 +971,8 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                         timeout=timeout
                     )
                     logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
+                else:
+                    logger.info(f"Skip capturing packets on ports {verify_ports}.")
 
         return True
 
@@ -2861,6 +2896,29 @@ def check_trim_drop_counter_zero(duthost, port):
     return trim_drop == 0
 
 
+def is_trim_drop_counter_stable(duthost, port):
+    """
+    Check if TRIM_DRP_PKTS counter remains constant on the specified port
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        bool: True if TRIM_DRP_PKTS counter stops increasing, otherwise False
+    """
+    start_time = time.time()
+    while time.time() - start_time < 30:
+        prev_trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+        # Ensure there is enough time to poll for an updated value from the ASIC
+        time.sleep(2 * (TRIMMING_COUNTER_INTERVAL / 1000))
+        curr_trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+        if prev_trim_drop == curr_trim_drop:
+            return True
+
+    return False
+
+
 def has_non_zero_trim_counters(duthost, port):
     """
     Checks if port level trim counters are non-zero.
@@ -2915,3 +2973,37 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
     # Verify the consistency
     pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0,
                   f"Total trim packets on all queues for port {port} is not equal to the port level")
+
+
+def configure_port_mirror_session(duthost):
+    """
+    Configure an ERSPAN mirror session on the DUT.
+    """
+    logger.info("Configuring ERSPAN mirror session")
+
+    cmd = (f"sudo config mirror_session erspan add {MIRROR_SESSION_NAME} {MIRROR_SESSION_SRC_IP} "
+           f"{MIRROR_SESSION_DST_IP} {MIRROR_SESSION_DSCP} {MIRROR_SESSION_TTL} {MIRROR_SESSION_GRE} "
+           f"{MIRROR_SESSION_QUEUE}")
+    duthost.shell(cmd)
+    logger.info(f"Successfully configured mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is created
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not created successfully")
+
+
+def remove_port_mirror_session(duthost):
+    """
+    Remove the ERSPAN mirror session from the DUT.
+    """
+    logger.info(f"Removing mirror session: {MIRROR_SESSION_NAME}")
+
+    cmd = f"sudo config mirror_session remove {MIRROR_SESSION_NAME}"
+    duthost.shell(cmd)
+    logger.info(f"Successfully removed mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is removed
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME not in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not removed successfully")

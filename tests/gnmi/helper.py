@@ -40,6 +40,7 @@ def apply_cert_config(duthost):
     metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
     subtype = metadata.get('subtype', None)
     # Stop all running program
+    stopped_programs = []
     dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
     output = duthost.shell(dut_command, module_ignore_errors=True)
     for line in output['stdout_lines']:
@@ -51,6 +52,8 @@ def apply_cert_config(duthost):
         if status == "RUNNING":
             dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, program)
             duthost.shell(dut_command, module_ignore_errors=True)
+            logger.info("Stopped supervisord program: %s", program)
+            stopped_programs.append(program)
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
@@ -81,6 +84,7 @@ def apply_cert_config(duthost):
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
+    return stopped_programs
 
 
 def check_gnmi_process(duthost):
@@ -106,7 +110,13 @@ def _check_monit_container_checker(duthost):
     After gNMI cert config recovery, monit needs time to re-evaluate
     container status. This function checks if container_checker has
     returned to a healthy state (OK or Status ok).
+
+    Trigger a focused container_checker refresh before reading the cached
+    monit status. This avoids failing post-test sanity on stale monit state
+    after telemetry was restarted by cert recovery.
     """
+    duthost.shell("sudo /usr/bin/container_checker", module_ignore_errors=True)
+    duthost.shell("sudo monit validate container_checker", module_ignore_errors=True)
     monit_services = duthost.get_monit_services_status()
     if not monit_services:
         return False
@@ -115,21 +125,16 @@ def _check_monit_container_checker(duthost):
     return status in ("OK", "Status ok")
 
 
-def recover_cert_config(duthost):
+def recover_cert_config(duthost, stopped_programs=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Kill the GNMI process
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
     wait_until(60, 1, 0, check_gnmi_process, duthost)
-    # Recover all stopped program
-    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
-    output = duthost.shell(dut_command, module_ignore_errors=True)
-    for line in output['stdout_lines']:
-        res = line.split()
-        if len(res) < 3:
-            continue
-        program = res[0]
-        if program in ["gnmi-native", "telemetry"]:
+    # Restore only the programs that apply_cert_config explicitly stopped
+    if stopped_programs:
+        for program in stopped_programs:
+            logger.info("Restarting supervisord program: %s", program)
             dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
             duthost.shell(dut_command, module_ignore_errors=True)
 
@@ -146,8 +151,9 @@ def recover_cert_config(duthost):
     # Restart telemetry container if it was stopped during cert config change
     # apply_cert_config may trigger ctrmgrd to stop the telemetry container
     if not check_container_state(duthost, "telemetry", should_be_running=True):
-        logger.info("Telemetry container is not running after cert config recovery, restarting it")
-        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
+        logger.info("Telemetry container is not running after cert config recovery, starting it")
+        duthost.shell("sudo systemctl reset-failed telemetry", module_ignore_errors=True)
+        duthost.shell("sudo systemctl start telemetry", module_ignore_errors=True)
 
     # Wait for monit container_checker to report healthy status.
     # After restarting processes/containers, monit needs time to re-evaluate
@@ -279,13 +285,16 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
                lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    error = "GRPC error\n"
-    if error in output['stdout']:
+
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
+    combined = f"{stdout}\n{stderr}"
+
+    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        result = output['stdout'].split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    return
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
 
 
 def gnmi_get(duthost, ptfhost, path_list):

@@ -276,14 +276,9 @@ class PolicyTest(ControlPlaneBaseTest):
                 "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
         else:
             self.log("Checking constraints (NoPolicyApplied):")
-            self.log(
-                "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
-                (int(rx_pps),
-                 int(self.PPS_LIMIT_MIN),
-                 str(rx_pps <= self.PPS_LIMIT_MIN))
-            )
-            assert rx_pps <= self.PPS_LIMIT_MIN, "Copp policer constraint check failed, Actual PPS: {} " \
-                "Expected PPS range: 0 - {}".format(rx_pps, self.PPS_LIMIT_MIN)
+            # for no traps case, check on the recevied packets instead of port level counters
+            assert recv_count == 0, "Copp policer constraint check failed, Actual Received Packets: {} " \
+                "Expected Received Packets: {}".format(recv_count, 0)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -320,6 +315,9 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch_light_mode:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
@@ -477,6 +475,9 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch_light_mode:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")

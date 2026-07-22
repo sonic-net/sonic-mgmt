@@ -209,7 +209,7 @@ class TestPfcwdAllPortStorm(object):
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
     def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
-                 stormed_ports_list=None, tbinfo=None):
+                 stormed_ports_list=None, tbinfo=None, test_ports_info=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
         ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
@@ -237,15 +237,16 @@ class TestPfcwdAllPortStorm(object):
 
             # Scale timeout with port count to allow sufficient time on high port-count platforms.
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
-            timeout = max(60, num_ports * 2)
+            timeout = max(60, num_ports * 3)
             # LT2/FT2 topologies need at least 120s because the traffic generator
             # takes longer to spin up on those setups.
             if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
                 timeout = max(timeout, 120)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
-                           storm_hndle, action, selected_test_ports, baseline_counters, threshold,
-                           stormed_ports_list),
+                           storm_hndle, action, selected_test_ports,
+                           baseline_counters=baseline_counters, threshold_percentage=threshold,
+                           stormed_ports_list=stormed_ports_list, test_ports_info=test_ports_info),
                 f"Not enough ports reached {action} state (threshold: {threshold}%)"
             )
 
@@ -294,10 +295,14 @@ class TestPfcwdAllPortStorm(object):
                           action="storm",
                           stormed_ports_list=stormed_ports_list,
                           selected_test_ports=selected_test_ports,
+                          test_ports_info=setup_pfc_test['test_ports'],
                           tbinfo=tbinfo)
 
         logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
         logger.info("--- Testing if PFC storm is restored on stormed ports ---")
+        # test_ports_info is intentionally not passed during restore: the duplicate-neighbor
+        # adjustment in verify_all_ports_pfc_storm_in_expected_state only applies to the storm
+        # phase, so it has no effect here.
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                       syslog_marker="all_port_storm_restore", action="restore",
                       stormed_ports_list=stormed_ports_list,

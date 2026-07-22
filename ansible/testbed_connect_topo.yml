@@ -58,4 +58,4 @@
     when: duts_name.split(',')|length > 1
 
   roles:
-    - { role: vm_set, action: 'add_topo', when external_port is not defined }
+    - { role: vm_set, vm_set_action: 'add_topo', when external_port is not defined }

@@ -202,7 +202,7 @@ class EosHost(AnsibleHostBase):
         # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed']
         # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
         # error.
-        if out['failed'] is True or out['changed'] is False:
+        if out.get('failed', False) is True or out['changed'] is False:
             # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
@@ -392,7 +392,7 @@ class EosHost(AnsibleHostBase):
         err_out = False
         if 'stdout' in cmd_output_obj:
             stdout = cmd_output_obj['stdout']
-            msg = stdout[-1] if type(stdout) == list else stdout
+            msg = stdout[-1] if isinstance(stdout, list) else stdout
             err_out = 'Cannot advertise' in msg
 
         return ('failed' in cmd_output_obj and cmd_output_obj['failed']) or err_out
@@ -587,7 +587,7 @@ class EosHost(AnsibleHostBase):
             lines=['lacp timer multiplier %d' % multiplier],
             parents='interface %s' % interface_name)
 
-        if out['failed'] is True or out['changed'] is False:
+        if out.get('failed', False) is True or out['changed'] is False:
             logging.warning("Unable to set interface [%s] lacp timer multiplier to [%d]" % (interface_name, multiplier))
         else:
             logging.info("Set interface [%s] lacp timer to [%d]" % (interface_name, multiplier))

@@ -1481,6 +1481,85 @@ def get_pfcQueueGroupSize(default=8):
     return default
 
 
+def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
+                                    qos_map_profile=None):
+    """
+    Build a per-queue scheduler/weight map for an interface by joining the
+    ``QUEUE`` and ``SCHEDULER`` config-DB tables, and optionally annotating
+    each queue with one of its DSCP values via ``DSCP_TO_TC_MAP`` and
+    ``TC_TO_QUEUE_MAP``.
+
+    Args:
+        host_ans: Ansible host instance of the device.
+        asic_value: asic namespace; pass ``None`` (default) or the string
+            ``"None"`` for single-asic devices.
+        port (str, optional): interface name to read ``QUEUE`` for. Defaults
+            to the first interface present in ``QUEUE``.
+        qos_map_profile (str, optional): name of the profile inside
+            ``DSCP_TO_TC_MAP`` / ``TC_TO_QUEUE_MAP`` to use for the ``dscp``
+            field. Defaults to the first profile (typically ``"AZURE"``).
+            If the maps are missing, ``dscp`` is set to ``None``.
+
+    Returns:
+        dict[int, dict]: ``{queue: {"scheduler": <name>, "type": <DWRR/...>,
+        "weight": <int>, "dscp": <int|None>}}``. The result always covers
+        queues 0-7; any queue not present in the per-port ``QUEUE`` config
+        (or whose scheduler is missing from ``SCHEDULER``) falls back to a
+        default entry with equal DWRR weight 15.
+    """
+    if asic_value in (None, "None"):
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running")["ansible_facts"]
+    else:
+        config_facts = host_ans.config_facts(host=host_ans.hostname,
+                                             source="running",
+                                             namespace=asic_value)["ansible_facts"]
+
+    queue_cfg_all = config_facts.get("QUEUE") or {}
+    scheduler_cfg = config_facts.get("SCHEDULER") or {}
+
+    dscp_to_tc = config_facts.get("DSCP_TO_TC_MAP") or {}
+    tc_to_queue = config_facts.get("TC_TO_QUEUE_MAP") or {}
+    if qos_map_profile is None and dscp_to_tc:
+        qos_map_profile = next(iter(dscp_to_tc))
+    dscp_to_tc_map = dscp_to_tc.get(qos_map_profile, {}) if qos_map_profile else {}
+    tc_to_queue_map = tc_to_queue.get(qos_map_profile, {}) if qos_map_profile else {}
+
+    queue_to_dscp = {}
+    for dscp, tc in dscp_to_tc_map.items():
+        q = tc_to_queue_map.get(str(tc))
+        if q is not None:
+            queue_to_dscp.setdefault(int(q), int(dscp))
+
+    # default entry with equal DWRR weight 15
+    result = {
+        q: {"scheduler": None, "type": "DWRR", "weight": 15,
+            "dscp": queue_to_dscp.get(q)}
+        for q in range(8)
+    }
+
+    if not queue_cfg_all:
+        return result
+
+    if port is None:
+        port = next(iter(queue_cfg_all))
+    if port not in queue_cfg_all:
+        raise KeyError("Port {} not found in QUEUE config (available: {})".format(port, sorted(queue_cfg_all)))
+
+    for q, value in queue_cfg_all[port].items():
+        scheduler = value.get("scheduler")
+        if scheduler is None or scheduler not in scheduler_cfg:
+            continue
+        sched = scheduler_cfg[scheduler]
+        result[int(q)] = {
+            "scheduler": scheduler,
+            "type": sched.get("type"),
+            "weight": int(sched["weight"]),
+            "dscp": queue_to_dscp.get(int(q)),
+        }
+    return result
+
+
 @lru_cache
 def get_testbed_from_args():
     parser = ArgumentParser()

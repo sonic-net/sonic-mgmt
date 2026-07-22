@@ -39,7 +39,8 @@ class HashTest(BaseTest):
     # Class variables
     # ---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    RELAXED_BALANCING_RANGE = 0.80
+    RELAXED_BALANCING_RANGE = 0.8
+    RELAXED_BALANCING_RANGE_MAXTOPO = 1.5
     BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
     _required_params = [
@@ -243,11 +244,12 @@ class HashTest(BaseTest):
 
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
-        # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
+        # ip_proto 4, 41 and 47 are encapsulation protocol, ip payload will be malformat
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 4, 41, 60, 254]
+        skip_protos = [2, 253, 4, 41, 47, 60, 254]
+
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(1)
@@ -399,7 +401,6 @@ class HashTest(BaseTest):
         '''
         @summary: Check IPv4 route works.
         '''
-        class_name = self.__class__.__name__
         ip_src = self.src_ip_interval.get_random_ip(
         ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
@@ -448,7 +449,7 @@ class HashTest(BaseTest):
             ip_dst=ip_dst,
             ip_proto=ip_proto
         )
-        if class_name == 'HashTest':
+        if isinstance(self, HashTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
@@ -463,7 +464,6 @@ class HashTest(BaseTest):
         '''
         @summary: Check IPv6 route works.
         '''
-        class_name = self.__class__.__name__
         ip_src = self.src_ip_interval.get_random_ip(
         ) if hash_key == 'src-ip' else self.src_ip_interval.get_first_ip()
         ip_dst = self.dst_ip_interval.get_random_ip(
@@ -514,7 +514,7 @@ class HashTest(BaseTest):
             ip_proto=ip_proto,
             version='IPv6'
         )
-        if class_name == 'HashTest':
+        if isinstance(self, HashTest):
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
                 fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
@@ -541,8 +541,10 @@ class HashTest(BaseTest):
                 return (percentage, actual >= expected * 0.2)
             elif 't2' in self.topo_name:
                 # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
-                # a large number of ecmp paths so relax the hashing requirements
-                balancing_range = self.RELAXED_BALANCING_RANGE
+                # a large number of ecmp paths so relax the hashing requirements. For max port count topologies,
+                # relax the hashing requirements further
+                balancing_range = self.RELAXED_BALANCING_RANGE_MAXTOPO if "max" in self.topo_name \
+                    else self.RELAXED_BALANCING_RANGE
         return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
@@ -650,6 +652,13 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
+        """
+        @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
+        """
+        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
+                                               logs=logs)
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -672,9 +681,9 @@ class IPinIPHashTest(HashTest):
                             next_header_key,
                             outer_proto,
                             version,
-                            pkt[version].src,
-                            pkt[version].dst,
-                            pkt[version].proto if version == 'IP' else pkt['IPv6'].nh,
+                            inner_pkt[version].src,
+                            inner_pkt[version].dst,
+                            inner_pkt[version].proto if version == 'IP' else inner_pkt['IPv6'].nh,
                             sport,
                             dport,
                             src_port))
@@ -951,6 +960,11 @@ class VxlanHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
+        # Outer IPv6 hlim may be decremented multiple times on chassis
+        # (across ingress/egress LCs); also mask inner TCP chksum.
+        if self.ignore_ttl and version == 'IPv6':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
         return masked_exp_pkt
 
     def check_ip_route(self, hash_key, src_port, dst_port_lists, outer_src_ip,
@@ -1088,6 +1102,12 @@ class NvgreHashTest(HashTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         if version == 'IPv6':
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        # Outer TTL may be decremented multiple times on chassis
+        # (across ingress/egress LCs). Mask outer IP ttl and chksum
+        # when ignore_ttl is set.
+        if self.ignore_ttl and version == 'IP':
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
         return masked_exp_pkt
 
     def create_pkt(

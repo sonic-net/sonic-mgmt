@@ -658,7 +658,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
-    if is_ipv6_only_topology and ip_ver == "4":
+    if is_ipv6_only_topology(tbinfo) and ip_ver == "4":
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     # Template used to speedup execution of many similar commands on DUT
@@ -716,7 +716,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after adding {total_routes} routes...")
-    expected_min_used = crm_stats_route_used + total_routes - CRM_COUNTER_TOLERANCE
+    expected_min_used = crm_stats_route_used + max(1, total_routes - CRM_COUNTER_TOLERANCE)
 
     def check_route_added():
         return get_route_used() >= expected_min_used
@@ -759,7 +759,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used + CRM_COUNTER_TOLERANCE
+    expected_max_used = crm_stats_route_used + min(total_routes - 1, CRM_COUNTER_TOLERANCE)
 
     def check_route_deleted():
         return get_route_used() <= expected_max_used
@@ -991,7 +991,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     crm_stats_neighbor_used, crm_stats_neighbor_available = get_crm_stats(get_neighbor_stats, duthost)
 
     # Add reachability to the neighbor
-    if is_cisco_device(duthost):
+    # Cisco and broadcom-dnx VOQ platforms need the host IP on the interface
+    # so the neighbor address is in-subnet and gets programmed by orchagent.
+    needs_host_ip = is_cisco_device(duthost) or \
+        duthost.facts.get("platform_asic") == "broadcom-dnx"
+    if needs_host_ip:
         asichost.config_ip_intf(crm_interface[0], host, "add")
     # Add neighbor
     asichost.shell(neighbor_add_cmd)
@@ -1006,7 +1010,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv4_neighbor_available\" counter was not decremented")
 
     # Remove reachability to the neighbor
-    if is_cisco_device(duthost):
+    if needs_host_ip:
         asichost.config_ip_intf(crm_interface[0], host, "remove")
     # Remove neighbor
     asichost.shell(neighbor_del_cmd)

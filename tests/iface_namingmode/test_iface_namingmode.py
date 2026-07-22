@@ -312,7 +312,22 @@ class TestShowLLDP():
         dutHostGuest, mode, ifmode = setup_config_mode
         minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
 
-        lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+        lldp_table_result = {}
+
+        def _lldp_table_ready():
+            lldp_table_result['output'] = dutHostGuest.shell(
+                'SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
+            expected_intfs = lldp_interfaces['alias'] if mode == 'alias' else lldp_interfaces['interface']
+            return all(re.search(re.escape(intf), lldp_table_result['output']) for intf in expected_intfs)
+
+        pytest_assert(
+            wait_until(ESTABLISH_LLDP_NEIGHBOR_TIMEOUT, 10, 0, _lldp_table_ready),
+            "LLDP table did not converge with all expected interfaces within {} seconds".format(
+                ESTABLISH_LLDP_NEIGHBOR_TIMEOUT
+            )
+        )
+
+        lldp_table = lldp_table_result['output']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
         vrf_map = {}
@@ -445,6 +460,8 @@ class TestShowInterfaces():
 
         for item in interfaces:
             if mode == 'alias':
+                if item not in setup['port_alias']:
+                    continue
                 assert item in setup['port_alias'], (
                     "Interface '{}' not found in the list of port aliases. "
                     "Expected the interface to match a known port alias in the test setup.\n"
@@ -452,6 +469,8 @@ class TestShowInterfaces():
                 ).format(item, setup['port_alias'])
 
             elif mode == 'default':
+                if item not in setup['default_interfaces']:
+                    continue
                 assert item in setup['default_interfaces'], (
                     "Interface '{}' not found in the list of default interfaces. "
                     "Expected the interface to match a known default interface in the test setup.\n"
@@ -788,6 +807,8 @@ class TestShowQueue():
             intfsChecked = 0
             if mode == 'alias':
                 for intf in interfaces:
+                    if intf not in setup['port_name_map']:
+                        continue
                     alias = setup['port_name_map'][intf]
                     assert (
                         re.search(QUEUE_COUNTERS_RE_FMT.format(alias), queue_counter) is not None

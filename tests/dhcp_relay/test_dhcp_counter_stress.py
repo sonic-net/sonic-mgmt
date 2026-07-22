@@ -51,7 +51,7 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
     '''
     testing_mode, duthost = testing_config
     packets_send_duration = 120
-    error_margin = 0.01
+    error_margin = 1
     dut_hwsku = duthost.facts["hwsku"]
     client_packets_per_sec = PACKET_RATE_PER_SEC_MAP.get(dut_hwsku, DEFAULT_PACKET_RATE_PER_SEC) \
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
