@@ -858,7 +858,8 @@ def setup_port_speed_change(duthosts,
     speed_a = selected_context["speed_a"]
     speed_b = selected_context["speed_b"]
 
-    logger.info(f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
+    logger.info(
+        f"Main scenario={direction}: remove current speed A={speed_a}, set temporary B={speed_b}, then restore A")
 
     with allure.step("Disabling loganalyzer before removing cluster - changing speeds."):
         if loganalyzer and loganalyzer[duthost.hostname]:
