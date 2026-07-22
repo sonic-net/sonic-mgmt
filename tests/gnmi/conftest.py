@@ -1,12 +1,16 @@
+import os
+import sys
 import pytest
 import logging
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container
 from tests.gnmi.helper import apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import create_revoked_cert_and_crl, create_gnmi_certs, \
     delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
     copy_certificate_to_ptf
@@ -125,3 +129,48 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+# --- events test support ---
+EVENTS_TESTS_PATH = "./gnmi/events"
+if EVENTS_TESTS_PATH not in sys.path:
+    sys.path.append(EVENTS_TESTS_PATH)
+EVENTS_BASE_DIR = "logs/gnmi"
+EVENTS_DATA_DIR = os.path.join(EVENTS_BASE_DIR, "files")
+
+
+def do_init(duthost):
+    for i in [EVENTS_BASE_DIR, EVENTS_DATA_DIR]:
+        try:
+            os.makedirs(i, exist_ok=True)
+        except OSError as e:
+            logger.error("Unexpected error while creating directory: {}".format(e))
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="gnmi/validate_yang_events.py", dest="~/")
+
+
+@pytest.fixture(scope="module")
+def test_eventd_healthy(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, gnxi_path):
+    """
+    @summary: Verify eventd heartbeat before running the events testcases. Ported
+    from tests/telemetry; runs against the gnmi container (via the gnmi setup
+    fixtures) instead of the deprecated telemetry container.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    if duthost.is_multi_asic:
+        pytest.skip("Skip eventd testing on multi-asic")
+
+    features_dict, succeeded = duthost.get_feature_status()
+    if succeeded and ('eventd' not in features_dict or features_dict['eventd'] == 'disabled'):
+        pytest.skip("eventd is disabled on the system")
+
+    do_init(duthost)
+
+    module = __import__("eventd_events")
+
+    duthost.shell("systemctl restart eventd")
+
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started.")
+
+    module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, EVENTS_DATA_DIR, None)
