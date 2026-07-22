@@ -992,7 +992,7 @@ def check_dpu_ready_state(duthost, dpu_name):
     """
     state = get_dpu_state_from_chassis_state_db(duthost, dpu_name)
     if not state:
-        logging.warning("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
+        logging.debug("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
         return False
 
     checks = {
@@ -1029,7 +1029,7 @@ def check_dpu_not_ready_state(duthost, dpu_name):
     if not state:
         # Empty state (read failed or key absent) is treated as "unknown"
         # (False) so a transient read error can't end wait_until early.
-        logging.warning("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
+        logging.debug("No DPU_STATE entry in CHASSIS_STATE_DB for %s", dpu_name)
         return False
 
     return state.get("ready_status", "").lower() == "false"

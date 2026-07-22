@@ -194,6 +194,23 @@ class TestPcieFailure:
         info = self._get_pcie_detach_info(duthost, dpu_name)
         return info.get("dpu_state", "").lower() == "reattached"
 
+    def _ensure_pcie_reattached(self, duthost, dpu_name, bus_info):
+        """Best-effort finally-block cleanup: rescan the PCI bus if the DPU's
+        device is still missing from sysfs. Idempotent and never raises."""
+        try:
+            device_present = duthost.shell(
+                f"test -e /sys/bus/pci/devices/{bus_info}",
+                module_ignore_errors=True).get("rc", 1) == 0
+            if device_present:
+                return
+            logging.warning(
+                "%s: PCIe device %s still detached after test, forcing bus rescan",
+                dpu_name, bus_info)
+            duthost.shell("echo 1 | sudo tee /sys/bus/pci/rescan",
+                          module_ignore_errors=True)
+        except Exception as e:
+            logging.warning("%s: best-effort PCIe rescan failed: %s", dpu_name, e)
+
     @pytest.mark.disable_loganalyzer
     def test_dpu_recovery_after_pcie_detach(
         self, dpuhosts, prepare_testable_dpus, num_dpu_modules  # noqa: F811
@@ -222,39 +239,43 @@ class TestPcieFailure:
         remove_cmd = f"echo 1 | sudo tee /sys/bus/pci/devices/{bus_info}/remove"
         duthost.shell(remove_cmd)
 
-        logging.info("Verifying pcied detects PCIe detach for %s", target_dpu)
-        pytest_assert(
-            wait_until(PCIE_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
-                       self._check_pcie_detached, duthost, target_dpu),
-            f"{target_dpu}: PCIE_DETACH_INFO did not show 'detached' after PCIe removal. "
-            f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
-        )
+        try:
+            logging.info("Verifying pcied detects PCIe detach for %s", target_dpu)
+            pytest_assert(
+                wait_until(PCIE_RECOVERY_TIMEOUT, DPU_TIME_INT, 0,
+                           self._check_pcie_detached, duthost, target_dpu),
+                f"{target_dpu}: PCIE_DETACH_INFO did not show 'detached' after PCIe removal. "
+                f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
+            )
 
-        logging.info("Verifying chassisd detects %s failure (ready_status=false)", target_dpu)
-        pytest_assert(
-            wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
-                       check_dpu_not_ready_state, duthost, target_dpu),
-            f"{target_dpu}: ready_status did not transition to false after PCIe detach. "
-            f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
-        )
+            logging.info("Verifying chassisd detects %s failure (ready_status=false)", target_dpu)
+            pytest_assert(
+                wait_until(CONTROL_PLANE_DOWN_DETECT_TIMEOUT, DPU_TIME_INT, 0,
+                           check_dpu_not_ready_state, duthost, target_dpu),
+                f"{target_dpu}: ready_status did not transition to false after PCIe detach. "
+                f"State: {get_dpu_state_from_chassis_state_db(duthost, target_dpu)}"
+            )
 
-        logging.info("Waiting for chassisd to recover %s (power-cycle + PCIe rescan)",
-                     target_dpu)
-        assert_dpu_db_state_ready(duthost, target_dpu,
-                                  timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
+            logging.info("Waiting for chassisd to recover %s (power-cycle + PCIe rescan)",
+                         target_dpu)
+            assert_dpu_db_state_ready(duthost, target_dpu,
+                                      timeout=DPU_READY_AFTER_RECOVERY_TIMEOUT)
 
-        logging.info("Verifying PCIe is reattached for %s", target_dpu)
-        pytest_assert(
-            wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                       self._check_pcie_reattached, duthost, target_dpu),
-            f"{target_dpu}: PCIE_DETACH_INFO did not return to 'reattached'. "
-            f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
-        )
+            logging.info("Verifying PCIe is reattached for %s", target_dpu)
+            pytest_assert(
+                wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                           self._check_pcie_reattached, duthost, target_dpu),
+                f"{target_dpu}: PCIE_DETACH_INFO did not return to 'reattached'. "
+                f"Info: {self._get_pcie_detach_info(duthost, target_dpu)}"
+            )
 
-        logging.info("Post-test: verifying DPU connectivity and state")
-        post_test_dpus_check(duthost, dpuhosts,
-                             testable_dpus, testable_ips,
-                             num_dpu_modules, None)
+            logging.info("Post-test: verifying DPU connectivity and state")
+            post_test_dpus_check(duthost, dpuhosts,
+                                 testable_dpus, testable_ips,
+                                 num_dpu_modules, None)
+        finally:
+            # Re-enumerate the PCIe device if the test aborted after removing it.
+            self._ensure_pcie_reattached(duthost, target_dpu, bus_info)
 
 
 # ---------------------------------------------------------------------------
