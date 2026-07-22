@@ -179,3 +179,27 @@ def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_on
     out = str(holder.get('result', {}).get('stdout', ''))
     deletes = re.findall("delete", out)
     assert len(deletes) == 2, "Expected 2 delete responses, got {}: {}".format(len(deletes), out)
+
+
+def test_poll_mode_default_route_supervisor(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+    '''
+    On a supervisor node, POLL an APPL_DB table plus the default route path returns
+    data with no error. Ported from tests/telemetry
+    test_poll_mode_default_route_supervisor.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    if not duthost.is_supervisor_node():
+        pytest.skip("Testing only for supervisor node")
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
+    path_ns = namespace if namespace else "localhost"
+    path_list = ["/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_0".format(path_ns),
+                 "/sonic-db:APPL_DB/{}/ROUTE_TABLE/0.0.0.0\\/0".format(path_ns)]
+    _modify_fake_appdb_table(duthost, namespace)  # add first table data
+    try:
+        result = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=2,
+                                           update_count=5, max_sync_count=-1, timeout=30)
+        assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
+        updates = re.findall("json_ietf_val", str(result['stdout']))
+        assert len(updates) == 5, "Expected 5 update responses, got {}".format(len(updates))
+    finally:
+        _modify_fake_appdb_table(duthost, namespace, add=False, entries=1)  # remove added table

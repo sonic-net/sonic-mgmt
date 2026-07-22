@@ -111,31 +111,3 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     client_thread.join(120)
 
     modify_fake_appdb_table(duthost, False, 1, namespace)  # Remove all added tables
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                                            setup_streaming_telemetry, gnxi_path,
-                                            enum_rand_one_asic_index):
-    """
-    Test poll mode from APPL_DB and query an existing table and no default route, ensure no errors and present data
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not duthost.is_supervisor_node():
-        pytest.skip("Testing only for supervisor node")
-    logger.info('Start telemetry poll mode testing')
-    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
-    modify_fake_appdb_table(duthost, namespace=namespace)  # Add first table data
-    ptf_result = ptfhost.shell(cmd)
-    pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
-    show_gnmi_out = ptf_result['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    update_responses_match = re.findall("json_ietf_val", result)
-    pytest_assert(len(update_responses_match) == 5, "Missing update responses")
-    modify_fake_appdb_table(duthost, False, 1, namespace)  # Remove added table
