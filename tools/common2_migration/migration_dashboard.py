@@ -271,6 +271,16 @@ def resolve_domain(rel_path: str) -> str:
     return DEFAULT_DOMAIN
 
 
+def module_has_common2_unit_tests(module_dotted: str, common2_unit_test_modules: Set[str]) -> bool:
+    """Return True when a source module has a matching common2 unit-test module."""
+    candidates = {module_dotted}
+    if module_dotted.startswith("tests.common."):
+        candidates.add("tests.common2." + module_dotted[len("tests.common."):])
+    elif module_dotted.startswith("tests.common"):
+        candidates.add(module_dotted.replace("tests.common", "tests.common2", 1))
+    return any(candidate in common2_unit_test_modules for candidate in candidates)
+
+
 # ---------------------------------------------------------------------------
 # Import index (impact analysis)
 # ---------------------------------------------------------------------------
@@ -631,7 +641,9 @@ def analyze_module(
         num_classes=sum(1 for s in symbols if s.kind == "class"),
         typed_ratio=typed_ratio,
         documented_ratio=documented_ratio,
-        has_common2_unit_tests=dotted in common2_unit_test_modules,
+        has_common2_unit_tests=module_has_common2_unit_tests(
+            dotted, common2_unit_test_modules
+        ),
         fully_migrated=fully_migrated,
         depends_on_direct=depends_on_direct,
         depends_on_transitive=depends_on_transitive,

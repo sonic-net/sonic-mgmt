@@ -34,3 +34,10 @@ def test_something(conn_graph_facts):
 
     assert test_node is not None
     assert MODULE.function_uses_symbol(test_node, "conn_graph_facts")
+
+
+def test_module_has_common2_unit_tests_matches_dotted_form():
+    assert MODULE.module_has_common2_unit_tests(
+        "tests.common.helpers.bgp",
+        {"tests.common2.helpers.bgp"},
+    )
