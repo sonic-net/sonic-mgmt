@@ -1,6 +1,7 @@
 import pytest
 import logging
 import re
+import time
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name
@@ -308,3 +309,29 @@ def test_osbuild_version(duthosts, rand_one_dut_hostname, ptfhost):
         "build_version value not found in gnmi output: {}".format(result))
     assert len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)) == 0, (
         "invalid build_version value in gnmi output: {}".format(result))
+
+
+def _get_sysuptime_total(duthost, ptfhost):
+    """GET OTHERS/proc/uptime and return the 'total' field as a float."""
+    msg_list = gnmi_get(duthost, ptfhost, ["proc/uptime"], target="OTHERS", origin=None)
+    result = str(msg_list)
+    match = re.search(r'"total":\s*([0-9.]+)', result)
+    assert match is not None, (
+        "system uptime 'total' field not found in gnmi output: {}".format(result))
+    return float(match.group(1))
+
+
+def test_sysuptime(duthosts, rand_one_dut_hostname, ptfhost):
+    '''
+    Verify GNMI GET of the OTHERS/proc/uptime non-DB path returns a float that
+    increases over time.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+
+    uptime_first = _get_sysuptime_total(duthost, ptfhost)
+    time.sleep(10)
+    uptime_second = _get_sysuptime_total(duthost, ptfhost)
+
+    assert uptime_second - uptime_first >= 10, (
+        "system uptime did not advance by at least 10s: {} -> {}".format(
+            uptime_first, uptime_second))
