@@ -71,7 +71,12 @@ NEGATIVE_CASES = [
     "  Current: sonic-aboot-broadcom.swi",
     "Next: sonic-aboot-broadcom-legacy-th.swi",
     "admin@sonic:~$ sudo sonic-installer list",
+    "admin@sonic:~$ sudo sonic-installer install sonic-aboot-broadcom.swi",
     "admin@sonic:~$ ls /host/image-aboot-20240101/",
+    # "show platform summary" prints an "ONIE Version" field -- must NOT match
+    # (a bare \bONIE\b would hit; the token is anchored to "ONIE:").
+    "ONIE Version         : 2020.11",
+    "admin@sonic:~$ show platform summary",
     # Generic progress text that is not a kernel/ramdisk load must NOT match.
     "Loading configuration",
     "admin@sonic:~$ app: Loading modules ...",

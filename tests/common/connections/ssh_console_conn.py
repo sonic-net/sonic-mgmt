@@ -29,7 +29,8 @@ BOOTLOADER_BANNER_RE = re.compile(
     r"GNU\s+GRUB|grub\s*>|grub\s+rescue\s*>|"     # GRUB menu / shell
     r"Hit\s+any\s+key\s+to\s+stop\s+autoboot|"    # U-Boot autoboot window
     r"\bautoboot\b|"                              # generic autoboot countdown
-    r"\bONIE\b|"                                  # ONIE installer / rescue
+    r"ONIE:|"                                     # ONIE installer / rescue (anchored;
+                                                  # bare \bONIE\b matches "ONIE Version")
     r"^\s*Booting\b|"                             # boot-in-progress (line-anchored)
     r"^\s*Loading\s+(?:Linux|initrd|initial\s+ramdisk|kernel|vmlinuz)",  # kernel/ramdisk load
     flags=re.I | re.M,
