@@ -36,9 +36,8 @@ def test_console_stress_output(duthost_console):
     # Disable echo verification: the wrapped 9600-baud echo never matches and a half-typed command leaves a PS2 prompt.
     output = duthost_console.send_command(
         f"python3 -c \"for i in range({num_lines}): print(f'LINE_{{i:04d}}: ' + '0123456789' * 10)\"",  # noqa: E231
-        read_timeout=300,
+        max_loops=300,
         expect_string=PROMPT_PATTERN,
-        cmd_verify=False
     )
 
     # Parse output into lines
