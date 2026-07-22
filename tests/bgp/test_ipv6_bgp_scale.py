@@ -27,7 +27,7 @@ pytestmark = [
         't0-isolated-d2u254s1', 't0-isolated-d2u254s2', 't0-isolated-d2u510', 't0-isolated-d2u510s2',
         't1-isolated-d254u2s1', 't1-isolated-d254u2s2', 't1-isolated-d510u2',
         't1-isolated-d254u2', 't1-isolated-d510u2s2'
-    )
+    ),
 ]
 
 logger = logging.getLogger(__name__)
@@ -733,6 +733,7 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
 
 
 def test_nexthop_group_member_scale(
+    frr_config_mode,
     duthost,
     ptfadapter,
     ptfhosts,
@@ -898,6 +899,7 @@ def test_nexthop_group_member_scale(
 
 @pytest.mark.parametrize("flapping_neighbor_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_bgp_admin_flap(
+    frr_config_mode,
     request,
     duthost,
     ptfadapter,
@@ -926,6 +928,7 @@ def test_bgp_admin_flap(
 
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_sessions_flapping(
+    frr_config_mode,
     request,
     duthost,
     ptfadapter,

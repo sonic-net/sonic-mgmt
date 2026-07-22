@@ -90,8 +90,8 @@ def verify_bgp_network_outputs(bgp_network_cmd, bgp_docker_cmd, bgp_network_outp
 
 @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
 def test_bgp_network_command(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-    ip_version, tbinfo
+    frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+    enum_rand_one_frontend_asic_index, ip_version, tbinfo
 ):
     """
     @summary: This test case is to verify the output of "show ip bgp network" command
@@ -130,7 +130,7 @@ def test_bgp_network_command(
 
 @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
 def test_bgp_commands_with_like_bgp_container(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version, tbinfo
+    frr_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version, tbinfo
 ):
     """
     @summary: Verify BGP show/clear commands work correctly when there are

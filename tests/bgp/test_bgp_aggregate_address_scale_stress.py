@@ -185,7 +185,7 @@ def ignore_disruption_loganalyzer_noise(duthosts, loganalyzer):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
+def setup_teardown(frr_config_mode, duthost):
     """Module-level checkpoint / rollback + multi-ASIC guard."""
     if duthost.is_multi_asic:
         pytest.skip("BGP aggregate-address tests do not support multi-ASIC")

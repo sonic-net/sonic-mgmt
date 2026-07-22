@@ -25,7 +25,7 @@ EOS_NEIGH_BACKUP_CONFIG_FILE = "/tmp/ipv6_nlri_eos_backup_config_{}"
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     neighbor_type = request.config.getoption("neighbor_type")
     if neighbor_type not in ["sonic", "csonic", "eos"]:
         pytest.skip("Unsupported neighbor type: {}".format(neighbor_type))

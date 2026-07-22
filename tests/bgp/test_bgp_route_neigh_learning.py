@@ -179,5 +179,5 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
     py_assert(is_route_propagated, "Route did not propagate to the DUT")
 
 
-def test_bgp_neighbor_route_learnning(duthosts, enum_frontend_dut_hostname, setUp):
+def test_bgp_neighbor_route_learnning(frr_config_mode, duthosts, enum_frontend_dut_hostname, setUp):
     run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, setUp)

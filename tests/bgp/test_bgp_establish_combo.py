@@ -96,7 +96,7 @@ def verify_bgp_session_established(duthost, neighbors):
     ["UpperMgmtAggregator", ["MgmtLeafRouter", "LowerMgmtAggregator", "CoreTs", "CoreRouter", "CoreMgmtRouter",
                              "ConsoleServer"]],
 ])
-def test_bgp_establish_combo(duthost, ip_version, combo):
+def test_bgp_establish_combo(frr_config_mode, duthost, ip_version, combo):
     target_dut_type, target_neigh_types = combo
     bgp_facts = {ip: fact for ip, fact in duthost.get_bgp_neighbors().items()
                  if ipaddress.ip_address(ip).version == ip_version}

@@ -10,6 +10,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until
 
 from tests.common.helpers.parallel import parallel_run
@@ -77,7 +78,7 @@ def check_bgp_restored(duthosts, all_cfg_facts):
 
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
-            for address in list(asic_cfg_facts['BGP_NEIGHBOR'].keys()):
+            for address in list(flatten_bgp_neighbors(asic_cfg_facts['BGP_NEIGHBOR']).keys()):
                 if bgp_facts['bgp_neighbors'][address]['state'] != "established":
                     logger.info("BGP internal neighbor: %s is down: %s." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
@@ -108,7 +109,7 @@ def restore_bgp(duthosts, nbrhosts, all_cfg_facts):
 
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
-            for address in list(asic_cfg_facts['BGP_NEIGHBOR'].keys()):
+            for address in list(flatten_bgp_neighbors(asic_cfg_facts['BGP_NEIGHBOR']).keys()):
                 if bgp_facts['bgp_neighbors'][address]['state'] == "established":
                     logger.info("BGP internal neighbor: %s is established: %s, no action." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
@@ -168,7 +169,7 @@ def verify_bgp_restored(duthosts, nbrhosts, all_cfg_facts):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, nbrhosts, all_cfg_facts):
+def setup(frr_config_mode, duthosts, nbrhosts, all_cfg_facts):
     """
     Setup fixture to disable all neighbors on DUT and VMs.
 
@@ -383,7 +384,7 @@ def ping_all_dut_local_nbrs(duthosts):
         for asic in node.asics:
             cfg_facts = asic.config_facts(source="persistent")['ansible_facts']
             if 'BGP_NEIGHBOR' in cfg_facts:
-                neighs = cfg_facts['BGP_NEIGHBOR']
+                neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
             else:
                 logger.info("No local neighbors for host: %s/%s, skipping", node.hostname, asic.asic_index)
                 continue
@@ -506,7 +507,7 @@ def test_neighbor_clear_all(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     asic = per_host.asics[enum_rand_one_frontend_asic_index if enum_rand_one_frontend_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
     if 'BGP_NEIGHBOR' in cfg_facts:
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
     else:
         logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
         return
@@ -557,7 +558,7 @@ def select_neighbors(port_cfg, cfg_facts):
         A list of neighbor IPs.
 
     """
-    neighs = cfg_facts['BGP_NEIGHBOR']
+    neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
 
     nbr_to_test = []
     eth_ports = [intf for intf in port_cfg]
@@ -601,7 +602,7 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     asic = per_host.asics[enum_rand_one_frontend_asic_index if enum_rand_one_frontend_asic_index is not None else 0]
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
     if 'BGP_NEIGHBOR' in cfg_facts:
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
     else:
         logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
         return
@@ -768,7 +769,7 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
     if 'BGP_NEIGHBOR' in cfg_facts:
-        neighs = cfg_facts['BGP_NEIGHBOR']
+        neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
     else:
         logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
         return
@@ -1037,7 +1038,7 @@ class TestNeighborLinkFlap(LinkFlap):
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
         if 'BGP_NEIGHBOR' in cfg_facts:
-            neighs = cfg_facts['BGP_NEIGHBOR']
+            neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
         else:
             logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
             return
@@ -1105,7 +1106,7 @@ class TestNeighborLinkFlap(LinkFlap):
         cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
 
         if 'BGP_NEIGHBOR' in cfg_facts:
-            neighs = cfg_facts['BGP_NEIGHBOR']
+            neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
         else:
             logger.info("No local neighbors for host: %s/%s, skipping", per_host.hostname, asic.asic_index)
             return
@@ -1221,7 +1222,7 @@ class TestGratArp(object):
         cfg_facts = all_cfg_facts[duthost.hostname][asic.asic_index]['ansible_facts']
 
         if 'BGP_NEIGHBOR' in cfg_facts:
-            neighs = cfg_facts['BGP_NEIGHBOR']
+            neighs = flatten_bgp_neighbors(cfg_facts['BGP_NEIGHBOR'])
         else:
             logger.info("No local neighbors for host: %s/%s, skipping", duthost.hostname, asic.asic_index)
             return

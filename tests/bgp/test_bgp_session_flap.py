@@ -57,7 +57,7 @@ def get_cpu_stats(dut):
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index):
+def setup(frr_config_mode, tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
