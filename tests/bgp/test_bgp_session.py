@@ -37,8 +37,12 @@ def enable_container_autorestart(duthosts, enum_frontend_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
+def setup(frr_config_mode, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index,
           nbrhosts, fanouthosts):
+    # frr_config_mode parametrizes this module over both the traditional (bgpcfgd) and
+    # frr_mgmt_framework config modes and puts the DUT into the requested mode before we
+    # read config facts below, so the mode-specific branch (VRF-keyed BGP_NEIGHBOR) is
+    # exercised in both modes.
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
 
