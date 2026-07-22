@@ -214,13 +214,13 @@ class TestRouteConsistency():
             )
 
             logger.info("Route table is consistent across all the DUTs")
-        except Exception as e:
-            logger.error("Exception occurred: {}".format(e))
+        except (Exception, pytest.fail.Exception) as e:
+            logger.error("Exception occurred: {}. Re-announcing routes to recover!".format(e))
             # announce the routes back in case of any exception
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             wait_until(self.sleep_interval, 10, 0, self.route_snapshots_match,
                        duthosts, self.pre_test_route_snapshot)
-            raise e
+            raise
 
     def test_bgp_shut_noshut(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, localhost):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -255,10 +255,12 @@ class TestRouteConsistency():
             for dut_instance_name in self.pre_test_route_snapshot.keys():
                 assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
             logger.info("Route table is consistent across all the DUTs")
-        except Exception:
+        except (Exception, pytest.fail.Exception) as e:
             # startup bgp back in case of any exception
+            logger.error("Exception occurred: {}. Starting up BGP to recover!".format(e))
             duthost.shell("sudo config bgp startup all")
             wait_until(self.sleep_interval, 10, 0, is_all_neighbor_session_established, duthost)
+            raise
 
     @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("container_name, program_name", [
@@ -311,8 +313,9 @@ class TestRouteConsistency():
             for dut_instance_name in self.pre_test_route_snapshot.keys():
                 assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
             logger.info("Route table is consistent across all the DUTs")
-        except Exception:
+        except (Exception, pytest.fail.Exception) as e:
             # startup bgpd back in case of any exception
-            logger.info("Encountered error. Perform a config reload to recover!")
+            logger.error("Encountered error: {}. Perform a config reload to recover!".format(e))
             config_reload(duthost)
             wait_until(self.sleep_interval, 10, 0, is_all_neighbor_session_established, duthost)
+            raise
