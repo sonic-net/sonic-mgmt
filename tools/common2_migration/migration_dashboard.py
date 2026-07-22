@@ -588,14 +588,14 @@ def analyze_module(
 
     # Attribute impacted tests to individual symbols by name usage.
     consumer_text_cache: Dict[str, str] = {}
-    consumer_ast_cache: Dict[Optional[str], Optional[ast.Module]] = {}
+    consumer_ast_cache: Dict[str, Optional[ast.Module]] = {}
     for sym in symbols:
         if sym.migrated:
             continue
         sym_tests: List[str] = []
         for consumer_rel in impacted_tests:
             text = consumer_text_cache.get(consumer_rel)
-            if text is None:
+            if consumer_rel not in consumer_text_cache:
                 consumer_abs = os.path.join(repo_root, consumer_rel)
                 try:
                     with open(consumer_abs, "r", encoding="utf-8", errors="replace") as fh:
@@ -608,12 +608,12 @@ def analyze_module(
                 sym_tests.append(consumer_rel)
                 continue
 
-            tree = consumer_ast_cache.get(consumer_rel)
-            if tree is None:
+            if consumer_rel not in consumer_ast_cache:
                 consumer_abs = os.path.join(repo_root, consumer_rel)
                 tree = safe_parse(consumer_abs)
                 consumer_ast_cache[consumer_rel] = tree
 
+            tree = consumer_ast_cache.get(consumer_rel)
             if tree is None:
                 continue
 
