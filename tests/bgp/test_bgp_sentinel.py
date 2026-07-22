@@ -35,6 +35,7 @@ pytestmark = [
 def _skip_bgp_sentinel_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
     skip_module_if_frr_native(duthosts[rand_one_dut_hostname], FRR_BGPCFGD_ONLY_SENTINEL_REASON)
 
+
 BGP_SENTINEL_TMPL = '''\
 {
     "BGP_SENTINELS": {
