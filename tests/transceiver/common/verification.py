@@ -7,9 +7,9 @@ Lives at the location reserved by
 Implements the subset of the procedure defined in
 ``docs/testplan/transceiver/system_test_plan.md`` (§ Common Verification
 Procedures) that the Link Behavior System tests exercise after restoring a
-batch of ports: link status → link flap/stability → LLDP → CMIS state →
-docker/process health. Each check returns a result dict (with ``'passed'``
-and ``'details'`` keys) and the top-level
+batch of ports: link status → link flap/stability → LLDP → CMIS state → SI
+settings → docker/process health. Each check returns a result dict (with
+``'passed'`` and ``'details'`` keys) and the top-level
 :func:`standard_port_recovery_and_verification` runs every step batched
 across the whole ``ports`` list - one polling loop / observation window per
 step instead of one per port - and aggregates each port's sub-failures into
@@ -18,17 +18,20 @@ port without multiplying the fixed-wait and host-wide steps by port count.
 
 Remote-Side Link Verification (test-plan step 4, optional/opt-in - enabled by
 callers such as disruptive Event Handling and System Recovery tests) and the
-optics/media-SI + application-code checks (test-plan step 6) are
-intentionally not implemented here; they are added alongside the diagnostics
-and event-handling tests that exercise them.
+application-code checks (test-plan step 6's SI check is implemented; the
+application-code check that step also covers is not) are intentionally not
+implemented here; they are added alongside the diagnostics and
+event-handling tests that exercise them.
 
 DB reads go through :mod:`tests.transceiver.common.db_helpers`
 (``hgetall_dict``). The docker/process health step delegates entirely to
 :mod:`tests.transceiver.common.health_checks`, which owns the
 xcvrd/syncd/orchagent process check and the ``/var/core`` diff shared with
-the rest of the transceiver suite.
+the rest of the transceiver suite. SI settings verification delegates EEPROM
+reads to :mod:`tests.transceiver.common.cli_helpers`.
 """
 import logging
+import re
 import time
 
 from tests.common.platform.interface_utils import (
@@ -39,7 +42,7 @@ from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
-from tests.transceiver.common import db_helpers, health_checks
+from tests.transceiver.common import cli_helpers, db_helpers, health_checks
 
 logger = logging.getLogger(__name__)
 
@@ -301,6 +304,217 @@ def check_link_stability(duthost, port, window_sec, namespace=None):
 
 
 # ──────────────────────────────────────────────────────────────────────
+# SI Settings check
+# ──────────────────────────────────────────────────────────────────────
+
+# optics_si_settings key format: "page.<hex>h_<decimal offset>", e.g.
+# "page.11h_223" -> EEPROM upper page 0x11, byte offset 223. The value is the
+# expected raw bytes at that region (one list entry per byte).
+_OPTICS_SI_KEY_RE = re.compile(r'^page\.([0-9a-fA-F]+)h_(\d+)$', re.IGNORECASE)
+
+
+def check_optics_si_settings(duthost, port, optics_si_settings):
+    """Verify EEPROM bytes at each region named in ``optics_si_settings`` match.
+
+    ``optics_si_settings`` (the ``transceivers``-level attribute) is a dict of
+    ``{"page.<hex>h_<decimal offset>": [expected_byte, ...]}``, e.g.
+    ``{"page.11h_223": [34, 34, 34, 34, 0, 0, 0, 0, 51, 51, 51, 51]}``. Each
+    key names one EEPROM upper-page + byte-offset region; the value is the
+    expected raw bytes there, read via ``sfputil read-eeprom`` (see
+    :func:`cli_helpers.sfputil_read_eeprom`).
+
+    Skips (passes) if ``optics_si_settings`` is empty/undefined, matching the
+    attribute's "test runs if dictionary is non-empty" contract.
+
+    Returns:
+        dict: ``{'passed': bool, 'details': str}``
+    """
+    if not optics_si_settings:
+        return {"passed": True, "details": f"{port}: optics_si_settings not defined, skipped"}
+
+    mismatches = []
+    for key, expected in optics_si_settings.items():
+        match = _OPTICS_SI_KEY_RE.match(key)
+        if not match:
+            mismatches.append(f"{key}: unrecognized key format (expected 'page.<hex>h_<offset>')")
+            continue
+        page = int(match.group(1), 16)
+        offset = int(match.group(2))
+        size = len(expected)
+        parsed, err = cli_helpers.sfputil_read_eeprom(duthost, port, offset=offset, size=size, page=page)
+        if err:
+            mismatches.append(f"{key}: {err}")
+            continue
+        actual = [parsed.get(offset + i) for i in range(size)]
+        if actual != list(expected):
+            mismatches.append(f"{key}: expected {list(expected)}, got {actual}")
+
+    if mismatches:
+        details = f"{port}: optics SI settings mismatch - " + "; ".join(mismatches)
+        logger.warning("Optics SI settings check FAILED: %s", details)
+        return {"passed": False, "details": details}
+
+    details = f"{port}: optics SI settings match ({len(optics_si_settings)} region(s))"
+    logger.info("Optics SI settings check PASSED: %s", details)
+    return {"passed": True, "details": details}
+
+
+# Broadcom "phy diag <lanes> dsc" emits one "SERDES DISPLAY DIAG DATA" block
+# per requested lane, in the same ascending order the lanes were requested in
+# (verified on an Arista 7060X6 / Broadcom peregrine5_pc SerDes). Each block's
+# one data row is fixed-width and lines up with that block's own header row;
+# TXEQ(n3,n2,n1,m,p1,p2) is the group of 6 comma-separated ints in the
+# parenthesized field at the position "TXEQ(" occupies in the header - located
+# dynamically per parse (by counting "(" before "TXEQ(" in the header) rather
+# than hardcoded, so a firmware/SerDes revision that reorders columns doesn't
+# silently misattribute the wrong field as TXEQ.
+_BCM_TXEQ_HEADER_TOKEN = "TXEQ("
+_BCM_PHY_DIAG_DATA_ROW_RE = re.compile(r'^\s*\d+\*?\s*(\(.*)$')
+_PAREN_GROUP_RE = re.compile(r'\(([^()]*)\)')
+
+
+def _parse_bcm_txeq_by_lane(output_lines, lanes):
+    """Parse ``bcmcmd "dsh -c 'phy diag <lanes> dsc'"`` output.
+
+    Args:
+        output_lines: command stdout as a list of lines.
+        lanes: the lanes requested, in the same order passed to ``phy diag``
+            (ascending) - zipped positionally against the data rows found,
+            since the chip's own per-block "LANE = N" label is a core-relative
+            index, not the absolute lane number requested.
+
+    Returns:
+        dict: ``{lane (int): (n3, n2, n1, m, p1, p2) as ints}``, one entry per
+        matched data row.
+    """
+    header_line = next((line for line in output_lines if _BCM_TXEQ_HEADER_TOKEN in line), None)
+    if header_line is None:
+        return {}
+    txeq_group_index = header_line.split(_BCM_TXEQ_HEADER_TOKEN)[0].count("(")
+
+    data_rows = [m.group(1) for m in (_BCM_PHY_DIAG_DATA_ROW_RE.match(line) for line in output_lines) if m]
+
+    result = {}
+    for lane, row in zip(lanes, data_rows):
+        groups = _PAREN_GROUP_RE.findall(row)
+        if len(groups) <= txeq_group_index:
+            continue
+        try:
+            result[lane] = tuple(int(v.strip()) for v in groups[txeq_group_index].split(","))
+        except ValueError:
+            continue
+    return result
+
+
+def _check_media_si_settings_broadcom(duthost, port, media_si_settings, namespace):
+    """Broadcom path: compare each of ``port``'s SerDes lanes' live TXEQ against ``media_si_settings``.
+
+    Live TX equalization isn't published to APPL_DB PORT_TABLE on these
+    platforms, so this reads the Broadcom SDK's own view directly. Looks up
+    each lane's expected 6-tuple via ``media_si_settings[str(lane)]``, falling
+    back to ``media_si_settings["default"]`` for a lane with no specific
+    entry - matching the "if lane does not define, use default" convention of
+    the attribute's Arista-platform schema.
+    """
+    port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
+    lanes_field = port_table.get("lanes")
+    if not lanes_field:
+        return {
+            "passed": False,
+            "details": f"{port}: PORT_TABLE:{port} has no 'lanes' field - cannot resolve SerDes lanes",
+        }
+    lanes = sorted(int(lane) for lane in lanes_field.split(","))
+
+    cmd = "bcmcmd \"dsh -c 'phy diag {} dsc'\"".format(",".join(str(lane) for lane in lanes))
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", 1) != 0:
+        stderr = (result.get("stderr") or "").strip()[:200]
+        return {"passed": False, "details": f"{port}: {cmd} failed rc={result.get('rc')}: {stderr}"}
+    actual_by_lane = _parse_bcm_txeq_by_lane(result.get("stdout_lines", []), lanes)
+
+    mismatches = []
+    for lane in lanes:
+        expected = media_si_settings.get(str(lane), media_si_settings.get("default"))
+        if expected is None:
+            mismatches.append(f"lane {lane}: no per-lane entry and no 'default' in media_si_settings")
+            continue
+        actual = actual_by_lane.get(lane)
+        if actual is None:
+            mismatches.append(f"lane {lane}: TXEQ not found in phy diag output")
+        elif list(actual) != list(expected):
+            mismatches.append(f"lane {lane}: expected TXEQ {list(expected)}, got {list(actual)}")
+
+    if mismatches:
+        details = f"{port}: media SI settings mismatch - " + "; ".join(mismatches)
+        logger.warning("Media SI settings check FAILED: %s", details)
+        return {"passed": False, "details": details}
+
+    details = f"{port}: media SI settings match for lane(s) {lanes}"
+    logger.info("Media SI settings check PASSED: %s", details)
+    return {"passed": True, "details": details}
+
+
+def _check_media_si_settings_appl_db(duthost, port, media_si_settings, namespace):
+    """Non-Broadcom path (e.g. Nvidia/Mellanox): compare ``media_si_settings`` fields against APPL_DB.
+
+    ``media_si_settings`` is a flat dict of field name -> expected value (e.g.
+    ``pre3``/``pre2``/``pre1``/``main``/``post1``/``idriver``, following
+    ``media_settings.json`` structure); these are compared directly against
+    the same-named fields SONiC publishes to ``APPL_DB PORT_TABLE:<port>``
+    once the port is up.
+    """
+    port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
+
+    mismatches = []
+    for field, expected in media_si_settings.items():
+        actual = port_table.get(field)
+        if actual is None:
+            mismatches.append(f"{field}: missing from PORT_TABLE:{port}")
+        elif actual != expected:
+            mismatches.append(f"{field}: expected {expected}, got {actual}")
+
+    if mismatches:
+        details = f"{port}: media SI settings mismatch - " + "; ".join(mismatches)
+        logger.warning("Media SI settings check FAILED: %s", details)
+        return {"passed": False, "details": details}
+
+    details = f"{port}: media SI settings match ({len(media_si_settings)} field(s))"
+    logger.info("Media SI settings check PASSED: %s", details)
+    return {"passed": True, "details": details}
+
+
+def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
+    """Verify ``port``'s applied media-side SI (SerDes TX equalization) settings.
+
+    Branches on ``duthost.facts['asic_type']``:
+
+    - ``"broadcom"`` (e.g. Arista): delegates to
+      :func:`_check_media_si_settings_broadcom` - reads live TXEQ via
+      ``bcmcmd``, since these platforms don't publish it to APPL_DB.
+    - anything else (e.g. Nvidia/Mellanox): delegates to
+      :func:`_check_media_si_settings_appl_db` - compares directly against
+      ``APPL_DB PORT_TABLE:<port>``.
+
+    Skips (passes) if ``media_si_settings`` is empty/undefined, matching the
+    attribute's "test runs if dictionary is non-empty" contract.
+
+    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None`` it
+    is resolved from ``port``.
+
+    Returns:
+        dict: ``{'passed': bool, 'details': str}``
+    """
+    if not media_si_settings:
+        return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
+    if namespace is None:
+        namespace = resolve_namespace(duthost, port)
+
+    if duthost.facts.get("asic_type") == "broadcom":
+        return _check_media_si_settings_broadcom(duthost, port, media_si_settings, namespace)
+    return _check_media_si_settings_appl_db(duthost, port, media_si_settings, namespace)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Standard Port Recovery and Verification Procedure
 # (see docs/testplan/transceiver/system_test_plan.md)
 # ──────────────────────────────────────────────────────────────────────
@@ -395,10 +609,10 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 
 
 def standard_port_recovery_and_verification(
-    duthost, ports, port_attributes_dict, link_up_timeout_sec, shared_state=None,
-    min_uptime_sec=None,
+    duthost, ports, port_attributes_dict, link_up_timeout_sec, health_baseline,
+    shared_state=None,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
-    expect_pid_change=None,
+    expected_pid_changes=None,
 ):
     """Run the Standard Port Recovery and Verification Procedure on a batch of ports.
 
@@ -418,28 +632,41 @@ def standard_port_recovery_and_verification(
                                ``verify_lldp_on_link_up``; per-port polls are
                                interleaved (poll all pending -> drop satisfied
                                -> repeat) so waits overlap instead of summing.
-      4. CMIS State          - DataPathActivated + ConfigSuccess, for every up
+      5. CMIS State          - DataPathActivated + ConfigSuccess, for every up
                                port that is ``cmis_active_optical``; per-parent
                                ``TRANSCEIVER_STATUS`` reads are cached in
                                ``shared_state`` so subports of the same
                                breakout group cost one extra STATE_DB read,
                                not one per subport.
-      5. Docker/process health - delegates to
+      6. SI Settings         - for every up port: optics SI (EEPROM bytes via
+                               :func:`check_optics_si_settings`, iff
+                               ``optics_si_settings`` is defined) and media SI
+                               (live SerDes TXEQ or APPL_DB, via
+                               :func:`check_media_si_settings`, iff
+                               ``media_si_settings`` is defined). The
+                               application-code half of test-plan step 6 is
+                               not implemented here.
+      7. Docker/process health - delegates to
                                :func:`tests.transceiver.common.health_checks.verify_health`,
                                the single owner of the xcvrd/syncd/orchagent
-                               process + ``/var/core`` check (also run once per
-                               test by the autouse ``_per_test_health_check``
-                               fixture); optionally also asserts ``min_uptime_sec``,
-                               which that fixture does not check. Host-wide and
-                               port-count-independent: runs exactly once per
-                               call regardless of ``len(ports)``, and
-                               unconditionally - independent of any port's
-                               link state.
+                               process + ``/var/core`` check, comparing
+                               against the *same* ``health_baseline`` and
+                               ``expected_pid_changes`` the autouse
+                               ``_per_test_health_check`` fixture already
+                               uses - so a mid-test call here and that
+                               fixture's own post-test check agree on what
+                               counts as a regression, instead of each
+                               tracking its own baseline. No uptime floor:
+                               unchanged PID (modulo ``expected_pid_changes``)
+                               plus no new core files is the whole check.
+                               Host-wide and port-count-independent: runs
+                               exactly once per call regardless of
+                               ``len(ports)``, and unconditionally -
+                               independent of any port's link state.
 
-    Remote-Side Link Verification (test-plan step 4, optional/opt-in) and the
-    optics/media-SI + application-code steps (test-plan step 6) are
-    intentionally not implemented here; they land with the event-handling and
-    diagnostics tests that exercise them.
+    Remote-Side Link Verification (test-plan step 4, optional/opt-in) is
+    intentionally not implemented here; it lands with the event-handling and
+    system-recovery tests that exercise it.
 
     Every port's sub-failures are accumulated and reported together so a
     single call surfaces every problem on every port.
@@ -451,47 +678,39 @@ def standard_port_recovery_and_verification(
             the ``port_attributes_dict`` fixture), with one entry per port in
             ``ports``.
         link_up_timeout_sec: budget for waiting on oper-up - shared across
-            every port in ``ports``, not per port.
+            every port in ``ports``, not per port. Callers size this to match
+            the invoking operation (e.g. ``port_startup_wait_sec`` for a port
+            startup, the relevant ``<op>_settle_sec`` for a restart / reboot /
+            config reload / power cycle).
+        health_baseline: the dict returned by
+            :func:`tests.transceiver.common.health_checks.capture_baseline` -
+            in practice, the value of the ``health_baseline`` pytest fixture
+            (``tests/transceiver/conftest.py``), the *same* pre-test baseline
+            the autouse ``_per_test_health_check`` fixture already verifies
+            against at test teardown. Passing that fixture value here (rather
+            than a fresh baseline captured just before this call's disruptive
+            action) is what lets step 7 and the per-test post-test check
+            agree on one definition of "unchanged since the test started".
         shared_state: optional dict shared across calls in the same test so
             the logical->physical port map and per-parent
-            ``TRANSCEIVER_STATUS`` queries happen at most once. Must carry a
-            ``'health_baseline'`` entry - the dict returned by
-            :func:`tests.transceiver.common.health_checks.capture_baseline`,
-            captured by the caller before the disruptive action - so step 5
-            can diff against it.
-        min_uptime_sec: minimum continuous uptime (seconds) required of each
-            monitored process (each a representative for its container - see
-            ``health_checks.DEFAULT_MONITORED_PROCESSES``) in the step-5
-            health check. ``None`` (default) skips the uptime assertion
-            entirely - the right choice for non-disruptive-to-that-service
-            calls, where step 5 stays a pure "nothing restarted under me"
-            guard. There is no fixed floor here: callers whose disruptive
-            action deliberately restarts a monitored service should pass the
-            settle time they already waited for that operation (the
-            ``<op>_settle_sec`` attribute driving their own wait, e.g.
-            ``pmon_restart_settle_sec``) rather than a hardcoded number -
-            the assertion then reads as "the service I just waited N s for
-            has really been up N s", with no collision between an arbitrary
-            floor and a shorter/longer settle time. Always pair a non-``None``
-            value here with ``expect_pid_change`` naming the process that
-            was restarted, or the PID-changed check below fails it as an
-            unexpected restart regardless of uptime.
+            ``TRANSCEIVER_STATUS`` queries happen at most once.
         stability_window_sec: shared post-recovery observation window
             (seconds) for the step-2 stability sub-check, applied once across
             every port that came up. Defaults to
             :data:`DEFAULT_STABILITY_WINDOW_SEC` (5) - the test plan does not
             pin an exact duration, only "a short post-recovery observation
             window".
-        expect_pid_change: set of monitored process names (see
+        expected_pid_changes: set of monitored process names (see
             ``health_checks.DEFAULT_MONITORED_PROCESSES``) whose PID is
-            expected to differ from ``shared_state['health_baseline']`` in
-            the step-5 health check - e.g. the process this call's disruptive
-            action deliberately restarted (xcvrd/pmon restart scenarios).
-            Passed straight through to
-            :func:`tests.transceiver.common.health_checks.verify_health`.
-            Without it, a process restarted by the caller's own disruptive
-            action would fail step 5 as an "unexpected restart" even though
-            ``min_uptime_sec`` was satisfied.
+            expected to differ from ``health_baseline`` in the step-7 health
+            check. In practice, the value of the ``expected_pid_changes``
+            pytest fixture - the same set a restart-based test already
+            populates (e.g. ``expected_pid_changes.add("xcvrd")`` before
+            restarting ``pmon``) for the per-test post-test check, passed
+            through here so step 7 honors the same declaration instead of
+            requiring a second one. Without it, a process restarted by the
+            caller's own disruptive action would fail step 7 as an
+            "unexpected restart".
 
     Returns:
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool, 'details': str}}, 'details': str}``
@@ -544,7 +763,7 @@ def standard_port_recovery_and_verification(
             if not result["passed"]:
                 per_port_failures[port].append(result["details"])
 
-    # 4. CMIS state - only for up ports that are CMIS active-optical.
+    # 5. CMIS state - only for up ports that are CMIS active-optical.
     #    check_cmis_state caches TRANSCEIVER_STATUS per breakout parent in
     #    shared_state, so looping here costs at most one extra STATE_DB read
     #    per breakout group, not one per subport.
@@ -556,31 +775,48 @@ def standard_port_recovery_and_verification(
             if not cmis_result["passed"]:
                 per_port_failures[port].append(cmis_result["details"])
 
-    # 5. Docker and process health check (per system_test_plan.md). Delegates
+    # 6. SI Settings - only for up ports; optics (EEPROM) and media (live
+    #    SerDes or APPL_DB, depending on platform) each independently gated on
+    #    their own attribute being non-empty.
+    for port in up_ports:
+        sys_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
+        optics_si_settings = sys_attrs.get("optics_si_settings")
+        if optics_si_settings:
+            optics_result = check_optics_si_settings(duthost, port, optics_si_settings)
+            checks_ran[port].append("optics SI settings")
+            if not optics_result["passed"]:
+                per_port_failures[port].append(optics_result["details"])
+
+        media_si_settings = sys_attrs.get("media_si_settings")
+        if media_si_settings:
+            media_result = check_media_si_settings(
+                duthost, port, media_si_settings, namespace=namespaces.get(port)
+            )
+            checks_ran[port].append("media SI settings")
+            if not media_result["passed"]:
+                per_port_failures[port].append(media_result["details"])
+
+    # 7. Docker and process health check (per system_test_plan.md). Delegates
     #    to health_checks.verify_health - the single owner of the
-    #    xcvrd/syncd/orchagent process check and the /var/core diff (also run
-    #    automatically once per test by the autouse _per_test_health_check
-    #    fixture in tests/transceiver/conftest.py). min_uptime_sec is passed
-    #    straight through with no hardcoded floor of our own - callers of a
-    #    restart-based recovery pass the settle time they already waited
-    #    (<op>_settle_sec) paired with expect_pid_change naming the restarted
-    #    process, so the PID-changed check doesn't fight the uptime check;
-    #    non-restart callers pass neither and step 5 stays a pure
-    #    "nothing restarted under me" guard.
+    #    xcvrd/syncd/orchagent process check and the /var/core diff - against
+    #    the same health_baseline and expected_pid_changes the autouse
+    #    _per_test_health_check fixture (tests/transceiver/conftest.py) uses
+    #    at test teardown, so this mid-test check and that end-of-test check
+    #    agree on what "unchanged since the test started" means. No uptime
+    #    floor: unchanged PID (modulo expected_pid_changes) plus no new core
+    #    files is the whole check.
     #    Host-wide: runs exactly once for the whole batch, unconditionally -
     #    if a port's link didn't come back, knowing whether a critical
     #    service died on the way is exactly the diagnostic we want, for every
     #    port in the batch.
-    health_baseline = shared_state.get("health_baseline")
     if health_baseline is None:
         health_failure = (
-            "shared_state['health_baseline'] not seeded - caller must call "
-            "health_checks.capture_baseline(duthost) before the disruptive action"
+            "health_baseline not provided - caller must pass the 'health_baseline' "
+            "pytest fixture value (tests/transceiver/conftest.py)"
         )
     else:
         health_result = health_checks.verify_health(
-            duthost, health_baseline, expect_pid_change=expect_pid_change,
-            min_uptime_sec=min_uptime_sec,
+            duthost, health_baseline, expect_pid_change=expected_pid_changes,
         )
         health_failure = None if health_result["passed"] else "; ".join(health_result["failures"])
     for port in ports:

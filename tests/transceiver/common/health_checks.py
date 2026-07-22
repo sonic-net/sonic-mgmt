@@ -43,31 +43,6 @@ def _list_core_files(duthost):
     return set(stdout.splitlines()) if stdout.strip() else set()
 
 
-def _get_pid_uptime_sec(duthost, container, pid):
-    """Return ``pid``'s continuous uptime in seconds via ``ps -o etimes=``.
-
-    ``pid`` (as returned by :func:`get_program_info`) is scoped to
-    ``container``'s own PID namespace, not the host's - the same reason
-    ``kill_process_by_pid`` in ``tests/common/helpers/dut_utils.py`` runs its
-    ``kill`` via ``docker exec {container} kill {pid}`` rather than on the
-    host directly. Probing ``pid`` with a bare host-side ``ps`` would either
-    find nothing (spurious failure) or collide with an unrelated host process
-    reusing that PID number (a wrong uptime, potentially a false pass), so
-    this runs ``ps`` inside ``container`` via ``docker exec``.
-
-    Returns ``None`` if the PID can't be queried (process already gone, or
-    the ``ps`` call itself failed) so the caller decides how to treat that.
-    """
-    result = duthost.shell(f"docker exec {container} ps -o etimes= -p {pid}", module_ignore_errors=True)
-    if result.get("rc", 1) != 0:
-        return None
-    stdout = (result.get("stdout") or "").strip()
-    try:
-        return int(stdout)
-    except (TypeError, ValueError):
-        return None
-
-
 def capture_baseline(duthost, monitored_processes=None):
     """Capture pre-test health baseline.
 
@@ -94,7 +69,7 @@ def capture_baseline(duthost, monitored_processes=None):
     return {"pid_baselines": pid_baselines, "core_files": core_files}
 
 
-def verify_health(duthost, baseline, monitored_processes=None, expect_pid_change=None, min_uptime_sec=None):
+def verify_health(duthost, baseline, monitored_processes=None, expect_pid_change=None):
     """Verify post-test health against a captured baseline.
 
     Args:
@@ -103,13 +78,6 @@ def verify_health(duthost, baseline, monitored_processes=None, expect_pid_change
         monitored_processes: dict of ``{process_name: container_name}``.
         expect_pid_change: set of process names where a PID change is expected
             (e.g., after an intentional service restart).
-        min_uptime_sec: when set, every monitored process (each a
-            representative for its container - e.g. ``xcvrd``/``pmon``,
-            ``orchagent``/``swss``) must have been running at least this many
-            seconds, via ``ps -o etimes=`` on its PID. Callers that
-            deliberately restart a monitored process must dwell long enough
-            for it to clear this floor before calling. ``None`` (default)
-            skips the uptime check entirely, unchanged from prior behavior.
 
     Returns:
         dict: ``{'passed': bool, 'failures': [str]}``
@@ -132,14 +100,6 @@ def verify_health(duthost, baseline, monitored_processes=None, expect_pid_change
             failures.append(
                 f"Process {process} PID changed: {baseline_pid} -> {pid} (unexpected restart)"
             )
-        if min_uptime_sec is not None:
-            uptime = _get_pid_uptime_sec(duthost, container, pid)
-            if uptime is None:
-                failures.append(f"Process {process} ({container}): could not determine uptime for pid {pid}")
-            elif uptime < min_uptime_sec:
-                failures.append(
-                    f"Process {process} ({container}): uptime {uptime}s < {min_uptime_sec}s required"
-                )
 
     # 2. Check for new core files
     new_cores = _list_core_files(duthost) - baseline["core_files"]
