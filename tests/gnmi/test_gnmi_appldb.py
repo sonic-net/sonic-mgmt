@@ -143,3 +143,39 @@ def test_poll_mode_present_table_delayed_key(duthosts, rand_one_dut_hostname, pt
 
     out = str(holder.get('result', {}).get('stdout', ''))
     assert re.findall("dummy1", out), "Missing update response for delayed key: {}".format(out)
+
+
+def test_poll_mode_delete(duthosts, rand_one_dut_hostname, ptfhost, enum_rand_one_asic_index):
+    '''
+    POLL existing APPL_DB tables returns data with no error; then delete both
+    mid-stream and confirm delete notifications. Ported from tests/telemetry
+    test_poll_mode_delete.
+    '''
+    duthost = duthosts[rand_one_dut_hostname]
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
+    path_ns = namespace if namespace else "localhost"
+    path_list = ["/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_0".format(path_ns),
+                 "/sonic-db:APPL_DB/{}/FAKE_APPL_DB_TABLE_1/fake_key1".format(path_ns)]
+
+    _modify_fake_appdb_table(duthost, namespace, add=True, entries=2)  # add both tables data
+    result = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=1,
+                                       update_count=10, max_sync_count=-1, timeout=30)
+    assert result['rc'] == 0, "ptf poll command failed: {}".format(result)
+    updates = re.findall("json_ietf_val", str(result['stdout']))
+    assert len(updates) == 10, "Expected 10 update responses, got {}".format(len(updates))
+
+    holder = {}
+
+    def poll_worker():
+        holder['result'] = gnmi_subscribe_polling_py(duthost, ptfhost, path_list, polling_interval=2,
+                                                     update_count=0, max_sync_count=15, timeout=60)
+
+    client_thread = threading.Thread(target=poll_worker)
+    client_thread.start()
+    wait_until(5, 1, 0, _gnmi_client_connected, duthost, ptfhost)
+    _modify_fake_appdb_table(duthost, namespace, add=False, entries=2)  # delete both tables
+    client_thread.join(60)
+
+    out = str(holder.get('result', {}).get('stdout', ''))
+    deletes = re.findall("delete", out)
+    assert len(deletes) == 2, "Expected 2 delete responses, got {}: {}".format(len(deletes), out)

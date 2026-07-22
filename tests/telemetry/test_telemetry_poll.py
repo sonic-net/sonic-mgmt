@@ -44,51 +44,6 @@ def modify_fake_appdb_table(duthost, add=True, entries=1, namespace=""):
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                          setup_streaming_telemetry, gnxi_path,
-                          enum_rand_one_asic_index):
-    """
-    Test poll mode from APPL_DB and query an existing table and key, ensure no errors and present data
-    After that, delete both and ensure no errors and delete notifications
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    logger.info('Start telemetry poll mode testing')
-    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_asic_index)
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
-    modify_fake_appdb_table(duthost, True, 2, namespace)  # Add both tables data
-    ptf_result = ptfhost.shell(cmd)
-    pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
-    show_gnmi_out = ptf_result['stdout']
-    logger.info("GNMI Server output")
-    logger.info(show_gnmi_out)
-    result = str(show_gnmi_out)
-    update_responses_match = re.findall("json_ietf_val", result)
-    pytest_assert(len(update_responses_match) == 10, "Missing update responses")
-
-    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=15, update_count=0, timeout=60, namespace=namespace)
-
-    def callback(show_gnmi_out):
-        result = str(show_gnmi_out)
-        update_responses_match = re.findall("delete", result)
-        logger.info(result)
-        assert len(update_responses_match) == 2, "No delete responses"
-
-    client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
-    client_thread.start()
-
-    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
-
-    modify_fake_appdb_table(duthost, False, 2, namespace)  # Remove all added tables
-    client_thread.join(60)
-
-
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, enum_upstream_dut_hostname,
                                  tbinfo, setup_streaming_telemetry, gnxi_path, enum_rand_one_asic_index):
     """
