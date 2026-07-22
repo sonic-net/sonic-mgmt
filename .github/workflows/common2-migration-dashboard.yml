@@ -8,7 +8,7 @@ name: common2 Migration Dashboard
 on:
   push:
     branches:
-      - common-to-common2-migration-plan
+      - master
   schedule:
     # 01:00 UTC every day.
     - cron: "0 1 * * *"
