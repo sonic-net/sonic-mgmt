@@ -41,3 +41,41 @@ def test_module_has_common2_unit_tests_matches_dotted_form():
         "tests.common.helpers.bgp",
         {"tests.common2.helpers.bgp"},
     )
+
+
+def test_analyze_module_counts_fixtures_in_module_size(tmp_path):
+    repo_root = tmp_path / "repo"
+    module_dir = repo_root / "tests" / "common" / "helpers"
+    module_dir.mkdir(parents=True)
+    module_path = module_dir / "sample.py"
+    module_path.write_text(
+        """
+import pytest
+
+@pytest.fixture
+def sample_fixture():
+    return object()
+
+
+def sample_function():
+    return sample_fixture()
+
+
+class SampleClass:
+    pass
+""",
+        encoding="utf-8",
+    )
+
+    task = MODULE.analyze_module(
+        str(module_path),
+        str(repo_root),
+        MODULE.ImpactGraph(),
+        set(),
+        lambda rel_path: set(),
+    )
+
+    assert task is not None
+    assert task.num_functions == 2
+    assert task.num_classes == 1
+    assert task.num_functions + task.num_classes == 3

@@ -637,7 +637,7 @@ def analyze_module(
         domain=domain,
         target_path=target_path,
         loc=loc,
-        num_functions=sum(1 for s in symbols if s.kind == "function"),
+        num_functions=sum(1 for s in symbols if s.kind in {"function", "fixture"}),
         num_classes=sum(1 for s in symbols if s.kind == "class"),
         typed_ratio=typed_ratio,
         documented_ratio=documented_ratio,
@@ -709,7 +709,7 @@ def print_dashboard(
     print(f"  Candidate modules available for migration : {len(tasks)}")
     print(f"  Modules already fully migrated            : {len(done_tasks)}")
     print(f"  Distinct test files impacted (all tasks)  : {total_tests}")
-    print(f"  Granular sub-tasks (public funcs/classes) : "
+    print(f"  Granular sub-tasks (public funcs/classes/fixtures) : "
           f"{sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)}")
     print(f"  Complexity tiers                          : 1 (easiest) .. {max_tier + 1} (hardest)")
     print()
@@ -945,7 +945,7 @@ def build_markdown_lines(
         lines.append(f"- **Score:** {task.score:.2f}")
         lines.append(f"- **LOC:** {task.loc}")
         lines.append(
-            f"- **Size:** {task.num_functions + task.num_classes} function/class items"
+            f"- **Size:** {task.num_functions + task.num_classes} function/class/fixture items"
         )
         lines.append(f"- **Typed:** {int(task.typed_ratio * 100)}%")
         lines.append(f"- **Direct tests:** {len(task.impacted_tests)}")
