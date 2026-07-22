@@ -273,56 +273,33 @@ def _read_dom_sensor_snapshots(dom_ports, dom_db_reader):
     }
 
 
-def _build_dom_freshness_checks(snapshot_by_port, dom_port_context, parse_dom_update_time, now_utc):
-    """Build freshness check tuples for configured DOM ports."""
-    checks = []
-    for port, context in dom_port_context.items():
-        dom_attrs = context["dom"]
-        max_age_min = dom_attrs.get("data_max_age_min")
-        if max_age_min is None:
-            continue
+def _build_dom_freshness_failures(sensor_data, max_age_min, parse_dom_update_time, now_utc):
+    """Return DOM freshness assertion failures for one sensor snapshot."""
+    if max_age_min is None:
+        return []
 
-        sensor_data = snapshot_by_port.get(port, {})
-        check_name = "dom_data_freshness_{}".format(port)
-        if not sensor_data:
-            checks.append((
-                check_name,
-                False,
-                "{} missing TRANSCEIVER_DOM_SENSOR data".format(port),
-            ))
-            continue
+    if not sensor_data:
+        return ["missing TRANSCEIVER_DOM_SENSOR data for last_update_time freshness check"]
 
-        parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
-        if parsed_time is None:
-            checks.append((
-                check_name,
-                False,
-                "{} last_update_time missing or unparsable".format(port),
-            ))
-            continue
+    try:
+        max_age = float(max_age_min)
+    except (TypeError, ValueError):
+        return ["invalid data_max_age_min={!r} in DOM_ATTRIBUTES".format(max_age_min)]
 
-        try:
-            max_age = float(max_age_min)
-        except (TypeError, ValueError):
-            checks.append((
-                check_name,
-                False,
-                "{} invalid data_max_age_min={!r}".format(port, max_age_min),
-            ))
-            continue
+    parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
+    if parsed_time is None:
+        return ["last_update_time missing or unparsable while data_max_age_min is configured"]
 
-        age_minutes = (now_utc - parsed_time).total_seconds() / 60.0
-        checks.append((
-            check_name,
-            age_minutes <= max_age,
-            "{} last_update_time age_min={:.2f}, limit={}".format(
-                port,
+    age_minutes = (now_utc - parsed_time).total_seconds() / 60.0
+    if age_minutes > max_age:
+        return [
+            "last_update_time too old (age_min={:.2f}, limit={})".format(
                 age_minutes,
                 max_age_min,
-            ),
-        ))
+            )
+        ]
 
-    return checks
+    return []
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -426,20 +403,15 @@ def dom_per_test_snapshots(
     request,
     duthost,
     dom_ports,
-    dom_port_context,
     dom_db_reader,
-    parse_dom_update_time,
-    dom_now_utc,
 ):
     """Capture DOM snapshots and run DOM-specific per-test checks."""
     snapshots = {
         "baseline": {
-            "captured_at": dom_now_utc(),
             "sensor_by_port": {},
             "interface_by_port": {},
         },
         "post": {
-            "captured_at": None,
             "sensor_by_port": {},
             "interface_by_port": {},
         },
@@ -451,17 +423,10 @@ def dom_per_test_snapshots(
         snapshots["baseline"]["interface_by_port"],
         "pre-test",
     )
-    pre_checks += _build_dom_freshness_checks(
-        snapshots["baseline"]["sensor_by_port"],
-        dom_port_context,
-        parse_dom_update_time,
-        snapshots["baseline"]["captured_at"],
-    )
     run_pre_check(request, pre_checks, health_check_events)
 
     yield snapshots
 
-    snapshots["post"]["captured_at"] = dom_now_utc()
     snapshots["post"]["interface_by_port"] = _read_dom_interface_status(duthost, dom_ports)
     snapshots["post"]["sensor_by_port"] = _read_dom_sensor_snapshots(dom_ports, dom_db_reader)
     post_checks = _build_dom_link_liveness_checks(
@@ -472,12 +437,6 @@ def dom_per_test_snapshots(
         snapshots["baseline"]["interface_by_port"],
         snapshots["post"]["interface_by_port"],
     )
-    post_checks += _build_dom_freshness_checks(
-        snapshots["post"]["sensor_by_port"],
-        dom_port_context,
-        parse_dom_update_time,
-        snapshots["post"]["captured_at"],
-    )
     run_post_check(request, post_checks, health_check_events)
 
 
@@ -485,6 +444,20 @@ def dom_per_test_snapshots(
 def dom_sensor_by_port(dom_per_test_snapshots):
     """Return baseline TRANSCEIVER_DOM_SENSOR data captured for this test."""
     return dom_per_test_snapshots["baseline"]["sensor_by_port"]
+
+
+@pytest.fixture(scope="module")
+def dom_freshness_failures(parse_dom_update_time):
+    """Return a callable that builds test-body DOM freshness failures."""
+    def _failures(sensor_data, max_age_min, now_utc):
+        return _build_dom_freshness_failures(
+            sensor_data,
+            max_age_min,
+            parse_dom_update_time,
+            now_utc,
+        )
+
+    return _failures
 
 
 @pytest.fixture(scope="module")

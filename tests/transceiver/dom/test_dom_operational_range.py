@@ -11,7 +11,7 @@ def test_dom_sensor_operational_range_validation(
     dom_port_context,
     dom_sensor_by_port,
     parse_dom_numeric,
-    parse_dom_update_time,
+    dom_freshness_failures,
     dom_now_utc,
     dom_operational_suffix,
     dom_lane_num_placeholder,
@@ -37,30 +37,8 @@ def test_dom_sensor_operational_range_validation(
         max_age_min = dom_attrs.get("data_max_age_min")
         if max_age_min is not None:
             has_configured_checks = True
-            if not sensor_data:
-                field_failures.append("missing TRANSCEIVER_DOM_SENSOR data for freshness check")
-            else:
-                try:
-                    max_age = float(max_age_min)
-                except (TypeError, ValueError):
-                    field_failures.append(
-                        "invalid data_max_age_min={!r} in DOM_ATTRIBUTES".format(max_age_min)
-                    )
-                else:
-                    parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
-                    if parsed_time is None:
-                        field_failures.append(
-                            "last_update_time missing or unparsable while data_max_age_min is configured"
-                        )
-                    else:
-                        age_minutes = (now_utc - parsed_time).total_seconds() / 60.0
-                        if age_minutes > max_age:
-                            field_failures.append(
-                                "last_update_time too old (age_min={:.2f}, limit={})".format(
-                                    age_minutes,
-                                    max_age_min,
-                                )
-                            )
+
+        field_failures.extend(dom_freshness_failures(sensor_data, max_age_min, now_utc))
 
         lane_count = dom_get_lane_count(context["base"])
         for attr_name, attr_value in sorted(dom_attrs.items()):
