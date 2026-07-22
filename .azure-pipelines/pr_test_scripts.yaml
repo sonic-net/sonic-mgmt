@@ -298,7 +298,6 @@ t0:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
@@ -612,7 +611,6 @@ t1-lag:
   - telemetry/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
-  - telemetry/test_telemetry_poll.py
   - test_features.py
   - test_interfaces.py
   - test_nbr_health.py
