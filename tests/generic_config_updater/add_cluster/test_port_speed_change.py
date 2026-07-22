@@ -14,7 +14,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.config_reload import config_reload
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
+from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch, rollback_or_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.generic_config_updater.add_cluster.helpers import get_active_interfaces, \
     remove_dataacl_table_single_dut, send_and_verify_traffic
@@ -384,6 +384,75 @@ def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table
     return None
 
 
+def _get_config_db_keys(duthost, cli_namespace_prefix, key_pattern):
+    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{key_pattern}'"
+    output = duthost.shell(cmd)['stdout']
+    return [k.strip() for k in output.splitlines() if k.strip()]
+
+
+def _build_port_scoped_key_pattern(table, duthost_hostname, asic_namespace, port, trailing="*"):
+    """Build a CONFIG_DB KEYS glob for VOQ (with namespace) or single-ASIC."""
+    if asic_namespace:
+        return f"{table}|{duthost_hostname}|{asic_namespace}|{port}{trailing}"
+    return f"{table}|{duthost_hostname}|{port}{trailing}"
+
+
+def _build_buffer_queue_key_pattern(duthost_hostname, asic_namespace, port):
+    """BUFFER_QUEUE keys omit hostname on single-ASIC but include it on VOQ."""
+    if asic_namespace:
+        return f"BUFFER_QUEUE|{duthost_hostname}|{asic_namespace}|{port}|*"
+    return f"BUFFER_QUEUE|{port}|*"
+
+
+def _get_queue_keys_for_port(duthost, config_facts, duthost_hostname, asic_namespace,
+                             cli_namespace_prefix, selected_random_port):
+    key_pattern = _build_port_scoped_key_pattern(
+        "QUEUE", duthost_hostname, asic_namespace, selected_random_port)
+    queue_keys = _get_config_db_keys(duthost, cli_namespace_prefix, key_pattern)
+    if not queue_keys:
+        queue_by_host = config_facts.get("QUEUE", {}).get(duthost_hostname, {})
+        if asic_namespace:
+            cfg_prefix = f"{asic_namespace}|{selected_random_port}|"
+        else:
+            cfg_prefix = f"{selected_random_port}|"
+        queue_keys = [
+            f"QUEUE|{duthost_hostname}|{cfg_key}"
+            for cfg_key in queue_by_host
+            if cfg_key.startswith(cfg_prefix)
+        ]
+    pytest_assert(queue_keys, f"No QUEUE keys found for port {selected_random_port}")
+    return queue_keys
+
+
+def _get_buffer_pg_keys_for_port(duthost, config_facts, cli_namespace_prefix, selected_random_port):
+    key_pattern = f"BUFFER_PG|{selected_random_port}|*"
+    keys = _get_config_db_keys(duthost, cli_namespace_prefix, key_pattern)
+    if not keys:
+        keys = [
+            f"BUFFER_PG|{cfg_key}"
+            for cfg_key in config_facts.get("BUFFER_PG", {})
+            if cfg_key.startswith(f"{selected_random_port}|")
+        ]
+    pytest_assert(keys, f"No BUFFER_PG keys found for port {selected_random_port}")
+    return keys
+
+
+def _get_buffer_queue_keys_for_port(duthost, config_facts, duthost_hostname, asic_namespace,
+                                    cli_namespace_prefix, selected_random_port):
+    key_pattern = _build_buffer_queue_key_pattern(
+        duthost_hostname, asic_namespace, selected_random_port)
+    buffer_queue_keys = _get_config_db_keys(duthost, cli_namespace_prefix, key_pattern)
+    if not buffer_queue_keys:
+        buffer_queue_keys = [
+            f"BUFFER_QUEUE|{cfg_key}"
+            for cfg_key in config_facts.get("BUFFER_QUEUE", {})
+            if cfg_key.startswith(f"{selected_random_port}|")
+        ]
+    pytest_assert(buffer_queue_keys,
+                  f"No BUFFER_QUEUE keys found for port {selected_random_port}")
+    return buffer_queue_keys
+
+
 def apply_patch_change_port_cluster(config_facts,
                                     mg_facts,
                                     duthost,
@@ -403,18 +472,9 @@ def apply_patch_change_port_cluster(config_facts,
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
 
     # QUEUE keys — saved for both add/remove flows before building patch ops
-    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
-        'QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
-    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
-    if not queue_keys:
-        queue_prefix = f"{enum_rand_one_asic_namespace}|{selected_random_port}|"
-        queue_keys = [
-            f"QUEUE|{duthost.hostname}|{cfg_key}"
-            for cfg_key in config_facts.get("QUEUE", {}).get(duthost.hostname, {})
-            if cfg_key.startswith(queue_prefix)
-        ]
-    pytest_assert(queue_keys, f"No QUEUE keys found for port {selected_random_port}")
+    queue_keys = _get_queue_keys_for_port(
+        duthost, config_facts, duthost.hostname, enum_rand_one_asic_namespace,
+        cli_namespace_prefix, selected_random_port)
 
     ##############
     # Patch Operation No.1
@@ -578,25 +638,25 @@ def apply_patch_change_port_cluster(config_facts,
     start_lane = int(current_lanes[0])
     target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
     pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
-    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
-    current_fec = get_port_fec(duthost, cli_namespace_prefix, selected_random_port)
-    # target_fec = get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed)
-    target_fec = None
+    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))    
     if operation == "add":
         target_fec = config_facts["PORT"][selected_random_port].get("fec", None)
     elif operation == "remove":
-        fec_values = get_fec_for_speed(duthost, target_speed)
-        if fec_values:
-            target_fec = random.choice(get_fec_for_speed(duthost, target_speed))
+        target_fec = get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed)
+    else:
+        target_fec = None
     port_config = dict(config_facts["PORT"][selected_random_port])
     port_config["admin_status"] = "down"
     port_config["lanes"] = new_lanes
     port_config["speed"] = target_speed
-    if target_fec == "N/A":
-        if current_fec:
-            port_config.pop("fec", None)
-    elif target_fec:
+    if target_fec in (None, "N/A"):
+        port_config.pop("fec", None)
+    else:
         port_config["fec"] = target_fec
+        supported_fecs = get_fec_for_speed(duthost, target_speed) or []
+        pytest_assert(
+            target_fec in supported_fecs,
+            f"FEC {target_fec} is not supported for speed {target_speed}")
     port_change_list.append({
         "op": "add",
         "path": f"{json_namespace}/PORT/{selected_random_port}",
@@ -611,21 +671,17 @@ def apply_patch_change_port_cluster(config_facts,
             "value": config_facts["BUFFER_PG"][selected_random_port]["0"]
         })
     if operation == "remove":
-        cmd = f"sudo sonic-db-cli -n {enum_rand_one_asic_namespace} CONFIG_DB keys \
-        'BUFFER_PG|{selected_random_port}|*'"
-        output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-        keys = [k.strip() for k in output.splitlines() if k.strip()]
-        pytest_assert(output, f"No BUFFER_PG keys found for port {selected_random_port}")
-        logger.info(f"BUFFER_PG keys for port {selected_random_port}: {keys}")
-        for key in keys:
+        buffer_pg_keys = _get_buffer_pg_keys_for_port(
+            duthost, config_facts, cli_namespace_prefix, selected_random_port)
+        logger.info(f"BUFFER_PG keys for port {selected_random_port}: {buffer_pg_keys}")
+        for key in buffer_pg_keys:
             json_patch.append({
                 "op": "remove",
                 "path": f"{json_namespace}/{key.replace('BUFFER_PG|', 'BUFFER_PG/')}"
                 })
-        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
-        'BUFFER_QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
-        output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-        buffer_queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
+        buffer_queue_keys = _get_buffer_queue_keys_for_port(
+            duthost, config_facts, duthost.hostname, enum_rand_one_asic_namespace,
+            cli_namespace_prefix, selected_random_port)
         logger.info(f"BUFFER_QUEUE keys for port {selected_random_port}: {buffer_queue_keys}")
         for key in buffer_queue_keys:
             json_patch.append({
@@ -692,6 +748,9 @@ def apply_patch_change_port_cluster(config_facts,
         # Patch Operation No.1b: PORT speed change (only for 'remove' operation)
         # When removing cluster info, the port speed/lanes/fec and CABLE_LENGTH changes are
         # applied as a separate patch after the cluster removal patch (admin down is in patch1).
+        # CABLE_LENGTH must travel with the PORT wholesale replace because buffer profile
+        # selection depends on both speed and cable length; applying it during patch No.1
+        # would reference the old speed/lanes while cluster entries are already removed.
         ##############
         if operation == "remove" and json_patch_port_change:
             tmpfile = generate_tmpfile(duthost)
@@ -699,8 +758,15 @@ def apply_patch_change_port_cluster(config_facts,
                 logger.info(f"Applying patch to change port speed/lanes info. Dry-run {dry_run}")
                 logger.info(f"Patch content: {json_patch_port_change}")
                 if not dry_run:
-                    output = apply_patch(duthost, json_data=json_patch_port_change, dest_file=tmpfile)
-                    expect_op_success(duthost, output)
+                    try:
+                        output = apply_patch(duthost, json_data=json_patch_port_change, dest_file=tmpfile)
+                        expect_op_success(duthost, output)
+                    except Exception:
+                        logger.error(
+                            "Patch No.1b (PORT speed/lanes) failed after cluster removal "
+                            "(patch No.1); rolling back to module checkpoint")
+                        rollback_or_reload(duthost)
+                        raise
             finally:
                 delete_tmpfile(duthost, tmpfile)
 
