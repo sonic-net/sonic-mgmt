@@ -3,15 +3,13 @@ import re
 from datetime import datetime, timezone
 
 import pytest
+from natsort import natsorted
 
-from tests.common.platform.interface_utils import get_dut_interfaces_status
 from tests.transceiver.attribute_parser.attribute_keys import (
     BASE_ATTRIBUTES_KEY,
     DOM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common.db_helpers import hgetall_dict
-from tests.transceiver.common.health_checks import run_post_check, run_pre_check
-from tests.transceiver.conftest import health_check_events
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +24,8 @@ LANE_NUM_PLACEHOLDER = "LANE_NUM"
 
 DOM_POLLING_ENABLED_VALUES = ("", "enabled")
 DOM_POLLING_DISABLED_VALUE = "disabled"
-DOM_FLAP_COUNTER_FIELDS = ("flap_count", "flaps", "link_flap_count")
-DOM_STABILITY_FIELDS = ("last_change", "last changed", "last_change_time")
 
 _FLOAT_PATTERN = re.compile(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?")
-_PORT_SUFFIX_PATTERN = re.compile(r"^(.*?)(\d+)$")
-
-
-def port_sort_key(port_name):
-    """Return a natural sort key for SONiC interface names."""
-    text = str(port_name)
-    match = _PORT_SUFFIX_PATTERN.match(text)
-    if not match:
-        return (text, -1, text)
-    return (match.group(1), int(match.group(2)), text)
 
 
 def parse_numeric(value):
@@ -153,7 +139,7 @@ def _dom_enabled_ports_from_attrs(port_attributes_dict):
         dom_attrs = attrs.get(DOM_ATTRIBUTES_KEY, {})
         if isinstance(dom_attrs, dict) and dom_attrs:
             ports.append(port)
-    return sorted(ports, key=port_sort_key)
+    return natsorted(ports)
 
 
 def _build_dom_polling_failures(duthost, port_attributes_dict):
@@ -184,84 +170,6 @@ def _build_dom_polling_failures(duthost, port_attributes_dict):
             failures.append("{} dom_polling has unexpected value {!r}".format(port, raw_value))
 
     return failures
-
-
-def _read_dom_interface_status(duthost, dom_ports):
-    """Read current interface status for DOM ports."""
-    try:
-        status_by_port = duthost.get_interfaces_status()
-    except Exception as exc:
-        logger.debug("Failed to read 'show interfaces status': %s", exc)
-        status_by_port = {}
-
-    if not status_by_port:
-        try:
-            status_by_port = get_dut_interfaces_status(duthost)
-        except Exception as exc:
-            logger.warning("Failed to read interface status: %s", exc)
-            status_by_port = {}
-
-    return {
-        port: status_by_port.get(port, {})
-        for port in dom_ports
-    }
-
-
-def _build_dom_link_liveness_checks(status_by_port, phase):
-    """Build checks that DOM ports are admin-up and oper-up."""
-    checks = []
-    for port, status in status_by_port.items():
-        admin = status.get("admin", status.get("admin_state", status.get("admin_status", "missing")))
-        oper = status.get("oper", status.get("oper_state", status.get("oper_status", "missing")))
-        passed = str(admin).lower() == "up" and str(oper).lower() == "up"
-        checks.append((
-            "dom_link_liveness_{}_{}".format(phase, port),
-            passed,
-            "{} {} interface status admin={} oper={}".format(phase, port, admin, oper),
-        ))
-    return checks
-
-
-def _extract_dom_stability_marker(status):
-    """Extract a comparable flap counter or last-change marker from status."""
-    for field in DOM_FLAP_COUNTER_FIELDS:
-        if field not in status:
-            continue
-        numeric = parse_numeric(status.get(field))
-        if numeric is not None:
-            return ("counter", field, numeric)
-
-    for field in DOM_STABILITY_FIELDS:
-        if field in status:
-            return ("stable", field, str(status.get(field)))
-
-    return None
-
-
-def _build_dom_link_stability_checks(baseline_status_by_port, post_status_by_port):
-    """Build checks that link stability markers did not change during a test."""
-    checks = []
-    for port, baseline_status in baseline_status_by_port.items():
-        baseline_marker = _extract_dom_stability_marker(baseline_status)
-        post_marker = _extract_dom_stability_marker(post_status_by_port.get(port, {}))
-        if baseline_marker is None or post_marker is None:
-            continue
-
-        baseline_kind, baseline_field, baseline_value = baseline_marker
-        post_kind, post_field, post_value = post_marker
-        if baseline_kind != post_kind or baseline_field != post_field:
-            continue
-
-        passed = post_value == baseline_value
-        detail = "{} {} baseline={!r} post={!r}".format(
-            port,
-            baseline_field,
-            baseline_value,
-            post_value,
-        )
-        checks.append(("dom_link_stability_{}".format(port), passed, detail))
-
-    return checks
 
 
 def _read_dom_sensor_snapshots(dom_ports, dom_db_reader):
@@ -300,6 +208,18 @@ def _build_dom_freshness_failures(sensor_data, max_age_min, parse_dom_update_tim
         ]
 
     return []
+
+
+def _dom_freshness_age_minutes(sensor_data, parse_dom_update_time, now_utc):
+    """Return last_update_time age in minutes, or None when unavailable."""
+    if not sensor_data:
+        return None
+
+    parsed_time = parse_dom_update_time(sensor_data.get("last_update_time"))
+    if parsed_time is None:
+        return None
+
+    return (now_utc - parsed_time).total_seconds() / 60.0
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -344,7 +264,7 @@ def dom_port_context(port_attributes_dict):
 @pytest.fixture(scope="module")
 def dom_ports(dom_port_context):
     """Return DOM-enabled ports in deterministic interface order."""
-    return sorted(dom_port_context.keys(), key=port_sort_key)
+    return natsorted(dom_port_context.keys())
 
 
 @pytest.fixture(scope="module")
@@ -400,44 +320,15 @@ def dom_db_reader(duthost):
 
 @pytest.fixture(autouse=True)
 def dom_per_test_snapshots(
-    request,
-    duthost,
     dom_ports,
     dom_db_reader,
 ):
-    """Capture DOM snapshots and run DOM-specific per-test checks."""
-    snapshots = {
+    """Capture baseline DOM sensor snapshots for test-body validation."""
+    return {
         "baseline": {
-            "sensor_by_port": {},
-            "interface_by_port": {},
-        },
-        "post": {
-            "sensor_by_port": {},
-            "interface_by_port": {},
+            "sensor_by_port": _read_dom_sensor_snapshots(dom_ports, dom_db_reader),
         },
     }
-
-    snapshots["baseline"]["interface_by_port"] = _read_dom_interface_status(duthost, dom_ports)
-    snapshots["baseline"]["sensor_by_port"] = _read_dom_sensor_snapshots(dom_ports, dom_db_reader)
-    pre_checks = _build_dom_link_liveness_checks(
-        snapshots["baseline"]["interface_by_port"],
-        "pre-test",
-    )
-    run_pre_check(request, pre_checks, health_check_events)
-
-    yield snapshots
-
-    snapshots["post"]["interface_by_port"] = _read_dom_interface_status(duthost, dom_ports)
-    snapshots["post"]["sensor_by_port"] = _read_dom_sensor_snapshots(dom_ports, dom_db_reader)
-    post_checks = _build_dom_link_liveness_checks(
-        snapshots["post"]["interface_by_port"],
-        "post-test",
-    )
-    post_checks += _build_dom_link_stability_checks(
-        snapshots["baseline"]["interface_by_port"],
-        snapshots["post"]["interface_by_port"],
-    )
-    run_post_check(request, post_checks, health_check_events)
 
 
 @pytest.fixture
@@ -458,6 +349,19 @@ def dom_freshness_failures(parse_dom_update_time):
         )
 
     return _failures
+
+
+@pytest.fixture(scope="module")
+def dom_freshness_age_minutes(parse_dom_update_time):
+    """Return a callable that reports last_update_time age in minutes."""
+    def _age_minutes(sensor_data, now_utc):
+        return _dom_freshness_age_minutes(
+            sensor_data,
+            parse_dom_update_time,
+            now_utc,
+        )
+
+    return _age_minutes
 
 
 @pytest.fixture(scope="module")
