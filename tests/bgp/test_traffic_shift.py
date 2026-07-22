@@ -1,6 +1,7 @@
 import logging
 import re
 import pytest
+from tests.common.fixtures.frr_config_mode import skip_module_if_frr_native
 from tests.common.devices.eos import EosHost
 from tests.bgp.bgp_helpers import get_routes_not_announced_to_bgpmon, remove_bgp_neighbors, restore_bgp_neighbors, \
     initial_tsa_check_before_and_after_test
@@ -118,7 +119,9 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                 logging.warning("Not all routes are announced to bgpmon: {}".format(e))
 
 
-def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, bgpmon_setup_teardown, tbinfo):
+def test_TSB(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
+        bgpmon_setup_teardown, tbinfo):
     """
     Test TSB.
     Establish BGP session between PTF and DUT, and verify all routes are announced to bgp monitor,
@@ -242,8 +245,9 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
 
 @pytest.mark.disable_loganalyzer
-def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts,
-                                    nbrhosts_to_dut, bgpmon_setup_teardown, traffic_shift_community, tbinfo):
+def test_TSA_TSB_with_config_reload(
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrhosts, nbrhosts_to_dut,
+        bgpmon_setup_teardown, traffic_shift_community, tbinfo):
     """
     Test TSA after config save and config reload
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
@@ -388,3 +392,8 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         # Bring back the supervisor and line cards to the BGP operational normal state
         if tbinfo['topo']['type'] == 't2':
             initial_tsa_check_before_and_after_test(duthosts)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_bgp_device_global_in_frr_mgmt_framework(duthosts, rand_one_dut_hostname):
+    skip_module_if_frr_native(duthosts[rand_one_dut_hostname])

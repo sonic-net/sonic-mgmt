@@ -7,8 +7,10 @@ import ipaddress
 from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.bgp import flatten_bgp_neighbors
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.frr_config_mode import skip_if_frr_mgmt_framework, FRR_LEGACY_BGP_MONITORS_REASON
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_MONITOR_PORT
@@ -347,11 +349,11 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
 
 
 @pytest.fixture(scope='module')
-def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
+def setup(frr_config_mode, duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts, show_ip_interface_cmd):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    bgp_neighbors = flatten_bgp_neighbors(config_facts.get('BGP_NEIGHBOR', {}))
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     bgp_neighbor = list(bgp_neighbors.keys())[0]
@@ -724,8 +726,8 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
-                                           ptfhost, tbinfo, test_type, get_function_completeness_level,
+def test_bgp_stress_link_flap_with_monitor(frr_config_mode, duthosts, rand_one_dut_hostname, setup, nbrhosts,
+                                           fanouthosts, ptfhost, tbinfo, test_type, get_function_completeness_level,
                                            backup_and_restore_config_db):
     """
     Test BGP stress link flap with BGP Monitor enabled.
@@ -733,6 +735,10 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
     Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
+    # BGP monitors (bgpmon) is a legacy feature superseded by BMP and is intentionally
+    # unsupported in frr_mgmt_framework mode -- a permanent, by-design skip, deliberately
+    # NOT gated on an auto-lifting tracking issue. See sonic-buildimage#28482.
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LEGACY_BGP_MONITORS_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level
@@ -810,8 +816,8 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 
 
 @pytest.mark.parametrize("test_type", ["dut"])
-def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts,
-                                                        fanouthosts, ptfhost, tbinfo, test_type,
+def test_bgp_stress_link_flap_with_sentinel_and_monitor(frr_config_mode, duthosts, rand_one_dut_hostname, setup,
+                                                        nbrhosts, fanouthosts, ptfhost, tbinfo, test_type,
                                                         get_function_completeness_level,
                                                         backup_and_restore_config_db):
     """
@@ -820,6 +826,11 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
     Only 'dut' flap type is tested since the goal is to verify feature stability
     under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
+    # This test exercises BGP monitors (bgpmon), a legacy feature superseded by BMP and
+    # intentionally unsupported in frr_mgmt_framework mode -- so it is permanently skipped in
+    # frr mode regardless of the (separately tracked) BGP-sentinel gap. By-design skip, NOT
+    # gated on an auto-lifting tracking issue. See sonic-buildimage#28482.
+    skip_if_frr_mgmt_framework(frr_config_mode, FRR_LEGACY_BGP_MONITORS_REASON)
     duthost = duthosts[rand_one_dut_hostname]
 
     normalized_level = get_function_completeness_level
