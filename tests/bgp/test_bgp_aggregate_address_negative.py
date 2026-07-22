@@ -70,7 +70,7 @@ CONTRIBUTING_EXTRA_V4 = ["10.100.1.0/25", "10.100.1.128/25"]
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(frr_config_mode, duthosts, rand_one_dut_hostname):
+def setup_teardown(duthosts, rand_one_dut_hostname):
     """Create checkpoint before tests, rollback after."""
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)

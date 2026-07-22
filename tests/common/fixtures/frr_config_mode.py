@@ -55,6 +55,11 @@ FRRCFGD_UNSUPPORTED_OBJECTS = {
     "community_lists": {"sentinel_community"},
 }
 
+# How long to let the config daemon finish rendering after a mode switch before
+# declaring a baseline object lost. See _assert_config_preserved.
+_CONFIG_SETTLE_TIMEOUT = 120
+_CONFIG_SETTLE_INTERVAL = 10
+
 
 def skip_if_frr_mgmt_framework(mode, reason):
     """Skip the frr_mgmt_framework variant of a test that cannot run under frrcfgd -- e.g.
@@ -95,6 +100,21 @@ FRR_BGPCFGD_ONLY_SENTINEL_REASON = (
     "BGP sentinels (BGP_SENTINELS) is a bgpcfgd-only macro, intentionally unsupported in "
     "frr_mgmt_framework mode (the equivalent is expressible via generic peer-group/route-map "
     "tables)")
+
+# The BGP aggregate-address suite asserts bgpcfgd's AggregateAddressMgr behavior, not just
+# "FRR advertises an aggregate": it writes BGP_AGGREGATE_ADDRESS, reads that row back out of
+# CONFIG_DB, and asserts the STATE_DB row AggregateAddressMgr derives from it -- including the
+# bbr-required gating (an aggregate goes 'inactive' when BBR is off). frrcfgd has no
+# BGP_AGGREGATE_ADDRESS handler, no STATE_DB writer, and no bbr-required concept at all; its
+# native BGP_GLOBALS_AF_AGGREGATE_ADDR table expresses only the FRR-render half, so a
+# mode-aware write would leave the CONFIG_DB/STATE_DB/BBR assertions -- most of the suite --
+# untestable. Like test_prefix_list_suppress (PrefixListMgr), this is a bgpcfgd daemon-behavior
+# suite, so its modules are not parametrized over frr_config_mode: they run in traditional mode
+# and skip outright on a native-frrcfgd DUT.
+FRR_BGPCFGD_ONLY_AGGREGATE_REASON = (
+    "the BGP aggregate-address suite asserts bgpcfgd AggregateAddressMgr behavior "
+    "(BGP_AGGREGATE_ADDRESS CONFIG_DB/STATE_DB rows and bbr-required gating), which frrcfgd "
+    "does not implement")
 
 
 def skip_module_if_frr_native(duthost, reason=FRR_BGP_DEVICE_GLOBAL_GAP_REASON):
@@ -199,8 +219,8 @@ def _frr_config_fingerprint(duthost):
     return fp
 
 
-def _assert_config_preserved(duthost, mode, baseline_fp):
-    """Fail loudly if any BGP object present before the switch is missing after it."""
+def _dropped_config_objects(duthost, mode, baseline_fp):
+    """Return ``{category: [name, ...]}`` for baseline objects FRR is not rendering now."""
     after = _frr_config_fingerprint(duthost)
     dropped = {}
     for cat, objs in baseline_fp.items():
@@ -215,11 +235,34 @@ def _assert_config_preserved(duthost, mode, baseline_fp):
         real = sorted(missing - exempt)
         if real:
             dropped[cat] = real
+    return dropped
+
+
+def _assert_config_preserved(duthost, mode, baseline_fp):
+    """Fail loudly if any BGP object present before the switch is still missing once the
+    DUT has settled.
+
+    Poll rather than sample once: BGP sessions re-establishing does not mean the config
+    daemon has finished rendering. bgpcfgd/frrcfgd drain their CONFIG_DB subscriptions
+    asynchronously after the reload, and objects with no session to establish are the
+    slowest to show up -- the bgpmon route-maps (FROM_BGPMON/TO_BGPMON), which bgpcfgd
+    renders from BGP_MONITORS, routinely lag the neighbor-recovery check and made the
+    switch-back to traditional mode fail spuriously.
+    """
+    dropped = {}
+
+    def _settled():
+        dropped.clear()
+        dropped.update(_dropped_config_objects(duthost, mode, baseline_fp))
+        return not dropped
+
+    wait_until(_CONFIG_SETTLE_TIMEOUT, _CONFIG_SETTLE_INTERVAL, 0, _settled)
     pt_assert(not dropped,
               "Switching to '{}' mode dropped BGP config objects that were present in the "
-              "original mode: {}. The bgpcfgd->frrcfgd translation did not carry them over -- "
-              "extend tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover "
-              "them.".format(mode, dropped))
+              "original mode: {} (still missing after {}s). The bgpcfgd->frrcfgd translation "
+              "did not carry them over -- extend "
+              "tests/common/helpers/frr/bgp_config_translation.py (and frrcfgd) to cover "
+              "them.".format(mode, dropped, _CONFIG_SETTLE_TIMEOUT))
 
 
 def _current_mode(duthost):
@@ -293,6 +336,17 @@ def frr_config_mode(request, duthosts, rand_one_dut_hostname):
     fixture asserts those neighbors re-establish and no config object was dropped, so
     a translation that loses config fails loudly instead of running with reduced
     coverage.
+
+    Scope caveat -- which DUT gets switched: this fixture switches the mode on
+    ``rand_one_dut_hostname``. Multi-DUT modules that act on a different DUT
+    (``enum_downstream_dut_hostname`` / ``enum_upstream_dut_hostname``, e.g.
+    test_bgp_suppress_fib) are therefore only meaningfully parametrized when those
+    resolve to the same host. They do on single-DUT single-ASIC topologies, and the
+    multi-DUT topologies in practice are multi-ASIC -- where the branch below runs the
+    DUT's native mode only and performs no switch. So the frr variant of such a module
+    either tests the switched DUT or does not switch at all; it never silently tests an
+    unswitched DUT while claiming frr coverage. Widening this to switch every DUT under
+    test would need per-DUT migrators and baselines.
 
     Skips (with a clear reason, rather than running something wrong):
       * multi-ASIC DUT (per-ASIC switching not supported yet);

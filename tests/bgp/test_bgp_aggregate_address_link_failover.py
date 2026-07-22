@@ -57,7 +57,7 @@ INTF_STATE_WAIT_TIMEOUT = 90
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_teardown(frr_config_mode, duthost):
+def setup_teardown(duthost):
     """Checkpoint before tests, rollback after.
 
     Link-failover tests shut down and restore DUT interfaces, which can leave
