@@ -131,12 +131,15 @@ def _ignore_route_sync_errlogs(duthosts, rand_one_dut_hostname, loganalyzer):
             # The test intentionally programs an overlapping BGP/VNET route for
             # the same prefix, so orchagent's bulk route create hits
             # SAI_STATUS_ITEM_ALREADY_EXISTS and the rest of the bulk returns
-            # SAI_STATUS_NOT_EXECUTED. Scope each ignore to the specific SAI
-            # status / route context so it cannot mask unrelated route failures.
-            ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*"
-            "status: SAI_STATUS_ITEM_ALREADY_EXISTS.*",
-            ".*ERR.* Encountered failure in create operation, SAI API: SAI_API_ROUTE,"
-            " status: SAI_STATUS_NOT_EXECUTED.*",
+            # SAI_STATUS_NOT_EXECUTED. Each ignore is scoped to the specific SAI
+            # status (where the log line carries one) and route context so it
+            # cannot mask unrelated route failures. The parenthesized two-line
+            # entries below are single regexes (intentional string
+            # concatenation), not separate list items.
+            (".*ERR.* flush_creating_entries: EntityBulker.flush create entries "
+             "failed.*status: SAI_STATUS_ITEM_ALREADY_EXISTS.*"),
+            (".*ERR.* Encountered failure in create operation, SAI API: "
+             "SAI_API_ROUTE, status: SAI_STATUS_NOT_EXECUTED.*"),
             ".*ERR.* addRoutePost: Failed to create route .* with next hop.*",
         ]
         # Ignore in KVM test
