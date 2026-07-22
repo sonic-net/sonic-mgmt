@@ -10,6 +10,8 @@ from tests.transceiver.attribute_parser.attribute_keys import (
 )
 from tests.common.platform.interface_utils import is_first_subport
 from tests.transceiver.common import cli_helpers
+from tests.transceiver.common.eeprom_decode import ModuleFamily, classify
+from tests.transceiver.eeprom import datapath
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +246,26 @@ def _run_per_port_eeprom_check(
     return all_failures
 
 
+def _validate_datapath_fields(port, port_attrs, cli_fields):
+    """Generic TC#4 step 4: dynamic DataPath fields, by module class.
+
+    (a) non-CMIS (per :func:`eeprom_decode.classify`) or a port with no CLI
+    output (already reported as "not detected") → skipped; (b) CMIS active
+    optical (``cmis_active_optical`` true) and (c) CMIS passive-copper/flat-memory
+    (false) are delegated to :func:`datapath.compare_datapath_fields`, which
+    enforces the per-class ``active_apsel_hostlane<n>`` expectation with
+    ``host_lane_count`` / ``media_lane_count`` matching ``BASE_ATTRIBUTES``.
+    """
+    eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
+    if not cli_fields:
+        return []  # not detected — already reported by _compare_eeprom_fields
+    if classify(eeprom_attrs) is not ModuleFamily.CMIS:
+        logger.debug("Port %s is non-CMIS, skipping DataPath step-4 check", port)
+        return []
+    active_optical = bool(eeprom_attrs.get("cmis_active_optical"))
+    return datapath.compare_datapath_fields(port_attrs, cli_fields, active_optical)
+
+
 def _run_bulk_eeprom_check(duthost, port_attributes_dict, source_label, key_mapping):
     """Bulk (all-sub-ports) check, used by the show-CLI variant.
 
@@ -279,9 +301,12 @@ def _run_bulk_eeprom_check(duthost, port_attributes_dict, source_label, key_mapp
         if not port_attrs:
             logger.debug("Port %s has no attributes, skipping", port)
             continue
+        cli_fields = parsed_by_port.get(port, {})
         port_failures = _compare_eeprom_fields(
-            port_attrs, parsed_by_port.get(port, {}), source_label, key_mapping,
+            port_attrs, cli_fields, source_label, key_mapping,
         )
+        # Generic TC#4 step 4: dynamic DataPath fields (by module class).
+        port_failures += _validate_datapath_fields(port, port_attrs, cli_fields)
         if port_failures:
             all_failures.append(port + ":\n  " + "\n  ".join(port_failures))
     return all_failures
@@ -332,7 +357,10 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
 
     Mirror of :func:`test_eeprom_content_verification_via_sfputil` for the SONiC
     ``show`` CLI variant.  This variant additionally verifies firmware versions
-    (``Active Firmware`` / ``Inactive Firmware``), which only this CLI reports.
+    (``Active Firmware`` / ``Inactive Firmware``), which only this CLI reports,
+    and the Generic TC#4 step-4 dynamic DataPath fields (``host_lane_count`` /
+    ``media_lane_count`` and per-host-lane ``active_apsel_hostlane<n>``) by module
+    class via :func:`_validate_datapath_fields`.
 
     Runs on ALL sub-ports (not just the first): ``show interfaces transceiver
     info`` reads STATE_DB ``TRANSCEIVER_INFO``, which xcvrd populates per logical
