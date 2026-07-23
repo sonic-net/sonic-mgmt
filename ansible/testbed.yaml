@@ -3884,15 +3884,16 @@
   comment: yatishkoul
   tb_owner: yatishkoul
 
-- conf-name: vms76-bmc-7220-1
-  group-name: vms76-3
+- conf-name: vms77-bmc-7220-1
+  group-name: vms77-3
   topo: bmc-dual-mgmt
+  ntp_server: 10.20.8.130
   ptf_image_name: docker-ptf
-  ptf: vms76-3
-  ptf_ip: 10.64.246.108/25
+  ptf: vms77-3
+  ptf_ip: 10.64.246.236/25
   ptf_ipv6:
-  server: server_76
-  vm_base: VM76010
+  server: server_str4_77
+  vm_base:
   dut:
   - str4-Nokia-7220-Th6p-1-bmc
   inv_name: str4
