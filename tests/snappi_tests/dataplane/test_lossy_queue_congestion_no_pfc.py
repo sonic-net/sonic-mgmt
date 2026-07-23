@@ -22,14 +22,8 @@ Reference test plan:
     docs/testplan/pfc_lossy_testplan.md  (Y04)
 """
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import (
-    get_duthost_interface_details,
-    create_snappi_config,
-    set_primary_chassis,
-    create_traffic_items,
-    start_stop,
-    get_stats,
-)  # noqa: F401, F403, F405, E402
+from snappi_tests.dataplane.files.helper import get_duthost_interface_details, create_snappi_config, \
+    set_primary_chassis, create_traffic_items, start_stop, get_stats  # noqa: F401, F403, F405, E402
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.common_helpers import (
     stop_pfcwd,
