@@ -317,6 +317,34 @@ def is_kvm_limitation(duthost, cli, stdout, stderr):
     return False
 
 
+def is_smartswitch_device(duthost):
+    """Return True when the DUT is a SmartSwitch (has DPU modules)."""
+    return bool(duthost.facts.get("is_smartswitch"))
+
+
+def is_non_smartswitch_limitation(duthost, cli, stdout, stderr):
+    """
+    Returns True for commands that are only relevant on SmartSwitch platforms
+    and are expected to fail on any non-SmartSwitch device.
+    """
+    if is_smartswitch_device(duthost):
+        return False
+
+    output = "{}\n{}".format(stdout or "", stderr or "")
+
+    non_smartswitch_limitations = [
+        {
+            "cli_prefix": "show system-health dpu",
+            "errors": ["module all not found", "module", "not found"],
+        },
+    ]
+
+    for rule in non_smartswitch_limitations:
+        if cli.startswith(rule["cli_prefix"]) and any(err in output for err in rule["errors"]):
+            return True
+    return False
+
+
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_show_cli_schema_and_safeguard(
     duthosts,
@@ -454,6 +482,12 @@ def test_telemetry_show_cli_schema_and_safeguard(
                     if is_kvm_limitation(duthost, cli, stdout, stderr):
                         logger.info(
                             "Tolerating expected VS/KVM limitation for CLI '%s'",
+                            cli,
+                        )
+                        continue
+                    if is_non_smartswitch_limitation(duthost, cli, stdout, stderr):
+                        logger.info(
+                            "Tolerating expected non-SmartSwitch limitation for CLI '%s'",
                             cli,
                         )
                         continue

@@ -1034,6 +1034,18 @@
     "validateSchema": false
   },
   {
+    "path": "show system-health dpu",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["dpu"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
     "path": "show ecn",
     "required_args": [],
     "optional_args": [],
