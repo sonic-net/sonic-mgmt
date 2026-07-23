@@ -72,6 +72,10 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
                 'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
                 'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
                 ])
+        # For lt2-o256-u32d224 topo, skip Ethernet1008/Ethernet1012 as these ports are not
+        # populated with transceivers by design on this testbed
+        elif tbinfo['topo']['name'] == "lt2-o256-u32d224":
+            intf_skip_list[dut.hostname].extend(['Ethernet1008', 'Ethernet1012'])
 
     return intf_skip_list
 
