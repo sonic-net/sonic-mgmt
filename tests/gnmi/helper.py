@@ -287,7 +287,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise Exception("py_gnmicli failed rc={}\nSTDOUT:\n{}\nSTDERR:\n{}".format(rc, stdout, stderr))
 
 
-def gnmi_get(duthost, ptfhost, path_list, ip=None):
+def gnmi_get(duthost, ptfhost, path_list, ip=None, target=None, origin="sonic-db"):
     """
     Send GNMI get request with GNMI client
 
@@ -295,6 +295,8 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None):
         duthost: fixture for duthost
         ptfhost: fixture for ptfhost
         path_list: list for get path
+        target: gNMI target (-xt), e.g. "OTHERS" for non-DB paths; omitted when None
+        origin: gNMI origin (-xo); defaults to "sonic-db", pass None to omit
 
     Returns:
         msg_list: list for get result
@@ -305,7 +307,10 @@ def gnmi_get(duthost, ptfhost, path_list, ip=None):
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
-    cmd += '-xo sonic-db '
+    if origin:
+        cmd += '-xo %s ' % origin
+    if target:
+        cmd += '-xt %s ' % target
     cmd += '-rcert /root/gnmiCA.pem '
     cmd += '-pkey /root/gnmiclient.key '
     cmd += '-cchain /root/gnmiclient.crt '
@@ -465,6 +470,25 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     msg = output['stdout'].replace('\\', '')
     return msg, output['stderr']
+
+
+def archive_gnmi_certs(duthost):
+    """Move the gnmi server/CA certs aside so the server has no certs."""
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    duthost.shell("mkdir -p {}".format(archive_dir))
+    for filename in duthost.shell("ls {}".format(path))['stdout_lines']:
+        if filename.startswith("gnmi") and filename.endswith((".crt", ".key", ".pem")):
+            duthost.shell("mv {} {}".format(path + filename, archive_dir))
+
+
+def unarchive_gnmi_certs(duthost):
+    """Restore the gnmi certs previously moved aside by archive_gnmi_certs."""
+    path = "/etc/sonic/telemetry/"
+    archive_dir = path + "old_certs"
+    for filename in duthost.shell("ls {}".format(archive_dir))['stdout_lines']:
+        duthost.shell("mv {}/{} {}".format(archive_dir, filename, path))
+    duthost.shell("rm -rf {}".format(archive_dir))
 
 
 def gnoi_reboot(duthost, method, delay, message):
