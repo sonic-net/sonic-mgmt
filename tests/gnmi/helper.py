@@ -384,6 +384,42 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count, ip=N
     return output['stdout'], output['stderr']
 
 
+def gnmi_subscribe_polling_py(duthost, ptfhost, path_list, target, polling_interval, update_count,
+                              max_sync_count, timeout, namespace=None, ip=None):
+    """
+    Send a POLL-mode GNMI subscribe request via py_gnmicli.
+
+    Unlike gnmi_subscribe_polling (gnmi_cli), this uses py_gnmicli so callers can
+    bound the run with max_sync_count / timeout and inspect the raw response
+    stream (sync_response, json_ietf_val, delete markers).
+
+    The DB is given via the target (-xt <target>[/<namespace>]) with table-relative
+    xpaths, not via a sonic-db origin with the DB in the path.
+
+    Returns the ptfhost.shell result dict (rc / stdout / stderr).
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = ip or duthost.mgmt_ip
+    port = env.gnmi_port
+    ns = "/{}".format(namespace) if namespace else ""
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-m subscribe '
+    # Quote each xpath so an escaped slash in a route prefix (e.g. 0.0.0.0\/0)
+    # survives the shell and reaches py_gnmicli as a single path element.
+    cmd += '-x %s ' % " ".join('"{}"'.format(p) for p in path_list)
+    cmd += '-xt %s%s ' % (target, ns)
+    cmd += '--subscribe_mode 2 '  # POLL
+    cmd += '--polling_interval %u ' % polling_interval
+    cmd += '--update_count %d ' % update_count
+    cmd += '--max_sync_count %d ' % max_sync_count
+    cmd += '--timeout %u' % timeout
+    return ptfhost.shell(cmd, module_ignore_errors=True)
+
+
 def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count, origin=None, target=None,
                                     ip=None):
     """
