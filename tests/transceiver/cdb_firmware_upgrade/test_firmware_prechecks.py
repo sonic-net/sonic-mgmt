@@ -9,13 +9,12 @@ import logging
 
 import pytest
 
-from tests.common.platform.interface_utils import (
-    get_physical_to_logical_port_mapping,
-    is_first_subport,
-)
 from tests.transceiver.attribute_parser.attribute_keys import (
     CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
-    EEPROM_ATTRIBUTES_KEY,
+)
+from tests.transceiver.cdb_firmware_upgrade.port_selection import (
+    get_qualifying_ports,
+    resolve_ports_under_test,
 )
 from tests.transceiver.common import cli_helpers
 
@@ -23,68 +22,6 @@ logger = logging.getLogger(__name__)
 
 ACTIVE_FIRMWARE_KEY = "Active Firmware"
 INACTIVE_FIRMWARE_KEY = "Inactive Firmware"
-
-
-def _resolve_ports_under_test(lport_to_pport, port_attributes_dict):
-    """Resolve the set of logical ports the check should run on.
-
-    ``ports_under_test`` is an optional DUT-level CDB attribute. When it is
-    absent or empty the check runs on every qualifying port. When it is
-    present the physical indices are mapped to their logical ports and only
-    those logical ports are returned.
-
-    Returns:
-        set[str] | None: the logical ports to test, or ``None``
-    """
-    if not port_attributes_dict:
-        return None
-    cdb_attrs = next(iter(port_attributes_dict.values())).get(
-        CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {}
-    )
-    ports_under_test = cdb_attrs.get("ports_under_test")
-    if not ports_under_test:
-        return None
-    ports_under_test = set(ports_under_test)
-    pport_to_lport_mapping = get_physical_to_logical_port_mapping(lport_to_pport)
-    resolved_ports = set()
-    for pindex in ports_under_test:
-        resolved_ports.update(pport_to_lport_mapping.get(pindex, []))
-    return resolved_ports
-
-
-def _get_qualifying_ports(port_attributes_dict, lport_to_first_subport, ports_under_test):
-    """Return the ``(port, port_attrs)`` pairs the checks should run on.
-
-    A port qualifies only when it has attributes, is the first breakout sub-port
-    of its group, and is a non-DAC CMIS module (``cmis_active_optical``).
-
-    Args:
-        port_attributes_dict: ``{port: {attr_block: {...}}}`` inventory map.
-        lport_to_first_subport: first-sub-port mapping fixture.
-        ports_under_test: set of logical ports to restrict to.
-
-    Returns:
-        list[tuple[str, dict]]: the qualifying ``(port, port_attrs)`` pairs.
-    """
-    qualifying_ports = []
-    for port, port_attrs in port_attributes_dict.items():
-        if not port_attrs:
-            logger.debug("Port %s has no attributes, skipping", port)
-            continue
-        if ports_under_test is not None and port not in ports_under_test:
-            logger.debug("Port %s is not in ports_under_test, skipping", port)
-            continue
-        if not is_first_subport(port, lport_to_first_subport):
-            logger.debug("Port %s is not the first breakout sub-port, skipping", port)
-            continue
-
-        eeprom_attrs = port_attrs.get(EEPROM_ATTRIBUTES_KEY, {})
-        if not eeprom_attrs.get("cmis_active_optical"):
-            logger.debug("Port %s: cmis_active_optical is not True, skipping", port)
-            continue
-
-        qualifying_ports.append((port, port_attrs))
-    return qualifying_ports
 
 
 def _run_per_port_check(duthost, port_attributes_dict, lport_to_first_subport, lport_to_pport, check_fn):
@@ -100,15 +37,17 @@ def _run_per_port_check(duthost, port_attributes_dict, lport_to_first_subport, l
             that appends a ``"<port>: <failure>"`` string to ``all_failures``.
 
     Returns:
-        list[str]: one ``"<port>: <failure>"`` entry per failure found.
+        tuple[list[str], int]: the per-port failure entries, and the number of
+        qualifying ports that were checked.
     """
-    ports_under_test = _resolve_ports_under_test(lport_to_pport, port_attributes_dict)
-    all_failures = []
-    for port, port_attrs in _get_qualifying_ports(
+    ports_under_test = resolve_ports_under_test(lport_to_pport, port_attributes_dict)
+    qualifying_ports = get_qualifying_ports(
         port_attributes_dict, lport_to_first_subport, ports_under_test
-    ):
-        check_fn(duthost, port, port_attrs, all_failures)
-    return all_failures
+    )
+    all_failures = []
+    for port in qualifying_ports:
+        check_fn(duthost, port, port_attributes_dict[port], all_failures)
+    return all_failures, len(qualifying_ports)
 
 
 def _check_firmware_versions(duthost, port, port_attrs, all_failures):
@@ -125,8 +64,13 @@ def _check_firmware_versions(duthost, port, port_attrs, all_failures):
     dual_bank_supported = cdb_attrs.get("dual_bank_supported", True)
     expected_inactive = cdb_attrs.get("inactive_firmware_version")
 
-    if not expected_active or (dual_bank_supported and not expected_inactive):
-        all_failures.append(f"{port}: mandatory attribute not defined")
+    if not expected_active:
+        all_failures.append(f"{port}: gold_firmware_version not defined")
+        return
+    if dual_bank_supported and not expected_inactive:
+        all_failures.append(
+            f"{port}: inactive_firmware_version not defined for dual-bank module"
+        )
         return
 
     parsed, err = cli_helpers.sfputil_show_fwversion(duthost, port)
@@ -181,7 +125,8 @@ def _check_abort_support(abort_support_map, lport_to_pport, port, port_attrs, al
 
 
 def test_firmware_versions(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
+    dom_polling_disabled,
 ):
     """Verify each CMIS active-optical module runs its gold firmware.
 
@@ -189,40 +134,45 @@ def test_firmware_versions(
     Inactive Firmware MUST equal ``inactive_firmware_version``.  A qualifying
     port with no configured ``gold_firmware_version`` fails the test.
 
-    Prerequisite: DOM monitoring must be disabled on the ports under test before
-    this runs.
+    DOM polling on the ports under test is disabled for the duration of the test
+    by the ``dom_polling_disabled`` fixture.
     """
-    all_failures = _run_per_port_check(
+    all_failures, num_ports = _run_per_port_check(
         duthost, port_attributes_dict, lport_to_first_subport_mapping,
         get_lport_to_pport_mapping, _check_firmware_versions,
     )
+    logger.info("Verified firmware version on %d port(s)", num_ports)
     if all_failures:
         pytest.fail("Firmware version verification failures:\n" + "\n".join(all_failures))
 
 
 def test_cdb_abort_support(
-    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping,
+    dom_polling_disabled,
 ):
     """Verify advertised CDB firmware-download abort capability.
 
-    Prerequisite: DOM monitoring must be disabled on the ports under test before
-    this runs.
+    DOM polling on the ports under test is disabled for the duration of the test
+    by the ``dom_polling_disabled`` fixture.
     """
     lport_to_pport = get_lport_to_pport_mapping
-    ports_under_test = _resolve_ports_under_test(lport_to_pport, port_attributes_dict)
-    qualifying_ports = _get_qualifying_ports(
+    ports_under_test = resolve_ports_under_test(lport_to_pport, port_attributes_dict)
+    qualifying_ports = get_qualifying_ports(
         port_attributes_dict, lport_to_first_subport_mapping, ports_under_test
     )
 
     physical_indices = []
-    for port, _ in qualifying_ports:
+    for port in qualifying_ports:
         physical_index = lport_to_pport.get(port)
         if physical_index is not None and physical_index not in physical_indices:
             physical_indices.append(physical_index)
     abort_support_map = cli_helpers.get_module_cdb_abort_support_map(duthost, physical_indices)
 
     all_failures = []
-    for port, port_attrs in qualifying_ports:
-        _check_abort_support(abort_support_map, lport_to_pport, port, port_attrs, all_failures)
+    for port in qualifying_ports:
+        _check_abort_support(
+            abort_support_map, lport_to_pport, port, port_attributes_dict[port], all_failures
+        )
+    logger.info("Verified CDB abort support on %d port(s)", len(qualifying_ports))
     if all_failures:
         pytest.fail("CDB firmware-download abort verification failures:\n" + "\n".join(all_failures))

@@ -65,6 +65,7 @@ SFPUTIL_SHOW_FWVERSION = "sfputil show fwversion"
 SFPUTIL_SHOW_PRESENCE = "sfputil show presence"
 SHOW_TRANSCEIVER_INFO = "show interfaces transceiver info"
 SHOW_TRANSCEIVER_PRESENCE = "show interfaces transceiver presence"
+CONFIG_INTERFACE_TRANSCEIVER_DOM = "config interface transceiver dom"
 
 # Max characters of stdout/stderr echoed into a failure message.  Some sfputil
 # errors dump the full 500+ port list, which would bury the failure summary in
@@ -348,6 +349,34 @@ def get_module_cdb_abort_support_map(duthost, physical_indices):
     for idx in indices:
         results.setdefault(idx, (None, f"no get_module_fw_mgmt_feature output for physical index {idx}"))
     return results
+
+
+def set_dom_polling(duthost, port, enable):
+    """Enable/disable DOM polling on ``port`` via the ``config`` CLI.
+
+    Runs ``config interface transceiver dom <port> (enable|disable)``.  The CLI
+    only accepts the first subport / non-breakout port.  Returns ``None`` on
+    success, or a short error string.
+    """
+    action = "enable" if enable else "disable"
+    cmd = f"{CONFIG_INTERFACE_TRANSCEIVER_DOM} {port} {action}"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return f"{cmd} failed with rc={result.get('rc')} ({_error_detail(result)})"
+    return None
+
+
+def get_dom_polling(duthost, port):
+    """Return the CONFIG_DB ``dom_polling`` value for ``port``.
+
+    ``"disabled"`` when DOM polling is off; ``""`` or ``"enabled"`` when on
+    (default is on).  Returns ``None`` if the value could not be read.
+    """
+    cmd = f'sonic-db-cli CONFIG_DB HGET "PORT|{port}" dom_polling'
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    if result.get("rc", RC_FAILURE) != 0:
+        return None
+    return (result.get("stdout") or "").strip()
 
 
 def show_interfaces_transceiver_info(duthost, port=None, namespace=None):

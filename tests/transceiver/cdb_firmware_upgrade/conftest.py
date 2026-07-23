@@ -1,7 +1,11 @@
 import logging
+import time
 
 import pytest
 
+from tests.transceiver.attribute_parser.attribute_keys import (
+    CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY,
+)
 from tests.transceiver.attribute_parser.paths import get_repo_root
 from tests.transceiver.cdb_firmware_upgrade.parser import TransceiverFirmwareInfoParser
 from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
@@ -12,6 +16,11 @@ from tests.transceiver.cdb_firmware_upgrade.utils.firmware_utils import (
     stage_prestaged_firmware_binaries,
     cleanup_firmware_files,
 )
+from tests.transceiver.cdb_firmware_upgrade.port_selection import (
+    get_qualifying_ports,
+    resolve_ports_under_test,
+)
+from tests.transceiver.common import cli_helpers
 
 CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT = "/tmp/cmis_cdb_firmware"
 CMIS_CDB_FIRMWARE_PRESTAGED_PATH_ON_DUT = "/host/cmis_cdb_firmware"
@@ -94,6 +103,48 @@ def stage_latest_firmware_binaries_on_dut(
             CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT
         )
     logger.info("All latest firmware staged to {}".format(CMIS_CDB_FIRMWARE_BASE_PATH_ON_DUT))
+
+
+@pytest.fixture
+def dom_polling_disabled(
+    duthost, port_attributes_dict, lport_to_first_subport_mapping, get_lport_to_pport_mapping
+):
+    """Disable DOM polling on the ports under test, restoring it on teardown.
+
+    Scope is intentionally function (the default): upcoming firmware-operation
+    tests re-validate DOM values after each test, which requires DOM to be
+    re-enabled between tests.  Function scope gives a per-test
+    disable -> yield -> re-enable cycle.
+    """
+    ports_under_test = resolve_ports_under_test(get_lport_to_pport_mapping, port_attributes_dict)
+    qualifying_ports = get_qualifying_ports(
+        port_attributes_dict, lport_to_first_subport_mapping, ports_under_test
+    )
+
+    sleep_sec = 0
+    disabled_ports = []
+    try:
+        for port in qualifying_ports:
+            cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
+            sleep_sec = cdb_attrs.get("sleep_after_dom_disable_sec", sleep_sec)
+            if cli_helpers.get_dom_polling(duthost, port) == "disabled":
+                logger.debug("Port %s: DOM polling already disabled", port)
+                continue
+            err = cli_helpers.set_dom_polling(duthost, port, enable=False)
+            if err:
+                pytest.fail(f"Failed to disable DOM polling: {err}")
+            disabled_ports.append(port)
+        if disabled_ports:
+            logger.info("Disabled DOM polling on %d port(s); waiting %ds", len(disabled_ports), sleep_sec)
+            time.sleep(sleep_sec)
+        yield
+    finally:
+        for port in disabled_ports:
+            err = cli_helpers.set_dom_polling(duthost, port, enable=True)
+            if err:
+                logger.warning("Failed to re-enable DOM polling on %s: %s", port, err)
+        if disabled_ports:
+            logger.info("Re-enabled DOM polling on %d port(s)", len(disabled_ports))
 
 
 @pytest.fixture(scope="module", autouse=True)
