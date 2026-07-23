@@ -80,6 +80,12 @@ REBOOT_POLL_INTERVAL = 30
 DPU_INSTALL_MARGIN_MB = 500
 # Minimum plausible initrd size (bytes); anything smaller means a corrupt image
 DPU_MIN_INITRD_BYTES = 1024 * 1024
+# Max wait for a chassis-module state transition to clear (startup/shutdown no-op while set)
+MODULE_TRANSITION_TIMEOUT = 300
+# Poll interval while waiting for a chassis-module transition to clear
+MODULE_TRANSITION_POLL_INTERVAL = 5
+# Grace period after shutdown for chassisd to register the transition before polling
+MODULE_TRANSITION_SETTLE = 10
 
 
 class UpgradeDpuSonicImageModule(object):
@@ -446,10 +452,42 @@ class UpgradeDpuSonicImageModule(object):
             if line.startswith("Current:") or line.startswith("Next:"):
                 self.log("[DPU{}] {}".format(dpu_index, line))
 
+    def is_module_transition_in_progress(self, dpu_index):
+        """Return True if the DPU chassis module has a state transition in progress."""
+        dpu_name = "DPU{}".format(dpu_index)
+        cmd = 'sonic-db-cli STATE_DB HGET "CHASSIS_MODULE_TABLE|{}" transition_in_progress'.format(dpu_name)
+        rc, out, err = self.module.run_command(cmd)
+        if rc != 0:
+            self.log("WARNING: [DPU{}] Failed to read transition_in_progress (rc={}): {}".format(
+                dpu_index, rc, err.strip()))
+            return False
+        return out.strip().lower() == "true"
+
+    def wait_for_module_transition_done(self, dpu_index, settle=0,
+                                        timeout=MODULE_TRANSITION_TIMEOUT):
+        """Wait until the DPU chassis-module state transition has cleared (True) or timeout (False)."""
+        if settle:
+            time.sleep(settle)
+        elapsed = 0
+        while elapsed < timeout:
+            if not self.is_module_transition_in_progress(dpu_index):
+                return True
+            time.sleep(MODULE_TRANSITION_POLL_INTERVAL)
+            elapsed += MODULE_TRANSITION_POLL_INTERVAL
+            if elapsed % 60 == 0:
+                self.log("[DPU{}] Still waiting for module transition to clear... {}s/{}s".format(
+                    dpu_index, elapsed, timeout))
+        self.log("WARNING: [DPU{}] Module state transition still in progress after {}s".format(
+            dpu_index, timeout))
+        return False
+
     def reboot_dpu(self, dpu_index):
         """Reboot DPU by shutting down and starting it via NPU chassis module commands."""
         dpu_name = "DPU{}".format(dpu_index)
         self.log("[DPU{}] Step: Rebooting via chassis module shutdown/startup".format(dpu_index))
+
+        # A prior transition must have cleared or the shutdown CLI is a no-op (rc=0).
+        self.wait_for_module_transition_done(dpu_index)
 
         with self._cli_lock:
             rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
@@ -458,14 +496,23 @@ class UpgradeDpuSonicImageModule(object):
                 dpu_index, rc, out.strip(), err.strip()))
             return False
 
-        self.log("[DPU{}] Shutdown issued, waiting 60s before startup".format(dpu_index))
-        time.sleep(60)
+        # Wait for the shutdown transition to clear (startup no-ops while a transition is in progress)
+        self.log("[DPU{}] Shutdown issued, waiting for module transition to clear".format(dpu_index))
+        if not self.wait_for_module_transition_done(dpu_index, settle=MODULE_TRANSITION_SETTLE):
+            self.log("WARNING: [DPU{}] Transition still in progress; startup may be ignored".format(
+                dpu_index))
 
         with self._cli_lock:
             rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] startup failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
+            return False
+
+        # startup returns rc=0 even when it no-ops mid-transition, so detect that here
+        if "transition is already in progress" in (out or "").lower():
+            self.log("WARNING: [DPU{}] startup ignored, transition still in progress: {}".format(
+                dpu_index, out.strip()))
             return False
 
         self.log("[DPU{}] Startup issued successfully".format(dpu_index))
