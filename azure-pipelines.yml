@@ -16,6 +16,7 @@ pr:
      include:
        - master
        - 202???
+       - merge-queue-test
    paths:
      exclude:
        - .github
@@ -25,7 +26,10 @@ pr:
        - SECURITY.md
        - sdn_tests/**
        - '**/*.md'
-trigger: none
+trigger:
+  branches:
+    include:
+      - gh-readonly-queue/*
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
