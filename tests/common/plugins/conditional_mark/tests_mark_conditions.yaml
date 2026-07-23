@@ -192,6 +192,7 @@ arp/test_arp_update.py::test_dut_arping_learns_mac:
 arp/test_arp_update.py::test_dut_ping_learns_mac:
   skip:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
@@ -631,6 +632,12 @@ bgp/test_bgp_vnet.py:
     reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+
+bgp/test_bgp_vnet_scale.py:
+  skip:
+    reason: "VNET scale test is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
 
 bgp/test_bgpmon.py:
   skip:
@@ -6119,11 +6126,11 @@ vxlan/test_vxlan_underlay_ecmp.py:
 
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
-    reason: "test_vxlan_vnet_bgp_subintf requires INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC; not supported on cisco-8000 202511 image (orchagent validate fails). Skip only when both apply."
-    conditions_logical_operator: and
+    reason: "test_vxlan_vnet_bgp_subintf is not supported on dualtor topologies. Also not supported on cisco-8000 202511 image due to INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC orchagent validate failure."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000']"
-      - "release in ['202511']"
+      - "'dualtor' in topo_name"
+      - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
 
 #######################################
 #####           wan_lacp          #####

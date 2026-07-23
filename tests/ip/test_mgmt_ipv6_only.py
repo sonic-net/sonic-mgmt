@@ -104,6 +104,7 @@ def log_dut_tacacs(duthost, ptfhost):
         logging.debug(f"forced_mgmt_routes: {forced_mgmt_rte}, interface address: {intf_values[2]}")
 
 
+@pytest.mark.enable_monit_refresh
 def test_bgp_facts_ipv6_only(duthosts_ipv6_mgmt_only):  # noqa: F411, F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts_ipv6_mgmt_only)
@@ -247,7 +248,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
             if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
                 port = "Ethernet1"
             cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
-                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
+                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"  # noqa: E231
 
             show_gnmi_out = dut.shell(cmd)['stdout']
             result = str(show_gnmi_out)
