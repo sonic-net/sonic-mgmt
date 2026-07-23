@@ -44,6 +44,7 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16',
+                         'Mellanox-SN5640-C508O1X2',
                          "Mellanox-SN6600_LD-P64O128C2", "Mellanox-SN6600_LD-P128C2"})
 
 
@@ -1113,7 +1114,7 @@ class GenerateGoldenConfigDBModule(object):
         is handled separately by override_port_table_from_platform().
         """
         SUPPORTED_TOPO = ["ft2-64", "ft2-16", "lt2-p32o64", "lt2-o128", "lt2-o128-d110u14",
-                          "ft2-o128", "lt2-o256-u32d224"]
+                          "ft2-o128", "lt2-o256-u32d224", "lt2-u32d128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]

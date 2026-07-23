@@ -206,6 +206,7 @@ arp/test_arp_update.py::test_dut_arping_learns_mac:
 arp/test_arp_update.py::test_dut_ping_learns_mac:
   skip:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
@@ -627,9 +628,20 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
 
 bgp/test_bgp_suppress_fib.py:
   skip:
-    reason: "Not supported before release 202411."
+    reason: "(1) Not supported before release 202411.
+             (2) suppress-fib dynamic-toggle offload/propagation race: the module toggles
+             suppress-fib-pending dynamically at runtime, causing an orchagent/fpmsyncd/FRR race
+             where routes are intermittently not offloaded in FRR / not propagated to the upstream VM.
+             The product fix that makes suppress-fib static (sonic-swss#4333 + sonic-mgmt#22916) is
+             merging to master only and is not backported. Therefore master auto-lifts once the fix
+             lands and the tracking issue is closed, while the release branches 202505/202511/202605
+             never receive the fix and stay skipped for the life of the branch.
+             Tracked by https://github.com/sonic-net/sonic-mgmt/issues/26175"
+    conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405']"
+      - "release in ['202505', '202511', '202605']"
+      - "release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/26175"
   xfail:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions_logical_operator: or
@@ -694,6 +706,12 @@ bgp/test_bgp_vnet.py:
     reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+
+bgp/test_bgp_vnet_scale.py:
+  skip:
+    reason: "VNET scale test is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
 
 bgp/test_bgpmon.py:
   skip:
@@ -958,6 +976,20 @@ dash/test_dash_eni_counter.py:
     reason: "Currently dash tests are not supported on KVM"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+
+dash/test_dash_eni_counter.py::TestEniCounter::test_inbound_pkt_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+
+dash/test_dash_eni_counter.py::TestEniCounter::test_outbound_pkt_pass_eni_counter:
+  regex: true
+  xfail:
+    reason: "SAI_ENI_STAT_FLOW_AGED does not increment within the counter poll window on the Nvidia Bluefield DPU (flows do not idle-age)"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_metering.py:
   skip:
@@ -1404,6 +1436,18 @@ dualtor/test_ipinip.py::test_encap_with_mirror_session:
      conditions:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_mux_port_iptables_entries.py::test_multivlan_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
+
+dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
 
 dualtor/test_orch_stress.py:
   skip:
@@ -2620,6 +2664,15 @@ generic_config_updater/add_cluster/test_port_speed_change.py:
       - "hwsku not in ['Nokia-IXR7250E-36x400G']"
       - "asic_type in ['vs']"
 
+generic_config_updater/add_cluster/test_port_speed_upgrade.py:
+  skip:
+    reason: "Port speed cluster upgrade test is supported only on T2 chassis-packet testbeds with Cisco 8000 LC hwsku"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_type != 't2'"
+      - "switch_type != 'chassis-packet'"
+      - "hwsku not in ['x86_64-88_lc0_36fh-r0']"
+
 generic_config_updater/test_apply_patch_perf.py:
   xfail:
     reason: "This test has been failing since https://github.com/sonic-net/sonic-buildimage/pull/26584, awaiting feature owner to triage, tracked by https://github.com/sonic-net/sonic-mgmt/issues/24984"
@@ -2635,9 +2688,9 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
       - "'isolated' in topo_name"
   xfail:
-    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-mgmt/issues/25549"
+    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-buildimage/issues/27818"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/25549"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27818"
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
@@ -2651,6 +2704,18 @@ generic_config_updater/test_cacl:
     conditions:
       - "asic_type in ['cisco-8000']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
+
+generic_config_updater/test_cacl.py::test_cacl_application_nondualtor:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
+
+generic_config_updater/test_cacl.py::test_cacl_tc1_acl_table_suite:
+  xfail:
+    reason: "xfail due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/27584"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27584"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -4233,10 +4298,6 @@ platform_tests/test_reload_config.py::test_reload_configuration:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24543 and asic_type in ['mellanox'] and 'sn4280' in platform"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo or smartswitch platform"
     conditions_logical_operator: or
@@ -4366,7 +4427,7 @@ qos/test_qos_dscp_mapping.py:
     reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly. / Test does not apply to topos with no T2 uplinks (t1-isolated-d32, t1-isolated-d128)"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "asic_type in ['vs']"
       - "topo_name in ['t1-isolated-d32', 't1-isolated-d128']"
 
@@ -4524,10 +4585,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDscpToPgMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrr:
   skip:
-    reason: "Skip DWRR test on Cisco G200 platform."
+    reason: "Skip DWRR test on Cisco G200/G200X platform."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
   skip:
@@ -4537,7 +4598,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
       - "asic_type in ['mellanox']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
-      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8122_')"
+      - "asic_type in ['cisco-8000'] and platform.startswith(constants['CISCO_8122_PREFIX'])"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
   skip:
@@ -4579,7 +4640,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4588,7 +4650,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4597,7 +4660,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_') or platform.startswith('x86_64-8223_')"
+      # OQ ASICs (GR2/GR2X/P200) lack VOQs - skip VOQ-specific tests
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX']) or platform.startswith('x86_64-8223_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4606,7 +4670,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPGDrop:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4616,7 +4680,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
-      - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
+      # GR2/GR2X (x86_64-8122*) are the supported Cisco platforms for this test
+      - "asic_type in ['cisco-8000'] and not platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4646,7 +4711,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['cisco-8000'] or platform.startswith('x86_64-8122_')"
+      - "asic_type not in ['cisco-8000'] or platform.startswith(constants['CISCO_8122_PREFIX'])"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
 
@@ -4943,9 +5008,11 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 
 route/test_static_route.py::test_static_route_ecmp_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor topology"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "topo_type in ['m0', 'm1', 'mx']"
 
 route/test_static_route.py::test_static_route_ipv6:
   xfail:
@@ -4955,15 +5022,19 @@ route/test_static_route.py::test_static_route_ipv6:
 
 route/test_static_route.py::test_static_route_ipv6_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor topology"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "topo_type in ['m0', 'm1', 'mx']"
 
 route/test_static_route.py::test_static_route_warmboot:
   skip:
-    reason: "Warm reboot is not supported on dualtor topology"
+    reason: "Warm reboot is not supported on dualtor, m0, m1, or mx topologies"
+    conditions_logical_operator: OR
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "topo_type in ['m0', 'm1', 'mx']"
 
 #######################################
 #####           sai_qualify       #####
@@ -5682,6 +5753,24 @@ tests/ha/test_ha_bfd_pin.py:
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
 
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Primary Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_bfd_pin.py::test_ha_bfd_pin[Standby Traffic-Both Sides Pinned]:
+  xfail:
+    reason: "Test scenario does not apply to NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
+tests/ha/test_ha_eni_out_of_order.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
+
 tests/ha/test_ha_npu_process_crash.py::TestNpuProcessCrash::test_crash_active_npu_traffic_on_active[bgp]:
   skip:
     reason: "BGP process crash is only tested when HA owner is 'dpu'; skip on switch-owner SmartSwitch"
@@ -5711,6 +5800,12 @@ tests/ha/test_ha_repairing_dpu.py:
     reason: "HA repairing DPU test is expected to fail on Cisco 8102 SmartSwitch with SONiC 202511"
     conditions:
       - "is_smartswitch == True and platform in ['x86_64-8102_28fh_dpu_o-r0'] and branch in ['202511', 'internal-202511']"
+
+tests/ha/test_ha_split_brain.py:
+  skip:
+    reason: "Test scenario does not apply to NPU-driven NVIDIA SmartSwitch"
+    conditions:
+      - "hwsku in ['Mellanox-SN4280-O28', 'Mellanox-SN4280-O8C40']"
 
 #######################################
 #####         upgrade_path        #####
@@ -6190,11 +6285,11 @@ vxlan/test_vxlan_underlay_ecmp.py:
 
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
-    reason: "test_vxlan_vnet_bgp_subintf requires INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC; not supported on cisco-8000 202511 image (orchagent validate fails). Skip only when both apply."
-    conditions_logical_operator: and
+    reason: "test_vxlan_vnet_bgp_subintf is not supported on dualtor topologies. Also not supported on cisco-8000 202511 image due to INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC orchagent validate failure."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000']"
-      - "release in ['202511']"
+      - "'dualtor' in topo_name"
+      - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
 
 #######################################
 #####            wan              #####

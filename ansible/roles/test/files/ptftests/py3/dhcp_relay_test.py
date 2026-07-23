@@ -205,10 +205,16 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 2
         #  Byte 1: Length of suboption data in bytes
         #  Bytes 2+: Suboption data
-        # Our remote_id string simply consists of the MAC address of the port that received the request
-        remote_id_string = self.relay_iface_mac
+        # SONiC dual-ToR uses the switch base MAC; other paths use the receiving VLAN interface MAC.
+        remote_id_string = (
+            self.uplink_mac
+            if self.dual_tor and self.relay_agent == "sonic-relay-agent"
+            else self.relay_iface_mac
+        )
         self.option82 += struct.pack('BB', self.REMOTE_ID_SUBOPTION, len(remote_id_string))
         self.option82 += remote_id_string.encode('utf-8')
+
+        link_selection_added = False  # set below; dual-tor block skips SubOption 5 if set
 
         if self.relay_agent == "sonic-relay-agent":
             # Structure:
@@ -219,6 +225,7 @@ class DHCPTest(DataplaneBaseTest):
                 link_selection_ip = bytes(list(map(int, self.link_selection_ip.split('.'))))
                 self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
                 self.option82 += link_selection_ip
+                link_selection_added = True
 
             # The structure is as follows:
             #  Byte 0: Suboption number, always set to 11
@@ -246,11 +253,14 @@ class DHCPTest(DataplaneBaseTest):
         #  Byte 0: Suboption number, always set to 5
         #  Byte 1: Length of suboption data in bytes, always set to 4 (ipv4 addr has 4 bytes)
         #  Bytes 2+: vlan ip addr
-        if self.dual_tor:
+        # Relay emits link-selection (SubOption 5) once; skip this legacy dual-tor
+        # copy if the block above already added it (see commit msg).
+        if self.dual_tor and not link_selection_added:
             link_selection = bytes(
                 list(map(int, self.relay_iface_ip.split('.'))))
             self.option82 += struct.pack('BB', self.LINK_SELECTION_SUBOPTION, 4)
             self.option82 += link_selection
+            link_selection_added = True
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
         self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
@@ -810,7 +820,7 @@ class DHCPTest(DataplaneBaseTest):
                           dhcp_lease=self.LEASE_TIME,
                           padding_bytes=0,
                           set_broadcast_bit=True)
-        if (self.link_selection and self.source_interface):
+        if (self.link_selection and self.source_interface) or self.dual_tor:
             dhcp_ack_packet[scapy.DHCP].options.insert(
                 dhcp_ack_packet[scapy.DHCP].options.index("end"),
                 (82, self.option82)
