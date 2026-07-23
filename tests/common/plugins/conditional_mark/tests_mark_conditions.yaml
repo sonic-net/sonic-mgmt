@@ -4485,8 +4485,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
   skip:
     reason: "Unsupported testbed type"
+    conditions_logical_operator: and
     conditions:
       - "platform not in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "asic_gen not in ['q3d']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
