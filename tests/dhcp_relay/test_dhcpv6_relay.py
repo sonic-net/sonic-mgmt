@@ -1,9 +1,12 @@
 import ipaddress
 import pytest
 import random
+import sys
 import time
 import netaddr
 import logging
+
+from _pytest.outcomes import OutcomeException
 
 from tests.common.dhcp_relay_utils import restart_dhcp_service, wait_dhcp_relay_ready
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -250,16 +253,45 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     new_vlan_id = 4001
     new_vlan_ipv6 = "fc01:5000::1/64"
+    vlan_created = False
+    vlan_ipv6_assigned = False
+
+    def restore_no_servers_vlan():
+        first_cleanup_error = None
+
+        def cleanup_step(step_name, callback):
+            nonlocal first_cleanup_error
+            try:
+                callback()
+            except (Exception, OutcomeException) as cleanup_error:
+                logger.exception("DHCPv6 no-server VLAN cleanup step '%s' failed", step_name)
+                if first_cleanup_error is None:
+                    first_cleanup_error = cleanup_error
+
+        if vlan_ipv6_assigned:
+            cleanup_step('remove Vlan{} IPv6 address'.format(new_vlan_id),
+                         lambda: duthost.shell(
+                             "sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6)))
+        if vlan_created:
+            cleanup_step('delete Vlan{}'.format(new_vlan_id),
+                         lambda: duthost.shell("sudo config vlan del {}".format(new_vlan_id)))
+        cleanup_step('restore DHCPv6 relay readiness',
+                     lambda: restart_dhcp_service(duthost, ['v6']))
+        return first_cleanup_error
+
     try:
         duthost.shell("sudo config vlan add {}".format(new_vlan_id))
+        vlan_created = True
         duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
+        vlan_ipv6_assigned = True
         restart_dhcp_service(duthost, ['v6'])
 
         yield new_vlan_id
     finally:
-        duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-        duthost.shell("sudo config vlan del {}".format(new_vlan_id))
-        restart_dhcp_service(duthost, ['v6'])
+        original_error = sys.exc_info()[1]
+        cleanup_error = restore_no_servers_vlan()
+        if cleanup_error is not None and original_error is None:
+            raise cleanup_error
 
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
@@ -493,9 +525,29 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     testing_mode, duthost = testing_config
 
     for dhcp_relay in dut_dhcp_relay_data:
+        uplink_interfaces = dhcp_relay['uplink_interfaces']
+
+        def restore_uplinks():
+            first_cleanup_error = None
+
+            def cleanup_step(step_name, callback):
+                nonlocal first_cleanup_error
+                try:
+                    callback()
+                except (Exception, OutcomeException) as cleanup_error:
+                    logger.exception("DHCPv6 relay uplink cleanup step '%s' failed", step_name)
+                    if first_cleanup_error is None:
+                        first_cleanup_error = cleanup_error
+
+            for iface in uplink_interfaces:
+                cleanup_step('start {}'.format(iface),
+                             lambda iface=iface: duthost.shell('ifconfig {} up'.format(iface)))
+            cleanup_step('wait for BGP recovery', lambda: wait_all_bgp_up(duthost))
+            return first_cleanup_error
+
         try:
             # Bring all uplink interfaces down
-            for iface in dhcp_relay['uplink_interfaces']:
+            for iface in uplink_interfaces:
                 duthost.shell('ifconfig {} down'.format(iface))
 
             # Sleep a bit to ensure uplinks are down
@@ -503,12 +555,10 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
             restart_dhcp_service(duthost, ['v6'])
         finally:
-            # Restore all uplinks even if restarting the relay fails.
-            for iface in dhcp_relay['uplink_interfaces']:
-                duthost.shell('ifconfig {} up'.format(iface))
-
-            # Wait for the restored uplinks to be usable before continuing.
-            wait_all_bgp_up(duthost)
+            original_error = sys.exc_info()[1]
+            cleanup_error = restore_uplinks()
+            if cleanup_error is not None and original_error is None:
+                raise cleanup_error
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
