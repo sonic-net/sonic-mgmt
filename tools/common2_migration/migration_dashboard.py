@@ -139,7 +139,6 @@ class ModuleTask:
     num_classes: int
     typed_ratio: float
     documented_ratio: float
-    has_common2_unit_tests: bool
     # --- Dependency information (what this module needs) ---
     # Other tests/common modules this module imports directly. Migrating this
     # module cleanly means these must also be migrated (or bridged).
@@ -261,16 +260,6 @@ def resolve_domain(rel_path: str) -> str:
         if keyword in lowered:
             return domain
     return DEFAULT_DOMAIN
-
-
-def module_has_common2_unit_tests(module_dotted: str, common2_unit_test_modules: Set[str]) -> bool:
-    """Return True when a source module has a matching common2 unit-test module."""
-    candidates = {module_dotted}
-    if module_dotted.startswith("tests.common."):
-        candidates.add("tests.common2." + module_dotted[len("tests.common."):])
-    elif module_dotted.startswith("tests.common"):
-        candidates.add(module_dotted.replace("tests.common", "tests.common2", 1))
-    return any(candidate in common2_unit_test_modules for candidate in candidates)
 
 
 # ---------------------------------------------------------------------------
@@ -419,13 +408,12 @@ def compute_module_score(task: ModuleTask) -> float:
     """Weighted effort score. Higher == more work / higher risk.
 
     Module score formula:
-      score = volume + blast + coupling + quality_gap + unit_gap
+      score = volume + blast + coupling + quality_gap
 
       volume = LOC / 40 + (functions + classes) * 1.5
       blast = direct_impacted_tests * 1.2
       coupling = direct_common_deps * 2.0 + transitive_common_deps * 0.3
       quality_gap = (1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0
-      unit_gap = 0.0 if common2 unit tests exist else 4.0
 
     The result is rounded to two decimals.
     """
@@ -435,8 +423,7 @@ def compute_module_score(task: ModuleTask) -> float:
     transitive_dep_count = max(0, len(task.depends_on_transitive) - direct_dep_count)
     coupling = direct_dep_count * 2.0 + transitive_dep_count * 0.3
     quality_gap = (1.0 - task.typed_ratio) * 6.0 + (1.0 - task.documented_ratio) * 3.0
-    unit_gap = 0.0 if task.has_common2_unit_tests else 4.0
-    return round(volume + blast + coupling + quality_gap + unit_gap, 2)
+    return round(volume + blast + coupling + quality_gap, 2)
 
 
 def compute_symbol_score(symbol: Symbol) -> float:
@@ -484,7 +471,6 @@ def analyze_module(
     abs_path: str,
     repo_root: str,
     graph: ImpactGraph,
-    common2_unit_test_modules: Set[str],
 ) -> Optional[ModuleTask]:
     """Build a :class:`ModuleTask` for one candidate source module."""
     rel = os.path.relpath(abs_path, repo_root).replace(os.sep, "/")
@@ -630,9 +616,6 @@ def analyze_module(
         num_classes=sum(1 for s in symbols if s.kind == "class"),
         typed_ratio=typed_ratio,
         documented_ratio=documented_ratio,
-        has_common2_unit_tests=module_has_common2_unit_tests(
-            common2_dotted, common2_unit_test_modules
-        ),
         depends_on_direct=depends_on_direct,
         depends_on_transitive=depends_on_transitive,
         symbols=symbols,
@@ -738,7 +721,6 @@ def print_dashboard(
             f"{len(task.depends_on_direct):>4}  {task.loc:>5}  "
             f"{task.num_functions + task.num_classes:>3}  "
             f"{int(task.typed_ratio * 100):>5}%  "
-            f"{'Y' if task.has_common2_unit_tests else 'N':>3}  "
             f"{module_disp:<38}  {task.domain}"
         )
     if top is not None and len(ordered) > top:
@@ -754,8 +736,7 @@ def print_dashboard(
         print(f"[Rank {task.rank} | Tier {task.tier} | Score {task.score}] {task.rel_path}")
         print(f"    Proposed target : {task.target_path}")
         print(f"    Type-hint cover : {_bar(task.typed_ratio)} {int(task.typed_ratio * 100)}%   "
-              f"Docstrings: {int(task.documented_ratio * 100)}%   "
-              f"Unit tests in common2: {'yes' if task.has_common2_unit_tests else 'no'}")
+              f"Docstrings: {int(task.documented_ratio * 100)}%")
 
         # Full dependency impact (concrete lists, not a qualitative flag).
         print("    DEPENDS ON (migrate/bridge these too):")
@@ -909,7 +890,6 @@ def build_markdown_lines(
         lines.append(f"- **Direct tests:** {len(task.impacted_tests)}")
         lines.append(f"- **Transitive tests:** {len(task.impacted_tests_transitive)}")
         lines.append(f"- **Common dependencies:** {len(task.depends_on_direct)}")
-        lines.append(f"- **Common2 unit tests present:** {'Yes' if task.has_common2_unit_tests else 'No'}")
         lines.append("")
 
         deps = task.depends_on_direct or []
@@ -1012,12 +992,11 @@ def build_yaml_lines(tasks: List[ModuleTask], max_tier: int) -> List[str]:
     lines.append("# common -> common2 Migration Dashboard")
     lines.append("#")
     lines.append("# Score formula")
-    lines.append("#   Module score = volume + blast + coupling + quality_gap + unit_gap")
+    lines.append("#   Module score = volume + blast + coupling + quality_gap")
     lines.append("#   volume = LOC/40 + (functions+classes)*1.5")
     lines.append("#   blast = direct impacted tests * 1.2")
     lines.append("#   coupling = direct deps * 2.0 + transitive deps * 0.3")
     lines.append("#   quality_gap = (1 - typed_ratio) * 6.0 + (1 - documented_ratio) * 3.0")
-    lines.append("#   unit_gap = 0 if common2 unit tests exist else 4.0")
     lines.append("#")
     lines.append("#   Symbol score = volume + blast + quality_gap")
     lines.append("#   volume = LOC/25 + 1.0")
@@ -1098,9 +1077,6 @@ def build_yaml_lines(tasks: List[ModuleTask], max_tier: int) -> List[str]:
         lines.append(f"    num_classes: {task.num_classes}")
         lines.append(f"    typed_ratio: {task.typed_ratio:.2f}")
         lines.append(f"    documented_ratio: {task.documented_ratio:.2f}")
-        lines.append(
-            f"    has_common2_unit_tests: {_yaml_scalar(task.has_common2_unit_tests)}"
-        )
         _yaml_list(lines, "depends_on_direct", task.depends_on_direct, "    ")
         _yaml_list(lines, "depends_on_transitive", task.depends_on_transitive, "    ")
         _yaml_list(lines, "impacted_tests", task.impacted_tests, "    ")
@@ -1175,19 +1151,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"Computing impact against test tree: {args.tests_dir}")
     print()
 
-    # 1. Which common2 modules have unit tests (module dotted path form).
-    common2_unit_test_modules: Set[str] = set()
-    unit_tests_dir = os.path.join(common2_abs, "unit_tests")
-    if os.path.isdir(unit_tests_dir):
-        for abs_path in iter_python_files(unit_tests_dir):
-            rel = os.path.relpath(abs_path, common2_abs).replace(os.sep, "/")
-            # unit_tests/routing/bgp/unit_test_bgp_route_helper.py -> routing.bgp mirror
-            mirror = rel.replace("unit_tests/", "").rsplit("/", 1)[0]
-            common2_unit_test_modules.add("tests.common2." + mirror.replace("/", "."))
-
     _ = collect_common2_symbols(common2_abs)  # reserved for future soft-match hints
 
-    # 2. Reverse import index + module dependency graph for impact analysis.
+    # 1. Reverse import index + module dependency graph for impact analysis.
     import_index = build_import_index(tests_abs, repo_root)
     graph = build_impact_graph(import_index, common_abs, repo_root)
 
@@ -1201,7 +1167,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             abs_path,
             repo_root,
             graph,
-            common2_unit_test_modules,
         )
         if task is None:
             continue

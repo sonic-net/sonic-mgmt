@@ -55,13 +55,6 @@ def sample_function(x):
     assert not MODULE.is_pytest_fixture(func_node)
 
 
-def test_module_has_common2_unit_tests_matches_dotted_form():
-    assert MODULE.module_has_common2_unit_tests(
-        "tests.common.helpers.bgp",
-        {"tests.common2.helpers.bgp"},
-    )
-
-
 def test_analyze_module_counts_fixtures_in_module_size(tmp_path):
     repo_root = tmp_path / "repo"
     module_dir = repo_root / "tests" / "common" / "helpers"
@@ -90,7 +83,6 @@ class SampleClass:
         str(module_path),
         str(repo_root),
         MODULE.ImpactGraph(),
-        set(),
     )
 
     assert task is not None
@@ -110,12 +102,11 @@ def test_compute_module_score_avoids_double_counting_direct_dependencies():
         num_classes=0,
         typed_ratio=1.0,
         documented_ratio=1.0,
-        has_common2_unit_tests=False,
         depends_on_direct=["tests.common.helpers.alpha"],
         depends_on_transitive=["tests.common.helpers.alpha", "tests.common.helpers.beta"],
     )
 
-    assert MODULE.compute_module_score(task) == 8.8
+    assert MODULE.compute_module_score(task) == 4.8
 
 
 def test_build_json_does_not_emit_migrated_sections():
@@ -129,7 +120,6 @@ def test_build_json_does_not_emit_migrated_sections():
         num_classes=0,
         typed_ratio=1.0,
         documented_ratio=1.0,
-        has_common2_unit_tests=False,
         depends_on_direct=[],
         depends_on_transitive=[],
     )
