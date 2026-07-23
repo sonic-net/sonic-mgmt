@@ -231,13 +231,6 @@ def check_interface_status(duthost):
     return False
 
 
-def restart_dhcp_relay_and_check_dhcp6relay(duthost):
-    duthost.shell("sudo systemctl reset-failed dhcp_relay")
-    duthost.shell("sudo systemctl restart dhcp_relay")
-    wait_until(60, 3, 0, lambda: ("RUNNING" in duthost.shell("docker exec dhcp_relay supervisorctl status " +
-                                                             "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
-
-
 def ensure_client_reachability(duthost, vlan_name):
     """
     Ensure the DHCP client's link-local address is reachable from the relay agent.
@@ -259,13 +252,13 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     new_vlan_ipv6 = "fc01:5000::1/64"
     duthost.shell("sudo config vlan add {}".format(new_vlan_id))
     duthost.shell("sudo config interface ip add Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+    restart_dhcp_service(duthost, ['v6'])
 
     yield new_vlan_id
 
     duthost.shell("sudo config interface ip remove Vlan{} {}".format(new_vlan_id, new_vlan_ipv6))
     duthost.shell("sudo config vlan del {}".format(new_vlan_id))
-    restart_dhcp_relay_and_check_dhcp6relay(duthost)
+    restart_dhcp_service(duthost, ['v6'])
 
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
@@ -506,15 +499,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
         # Sleep a bit to ensure uplinks are down
         time.sleep(20)
 
-        # Restart DHCP relay service on DUT
-        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-        # reset-failed before restart service
-        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-        duthost.shell_cmds(cmds=cmds)
-
-        # Sleep to give the DHCP relay container time to start up and
-        # allow the relay agent to begin listening on the down interfaces
-        time.sleep(40)
+        restart_dhcp_service(duthost, ['v6'])
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
