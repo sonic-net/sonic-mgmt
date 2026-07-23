@@ -50,7 +50,10 @@ Options:
       required: False
       Default: 50
     - option-name: max_parallel_dpus
-      description: Maximum number of DPUs to upgrade concurrently (-1 = all in parallel, 1 = sequential)
+      description: >-
+        Maximum number of DPUs to upgrade concurrently. -1 (default) upgrades all
+        targeted DPUs in parallel; a positive integer caps concurrency (1 = sequential).
+        0 and values less than -1 are rejected.
       required: False
       Default: -1
 '''
@@ -110,6 +113,11 @@ class UpgradeDpuSonicImageModule(object):
         self.target_dpu_index = self.module.params['target_dpu_index']
         self.disk_used_pcent = self.module.params['disk_used_pcent']
         self.max_parallel_dpus = self.module.params['max_parallel_dpus']
+        if self.max_parallel_dpus == 0 or self.max_parallel_dpus < -1:
+            self.module.fail_json(
+                msg="Invalid max_parallel_dpus={}: use -1 to upgrade all DPUs in parallel "
+                    "or a positive integer to cap concurrency (1 = sequential)".format(
+                        self.max_parallel_dpus))
 
         self.log("Initializing: hostname={}, hwsku={}, image_url={}, target_dpu_index={}".format(
             self.hostname, self.hwsku, self.new_image_url, self.target_dpu_index))
@@ -128,7 +136,9 @@ class UpgradeDpuSonicImageModule(object):
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
         with self._log_lock:
             self.messages.append("{} {}".format(timestamp, msg))
-            logging.debug(msg)
+        # logging is thread-safe on its own, so keep it outside the lock to avoid
+        # serializing all threads on the frequent per-DPU log calls.
+        logging.debug(msg)
 
     def connect_to_dpu(self, dpu_ip):
         """Establish an SSH connection to the DPU with retry."""
