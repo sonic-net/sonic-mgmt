@@ -170,6 +170,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
     """find latest successful build id for a branch"""
 
+    # Branches with no sonic-buildimage builds fall back to master
+    if branch == "merge-queue-test" or branch.startswith("gh-readonly-queue/"):
+        branch = "master"
+
     if not pipeline_id:
         # 1 is Azure.sonic-buildimage
         # 2511 is Azure.sonic-buildimage-msft.PR
