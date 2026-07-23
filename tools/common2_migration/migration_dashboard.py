@@ -483,9 +483,6 @@ def analyze_module(
     dotted = to_dotted(rel)
     domain = resolve_domain(rel)
     target_path = "tests/common2/" + domain + "/" + os.path.basename(rel)
-    common2_dotted = "tests.common2." + domain.replace("/", ".")
-    if common2_dotted.endswith("."):
-        common2_dotted = common2_dotted.rstrip(".")
 
     symbols: List[Symbol] = []
     typed_values: List[float] = []
