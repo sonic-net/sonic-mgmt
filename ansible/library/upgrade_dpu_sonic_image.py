@@ -2,7 +2,10 @@
 
 import logging
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import paramiko
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
@@ -45,6 +48,10 @@ Options:
       description: Maximum disk used percentage threshold for cleanup
       required: False
       Default: 50
+    - option-name: max_parallel_dpus
+      description: Maximum number of DPUs to upgrade concurrently (-1 = all in parallel, 1 = sequential)
+      required: False
+      Default: -1
 '''
 
 config_module_logging("upgrade_dpu_sonic_image")
@@ -78,11 +85,17 @@ class UpgradeDpuSonicImageModule(object):
                 new_image_url=dict(type='str', required=True),
                 target_dpu_index=dict(type='int', required=False, default=-1),
                 disk_used_pcent=dict(type='int', required=False, default=50),
+                max_parallel_dpus=dict(type='int', required=False, default=-1),
             ),
             supports_check_mode=False
         )
 
         self.messages = []
+        # Locks for thread-safe parallel DPU upgrades: _log_lock guards the shared
+        # messages list; _cli_lock serializes NPU-side commands that touch shared
+        # state (chassis module config and the SSH known_hosts files).
+        self._log_lock = threading.Lock()
+        self._cli_lock = threading.Lock()
 
         self.hwsku = self.module.params['hwsku']
         self.hostname = self.module.params['hostname']
@@ -91,6 +104,7 @@ class UpgradeDpuSonicImageModule(object):
         self.new_image_url = self.module.params['new_image_url']
         self.target_dpu_index = self.module.params['target_dpu_index']
         self.disk_used_pcent = self.module.params['disk_used_pcent']
+        self.max_parallel_dpus = self.module.params['max_parallel_dpus']
 
         self.log("Initializing: hostname={}, hwsku={}, image_url={}, target_dpu_index={}".format(
             self.hostname, self.hwsku, self.new_image_url, self.target_dpu_index))
@@ -107,8 +121,9 @@ class UpgradeDpuSonicImageModule(object):
     def log(self, msg):
         """Log a timestamped message to both the messages list and the logging framework."""
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())
-        self.messages.append("{} {}".format(timestamp, msg))
-        logging.debug(msg)
+        with self._log_lock:
+            self.messages.append("{} {}".format(timestamp, msg))
+            logging.debug(msg)
 
     def connect_to_dpu(self, dpu_ip):
         """Establish an SSH connection to the DPU with retry."""
@@ -338,7 +353,8 @@ class UpgradeDpuSonicImageModule(object):
         dpu_name = "DPU{}".format(dpu_index)
         self.log("[DPU{}] Step: Rebooting via chassis module shutdown/startup".format(dpu_index))
 
-        rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
+        with self._cli_lock:
+            rc, out, err = self.module.run_command("config chassis modules shutdown {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] shutdown failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
@@ -347,7 +363,8 @@ class UpgradeDpuSonicImageModule(object):
         self.log("[DPU{}] Shutdown issued, waiting 60s before startup".format(dpu_index))
         time.sleep(60)
 
-        rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
+        with self._cli_lock:
+            rc, out, err = self.module.run_command("config chassis modules startup {}".format(dpu_name))
         if rc != 0:
             self.log("WARNING: [DPU{}] startup failed (rc={}): stdout={} stderr={}".format(
                 dpu_index, rc, out.strip(), err.strip()))
@@ -359,10 +376,11 @@ class UpgradeDpuSonicImageModule(object):
     def remove_known_host(self, dpu_ip):
         """Remove DPU entry from SSH known_hosts on the NPU after reboot."""
         self.log("Removing {} from SSH known_hosts for root and admin".format(dpu_ip))
-        self.module.run_command("ssh-keygen -R {}".format(dpu_ip))
-        self.module.run_command(
-            "sudo -u admin ssh-keygen -R {} -f /home/admin/.ssh/known_hosts".format(dpu_ip)
-        )
+        with self._cli_lock:
+            self.module.run_command("ssh-keygen -R {}".format(dpu_ip))
+            self.module.run_command(
+                "sudo -u admin ssh-keygen -R {} -f /home/admin/.ssh/known_hosts".format(dpu_ip)
+            )
 
     def wait_for_dpu_reboot(self, dpu_ip):
         """Wait for a DPU to become reachable again after reboot."""
@@ -491,6 +509,18 @@ class UpgradeDpuSonicImageModule(object):
             dpu_index, elapsed))
         return True
 
+    def _resolve_worker_count(self, num_dpus):
+        """Determine how many DPUs to upgrade concurrently.
+
+        max_parallel_dpus < 0 (default) upgrades all targeted DPUs in parallel; a
+        positive value caps concurrency; 1 restores fully sequential behavior.
+        """
+        if num_dpus <= 0:
+            return 1
+        if self.max_parallel_dpus is None or self.max_parallel_dpus < 0:
+            return num_dpus
+        return max(1, min(self.max_parallel_dpus, num_dpus))
+
     def upgrade_dpus(self):
         """Upgrade all targeted DPUs and return (success_count, failure_count)."""
         if self.target_dpu_index >= 0:
@@ -513,16 +543,30 @@ class UpgradeDpuSonicImageModule(object):
         self.log("===== DPU upgrade: {} DPU(s) to upgrade, {} required for success =====".format(
             total, required))
 
+        workers = self._resolve_worker_count(len(dpu_indices))
+        self.log("Upgrading {} DPU(s) with up to {} in parallel".format(total, workers))
+
         try:
-            for idx in dpu_indices:
-                if self.upgrade_single_dpu(idx):
-                    success_count += 1
-                    results_per_dpu[idx] = "SUCCESS"
-                else:
-                    failure_count += 1
-                    results_per_dpu[idx] = "FAILED"
-                self.log("Progress: {}/{} complete ({} succeeded, {} failed)".format(
-                    success_count + failure_count, total, success_count, failure_count))
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_idx = {
+                    executor.submit(self.upgrade_single_dpu, idx): idx
+                    for idx in dpu_indices
+                }
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        succeeded = future.result()
+                    except Exception as e:
+                        succeeded = False
+                        self.log("WARNING: [DPU{}] Exception during parallel upgrade: {}".format(idx, str(e)))
+                    if succeeded:
+                        success_count += 1
+                        results_per_dpu[idx] = "SUCCESS"
+                    else:
+                        failure_count += 1
+                        results_per_dpu[idx] = "FAILED"
+                    self.log("Progress: {}/{} complete ({} succeeded, {} failed)".format(
+                        success_count + failure_count, total, success_count, failure_count))
         finally:
             self.cleanup_npu_image()
 
