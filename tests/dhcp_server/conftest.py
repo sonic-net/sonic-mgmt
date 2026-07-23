@@ -37,6 +37,8 @@ def dhcp_server_setup_teardown(duthost):
         duthost.shell("config feature state dhcp_server disabled", module_ignore_errors=True)
         restart_dhcp_service(duthost, ['isc'])
         duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
+    else:
+        restart_dhcp_service(duthost, ['isc-internal'])
 
 
 @pytest.fixture(scope="function", autouse=True)
