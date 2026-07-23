@@ -168,12 +168,6 @@ copp/test_copp.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-crm/test_crm.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    - https://github.com/sonic-net/sonic-mgmt/issues/20256
-    reason: This test case takes too much time on virtual chassis
 decap/test_decap.py:
   skip:
     conditions:
