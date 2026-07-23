@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       maxTier:
-        description: "Number of difficulty tiers (produces tiers 1..maxTier+1)."
+        description: "Number of difficulty tiers (produces tiers 1..maxTier)."
         required: false
         default: "5"
         type: string
