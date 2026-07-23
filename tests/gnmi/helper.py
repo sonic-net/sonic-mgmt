@@ -467,6 +467,31 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=Non
     return msg, output['stderr']
 
 
+def gnmi_subscribe_stream_connections(duthost, ptfhost, path_list, target, create_connections,
+                                      update_count, namespace=None, ip=None):
+    """
+    STREAM subscribe via py_gnmicli opening create_connections channels, used to
+    exercise the gnmi server's channel handling.
+
+    Returns the ptfhost.shell result dict (rc / stdout / stderr).
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    ip = ip or duthost.mgmt_ip
+    port = env.gnmi_port
+    ns = "/{}".format(namespace) if namespace else ""
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-rcert /root/gnmiCA.pem '
+    cmd += '-pkey /root/gnmiclient.key '
+    cmd += '-cchain /root/gnmiclient.crt '
+    cmd += '-m subscribe '
+    cmd += '-x %s ' % " ".join('"{}"'.format(p) for p in path_list)
+    cmd += '-xt %s%s ' % (target, ns)
+    cmd += '--subscribe_mode 0 --submode 2 '  # STREAM / SAMPLE
+    cmd += '--create_connections %d --update_count %d' % (create_connections, update_count)
+    return ptfhost.shell(cmd, module_ignore_errors=True)
+
+
 def gnoi_reboot(duthost, method, delay, message):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
