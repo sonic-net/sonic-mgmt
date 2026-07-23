@@ -579,7 +579,7 @@ def analyze_module(
                     text = ""
                 consumer_text_cache[consumer_rel] = text
 
-            if sym.name in text:
+            if re.search(rf"\b{re.escape(sym.name)}\b", text or ""):
                 sym_tests.append(consumer_rel)
                 continue
 
@@ -699,7 +699,7 @@ def print_dashboard(
 
     header = (
         f"{'Rank':>4}  {'Tier':>4}  {'Score':>7}  {'Tests':>5}  {'Tx':>4}  {'Deps':>4}  "
-        f"{'LOC':>5}  {'Fns':>3}  {'Typed':>6}  {'UT':>3}  {'Module':<38}  {'Target domain'}"
+        f"{'LOC':>5}  {'Fns':>3}  {'Typed':>6}  {'Module':<38}  {'Target domain'}"
     )
     print("Migration work queue (easiest first)")
     print("-" * 100)
@@ -1022,7 +1022,7 @@ def build_yaml_lines(tasks: List[ModuleTask], max_tier: int) -> List[str]:
     lines.append("#   score : raw weighted effort estimate (unbounded float, higher =")
     lines.append("#           more work). Derived from lines of code, number of")
     lines.append("#           functions/classes, impacted tests, coupling to other")
-    lines.append("#           common modules, and missing typing/docstrings/unit-tests.")
+    lines.append("#           common modules, and missing typing/docstrings.")
     lines.append("#")
     lines.append("# Each task also lists per-symbol (function/class) sub-tasks with")
     lines.append("# their own rank/tier/score so you can pick a single function instead")
