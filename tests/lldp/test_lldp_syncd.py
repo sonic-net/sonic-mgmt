@@ -165,8 +165,14 @@ def get_lldpctl_output(duthost):
 def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
-    # Deduplicate: in dualtor topology, uplink ports may have multiple
-    # LLDP neighbors (T1 switch + fanout), causing duplicate interface entries
+    # LLDP_ENTRY_TABLE only tracks front-panel Ethernet ports. `show lldp table`
+    # also lists the management interface (e.g. eth0) whenever the mgmt network
+    # has an LLDP-speaking neighbor, which would otherwise make the comparison
+    # against LLDP_ENTRY_TABLE flap, so drop non-front-panel interfaces here.
+    interface_list = [name for name in interface_list if name.startswith("Ethernet")]
+    # Deduplicate: in dualtor / physical fanout topologies, an uplink port may
+    # have multiple LLDP neighbors (T1 switch + fanout), causing duplicate
+    # interface entries.
     return list(dict.fromkeys(interface_list))
 
 
@@ -182,7 +188,8 @@ def check_lldp_table_keys(duthost, db_instance):
     # Check if LLDP_ENTRY_TABLE keys match show lldp table output
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    return set(lldp_entry_keys) == set(show_lldp_table_int_list)
+    db_front_panel = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
+    return db_front_panel == set(show_lldp_table_int_list)
 
 
 def _shutdown_startup_interface(duthost, interface, asic_str=""):
@@ -251,8 +258,14 @@ def assert_lldp_interfaces(
     """
     Assert that LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
     """
-    db_set = set(lldp_entry_keys)
-    cli_set = set(show_lldp_table_int_list)
+    # LLDP_ENTRY_TABLE only tracks front-panel Ethernet ports. The management
+    # interface (e.g. eth0) can show up in both `show lldp table` and lldpctl
+    # whenever the mgmt network has an LLDP-speaking neighbor, and it is not
+    # written to LLDP_ENTRY_TABLE by design. Scope every comparison to the set
+    # of front-panel Ethernet ports so a transient mgmt-port neighbor does not
+    # make the test flap.
+    db_set = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
+    cli_set = {name for name in show_lldp_table_int_list if name.startswith("Ethernet")}
     pytest_assert(
         db_set == cli_set,
         "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output. "
@@ -274,9 +287,23 @@ def assert_lldp_interfaces(
             "Unexpected type for lldpctl interfaces: {}".format(type(lldpctl_interface))
         )
 
+    # lldpctl reports LLDP on the management interface (e.g. eth0) and, on
+    # physical fanout testbeds, lists a front-panel port once per neighbor it
+    # sees (the emulated topology peer AND the physical fanout switch), so the
+    # same interface name can appear multiple times. LLDP_ENTRY_TABLE is keyed
+    # per front-panel interface (one entry per port), so compare the set of
+    # front-panel Ethernet ports rather than the raw, possibly-duplicated list.
+    lldpctl_front_panel_ports = {
+        name for name in lldpctl_interfaces if name.startswith("Ethernet")
+    }
+    db_port_set = {name for name in lldp_entry_keys if name.startswith("Ethernet")}
     pytest_assert(
-        sorted(lldp_entry_keys) == sorted(lldpctl_interfaces),
-        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes",
+        db_port_set == lldpctl_front_panel_ports,
+        "LLDP_ENTRY_TABLE keys do not match lldpctl interface indexes. "
+        "In DB but not in lldpctl: {}. In lldpctl but not in DB: {}".format(
+            db_port_set - lldpctl_front_panel_ports,
+            lldpctl_front_panel_ports - db_port_set,
+        ),
     )
 
 
@@ -391,14 +418,28 @@ def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interface
     wait_until(30, 1, 0, get_lldp_entry_content_with_retry)
 
     logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
+    # On physical fanout testbeds lldpctl can report more than one neighbor for
+    # the same front-panel port (the emulated topology peer AND the physical
+    # fanout switch). LLDP_ENTRY_TABLE stores a single neighbor per port, so
+    # pick the lldpctl entry whose chassis matches the neighbor system name the
+    # DB actually recorded; fall back to the first match for the single-neighbor
+    # case (or when the DB name is unavailable).
     lldpctl_interface = None
+    db_sys_name = entry_content.get("lldp_rem_sys_name") if isinstance(entry_content, dict) else None
     if isinstance(lldpctl_interfaces, dict):
         lldpctl_interface = lldpctl_interfaces.get(interface)
     elif isinstance(lldpctl_interfaces, list):
-        for iface in lldpctl_interfaces:
-            if list(iface.keys())[0].lower() == interface.lower():
-                lldpctl_interface = iface.get(list(iface.keys())[0])
+        matching_ifaces = [
+            iface.get(list(iface.keys())[0])
+            for iface in lldpctl_interfaces
+            if list(iface.keys())[0].lower() == interface.lower()
+        ]
+        for candidate in matching_ifaces:
+            if db_sys_name is not None and db_sys_name in candidate.get("chassis", {}):
+                lldpctl_interface = candidate
                 break
+        if lldpctl_interface is None and matching_ifaces:
+            lldpctl_interface = matching_ifaces[0]
     assert_lldp_entry_content(interface, entry_content, lldpctl_interface)
 
 
