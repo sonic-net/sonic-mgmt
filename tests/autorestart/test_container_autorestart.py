@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import get_disabled_container_list
+from tests.common.dhcp_relay_utils import restart_dhcp_service
 
 logger = logging.getLogger(__name__)
 
@@ -133,15 +134,7 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
             duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
-            duthost.shell("sudo systemctl restart %s.service" % DHCP_RELAY)
-            pytest_require(
-                wait_until(120, 1, 1,
-                           is_supervisor_program_running,
-                           duthost,
-                           DHCP_RELAY,
-                           "dhcp-relay:dhcprelayd"),
-                "dhcp-relay:dhcprelayd is not running"
-            )
+            restart_dhcp_service(duthost, ['isc-internal'])
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
@@ -149,10 +142,6 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
         config_reload(duthost, config_source='config_db', safe_reload=True, wait_for_bgp=True)
         if hostname in dhcp_server_hosts:
             duthost.shell("docker rm %s" % DHCP_SERVER, module_ignore_errors=True)
-
-
-def is_supervisor_program_running(duthost, container_name, program_name):
-    return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {program_name}")["stdout"]
 
 
 def enable_autorestart(duthost):
