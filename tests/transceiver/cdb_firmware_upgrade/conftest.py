@@ -126,7 +126,7 @@ def dom_polling_disabled(
     try:
         for port in qualifying_ports:
             cdb_attrs = port_attributes_dict[port].get(CDB_FIRMWARE_UPGRADE_ATTRIBUTES_KEY, {})
-            sleep_sec = cdb_attrs.get("sleep_after_dom_disable_sec", sleep_sec)
+            sleep_sec = max(sleep_sec, cdb_attrs.get("sleep_after_dom_disable_sec", 0))
             if cli_helpers.get_dom_polling(duthost, port) == "disabled":
                 logger.debug("Port %s: DOM polling already disabled", port)
                 continue
