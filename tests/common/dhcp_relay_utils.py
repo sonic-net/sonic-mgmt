@@ -563,7 +563,8 @@ def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
 
         if not succeeded:
             raise RuntimeError("Failed to determine dhcp_server feature state")
-        relay_type = 'isc-internal' if features_state.get('dhcp_server') == 'enabled' else 'isc'
+        relay_type = ('isc-internal' if features_state.get('dhcp_server') in ('enabled', 'always_enabled')
+                      else 'isc')
 
     if dhcpv4_config_flag:
         duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
