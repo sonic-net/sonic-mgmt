@@ -119,6 +119,11 @@ def single_container_timeout(container_name, timeout_secs=SINGLE_CONTAINER_TEST_
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tbinfo):
+    if tbinfo["topo"]["type"] == "mx":
+        pytest_require(
+            hasattr(dhcp_relay_utils, "get_dhcp_relay_type"),
+            "P6 requires #26525 to provide dhcp_relay_utils.get_dhcp_relay_type; merge #26525 first."
+        )
     dhcp_server_hosts = []
     # Enable autorestart for all features before the test begins
     for hostname in selected_rand_one_per_hwsku_hostname:
