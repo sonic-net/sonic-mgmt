@@ -183,21 +183,24 @@ def restart_bgp(duthost, tbinfo):
 def is_loopback_advertised_to_neighbor(duthost, asic_index, show_cmd, remote_ip, loopback_ip):
     """Return True if loopback_ip is advertised as a route (prefix) to remote_ip.
 
-    Matches the prefix with a trailing '/' (e.g. '10.1.0.1/') so it does not false-match:
-      - the 'local router ID is <loopback_ip>' header line, which matches a bare grep when the DUT
+    Runs the advertised-routes command directly and asserts it succeeded, so a vtysh/command failure
+    (e.g. neighbor not found) surfaces as an error instead of being silently read as "not advertised".
+    Then checks in Python for the prefix followed by '/' (e.g. '10.1.0.1/'). The trailing '/' means it
+    does not false-match:
+      - the 'local router ID is <loopback_ip>' header line, which contains loopback_ip when the DUT
         router-id equals its loopback IP (the default state, before bgp_router_id is customized), or
       - a longer prefix that merely starts with loopback_ip (e.g. loopback '10.1.0.1' vs an advertised
         '10.1.0.10/32', or an IPv6 '/64' network vs its '/128' host routes).
-    grep -F keeps '.' literal instead of treating it as a regex wildcard.
     """
-    prefix = "{}/".format(loopback_ip)
     cmd = get_vtysh_cmd_for_asic(
         duthost,
         asic_index,
         "vtysh -c \"{} {} advertised-routes\"".format(show_cmd, remote_ip)
     )
-    output = duthost.shell("{} | grep -F '{}'".format(cmd, prefix), module_ignore_errors=True)
-    return output["rc"] == 0 and prefix in output["stdout"]
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    pytest_assert(output["rc"] == 0,
+                  "Failed to get advertised-routes for neighbor {}: {}".format(remote_ip, output))
+    return "{}/".format(loopback_ip) in output["stdout"]
 
 
 def get_neighbor_loopback_advertised_map(duthost, asic_index, cfg_facts, loopback_ip, is_ipv6):
@@ -309,7 +312,7 @@ def test_bgp_router_id_set(duthosts, enum_frontend_dut_hostname, enum_frontend_a
     # current advertised/not-advertised state per neighbor against the baseline captured before the change.
     baseline_advertised_map = router_id_setup_and_teardown_ipv4
     if not baseline_advertised_map:
-        logger.warning("No IPv4 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ip))
+        pytest.skip("No IPv4 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ip))
     for remote_ip, was_advertised in baseline_advertised_map.items():
         is_advertised = is_loopback_advertised_to_neighbor(
             duthost, enum_frontend_asic_index, "show ip bgp neighbor", remote_ip, loopback_ip)
@@ -335,7 +338,7 @@ def test_bgp_router_id_set_ipv6(duthosts, enum_frontend_dut_hostname, enum_front
     # current advertised/not-advertised state per neighbor against the baseline captured before the change.
     baseline_advertised_map = router_id_setup_and_teardown_ipv6
     if not baseline_advertised_map:
-        logger.warning("No IPv6 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ipv6))
+        pytest.skip("No IPv6 BGP neighbor found to check Loopback {} advertisement.".format(loopback_ipv6))
     for remote_ip, was_advertised in baseline_advertised_map.items():
         is_advertised = is_loopback_advertised_to_neighbor(
             duthost, enum_frontend_asic_index, "show ipv6 bgp neighbor", remote_ip, loopback_ipv6)
