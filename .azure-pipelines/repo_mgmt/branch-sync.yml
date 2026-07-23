@@ -41,6 +41,26 @@ parameters:
         SOURCE_BRANCH: "202512"
         TARGET_BRANCH: "internal-202512"
         PUSH_BRANCH: "internal-202512"
+      MSFT_202603:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202603"
+        TARGET_BRANCH: "internal-202603"
+        PUSH_BRANCH: "internal-202603"
+      MSFT_202606:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202606"
+        TARGET_BRANCH: "internal-202606"
+        PUSH_BRANCH: "internal-202606"
+      MSFT_202607:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202607"
+        TARGET_BRANCH: "internal-202607"
+        PUSH_BRANCH: "internal-202607"
+      MSFT_202608:
+        SOURCE_REPO: "https://github.com/Azure/sonic-mgmt.msft.git"
+        SOURCE_BRANCH: "202608"
+        TARGET_BRANCH: "internal-202608"
+        PUSH_BRANCH: "internal-202608"
     displayName: "Branches to sync and merge"
 
 stages:
