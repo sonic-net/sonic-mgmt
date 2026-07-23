@@ -248,7 +248,7 @@ def test_telemetry_output_ipv6_only(request, duthosts_ipv6_mgmt_only, localhost,
             if dut.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
                 port = "Ethernet1"
             cmd = f"~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/{port} -target_addr \
-                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"
+                [{dut_ip}]:{env.gnmi_port} -logtostderr -insecure"  # noqa: E231
 
             show_gnmi_out = dut.shell(cmd)['stdout']
             result = str(show_gnmi_out)
