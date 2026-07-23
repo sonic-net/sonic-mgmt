@@ -34,15 +34,13 @@ import logging
 import re
 import time
 
-from tests.common.platform.interface_utils import (
-    get_lport_to_first_subport_mapping,
-    wait_ports_oper_status,
-)
+from tests.common.platform.interface_utils import wait_ports_oper_status
 from tests.transceiver.attribute_parser.attribute_keys import (
     EEPROM_ATTRIBUTES_KEY,
     SYSTEM_ATTRIBUTES_KEY,
 )
 from tests.transceiver.common import cli_helpers, db_helpers, health_checks
+from tests.transceiver.common.eeprom_decode import is_cmis_active_optical
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +72,18 @@ def resolve_namespace(duthost, port):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def wait_for_ports_oper_state(duthost, ports, expected_state, timeout_sec):
+def check_ports_oper_state(duthost, ports, expected_state, timeout_sec):
     """Poll until every port in ``ports`` reaches ``expected_state`` oper status.
 
-    Thin adapter over :func:`tests.common.platform.interface_utils.wait_ports_oper_status`
-    (one ``show interface description`` dump per poll cycle, via ``wait_until``,
-    checked against every port in ``ports``) so N ports share one polling
-    budget/dump instead of each port paying for its own serial
-    ``wait_ports_oper_status([port], ...)`` call.
+    Named/shaped like this module's other ``check_*`` steps (returns the same
+    ``{port: {'passed': bool, 'details': str}}`` contract that
+    :func:`standard_port_recovery_and_verification` aggregates across every
+    step) rather than after :func:`tests.common.platform.interface_utils.wait_ports_oper_status`,
+    which it wraps: that helper polls (one ``show interface description``
+    dump per cycle, via ``wait_until``) and returns a flat list of failure
+    strings, with no per-port pass/fail shape and no log line per port. This
+    function reuses that polling loop as-is and only adapts its output to the
+    shape every other step here already returns.
 
     Args:
         duthost: SONiC DUT host fixture.
@@ -114,13 +116,13 @@ def wait_for_ports_oper_state(duthost, ports, expected_state, timeout_sec):
     return per_port
 
 
-def wait_for_port_oper_state(duthost, port, expected_state, timeout_sec):
-    """Single-port convenience wrapper over :func:`wait_for_ports_oper_state`.
+def check_port_oper_state(duthost, port, expected_state, timeout_sec):
+    """Single-port convenience wrapper over :func:`check_ports_oper_state`.
 
     Returns:
         dict: ``{'passed': bool, 'details': str}``
     """
-    return wait_for_ports_oper_state(duthost, [port], expected_state, timeout_sec)[port]
+    return check_ports_oper_state(duthost, [port], expected_state, timeout_sec)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -520,32 +522,34 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _resolve_parent_port(duthost, port, shared_state):
+def _resolve_parent_port(port, lport_to_first_subport_mapping):
     """Return the parent (first sibling) of ``port`` in its breakout group.
 
-    Thin cached wrapper over the repo's shared
-    :func:`tests.common.platform.interface_utils.get_lport_to_first_subport_mapping`
-    (the same helper the ``lport_to_first_subport_mapping`` session fixture in
-    ``tests/transceiver/conftest.py`` uses), rather than a parallel
-    reimplementation of the same physical-port grouping. The mapping is cached
-    in ``shared_state`` so it is queried at most once per test.
+    ``lport_to_first_subport_mapping`` is the value of the session-scoped
+    fixture of the same name (``tests/transceiver/conftest.py``), resolved
+    once per session - passed straight through rather than re-queried and
+    cached again here.
     """
-    if "lport_to_first_subport" not in shared_state:
-        shared_state["lport_to_first_subport"] = get_lport_to_first_subport_mapping(duthost)
-    return shared_state["lport_to_first_subport"].get(port, port)
+    return lport_to_first_subport_mapping.get(port, port)
 
 
-def _get_transceiver_status(duthost, parent_port, shared_state, namespace=None):
-    """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>`` (per ASIC ns)."""
-    cache = shared_state.setdefault("transceiver_status", {})
-    if parent_port not in cache:
-        cache[parent_port] = db_helpers.hgetall_dict(
+def _get_transceiver_status(duthost, parent_port, status_cache, namespace=None):
+    """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>`` (per ASIC ns).
+
+    ``status_cache`` is a plain dict scoped to a single
+    :func:`standard_port_recovery_and_verification` call - it must NOT be
+    reused across separate calls in the same test, since a port's
+    TRANSCEIVER_STATUS can legitimately change between two disruptive
+    actions; reusing a stale cache would mask that.
+    """
+    if parent_port not in status_cache:
+        status_cache[parent_port] = db_helpers.hgetall_dict(
             duthost, "STATE_DB", f"TRANSCEIVER_STATUS|{parent_port}", namespace=namespace
         )
-    return cache[parent_port]
+    return status_cache[parent_port]
 
 
-def check_cmis_state(duthost, port, shared_state, namespace=None):
+def check_cmis_state(duthost, port, lport_to_first_subport_mapping, status_cache, namespace=None):
     """Verify CMIS DataPathState=DataPathActivated and ConfigState=ConfigSuccess.
 
     ("DataPathActivated" is the literal STATE_DB string, per
@@ -554,7 +558,7 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
     "DPActivated".)
 
     Reads the parent port's ``TRANSCEIVER_STATUS`` once (cached via
-    ``shared_state``) and validates every ``host_lane*_datapath_state``
+    ``status_cache``) and validates every ``host_lane*_datapath_state``
     and ``host_lane*_config_state`` field actually present in the hash, so
     the check adapts to however many host lanes the port's breakout mode
     exposes instead of assuming a fixed lane count. If NEITHER field is present
@@ -566,8 +570,8 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
     """
     if namespace is None:
         namespace = resolve_namespace(duthost, port)
-    parent = _resolve_parent_port(duthost, port, shared_state)
-    status = _get_transceiver_status(duthost, parent, shared_state, namespace)
+    parent = _resolve_parent_port(port, lport_to_first_subport_mapping)
+    status = _get_transceiver_status(duthost, parent, status_cache, namespace)
     if not status:
         return {
             "passed": False,
@@ -610,7 +614,7 @@ def check_cmis_state(duthost, port, shared_state, namespace=None):
 
 def standard_port_recovery_and_verification(
     duthost, ports, port_attributes_dict, link_up_timeout_sec, health_baseline,
-    shared_state=None,
+    lport_to_first_subport_mapping,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
     expected_pid_changes=None,
 ):
@@ -620,7 +624,7 @@ def standard_port_recovery_and_verification(
     loop / observation window / host-wide check per call, not one per port -
     so N ports share fixed costs instead of multiplying them:
       1. Link Status         - one poll (via
-                               :func:`wait_for_ports_oper_state`) of every port
+                               :func:`check_ports_oper_state`) of every port
                                off the same ``show interface description``
                                dump per cycle; oper-up within ``link_up_timeout_sec``.
       2. Link Flap/Stability - the mandatory "Stability (always)" sub-check,
@@ -634,8 +638,8 @@ def standard_port_recovery_and_verification(
                                -> repeat) so waits overlap instead of summing.
       5. CMIS State          - DataPathActivated + ConfigSuccess, for every up
                                port that is ``cmis_active_optical``; per-parent
-                               ``TRANSCEIVER_STATUS`` reads are cached in
-                               ``shared_state`` so subports of the same
+                               ``TRANSCEIVER_STATUS`` reads are cached for the
+                               duration of this call so subports of the same
                                breakout group cost one extra STATE_DB read,
                                not one per subport.
       6. SI Settings         - for every up port: optics SI (EEPROM bytes via
@@ -691,9 +695,10 @@ def standard_port_recovery_and_verification(
             than a fresh baseline captured just before this call's disruptive
             action) is what lets step 7 and the per-test post-test check
             agree on one definition of "unchanged since the test started".
-        shared_state: optional dict shared across calls in the same test so
-            the logical->physical port map and per-parent
-            ``TRANSCEIVER_STATUS`` queries happen at most once.
+        lport_to_first_subport_mapping: the value of the session-scoped
+            fixture of the same name (``tests/transceiver/conftest.py``),
+            resolved once per session - passed through so step 5 doesn't
+            re-query and re-cache the same logical->physical port map here.
         stability_window_sec: shared post-recovery observation window
             (seconds) for the step-2 stability sub-check, applied once across
             every port that came up. Defaults to
@@ -715,8 +720,11 @@ def standard_port_recovery_and_verification(
     Returns:
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool, 'details': str}}, 'details': str}``
     """
-    if shared_state is None:
-        shared_state = {}
+    # Per-parent TRANSCEIVER_STATUS cache, scoped to this call only - a port's
+    # status can legitimately change between two separate calls in the same
+    # test (e.g. two disruptive actions), so this is never persisted or
+    # threaded in from the caller.
+    transceiver_status_cache = {}
 
     # Owning ASIC namespace per port, resolved once and reused for every
     # per-namespace DB read below (LLDP / TRANSCEIVER_STATUS / stability).
@@ -727,7 +735,7 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks that ran, per port
 
     # 1. Link status - one batched poll covers every port.
-    link_results = wait_for_ports_oper_state(duthost, ports, "up", link_up_timeout_sec)
+    link_results = check_ports_oper_state(duthost, ports, "up", link_up_timeout_sec)
     for port in ports:
         checks_ran[port].append("link up")
         if not link_results[port]["passed"]:
@@ -765,12 +773,15 @@ def standard_port_recovery_and_verification(
 
     # 5. CMIS state - only for up ports that are CMIS active-optical.
     #    check_cmis_state caches TRANSCEIVER_STATUS per breakout parent in
-    #    shared_state, so looping here costs at most one extra STATE_DB read
-    #    per breakout group, not one per subport.
+    #    transceiver_status_cache, so looping here costs at most one extra
+    #    STATE_DB read per breakout group, not one per subport.
     for port in up_ports:
         eeprom_attrs = port_attributes_dict.get(port, {}).get(EEPROM_ATTRIBUTES_KEY, {})
-        if eeprom_attrs.get("cmis_active_optical"):
-            cmis_result = check_cmis_state(duthost, port, shared_state, namespace=namespaces.get(port))
+        if is_cmis_active_optical(eeprom_attrs):
+            cmis_result = check_cmis_state(
+                duthost, port, lport_to_first_subport_mapping, transceiver_status_cache,
+                namespace=namespaces.get(port),
+            )
             checks_ran[port].append("CMIS state")
             if not cmis_result["passed"]:
                 per_port_failures[port].append(cmis_result["details"])
