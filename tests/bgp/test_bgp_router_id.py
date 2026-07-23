@@ -137,7 +137,7 @@ def default_bgp_router_id(duthosts, enum_frontend_dut_hostname, enum_frontend_as
     cfg_facts = get_asic_config_facts(duthost, enum_frontend_asic_index)
     dev_meta = cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {})
 
-    if dev_meta.get('switch_type') in ['voq', 'chassis-packet']:
+    if dev_meta.get('switch_type') in ['voq', 'chassis-packet'] and duthost.is_multi_asic:
         host_vars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
         loopback4096_ips = host_vars.get('loopback4096_ip', [])
         if len(loopback4096_ips) > enum_frontend_asic_index:
