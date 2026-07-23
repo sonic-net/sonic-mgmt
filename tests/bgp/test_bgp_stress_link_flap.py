@@ -202,7 +202,7 @@ def setup_bgp_sentinel(duthost, ipv4_subnet, ipv6_subnet, lo_ipv4_addr, lo_ipv6_
         ptf_bp_v6: PTF backplane IPv6 address (to be included in listen range)
     """
     logger.info("Applying BGPSentinel configuration (IPv4 + IPv6)")
-    # Follow the same behavior with test_bgp_sentinel.py
+    # Follow the same behavior with test_bgp_sentinel.py.
     sentinel_args = {
         'v4_listen_range': json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
         'v6_listen_range': json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
