@@ -239,8 +239,14 @@ class TestPfcwdAllPortStorm(object):
             num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
             timeout = max(60, num_ports * 3)
             # LT2/FT2 topologies need at least 120s because the traffic generator
-            # takes longer to spin up on those setups.
-            if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
+            # takes longer to spin up on those setups. Single-node VoQ (ut2)
+            # topologies share the same slow spin-up but classify as topo type
+            # "t2"; identify them as a single-DUT VoQ switch (rather than by
+            # dut_type, which is not guaranteed to be stable) and extend their
+            # timeout too.
+            is_voq = duthost.facts.get('switch_type') == 'voq'
+            is_single_dut = bool(tbinfo) and len(tbinfo.get('duts', [])) == 1
+            if tbinfo and (tbinfo['topo']['type'] in ["lt2", "ft2"] or (is_voq and is_single_dut)):
                 timeout = max(timeout, 120)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
