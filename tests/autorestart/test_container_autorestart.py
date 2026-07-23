@@ -15,8 +15,8 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
+from tests.common import dhcp_relay_utils
 from tests.common.helpers.dut_utils import get_disabled_container_list
-from tests.common.dhcp_relay_utils import restart_dhcp_service
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,8 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname, tb
             dhcp_server_hosts.append(hostname)
             duthost.shell("config feature state %s enabled" % DHCP_SERVER)
             duthost.shell("sudo config feature autorestart %s enabled" % DHCP_SERVER)
-            restart_dhcp_service(duthost, ['isc-internal'])
+            relay_type = dhcp_relay_utils.get_dhcp_relay_type(duthost)
+            dhcp_relay_utils.restart_dhcp_service(duthost, [relay_type])
     yield
     # Config reload should set the auto restart back to state before test started
     for hostname in selected_rand_one_per_hwsku_hostname:
