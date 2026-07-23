@@ -22,12 +22,9 @@ Please make sure that you have loaded the sonic docker image to be executed usin
   - Ex: docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
 - load the docker image such that it mounts sonic-mgmt inside the container (recommended).
   - <i> Make sure the path is matching the criteria</i>
-  - sudo docker run -it --name sonic --privileged -v /home/ubuntu/sonic-mgmt/:/var/AzDevOps/sonic-mgmt  --user AzDevOps:gAzDevOps docker-sonic-mgmt
+  - sudo docker run -itd --name sonic --privileged -v /home/ubuntu/sonic-mgmt/:/sonic-mgmt  docker-sonic-mgmt
   - if no mount is required then run the command "sudo docker run -it --name sonic docker-sonic-mgmt" (optional)
-- By default sonic-mgmt comes with below Snappi packages.
-  - snappi==0.9.1
-  - snappi_convergence==0.4.1
-  - snappi_ixnetwork==0.9.1
+- By default sonic-mgmt comes with latest snappi and snappi_ixnetwork packages.
 - Changing default username and passwords of DUT:
   - `ansible/group_vars/snappi-sonic/secrets.yml`
 
@@ -72,16 +69,13 @@ Please make sure that you have loaded the sonic docker image to be executed usin
 
 **File:** `~/sonic-mgmt/ansible/group_vars/snappi-sonic/secrets.yml`
 
-## Step 6: Provide all necessary information in testbed.yaml file.
+## Step 6: Changing default IxNetwork api server credentials and rest port
+
+**File:** `~/sonic-mgmt/ansible/group_vars/snappi-sonic/snappi-sonic.yml`
+
+## Step 7: Provide all necessary information in testbed.yaml file.
 
 **File:** `~/sonic-mgmt/ansible/testbed.yaml`
-
-## Step 7: Replace existing lines of code with below in snappi_fixtures.py.
-
-**File:** `~/sonic-mgmt/tests/common/snappi_tests/snappi_fixtures.py`
-
-- return (duthost.host.options\['variable_manager'\].
-  \_hostvars\[duthost.hostname\]\['secret_group_vars'\]\['snappi_api_server'\]\['rest_port'\])
 
 ## Step 8: Export Environment Variables
 
@@ -97,8 +91,10 @@ Please make sure that you have loaded the sonic docker image to be executed usin
 
 Run the following command to execute the pretest:
 
-- python3 -m pytest --inventory ../ansible/snappi-sonic --host-pattern sonic-s6100-dut1 --testbed vms-snappi-sonic --testbed_file ../ansible/testbed.yaml --show-capture=stdout --log-cli-level info --showlocals -ra --allow_recover --skip_sanity --disable_loganalyzer test_pretest.py
+- python3 -m pytest --inventory ../ansible/snappi-sonic --host-pattern sonic-s6100-dut1 --testbed vms-snappi-sonic --testbed_file ../ansible/testbed.yaml --show-capture=stdout --log-cli-level info --showlocals -ra --allow_recover --skip_sanity --disable_memory_utilization --disable_loganalyzer --topology tgen,any test_pretest.py
 
+⚠️ **Note:** In above command host-pattern is used for single dut. If all the dut's specified under `~/sonic-mgmt/ansible/files/sonic_snappi-sonic_devices.csv` needs to be used, then pass the host-pattern as "all"
+  
 ## Step 10: Verify Pretest Output
 
 **File:** `~/sonic-mgmt/tests/metadata/vms-snappi-sonic.json`
@@ -162,20 +158,17 @@ Make sure the DUT is properly configured using the `minigraph.xml` file:
 
 ✅ This ensures the DUT interfaces are correctly initialized before running tests.
 
-- If minigraph file doesn't exist, then create the minigraph file by running "./testbed-cli.sh -t testbed.csv deploy-mg vms-snappi-sonic snappi-sonic password.txt -vvvv" under "~/sonic-mgmt/ansible".
+- If minigraph file doesn't exist, then create the minigraph file by running "./testbed-cli.sh -t testbed.yaml deploy-mg vms-snappi-sonic snappi-sonic password.txt -vvvv" under "~/sonic-mgmt/ansible".
 - create a file "password.txt" and write any word.
 - Before generating the minigraph file, assign ip addresses to the interfaces which will be used in the test and save it to config_db.json file. (If already ip addresses are assigned to those interfaces, then there is no need to configure the ip addresses again).
 
-## Step 13: Apply Fanout Speed Mode Changes (Optional)
+## Step 13: If fanout speed modes are used
 
-To enable **fanout speed mode**, apply the changes introduced in **PR#14026**.
-
-- ⚙️ These changes are required to handle fanout port speed configurations correctly
 - 🔄 Update the port naming convention as per the new format:
   - **Old Format:** `CardX/PortY`
   - **New Format:** `PortX.Y`
 
-📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode. These changes are inluced in 202405 branch.
+📌 Ensure your testbed and configuration files reflect this naming convention if you're using the fanout mode. 
 
 ## Step 14: Custom Ixia API Server Credentials
 
@@ -199,12 +192,15 @@ Before running **RDMA-related tests** (e.g., PFC, ECN, PFCWD), ensure the follow
 
 🛠️ The PFCWD configuration should be present in the DUT’s `config_db.json` file to ensure it is active on boot.
 
-In case you're testing with **Aresone** hardware, set the PFC queue size to `4` by updating the `variable.py` file in the following location:
 
-**File:** `~/sonic-mgmt/tests/common/snappi_tests/variable.py`
+The PFC TX queue-group size (8, or 4 on e.g. high-speed **AresOne** port modes) is auto-detected from the connected tgen ports — no configuration is needed. To pin the value explicitly (or on a tgen where detection is unavailable, e.g. a non-IxNetwork OTG backend), set the per-testbed override in `~/sonic-mgmt/tests/snappi_tests/variables.override.yml`:
 
-- Locate the line where the PFC queue size is defined and set it to `4`:
-- pfcQueueGroupSize = 4
+```yaml
+<testbed_name>:
+  pfcQueueGroupSize: 4
+```
+
+The override takes precedence over auto-detection. The test log states which source decided the value. (Editing `pfcQueueGroupSize` in `tests/common/snappi_tests/variables.py` no longer has any effect.)
 
 ## Running the test
 
