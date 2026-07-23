@@ -537,15 +537,8 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
         pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
                       "Not all uplinks go down")
 
-        # Restart DHCP relay service on DUT
-        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-        # reset-failed before restart service
-        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-        duthost.shell_cmds(cmds=cmds)
-
-        # Sleep to give the DHCP relay container time to start up and
-        # allow the relay agent to begin listening on the down interfaces
-        time.sleep(40)
+        relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+        restart_dhcp_service(duthost, relay_types)
 
         # Bring all uplink interfaces back up
         for iface in dhcp_relay['uplink_interfaces']:
