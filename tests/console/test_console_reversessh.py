@@ -130,6 +130,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, conn_graph_facts, co
         "Target line {} is busy before reverse SSH session start".format(target_line))
 
     ressh_user = "{}:{}".format(dutuser, target_line)
+    client = None
     try:
         client = console_session(duthost, dutip, ressh_user, dutpass, target_line)
         pytest_assert(
