@@ -107,7 +107,7 @@ def resolve_auth_token() -> str:
 
 
 def graphql(token: str, query: str, variables: dict) -> dict:
-    """POST a GraphQL request with simple retry/backoff (stdlib only)."""
+    """POST a GraphQL request with retry/backoff for rate-limiting and transient failures."""
     body = json.dumps({"query": query, "variables": variables}).encode("utf-8")
     headers = {
         "Authorization": f"bearer {token}",
@@ -137,8 +137,21 @@ def graphql(token: str, query: str, variables: dict) -> dict:
                 time.sleep(sleep)
                 continue
             raise
+
         errors = payload.get("errors") or []
         if errors:
+            retryable = False
+            for error in errors:
+                error_type = (error or {}).get("type") or ""
+                message = (error or {}).get("message") or ""
+                if error_type in {"RATE_LIMITED", "ABUSE_DETECTED"} or "rate limit" in message.lower():
+                    retryable = True
+                    break
+            if retryable and attempt < max_retries:
+                sleep = min(60.0, 2 ** attempt)
+                logger.warning("GraphQL errors indicate rate limiting; retry in %.0fs", sleep)
+                time.sleep(sleep)
+                continue
             raise RuntimeError(f"GraphQL errors: {errors}")
         return payload.get("data") or {}
     raise RuntimeError("GraphQL retries exhausted")
