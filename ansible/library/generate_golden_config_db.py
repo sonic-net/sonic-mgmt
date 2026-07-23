@@ -1092,6 +1092,17 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
+    def update_decap_qos_map_config(self, config):
+        if self.hwsku not in {'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16'}:
+            return config
+        ori_config_db = json.loads(config)
+        if multi_asic.is_multi_asic():
+            for key, value in ori_config_db.items():
+                value.setdefault("SYSTEM_DEFAULTS", {})["decap_qos_map"] = {"status": "enabled"}
+        else:
+            ori_config_db.setdefault("SYSTEM_DEFAULTS", {})["decap_qos_map"] = {"status": "enabled"}
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_drh_golden_config_db(self):
         """
         Generate golden_config for disaggregated Regional Hub (LRH/URH) topologies.
@@ -1298,6 +1309,8 @@ class GenerateGoldenConfigDBModule(object):
 
         # update zebra_nexthop config from minigraph
         config = self.update_zebra_nexthop_config(config)
+
+        config = self.update_decap_qos_map_config(config)
 
         # Rebuild PORT table from port_speeds + platform.json when port override is active
         if self.port_override_from_links:
