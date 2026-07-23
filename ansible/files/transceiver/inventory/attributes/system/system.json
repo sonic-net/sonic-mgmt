@@ -1,0 +1,6 @@
+{
+    "defaults": {
+        "port_shutdown_wait_sec": 5,
+        "port_startup_wait_sec": 60
+    }
+}

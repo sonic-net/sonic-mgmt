@@ -24,9 +24,18 @@ variables:
 
 steps:
   - script: |
+      set -exo pipefail
+      if ! command -v uv >/dev/null 2>&1; then
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$HOME/.local/bin" sh
+        echo "##vso[task.prependpath]$HOME/.local/bin"
+      fi
+    displayName: 'Ensure uv is installed'
+
+  - script: |
       set -ex
-      pip install azure-identity azure-storage-blob
-    displayName: 'Install package'
+      uv venv "$(Agent.TempDirectory)/package-download-venv"
+      uv pip install --python "$(Agent.TempDirectory)/package-download-venv/bin/python" azure-identity azure-storage-blob
+    displayName: 'Install packages'
 
   - task: AzureCLI@2
     inputs:
@@ -35,7 +44,7 @@ steps:
       scriptLocation: 'inlineScript'
       inlineScript: |
         pwd
-        python ./.azure-pipelines/elastictest/utils/package_download_test_plan_artifacts.py --container "${{ parameters.CONTAINER }}" --testplan-id "${{ parameters.TEST_PLAN_ID }}" --local-directory artifacts
+        "$(Agent.TempDirectory)/package-download-venv/bin/python" ./.azure-pipelines/elastictest/utils/package_download_test_plan_artifacts.py --container "${{ parameters.CONTAINER }}" --testplan-id "${{ parameters.TEST_PLAN_ID }}" --local-directory artifacts
     displayName: 'Downloaded artifacts'
 
 

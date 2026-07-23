@@ -227,6 +227,18 @@ all:
         pdu-244:
           ansible_host: 10.3.154.61
           protocol: snmp
+        pdu-k08-a:
+          ansible_host: 10.3.157.76
+          protocol: snmp
+        pdu-k08-b:
+          ansible_host: 10.3.157.77
+          protocol: snmp
+        pdu-k09-a:
+          ansible_host: 10.3.157.78
+          protocol: snmp
+        pdu-k09-b:
+          ansible_host: 10.3.157.79
+          protocol: snmp
 
 fanout:
   hosts:
