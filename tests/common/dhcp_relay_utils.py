@@ -78,7 +78,8 @@ def restart_dhcp_service(duthost, relay_types):
                           into a single `dhcrelay -iu docker0 ...` proc
                           (not a supervisord entry).
                           Required:
-                            - exactly one such dhcrelay proc
+                            - exactly one /usr/sbin/dhcrelay proc, which includes
+                              -iu docker0
                           Not checked:
                             - isc-dhcpv4-relay-<Vlan> supervisord entries
                               (stay STOPPED by design in this mode)
@@ -140,7 +141,7 @@ def wait_dhcp_relay_ready(duthost, relay_types):
     """
     relay_types = _validate_relay_types('wait_dhcp_relay_ready', relay_types)
 
-    last_state = {'states': {}, 'internal_procs': []}
+    last_state = {'states': {}, 'relay_procs': []}
 
     def _supervisor_status_map():
         # supervisorctl returns rc != 0 if ANY entry is not RUNNING (e.g. the one-shot
@@ -181,12 +182,12 @@ def wait_dhcp_relay_ready(duthost, relay_types):
                 if name.startswith('dhcpmon-') and state != 'RUNNING':
                     return False
         if 'isc-internal' in relay_types:
-            internal = duthost.shell(
-                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcrelay.*-iu docker0' || true"
+            relay_procs = duthost.shell(
+                "docker exec dhcp_relay pgrep -af '/usr/sbin/dhcrelay' || true"
             )['stdout_lines']
-            internal = [line for line in internal if line.strip()]
-            last_state['internal_procs'] = internal
-            if len(internal) != 1:
+            relay_procs = [line for line in relay_procs if line.strip()]
+            last_state['relay_procs'] = relay_procs
+            if len(relay_procs) != 1 or '-iu docker0' not in relay_procs[0]:
                 return False
         if 'sonic' in relay_types:
             if states.get('dhcp4relay') != 'RUNNING':
@@ -195,8 +196,8 @@ def wait_dhcp_relay_ready(duthost, relay_types):
 
     pytest_assert(
         wait_until(240, 5, 10, _is_dhcp_relay_ready),
-        "dhcp_relay is not ready (relay_types=%s last_supervisor_states=%s isc_internal_procs=%s)"
-        % (relay_types, last_state['states'], last_state['internal_procs']))
+        "dhcp_relay is not ready (relay_types=%s last_supervisor_states=%s relay_procs=%s)"
+        % (relay_types, last_state['states'], last_state['relay_procs']))
 
 
 def init_dhcpmon_counters(duthost, is_v6=False):
