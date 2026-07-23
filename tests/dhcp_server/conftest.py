@@ -2,7 +2,7 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
-from tests.common.dhcp_relay_utils import restart_dhcp_service
+from tests.common import dhcp_relay_utils
 from dhcp_server_test_common import clean_dhcp_server_config
 
 DHCP_SERVER_CONTAINER_NAME = "dhcp_server"
@@ -18,7 +18,7 @@ def dhcp_server_setup_teardown(duthost):
         restore_state_flag = True
         duthost.shell("config feature state dhcp_server enabled")
 
-    restart_dhcp_service(duthost, ['isc-internal'])
+    dhcp_relay_utils.restart_dhcp_service(duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)])
 
     def is_supervisor_subprocess_running(duthost, container_name, app_name):
         return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}")["stdout"]
@@ -35,10 +35,10 @@ def dhcp_server_setup_teardown(duthost):
 
     if restore_state_flag:
         duthost.shell("config feature state dhcp_server disabled", module_ignore_errors=True)
-        restart_dhcp_service(duthost, ['isc'])
+        dhcp_relay_utils.restart_dhcp_service(duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)])
         duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
     else:
-        restart_dhcp_service(duthost, ['isc-internal'])
+        dhcp_relay_utils.restart_dhcp_service(duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)])
 
 
 @pytest.fixture(scope="function", autouse=True)
