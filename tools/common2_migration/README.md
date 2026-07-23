@@ -39,7 +39,7 @@ The score is a rough heuristic for migration effort and risk. It is not a formal
 
 The module-level score is computed as:
 
-score = volume + blast + coupling + quality_gap + unit_gap
+score = volume + blast + coupling + quality_gap
 
 Where:
 
