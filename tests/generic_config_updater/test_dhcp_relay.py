@@ -206,7 +206,6 @@ def dhcp_severs_by_vlanid(duthost, vlanid):
 
 
 def expect_res_success_by_vlanid(duthost, vlanid, expected_content_list, unexpected_content_list):
-    wait_dhcp_relay_ready(duthost, ['isc'])
     output = dhcp_severs_by_vlanid(duthost, vlanid)
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
