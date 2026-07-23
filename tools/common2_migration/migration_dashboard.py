@@ -1118,8 +1118,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
                         help="Path to the sonic-mgmt repository root.")
     parser.add_argument("--common-dir", default="tests/common",
                         help="Source directory to scan for migration candidates.")
-    parser.add_argument("--common2-dir", default="tests/common2",
-                        help="Destination common2 directory (for migrated detection).")
     parser.add_argument("--tests-dir", default="tests",
                         help="Test tree scanned to compute migration impact.")
     parser.add_argument("--max-tier", type=int, default=5,
@@ -1140,7 +1138,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
     repo_root = os.path.abspath(args.repo_root)
     common_abs = os.path.join(repo_root, args.common_dir)
-    common2_abs = os.path.join(repo_root, args.common2_dir)
     tests_abs = os.path.join(repo_root, args.tests_dir)
 
     if not os.path.isdir(common_abs):
@@ -1150,8 +1147,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"Scanning source modules under: {args.common_dir}")
     print(f"Computing impact against test tree: {args.tests_dir}")
     print()
-
-    _ = collect_common2_symbols(common2_abs)  # reserved for future soft-match hints
 
     # 1. Reverse import index + module dependency graph for impact analysis.
     import_index = build_import_index(tests_abs, repo_root)
