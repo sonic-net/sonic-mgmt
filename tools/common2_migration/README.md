@@ -96,7 +96,7 @@ When a contributor ports code into tests/common2, the common2 pipeline already e
 - pylint checks
 - unit tests with coverage enforcement for common2
 
-These checks are wired in under [.azure-pipelines/common2](../../../.azure-pipelines/common2) and are intended to ensure that migrated code is not only moved, but also improved and kept maintainable.
+These checks are wired in under [.azure-pipelines/common2](../../.azure-pipelines/common2) and are intended to ensure that migrated code is not only moved, but also improved and kept maintainable.
 
 ## How to use the dashboard
 
