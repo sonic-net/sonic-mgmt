@@ -478,10 +478,13 @@ def create_traffic_items(config, snappi_extra_params):
     tconfigs = snappi_extra_params.traffic_flow_config
     for indx, traffic in enumerate(tconfigs):
         test_flow = config.flows.flow(name=traffic.get("flow_name", "Flow {}".format(indx)))[-1]
-        # A PFC pause storm is a raw L2 (port-to-port) flow, whereas the data
+        # A PFC pause storm, an IEEE 802.3x global PAUSE storm and the malformed
+        # control frames are all raw L2 (port-to-port) flows, whereas the data
         # flows are device (topology) based. Only wire the device endpoints for
         # the device based flows.
-        if not traffic.get("is_pfc", False):
+        if (not traffic.get("is_pfc", False)
+                and not traffic.get("is_global_pause", False)
+                and not traffic.get("is_malformed_pfc", False)):
             test_flow.tx_rx.device.tx_names = traffic["tx_names"]
             test_flow.tx_rx.device.rx_names = traffic["rx_names"]
         test_flow.metrics.enable = True
@@ -495,6 +498,85 @@ def create_traffic_items(config, snappi_extra_params):
         elif "traffic_duration_fixed_packets" in traffic:
             test_flow.duration.fixed_packets.packets = traffic["traffic_duration_fixed_packets"]
         test_flow.size.fixed = traffic["frame_size"]
+        if traffic.get("is_global_pause", False):
+            # ----------------------------------------------------------------
+            # IEEE 802.3x global PAUSE storm flow (test_global_pause_dut_ignore).
+            #
+            # Unlike PFC (802.1Qbb), a global PAUSE frame carries a single
+            # MAC-Control opcode (0x0001) and one pause-time (quanta) value that
+            # applies to ALL traffic on the link regardless of priority. It is a
+            # raw L2 (port-to-port) flow transmitted from the Rx (DUT egress)
+            # port back into the DUT. The frame uses the reserved multicast
+            # destination MAC ``01-80-C2-00-00-01`` and is link-local, so a
+            # correctly behaving SONiC DUT must neither honour the pause nor
+            # relay the frame onward. It is retransmitted at
+            # ``pause_flow_rate_pps`` so a fresh pause window arrives before the
+            # previous one expires, keeping the pause continuous for the whole
+            # data-flow window.
+            # ----------------------------------------------------------------
+            test_flow.tx_rx.port.tx_name = traffic["pause_tx_port_name"]
+            test_flow.tx_rx.port.rx_name = traffic["pause_rx_port_name"]
+            pause_pkt = test_flow.packet.ethernetpause()[-1]
+            pause_pkt.src.value = traffic.get("pause_src_mac", "00:00:fa:ce:fa:ce")
+            pause_pkt.dst.value = "01:80:C2:00:00:01"
+            # MAC-Control opcode 0x0001 == PAUSE (ether_type defaults to 0x8808).
+            pause_pkt.control_op_code.value = traffic.get("control_op_code", int("0001", 16))
+            pause_pkt.time.value = traffic.get("pause_quanta", int("ffff", 16))
+            test_flow.rate.pps = traffic["pause_flow_rate_pps"]
+            continue
+        if traffic.get("is_malformed_pfc", False):
+            # ----------------------------------------------------------------
+            # Malformed control frame flow (test_malformed_pfc_frame_handling).
+            #
+            # The frame is transmitted from the Rx (DUT egress) port back into
+            # the DUT and uses the reserved multicast destination MAC
+            # ``01-80-C2-00-00-01``. A correctly behaving SONiC DUT must drop it
+            # without pausing any queue and must never relay it onward -- the
+            # flow's Rx endpoint is the far (Tx) port so any received frame is
+            # counted as a wrongly relayed frame. Three variants are selected by
+            # ``malform_type``:
+            #   - "invalid_opcode":       MAC-Control frame carrying a reserved
+            #                             opcode (neither PAUSE 0x0001 nor PFC
+            #                             0x0101).
+            #   - "reserved_class_vector":PFC frame whose class-enable vector
+            #                             sets all 16 bits, including the
+            #                             reserved upper byte (0xFF00).
+            #   - "truncated":            a control frame shorter than the
+            #                             64-byte minimum.
+            # ----------------------------------------------------------------
+            test_flow.tx_rx.port.tx_name = traffic["pause_tx_port_name"]
+            test_flow.tx_rx.port.rx_name = traffic["pause_rx_port_name"]
+            malform_type = traffic.get("malform_type", "invalid_opcode")
+            src_mac = traffic.get("pfc_pause_src_mac", "00:00:fa:ce:fa:ce")
+            dst_mac = "01:80:C2:00:00:01"
+            pause_quanta = traffic.get("pause_quanta", int("ffff", 16))
+            if malform_type == "invalid_opcode":
+                pause_pkt = test_flow.packet.ethernetpause()[-1]
+                pause_pkt.src.value = src_mac
+                pause_pkt.dst.value = dst_mac
+                # Reserved MAC-Control opcode -- not a valid PAUSE/PFC opcode.
+                pause_pkt.control_op_code.value = traffic.get("control_op_code", int("00ff", 16))
+                pause_pkt.time.value = pause_quanta
+            elif malform_type == "reserved_class_vector":
+                pause_pkt = test_flow.packet.pfcpause()[-1]
+                pause_pkt.src.value = src_mac
+                pause_pkt.dst.value = dst_mac
+                # All 16 bits set, including the reserved upper byte.
+                pause_pkt.class_enable_vector.value = traffic.get("class_enable_vector", int("ffff", 16))
+                for prio in range(8):
+                    setattr(getattr(pause_pkt, "pause_class_{}".format(prio)), "value", pause_quanta)
+            elif malform_type == "truncated":
+                # Raw L2 frame with the MAC-Control ethertype but a body shorter
+                # than a valid control frame (frame_size is set below the 64-byte
+                # minimum by the caller).
+                eth = test_flow.packet.ethernet()[-1]
+                eth.src.value = src_mac
+                eth.dst.value = dst_mac
+                eth.ether_type.value = int("8808", 16)
+            else:
+                pytest_assert(False, "Unknown malform_type: {}".format(malform_type))
+            test_flow.rate.pps = traffic["pause_flow_rate_pps"]
+            continue
         if traffic.get("is_pfc", False):
             # ----------------------------------------------------------------
             # PFC pause storm flow (test_pfc_unaffected_pause_storm).
