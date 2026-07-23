@@ -58,6 +58,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install unit test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+
+      - name: Run common2 migration tool unit tests
+        run: |
+          python -m pytest tools/common2_migration/tests/unit_test_*.py -q
+
       - name: Generate migration dashboard
         env:
           MAX_TIER: ${{ github.event.inputs.maxTier || '5' }}
