@@ -163,10 +163,12 @@ stages:
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+    ${{ if and(eq(variables['Build.Reason'], 'PullRequest'), ne(variables['System.PullRequest.TargetBranch'], 'merge-queue-test')) }}:
       value: $(System.PullRequest.TargetBranch)
+    ${{ elseif startsWith(variables['Build.SourceBranch'], 'refs/heads/gh-readonly-queue/') }}:
+      value: ${{ split(variables['Build.SourceBranch'], '/')[3] }}
     ${{ else }}:
-      value: $(Build.SourceBranchName)
+      value: master
 
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
