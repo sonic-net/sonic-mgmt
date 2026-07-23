@@ -2,6 +2,7 @@ import logging
 import sys
 
 import pytest
+from _pytest.outcomes import OutcomeException
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.helpers.assertions import pytest_require as py_require
@@ -26,13 +27,31 @@ def dhcp_server_setup_teardown(duthost):
     restore_state_flag = dhcp_server_state == 'disabled'
 
     def restore_dhcp_server_state():
+        first_cleanup_error = None
+
+        def cleanup_step(step_name, callback):
+            nonlocal first_cleanup_error
+            try:
+                callback()
+            except (Exception, OutcomeException) as cleanup_error:
+                logger.exception("DHCP server cleanup step '%s' failed", step_name)
+                if first_cleanup_error is None:
+                    first_cleanup_error = cleanup_error
+
         if restore_state_flag:
-            duthost.shell("config feature state dhcp_server disabled")
-        dhcp_relay_utils.restart_dhcp_service(duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)])
+            cleanup_step('disable feature', lambda: duthost.shell("config feature state dhcp_server disabled"))
+        cleanup_step('restore relay layout',
+                     lambda: dhcp_relay_utils.restart_dhcp_service(
+                         duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)]))
         if restore_state_flag:
-            result = duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
-            if result['rc'] != 0 and "No such container" not in result.get('stderr', ''):
-                raise RuntimeError("Failed to remove dhcp_server container: {}".format(result.get('stderr', '')))
+            def remove_dhcp_server_container():
+                result = duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
+                if result['rc'] != 0 and "No such container" not in result.get('stderr', ''):
+                    raise RuntimeError("Failed to remove dhcp_server container: {}".format(result.get('stderr', '')))
+
+            cleanup_step('remove dhcp_server container', remove_dhcp_server_container)
+
+        return first_cleanup_error
 
     try:
         if restore_state_flag:
@@ -54,13 +73,9 @@ def dhcp_server_setup_teardown(duthost):
         yield
     finally:
         setup_or_test_error = sys.exc_info()[1]
-        try:
-            restore_dhcp_server_state()
-        except Exception:
-            if setup_or_test_error is not None:
-                logger.exception("Failed to restore DHCP server state after fixture failure")
-            else:
-                raise
+        cleanup_error = restore_dhcp_server_state()
+        if cleanup_error is not None and setup_or_test_error is None:
+            raise cleanup_error
 
 
 @pytest.fixture(scope="function", autouse=True)
