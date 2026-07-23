@@ -7,7 +7,7 @@ import ipaddress
 from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.bgp import get_asic_config_facts
+from tests.common.helpers.bgp import get_asic_config_facts, map_bgp_neighbor_to_interfaces
 from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
@@ -347,21 +347,6 @@ def cleanup_bgp_monitor(duthost, ptfhost, bgp_monitor_ips=None, bgp_monitor_rout
     logger.info("BGP Monitor cleanup completed")
 
 
-def _map_bgp_neighbor_to_interfaces(neighbor_name, dev_nbrs, portchannels):
-    """Map a BGP neighbor device name to local DUT member interfaces."""
-    interfaces = {}
-    for ifname, nbr_info in dev_nbrs.items():
-        if nbr_info.get('name') != neighbor_name:
-            continue
-        if ifname in portchannels:
-            for member in portchannels[ifname]:
-                if member in dev_nbrs:
-                    interfaces[member] = dev_nbrs[member]
-        else:
-            interfaces[ifname] = nbr_info
-    return interfaces
-
-
 def _external_eth_nbrs(dev_nbrs, nbrhosts):
     """Return DEVICE_NEIGHBOR entries for external testbed neighbors only."""
     return {
@@ -375,9 +360,12 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
           nbrhosts, fanouthosts):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
+    asichost = duthost.asic_instance(asic_index)
 
     config_facts = get_asic_config_facts(duthost, asic_index)
     all_bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if duthost.get_frr_mgmt_framework_config():
+        all_bgp_neighbors = all_bgp_neighbors.get('default', {})
     bgp_neighbors = {
         ip: details for ip, details in all_bgp_neighbors.items()
         if details.get('name') in nbrhosts
@@ -387,7 +375,6 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
             "No external BGP neighbors on ASIC {} of DUT {}".format(asic_index, duthost.hostname)
         )
 
-    portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     eth_nbrs = _external_eth_nbrs(dev_nbrs, nbrhosts)
     if not eth_nbrs:
@@ -399,19 +386,17 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
     logger.debug("setup nbrhosts {}".format(nbrhosts))
     logger.debug("setup bgp_neighbors {}".format(bgp_neighbors))
     logger.debug("setup eth_nbrs {}".format(eth_nbrs))
-    logger.debug("setup portchannels {}".format(portchannels))
 
     interface_list = list(eth_nbrs.keys())
     logger.debug('interface_list: {}'.format(interface_list))
 
-    # verify sessions are established
-    pytest_assert(wait_until(30, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                  "Not all BGP sessions are established on DUT")
+    neigh_ips = list(bgp_neighbors.keys())
+    # verify sessions are established on the selected ASIC
+    pytest_assert(wait_until(30, 5, 0, asichost.check_bgp_session_state, neigh_ips),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
     for ip, details in bgp_neighbors.items():
-        interfaces = _map_bgp_neighbor_to_interfaces(
-            details['name'], dev_nbrs, portchannels
-        )
+        interfaces = map_bgp_neighbor_to_interfaces(details['name'], dev_nbrs)
         if interfaces:
             details['interface'] = interfaces
 
@@ -425,8 +410,8 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
     yield setup_info
 
-    # verify sessions are established after test
-    if not duthost.check_bgp_session_state(list(bgp_neighbors.keys())):
+    # verify sessions are established after test on the selected ASIC
+    if not asichost.check_bgp_session_state(neigh_ips):
         for port in interface_list:
             logger.info("no shutdown dut interface {} port {}".format(duthost, port))
             duthost.no_shutdown_interface(port)
@@ -447,8 +432,8 @@ def setup(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_inde
 
             time.sleep(1)
 
-    pytest_assert(wait_until(600, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
-                  "Not all BGP sessions are established on DUT")
+    pytest_assert(wait_until(600, 10, 0, asichost.check_bgp_session_state, neigh_ips),
+                  "Not all BGP sessions are established on DUT ASIC {}".format(asic_index))
 
 
 async def flap_dut_interface(duthost, port, sleep_duration, test_run_duration):
