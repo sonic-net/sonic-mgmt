@@ -22,7 +22,7 @@ Reference test plan:
     docs/testplan/pfc_lossy_testplan.md  (Y04)
 """
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.chelper import (
+from snappi_tests.dataplane.files.helper import (
     get_duthost_interface_details,
     create_snappi_config,
     set_primary_chassis,
