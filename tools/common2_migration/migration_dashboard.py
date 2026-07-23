@@ -48,9 +48,8 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 # Files that are never migration candidates on their own.
 EXCLUDED_BASENAMES = {"__init__.py", "conftest.py", "setup.py"}
 
-# Directory names inside tests/common that hold tests/fixtures rather than
-# reusable library code worth migrating as a standalone task.
-EXCLUDED_DIR_PARTS = {"unit_tests", "__pycache__", ".pytest_cache"}
+# Directory names to skip during repository scanning.
+EXCLUDED_DIR_PARTS = {"__pycache__", ".pytest_cache"}
 
 # Domain mapping derived from tests/common2/DIRECTORY_STRUCTURE.md. The first
 # matching keyword (searched in the source path, case-insensitive) wins.
