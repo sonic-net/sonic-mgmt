@@ -550,21 +550,30 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
 
 
+def get_dhcp_relay_type(duthost):
+    """Return the IPv4 DHCP relay layout required by the current DHCP server configuration."""
+    try:
+        features_state, succeeded = duthost.get_feature_status()
+    except Exception as error:
+        raise RuntimeError("Failed to determine dhcp_server feature state") from error
+
+    if not succeeded:
+        raise RuntimeError("Failed to determine dhcp_server feature state")
+    if features_state.get('dhcp_server') not in ('enabled', 'always_enabled'):
+        return 'isc'
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source='running')['ansible_facts']
+    dhcp_server_ipv4 = config_facts.get('DHCP_SERVER_IPV4', {})
+    if any(config.get('state') == 'enabled' for config in dhcp_server_ipv4.values()):
+        return 'isc-internal'
+    return 'isc'
+
+
 def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
     """
     Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
     """
-    relay_type = 'sonic'
-    if not dhcpv4_config_flag:
-        try:
-            features_state, succeeded = duthost.get_feature_status()
-        except Exception as error:
-            raise RuntimeError("Failed to determine dhcp_server feature state") from error
-
-        if not succeeded:
-            raise RuntimeError("Failed to determine dhcp_server feature state")
-        relay_type = ('isc-internal' if features_state.get('dhcp_server') in ('enabled', 'always_enabled')
-                      else 'isc')
+    relay_type = 'sonic' if dhcpv4_config_flag else get_dhcp_relay_type(duthost)
 
     if dhcpv4_config_flag:
         duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
