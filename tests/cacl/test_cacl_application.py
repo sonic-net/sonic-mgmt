@@ -578,17 +578,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
                                    .format(v['IPv6Address'],
                                            docker_network['bridge']['IPv6Address']))
 
-        # dhcp_server and redfish both run in bridge mode, but only
-        # dhcp_server's rsyslog reaches the host over docker0 via RELP
-        # (tcp/2514). caclmgrd owns the INPUT ACCEPT
-        # exception for that traffic and re-emits it on every control-plane ACL
-        # flush-and-rebuild while FEATURE|dhcp_server is enabled, so the rule
-        # survives the rebuild. Gate the expectation on the feature state that
-        # caclmgrd keys on, not merely on the container being present.
-        dhcp_server_feature_state = duthost.shell(
-            "sonic-db-cli CONFIG_DB HGET 'FEATURE|dhcp_server' state",
-            module_ignore_errors=True)['stdout'].strip()
-        if dhcp_server_feature_state == "enabled":
+        # Only dhcp_server forwards rsyslog to the host over docker0 (RELP
+        # tcp/2514); caclmgrd re-adds this INPUT ACCEPT on every rebuild while
+        # FEATURE|dhcp_server is enabled. Gate on that feature state.
+        feature_status, _ = duthost.get_feature_status()
+        if feature_status.get("dhcp_server") == "enabled":
             iptables_rules.append(
                 "-A INPUT -i docker0 -p tcp -m tcp --dport 2514"
                 " -m comment --comment dhcp_server_syslog -j ACCEPT")
