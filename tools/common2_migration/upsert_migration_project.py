@@ -393,15 +393,27 @@ class MigrationProjectUpserter:
     # -- per-field change-detected apply -----------------------------------
 
     def _apply_text(self, item_id: str, key: str, name: str, value: str) -> None:
+        if not self._field(name, "TEXT"):
+            return
+        if value is None or str(value).strip() == "":
+            return
         if str(self._cached(key, name) or "") == str(value):
+            return
+        if self.dry_run:
+            self.updated_fields += 1
             return
         self._set_text(item_id, name, value)
         self._remember(key, name, str(value))
         self.updated_fields += 1
 
     def _apply_number(self, item_id: str, key: str, name: str, value: float) -> None:
+        if not self._field(name, "NUMBER"):
+            return
         cached = self._cached(key, name)
         if cached is not None and float(cached) == float(value):
+            return
+        if self.dry_run:
+            self.updated_fields += 1
             return
         self._set_number(item_id, name, value)
         self._remember(key, name, float(value))
