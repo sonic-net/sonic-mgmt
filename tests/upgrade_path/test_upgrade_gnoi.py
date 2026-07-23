@@ -61,6 +61,12 @@ def test_upgrade_via_gnoi(
         duthost.shell("sudo config save -y")
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
+        # Installing the base image replaces the DUT rootfs, so the gnmi_tls
+        # fixture's server certs under /etc/sonic/telemetry/ and its CONFIG_DB
+        # entries are lost. Re-push certs and re-apply TLS config so the
+        # subsequent gNOI TransferToRemote/SetPackage calls can validate the
+        # server cert (which needs the DUT mgmt IP in its SAN).
+        gnmi_tls.reinstall_certs_after_upgrade()
 
     perform_gnoi_upgrade(
         ptf_gnoi=gnmi_tls.gnoi,
