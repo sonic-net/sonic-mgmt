@@ -1,5 +1,30 @@
+import random
 from tests.snappi_tests.dataplane.imports import *          # noqa: F403, F401, F405
+from tests.common.telemetry import UNIT_SECONDS
+from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
+from typing import Any, Dict
+from tabulate import tabulate
+from tests.common.gu_utils import (
+    create_checkpoint,
+    delete_checkpoint,
+    rollback_or_reload,
+)
 logger = logging.getLogger(__name__)
+
+# ==============================================================================
+#  Shared BGP convergence test helpers (test_pr_bgp_single_port_{up,down},
+#  test_pr_bgp_device_unisolation). Centralised here so the test modules only
+#  carry their event-specific logic.
+# ==============================================================================
+METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"            # noqa: F405
+METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"          # noqa: F405
+METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"      # noqa: F405
+METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"                              # noqa: F405
+METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS: Final[str] = \
+    "bgp.convergence.dataplane.update.time.ms"                                       # noqa: F405
+
+# NOTE: ROUTE_RANGES now lives in the individual test modules and is passed into
+# the helpers below (build_bgp_convergence_config / check_learned_routes_in_dut).
 
 
 @dataclass
@@ -244,6 +269,7 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa 
        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
     """
     get_autoneg_fec(duthosts, get_snappi_ports)
+
     duthost_vlan_interface = {
         dut.hostname: {"vlan_id": "", "vlan_ip": "", "subnet": "", "ip_prefix": ""}
         for dut in duthosts
@@ -767,3 +793,367 @@ def check_bgp_state(snappi_api, subnet_type):
         bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
         assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
         logger.info("BGP v6 Session State is UP")
+
+
+def build_bgp_convergence_config(
+    duthosts,            # noqa: F811
+    get_snappi_ports,    # noqa: F811
+    create_snappi_config,
+    snappi_extra_params,
+    ip_version,
+    frame_rate,
+    frame_size,
+    route_ranges,
+    port_split="half",
+):
+    """
+    Build the Tx/Rx BGP protocol + traffic configuration shared by the
+    ``test_pr_bgp_*`` convergence tests.
+
+    ``port_split`` selects how the discovered snappi ports are divided between
+    Tx and Rx:
+
+    * ``"half"``       - first half Tx, second half Rx (single-port flap tests)
+    * ``"interleave"`` - even-indexed Tx, odd-indexed Rx (device unisolation)
+
+    Returns ``(snappi_config, snappi_obj_handles, tx_ports, rx_ports)``. The
+    """
+    pytest_assert(
+        ip_version in route_ranges,
+        "Failing test as no route ranges are provided for {}".format(ip_version)
+    )
+    snappi_extra_params.ROUTE_RANGES = route_ranges
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
+    if port_split == "interleave":
+        tx_ports, rx_ports = snappi_ports[::2], snappi_ports[1::2]
+    else:
+        mid = len(snappi_ports) // 2
+        tx_ports, rx_ports = snappi_ports[:mid], snappi_ports[mid:]
+    snappi_extra_params.protocol_config = {
+        "Tx": {
+            "protocol_type": "bgp",
+            "ports": tx_ports,
+            "subnet_type": ip_version,
+            "is_rdma": False,
+        },
+        "Rx": {
+            "route_ranges": route_ranges[ip_version] * len(rx_ports),
+            "protocol_type": "bgp",
+            "ports": rx_ports,
+            "subnet_type": ip_version,
+            "is_rdma": False,
+        },
+    }
+    snappi_config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
+    snappi_extra_params.traffic_flow_config = [
+        {
+            "line_rate": frame_rate,
+            "frame_size": frame_size,
+            "is_rdma": False,
+            "flow_name": "bgp_traffic",
+            "tx_names": snappi_obj_handles["Tx"]["ip"],
+            "rx_names": snappi_obj_handles["Rx"]["network_group"],
+        },
+    ]
+    snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
+    return snappi_config, snappi_obj_handles, tx_ports, rx_ports
+
+
+def make_convergence_metric(db_reporter, description):
+    """Create the BGP convergence dataplane-update GaugeMetric."""
+    return GaugeMetric(
+        METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS,
+        description,
+        UNIT_SECONDS,
+        db_reporter,
+    )
+
+
+def record_convergence_metric(
+    metric, db_reporter, event_type, ip_version, snappi_extra_params, pkt_loss_duration
+):
+    """Record ``pkt_loss_duration`` against the shared convergence test labels."""
+    test_labels = {
+        METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
+        METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: snappi_extra_params.ROUTE_RANGES[ip_version][0][0][-1],
+        METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]["line_rate"],
+        METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]["frame_size"],
+        METRIC_LABEL_TG_IP_VERSION: ip_version,
+    }
+    metric.record(pkt_loss_duration, test_labels)
+    db_reporter.report()
+
+
+def check_learned_routes_in_dut(duthosts, ip_version, rx_ports, route_ranges):
+    """
+    Verify that the route ranges advertised by the snappi Rx ports
+    (``route_ranges[ip_version]``) are actually learned by the SONiC DUT(s).
+
+    For every Rx-owning DUT we poll its BGP table (via the built-in
+    ``duthost.get_route()`` helper, which runs ``show bgp ipv4 unicast <prefix>
+    json`` / ``show bgp ipv6 unicast <prefix> json`` based on the prefix family)
+    and assert that the first network of each advertised route range is present.
+    """
+    # Derive the representative network (first prefix) of every advertised range,
+    # e.g. ("100.1.1.1", 24, 5000) -> "100.1.1.0/24".
+    expected_networks = [
+        str(ipaddress.ip_interface("{}/{}".format(address, prefix_len)).network)
+        for address, prefix_len, _count in route_ranges[ip_version][0]
+    ]
+
+    # Unique DUTs that own an Rx port (preserve order).
+    seen = set()
+    rx_duthosts = []
+    for port in rx_ports:
+        dut = port["duthost"]
+        if dut.hostname not in seen:
+            seen.add(dut.hostname)
+            rx_duthosts.append(dut)
+
+    def _route_present(dut, network):
+        route = dut.get_route(network)
+        return bool(route) and bool(route.get("paths") or route.get("routes"))
+
+    def _all_routes_learned(dut):
+        return all(_route_present(dut, network) for network in expected_networks)
+
+    for dut in rx_duthosts:
+        logger.info(
+            "Checking that {} learned the {} routes {} via show bgp unicast".format(
+                dut.hostname, ip_version, expected_networks
+            )
+        )
+        learned = wait_until(120, 5, 0, _all_routes_learned, dut)
+        if not learned:
+            missing = [network for network in expected_networks if not _route_present(dut, network)]
+            pytest_assert(
+                False,
+                "DUT {} did not learn the expected {} routes from snappi; missing: {}".format(
+                    dut.hostname, ip_version, missing
+                ),
+            )
+        logger.info("DUT {} learned the expected {} routes {}".format(dut.hostname, ip_version, expected_networks))
+
+
+def select_random_t0_t1_port(duthosts, conn_graph_facts, dut_type="t0"):
+    """
+    Randomly pick a DUT of tier ``dut_type`` ("t0" or "t1") and return the port
+    on that DUT which connects it to a DUT of the opposite tier, as defined by
+    the inter-device links in ``links.csv`` (exposed via
+    ``conn_graph_facts['device_conn']``).
+
+    For ``dut_type="t0"`` a random T0 is selected and its T0->T1 port returned;
+    for ``dut_type="t1"`` a random T1 is selected and its T1->T0 port returned.
+
+    Returns a ``{"device_name": <hostname>, "port_name": <port>}`` dict suitable
+    for ``snappi_extra_params.FLAP_DETAILS``.
+    """
+    dut_type = dut_type.lower()
+    peer_type = "t1" if dut_type == "t0" else "t0"
+    device_conn = conn_graph_facts['device_conn']
+    selected_duthosts = [dut for dut in duthosts if '-{}-'.format(dut_type) in dut.hostname.lower()]
+    peer_hostnames = [dut.hostname for dut in duthosts if '-{}-'.format(peer_type) in dut.hostname.lower()]
+    pytest_assert(selected_duthosts, "No {} switch found in duthosts".format(dut_type.upper()))
+    pytest_assert(peer_hostnames, "No {} switch found in duthosts".format(peer_type.upper()))
+
+    selected_dut = random.choice(selected_duthosts)
+    for port, link in device_conn.get(selected_dut.hostname, {}).items():
+        if link.get('peerdevice') in peer_hostnames:
+            logger.info(
+                "Selected {} {} port {} (connected to {} {})".format(
+                    dut_type.upper(), selected_dut.hostname, port, peer_type.upper(), link['peerdevice']
+                )
+            )
+            return {"device_name": selected_dut.hostname, "port_name": port}
+
+    pytest_assert(
+        False,
+        "No {}-{} link found in links.csv for selected {} {} ({} candidates: {})".format(
+            dut_type.upper(), peer_type.upper(), dut_type.upper(),
+            selected_dut.hostname, peer_type.upper(), peer_hostnames
+        ),
+    )
+
+
+def select_unisolation_device(duthosts, dut_type="t1"):
+    """
+    Return the DUT whose hostname tier matches ``dut_type`` (e.g. ``"t1"``),
+    used as the device-unisolation target. Asserts if none is found.
+    """
+    dut_type = dut_type.lower()
+    device = next(
+        (dut for dut in duthosts if '-{}-'.format(dut_type) in dut.hostname.lower()),
+        None
+    )
+    pytest_assert(
+        device is not None,
+        "Failing test as unable to find the unisolation device with dut_type '{}'".format(dut_type)
+    )
+    logger.info("Selected unisolation device {} (dut_type={})".format(device.hostname, dut_type))
+    return device
+
+
+def packet_loss_duration_ms(flow_stat):
+    """
+    Compute packet loss for a single "Traffic Item Statistics" row.
+
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    delta_frames = flow_stat.frames_tx - flow_stat.frames_rx
+
+    pkt_loss_duration = 1000 * (delta_frames / flow_stat.frames_tx_rate)
+    return delta_frames, pkt_loss_duration
+
+
+def assert_rx_ports_receiving(snappi_api, min_frame_rate=1000):
+    """
+    Assert every Rx (second-half) port is receiving traffic above
+    ``min_frame_rate`` frames/sec, using the dataplane port statistics view.
+    """
+    port_stats = get_stats(
+        snappi_api,
+        "Data Plane Port Statistics",
+        columns=["Port", "Tx Frame Rate", "Rx Frame Rate"],
+        return_type="df",
+    )
+    port_stats["port_num"] = port_stats["Port"].str.extract(r"(\d+)").astype(int)
+    port_stats = port_stats.sort_values("port_num")
+    mid = len(port_stats) // 2
+    rx_port_stats = port_stats.iloc[mid:, :]
+    pytest_assert(
+        (rx_port_stats["Rx Frame Rate"] > min_frame_rate).all(),
+        "Not all Rx ports are having frame rate atleast {}".format(min_frame_rate),
+    )
+
+
+def measure_and_record_convergence(
+    snappi_api,
+    metric,
+    db_reporter,
+    event_type,
+    ip_version,
+    snappi_extra_params,
+    convergence="delta_nonzero",
+    converge_timeout=None,
+    delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
+    not_converged_msg="Traffic did not converge after event",
+    rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None,
+):
+    """
+    Shared measurement + assertion + metric-recording tail for the
+    ``test_pr_bgp_*`` convergence tests. Reads the traffic-item statistics,
+    computes the packet-loss duration, asserts convergence, stops traffic and
+    records the metric.
+
+    Parameters
+    ----------
+    convergence : str
+        ``"delta_nonzero"`` - assert frames were dropped (``delta_frames != 0``)
+        and ``is_traffic_converged`` (single-port flap / route events).
+        ``"rate_within"``   - assert Tx/Rx frame rates are within 0.1%
+        (device unisolation).
+    converge_timeout : int, optional
+        When set, poll ``is_traffic_converged`` up to this many seconds before
+        measuring (used by the device-unisolation flows).
+    delta_zero_msg / not_converged_msg / rate_varying_msg : str
+        Assertion failure messages, overridable per event.
+
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    if converge_timeout:
+        wait_for(
+            lambda: is_traffic_converged(snappi_api),
+            "Traffic to Converge",
+            interval_seconds=10,
+            timeout_seconds=converge_timeout,
+        )
+    flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
+    delta_frames, pkt_loss_duration = packet_loss_duration_ms(flow_stats[0])
+    logger.info("Delta Frames : {}".format(delta_frames))
+    if convergence == "rate_within":
+        frame_rate_difference = abs(float(flow_stats[0].frames_tx_rate) - float(flow_stats[0].frames_rx_rate))
+        logger.info("Frames Tx Rate : {}".format(flow_stats[0].frames_tx_rate))
+        logger.info("Frames Rx Rate : {}".format(flow_stats[0].frames_rx_rate))
+        logger.info("Frame Rate Difference : {}".format(frame_rate_difference))
+        pytest_assert(frame_rate_difference <= (0.001 * int(flow_stats[0].frames_tx_rate)), rate_varying_msg)
+    else:
+        pytest_assert(int(delta_frames) != 0, delta_zero_msg)
+        pytest_assert(is_traffic_converged(snappi_api), not_converged_msg)
+    logger.info("Traffic has converged after {}".format(event_type))
+    logger.info('--------------------------   Convergence Numbers   ----------------------------------')
+    logger.info("Convergence Time for {} : {} (ms)".format(event_type, pkt_loss_duration))
+    logger.info('--------------------------------------------------------------------------------------')
+    pytest_assert(max_convergence_ms is None or pkt_loss_duration <= max_convergence_ms,
+                  "Convergence time {} ms exceeds max allowed {} ms".format(pkt_loss_duration, max_convergence_ms))
+    start_stop(snappi_api, operation="stop", op_type="traffic")
+    record_convergence_metric(
+        metric, db_reporter, event_type, ip_version, snappi_extra_params, pkt_loss_duration
+    )
+    return delta_frames, pkt_loss_duration
+
+
+def run_bgp_convergence_event(
+    snappi_api,
+    snappi_config,
+    db_reporter,
+    snappi_extra_params,
+    ip_version,
+    event_type,
+    metric_description,
+    disrupt,
+    cleanup=None,
+    cleanup_first=False,
+    convergence="delta_nonzero",
+    converge_timeout=None,
+    delta_zero_msg="Delta Frames is 0 after event, which means no packet drop occurred",
+    not_converged_msg="Traffic did not converge after event",
+    rate_varying_msg="Total Tx Rx Rates are varying by more than 0.1 percent",
+    max_convergence_ms=None
+):
+    """
+    Drive one BGP convergence event end to end: create the metric, push the
+    snappi config, start protocols, run the event-specific ``disrupt`` callable,
+    measure + record convergence, then tear down in a ``finally`` block.
+
+    ``disrupt()`` performs everything between "protocols started" and "ready to
+    measure" (traffic start, pre-event checks, the disruption, and any settle
+    wait). ``cleanup()`` does event-specific teardown; set ``cleanup_first=True``
+    to run it before the protocol/traffic stop (device unisolation needs this).
+    Returns ``(delta_frames, pkt_loss_duration_ms)``.
+    """
+    metric = make_convergence_metric(db_reporter, metric_description)
+    snappi_api.set_config(snappi_config)
+    start_stop(snappi_api, operation="start", op_type="protocols")
+    try:
+        disrupt()
+        return measure_and_record_convergence(
+            snappi_api, metric, db_reporter, event_type, ip_version, snappi_extra_params,
+            convergence=convergence, converge_timeout=converge_timeout,
+            delta_zero_msg=delta_zero_msg, not_converged_msg=not_converged_msg,
+            rate_varying_msg=rate_varying_msg,
+            max_convergence_ms=max_convergence_ms
+        )
+    finally:
+        if cleanup is not None and cleanup_first:
+            cleanup()
+        start_stop(snappi_api, operation="stop", op_type="protocols", waittime=1)
+        start_stop(snappi_api, operation="stop", op_type="traffic", waittime=1)
+        if cleanup is not None and not cleanup_first:
+            cleanup()
+
+
+@pytest.fixture(scope="module", autouse=False)
+def dutconfig_checkpoint(duthosts):
+    """Snapshot CONFIG_DB on every DUT before the module runs; roll it back on teardown.
+
+    This replaces the manual ORIGINAL_SCHEDULER global + shell-unblock pattern.
+    rollback_or_reload() falls back to config_reload if the rollback fails, so
+    the DUT always returns to a clean state -- no try/finally needed in the tests.
+    """
+    for duthost in duthosts:
+        create_checkpoint(duthost)
+    yield
+    for duthost in duthosts:
+        rollback_or_reload(duthost)
+        delete_checkpoint(duthost)

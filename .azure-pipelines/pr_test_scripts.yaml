@@ -209,7 +209,7 @@ t0:
   - platform_tests/test_auto_negotiation.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
-  - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
+  - platform_tests/test_first_time_boot_password_change/test_password_change.py
   - platform_tests/test_idle_driver.py
   - platform_tests/test_intf_fec.py
   - platform_tests/test_kdump.py
@@ -536,7 +536,7 @@ t1-lag:
   - platform_tests/sfp/test_show_intf_xcvr.py
   - platform_tests/test_auto_negotiation.py
   - platform_tests/test_cpu_memory_usage.py
-  - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
+  - platform_tests/test_first_time_boot_password_change/test_password_change.py
   - platform_tests/test_intf_fec.py
   - platform_tests/test_kdump.py
   - platform_tests/test_link_down.py
@@ -712,6 +712,10 @@ t1-lag-vpp:
   - route/test_route_perf.py
   - route/test_route_bgp_ecmp.py
   - route/test_route_map_check.py
+  - ssh/test_ssh_ciphers.py
+  - ssh/test_ssh_default_password.py
+  - ssh/test_ssh_limit.py
+  - ssh/test_ssh_stress.py
   - srv6/test_srv6_dataplane.py
   - srv6/test_srv6_static_config.py
   - vxlan/test_vxlan_ecmp.py
@@ -838,7 +842,7 @@ onboarding_t1_multi_asic:
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/link_flap/test_link_flap.py
   - platform_tests/test_auto_negotiation.py
-  - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
+  - platform_tests/test_first_time_boot_password_change/test_password_change.py
   - platform_tests/test_kdump.py
   - platform_tests/test_memory_exhaustion.py
   - platform_tests/test_port_toggle.py

@@ -195,19 +195,39 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
         parsed_syseeprom = {}
         # Can't use util.get_fields as the values go beyond the last set of '---' in the hearder line.
         regex_int = re.compile(r'([\S\s]+)(0x[A-F0-9]+)\s+([\d]+)\s+([\S\s]*)')
+        # TLV codes that can appear more than once in syseeprom output.
+        # Currently only 0xFD (Vendor Extension) can have multiple values.
+        multi_value_tlv_codes = ["0xfd"]
         for line in syseeprom_output_lines[6:]:
             t1 = regex_int.match(line)
             if t1:
                 tlv_code_lower_case = t1.group(2).strip().lower()
-                parsed_syseeprom[tlv_code_lower_case] = t1.group(4).strip()
+                new_value = t1.group(4).strip()
+                if tlv_code_lower_case in parsed_syseeprom and tlv_code_lower_case in multi_value_tlv_codes:
+                    existing_value = parsed_syseeprom[tlv_code_lower_case]
+                    if isinstance(existing_value, list):
+                        existing_value.append(new_value)
+                    else:
+                        parsed_syseeprom[tlv_code_lower_case] = [existing_value, new_value]
+                else:
+                    parsed_syseeprom[tlv_code_lower_case] = new_value
 
         for field in expected_syseeprom_info_dict:
             pytest_assert(field.lower() in parsed_syseeprom, "Expected field '{}' not present in syseeprom on '{}'".
                           format(field, duthost.hostname))
-            pytest_assert(parsed_syseeprom[field.lower()] == expected_syseeprom_info_dict[field],
-                          "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, parsed_syseeprom[field.lower()], expected_syseeprom_info_dict[field],
-                                 duthost.hostname))
+            expected_value = expected_syseeprom_info_dict[field]
+            actual_value = parsed_syseeprom[field.lower()]
+            if field.lower() in multi_value_tlv_codes:
+                expected_list = expected_value if isinstance(expected_value, list) else [expected_value]
+                actual_list = actual_value if isinstance(actual_value, list) else [actual_value]
+                for expected_item in expected_list:
+                    pytest_assert(expected_item in actual_list,
+                                  "System EEPROM info is incorrect - for '{}', expected '{}' not found in '{}' on '{}'".
+                                  format(field, expected_item, actual_list, duthost.hostname))
+            else:
+                pytest_assert(actual_value == expected_value,
+                              "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
+                              format(field, actual_value, expected_value, duthost.hostname))
 
     if duthost.facts["asic_type"] in ["mellanox"]:
         # Define the expected fields that should be present in the syseeprom output

@@ -960,9 +960,21 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
-##############################################
-#####  cli/test_show_chassis_module.py  #####
-##############################################
+##################################
+#####  cli/test_show_bmc.py  #####
+##################################
+platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_chassis_module_status:
+  skip:
+    reason: "Discrepancy between the pmon and pmon test design"
+    conditions:
+      - https://github.com/sonic-net/SONiC/issues/2410
+
+platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_platform_leak_commands:
+  skip:
+    reason: "Incorrect handling when the empty table is returned"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/25761
+
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
@@ -1536,12 +1548,11 @@ platform_tests/test_reload_config.py::test_reload_configuration:
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
-    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed / Skip test_reload_configuration_checks testcase due to flaky timing issue for Cisco 8000."
+    reason: "Unsupported platform API / Service watchdog-control can not load on kvm testbed."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
