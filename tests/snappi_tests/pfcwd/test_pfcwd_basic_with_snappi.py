@@ -26,32 +26,51 @@ pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]
 
 WAIT_TIME = 600
 INTERVAL = 40
+# Dedicated (smaller) poll interval for the lossless-PG readiness probe: the
+# APPL_DB query is cheap, and a warm restart can reprogram the PG within
+# seconds — polling at INTERVAL would quantize readiness to 40s boundaries.
+PG_READY_INTERVAL = 5
 
 
-def _wait_lossless_pg_ready(duthost, snappi_ports):
+def _lossless_pg_range(lossless_prio_list):     # noqa: F811
+    """BUFFER_PG_TABLE key suffix for the lossless priorities, e.g. [3, 4] -> '3-4'.
+
+    buffermgrd keys the lossless PG entry with the contiguous 'min-max' range of the
+    configured lossless priorities ('min' alone for a single priority), matching how
+    they are listed in BUFFER_PG. SONiC qos profiles use contiguous lossless
+    priorities; a non-contiguous set would need one probe per sub-range.
+    """
+    prios = sorted(int(p) for p in lossless_prio_list)
+    return '{}-{}'.format(prios[0], prios[-1]) if len(prios) > 1 else str(prios[0])
+
+
+def _wait_lossless_pg_ready(duthost, snappi_ports, lossless_prio_list):     # noqa: F811
     """Block until lossless BUFFER_PG is reprogrammed on every test port of ``duthost``.
 
-    A port is ready once ``BUFFER_PG_TABLE:<port>:3-4`` is present in APPL_DB, i.e.
+    A port is ready once ``BUFFER_PG_TABLE:<port>:<lossless range>`` (derived from the
+    testbed's lossless priorities, e.g. ``3-4``) is present in APPL_DB, i.e.
     buffermgr/orchagent have re-pushed lossless buffer/PG state after the swss
     restart. ``critical_services_fully_started`` only reflects systemd-level health
     and does not guarantee QoS has been reapplied to SAI. ``asic.sonic_db_cli`` targets
     APPL_DB explicitly and adds ``-n <namespace>`` scoping on multi-asic DUTs.
     """
+    pg_range = _lossless_pg_range(lossless_prio_list)
+
     def _lossless_pg_ready(port):
         asic = duthost.get_port_asic_instance(port)
-        cmd = "{} APPL_DB keys 'BUFFER_PG_TABLE:{}:3-4'".format(asic.sonic_db_cli, port)
-        return bool(duthost.shell(cmd, verbose=False)['stdout'].strip())
+        cmd = "{} APPL_DB EXISTS 'BUFFER_PG_TABLE:{}:{}'".format(asic.sonic_db_cli, port, pg_range)
+        return duthost.shell(cmd, verbose=False)['stdout'].strip() == '1'
 
     ports_on_duthost = [port for port in snappi_ports if port['duthost'] is duthost]
     for snappi_port in ports_on_duthost:
         peer_port = snappi_port['peer_port']
         pytest_assert(
-            wait_until(WAIT_TIME, INTERVAL, 0, _lossless_pg_ready, peer_port),
-            "Lossless BUFFER_PG not programmed on {}:{} after swss restart".format(
-                duthost.hostname, peer_port))
+            wait_until(WAIT_TIME, PG_READY_INTERVAL, 0, _lossless_pg_ready, peer_port),
+            "Lossless BUFFER_PG {} not programmed on {}:{} after swss restart".format(
+                pg_range, duthost.hostname, peer_port))
 
 
-def restart_swss_and_wait_ready(snappi_ports, restart_service):
+def restart_swss_and_wait_ready(snappi_ports, restart_service, lossless_prio_list):     # noqa: F811
     """Restart swss on each DUT carrying a snappi test port, then wait until it is
     ready to carry lossless traffic again.
 
@@ -63,6 +82,8 @@ def restart_swss_and_wait_ready(snappi_ports, restart_service):
     ``_lossless_pg_ready``) on every test port before returning.
     """
     duthosts = list(set([snappi_ports[0]['duthost'], snappi_ports[1]['duthost']]))
+    # Derived from one DUT and applied to both: this test's topologies pair DUTs of
+    # the same platform, so the asic-count is assumed to match across them.
     is_multi_asic = snappi_ports[0]['duthost'].is_multi_asic
 
     ports_dict = defaultdict(list)
@@ -99,7 +120,7 @@ def restart_swss_and_wait_ready(snappi_ports, restart_service):
         if is_multi_asic:
             pytest_assert(wait_until(
                 WAIT_TIME, INTERVAL, 0, duthost.check_bgp_session_state_all_asics, up_bgp_neighbors, "established"))
-        _wait_lossless_pg_ready(duthost, snappi_ports)
+        _wait_lossless_pg_ready(duthost, snappi_ports, lossless_prio_list)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -346,7 +367,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
 
-    restart_swss_and_wait_ready(snappi_ports, restart_service)
+    restart_swss_and_wait_ready(snappi_ports, restart_service, lossless_prio_list)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -397,7 +418,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
     testbed_config, port_config_list, snappi_ports = tgen_port_info
     logger.info('Ports:{}'.format(snappi_ports))
 
-    restart_swss_and_wait_ready(snappi_ports, restart_service)
+    restart_swss_and_wait_ready(snappi_ports, restart_service, lossless_prio_list)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports

@@ -882,6 +882,9 @@ def _set_credit_watchdog(duthost, enable, asic_value=None):
         namespaces = ['']
     value = "1" if enable else "0"
     for ns in namespaces:
+        # 'credit_watchdog' is the exact SWITCH_TABLE field SwitchOrch consumes and maps
+        # to SAI_SWITCH_ATTR_CREDIT_WD (sonic-swss #4658; on images without that support
+        # SwitchOrch logs 'Unsupported switch attribute' and the write is a no-op).
         pyscript = (
             "from swsscommon.swsscommon import SonicDBConfig, DBConnector, ProducerStateTable; "
             # Namespaced redis is reached via unix socket and needs the global db config;
@@ -1109,6 +1112,7 @@ def check_tx_drp_counts(
     raw_out = duthost.shell(cmd)["stdout"]
 
     raw_json_str = re.sub(r"^(?:(?!{).)*\n", "", raw_out, count=1)
+    stats = {}
     try:
         stats = json.loads(raw_json_str)
     except Exception as e:

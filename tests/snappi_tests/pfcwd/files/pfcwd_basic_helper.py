@@ -76,8 +76,19 @@ def run_pfcwd_basic_test(api,
     ingress_duthost = tx_port["duthost"]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
+    # Fetch the pfcwd timers first: get_pfcwd_timers() skips the test when pfcwd is
+    # not configured, and by fetching before the loop below the skip path leaves no
+    # device-state side effects (packet aging untouched, pfcwd not started).
+    timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
+    poll_interval_sec = timers['poll_interval']
+    detect_time_sec = timers['detection_time']
+    restore_time_sec = timers['restoration_time']
+
     for duthost, asic_value in ((egress_duthost, rx_port['asic_value']),
                                 (ingress_duthost, tx_port['asic_value'])):
+        # Credit-watchdog aging of paused packets is a generic VOQ/DNX property, but
+        # disabling is scoped to Nexthop devices — the DNX SKUs this flow is validated
+        # on; other DNX platforms keep their existing packet-aging behavior.
         packet_aging = disable_packet_aging if is_nexthop_device(duthost) else enable_packet_aging
         packet_aging(duthost, asic_value)
         start_pfcwd(duthost, asic_value)
@@ -95,11 +106,6 @@ def run_pfcwd_basic_test(api,
         DEVIATION = 0.35
     else:
         DEVIATION = 0.3
-
-    timers = get_pfcwd_timers(egress_duthost, dut_port, rx_port['asic_value'])
-    poll_interval_sec = timers['poll_interval']
-    detect_time_sec = timers['detection_time']
-    restore_time_sec = timers['restoration_time']
 
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
     fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
