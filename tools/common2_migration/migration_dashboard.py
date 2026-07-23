@@ -690,7 +690,7 @@ def print_dashboard(
     print(f"  Distinct test files impacted (all tasks)  : {total_tests}")
     print(f"  Granular sub-tasks (public funcs/classes/fixtures) : "
           f"{sum(len(t.symbols) for t in tasks)}")
-    print(f"  Complexity tiers                          : 1 (easiest) .. {max_tier + 1} (hardest)")
+    print(f"  Complexity tiers                          : 1 (easiest) .. {max_tier} (hardest)")
     print()
     print("  How to use this dashboard:")
     print("    * Pick a LOW rank / LOW tier task to start small -- even a single function counts.")
@@ -794,7 +794,7 @@ def build_json(tasks: List[ModuleTask], max_tier: int) -> dict:
                 {t for task in tasks for t in task.impacted_tests_transitive}
             ),
             "granular_subtasks": sum(len(t.symbols) for t in tasks),
-            "max_tier": max_tier + 1,
+            "max_tier": max_tier,
         },
         "tasks": [asdict(t) for t in sorted(tasks, key=lambda x: x.rank)],
     }
@@ -818,7 +818,7 @@ def build_markdown_lines(
     top: Optional[int],
 ) -> List[str]:
     """Return the dashboard as a human-readable Markdown report."""
-    hardest = max_tier + 1
+    hardest = max_tier
     ordered = sorted(tasks, key=lambda x: x.rank)
     shown = ordered if top is None else ordered[:top]
     distinct_direct = len({t for task in tasks for t in task.impacted_tests})
@@ -984,7 +984,7 @@ def _yaml_list(lines: List[str], key: str, items: List[str], indent: str) -> Non
 
 def build_yaml_lines(tasks: List[ModuleTask], max_tier: int) -> List[str]:
     """Return the full commented-YAML dashboard as a list of text lines."""
-    hardest = max_tier + 1
+    hardest = max_tier
     lines: List[str] = []
     lines.append(
         "# ============================================================================"
@@ -1123,7 +1123,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--tests-dir", default="tests",
                         help="Test tree scanned to compute migration impact.")
     parser.add_argument("--max-tier", type=int, default=5,
-                        help="Number of complexity tiers (produces tiers 1..max-tier+1).")
+                        help="Number of complexity tiers (produces tiers 1..max-tier).")
     parser.add_argument("--top", type=int, default=40,
                         help="Show only the N easiest tasks in the log (0 = all).")
     parser.add_argument("--json-out", default="",
