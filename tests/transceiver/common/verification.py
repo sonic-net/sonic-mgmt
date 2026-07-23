@@ -522,17 +522,6 @@ def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _resolve_parent_port(port, lport_to_first_subport_mapping):
-    """Return the parent (first sibling) of ``port`` in its breakout group.
-
-    ``lport_to_first_subport_mapping`` is the value of the session-scoped
-    fixture of the same name (``tests/transceiver/conftest.py``), resolved
-    once per session - passed straight through rather than re-queried and
-    cached again here.
-    """
-    return lport_to_first_subport_mapping.get(port, port)
-
-
 def _get_transceiver_status(duthost, parent_port, status_cache, namespace=None):
     """Cached fetch of ``STATE_DB TRANSCEIVER_STATUS|<parent_port>`` (per ASIC ns).
 
@@ -570,7 +559,7 @@ def check_cmis_state(duthost, port, lport_to_first_subport_mapping, status_cache
     """
     if namespace is None:
         namespace = resolve_namespace(duthost, port)
-    parent = _resolve_parent_port(port, lport_to_first_subport_mapping)
+    parent = lport_to_first_subport_mapping.get(port, port)
     status = _get_transceiver_status(duthost, parent, status_cache, namespace)
     if not status:
         return {
