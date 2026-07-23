@@ -120,7 +120,6 @@ class Symbol:
     loc: int
     has_docstring: bool
     typed_ratio: float  # 0..1 fraction of annotated params + return
-    migrated: bool
     impacted_tests: List[str] = field(default_factory=list)
     score: float = 0.0
     tier: int = 0
@@ -141,7 +140,6 @@ class ModuleTask:
     typed_ratio: float
     documented_ratio: float
     has_common2_unit_tests: bool
-    fully_migrated: bool
     # --- Dependency information (what this module needs) ---
     # Other tests/common modules this module imports directly. Migrating this
     # module cleanly means these must also be migrated (or bridged).
@@ -487,7 +485,6 @@ def analyze_module(
     repo_root: str,
     graph: ImpactGraph,
     common2_unit_test_modules: Set[str],
-    registry_symbols_lookup,
 ) -> Optional[ModuleTask]:
     """Build a :class:`ModuleTask` for one candidate source module."""
     rel = os.path.relpath(abs_path, repo_root).replace(os.sep, "/")
@@ -505,8 +502,6 @@ def analyze_module(
     common2_dotted = "tests.common2." + domain.replace("/", ".")
     if common2_dotted.endswith("."):
         common2_dotted = common2_dotted.rstrip(".")
-
-    registry_migrated = registry_symbols_lookup(rel)
 
     symbols: List[Symbol] = []
     typed_values: List[float] = []
@@ -546,7 +541,6 @@ def analyze_module(
                     loc=sym_loc,
                     has_docstring=has_doc,
                     typed_ratio=round(tr, 2),
-                    migrated=node.name in registry_migrated,
                     is_fixture=kind == "fixture",
                 )
             )
@@ -592,8 +586,6 @@ def analyze_module(
     consumer_text_cache: Dict[str, str] = {}
     consumer_ast_cache: Dict[str, Optional[ast.Module]] = {}
     for sym in symbols:
-        if sym.migrated:
-            continue
         sym_tests: List[str] = []
         for consumer_rel in impacted_tests:
             text = consumer_text_cache.get(consumer_rel)
@@ -628,8 +620,6 @@ def analyze_module(
                         break
         sym.impacted_tests = sym_tests
 
-    fully_migrated = all(s.migrated for s in symbols)
-
     task = ModuleTask(
         rel_path=rel,
         dotted=dotted,
@@ -643,7 +633,6 @@ def analyze_module(
         has_common2_unit_tests=module_has_common2_unit_tests(
             common2_dotted, common2_unit_test_modules
         ),
-        fully_migrated=fully_migrated,
         depends_on_direct=depends_on_direct,
         depends_on_transitive=depends_on_transitive,
         symbols=symbols,
@@ -701,7 +690,6 @@ def _bar(pct: float, width: int = 10) -> str:
 
 def print_dashboard(
     tasks: List[ModuleTask],
-    done_tasks: List[ModuleTask],
     max_tier: int,
     top: Optional[int],
 ) -> None:
@@ -716,10 +704,9 @@ def print_dashboard(
     print("Summary")
     print("-" * 100)
     print(f"  Candidate modules available for migration : {len(tasks)}")
-    print(f"  Modules already fully migrated            : {len(done_tasks)}")
     print(f"  Distinct test files impacted (all tasks)  : {total_tests}")
     print(f"  Granular sub-tasks (public funcs/classes/fixtures) : "
-          f"{sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)}")
+          f"{sum(len(t.symbols) for t in tasks)}")
     print(f"  Complexity tiers                          : 1 (easiest) .. {max_tier + 1} (hardest)")
     print()
     print("  How to use this dashboard:")
@@ -791,12 +778,8 @@ def print_dashboard(
             f"{len(task.impacted_tests_transitive)} test(s) affected transitively."
         )
 
-        pending = [s for s in task.symbols if not s.migrated]
-        migrated = [s for s in task.symbols if s.migrated]
-        if migrated:
-            print(f"    Already migrated: {', '.join(s.name for s in migrated)}")
-        print(f"    Function-level tasks ({len(pending)}):")
-        for sym in sorted(pending, key=lambda s: s.score):
+        print(f"    Function-level tasks ({len(task.symbols)}):")
+        for sym in sorted(task.symbols, key=lambda s: s.score):
             tests_preview = ", ".join(os.path.basename(t) for t in sym.impacted_tests[:3])
             if len(sym.impacted_tests) > 3:
                 tests_preview += f", +{len(sym.impacted_tests) - 3} more"
@@ -814,37 +797,25 @@ def print_dashboard(
                   + (f" ... (+{len(task.impacted_tests) - 8})" if len(task.impacted_tests) > 8 else ""))
     print()
 
-    if done_tasks:
-        print("Already migrated (for reference)")
-        print("-" * 100)
-        for task in done_tasks:
-            print(f"    {task.rel_path}  ->  {task.target_path}  "
-                  f"({', '.join(s.name for s in task.symbols if s.migrated)})")
-        print()
-
     print("=" * 100)
     print("End of dashboard. Machine-readable data is in the YAML artifact (see --yaml-out).")
     print("=" * 100)
 
 
-def build_json(tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: int) -> dict:
+def build_json(tasks: List[ModuleTask], max_tier: int) -> dict:
     """Assemble the structured payload for later GitHub Project upload."""
     return {
         "schema_version": 1,
         "summary": {
             "available_modules": len(tasks),
-            "migrated_modules": len(done_tasks),
             "distinct_impacted_tests": len({t for task in tasks for t in task.impacted_tests}),
             "distinct_impacted_tests_transitive": len(
                 {t for task in tasks for t in task.impacted_tests_transitive}
             ),
-            "granular_subtasks": sum(
-                len([s for s in t.symbols if not s.migrated]) for t in tasks
-            ),
+            "granular_subtasks": sum(len(t.symbols) for t in tasks),
             "max_tier": max_tier + 1,
         },
         "tasks": [asdict(t) for t in sorted(tasks, key=lambda x: x.rank)],
-        "migrated": [asdict(t) for t in done_tasks],
     }
 
 
@@ -862,7 +833,6 @@ def _md_cell(value: object) -> str:
 
 def build_markdown_lines(
     tasks: List[ModuleTask],
-    done_tasks: List[ModuleTask],
     max_tier: int,
     top: Optional[int],
 ) -> List[str]:
@@ -874,7 +844,7 @@ def build_markdown_lines(
     distinct_trans = len(
         {t for task in tasks for t in task.impacted_tests_transitive}
     )
-    subtasks = sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)
+    subtasks = sum(len(t.symbols) for t in tasks)
 
     lines: List[str] = []
     lines.append("# common → common2 Migration Dashboard")
@@ -905,7 +875,6 @@ def build_markdown_lines(
     lines.append("## Summary")
     lines.append("")
     lines.append(f"- Modules available to migrate: **{len(tasks)}**")
-    lines.append(f"- Modules already migrated: **{len(done_tasks)}**")
     lines.append(f"- Distinct tests impacted (direct): **{distinct_direct}**")
     lines.append(f"- Distinct tests impacted (transitive): **{distinct_trans}**")
     lines.append(f"- Granular function/class sub-tasks: **{subtasks}**")
@@ -977,11 +946,10 @@ def build_markdown_lines(
                 lines.append(f"- `{_md_cell(path)}`")
         lines.append("")
 
-        pending = [s for s in task.symbols if not s.migrated]
-        if pending:
+        if task.symbols:
             lines.append("#### Sub-tasks")
             lines.append("")
-            for sym in sorted(pending, key=lambda s: s.score):
+            for sym in sorted(task.symbols, key=lambda s: s.score):
                 lines.append(
                     f"- [{sym.kind}] `{_md_cell(sym.name)}` — tier {sym.tier}, "
                     f"score {sym.score:.2f}, {sym.loc} LOC"
@@ -997,12 +965,6 @@ def build_markdown_lines(
         )
         lines.append("")
 
-    if done_tasks:
-        lines.append("## Already migrated (for reference)")
-        lines.append("")
-        for task in done_tasks:
-            lines.append(f"- `{_md_cell(task.rel_path)}` → `{_md_cell(task.target_path)}`")
-        lines.append("")
     return lines
 
 
@@ -1040,9 +1002,7 @@ def _yaml_list(lines: List[str], key: str, items: List[str], indent: str) -> Non
         lines.append(f"{indent}  - {_yaml_scalar(item)}")
 
 
-def build_yaml_lines(
-    tasks: List[ModuleTask], done_tasks: List[ModuleTask], max_tier: int
-) -> List[str]:
+def build_yaml_lines(tasks: List[ModuleTask], max_tier: int) -> List[str]:
     """Return the full commented-YAML dashboard as a list of text lines."""
     hardest = max_tier + 1
     lines: List[str] = []
@@ -1111,10 +1071,9 @@ def build_yaml_lines(
     distinct_trans = len(
         {t for task in tasks for t in task.impacted_tests_transitive}
     )
-    subtasks = sum(len([s for s in t.symbols if not s.migrated]) for t in tasks)
+    subtasks = sum(len(t.symbols) for t in tasks)
     lines.append("summary:")
     lines.append(f"  available_modules: {len(tasks)}")
-    lines.append(f"  migrated_modules: {len(done_tasks)}")
     lines.append(f"  distinct_impacted_tests: {distinct_direct}")
     lines.append(f"  distinct_impacted_tests_transitive: {distinct_trans}")
     lines.append(f"  granular_subtasks: {subtasks}")
@@ -1148,12 +1107,11 @@ def build_yaml_lines(
         _yaml_list(
             lines, "impacted_tests_transitive", task.impacted_tests_transitive, "    "
         )
-        pending = [s for s in task.symbols if not s.migrated]
-        if not pending:
+        if not task.symbols:
             lines.append("    symbols: []")
             continue
         lines.append("    symbols:  # bite-sized sub-tasks (pick one function/class)")
-        for sym in sorted(pending, key=lambda s: s.score):
+        for sym in sorted(task.symbols, key=lambda s: s.score):
             lines.append(f"      - name: {_yaml_scalar(sym.name)}")
             lines.append(f"        kind: {_yaml_scalar(sym.kind)}")
             lines.append(f"        tier: {sym.tier}  # 1 = easiest ... {hardest} = hardest")
@@ -1163,14 +1121,6 @@ def build_yaml_lines(
             lines.append(f"        has_docstring: {_yaml_scalar(sym.has_docstring)}")
             _yaml_list(lines, "impacted_tests", sym.impacted_tests, "        ")
     lines.append("")
-    lines.append("# Already migrated to common2 (for reference; no action needed).")
-    if not done_tasks:
-        lines.append("migrated: []")
-    else:
-        lines.append("migrated:")
-        for task in done_tasks:
-            lines.append(f"  - module: {_yaml_scalar(task.rel_path)}")
-            lines.append(f"    target: {_yaml_scalar(task.target_path)}")
     lines.append("")
     return lines
 
@@ -1223,7 +1173,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print(f"Scanning source modules under: {args.common_dir}")
     print(f"Computing impact against test tree: {args.tests_dir}")
-    print(f"Detecting migrated code in: {args.common2_dir}")
     print()
 
     # 1. Which common2 modules have unit tests (module dotted path form).
@@ -1244,7 +1193,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # 3. Analyze every candidate module.
     tasks: List[ModuleTask] = []
-    done_tasks: List[ModuleTask] = []
     for abs_path in iter_python_files(common_abs):
         base = os.path.basename(abs_path)
         if base in EXCLUDED_BASENAMES or is_test_file(base):
@@ -1254,19 +1202,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             repo_root,
             graph,
             common2_unit_test_modules,
-            lambda rel_path: set(),
         )
         if task is None:
             continue
-        if task.fully_migrated:
-            done_tasks.append(task)
-        else:
-            tasks.append(task)
+        tasks.append(task)
 
     rank_and_score(tasks, args.max_tier)
 
     top = None if args.top in (0, None) else args.top
-    print_dashboard(tasks, done_tasks, args.max_tier, top)
+    print_dashboard(tasks, args.max_tier, top)
 
     if args.json_out:
         out_path = args.json_out
@@ -1274,7 +1218,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             out_path = os.path.join(repo_root, out_path)
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as handle:
-            json.dump(build_json(tasks, done_tasks, args.max_tier), handle, indent=2)
+            json.dump(build_json(tasks, args.max_tier), handle, indent=2)
         print(f"\nWrote machine-readable dashboard JSON to: {out_path}")
 
     if args.yaml_out:
@@ -1283,7 +1227,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             out_path = os.path.join(repo_root, out_path)
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as handle:
-            handle.write("\n".join(build_yaml_lines(tasks, done_tasks, args.max_tier)))
+            handle.write("\n".join(build_yaml_lines(tasks, args.max_tier)))
         print(f"\nWrote commented dashboard YAML to: {out_path}")
 
     if args.markdown_out:
@@ -1293,7 +1237,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as handle:
             handle.write(
-                "\n".join(build_markdown_lines(tasks, done_tasks, args.max_tier, top))
+                "\n".join(build_markdown_lines(tasks, args.max_tier, top))
             )
             handle.write("\n")
         print(f"\nWrote Markdown report to: {out_path}")
