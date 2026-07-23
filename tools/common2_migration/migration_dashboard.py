@@ -31,14 +31,12 @@ import json
 import os
 import re
 import sys
-import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 
 # tests/common contains many regex strings with invalid escape sequences that
 # emit SyntaxWarning at parse time. They are irrelevant to this analysis.
-warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 
 # ---------------------------------------------------------------------------
