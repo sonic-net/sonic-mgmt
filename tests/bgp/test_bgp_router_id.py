@@ -183,24 +183,30 @@ def restart_bgp(duthost, tbinfo):
 def is_loopback_advertised_to_neighbor(duthost, asic_index, show_cmd, remote_ip, loopback_ip):
     """Return True if loopback_ip is advertised as a route (prefix) to remote_ip.
 
-    Runs the advertised-routes command directly and asserts it succeeded, so a vtysh/command failure
-    (e.g. neighbor not found) surfaces as an error instead of being silently read as "not advertised".
-    Then checks in Python for the prefix followed by '/' (e.g. '10.1.0.1/'). The trailing '/' means it
-    does not false-match:
+    Runs the advertised-routes command directly (bounded by `timeout` like the other vtysh calls in
+    this file, since a stuck vtysh would otherwise hang the test) and asserts it succeeded, so a
+    vtysh/command failure (e.g. neighbor not found) surfaces as an error instead of being silently
+    read as "not advertised". Then checks in Python for the prefix followed by '/' (e.g. '10.1.0.1/').
+    The trailing '/' means it does not false-match:
       - the 'local router ID is <loopback_ip>' header line, which contains loopback_ip when the DUT
         router-id equals its loopback IP (the default state, before bgp_router_id is customized), or
       - a longer prefix that merely starts with loopback_ip (e.g. loopback '10.1.0.1' vs an advertised
         '10.1.0.10/32', or an IPv6 '/64' network vs its '/128' host routes).
     """
-    cmd = get_vtysh_cmd_for_asic(
+    vtysh_cmd = get_vtysh_cmd_for_asic(
         duthost,
         asic_index,
         "vtysh -c \"{} {} advertised-routes\"".format(show_cmd, remote_ip)
     )
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    pytest_assert(output["rc"] == 0,
-                  "Failed to get advertised-routes for neighbor {}: {}".format(remote_ip, output))
-    return "{}/".format(loopback_ip) in output["stdout"]
+    bounded_cmd = "timeout -k {} {} {}".format(
+        VTYSH_SHOW_CMD_KILL_GRACE_SEC, VTYSH_SHOW_CMD_TIMEOUT_SEC, vtysh_cmd)
+    res = duthost.shell(bounded_cmd, module_ignore_errors=True)
+    rc = res.get("rc")
+    output = res.get("stdout", "") or ""
+    pytest_assert(rc == 0, (
+        "Failed to run '{}' for neighbor {} (rc={}). stderr: {}; stdout: {}"
+    ).format(vtysh_cmd, remote_ip, rc, (res.get("stderr", "") or "")[:200], output[:200]))
+    return "{}/".format(loopback_ip) in output
 
 
 def get_neighbor_loopback_advertised_map(duthost, asic_index, cfg_facts, loopback_ip, is_ipv6):
