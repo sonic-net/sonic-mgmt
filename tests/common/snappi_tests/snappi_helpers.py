@@ -8,6 +8,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+import re
 import time
 import ipaddr
 import math
@@ -383,6 +384,11 @@ def fetch_pfc_queue_group_size(api, config=None):
     Returns:
     size (int): 4 or 8, or None when undetermined
     """
+    if 'ixnetwork' not in type(api).__module__.lower():
+        # Checked before any apply: other OTG backends must keep today's path,
+        # without the set_config below as a side effect.
+        logger.info("pfcQueueGroupSize detection: not an IxNetwork-backed session")
+        return None
     try:
         if config is not None:
             api.set_config(config)  # the first apply also establishes the IxNetwork session
@@ -404,7 +410,14 @@ def fetch_pfc_queue_group_size(api, config=None):
             if card.endswith('Fcoe'):
                 card = card[:-len('Fcoe')]
             raw = getattr(vport.L1Config, card).Fcoe.PfcQueueGroupSize
-            sizes[vport.Name] = int(str(raw).rsplit('-', 1)[-1])
+            # Readback is '<enum>-<n>' or a bare number; require trailing digits
+            # rather than assuming, so an unexpected format is logged, not raised.
+            match = re.search(r'(\d+)$', str(raw).strip())
+            if match is None:
+                logger.warning("pfcQueueGroupSize detection: unparseable readback %r on %s",
+                               raw, vport.Name)
+                return None
+            sizes[vport.Name] = int(match.group(1))
         logger.info("fetch_pfc_queue_group_size: %s", sizes)
     except Exception as e:
         logger.warning("pfcQueueGroupSize detection failed: %s", e)

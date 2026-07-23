@@ -1577,6 +1577,11 @@ def pfc_queue_group_size(api=None, config=None, default=8):
     runs only when ``api`` is passed (fixtures do this once while building the
     testbed config); plain ``pfc_queue_group_size()`` calls return the cached
     value, or the override/default if resolution has not happened yet.
+
+    The cache is a process global that is never reset: the first resolved value
+    holds for the rest of the pytest run. That matches the one-testbed-per-run
+    model; a run spanning tgens with different queue-group sizes would keep the
+    first size only.
     """
     global _pfc_queue_group_size
     if _pfc_queue_group_size is not None:

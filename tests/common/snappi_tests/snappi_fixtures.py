@@ -1143,6 +1143,12 @@ def snappi_multi_base_config(duthost_list,
         logger.info('Rx and  Tx ports have different link speeds')
     [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
 
+    # Resolve the PFC queue-group size once, while the config holds only ports
+    # (detection applies it to bring the session vports up), instead of from
+    # inside the per-port loop below where only part of the L1 config exists.
+    # The _config_pfc_classes calls then read the cached value.
+    pfc_queue_group_size(api=snappi_api, config=config)
+
     # Generating L1 config for both the snappi_ports.
     for port in config.ports:
         for index, snappi_port in enumerate(new_snappi_ports):
