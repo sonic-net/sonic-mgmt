@@ -61,7 +61,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
 
     if config_force_option_supported(duthost):
         assert wait_until(360, 20, 0, config_system_checks_passed, duthost), (
-            "System checks did not pass within the allotted time after config reload. "
+            "System checks did not pass within the allotted time before config reload. "
         )
 
     logging.info("Reload configuration")
@@ -199,13 +199,12 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
         time.sleep(1)
 
+    stdout = out['stdout'] if out else "None (command timed out or failed)"
     # config reload command shouldn't work immediately after system reboot
-    assert result and "Retry later" in out['stdout'], (
+    assert result and "Retry later" in stdout, (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-    ).format(
-        out['stdout']
-    )
+    ).format(stdout)
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
         "System checks did not pass within the allotted time after config reload on  Delayed services: {}"
@@ -222,24 +221,22 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     # After the system checks succeed the config reload command should not throw error
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" not in out['stdout'], (
+    stdout = out['stdout'] if out else "None (command timed out or failed)"
+    assert result and "Retry later" not in stdout, (
         "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
         "Output: '{}'\n"
-    ).format(
-        out['stdout']
-    )
+    ).format(stdout)
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" in out['stdout'], (
+    stdout = out['stdout'] if out else "None (command timed out or failed)"
+    assert result and "Retry later" in stdout, (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-    ).format(
-        out['stdout']
-    )
+    ).format(stdout)
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
         "System checks did not pass within the allotted time after config reload on Delayed services: {}"
@@ -256,12 +253,11 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     # Without swss running config reload option should not proceed
     result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
-    assert result and "Retry later" in out['stdout'], (
+    stdout = out['stdout'] if out else "None (command timed out or failed)"
+    assert result and "Retry later" in stdout, (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-    ).format(
-        out['stdout']
-    )
+    ).format(stdout)
 
     # However with force option config reload should proceed
     logging.info("Performing force config reload")

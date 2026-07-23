@@ -463,20 +463,21 @@ class TestBmcctldDaemon:
                 pytest.skip(f"No PDU controller wired for switch chassis {switch_host.hostname}, "
                             "skipping power-loss scenario")
 
+            # PduManager.turn_{off,on}_outlet expects the full outlet dict from
+            # get_outlet_status() (with psu_name/feed_name/outlet_id), not a bare ID.
             outlets = pdu_ctrl.get_outlet_status()
-            outlet_ids = [o['outlet_id'] for o in outlets if 'outlet_id' in o]
-            pytest_assert(outlet_ids, "PDU controller returned no outlets for switch chassis")
+            pytest_assert(outlets, "PDU controller returned no outlets for switch chassis")
 
             # Set marker in event.log BEFORE power cycle. event.log is persistent;
             # syslog is tmpfs and is wiped on power loss so cannot be used here.
             la = make_bmc_loganalyzer(self.duthost, "bmcctld_power_on_delay_scenario_b")
             marker_b = la.init()
 
-            for outlet in outlet_ids:
+            for outlet in outlets:
                 pdu_ctrl.turn_off_outlet(outlet)
             wait_until(120, 5, 10,
                        lambda: self.duthost.shell("true", module_ignore_errors=True).get('rc') != 0)
-            for outlet in outlet_ids:
+            for outlet in outlets:
                 pdu_ctrl.turn_on_outlet(outlet)
 
             wait_until(600, 15, 30, lambda: self.duthost.critical_services_fully_started())
