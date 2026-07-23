@@ -23,6 +23,9 @@ def dhcp_server_setup_teardown(duthost):
     dhcp_server_state = features_state[DHCP_SERVER_FEATRUE_NAME]
     py_require(dhcp_server_state in ('enabled', 'always_enabled', 'disabled'),
                "Skip on testbed with unsupported dhcp server feature state: {}".format(dhcp_server_state))
+    py_require(hasattr(dhcp_relay_utils, 'get_dhcp_relay_type'),
+               "Skip until required dependency #26525 provides get_dhcp_relay_type")
+    get_dhcp_relay_type = dhcp_relay_utils.get_dhcp_relay_type
 
     restore_state_flag = dhcp_server_state == 'disabled'
 
@@ -42,10 +45,10 @@ def dhcp_server_setup_teardown(duthost):
             cleanup_step('disable feature', lambda: duthost.shell("config feature state dhcp_server disabled"))
         cleanup_step('restore relay layout',
                      lambda: dhcp_relay_utils.restart_dhcp_service(
-                         duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)]))
+                         duthost, [get_dhcp_relay_type(duthost)]))
         if restore_state_flag:
             def remove_dhcp_server_container():
-                result = duthost.shell("docker rm dhcp_server", module_ignore_errors=True)
+                result = duthost.shell("docker rm {}".format(DHCP_SERVER_CONTAINER_NAME), module_ignore_errors=True)
                 if result['rc'] != 0 and "No such container" not in result.get('stderr', ''):
                     raise RuntimeError("Failed to remove dhcp_server container: {}".format(result.get('stderr', '')))
 
@@ -57,10 +60,12 @@ def dhcp_server_setup_teardown(duthost):
         if restore_state_flag:
             duthost.shell("config feature state dhcp_server enabled")
 
-        dhcp_relay_utils.restart_dhcp_service(duthost, [dhcp_relay_utils.get_dhcp_relay_type(duthost)])
+        dhcp_relay_utils.restart_dhcp_service(duthost, [get_dhcp_relay_type(duthost)])
 
         def is_supervisor_subprocess_running(duthost, container_name, app_name):
-            return "RUNNING" in duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}")["stdout"]
+            result = duthost.shell(f"docker exec {container_name} supervisorctl status {app_name}",
+                                   module_ignore_errors=True)
+            return result['rc'] == 0 and "RUNNING" in result.get('stdout', '')
 
         py_assert(
             wait_until(120, 1, 1,
