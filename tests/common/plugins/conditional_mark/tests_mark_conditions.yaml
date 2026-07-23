@@ -703,9 +703,11 @@ bgp/test_bgp_update_replication.py:
 
 bgp/test_bgp_vnet.py:
   skip:
-    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms. Also not supported on topologies without PortChannel uplinks due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/26523"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/26523 and topo_name == 't0-isolated-d32u32s2-mix'"
 
 bgp/test_bgp_vnet_scale.py:
   skip:
