@@ -201,6 +201,7 @@ arp/test_arp_update.py::test_dut_arping_learns_mac:
 arp/test_arp_update.py::test_dut_ping_learns_mac:
   skip:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
@@ -1378,6 +1379,12 @@ dualtor/test_bgp_block_loopback1.py:
     reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
     conditions:
       - "asic_type in ['vs']"
+
+dualtor/test_mux_port_iptables_entries.py::test_multivlan_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
 
 dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
   xfail:
