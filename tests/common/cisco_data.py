@@ -2,6 +2,7 @@ import json
 import re
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
+from tests.common.cisco_s1_cli import CiscoS1Cli
 
 
 # =============================================================================
@@ -125,3 +126,25 @@ def run_dshell_command(duthost, command):
     if not wait_until(300, 20, 0, check_dshell_ready, duthost):
         raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     return duthost.shell(command)
+
+
+def get_voq_quant_thresholds_cisco(duthost, interface, traffic_class, asic_index=None):
+    """
+        Return the quantized queue watermark thresholds (in bytes) for a given
+        interface and traffic class on a Cisco-8000 device.
+
+        Args:
+            duthost: The DUT host handle.
+            interface (str): The egress interface name.
+            traffic_class (int): The traffic class / queue index.
+            asic_index (int, optional): ASIC index for multi-ASIC platforms.
+                Ignored on single-ASIC platforms.
+
+        Returns:
+            list[int]: The congestion-level thresholds in bytes, ordered from
+                lowest to highest.
+    """
+    s1cli = CiscoS1Cli(duthost, asic_index=asic_index)
+    port_oid = s1cli.get_port_oid(interface)
+    queue_oid = s1cli.get_queue_oid(port_oid, traffic_class)
+    return s1cli.get_queue_watermark_thresholds(queue_oid)

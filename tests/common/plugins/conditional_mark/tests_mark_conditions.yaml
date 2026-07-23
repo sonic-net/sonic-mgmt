@@ -4694,6 +4694,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQSharedWatermark(\[|$):
+  regex: true
+  skip:
+    reason: "Test case replaced by testQosSaiQSharedWatermarkQuantized for Cisco-8223."
+    conditions:
+      - "asic_type in ['cisco-8000'] and platform.startswith('x86_64-8223')"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
   skip:
     reason: "All Port Watermark test is verified only on Cisco Platforms."
