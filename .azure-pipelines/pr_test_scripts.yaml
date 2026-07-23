@@ -295,7 +295,7 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  - telemetry/test_events.py
+  - gnmi/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry_poll.py
@@ -609,7 +609,7 @@ t1-lag:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  - telemetry/test_events.py
+  - gnmi/test_events.py
   - telemetry/test_telemetry.py
   - telemetry/test_telemetry_cert_rotation.py
   - telemetry/test_telemetry_poll.py
@@ -872,7 +872,7 @@ onboarding_t1_multi_asic:
   - test_procdockerstatsd.py
   - platform_tests/test_reload_config.py
   - sub_port_interfaces/test_sub_port_interfaces.py
-  - telemetry/test_events.py
+  - gnmi/test_events.py
   - show_techsupport/test_auto_techsupport.py
   - vxlan/test_vxlan_bfd_tsa.py
   - vxlan/test_vxlan_ecmp_switchover.py

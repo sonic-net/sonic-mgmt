@@ -3,24 +3,26 @@ import pytest
 import os
 import sys
 
-from telemetry_utils import skip_201911_and_older
-from events.event_utils import event_publish_tool
-from events.event_utils import reset_event_counters, read_event_counters
-from events.event_utils import verify_counter_increase, restart_eventd
+from tests.gnmi.events.event_utils import event_publish_tool
+from tests.gnmi.events.event_utils import reset_event_counters, read_event_counters
+from tests.gnmi.events.event_utils import verify_counter_increase, restart_eventd
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m    # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
-EVENTS_TESTS_PATH = "./telemetry/events"
+EVENTS_TESTS_PATH = "./gnmi/events"
 sys.path.append(EVENTS_TESTS_PATH)
 
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = "logs/telemetry"
+BASE_DIR = "logs/gnmi"
 DATA_DIR = os.path.join(BASE_DIR, "files")
 MISSED_TO_CACHE = 0
 PUBLISHED = 1
@@ -34,18 +36,14 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-@pytest.mark.disable_loganalyzer
 def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
-                setup_streaming_telemetry, gnxi_path, test_eventd_healthy,
+                gnxi_path, test_eventd_healthy,
                 toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
                 setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m):  # noqa: F811
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events testing")
-
-    skip_201911_and_older(duthost)
 
     # Load rest of events
     for file in os.listdir(EVENTS_TESTS_PATH):
@@ -59,15 +57,11 @@ def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptf
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
 
 
-@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-@pytest.mark.disable_loganalyzer
-def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
-                               gnxi_path):
+def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events cache overflow testing")
 
-    skip_201911_and_older(duthost)
     reset_event_counters(duthost)
     restart_eventd(duthost)
 
