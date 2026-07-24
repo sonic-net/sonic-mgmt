@@ -109,6 +109,11 @@ r, ".* ERR monit.*Unix socket /var/run/monit.sock connection error.*"
 # https://dev.azure.com/msazure/One/_workitems/edit/14233936
 r, ".* ERR pmon#thermalctld.*Caught exception while running thermal policy - AttributeError.*"
 
+# Transient boot-time race: thermalctld initializes the thermal manager before the
+# platform is fully ready and reads an empty policy, raising JSONDecodeError once at
+# startup, then recovers. Benign; thermalctld runs normally afterwards.
+r, ".* ERR pmon#thermalctld.*Caught exception while initializing thermal manager - JSONDecodeError.*"
+
 # https://dev.azure.com/msazure/One/_workitems/edit/14233549
 r, ".* ERR pmon#ycable.*executing the cli for prbs thread.*"
 
