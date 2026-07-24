@@ -116,17 +116,21 @@ def golden_config_override_with_specific_template(duthost, safe_reload_ignored_d
     config_compare(golden_config, overrided_config)
 
 
-def test_rendered_golden_config_override(duthosts, rand_one_dut_hostname, setup_env):
+def test_rendered_golden_config_override(duthosts, rand_one_dut_hostname, setup_env, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.is_multi_asic:
         pytest.skip("Skip this test on multi-asic platforms, \
                     since golden config format here is not compatible with multi-asics")
 
     safe_reload_ignored_dockers = []
+    topo_type = tbinfo["topo"]["type"]
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
         # These are the critical services that are not included in the golden config template
         # nor the default config. After the minigraph load they will be disabled.
         safe_reload_ignored_dockers = ["dhcp_relay", "dhcp_server"]
+    elif topo_type == "mx":
+        # MX golden config disables dhcp_server after minigraph reload.
+        safe_reload_ignored_dockers = ["dhcp_server"]
 
     golden_config_override_with_general_template(duthost, safe_reload_ignored_dockers)
     golden_config_override_with_specific_template(duthost, safe_reload_ignored_dockers)
