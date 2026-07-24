@@ -131,7 +131,21 @@ def test_dequeue_ecn(request,
     # Check if the first packet is ECN marked
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
 
-    # Check if the last packet is not ECN marked
-    pytest_assert(not is_ecn_marked(ip_pkts[-1]),
-                  "The last packet should not be marked")
+    # Find the transition index where marking flips off and assert
+    # (a) the transition exists (at least one unmarked packet after the marked head),
+    # (b) no packet after the transition is marked (marking is monotonic: True...True False...False).
+    # This avoids brittle reliance on ip_pkts[-1] when buffer geometry varies across SKUs.
+    marked = [is_ecn_marked(p) for p in ip_pkts]
+    try:
+        transition_idx = marked.index(False)
+    except ValueError:
+        transition_idx = -1
+    pytest_assert(transition_idx > 0,
+                  "Expected an ECN-marking transition (marked -> unmarked) within the burst, "
+                  "but every captured packet was marked. marked={}".format(marked))
+    tail_marked = [i for i, m in enumerate(marked[transition_idx:], start=transition_idx) if m]
+    pytest_assert(not tail_marked,
+                  "ECN marking is not monotonic: packets at indices {} were marked after "
+                  "the unmarked transition at index {}.".format(tail_marked, transition_idx))
+    logger.info("ECN marking transition at packet index {}/{}".format(transition_idx, len(ip_pkts)))
     cleanup_config(duthosts, snappi_ports)
