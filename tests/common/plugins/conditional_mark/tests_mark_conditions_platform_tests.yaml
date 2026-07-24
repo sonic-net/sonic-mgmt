@@ -47,9 +47,7 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
   xfail:
     reason: "[DX010] Testcase consistently fails, raised issue to track; [E1031] API 'get_revision' not implemented"
-    conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6512"
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
   skip:
     reason: "Unsupported platform API"
@@ -102,21 +100,11 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_status_led:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####   api/test_chassis_fans.py  #####
 #######################################
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
   skip:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
@@ -125,11 +113,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_direction:
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_get_fans_target_speed:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
   skip:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
@@ -162,11 +145,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_led:
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
   skip:
@@ -175,11 +153,6 @@ platform_tests/api/test_chassis_fans.py::TestChassisFans::test_set_fans_speed:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####    api/test_component.py    #####
@@ -298,11 +271,6 @@ platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_maximum_consum
     conditions:
       - "asic_type in ['mellanox', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_fan_drawer.py::TestFanDrawerApi::test_get_model:
   skip:
@@ -375,11 +343,6 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
 #####   test_liquid_cooling_leakage.py   #####
@@ -405,11 +368,6 @@ platform_tests/api/test_module.py:
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
   skip:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
@@ -452,7 +410,6 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
     reason: "[DX010] case failed and waiting for fix; [E1031] API 'get_revision' not implemented"
     conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6767"
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
   skip:
     reason: "Unsupported platform API"
@@ -514,11 +471,6 @@ platform_tests/api/test_psu.py::test_temperature:
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
@@ -567,11 +519,6 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_led:
     conditions:
       - "asic_type in ['mellanox', 'cisco-8000', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails on Celestica, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
   skip:
@@ -908,11 +855,6 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
   skip:
@@ -921,11 +863,6 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 #######################################
 #####     api/test_watchdog.py    #####
@@ -963,18 +900,6 @@ platform_tests/broadcom/test_ser.py:
 ##################################
 #####  cli/test_show_bmc.py  #####
 ##################################
-platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_chassis_module_status:
-  skip:
-    reason: "Discrepancy between the pmon and pmon test design"
-    conditions:
-      - https://github.com/sonic-net/SONiC/issues/2410
-
-platform_tests/cli/test_show_bmc.py::TestBmcCliCommands::test_show_platform_leak_commands:
-  skip:
-    reason: "Incorrect handling when the empty table is returned"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/25761
-
 platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
@@ -1004,11 +929,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_firmware_status:
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
     reason: "Test should be skipped on DPU for it doesn't have PSUs."
     conditions_logical_operator: or
@@ -1018,11 +938,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
       - "'bmc' in topo_type"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
-  xfail:
-    reason: "Testcase consistently fails, raised issue to track"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
     reason: "Test should be skipped on DPU for it doesn't have PSUs."
     conditions_logical_operator: or
@@ -1036,7 +951,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
     reason: "Testcase consistently fails, raised issue to track. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6518"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 ###############################################
@@ -1436,13 +1350,6 @@ platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_js
       - "asic_type=='cisco-8000' or (is_multi_asic==True and release in ['201911']) or ('dell_s6100' in platform) or ('sw_to3200k' in hwsku)"
       - "asic_type in ['mellanox']"
 
-platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 
 #######################################
 #####        test_reboot.py       #####
@@ -1463,13 +1370,6 @@ platform_tests/test_power_off_reboot.py:
       - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
       - "'bmc' in topo_type"
 
-platform_tests/test_reboot.py::test_cold_reboot:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 platform_tests/test_reboot.py::test_continuous_reboot:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -1487,22 +1387,12 @@ platform_tests/test_reboot.py::test_fast_reboot:
       - "is_smartswitch==True"
       - "hwsku in ['Mellanox-SN4700-O32', 'Mellanox-SN4600C-C64', 'Nokia-M0-7215', 'Nokia-7215']"
       - "'f2' in topo_name"
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
     reason: "Skip test_soft_reboot for M* and test is supported only on S6100 hwsku"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1'] or hwsku not in ['Force10-S6100']"
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
@@ -1514,11 +1404,6 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
       - "'f2' in topo_name"
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
 platform_tests/test_reboot.py::test_watchdog_reboot:
   skip:
