@@ -405,7 +405,7 @@ def _load_testbed_config(tbfile, tbname):
         if tb.get('conf-name') == tbname:
             return tb
 
-    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")  # noqa: E713
     return
 
 
@@ -461,7 +461,7 @@ def converge_topo_if_needed(config):
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
-        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+        logger.info(f"File permissions restored to {original_uid}:{original_gid}")  # noqa: E231
 
         config.cache.set("converged_topo_file", topo_file)
         config.cache.set("converged_topo_backup", backup_file)
@@ -1268,7 +1268,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout.add_port_map(encode_dut_port_name(dut_host, serial_port_key), fanout_port)
 
             logging.debug(f"Added serial port mapping: {dut_host} Console{serial_port_num} -> "
-                          f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})")
+                          f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})")  # noqa: E231
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
 
@@ -3654,7 +3654,7 @@ def build_gnmi_stubs(request):
             text=True,
             check=False  # Do not raise an exception automatically on non-zero exit
         )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        logger.info(f"Output of {script_path}:\n{result.stdout}")  # noqa: E231
 
         if result.returncode != 0:
             logger.error(f"{script_path} failed with exit code {result.returncode}")
@@ -3732,6 +3732,34 @@ def setup_connection(request, setup_gnmi_server):
                                                         client_key_path=client_key)
         yield gnmi_connection
         channel.close()
+
+
+def backup_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH, backup_path))
+
+
+def restore_golden_config(duthost, backup_path="/tmp/golden_config_db_backup.json"):
+    duthost.shell("cp {} {}".format(backup_path, GOLDEN_CONFIG_DB_PATH))
+
+
+def update_golden_config_tsa_enabled(duthost, tsa_enabled=True):
+    """
+    @summary: Update golden_config_db.json on the DUT to set tsa_enabled in BGP_DEVICE_GLOBAL.
+    Handles both multi-asic and single-asic cases.
+    """
+    golden_config_db = json.loads(duthost.shell("cat {}".format(GOLDEN_CONFIG_DB_PATH))['stdout'])
+    tsa_enabled_str = "true" if tsa_enabled else "false"
+
+    if duthost.sonichost.is_multi_asic:
+        for asic in duthost.asics:
+            golden_config_db.setdefault(asic.namespace, {}) \
+                            .setdefault("BGP_DEVICE_GLOBAL", {}) \
+                            .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+    else:
+        golden_config_db.setdefault("BGP_DEVICE_GLOBAL", {}) \
+                        .setdefault("STATE", {})["tsa_enabled"] = tsa_enabled_str
+
+    duthost.copy(content=json.dumps(golden_config_db, indent=4), dest=GOLDEN_CONFIG_DB_PATH)
 
 
 @pytest.fixture(scope="module", autouse=True)
