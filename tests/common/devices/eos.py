@@ -479,14 +479,12 @@ class EosHost(AnsibleHostBase):
 
     def set_interface_lacp_rate_mode(self, interface_name, mode):
         out = self.eos_config(
-            lines=['lacp rate %s' % mode],
+            lines=['lacp timer %s' % mode],
             parents='interface %s' % interface_name)
 
-        # FIXME: out['failed'] will be False even when a command is deprecated, so we have to check out['changed']
-        # However, if the lacp rate is already in expected state, out['changed'] will be False and treated as
+        # If the lacp timer is already in expected state, out['changed'] will be False and treated as
         # error.
         if out.get('failed', False) is True or out['changed'] is False:
-            # new eos deprecate lacp rate and use lacp timer command
             out = self.eos_config(
                 lines=['lacp timer %s' % mode],
                 parents='interface %s' % interface_name)
@@ -496,7 +494,7 @@ class EosHost(AnsibleHostBase):
             else:
                 logging.info("Set interface [%s] lacp timer to [%s]" % (interface_name, mode))
         else:
-            logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
+            logging.info("Set interface [%s] lacp timer to [%s]" % (interface_name, mode))
         return out
 
     def is_multiagent(self):
