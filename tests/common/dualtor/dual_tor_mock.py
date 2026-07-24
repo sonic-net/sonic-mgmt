@@ -384,6 +384,12 @@ def apply_peer_switch_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mo
         wait_until(120, 5, 5, check_config_applied),
         "Timed out waiting for PEER_SWITCH and DEVICE_METADATA configuration to remain applied after swss restart"
     )
+    # neighsyncd reads the PEER_SWITCH config only in its constructor. Restart it so the new
+    # config takes effect, unless swss was already restarted above (th2/td3) after writing it.
+    if not ((restart_swss) and (dut.get_asic_name() != 'gb')):
+        logger.info("Restarting neighsyncd to pick up the PEER_SWITCH configuration")
+        dut.shell('docker exec swss supervisorctl restart neighsyncd')
+        wait_critical_processes(dut)
 
 
 @pytest.fixture(scope='module')
