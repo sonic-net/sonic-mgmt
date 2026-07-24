@@ -14,7 +14,7 @@ from constants import (
     VXLAN_UDP_BASE_SRC_PORT,
     VXLAN_UDP_SRC_PORT_MASK
 )
-from conftest import get_interface_ip
+from tests.dash.conftest import get_interface_ip
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IP
 import configs.privatelink_config as pl
 from tests.common.dash_utils import apply_swssconfig_file

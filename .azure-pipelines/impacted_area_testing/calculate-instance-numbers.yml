@@ -67,8 +67,7 @@ steps:
 - script: |
     set -x
 
-    pip install azure-kusto-data
-    pip install azure-kusto-data azure-identity
+    sudo uv pip install --system azure-kusto-data azure-identity
 
     INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }} --target_pr_test_time $(TARGET_PR_TEST_TIME))
 

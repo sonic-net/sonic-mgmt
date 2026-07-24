@@ -5,8 +5,8 @@ from ptf.mask import Mask
 from ptf import config
 from ptf.base_tests import BaseTest
 import ptf.testutils as testutils
-from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, send, send_packet, dp_poll,\
-    simple_udp_packet, simple_udpv6_packet, simple_icmp_packet, simple_icmpv6_packet, simple_ip_packet,\
+from ptf.testutils import test_params_get, MINSIZE, ip_make_tos, reset_filters, send, send_packet, dp_poll, \
+    simple_udp_packet, simple_udpv6_packet, simple_icmp_packet, simple_icmpv6_packet, simple_ip_packet, \
     simple_ipv6ip_packet, simple_arp_packet, verify_packet_any_port, verify_no_packet_any
 from scapy.all import Ether
 from scapy.layers.l2 import Dot1Q

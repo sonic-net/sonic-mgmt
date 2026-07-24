@@ -10,7 +10,7 @@ from constants import (
     REMOTE_PTF_SEND_INTF,
     NPU_DATAPLANE_PORT
 )
-from packets import outbound_pl_packets, inbound_pl_packets
+from ha_packets import outbound_pl_packets, inbound_pl_packets, bootstrap_pl_tcp_flow_outbound
 from tests.common.helpers.assertions import pytest_assert
 from tests.ha.conftest import apply_dash_pl_pipeline_config
 from ha_dash_flow_utils import compare_flow_tables
@@ -109,6 +109,13 @@ def test_ha_link_failure(
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
     _, exp_dpu_to_vm_pkt_standby = inbound_pl_packets(dash_pl_config[1])
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
+
     packet_sending_event = threading.Event()
     stop_link_action_event = threading.Event()
 
@@ -272,6 +279,13 @@ def test_ha_link_down(
         pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
     _, exp_dpu_to_vm_pkt_standby = inbound_pl_packets(dash_pl_config[1])
+
+    # Bootstrap stateful TCP flow on the DPU so subsequent ACK packets match the established flow.
+    bootstrap_pl_tcp_flow_outbound(
+        ptfadapter, dash_pl_config[1] if traffic_to_standby else dash_pl_config[0], encap_proto,
+        recv_ports=rcv_outbound_pl_ports,
+    )
+
     packet_sending_event = threading.Event()
     stop_link_action_event = threading.Event()
 

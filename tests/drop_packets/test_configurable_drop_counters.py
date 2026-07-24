@@ -129,7 +129,7 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
 
     def _check_fdb_applied():
         fdb_count = int(duthost.shell(
-            "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
+            "show mac | grep -i {} | wc -l".format(mac_address.replace("-", ":")))["stdout"])
         if op == "SET":
             return fdb_count >= 1
         else:
