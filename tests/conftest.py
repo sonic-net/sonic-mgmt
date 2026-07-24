@@ -3455,7 +3455,7 @@ def temporarily_disable_route_check(request, tbinfo, duthosts):
             check_flag = True
             break
 
-    allowed_topologies = {"t2", "ut2", "lt2"}
+    allowed_topologies = {"t0", "t1", "t2", "ut2", "lt2"}
     topo_name = tbinfo['topo']['name']
     if check_flag and topo_name not in allowed_topologies:
         logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))

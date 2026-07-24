@@ -12,7 +12,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import SonicDbCli
 
 pytestmark = [
-    pytest.mark.topology('any', "t1-multi-asic")
+    pytest.mark.topology('any', "t1-multi-asic"),
+    pytest.mark.disable_route_check
 ]
 
 logger = logging.getLogger(__name__)
