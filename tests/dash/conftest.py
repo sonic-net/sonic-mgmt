@@ -40,6 +40,30 @@ def pytest_addoption(parser):
         action="store_true",
         help="Skip dataplane checking"
     )
+    parser.addoption(
+        "--num_scale_routes",
+        type=int,
+        default=10000,
+        help="Number of routes to program for scale testing",
+    )
+    parser.addoption(
+        "--num_scale_vnet_mappings",
+        type=int,
+        default=10000,
+        help="Number of VNET mappings to program for scale testing",
+    )
+    parser.addoption(
+        "--scale_poll_timeout",
+        type=int,
+        default=600,
+        help="Timeout in seconds for polling result entries",
+    )
+    parser.addoption(
+        "--num_scale_enis",
+        type=int,
+        default=4,
+        help="Number of ENIs for multi-ENI scale testing",
+    )
 
 
 @pytest.fixture(scope="module")
