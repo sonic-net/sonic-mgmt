@@ -210,8 +210,8 @@ class TestContLinkFlap(object):
 
         for daemon in frr_demons_to_check:
             for asic_index, asic_frr_memory in start_time_frr_daemon_memory[daemon].items():
-                incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in ["m0", "mx"]\
-                                                                       else 5
+                incr_frr_daemon_memory_threshold[daemon][asic_index] = 10 if tbinfo["topo"]["type"] in\
+                        ["m0", "mx", "ft2"] else 5
 
                 min_threshold_percent = 1 / float(asic_frr_memory) * 100
 
