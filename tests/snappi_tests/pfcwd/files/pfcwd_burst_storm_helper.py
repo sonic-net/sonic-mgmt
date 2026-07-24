@@ -22,6 +22,7 @@ WARM_UP_TRAFFIC_DUR = 1
 BURST_EVENTS = 15
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
+WARM_UP_TRAFFIC_RATE_PERCENT = 1.0
 
 
 def run_pfcwd_burst_storm_test(api,
@@ -167,7 +168,7 @@ def __gen_traffic(testbed_config,
         rx_mac = tx_port_config.gateway_mac
 
     """ Generate long-lived data flows, one for each priority """
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int((100-WARM_UP_TRAFFIC_RATE_PERCENT) / len(prio_list))
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
 
@@ -203,7 +204,10 @@ def __gen_traffic(testbed_config,
                 ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
             data_flow.size.fixed = data_pkt_size
-            data_flow.rate.percentage = data_flow_rate_percent
+            if data_flow_prefix_list[i] == WARM_UP_TRAFFIC_NAME:
+                data_flow.rate.percentage = WARM_UP_TRAFFIC_RATE_PERCENT
+            else:
+                data_flow.rate.percentage = data_flow_rate_percent
             data_flow.duration.fixed_seconds.seconds = (
                 data_flow_dur_sec_list[i])
             data_flow.duration.fixed_seconds.delay.nanoseconds = int(
