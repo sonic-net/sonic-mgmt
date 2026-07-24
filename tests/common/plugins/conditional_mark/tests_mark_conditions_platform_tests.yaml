@@ -1065,6 +1065,12 @@ platform_tests/daemon:
     conditions:
       - "asic_type in ['vs']"
 
+platform_tests/daemon/test_bmc_watchdog.py::TestBmcWatchdog::test_watchdog_bmc_integration:
+  xfail:
+    reason: "BMC watchdog not supported yet: watchdog-keepalive.sh persistent log sink is missing"
+    conditions:
+      - "'bmc' in topo_type and https://github.com/sonic-net/sonic-buildimage/issues/28185"
+
 platform_tests/daemon/test_chassisd.py:
   skip:
     reason: "chassisd platform daemon introduced in 202106 / Temporarily skip in PR testing"
