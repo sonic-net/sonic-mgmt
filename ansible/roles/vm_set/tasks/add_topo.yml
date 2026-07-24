@@ -246,6 +246,9 @@
   - include_tasks: add_csonic_list.yml
     when: vm_type is defined and (vm_type == "csonic") and 'bmc' not in topo
 
+  - include_tasks: add_crpd_list.yml
+    when: vm_type is defined and (vm_type == "crpd")
+
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "bind"

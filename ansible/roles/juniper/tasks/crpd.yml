@@ -1,0 +1,168 @@
+# ansible/roles/sonic/tasks/crpd.yml
+
+- include_tasks: crpd_config.yml
+
+###############################################################################
+# 1. VARIABLE INITIALIZATION & TOPOLOGY DETECTION
+###############################################################################
+- name: Set base facts and container paths
+  set_fact:
+    node_cfg: "{{ configuration[inventory_hostname] }}"
+    container_name: "crpd_{{ hostvars[inventory_hostname].vm_set_name }}_{{ inventory_hostname }}"
+
+- name: Identify LACP member interfaces
+  set_fact:
+    lacp_member_list: "{{ node_cfg.interfaces | dict2items | selectattr('value.lacp', 'defined') | map(attribute='key') | list }}"
+
+- name: Define Topology Type
+  set_fact:
+    is_t0: "{{ lacp_member_list | length > 0 }}"
+    bond_name: "{{ node_cfg.bond_iface | default('bond0') }}"
+
+- name: Determine Target Interface Name and Data
+  set_fact:
+    # Logic: T0 looks for 'Port-Channel1' key. T1 looks for first Ethernet with an IPv4.
+    target_inventory_key: >-
+      {{ 'Port-Channel1' if is_t0 
+         else (node_cfg.interfaces | dict2items | selectattr('value.ipv4', 'defined') | selectattr('key', 'match', '^Ethernet') | first).key }}
+
+- name: Extract L3 configuration data
+  set_fact:
+    l3_data: "{{ node_cfg.interfaces[target_inventory_key] }}"
+    # The actual interface name inside the container OS
+    linux_ifname: "{{ bond_name if is_t0 else target_inventory_key }}"
+
+###############################################################################
+# 2. CONTAINER DEPLOYMENT
+###############################################################################
+- name: Create and Start cRPD Container
+  become: yes
+  docker_container:
+    name: "{{ container_name }}"
+    image: "{{ crpd_image }}"
+    state: started
+    restart: yes
+    privileged: yes
+    network_mode: "container:net_{{ vm_set_name }}_{{ inventory_hostname }}"
+    capabilities: [ net_admin ]
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Wait for container stabilization
+  pause:
+    seconds: 5
+
+###############################################################################
+# 3. JUNOS CONFIGURATION (junos.conf)
+###############################################################################
+- name: Set config path
+  set_fact:
+    _crpd_cfg: "/data/crpd/crpd_{{ vm_set_name }}_{{ inventory_hostname }}/sonic/config_db.j2"
+
+- name: Check config exists on server
+  stat:
+    path: "{{ _crpd_cfg }}"
+  register: _cfg_stat
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Copy config into cRPD container
+  become: yes
+  shell: >
+    docker cp {{ _crpd_cfg }}
+    {{ container_name }}:/config/junos.conf
+  delegate_to: "{{ VM_host[0] }}"
+  when: _cfg_stat is defined and _cfg_stat.stat.exists
+
+- name: Load config db and commit config inside cRPD
+  become: yes
+  shell: >
+    docker exec {{ container_name }} \
+    cli -c "configure; load merge /config/junos.conf; commit"
+  delegate_to: "{{ VM_host[0] }}"
+  ignore_errors: yes
+
+###############################################################################
+# 4. LINUX NETWORKING (Bonding for T0 / Ethernet for T1)
+###############################################################################
+- name: Configure Container Networking Stack
+  become: yes
+  shell: >
+    docker exec {{ container_name }} bash -c '
+    {% if is_t0 %}
+      # T0 Setup: Create Bond and enslave members
+      ip link del {{ bond_name }} 2>/dev/null || true;
+      ip link add {{ bond_name }} type bond mode 802.3ad lacp_rate fast;
+      ip link set {{ bond_name }} up;
+      {% for member in lacp_member_list %}
+        ip link set {{ member }} down;
+        ip link set {{ member }} master {{ bond_name }};
+        ip link set {{ member }} up;
+      {% endfor %}
+    {% else %}
+      # T1 Setup: Bring up physical port only
+      ip link set {{ linux_ifname }} up;
+    {% endif %}
+    '
+  delegate_to: "{{ VM_host[0] }}"
+
+###############################################################################
+# 5. IP ADDRESSING & LLDP (Junos CLI)
+###############################################################################
+- name: Apply L3 Interface Config
+  become: yes
+  shell: >
+    docker exec {{ container_name }} \
+    cli -c "configure;
+    delete interfaces {{ linux_ifname }} unit 0;
+    
+    {% if l3_data.ipv4 is defined %}
+    set interfaces {{ linux_ifname }} unit 0 family inet address {{ l3_data.ipv4 }};
+    {% endif %}
+    
+    {% if l3_data.ipv6 is defined %}
+    set interfaces {{ linux_ifname }} unit 0 family inet6 address {{ l3_data.ipv6 }};
+    {% endif %}
+    set protocols lldp interface {{ linux_ifname }};
+    set protocols lldp chassis-id chassis-id-type mac-address;
+    set protocols lldp chassis-id chassis-id-type mac-address chassis-id-value {{ node_cfg.chassis_id_value }};
+    commit and-quit"
+  delegate_to: "{{ VM_host[0] }}"
+  ignore_errors: yes
+
+- name: Start bgpd daemon in cRPD container
+  become: yes
+  command: "docker exec {{ container_name }} supervisorctl start bgpd"
+  delegate_to: "{{ VM_host[0] }}"
+  register: bgpd_start
+  failed_when: false
+
+- name: Display bgpd startup status
+  debug:
+    msg: "BGPd daemon status: {{ bgpd_start.stdout }}"
+  when: bgpd_start.stdout is defined
+
+- name: Check FRR daemon status
+  become: yes
+  command: "docker exec {{ container_name }} supervisorctl status"
+  delegate_to: "{{ VM_host[0] }}"
+  register: daemon_status
+  failed_when: false
+
+- name: Display all daemon statuses
+  debug:
+    msg: "{{ daemon_status.stdout_lines }}"
+  when: daemon_status.stdout_lines is defined
+
+- name: Verify BGP is running
+  become: yes
+  command: "docker exec {{ container_name }} vtysh -c 'show bgp summary'"
+  delegate_to: "{{ VM_host[0] }}"
+  register: bgp_summary
+  failed_when: false
+  ignore_errors: yes
+
+- name: Display BGP summary
+  debug:
+    msg: "{{ bgp_summary.stdout_lines }}"
+  when: bgp_summary.stdout_lines is defined
+
+

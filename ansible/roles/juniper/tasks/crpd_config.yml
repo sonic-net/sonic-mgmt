@@ -1,0 +1,59 @@
+# ansible/roles/sonic/tasks/crpd_config.yml
+
+- name: Get netbase container info
+  docker_container_info:
+    name: net_{{ vm_set_name }}_{{ inventory_hostname }}
+  register: ctninfo
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug:
+    msg: "{{ ctninfo.container.State.Pid }}"
+
+- name: Get front panel port in netbase container
+  shell: nsenter -t {{ ctninfo.container.State.Pid }} -n ip link show | grep -E eth[0-9]+ | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug:
+    msg: "{{ fp_num }}"
+
+- name: Set EOS backplane port name
+  set_fact:
+    bp_ifname: "Ethernet{{ fp_num.stdout|int - 1 }}"
+
+
+- name: Set variables for the current host
+  set_fact:
+    host_config: "{{ configuration[inventory_hostname] }}"
+    hostname: "{{ inventory_hostname }}"
+
+- name: Generate password hash
+  set_fact:
+    junos_root_hash: "{{ ansible_password | password_hash('sha512') }}"
+
+- name: create directory for sonic config
+  become: yes
+  file:
+    path: "/data/crpd/crpd_{{ vm_set_name }}_{{ inventory_hostname }}/sonic"
+    state: directory
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create config db
+  become: yes
+  vars:
+    _configdb_role: "{{ 'spine' if props.swrole == 'core' else props.swrole }}"
+    _configdb_template: >-
+      {{ lookup('first_found', {
+        'files': [
+          'configdb-' ~ (topo | default('t0_crpd')) ~ '-' ~ _configdb_role ~ '.j2',
+          'configdb-t0_crpd-' ~ _configdb_role ~ '.j2',
+          'configdb-t1_crpd-' ~ _configdb_role ~ '.j2'
+        ],
+        'paths': [role_path ~ '/templates']
+      }) | basename }}
+  template:
+    src: "{{ _configdb_template }}"
+    dest: "/data/crpd/crpd_{{ vm_set_name }}_{{ inventory_hostname }}/sonic/config_db.j2"
+  delegate_to: "{{ VM_host[0] }}"
