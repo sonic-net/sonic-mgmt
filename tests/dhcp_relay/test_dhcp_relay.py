@@ -3,6 +3,9 @@ import random
 import time
 import logging
 import re
+import sys
+
+from _pytest.outcomes import OutcomeException
 
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
@@ -530,30 +533,44 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
     testing_mode, duthost = testing_config
 
     for dhcp_relay in dut_dhcp_relay_data:
-        # Bring all uplink interfaces down
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface shutdown {}'.format(iface))
+        uplink_interfaces = dhcp_relay['uplink_interfaces']
 
-        pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, dhcp_relay['uplink_interfaces'], "down"),
-                      "Not all uplinks go down")
+        def restore_uplinks():
+            first_cleanup_error = None
 
-        # Restart DHCP relay service on DUT
-        # dhcp_relay service has 3 times restart limit in 20 mins, for 4 vlans config it will hit the maximum limit
-        # reset-failed before restart service
-        cmds = ['systemctl reset-failed dhcp_relay', 'systemctl restart dhcp_relay']
-        duthost.shell_cmds(cmds=cmds)
+            def cleanup_step(step_name, callback):
+                nonlocal first_cleanup_error
+                try:
+                    callback()
+                except (Exception, OutcomeException) as cleanup_error:
+                    logger.exception("DHCP relay uplink cleanup step '%s' failed", step_name)
+                    if first_cleanup_error is None:
+                        first_cleanup_error = cleanup_error
 
-        # Sleep to give the DHCP relay container time to start up and
-        # allow the relay agent to begin listening on the down interfaces
-        time.sleep(40)
+            for iface in uplink_interfaces:
+                cleanup_step('startup {}'.format(iface),
+                             lambda iface=iface: duthost.shell('config interface startup {}'.format(iface)))
+            cleanup_step('verify routes',
+                         lambda: pytest_assert(
+                             wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
+                             "Not all DHCP servers are routed"))
+            return first_cleanup_error
 
-        # Bring all uplink interfaces back up
-        for iface in dhcp_relay['uplink_interfaces']:
-            duthost.shell('config interface startup {}'.format(iface))
+        try:
+            # Bring all uplink interfaces down
+            for iface in uplink_interfaces:
+                duthost.shell('config interface shutdown {}'.format(iface))
 
-        # Wait until uplinks are up and routes are recovered
-        pytest_assert(wait_until(50, 5, 0, check_routes_to_dhcp_server, duthost, dut_dhcp_relay_data),
-                      "Not all DHCP servers are routed")
+            pytest_assert(wait_until(50, 5, 0, check_link_status, duthost, uplink_interfaces, "down"),
+                          "Not all uplinks go down")
+
+            relay_types = ['sonic' if relay_agent == 'sonic-relay-agent' else 'isc']
+            restart_dhcp_service(duthost, relay_types)
+        finally:
+            original_error = sys.exc_info()[1]
+            cleanup_error = restore_uplinks()
+            if cleanup_error is not None and original_error is None:
+                raise cleanup_error
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
