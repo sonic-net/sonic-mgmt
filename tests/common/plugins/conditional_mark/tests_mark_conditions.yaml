@@ -4062,6 +4062,12 @@ pc/test_po_update.py::test_po_update:
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
 
+pc/test_po_update.py::test_po_update_inter_asic_swss_restart:
+  skip:
+    reason: "Skip test due to there not being more than one asic to forward traffic between."
+    conditions:
+      - "is_multi_asic==False"
+
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
     reason: "Skip test due to there isn't enough port channel exists in current topology."
