@@ -6309,6 +6309,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
 
 #######################################
+#####           watermark         #####
+#######################################
+watermark:
+  skip:
+    reason: "Watermark tests are only supported on physical testbeds."
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####             wol            #####
 #######################################
 wol:
