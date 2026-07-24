@@ -35,6 +35,20 @@ pytestmark = [
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
 
+BMC_SKIPPED_CHASSIS_TESTS = {
+    "test_get_position_in_parent",
+    "test_is_replaceable",
+    "test_components",
+    "test_fans",
+    "test_fan_drawers",
+    "test_psus",
+    "test_thermals",
+    "test_sfps",
+    "test_status_led",
+    "test_get_supervisor_slot",
+    "test_get_my_slot",
+}
+
 # Valid OCP ONIE TlvInfo EEPROM type codes as defined here:
 # https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
 ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME = '0x21'    # Product Name
@@ -82,6 +96,16 @@ def gather_facts(request, duthosts):
 class TestChassisApi(PlatformApiTestBase):
     """Platform API test cases for the Chassis class"""
     inv_files = None
+
+    @pytest.fixture(autouse=True)
+    def skip_bmc_blocklisted_tests(self, request, tbinfo):
+        topo_type = (tbinfo.get("topo", {}).get("type") or "").lower()
+        if "bmc" not in topo_type:
+            return
+
+        test_name = request.function.__name__
+        if test_name in BMC_SKIPPED_CHASSIS_TESTS:
+            pytest.skip("Skipped on BMC: {} is in BMC skip list".format(test_name))
 
     #
     # Helper functions

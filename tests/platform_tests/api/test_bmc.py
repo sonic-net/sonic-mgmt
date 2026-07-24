@@ -83,9 +83,13 @@ class TestBMCApi(PlatformApiTestBase):
     """Platform and Host API test cases for the BMC class"""
 
     @pytest.fixture(scope="class", autouse=True)
-    def skip_if_no_bmc(self, duthosts, enum_rand_one_per_hwsku_hostname):
-        """Skip tests if BMC is not present - these tests require BMC"""
+    def skip_if_no_bmc(self, duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
+        """Skip tests if BMC is not present or if running on a BMC topology."""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        topo_type = (tbinfo.get("topo", {}).get("type") or "").lower()
+        if "bmc" in topo_type:
+            pytest.skip("Skipping BMC platform API tests on BMC topology")
+
         if not bmc.is_bmc_exists(duthost):
             pytest.skip("BMC is not present, skipping BMC platform API tests")
 
