@@ -374,7 +374,7 @@ def setup_vrf_config(duthost, lo_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
-@pytest.mark.topology('t0', 'm0', 'mx', 't2')
+@pytest.mark.topology('t0', 'm0', 'mx', 't2', 'lrh', 'urh')
 def test_lo_interface_tc1_suite(duthosts, rand_one_dut_front_end_hostname, cfg_facts, lo_intf):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     cleanup_lo_interface_config(duthost, cfg_facts)
@@ -385,6 +385,7 @@ def test_lo_interface_tc1_suite(duthosts, rand_one_dut_front_end_hostname, cfg_f
     lo_interface_tc1_remove(duthost, lo_intf)
 
 
+@pytest.mark.enable_monit_refresh
 def test_lo_interface_tc2_vrf_change(duthosts, rand_one_dut_front_end_hostname, lo_intf):
     """ Replace lo interface vrf
 

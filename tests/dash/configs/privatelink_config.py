@@ -20,6 +20,10 @@ PL_ENCODING_IP = "::d107:64:ff71:0:0"
 PL_ENCODING_MASK = "::ffff:ffff:ffff:0:0"
 PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
+PL_ENCODING_IP_ALTERNATE = "fd40::d107:64:ff71:0:0"
+PL_ENCODING_MASK_ALTERNATE = "fffe:0:0:ffff:ffff:ffff::"
+PL_OVERLAY_SIP_ALTERNATE = "1:108:20::"
+PL_OVERLAY_SIP_MASK_ALTERNATE = "1:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 PL_REDIRECT_OVERLAY_DIP = "2603:10e1:100:2::0"
@@ -231,11 +235,32 @@ TUNNEL4_CONFIG = {
         "encap_type": EncapType.ENCAP_TYPE_VXLAN,
     }
 }
+PL_REDIRECT_BACKEND_IP_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PL_REDIRECT_BACKEND_IP}/32": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0
+    }
+}
 
 INBOUND_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PE_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
         "priority": 0
+    }
+}
+
+# Steer inbound GRE (ENCAP_VNI) traffic through tunnel-decap + PA validation so that an
+# inbound packet whose outer source PA is not a configured tunnel endpoint is dropped on
+# PA validation (incrementing SAI_ENI_STAT_PA_VALIDATION_FAIL_DROP_PACKETS) rather than
+# falling through to a generic routing/longest-prefix drop. The broad 0.0.0.0/0 source-PA
+# match catches the test packets, and ``pa_validation`` validates the outer source PA
+# against the mapping table of ``vnet`` (VNET1), which only permits the valid PE underlay.
+INBOUND_PA_VALIDATION_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:0.0.0.0/0": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 0,
+        "pa_validation": True,
+        "vnet": VNET1,
     }
 }
 
@@ -455,3 +480,21 @@ PL_REDIRECT_PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
         "port_map": PORT_MAP_1,
     }
 }
+
+DEFAULT_PL_SIP = (PL_ENCODING_IP, PL_ENCODING_MASK, PL_OVERLAY_SIP, PL_OVERLAY_SIP_MASK)
+PL_SIP_ALTERNATE = (
+    PL_ENCODING_IP_ALTERNATE,
+    PL_ENCODING_MASK_ALTERNATE,
+    PL_OVERLAY_SIP_ALTERNATE,
+    PL_OVERLAY_SIP_MASK_ALTERNATE,
+)
+PL_SIP_CONFIGS = (
+    ENI_FNIC_CONFIG,
+    ENI_FNIC_PL_CONFIG,
+    ENI_CONFIG,
+    PE_VNET_MAPPING_CONFIG,
+    PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG,
+    PE_PLNSG_MULTI_ENDPOINT_VNET_MAPPING_CONFIG,
+    PL_REDIRECT_PE_VNET_MAPPING_CONFIG,
+    PL_REDIRECT_PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG,
+)

@@ -35,6 +35,7 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7060_cx32s",
     "x86_64-arista_7260cx3_64",
     "x86_64-arista_7050cx3_32s",
+    "x86_64-arista_7050cx3_32c",
     "x86_64-mlnx_msn2700-r0",
     "x86_64-dell_s6100_c2538-r0",
     "armhf-nokia_ixs7215_52x-r0"
@@ -379,8 +380,17 @@ def check_neighbors(duthost, tbinfo):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
+    # Check if this topo includes confed peer
+    confed_peer_topo = False
+    for v in bgp_facts['bgp_neighbors'].values():
+        if v.get('confed_peer', False):
+            confed_peer_topo = True
+            break
+
     for value in list(bgp_facts['bgp_neighbors'].values()):
         # Verify locat ASNs in bgp sessions
+        if confed_peer_topo and (not value.get("confed_peer", False)):
+            continue
         if (value['local AS'] != mg_facts['minigraph_bgp_asn']):
             raise RebootHealthError("Local ASNs not found in BGP session.\
                 Minigraph: {}. Found {}".format(value['local AS'], mg_facts['minigraph_bgp_asn']))

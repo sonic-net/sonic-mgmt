@@ -203,7 +203,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     # Get the PTF portchannel ports connected to the T1 switchs.
     t1_pc_ports = {}
-    for pc in list(config_facts['PORTCHANNEL'].keys()):
+    for pc in list(config_facts.get('PORTCHANNEL', {}).keys()):
         t1_pc_ports[pc] = []
         for intf in config_facts["PORTCHANNEL"][pc]["members"]:
             ptf_port_index = mg_facts["minigraph_ptf_indices"][intf]
@@ -1089,7 +1089,9 @@ def dynamic_acl_apply_forward_scale_rules(duthost, setup):
         expect_op_success(duthost, output)
 
     for rule_name, expected_content in expected_rule_contents.items():
-        expect_acl_rule_match(duthost, rule_name, expected_content, setup)
+        # Scale patch adds ~150 rules at once; orchagent programs them to the ASIC
+        # asynchronously in lexicographic order, so allow a longer settle window.
+        expect_acl_rule_match(duthost, rule_name, expected_content, setup, timeout=60)
 
 
 def dynamic_acl_apply_drop_scale_rules(duthost, setup):
@@ -1120,7 +1122,7 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
 
         expect_op_success(duthost, output)
 
-    expect_acl_rule_match(duthost, rule_name, expected_content, setup)
+    expect_acl_rule_match(duthost, rule_name, expected_content, setup, timeout=60)
 
 
 def dynamic_acl_remove_ip_forward_rule(duthost, ip_type, setup):

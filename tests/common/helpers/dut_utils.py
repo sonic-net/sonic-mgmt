@@ -20,10 +20,14 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 NAT_ENABLE_KEY = "nat_enabled_on_{}"
+# Spacing between console reconnect retries; keep >= getty StartLimitIntervalSec to avoid tripping its start limit.
+CONSOLE_RECONNECT_BACKOFF_SECS = 12
 
 # Ansible config files
 LAB_CONNECTION_GRAPH_PATH = os.path.normpath((os.path.join(os.path.dirname(__file__), "../../../ansible/files")))
@@ -128,7 +132,8 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
-def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds=30, verify_timeout=180):
+def restart_service_with_startlimit_guard(duthost, service_name, is_namespaced=False,
+                                          backoff_seconds=30, verify_timeout=180):
     """
     Restart a systemd-managed service with StartLimitHit guard.
 
@@ -143,6 +148,13 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
 
     Returns: True when the service is (re)started and running; asserts on failure.
     """
+
+    if is_namespaced:
+        # just check first namespaced instance
+        container_name = "{}0".format(service_name)
+        service_name = "{}@0".format(service_name)
+    else:
+        container_name = service_name
 
     # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
     pre_rate_limited = is_hitting_start_limit(duthost, service_name)
@@ -168,7 +180,7 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
         rate_limited = True
 
     # 2/3) Recovery path: reset-failed + backoff + start if needed
-    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, container_name):
         duthost.shell(
             f"sudo systemctl reset-failed {service_name}.service",
             module_ignore_errors=True
@@ -179,8 +191,8 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
             module_ignore_errors=True
         )
         pytest_assert(
-            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
-            f"{service_name} container did not become running after recovery start"
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, container_name, True),
+            f"{container_name} container did not become running after recovery start"
         )
 
     return True
@@ -588,12 +600,37 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
-    sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
-        "ansible_altpassword")
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = localhost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        _host_vars = _vm._hostvars[dut_hostname]
+    else:
+        _host_obj = localhost.host.options['inventory_manager'].get_host(dut_hostname)
+        _host_vars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
+    sonicadmin_alt_password = _host_vars.get("ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
 
     if console_type in creds["console_password"]:
         sonic_password.extend(creds["console_password"][console_type])
+
+    # Move the DUT's actual current password to the front so the console login succeeds on the first attempt.
+    try:
+        current_passwd = get_dut_current_passwd(
+            duthost.mgmt_ip,
+            duthost.mgmt_ipv6,
+            creds["sonicadmin_user"],
+            [p for p in sonic_password if p],
+        )
+        if current_passwd and current_passwd in sonic_password:
+            sonic_password.remove(current_passwd)
+        if current_passwd:
+            sonic_password.insert(0, current_passwd)
+    except Exception as e:
+        logger.warning(
+            f"Could not resolve current DUT console password, using default "
+            f"order: {e}")
 
     # Attempt to clear the console port
     try:
@@ -608,25 +645,26 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         logger.warning(f"Issue trying to clear console port: {e}")
 
     # Set up console host
-    host = None
     for attempt in range(1, 4):
         try:
-            host = ConsoleHost(console_type=console_type,
-                               console_host=console_host,
-                               console_port=console_port,
-                               sonic_username=creds['sonicadmin_user'],
-                               sonic_password=sonic_password,
-                               console_username=console_username,
-                               console_password=creds['console_password'][console_type],
-                               console_device=console_device)
-            break
+            return ConsoleHost(
+                console_type=console_type,
+                console_host=console_host,
+                console_port=console_port,
+                sonic_username=creds["sonicadmin_user"],
+                sonic_password=sonic_password,
+                console_username=console_username,
+                console_password=creds["console_password"][console_type],
+                console_device=console_device,
+            )
         except Exception as e:
             logger.warning(f"Attempt {attempt}/3 failed: {e}")
+            # Back off so rapid retries do not trip the DUT serial-getty start limit.
+            if attempt < 3:
+                time.sleep(CONSOLE_RECONNECT_BACKOFF_SECS)
             continue
     else:
         raise Exception("Failed to set up connection to console port. See warning logs for details.")
-
-    return host
 
 
 def creds_on_dut(duthost):
@@ -668,10 +706,18 @@ def creds_on_dut(duthost):
         "docker_registry_password",
         "public_docker_registry_host"
     ]
-    hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
+    # ansible-core >= 2.21: variable_manager._hostvars is None outside of a play run (it stays
+    # None in the pytest-ansible adhoc context). Fall back to the public get_vars() API, which
+    # resolves inventory + group + host vars for the target host.
+    _vm = duthost.host.options['variable_manager']
+    if _vm._hostvars is not None:
+        hostvars = _vm._hostvars[duthost.hostname]
+    else:
+        _host_obj = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        hostvars = _vm.get_vars(host=_host_obj) if _host_obj is not None else {}
     for cred_var in cred_vars:
         if cred_var in creds:
-            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
+            creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)  # nosemgrep: direct-use-of-jinja2
 
     creds["console_login_options"] = hostvars.get("console_login_options", {})
 
@@ -722,10 +768,10 @@ def duthost_clear_console_port(
         console_username: Username for the console account (overridden for Digi console)
         console_password: Password for the console account
     """
-    if menu_type == "console_ssh_":
+    if menu_type == "console_ssh":
         raise Exception("Device does not have a defined Console_menu_type.")
 
-    if menu_type == "console_conserver_":
+    if menu_type == "console_conserver":
         logger.info("Skip clearing conserver console port")
         return
 
@@ -877,3 +923,29 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def get_random_reload_type(duthost):
+    """
+    Get a random reload type from the list of reload types
+    :param duthost: duthost object
+    :return: a random reload type
+    """
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    reboot_type = random.choice(reload_types)
+    logger.info(f"Selected reload type: {reboot_type}")
+    return reboot_type
+
+
+def migrate_container_systemd(duthost, service, parameters):
+    # Remove --net=host in parameters because it is already existed in /usr/bin/{service}.sh
+    parts = parameters.split()
+    no_network_parts = [p for p in parts if p != "--net=host"]
+    no_network_parameters = " ".join(no_network_parts)
+
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {no_network_parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)

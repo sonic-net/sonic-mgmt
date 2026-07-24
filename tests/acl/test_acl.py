@@ -24,8 +24,8 @@ from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import \
     copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa: F401
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
-from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.helpers.constants import ARP_RESPONDER_DEFAULT_CONFIG, DEFAULT_NAMESPACE
+from tests.common.utilities import get_plt_wait_time, wait_until, check_msg_in_syslog
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -44,7 +44,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.multi_binding_acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
-    pytest.mark.topology("t0", "t1", "t2", "lt2", "m0", "mx", "m1"),
+    pytest.mark.topology("t0", "t1", "t2", "lrh", "urh", "lt2", "m0", "mx", "m1"),
     pytest.mark.disable_memory_utilization
 ]
 
@@ -378,8 +378,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
-            if vlan_config == 'two_vlan_a':
-                logging.info("topo {} has 2 vlans".format(tbinfo['topo']['name']))
+            if vlan_config in ('one_vlan_a', 'two_vlan_a'):
+                logging.info("topo {} vlan_config {}".format(tbinfo['topo']['name'], vlan_config))
                 DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
                 DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
                     else DOWNSTREAM_IP_TO_ALLOW_VLAN
@@ -509,6 +509,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+        # Add upstream ports not covered by any PortChannel
+        pc_members = set()
+        for pc in port_channels.values():
+            pc_members.update(pc.get('members', []))
+        for namespace, port in list(upstream_ports.items()):
+            non_pc_ports = [p for p in port if p not in pc_members]
+            acl_table_ports[namespace] += non_pc_ports
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += non_pc_ports
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     elif topo == "lt2":
@@ -518,6 +528,25 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         # Add RIF for upstream links
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
+    elif topo in ("urh", "lrh"):
+        # For URH/LRH, ports may be in portchannels — raw PC member interfaces
+        # cannot bind ACLs, so add PortChannel names and filter out ports in portchannels.
+        ports_in_pc = set()
+        for pc_name, pc_info in list(port_channels.items()):
+            pc_namespace = pc_info.get('namespace', '')
+            acl_table_ports[pc_namespace].append(pc_name)
+            if pc_namespace:
+                acl_table_ports[''].append(pc_name)
+            ports_in_pc.update(pc_info.get('members', []))
+
+        # Add any standalone interfaces not in a portchannel
+        for namespace, ports in list(upstream_ports.items()) + list(downstream_ports.items()):
+            for port in ports:
+                if port in ports_in_pc:
+                    continue
+                acl_table_ports[namespace].append(port)
+                if namespace:
+                    acl_table_ports[''].append(port)
     else:
         for namespace, port in list(upstream_ports.items()):
             acl_table_ports[namespace] += port
@@ -608,9 +637,9 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
     for port in vlan_host_map:
         arp_responder_conf['eth{}'.format(port)] = vlan_host_map[port]
 
-    with open("/tmp/from_t1.json", "w") as ar_config:
+    with open(ARP_RESPONDER_DEFAULT_CONFIG, "w") as ar_config:
         json.dump(arp_responder_conf, ar_config)
-    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.copy(src=ARP_RESPONDER_DEFAULT_CONFIG, dest=ARP_RESPONDER_DEFAULT_CONFIG)
 
     ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": "-e"})
     ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
@@ -635,6 +664,10 @@ def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, i
 
     logging.info("Stopping ARP responder")
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+    # Remove the rendered arp_responder config we wrote above so it can't be
+    # picked up by a stale invocation in a later test and so /tmp doesn't
+    # accumulate state that mis-leads on-PTF debugging.
+    ptfhost.file(path=ARP_RESPONDER_DEFAULT_CONFIG, state="absent")
 
     for dut in duthosts:
         dut.command("sonic-clear fdb all")
@@ -1056,7 +1089,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
-                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
+                                                 "x86_64-8122_64eh_o-r0",
+                                                 "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8223_64e_mo-r0",
+                                                 "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
@@ -1088,8 +1124,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             logger.info('Skip checking rule counters for vs platform')
             return True
 
-        logger.info('Wait all rule counters are ready')
-        return wait_until(300, 2, 0, self.check_rule_counters_internal, duthost)
+        plt_wait_dict = get_plt_wait_time(duthost, "acl/test_acl.py")
+        wait = plt_wait_dict.get("wait", 300)
+        logger.info('Wait for {} to ensure all rule counters are ready'.format(wait))
+        return wait_until(wait, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
@@ -1284,7 +1322,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32
                 else:
                     rule_id = 30
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
@@ -1317,7 +1355,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33
                 else:
                     rule_id = 31
-            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] == "two_vlan_a":
+            elif setup["topo"] in ["m0_vlan", "mx"] or setup["vlan_config"] in ["one_vlan_a", "two_vlan_a"]:
                 if ip_version == "ipv6":
                     rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
@@ -1827,8 +1865,9 @@ class TestMultiBindingAcl(TestBasicAcl):
                      dest=dut_conf_file_path)
         dut.command(
             f"config mirror_session add everflow_session {SRC_IP} {DST_IP} {DSCP} {TTL} {GRE_TYPE}")
-        dut.command(f"acl-loader update full {dut_conf_file_path} --table_name {table_name} \
-                    --session_name everflow_session")
+        dut.command(
+            f"acl-loader update full {dut_conf_file_path} --table_name {table_name} "
+            "--session_name everflow_session")
 
     def test_ingress_unmatched_blocked(self, setup, direction, ptfadapter, ip_version, stage):
         pytest.skip("Not applicable for multi binding ACL")
