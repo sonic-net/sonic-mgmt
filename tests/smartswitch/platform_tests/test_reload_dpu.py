@@ -246,6 +246,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
                                                  platform_api_conn,
                                                  num_dpu_modules)
 
+    logging.info("Recording DPU boot times before DPU kernel panic")
+    pre_boot_times = get_all_dpu_uptimes(dpuhosts, dpu_on_list)
+
     triggered_dpu_on_list = []
     triggered_ip_list = []
     for index in range(len(dpu_on_list)):
@@ -261,9 +264,6 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         triggered_ip_list.append(ip_address_list[index])
 
     pytest_assert(triggered_dpu_on_list, "No DPUs were triggered; all skipped due to missing dpuhosts")
-
-    logging.info("Recording DPU boot times before DPU kernel panic")
-    pre_boot_times = get_all_dpu_uptimes(dpuhosts, triggered_dpu_on_list)
 
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, triggered_ip_list)
