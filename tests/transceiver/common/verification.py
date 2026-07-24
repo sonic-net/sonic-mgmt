@@ -17,11 +17,9 @@ its own ``details`` string, so a single call surfaces every problem on every
 port without multiplying the fixed-wait and host-wide steps by port count.
 
 Remote-Side Link Verification (test-plan step 4, optional/opt-in - enabled by
-callers such as disruptive Event Handling and System Recovery tests) and the
-application-code checks (test-plan step 6's SI check is implemented; the
-application-code check that step also covers is not) are intentionally not
-implemented here; they are added alongside the diagnostics and
-event-handling tests that exercise them.
+callers such as disruptive Event Handling and System Recovery tests) is
+intentionally not implemented here; it is added alongside the diagnostics and
+event-handling tests that exercise it.
 
 DB reads go through :mod:`tests.transceiver.common.db_helpers`
 (``hgetall_dict``). The docker/process health step delegates entirely to
@@ -65,64 +63,6 @@ def resolve_namespace(duthost, port):
     return duthost.get_namespace_from_asic_id(
         duthost.get_port_asic_instance(port).asic_index
     )
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Oper-state poll
-# ──────────────────────────────────────────────────────────────────────
-
-
-def check_ports_oper_state(duthost, ports, expected_state, timeout_sec):
-    """Poll until every port in ``ports`` reaches ``expected_state`` oper status.
-
-    Named/shaped like this module's other ``check_*`` steps (returns the same
-    ``{port: {'passed': bool, 'details': str}}`` contract that
-    :func:`standard_port_recovery_and_verification` aggregates across every
-    step) rather than after :func:`tests.common.platform.interface_utils.wait_ports_oper_status`,
-    which it wraps: that helper polls (one ``show interface description``
-    dump per cycle, via ``wait_until``) and returns a flat list of failure
-    strings, with no per-port pass/fail shape and no log line per port. This
-    function reuses that polling loop as-is and only adapts its output to the
-    shape every other step here already returns.
-
-    Args:
-        duthost: SONiC DUT host fixture.
-        ports: list of logical interface names, e.g. ``["Ethernet0", "Ethernet4"]``.
-        expected_state: ``"up"`` or ``"down"`` (case-insensitive).
-        timeout_sec: maximum number of seconds to wait - a shared budget for
-            every port in ``ports``, not per port.
-
-    Returns:
-        dict: ``{port: {'passed': bool, 'details': str}}``, one entry per
-        ``ports``.
-    """
-    expected = (expected_state or "").strip().lower()
-    fails = wait_ports_oper_status(duthost, ports, expected, timeout_sec)
-    # wait_ports_oper_status's failure strings are "port {port} did not reach
-    # oper-{status} within {wait_sec}s" (its own format, owned in this repo),
-    # so the port token is reliably the second whitespace-separated field.
-    fail_by_port = {fail.split(" ", 2)[1]: fail for fail in fails}
-
-    per_port = {}
-    for port in ports:
-        if port in fail_by_port:
-            details = fail_by_port[port]
-            logger.warning("Oper-state wait FAILED: %s", details)
-            per_port[port] = {"passed": False, "details": details}
-        else:
-            details = f"{port}: oper={expected} within {timeout_sec}s"
-            logger.info("Oper-state wait PASSED: %s", details)
-            per_port[port] = {"passed": True, "details": details}
-    return per_port
-
-
-def check_port_oper_state(duthost, port, expected_state, timeout_sec):
-    """Single-port convenience wrapper over :func:`check_ports_oper_state`.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    return check_ports_oper_state(duthost, [port], expected_state, timeout_sec)[port]
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -361,110 +301,60 @@ def check_optics_si_settings(duthost, port, optics_si_settings):
     return {"passed": True, "details": details}
 
 
-# Broadcom "phy diag <lanes> dsc" emits one "SERDES DISPLAY DIAG DATA" block
-# per requested lane, in the same ascending order the lanes were requested in
-# (verified on an Arista 7060X6 / Broadcom peregrine5_pc SerDes). Each block's
-# one data row is fixed-width and lines up with that block's own header row;
-# TXEQ(n3,n2,n1,m,p1,p2) is the group of 6 comma-separated ints in the
-# parenthesized field at the position "TXEQ(" occupies in the header - located
-# dynamically per parse (by counting "(" before "TXEQ(" in the header) rather
-# than hardcoded, so a firmware/SerDes revision that reorders columns doesn't
-# silently misattribute the wrong field as TXEQ.
-_BCM_TXEQ_HEADER_TOKEN = "TXEQ("
-_BCM_PHY_DIAG_DATA_ROW_RE = re.compile(r'^\s*\d+\*?\s*(\(.*)$')
-_PAREN_GROUP_RE = re.compile(r'\(([^()]*)\)')
+def check_media_si_settings(duthost, port, media_si_settings, namespace=None, require_npu_si_settings_done=True):
+    """Verify ``port``'s applied media-side SI settings against APPL_DB.
 
+    If ``require_npu_si_settings_done`` (default ``True``), first gates on
+    ``NPU_SI_SETTINGS_SYNC_STATUS`` (``PORT_TABLE|<port>`` in STATE_DB - set
+    by xcvrd/orchagent, per
+    ``docs/sfp-cmis/Interface-Link-bring-up-sequence.md`` upstream) being
+    ``NPU_SI_SETTINGS_DONE``: a value of ``NPU_SI_SETTINGS_DEFAULT`` or
+    ``NPU_SI_SETTINGS_NOTIFIED`` means the NPU hasn't finished applying SI
+    settings yet, so comparing now would either race a real value or compare
+    against stale/default silicon state.
 
-def _parse_bcm_txeq_by_lane(output_lines, lanes):
-    """Parse ``bcmcmd "dsh -c 'phy diag <lanes> dsc'"`` output.
-
-    Args:
-        output_lines: command stdout as a list of lines.
-        lanes: the lanes requested, in the same order passed to ``phy diag``
-            (ascending) - zipped positionally against the data rows found,
-            since the chip's own per-block "LANE = N" label is a core-relative
-            index, not the absolute lane number requested.
-
-    Returns:
-        dict: ``{lane (int): (n3, n2, n1, m, p1, p2) as ints}``, one entry per
-        matched data row.
-    """
-    header_line = next((line for line in output_lines if _BCM_TXEQ_HEADER_TOKEN in line), None)
-    if header_line is None:
-        return {}
-    txeq_group_index = header_line.split(_BCM_TXEQ_HEADER_TOKEN)[0].count("(")
-
-    data_rows = [m.group(1) for m in (_BCM_PHY_DIAG_DATA_ROW_RE.match(line) for line in output_lines) if m]
-
-    result = {}
-    for lane, row in zip(lanes, data_rows):
-        groups = _PAREN_GROUP_RE.findall(row)
-        if len(groups) <= txeq_group_index:
-            continue
-        try:
-            result[lane] = tuple(int(v.strip()) for v in groups[txeq_group_index].split(","))
-        except ValueError:
-            continue
-    return result
-
-
-def _check_media_si_settings_broadcom(duthost, port, media_si_settings, namespace):
-    """Broadcom path: compare each of ``port``'s SerDes lanes' live TXEQ against ``media_si_settings``.
-
-    Live TX equalization isn't published to APPL_DB PORT_TABLE on these
-    platforms, so this reads the Broadcom SDK's own view directly. Looks up
-    each lane's expected 6-tuple via ``media_si_settings[str(lane)]``, falling
-    back to ``media_si_settings["default"]`` for a lane with no specific
-    entry - matching the "if lane does not define, use default" convention of
-    the attribute's Arista-platform schema.
-    """
-    port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
-    lanes_field = port_table.get("lanes")
-    if not lanes_field:
-        return {
-            "passed": False,
-            "details": f"{port}: PORT_TABLE:{port} has no 'lanes' field - cannot resolve SerDes lanes",
-        }
-    lanes = sorted(int(lane) for lane in lanes_field.split(","))
-
-    cmd = "bcmcmd \"dsh -c 'phy diag {} dsc'\"".format(",".join(str(lane) for lane in lanes))
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    if result.get("rc", 1) != 0:
-        stderr = (result.get("stderr") or "").strip()[:200]
-        return {"passed": False, "details": f"{port}: {cmd} failed rc={result.get('rc')}: {stderr}"}
-    actual_by_lane = _parse_bcm_txeq_by_lane(result.get("stdout_lines", []), lanes)
-
-    mismatches = []
-    for lane in lanes:
-        expected = media_si_settings.get(str(lane), media_si_settings.get("default"))
-        if expected is None:
-            mismatches.append(f"lane {lane}: no per-lane entry and no 'default' in media_si_settings")
-            continue
-        actual = actual_by_lane.get(lane)
-        if actual is None:
-            mismatches.append(f"lane {lane}: TXEQ not found in phy diag output")
-        elif list(actual) != list(expected):
-            mismatches.append(f"lane {lane}: expected TXEQ {list(expected)}, got {list(actual)}")
-
-    if mismatches:
-        details = f"{port}: media SI settings mismatch - " + "; ".join(mismatches)
-        logger.warning("Media SI settings check FAILED: %s", details)
-        return {"passed": False, "details": details}
-
-    details = f"{port}: media SI settings match for lane(s) {lanes}"
-    logger.info("Media SI settings check PASSED: %s", details)
-    return {"passed": True, "details": details}
-
-
-def _check_media_si_settings_appl_db(duthost, port, media_si_settings, namespace):
-    """Non-Broadcom path (e.g. Nvidia/Mellanox): compare ``media_si_settings`` fields against APPL_DB.
+    ``require_npu_si_settings_done=False`` skips this gate entirely and goes
+    straight to the comparison. This is for deployments that program media SI
+    settings by a path other than the xcvrd/``media_settings.json`` sync
+    workflow (e.g. straight from ``config_db.json`` at boot) - on those,
+    ``NPU_SI_SETTINGS_SYNC_STATUS`` sits at ``NPU_SI_SETTINGS_DEFAULT``
+    permanently, by design, since that sync cycle is never triggered; treating
+    it as a not-yet-converged failure would be a permanent false negative.
+    In practice, the value of the ``require_npu_si_settings_done``
+    SYSTEM_ATTRIBUTES attribute.
 
     ``media_si_settings`` is a flat dict of field name -> expected value (e.g.
     ``pre3``/``pre2``/``pre1``/``main``/``post1``/``idriver``, following
     ``media_settings.json`` structure); these are compared directly against
     the same-named fields SONiC publishes to ``APPL_DB PORT_TABLE:<port>``
-    once the port is up.
+    once the port is up. Nvidia/Mellanox-only in this suite - no vendor
+    branch here.
+
+    Skips (passes) if ``media_si_settings`` is empty/undefined, matching the
+    attribute's "test runs if dictionary is non-empty" contract.
+
+    ``namespace`` scopes the DB reads to the owning ASIC; when ``None`` it is
+    resolved from ``port``.
+
+    Returns:
+        dict: ``{'passed': bool, 'details': str}``
     """
+    if not media_si_settings:
+        return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
+    if namespace is None:
+        namespace = resolve_namespace(duthost, port)
+
+    if require_npu_si_settings_done:
+        state_port_table = db_helpers.hgetall_dict(duthost, "STATE_DB", f"PORT_TABLE|{port}", namespace=namespace)
+        sync_status = state_port_table.get("NPU_SI_SETTINGS_SYNC_STATUS")
+        if sync_status != "NPU_SI_SETTINGS_DONE":
+            details = (
+                f"{port}: NPU_SI_SETTINGS_SYNC_STATUS is {sync_status!r}, not 'NPU_SI_SETTINGS_DONE' "
+                f"(PORT_TABLE|{port} in STATE_DB) - NPU SI settings sync not complete"
+            )
+            logger.warning("Media SI settings check FAILED: %s", details)
+            return {"passed": False, "details": details}
+
     port_table = db_helpers.hgetall_dict(duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespace)
 
     mismatches = []
@@ -483,37 +373,6 @@ def _check_media_si_settings_appl_db(duthost, port, media_si_settings, namespace
     details = f"{port}: media SI settings match ({len(media_si_settings)} field(s))"
     logger.info("Media SI settings check PASSED: %s", details)
     return {"passed": True, "details": details}
-
-
-def check_media_si_settings(duthost, port, media_si_settings, namespace=None):
-    """Verify ``port``'s applied media-side SI (SerDes TX equalization) settings.
-
-    Branches on ``duthost.facts['asic_type']``:
-
-    - ``"broadcom"`` (e.g. Arista): delegates to
-      :func:`_check_media_si_settings_broadcom` - reads live TXEQ via
-      ``bcmcmd``, since these platforms don't publish it to APPL_DB.
-    - anything else (e.g. Nvidia/Mellanox): delegates to
-      :func:`_check_media_si_settings_appl_db` - compares directly against
-      ``APPL_DB PORT_TABLE:<port>``.
-
-    Skips (passes) if ``media_si_settings`` is empty/undefined, matching the
-    attribute's "test runs if dictionary is non-empty" contract.
-
-    ``namespace`` scopes the APPL_DB read to the owning ASIC; when ``None`` it
-    is resolved from ``port``.
-
-    Returns:
-        dict: ``{'passed': bool, 'details': str}``
-    """
-    if not media_si_settings:
-        return {"passed": True, "details": f"{port}: media_si_settings not defined, skipped"}
-    if namespace is None:
-        namespace = resolve_namespace(duthost, port)
-
-    if duthost.facts.get("asic_type") == "broadcom":
-        return _check_media_si_settings_broadcom(duthost, port, media_si_settings, namespace)
-    return _check_media_si_settings_appl_db(duthost, port, media_si_settings, namespace)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -606,6 +465,8 @@ def standard_port_recovery_and_verification(
     lport_to_first_subport_mapping,
     stability_window_sec=DEFAULT_STABILITY_WINDOW_SEC,
     expected_pid_changes=None,
+    flap_count_baseline=None,
+    assert_no_flap_across_op=False,
 ):
     """Run the Standard Port Recovery and Verification Procedure on a batch of ports.
 
@@ -613,14 +474,20 @@ def standard_port_recovery_and_verification(
     loop / observation window / host-wide check per call, not one per port -
     so N ports share fixed costs instead of multiplying them:
       1. Link Status         - one poll (via
-                               :func:`check_ports_oper_state`) of every port
-                               off the same ``show interface description``
+                               :func:`tests.common.platform.interface_utils.wait_ports_oper_status`)
+                               of every port off the same ``show interface description``
                                dump per cycle; oper-up within ``link_up_timeout_sec``.
-      2. Link Flap/Stability - the mandatory "Stability (always)" sub-check,
-                               for every port that came up: one shared
+      2. Link Flap/Stability - two sub-checks, for every port that came up:
+                               (a) mandatory "Stability (always)": one shared
                                ``stability_window_sec`` observation window
                                (snapshot all -> sleep once -> re-read all)
-                               instead of one window per port.
+                               instead of one window per port; (b) "no flap
+                               across the operation", only when the caller
+                               passes ``assert_no_flap_across_op=True`` (only
+                               valid for operations where the link stays up
+                               *and* APPL_DB isn't rebuilt, e.g. xcvrd/pmon
+                               restart) - compares each port's current
+                               ``flap_count`` against ``flap_count_baseline``.
       3. LLDP                - neighbor learned, for every up port with
                                ``verify_lldp_on_link_up``; per-port polls are
                                interleaved (poll all pending -> drop satisfied
@@ -636,9 +503,7 @@ def standard_port_recovery_and_verification(
                                ``optics_si_settings`` is defined) and media SI
                                (live SerDes TXEQ or APPL_DB, via
                                :func:`check_media_si_settings`, iff
-                               ``media_si_settings`` is defined). The
-                               application-code half of test-plan step 6 is
-                               not implemented here.
+                               ``media_si_settings`` is defined).
       7. Docker/process health - delegates to
                                :func:`tests.transceiver.common.health_checks.verify_health`,
                                the single owner of the xcvrd/syncd/orchagent
@@ -705,6 +570,17 @@ def standard_port_recovery_and_verification(
             requiring a second one. Without it, a process restarted by the
             caller's own disruptive action would fail step 7 as an
             "unexpected restart".
+        flap_count_baseline: optional dict of ``{port: flap_count}`` captured
+            in Common Setup, before the caller's disruptive operation. Only
+            consulted when ``assert_no_flap_across_op`` is True; required in
+            that case (per port - see the "missing baseline" failure below).
+        assert_no_flap_across_op: whether to run sub-check 2b (see step 2
+            above). Defaults to False; the caller sets it True only for
+            operations where the link is expected to stay up *and* the flap
+            counter survives (``xcvrd``/``pmon`` restart) - never for
+            operations that rebuild the port DB (``swss``/``syncd`` restart,
+            ``config reload``, reboots, power cycle), where the counter
+            resets to 0 and this comparison would be meaningless.
 
     Returns:
         dict: ``{'passed': bool, 'per_port': {port: {'passed': bool, 'details': str}}, 'details': str}``
@@ -724,17 +600,17 @@ def standard_port_recovery_and_verification(
     checks_ran = {port: [] for port in ports}  # human-readable checks that ran, per port
 
     # 1. Link status - one batched poll covers every port.
-    link_results = check_ports_oper_state(duthost, ports, "up", link_up_timeout_sec)
+    down_ports = wait_ports_oper_status(duthost, ports, "up", link_up_timeout_sec)
     for port in ports:
         checks_ran[port].append("link up")
-        if not link_results[port]["passed"]:
-            per_port_failures[port].append(link_results[port]["details"])
+    for port in down_ports:
+        per_port_failures[port].append(f"port {port} did not reach oper-up within {link_up_timeout_sec}s")
 
-    up_ports = [port for port in ports if link_results[port]["passed"]]
+    up_ports = [port for port in ports if port not in down_ports]
 
-    # 2. Link Flap/Stability - mandatory "Stability (always)" sub-check, only
-    #    for ports that came up (nothing to observe stability of otherwise).
-    #    One shared window covers every up port.
+    # 2a. Link Flap/Stability - mandatory "Stability (always)" sub-check, only
+    #     for ports that came up (nothing to observe stability of otherwise).
+    #     One shared window covers every up port.
     if up_ports:
         stability_results = check_ports_stability(
             duthost, up_ports, stability_window_sec, namespaces=namespaces
@@ -744,13 +620,41 @@ def standard_port_recovery_and_verification(
             if not result["passed"]:
                 per_port_failures[port].append(result["details"])
 
+    # 2b. No flap across the operation - only where the flap counter survives
+    #     (xcvrd/pmon restart, declared by the caller via
+    #     assert_no_flap_across_op). Skipped for DB-rebuilding ops
+    #     (swss/syncd restart, config reload, reboot, power cycle) whose
+    #     counter resets to 0 - for those, 2a above is the only flap check.
+    if assert_no_flap_across_op:
+        for port in up_ports:
+            checks_ran[port].append("no-flap-across-op")
+            baseline_flap = (flap_count_baseline or {}).get(port)
+            port_table = db_helpers.hgetall_dict(
+                duthost, "APPL_DB", f"PORT_TABLE:{port}", namespace=namespaces.get(port)
+            )
+            current_flap = port_table.get("flap_count")
+            if baseline_flap is None or current_flap is None:
+                per_port_failures[port].append(
+                    f"{port}: cannot assert across-op no-flap - flap_count baseline/current missing"
+                )
+            elif current_flap != baseline_flap:
+                per_port_failures[port].append(
+                    f"{port}: flapped across operation (flap_count {baseline_flap} -> {current_flap})"
+                )
+
     # 3. LLDP - only for up ports that request it (otherwise LLDP is moot);
     #    per-port timeouts honored, polls interleaved across the batch.
     lldp_port_timeouts = {}
     for port in up_ports:
         sys_attrs = port_attributes_dict.get(port, {}).get(SYSTEM_ATTRIBUTES_KEY, {})
         if sys_attrs.get("verify_lldp_on_link_up", True):
-            lldp_port_timeouts[port] = sys_attrs.get("lldp_neighbor_wait_sec", 60)
+            if "lldp_neighbor_wait_sec" not in sys_attrs:
+                raise ValueError(
+                    f"{port}: 'lldp_neighbor_wait_sec' is not defined in SYSTEM_ATTRIBUTES "
+                    "(system.json 'defaults', or a more specific override) - required "
+                    "whenever verify_lldp_on_link_up is True"
+                )
+            lldp_port_timeouts[port] = sys_attrs["lldp_neighbor_wait_sec"]
     if lldp_port_timeouts:
         lldp_results = check_lldp_neighbors_present(
             duthost, lldp_port_timeouts, namespaces=namespaces
@@ -790,7 +694,8 @@ def standard_port_recovery_and_verification(
         media_si_settings = sys_attrs.get("media_si_settings")
         if media_si_settings:
             media_result = check_media_si_settings(
-                duthost, port, media_si_settings, namespace=namespaces.get(port)
+                duthost, port, media_si_settings, namespace=namespaces.get(port),
+                require_npu_si_settings_done=sys_attrs.get("require_npu_si_settings_done", True),
             )
             checks_ran[port].append("media SI settings")
             if not media_result["passed"]:
