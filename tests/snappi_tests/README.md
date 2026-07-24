@@ -199,12 +199,14 @@ Before running **RDMA-related tests** (e.g., PFC, ECN, PFCWD), ensure the follow
 
 🛠️ The PFCWD configuration should be present in the DUT’s `config_db.json` file to ensure it is active on boot.
 
-In case you're testing with **Aresone** hardware, set the PFC queue size to `4` by updating the `variable.py` file in the following location:
+The PFC TX queue-group size (8, or 4 on e.g. high-speed **AresOne** port modes) is auto-detected from the connected tgen ports — no configuration is needed. To pin the value explicitly (or on a tgen where detection is unavailable, e.g. a non-IxNetwork OTG backend), set the per-testbed override in `~/sonic-mgmt/tests/snappi_tests/variables.override.yml`:
 
-**File:** `~/sonic-mgmt/tests/common/snappi_tests/variable.py`
+```yaml
+<testbed_name>:
+  pfcQueueGroupSize: 4
+```
 
-- Locate the line where the PFC queue size is defined and set it to `4`:
-- pfcQueueGroupSize = 4
+The override takes precedence over auto-detection. The test log states which source decided the value. (Editing `pfcQueueGroupSize` in `tests/common/snappi_tests/variables.py` no longer has any effect.)
 
 ## Running the test
 

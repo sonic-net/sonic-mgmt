@@ -1478,6 +1478,7 @@ def get_pfc_count(duthost, port):
     return pfc_dict
 
 
+@lru_cache
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
@@ -1563,6 +1564,52 @@ def get_queue_scheduler_weight_dict(host_ans, asic_value=None, port=None,
             "dscp": queue_to_dscp.get(int(q)),
         }
     return result
+
+
+_pfc_queue_group_size = None  # session cache for pfc_queue_group_size()
+
+
+def pfc_queue_group_size(api=None, config=None, default=8):
+    """PFC TX queue-group size for the tgen ports.
+
+    Resolution order: per-testbed override > size detected from the live tgen
+    port > ``default``. The resolved value is cached for the session. Detection
+    runs only when ``api`` is passed (fixtures do this once while building the
+    testbed config); plain ``pfc_queue_group_size()`` calls return the cached
+    value, or the override/default if resolution has not happened yet.
+
+    The cache is a process global that is never reset: the first resolved value
+    holds for the rest of the pytest run. That matches the one-testbed-per-run
+    model; a run spanning tgens with different queue-group sizes would keep the
+    first size only.
+    """
+    global _pfc_queue_group_size
+    if _pfc_queue_group_size is not None:
+        return _pfc_queue_group_size
+
+    size = get_pfcQueueGroupSize(default=0) or None  # 0 = no override; never a real size
+    if size is not None:
+        logger.info("pfcQueueGroupSize=%s from testbed override (auto-detect skipped)", size)
+    elif api is not None:
+        # Imported here: snappi_helpers imports common_helpers at module level.
+        from tests.common.snappi_tests.snappi_helpers import fetch_pfc_queue_group_size
+        size = fetch_pfc_queue_group_size(api, config)
+        if size is None:
+            size = default  # cache it: detection will not succeed on a later attempt either
+            logger.warning("pfcQueueGroupSize: auto-detect unavailable; using default %d. Set the "
+                           "per-testbed override in tests/snappi_tests/variables.override.yml if the "
+                           "tgen ports honor only 4 PFC TX queue groups.", default)
+        elif size != default:
+            logger.warning("pfcQueueGroupSize: selecting %d over default %d — the tgen port honors %d "
+                           "PFC TX queue groups; with %d, pause frames for priorities mapped above "
+                           "queue %d would not be honored", size, default, size, default, size - 1)
+        else:
+            logger.info("pfcQueueGroupSize: auto-detected %d (matches default)", size)
+
+    if size is None:
+        return default  # consumer call before resolution: fall back without caching
+    _pfc_queue_group_size = size
+    return size
 
 
 @lru_cache

@@ -384,6 +384,11 @@ def create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params):
     snappi_ports = get_snappi_ports
     config = snappi_api.config()
     _ = [config.ports.port(name=f"Port_{p['port_id']}", location=p["location"]) for p in snappi_ports]
+    if any(pconfig.get("is_rdma", False) for pconfig in snappi_extra_params.protocol_config.values()):
+        # Resolve the PFC queue-group size (override > detect > default) once,
+        # while the config holds only ports: detection applies it to bring the
+        # session vports up. The consumer calls below read the cached value.
+        pfc_queue_group_size(api=snappi_api, config=config)
     for role, pconfig in snappi_extra_params.protocol_config.items():
         for index, port_data in enumerate(pconfig['ports']):
             layer1 = config.layer1.layer1()[-1]
@@ -397,10 +402,10 @@ def create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params):
             if pconfig.get("is_rdma", False):
                 pfc = layer1.flow_control.ieee_802_1qbb
                 pfc.pfc_delay = 0
-                if pfcQueueGroupSize == 8:
+                if pfc_queue_group_size() == 8:
                     for i in range(8):
                         setattr(pfc, f'pfc_class_{i}', i)
-                elif pfcQueueGroupSize == 4:
+                elif pfc_queue_group_size() == 4:
                     for i in range(8):
                         setattr(pfc, f'pfc_class_{i}', pfcQueueValueDict[i])
     return config

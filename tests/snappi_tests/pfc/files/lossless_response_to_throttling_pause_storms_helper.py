@@ -15,7 +15,8 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                      # noqa: F401
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.variables import pfcQueueValueDict
+from tests.common.snappi_tests.common_helpers import pfc_queue_group_size
 from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
@@ -362,7 +363,7 @@ def __gen_data_flow(testbed_config,
         eth.src.value = tx_mac
         eth.dst.value = rx_mac
 
-        if pfcQueueGroupSize == 8:
+        if pfc_queue_group_size() == 8:
             if 'Background Flow' in flow.name:
                 eth.pfc_queue.value = 0
             elif 'Test Flow 1 -> 0' in flow.name:
