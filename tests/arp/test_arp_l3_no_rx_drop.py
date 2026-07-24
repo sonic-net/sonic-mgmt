@@ -96,10 +96,11 @@ def l3_intf_setup(duthosts, rand_one_dut_hostname, tbinfo):
     dut_mac = duthost.facts["router_mac"]
 
     l3_interfaces = _resolve_l3_interfaces(mg_facts, port_index_map)
-    pytest_assert(
-        len(l3_interfaces) > 0,
-        "No L3 routed interfaces (physical or portchannel) found in minigraph"
-    )
+    if not l3_interfaces:
+        pytest.skip(
+            "No L3 routed interfaces (physical or portchannel) found in "
+            "minigraph -- topology has no routed uplinks to test"
+        )
 
     ipv4_intf = None
     ipv6_intf = None
