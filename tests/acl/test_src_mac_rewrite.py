@@ -356,7 +356,7 @@ def setup_acl_table(duthost, ports):
     duthost.shell(cmd)
 
     pytest_assert(wait_until(30, 5, 2, _check_acl_table_present, duthost, ACL_TABLE_NAME),
-                  f"ACL table {ACL_TABLE_NAME} not found in STATE_DB after creation")
+                  f"ACL table {ACL_TABLE_NAME} not found or not active in 'show acl table' output after creation")
 
     logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
 
@@ -627,8 +627,10 @@ def _send_and_verify_no_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     # No CLI equivalent exists for this field ('show vxlan --help' subcommands don't expose
     # it); confirmed distinct from router_mac on Cisco-8000. Verified on DUT.
     vxlan_router_mac = duthost.shell(
-        "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
+        "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'",
+        module_ignore_errors=True
     )["stdout"].strip()
+    pytest_assert(vxlan_router_mac, "vxlan_router_mac is empty in APP_DB (SWITCH_TABLE:switch)")
     logger.info("vxlan_router_mac=%s, router_mac=%s", vxlan_router_mac, router_mac)
 
     inner_exp_pkt = testutils.simple_tcp_packet(
@@ -718,8 +720,10 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_ports, duthost,
     # before ACL rewrite) — distinct from router_mac on Cisco-8000. No CLI equivalent exists
     # for this field ('show vxlan --help' subcommands don't expose it). Verified on DUT.
     vxlan_router_mac = duthost.shell(
-        "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'"
+        "redis-cli -n 0 HGET 'SWITCH_TABLE:switch' 'vxlan_router_mac'",
+        module_ignore_errors=True
     )["stdout"].strip()
+    pytest_assert(vxlan_router_mac, "vxlan_router_mac is empty in APP_DB (SWITCH_TABLE:switch)")
     logger.info("vxlan_router_mac=%s, router_mac=%s", vxlan_router_mac, router_mac)
 
     inner_exp_pkt = testutils.simple_tcp_packet(
