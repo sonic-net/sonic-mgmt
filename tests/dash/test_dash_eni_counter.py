@@ -71,7 +71,6 @@ def module_set_vxlan_udp_sport_range(dpuhosts, dpu_index, module_set_ct_aging):
 
 @pytest.fixture(scope="module")
 def module_set_ct_aging(dpuhosts, dpu_index, skip_config, skip_cleanup):
-    dpuhost = dpuhosts[dpu_index]
     """
     Programs the DPU's CT aging interval. Performs config_reload as part of setup and teardown.
 
