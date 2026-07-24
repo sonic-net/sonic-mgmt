@@ -1,3 +1,4 @@
+import ast
 import logging
 import os
 import difflib
@@ -48,6 +49,57 @@ class PasswHardening:
             "digits-class": digit_class,
             "special-class": special_class
         }
+
+
+def get_passw_policies(duthost):
+    """Snapshot the current PASSW_HARDENING|POLICIES hash from CONFIG_DB.
+
+    Returns a dict keyed by CONFIG_DB field names, or None when the key is absent or
+    the output cannot be parsed (in which case the caller should skip restoration).
+    """
+    result = duthost.shell('sonic-db-cli CONFIG_DB hgetall "PASSW_HARDENING|POLICIES"',
+                           module_ignore_errors=True)
+    output = result['stdout'].strip()
+    if result['rc'] != 0 or not output:
+        logging.warning("Could not read PASSW_HARDENING|POLICIES from CONFIG_DB: %s", result.get('stderr'))
+        return None
+    try:
+        policies = ast.literal_eval(output)
+    except (ValueError, SyntaxError):
+        logging.warning("Could not parse PASSW_HARDENING|POLICIES output: %r", output)
+        return None
+    if not isinstance(policies, dict):
+        logging.warning("Unexpected PASSW_HARDENING|POLICIES output: %r", output)
+        return None
+    return policies
+
+
+def restore_passw_policies(duthost, snapshot):
+    """Restore PASSW_HARDENING policies to the values captured by get_passw_policies().
+
+    Only fields whose live value differs from the snapshot are re-applied, so a test
+    that did not touch the policies issues zero CLI commands (and therefore creates no
+    CONFIG_DB diff that would trigger a config_reload on the next test). CONFIG_DB field
+    names use underscores while the `config passw-hardening policies` CLI uses hyphens,
+    so each field is converted with '_' -> '-'. 'state' is applied last so the feature
+    is only (re)enabled/disabled after every dependent field has been written.
+    """
+    if not snapshot:
+        logging.warning("No password hardening policies snapshot to restore; skipping")
+        return
+    current = get_passw_policies(duthost)
+    # If the live state cannot be read, conservatively restore every snapshot field.
+    fields_to_restore = [field for field in snapshot
+                         if current is None or snapshot[field] != current.get(field)]
+    if not fields_to_restore:
+        logging.info("Password hardening policies unchanged since snapshot; nothing to restore")
+        return
+    ordered_fields = [field for field in fields_to_restore if field != "state"]
+    if "state" in fields_to_restore:
+        ordered_fields.append("state")
+    for field in ordered_fields:
+        cli_key = field.replace("_", "-")
+        duthost.command("sudo config passw-hardening policies {} {}".format(cli_key, snapshot[field]))
 
 
 def config_user(duthost, username, mode='add'):
