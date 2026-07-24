@@ -1160,6 +1160,17 @@ if __name__ == "__main__":
             branch_name = os.environ.get("SYSTEM_PULLREQUEST_TARGETBRANCH") if build_reason.upper() == "PULLREQUEST" \
                 else os.environ.get("BUILD_SOURCEBRANCHNAME")
 
+            # For merge queue builds, mgmt_branch is the last segment of the merge queue branch name
+            # (e.g. "pr-26509-9abe6ba..."), which is not a valid git ref. Extract the real target branch
+            # from BUILD_SOURCEBRANCH and use the commit SHA so the testbed checks out the right code.
+            source_branch = os.environ.get("BUILD_SOURCEBRANCH", "")
+            if source_branch.startswith("refs/heads/gh-readonly-queue/"):
+                # refs/heads/gh-readonly-queue/<target>/pr-<num>-<sha>
+                target_branch = source_branch.split("/")[3]
+                if not args.mgmt_commit_hash:
+                    args.mgmt_commit_hash = os.environ.get("BUILD_SOURCEVERSION", "")
+                args.mgmt_branch = target_branch
+
             # Only pr test show pr id
             pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
 
