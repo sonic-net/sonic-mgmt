@@ -3843,6 +3843,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18273"
 
+macsec/test_per_interface_profile.py:
+  xfail:
+    reason: "Setup aborts on VS with \"SonicHost object has no attribute 'sonic_basic_facts'\" (parallel thread worker); build team is working on a fix"
+    conditions:
+      - "asic_type in ['vs']"
+
 #######################################
 #####           mclag             #####
 #######################################
