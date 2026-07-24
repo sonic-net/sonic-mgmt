@@ -182,6 +182,8 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
+                                    prober_type=dict(required=False, type='str', default=None),
+                                    neighbor_mode=dict(required=False, type='str', default=None),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
@@ -205,6 +207,8 @@ class GenerateGoldenConfigDBModule(object):
             self.hwsku = dut_hwsku
 
         self.vm_configuration = self.module.params['vm_configuration']
+        self.prober_type = self.module.params['prober_type']
+        self.neighbor_mode = self.module.params['neighbor_mode']
         self.is_lit_mode = self.module.params['is_lit_mode']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
@@ -1128,6 +1132,42 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(golden_config, indent=4)
 
+    def generate_dualtor_golden_config_db(self):
+        """
+        Generate golden config for dualtor topology with prober_type and
+        neighbor_mode support.
+
+        This adds prober_type to existing MUX_CABLE entries from minigraph.
+        """
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        # Get existing config from minigraph
+        ori_config_db = json.loads(out)
+        golden_config_db = {}
+
+        # Preserve DEVICE_METADATA
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        if "MUX_CABLE" in ori_config_db and "PORT" in ori_config_db:
+            mux_cable_config = copy.deepcopy(ori_config_db["MUX_CABLE"])
+            port_config = copy.deepcopy(ori_config_db["PORT"])
+
+            for intf_name, intf_config in mux_cable_config.items():
+                # Set prober_type only when explicitly provided
+                if self.prober_type and self.prober_type != "":
+                    intf_config["prober_type"] = self.prober_type
+                # Set neighbor_mode only when explicitly provided
+                if self.neighbor_mode and self.neighbor_mode != "":
+                    intf_config["neighbor_mode"] = self.neighbor_mode
+
+            golden_config_db["MUX_CABLE"] = mux_cable_config
+            golden_config_db["PORT"] = port_config
+
+        return json.dumps(golden_config_db, indent=4)
+
     def override_port_table_from_platform(self, config):
         """
         Rebuild the PORT table from port_speeds + platform.json.
@@ -1237,6 +1277,9 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_full_lossy_golden_config_db()
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
+        elif "dualtor" in self.topo_name:
+            config = self.generate_dualtor_golden_config_db()
+            module_msg = module_msg + " for dualtor"
         elif "c0" in self.topo_name:
             config = self.generate_c0_golden_config_db()
             module_msg = module_msg + " for c0"
