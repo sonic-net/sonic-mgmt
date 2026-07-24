@@ -206,6 +206,7 @@ arp/test_arp_update.py::test_dut_arping_learns_mac:
 arp/test_arp_update.py::test_dut_ping_learns_mac:
   skip:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'-v6-' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/24598"
@@ -734,6 +735,12 @@ bgp/test_bgp_vnet_internal.py:
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
       - "topo_name not in ['t0-28', 't0-32']"
+
+bgp/test_bgp_vnet_scale.py:
+  skip:
+    reason: "VNET scale test is not supported on dualtor topologies"
+    conditions:
+      - "'dualtor' in topo_name"
 
 bgp/test_bgpmon.py:
   skip:
@@ -1482,6 +1489,12 @@ dualtor/test_ipinip.py::test_encap_with_mirror_session:
      conditions:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_mux_port_iptables_entries.py::test_multivlan_mux_port_iptables_entries:
+  xfail:
+    reason: "Docker IPv6 NAT rules are intermittently missing on VS: https://github.com/sonic-net/sonic-mgmt/issues/26179"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/26179"
 
 dualtor/test_mux_port_iptables_entries.py::test_mux_port_iptables_entries:
   xfail:
@@ -2740,9 +2753,9 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
       - "'isolated' in topo_name"
   xfail:
-    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-mgmt/issues/25549"
+    reason: "BGP allowed-prefix GCU validation fails across platforms, tracked by https://github.com/sonic-net/sonic-buildimage/issues/27818"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/25549"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/27818"
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
@@ -6453,11 +6466,11 @@ vxlan/test_vxlan_underlay_ecmp.py:
 
 vxlan/test_vxlan_vnet_bgp_subintf.py:
   skip:
-    reason: "test_vxlan_vnet_bgp_subintf requires INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC; not supported on cisco-8000 202511 image (orchagent validate fails). Skip only when both apply."
-    conditions_logical_operator: and
+    reason: "test_vxlan_vnet_bgp_subintf is not supported on dualtor topologies. Also not supported on cisco-8000 202511 image due to INNER_SRC_MAC_REWRITE_TYPE / SET_INNER_SRC_MAC orchagent validate failure."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000']"
-      - "release in ['202511']"
+      - "'dualtor' in topo_name"
+      - "(asic_type in ['cisco-8000']) and (release in ['202511'])"
 
 #######################################
 #####            wan              #####

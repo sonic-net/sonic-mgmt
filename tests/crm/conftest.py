@@ -321,7 +321,7 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
 
 
 @pytest.fixture(scope="module", autouse=True)
-def crm_resources(duthosts, rand_one_dut_hostname, set_polling_interval):
+def crm_resources(duthosts, enum_rand_one_per_hwsku_frontend_hostname, set_polling_interval):
     """
     Parse the CRM resource table from the 'crm show resources all' command output,
     retrying if CRM counters are not ready.
@@ -330,7 +330,7 @@ def crm_resources(duthosts, rand_one_dut_hostname, set_polling_interval):
         "ipv4_route": {"used": 6475, "available": 140981},
     }
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     resources = {}
 
     def get_crm_resources(resources_dict):
