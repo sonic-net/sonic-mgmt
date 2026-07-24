@@ -90,8 +90,11 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         else:
             interface_name = 'Ethernet1'
             dev_name = 'eth1'
-        # in case of lower tor host we need to use the next portchannel
-        if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
+        # The dualtor T1 neighbor has the following port-channel configuration:
+        #   Port-Channel1 -> upper ToR
+        #   Port-Channel2 -> lower ToR
+        # If the randomly selected DUT is the lower ToR, we need to use Port-Channel2
+        if "dualtor" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
             dev_name = _portchannel_netdev_name(vm_info['host'], 2)
 
@@ -161,7 +164,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
                 vm_host_info['port_index_list'] = ifaces_list
             break
 
-    py_assert('port_index_list' in vm_host_info,
+    py_assert('port_index_list' in vm_host_info and vm_host_info['port_index_list'],
               "Could not find interface connecting to VM {} with address {}".format(vm_name, vm_addr))
 
     # getting the ipv4, ipv6 and vlan id of a vlan in DUT with 2 or more vlan members
@@ -295,8 +298,10 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
                 raise e  # If it fails on the last attempt, raise the exception
 
 
+@pytest.mark.dualtor_active_standby_toggle_to_random_tor_manual_mode
+@pytest.mark.dualtor_active_active_setup_standby_on_random_unselected_tor_manual_mode
 def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter, tbinfo,
-                   toggle_all_simulator_ports_to_rand_selected_tor_m, populate_mac_table):  # noqa: F811
+                   ptfhost, populate_mac_table):  # noqa: F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """
@@ -312,6 +317,9 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
         # dump neigh entries
         logger.info("Dumping all ipv4 and ipv6 neighbors")
         duthost.shell("sudo ip neigh show")
+        # stop any arp related service if running
+        ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+        ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
         # flush entries of vlan interface in case of dualtor to avoid issue#12302
         logger.info("Flushing all ipv4 and ipv6 neighbors on {}".format(vlan_name))
         duthost.shell("sudo ip neigh flush dev {} all".format(vlan_name))
