@@ -10,7 +10,7 @@ from tests.common import dhcp_relay_utils
 from dhcp_server_test_common import clean_dhcp_server_config
 
 DHCP_SERVER_CONTAINER_NAME = "dhcp_server"
-DHCP_SERVER_FEATRUE_NAME = "dhcp_server"
+DHCP_SERVER_FEATURE_NAME = "dhcp_server"
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 def dhcp_server_setup_teardown(duthost):
     features_state, succeeded = duthost.get_feature_status()
     py_require(succeeded, "Skip when dhcp server feature status cannot be retrieved")
-    py_require(DHCP_SERVER_FEATRUE_NAME in features_state, "Skip on vs testbed without dhcp server feature")
-    dhcp_server_state = features_state[DHCP_SERVER_FEATRUE_NAME]
+    py_require(DHCP_SERVER_FEATURE_NAME in features_state, "Skip on vs testbed without dhcp server feature")
+    dhcp_server_state = features_state[DHCP_SERVER_FEATURE_NAME]
     py_require(dhcp_server_state in ('enabled', 'always_enabled', 'disabled'),
                "Skip on testbed with unsupported dhcp server feature state: {}".format(dhcp_server_state))
     py_assert(hasattr(dhcp_relay_utils, 'get_dhcp_relay_type'),
